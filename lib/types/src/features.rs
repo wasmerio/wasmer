@@ -57,7 +57,7 @@ impl Features {
             module_linking: false,
             multi_memory: false,
             memory64: false,
-            exceptions: false,
+            exceptions: true,
             relaxed_simd: false,
             extended_const: false,
         }

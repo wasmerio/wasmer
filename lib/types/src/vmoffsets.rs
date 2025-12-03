@@ -157,9 +157,24 @@ impl VMBuiltinFunctionIndex {
         Self(32)
     }
 
+    /// Returns an index for wasm's imported `alloc_exception` builtin function.
+    pub const fn get_imported_alloc_exception_index() -> Self {
+        Self(33)
+    }
+
+    /// Returns an index for wasm's imported `throw` builtin function.
+    pub const fn get_imported_throw_index() -> Self {
+        Self(34)
+    }
+
+    /// Returns an index for wasm's imported `read_exnref` builtin function.
+    pub const fn get_imported_read_exnref_index() -> Self {
+        Self(35)
+    }
+
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        33
+        36
     }
 
     /// Return the index as an u32 number.

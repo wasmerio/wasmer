@@ -73,14 +73,14 @@ pub const USING_SJLJ_EXCEPTIONS: bool = cfg!(all(
 /* change to true to enable logging from the personality function */
 macro_rules! log {
     ($e: expr_2021) => {
-        if false {
+        if true {
             eprintln!($e)
         }
 
     };
 
     ($($e: expr_2021),*) => {
-        if false {
+        if true {
             eprintln!($($e),*)
         }
 

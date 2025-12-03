@@ -151,6 +151,7 @@ pub struct FuncEnvironment<'module_environment> {
     rethrow_sig: Option<ir::SigRef>,
     alloc_exception_sig: Option<ir::SigRef>,
     read_exception_sig: Option<ir::SigRef>,
+    read_exnref_sig: Option<ir::SigRef>,
 
     /// Cached payload layouts for exception tags.
     exception_type_layouts: HashMap<u32, ExceptionTypeLayout>,
@@ -205,6 +206,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             rethrow_sig: None,
             alloc_exception_sig: None,
             read_exception_sig: None,
+            read_exnref_sig: None,
             exception_type_layouts: HashMap::new(),
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
@@ -977,16 +979,16 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     fn get_throw_func(&mut self, func: &mut Function) -> (ir::SigRef, VMBuiltinFunctionIndex) {
         let sig = self.throw_sig.unwrap_or_else(|| {
             let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::special(
+                self.pointer_type(),
+                ArgumentPurpose::VMContext,
+            ));
             signature.params.push(AbiParam::new(I32));
-            signature.params.push(AbiParam::new(self.pointer_type()));
-            signature.params.push(AbiParam::new(self.pointer_type()));
-            signature.params.push(AbiParam::new(I64));
             let sig = func.import_signature(signature);
             self.throw_sig = Some(sig);
             sig
         });
-        todo!()
-        // (sig, VMBuiltinFunctionIndex::get_imported_throw_index())
+        (sig, VMBuiltinFunctionIndex::get_imported_throw_index())
     }
 
     fn get_rethrow_func(&mut self, func: &mut Function) -> (ir::SigRef, VMBuiltinFunctionIndex) {
@@ -1007,17 +1009,42 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
         let sig = self.alloc_exception_sig.unwrap_or_else(|| {
             let mut signature = Signature::new(self.target_config.default_call_conv);
-            signature.params.push(AbiParam::new(self.pointer_type()));
-            signature.returns.push(AbiParam::new(self.pointer_type()));
+            signature.params.push(AbiParam::special(
+                self.pointer_type(),
+                ArgumentPurpose::VMContext,
+            ));
+            signature.params.push(AbiParam::new(I32));
+            signature.returns.push(AbiParam::new(I32));
             let sig = func.import_signature(signature);
             self.alloc_exception_sig = Some(sig);
             sig
         });
-        // (
-        //     sig,
-        //     VMBuiltinFunctionIndex::get_imported_alloc_exception_index(),
-        // )
-        todo!()
+        (
+            sig,
+            VMBuiltinFunctionIndex::get_imported_alloc_exception_index(),
+        )
+    }
+
+    fn get_read_exnref_func(
+        &mut self,
+        func: &mut Function,
+    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        let sig = self.read_exnref_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::special(
+                self.pointer_type(),
+                ArgumentPurpose::VMContext,
+            ));
+            signature.params.push(AbiParam::new(I32));
+            signature.returns.push(AbiParam::new(self.pointer_type()));
+            let sig = func.import_signature(signature);
+            self.read_exnref_sig = Some(sig);
+            sig
+        });
+        (
+            sig,
+            VMBuiltinFunctionIndex::get_imported_read_exnref_index(),
+        )
     }
 
     fn get_read_exception_func(
@@ -1811,14 +1838,22 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
 
         let (alloc_sig, alloc_idx) = self.get_alloc_exception_func(builder.func);
         let mut pos = builder.cursor();
-        let (_, alloc_addr) = self.translate_load_builtin_function_address(&mut pos, alloc_idx);
-        let alloc_size = builder
-            .ins()
-            .iconst(self.pointer_type(), i64::from(layout.size));
+        let (vmctx, alloc_addr) = self.translate_load_builtin_function_address(&mut pos, alloc_idx);
+        let tag_value = builder.ins().iconst(I32, i64::from(tag_index.as_u32()));
         let alloc_call = builder
             .ins()
-            .call_indirect(alloc_sig, alloc_addr, &[alloc_size]);
-        let payload_ptr = builder.inst_results(alloc_call)[0];
+            .call_indirect(alloc_sig, alloc_addr, &[vmctx, tag_value]);
+        let exnref = builder.inst_results(alloc_call)[0];
+
+        let (read_exnref_sig, read_exnref_idx) = self.get_read_exnref_func(builder.func);
+        let mut pos = builder.cursor();
+        let (vmctx, read_exnref_addr) =
+            self.translate_load_builtin_function_address(&mut pos, read_exnref_idx);
+        let read_exnref_call =
+            builder
+                .ins()
+                .call_indirect(read_exnref_sig, read_exnref_addr, &[vmctx, exnref]);
+        let payload_ptr = builder.inst_results(read_exnref_call)[0];
 
         let store_flags = ir::MemFlags::trusted();
         for (field, value) in layout.fields.iter().zip(args.iter()) {
@@ -1840,11 +1875,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let (vmctx_value, throw_addr) =
             self.translate_load_builtin_function_address(&mut pos, throw_idx);
 
-        let tag_value = builder.ins().iconst(I32, i64::from(tag_index.as_u32()));
-        let size_value = builder.ins().iconst(I64, i64::from(layout.size));
-
-        let mut call_args = SmallVec::<[ir::Value; 4]>::new();
-        call_args.extend_from_slice(&[tag_value, vmctx_value, payload_ptr, size_value]);
+        let call_args = [vmctx_value, exnref];
 
         assert!(!handlers.is_empty(), "translate_exn_throw without handlers");
         let _ = self.call_indirect_with_handlers(

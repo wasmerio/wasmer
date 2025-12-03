@@ -3580,7 +3580,8 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
 
     builder.switch_to_block(rethrow_block);
     let rethrow_exn = builder.func.dfg.block_params(rethrow_block)[0];
-    environ.translate_exn_reraise_unmatched(builder, rethrow_exn)?;
+    builder.ins().trap(crate::TRAP_UNREACHABLE);
+    //environ.translate_exn_reraise_unmatched(builder, rethrow_exn)?;
     builder.seal_block(rethrow_block);
 
     Ok(dispatch_block)
