@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use dynasmrt::{VecAssembler, aarch64::Aarch64Relocation};
 #[cfg(feature = "unwind")]
 use gimli::{AArch64, write::CallFrameInstruction};
@@ -9,7 +11,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::CustomSection,
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
@@ -17,7 +19,7 @@ use wasmer_types::{
 };
 
 use crate::{
-    arm64_decl::{GPR, NEON, new_machine_state},
+    arm64_decl::{GPR, NEON},
     codegen_error,
     common_decl::*,
     emitter_arm64::*,
@@ -46,6 +48,19 @@ pub struct MachineARM64 {
     /// A boolean flag signaling if this machine supports NEON.
     has_neon: bool,
 }
+
+/// Get registers for first N function return values.
+/// NOTE: The register set must be disjoint from pick_gpr registers!
+pub(crate) const ARM64_RETURN_VALUE_REGISTERS: [GPR; 8] = [
+    GPR::X0,
+    GPR::X1,
+    GPR::X2,
+    GPR::X3,
+    GPR::X4,
+    GPR::X5,
+    GPR::X6,
+    GPR::X7,
+];
 
 #[allow(dead_code)]
 #[derive(PartialEq)]
@@ -1057,35 +1072,11 @@ impl MachineARM64 {
         Ok(())
     }
 
-    /*fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
-        &mut self,
-        _loc: Location,
-        _target: Location,
-        _ret: Location,
-        _memarg: &MemArg,
-        _value_size: usize,
-        _memory_sz: Size,
-        _stack_sz: Size,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
-        _unaligned_atomic: Label,
-        _cb: F,
-    ) {
-        unimplemented!();
-    }*/
-
     fn offset_is_ok(&self, size: Size, offset: i32) -> bool {
         if offset < 0 {
             return false;
         }
-        let shift = match size {
-            Size::S8 => 0,
-            Size::S16 => 1,
-            Size::S32 => 2,
-            Size::S64 => 3,
-        };
+        let shift = size.bytes().trailing_zeros() as i32;
         if offset >= 0x1000 << shift {
             return false;
         }
@@ -1177,7 +1168,7 @@ impl MachineARM64 {
                 }
                 self.pushed = !self.pushed;
             }
-            _ => codegen_error!("singlepass can't emit PUSH {:?} {:?}", sz, dst),
+            _ => codegen_error!("singlepass can't emit POP {:?} {:?}", sz, dst),
         }
         Ok(())
     }
@@ -1347,12 +1338,6 @@ impl Machine for MachineARM64 {
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
-    fn index_from_gpr(&self, x: GPR) -> RegisterIndex {
-        RegisterIndex(x as usize)
-    }
-    fn index_from_simd(&self, x: NEON) -> RegisterIndex {
-        RegisterIndex(x as usize + 32)
-    }
 
     fn get_vmctx_reg(&self) -> GPR {
         GPR::X28
@@ -1479,12 +1464,12 @@ impl Machine for MachineARM64 {
     }
 
     fn push_used_simd(&mut self, used_neons: &[NEON]) -> Result<usize, CompileError> {
-        let stack_adjust = if used_neons.len() & 1 == 1 {
+        let stack_adjust = if used_neons.len() % 2 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
             (used_neons.len() * 8) as u32
         };
-        self.adjust_stack(stack_adjust)?;
+        self.extend_stack(stack_adjust)?;
 
         for (i, r) in used_neons.iter().enumerate() {
             self.assembler.emit_str(
@@ -1503,7 +1488,7 @@ impl Machine for MachineARM64 {
                 Location::Memory(GPR::XzrSp, (i * 8) as i32),
             )?;
         }
-        let stack_adjust = if used_neons.len() & 1 == 1 {
+        let stack_adjust = if used_neons.len() % 2 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
             (used_neons.len() * 8) as u32
@@ -1578,11 +1563,7 @@ impl Machine for MachineARM64 {
 
     // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize {
-        if value & 0xf != 0 {
-            ((value >> 4) + 1) << 4
-        } else {
-            value
-        }
+        value.next_multiple_of(16)
     }
 
     // Memory location for a local on the stack
@@ -1590,8 +1571,7 @@ impl Machine for MachineARM64 {
         Location::Memory(GPR::X29, -stack_offset)
     }
 
-    // Adjust stack for locals
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+    fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         let delta = if self.compatible_imm(delta_stack_offset as _, ImmType::Bits12) {
             Location::Imm32(delta_stack_offset as _)
         } else {
@@ -1607,8 +1587,8 @@ impl Machine for MachineARM64 {
             Location::GPR(GPR::XzrSp),
         )
     }
-    // restore stack
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+
+    fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         let delta = if self.compatible_imm(delta_stack_offset as _, ImmType::Bits12) {
             Location::Imm32(delta_stack_offset as _)
         } else {
@@ -1624,27 +1604,7 @@ impl Machine for MachineARM64 {
             Location::GPR(GPR::XzrSp),
         )
     }
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        let real_delta = if delta_stack_offset & 15 != 0 {
-            delta_stack_offset + 8
-        } else {
-            delta_stack_offset
-        };
-        let delta = if self.compatible_imm(real_delta as i64, ImmType::Bits12) {
-            Location::Imm32(real_delta as _)
-        } else {
-            let tmp = GPR::X17;
-            self.assembler
-                .emit_mov_imm(Location::GPR(tmp), real_delta as u64)?;
-            Location::GPR(tmp)
-        };
-        self.assembler.emit_add(
-            Size::S64,
-            Location::GPR(GPR::XzrSp),
-            delta,
-            Location::GPR(GPR::XzrSp),
-        )
-    }
+
     // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,
@@ -1742,6 +1702,20 @@ impl Machine for MachineARM64 {
         vec![]
     }
 
+    /// Get registers for first N function call parameters.
+    fn get_param_registers(&self, _calling_convention: CallingConvention) -> &'static [Self::GPR] {
+        &[
+            GPR::X0,
+            GPR::X1,
+            GPR::X2,
+            GPR::X3,
+            GPR::X4,
+            GPR::X5,
+            GPR::X6,
+            GPR::X7,
+        ]
+    }
+
     // Get param location, MUST be called in order!
     fn get_param_location(
         &self,
@@ -1750,123 +1724,112 @@ impl Machine for MachineARM64 {
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let register_params = self.get_param_registers(calling_convention);
         match calling_convention {
-            CallingConvention::AppleAarch64 => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
-                    let sz = 1
-                        << match sz {
-                            Size::S8 => 0,
-                            Size::S16 => 1,
-                            Size::S32 => 2,
-                            Size::S64 => 3,
-                        };
+            CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
+                || {
                     // align first
-                    if sz > 1 && *stack_args & (sz - 1) != 0 {
-                        *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
-                    }
+                    let sz = sz.bytes() as usize;
+                    *stack_args = (*stack_args).next_multiple_of(sz);
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += sz;
                     loc
-                }
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => {
+                if let Some(reg) = register_params.get(idx) {
+                    Location::GPR(*reg)
+                } else {
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += 8;
                     loc
                 }
-            },
+            }
         }
     }
     // Get call param location, MUST be called in order!
     fn get_call_param_location(
         &self,
+        return_slots: usize,
         idx: usize,
         sz: Size,
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let register_params = self.get_param_registers(calling_convention);
+        let return_values_memory_size =
+            8 * return_slots.saturating_sub(ARM64_RETURN_VALUE_REGISTERS.len()) as i32;
+
         match calling_convention {
-            CallingConvention::AppleAarch64 => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
-                    let sz = 1
-                        << match sz {
-                            Size::S8 => 0,
-                            Size::S16 => 1,
-                            Size::S32 => 2,
-                            Size::S64 => 3,
-                        };
+            CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
+                || {
+                    let sz = sz.bytes() as usize;
                     // align first
-                    if sz > 1 && *stack_args & (sz - 1) != 0 {
-                        *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
-                    }
-                    let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
+                    *stack_args = (*stack_args).next_multiple_of(sz);
+                    let loc = Location::Memory(
+                        GPR::X29,
+                        16 * 2 + return_values_memory_size + *stack_args as i32,
+                    );
                     *stack_args += sz;
                     loc
-                }
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
-                    let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => register_params.get(idx).map_or_else(
+                || {
+                    let loc = Location::Memory(
+                        GPR::X29,
+                        16 * 2 + return_values_memory_size + *stack_args as i32,
+                    );
                     *stack_args += 8;
                     loc
-                }
-            },
+                },
+                |reg| Location::GPR(*reg),
+            ),
         }
     }
-    // Get simple param location, Will not be accurate for Apple calling convention on "stack" arguments
+
     fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
-    ) -> Location {
-        #[allow(clippy::match_single_binding)]
-        match calling_convention {
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => Location::Memory(GPR::X29, (16 * 2 + (idx - 8) * 8) as i32),
-            },
-        }
+    ) -> Self::GPR {
+        self.get_param_registers(calling_convention)[idx]
     }
+
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+        _calling_convention: CallingConvention,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        ARM64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                let loc = Location::Memory(GPR::XzrSp, *stack_location as i32);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        _calling_convention: CallingConvention,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        ARM64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                Location::Memory(
+                    GPR::X29,
+                    (16 * 2 + (idx - ARM64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
+                )
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
     // move a location to another
     fn move_location(
         &mut self,
@@ -2093,14 +2056,7 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    fn load_address(
-        &mut self,
-        _size: Size,
-        _reg: Location,
-        _mem: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass load_address unimplemented");
-    }
+
     // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
@@ -2224,15 +2180,17 @@ impl Machine for MachineARM64 {
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.emit_pop(Size::S64, location)
     }
-    // Create a new `MachineState` with default values.
-    fn new_machine_state(&self) -> MachineState {
-        new_machine_state()
-    }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
+        Ok(FinalizedAssembly {
+            body: self.assembler.finalize().map_err(|e| {
+                CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+            })?,
+            assembly_comments,
         })
     }
 
@@ -2283,36 +2241,11 @@ impl Machine for MachineARM64 {
         Ok(())
     }
 
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        canonicalize: bool,
-        loc: Location,
-    ) -> Result<(), CompileError> {
-        if canonicalize {
-            self.canonicalize_nan(
-                match ty {
-                    WpType::F32 => Size::S32,
-                    WpType::F64 => Size::S64,
-                    _ => unreachable!(),
-                },
-                loc,
-                Location::GPR(GPR::X0),
-            )?;
-        } else {
-            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X0))?;
-        }
-        Ok(())
-    }
-
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::X0), Location::SIMD(NEON::V0))
     }
 
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        self.assembler.arch_supports_canonicalize_nan()
-    }
     fn canonicalize_nan(
         &mut self,
         sz: Size,
@@ -2373,7 +2306,7 @@ impl Machine for MachineARM64 {
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
-    fn get_grp_for_call(&self) -> GPR {
+    fn get_gpr_for_call(&self) -> GPR {
         GPR::X27
     }
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
@@ -2381,16 +2314,6 @@ impl Machine for MachineARM64 {
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
-    }
-    fn get_gpr_for_ret(&self) -> GPR {
-        GPR::X0
-    }
-    fn get_simd_for_ret(&self) -> NEON {
-        NEON::V0
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        self.assembler.arch_requires_indirect_call_trampoline()
     }
 
     fn arch_emit_indirect_call_with_trampoline(
@@ -2413,7 +2336,7 @@ impl Machine for MachineARM64 {
             &mut temps,
             ImmType::None,
             true,
-            Some(GPR::X27),
+            Some(self.get_gpr_for_call()),
         )?;
         match loc {
             Location::GPR(reg) => self.assembler.emit_call_register(reg),
@@ -2423,51 +2346,6 @@ impl Machine for MachineARM64 {
             self.release_gpr(r);
         }
         Ok(())
-    }
-
-    fn location_address(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_address not implemented")
-    }
-    // logic
-    fn location_and(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_and not implemented")
-    }
-    fn location_xor(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_xor not implemented")
-    }
-    fn location_or(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_or not implemented")
-    }
-    fn location_test(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_test not implemented")
     }
     // math
     fn location_add(
@@ -2493,29 +2371,6 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    fn location_sub(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        flags: bool,
-    ) -> Result<(), CompileError> {
-        let mut temps = vec![];
-        let src = self.location_to_reg(size, source, &mut temps, ImmType::Bits12, true, None)?;
-        let dst = self.location_to_reg(size, dest, &mut temps, ImmType::None, true, None)?;
-        if flags {
-            self.assembler.emit_subs(size, dst, src, dst)?;
-        } else {
-            self.assembler.emit_sub(size, dst, src, dst)?;
-        }
-        if dst != dest {
-            self.move_location(size, dst, dest)?;
-        }
-        for r in temps {
-            self.release_gpr(r);
-        }
-        Ok(())
-    }
     fn location_cmp(
         &mut self,
         size: Size,
@@ -2524,7 +2379,7 @@ impl Machine for MachineARM64 {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false)
     }
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
+    fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_b_label(label)
     }
 
@@ -2532,11 +2387,11 @@ impl Machine for MachineARM64 {
         &mut self,
         cond: UnsignedCondition,
         size: Size,
-        source: AbstractLocation<Self::GPR, Self::SIMD>,
-        dest: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_a: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_b: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
-        self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false)?;
+        self.emit_relaxed_binop(Assembler::emit_cmp, size, loc_b, loc_a, false)?;
         let cond = match cond {
             UnsignedCondition::Equal => Condition::Eq,
             UnsignedCondition::NotEqual => Condition::Ne,
@@ -2593,17 +2448,6 @@ impl Machine for MachineARM64 {
         self.assembler.emit_dmb()
     }
 
-    fn location_neg(
-        &mut self,
-        _size_val: Size, // size of src
-        _signed: bool,
-        _source: Location,
-        _size_op: Size,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_neg unimplemented");
-    }
-
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) -> Result<(), CompileError> {
         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -2636,15 +2480,6 @@ impl Machine for MachineARM64 {
         dst: Location,
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(Assembler::emit_cmp, sz, src, dst, false)
-    }
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        _sz_src: Size,
-        _src: Location,
-        _sz_dst: Size,
-        _dst: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass emit_relaxed_zero_extension unimplemented");
     }
     fn emit_relaxed_sign_extension(
         &mut self,
@@ -2734,7 +2569,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -2801,7 +2635,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -2839,7 +2672,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4880,7 +4712,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4947,7 +4778,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4985,7 +4815,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -7541,7 +7370,6 @@ impl Machine for MachineARM64 {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
             memarg,
@@ -7597,7 +7425,6 @@ impl Machine for MachineARM64 {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
             memarg,

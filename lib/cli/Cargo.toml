@@ -108,6 +108,8 @@ enable-serde = [
 	"wasmer-wasix/enable-serde",
 ]
 
+tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
+
 [dependencies]
 # Repo-local dependencies.
 
@@ -152,6 +154,8 @@ wasmer-config = { version = "0.601.0", path = "../config" }
 
 shared-buffer = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }
+
+# TODO: #5858
 fuser = { version = "0.14.0", optional = true }
 time01 = { package = "time", version = "0.1.45", optional = true }
 
@@ -159,62 +163,62 @@ time01 = { package = "time", version = "0.1.45", optional = true }
 # Third-party dependencies.
 
 http.workspace = true
-is-terminal = "0.4.7"
-colored = "2.0"
+colored.workspace = true
 anyhow.workspace = true
 bytesize.workspace = true
 cfg-if.workspace = true
 tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-dirs = "4.0"
+dirs.workspace = true
+path-clean.workspace = true
 target-lexicon = { workspace = true, features = ["std"] }
 indexmap.workspace = true
-walkdir = "2.3.2"
-regex = "1.6.0"
+walkdir.workspace = true
+regex.workspace = true
 toml.workspace = true
 url.workspace = true
 libc.workspace = true
-parking_lot = "0.12"
-dialoguer = "0.11.0"
+parking_lot.workspace = true
+dialoguer.workspace = true
 hex.workspace = true
 flate2.workspace = true
-cargo_metadata = "0.15.2"
+cargo_metadata.workspace = true
 tar.workspace = true
 bytes.workspace = true
 thiserror.workspace = true
 log.workspace = true
 semver.workspace = true
-pathdiff = "0.2.1"
+pathdiff.workspace = true
 sha2.workspace = true
 object.workspace = true
-wasm-coredump-builder = { version = "0.1.11", optional = true }
+wasm-coredump-builder = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = [
 	"env-filter",
 	"fmt",
 	"json",
+	"ansi"
 ] }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 once_cell.workspace = true
-indicatif = "0.17.5"
-opener = "0.6.1"
-normpath = "=1.1.1"
+indicatif.workspace = true
+opener.workspace = true
+normpath.workspace = true
 hyper = { workspace = true, features = ["server"] }
 hyper-util = { workspace = true, features = ["tokio"] }
 http-body-util.workspace = true
-futures = "0.3.29"
-humantime = "2.1.0"
-interfaces = { version = "0.0.9", optional = true }
+futures.workspace = true
+humantime.workspace = true
+interfaces = { workspace = true, optional = true }
 
-uuid = { version = "1.3.0", features = ["v4"] }
+uuid = { workspace = true, features = ["v4"] }
 time = { workspace = true, features = ["macros"] }
 serde_yaml.workspace = true
 base64.workspace = true
-# FIXME: 7.2 is not compatible with Rust 1.84
-comfy-table = "=7.1.4"
-
+comfy-table.workspace = true
+git-version.workspace = true
 
 # Used by tuntap and connect
 futures-util.workspace = true
@@ -223,22 +227,24 @@ tokio-tungstenite = { workspace = true, features = [
 	"rustls-tls-webpki-roots",
 	"stream",
 ], optional = true }
-mac_address = { version = "1.1.5", optional = true }
-#tun-tap = { version = "0.1.4", features = ["tokio"], optional = true }
+mac_address = { workspace = true, optional = true }
+#tun-tap = { workspace = true, features = ["tokio"], optional = true }
 
-clap_complete = "4.5.2"
-clap_mangen = "0.2.20"
-zip = { version = "2.4", default-features = false, features = ["deflate"] }
-console = "0.15.8"
-dotenvy = "0.15.7"
-lzma-rs = "0.3.0"
+clap_complete.workspace = true
+clap_mangen.workspace = true
+zip = { workspace = true, features = ["deflate"] }
+console.workspace = true
+dotenvy.workspace = true
+lzma-rs.workspace = true
+
+console-subscriber = { workspace = true, optional = true }
 
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-clap = { version = "4.4.0", features = ["derive", "env"] }
+clap = { workspace = true, default-features = true, features = ["derive", "env"] }
 [target.'cfg(target_family = "wasm")'.dependencies]
-clap = { version = "4.4.0", default-features = false, features = [
+clap = { workspace = true, default-features = false, features = [
 	"std",
 	"help",
 	"usage",
@@ -265,22 +271,22 @@ reqwest = { workspace = true, default-features = false, features = [
 
 
 [build-dependencies]
-chrono = { version = "0.4.38", default-features = false, features = [
+chrono = { workspace = true, default-features = false, features = [
 	"std",
 	"clock",
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-unix_mode = "0.1.3"
+unix_mode.workspace = true
 
 
 [dev-dependencies]
-assert_cmd = "2.0.11"
-predicates = "3.0.3"
+assert_cmd.workspace = true
+predicates.workspace = true
 pretty_assertions.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
-colored = "2.0.0"
+colored.workspace = true
 
 [package.metadata.binstall]
 pkg-fmt = "tgz"

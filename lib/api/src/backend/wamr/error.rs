@@ -3,7 +3,10 @@ use std::{
     ffi::{CStr, c_char},
 };
 
-use crate::{AsStoreMut, wamr::bindings::*};
+use crate::{
+    AsStoreMut,
+    wamr::{bindings::*, vm::VMExceptionRef},
+};
 
 #[derive(Debug)]
 enum InnerTrap {
@@ -52,6 +55,16 @@ impl Trap {
         }
     }
 
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
+    }
+
     pub unsafe fn into_wasm_trap(self, store: &mut impl AsStoreMut) -> *mut wasm_trap_t {
         match self.inner {
             InnerTrap::CApi(t) => t,
@@ -59,7 +72,7 @@ impl Trap {
                 let err_ptr = Box::leak(Box::new(err));
                 let mut data = unsafe { std::mem::zeroed() };
                 // let x = format!("")
-                let s1 = format!("🐛{:p}", err_ptr);
+                let s1 = format!("🐛{err_ptr:p}");
                 let _s = s1.into_bytes().into_boxed_slice();
                 unsafe { wasm_byte_vec_new(&mut data, _s.len(), _s.as_ptr() as _) };
                 std::mem::forget(_s);
@@ -121,7 +134,7 @@ impl std::error::Error for Trap {
 impl std::fmt::Display for Trap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "{}", e),
+            InnerTrap::User(e) => write!(f, "{e}"),
             InnerTrap::CApi(value) => {
                 // let message: wasm_message_t;
                 // wasm_trap_message(value, &mut message);
@@ -133,7 +146,7 @@ impl std::fmt::Display for Trap {
                     let cstr = CStr::from_ptr((*out).data);
                     cstr.to_str().unwrap().to_string()
                 };
-                write!(f, "wasm-c-api trap: {}", message)
+                write!(f, "wasm-c-api trap: {message}")
             }
         }
     }
@@ -142,7 +155,7 @@ impl std::fmt::Display for Trap {
 impl std::fmt::Debug for Trap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "{}", e),
+            InnerTrap::User(e) => write!(f, "{e}"),
             InnerTrap::CApi(value) => {
                 // let message: wasm_message_t;
                 // wasm_trap_message(value, &mut message);
@@ -154,7 +167,7 @@ impl std::fmt::Debug for Trap {
                     let cstr = CStr::from_ptr((*out).data);
                     cstr.to_str().unwrap().to_string()
                 };
-                write!(f, "wasm-c-api trap: {}", message)
+                write!(f, "wasm-c-api trap: {message}")
             }
         }
     }

@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let load: TypedFunction<(), (WasmPtr<u8>, i32)> =
-        instance.exports.get_typed_function(&mut store, "load")?;
+        instance.exports.get_typed_function(&store, "load")?;
 
     // Here we go.
     //
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // which will tell us the offset and length of the string.
     let (ptr, length) = load.call(&mut store)?;
     println!("String offset: {:?}", ptr.offset());
-    println!("String length: {:?}", length);
+    println!("String length: {length:?}");
 
     // We now know where to find our string, let's read it.
     //
@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // decode them into a string.
     let memory_view = memory.view(&store);
     let str = ptr.read_utf8_string(&memory_view, length as u32).unwrap();
-    println!("Memory contents: {:?}", str);
+    println!("Memory contents: {str:?}");
 
     // What about changing the contents of the memory with a more
     // appropriate string?
@@ -86,8 +86,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // of each element.
     let new_str = b"Hello, Wasmer!";
     let values = ptr.slice(&memory_view, new_str.len() as u32).unwrap();
-    for i in 0..new_str.len() {
-        values.index(i as u64).write(new_str[i]).unwrap();
+    for (i, &str) in new_str.iter().enumerate() {
+        values.index(i as u64).write(str).unwrap();
     }
 
     // And now, let's see the result.
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let str = ptr
         .read_utf8_string(&memory_view, new_str.len() as u32)
         .unwrap();
-    println!("New memory contents: {:?}", str);
+    println!("New memory contents: {str:?}");
 
     // Much better, don't you think?
 

@@ -31,7 +31,8 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-use std::env::args;
+use std::ffi::OsString;
+use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
 
 #[cfg(target_os = "linux")]
@@ -53,6 +54,7 @@ pub use self::{
     publish::*, run::Run, self_update::*, validate::*,
 };
 use crate::error::PrettyError;
+use git_version::git_version;
 
 /// An executable CLI command.
 pub(crate) trait CliCommand {
@@ -75,7 +77,7 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
         &self,
         done: tokio::sync::oneshot::Receiver<()>,
     ) -> Option<JoinHandle<anyhow::Result<()>>> {
-        if is_terminal::IsTerminal::is_terminal(&std::io::stdin()) {
+        if std::io::stdin().is_terminal() {
             return Some(tokio::task::spawn(async move {
                 tokio::select! {
                     _ = done => {}
@@ -233,14 +235,61 @@ impl WasmerCmd {
     }
 
     fn run_inner() -> Result<(), anyhow::Error> {
-        if is_binfmt_interpreter() {
-            Run::from_binfmt_args().execute(crate::logging::Output::default());
-        }
+        let mut args_os = std::env::args_os();
 
-        match WasmerCmd::try_parse() {
+        let args = args_os.next().into_iter();
+
+        let mut binfmt_args: Vec<OsString> = Vec::new();
+        if is_binfmt_interpreter() {
+            // In case of binfmt misc the first argument is wasmer-binfmt-interpreter, the second is the full path to the executable
+            // and the third is the original string for the executable as originally called by the user.
+
+            // For now we are only using the real path and ignoring the original executable name.
+            // Ideally we would use the real path to load the file and the original name to pass it as argv[0] to the wasm module.
+
+            let current_dir = std::env::current_dir()
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+            let mut mount_paths = vec!["/home", "/etc", "/tmp", "/var", "/nix", "/opt", "/root"]
+                .into_iter()
+                .filter(|path| {
+                    let path = std::path::Path::new(path);
+                    if !path.is_dir() {
+                        // Not a directory
+                        return false;
+                    }
+                    if std::fs::read_dir(path).is_err() {
+                        // No permissions
+                        return false;
+                    }
+                    true
+                })
+                .collect::<Vec<_>>();
+            if !current_dir.starts_with("/home") {
+                mount_paths.push(current_dir.as_str());
+            }
+
+            binfmt_args.push("run".into());
+            binfmt_args.push("--net".into());
+            // TODO: This does not seem to work, needs further investigation.
+            binfmt_args.push("--forward-host-env".into());
+            for mount_path in mount_paths {
+                binfmt_args.push(format!("--mapdir={mount_path}:{mount_path}").into());
+            }
+            binfmt_args.push(format!("--cwd={current_dir}").into());
+            binfmt_args.push("--quiet".into());
+            binfmt_args.push("--".into());
+            binfmt_args.push(args_os.next().unwrap());
+            args_os.next().unwrap();
+        };
+        let args_vec = args.chain(binfmt_args).chain(args_os).collect::<Vec<_>>();
+
+        match WasmerCmd::try_parse_from(args_vec.iter()) {
             Ok(args) => args.execute(),
             Err(e) => {
-                let first_arg_is_subcommand = if let Some(first_arg) = args().nth(1) {
+                let first_arg_is_subcommand = if let Some(first_arg) = args_vec.get(1) {
                     let mut ret = false;
                     let cmd = WasmerCmd::command();
 
@@ -262,16 +311,14 @@ impl WasmerCmd {
                         | clap::error::ErrorKind::UnknownArgument
                 ) && !first_arg_is_subcommand;
 
-                if might_be_wasmer_run {
-                    if let Ok(run) = Run::try_parse() {
-                        // Try to parse the command using the `wasmer some/package`
-                        // shorthand. Note that this has discoverability issues
-                        // because it's not shown as part of the main argument
-                        // parser's help, but that's fine.
-                        let output = crate::logging::Output::default();
-                        output.initialize_logging();
-                        run.execute(output);
-                    }
+                if might_be_wasmer_run && let Ok(run) = Run::try_parse_from(args_vec.iter()) {
+                    // Try to parse the command using the `wasmer some/package`
+                    // shorthand. Note that this has discoverability issues
+                    // because it's not shown as part of the main argument
+                    // parser's help, but that's fine.
+                    let output = crate::logging::Output::default();
+                    output.initialize_logging();
+                    run.execute(output);
                 }
 
                 e.exit();
@@ -471,13 +518,40 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     println!(
         "wasmer {} ({} {})",
         env!("CARGO_PKG_VERSION"),
-        env!("WASMER_BUILD_GIT_HASH_SHORT"),
+        git_version!(
+            args = ["--abbrev=8", "--always", "--dirty=-modified", "--exclude=*"],
+            fallback = ""
+        ),
         env!("WASMER_BUILD_DATE")
     );
     println!("binary: {}", env!("CARGO_PKG_NAME"));
-    println!("commit-hash: {}", env!("WASMER_BUILD_GIT_HASH"));
+    println!(
+        "commit-hash: {}",
+        git_version!(
+            args = [
+                "--abbrev=40",
+                "--always",
+                "--dirty=-modified",
+                "--exclude=*"
+            ],
+            fallback = "",
+        ),
+    );
     println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
     println!("host: {}", target_lexicon::HOST);
+
+    let cpu_features = {
+        let feats = wasmer_types::target::CpuFeature::for_host();
+        let all = wasmer_types::target::CpuFeature::all();
+        all.iter()
+            .map(|f| {
+                let available = feats.contains(f);
+                format!("{}={}", f, if available { "true" } else { "false" })
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    println!("cpu: {cpu_features}");
 
     let mut runtimes = Vec::<&'static str>::new();
     if cfg!(feature = "singlepass") {

@@ -51,7 +51,7 @@ use crate::{
 };
 
 use super::{
-    ExecutableTarget, PackageSource,
+    CliPackageSource, ExecutableTarget,
     capabilities::{self, PkgCapabilityCache},
 };
 
@@ -60,7 +60,7 @@ const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
 pub struct Wasi {
-    /// WASI pre-opened directory
+    /// WASI pre-opened directories
     #[clap(long = "dir", name = "DIR", group = "wasi")]
     pub(crate) pre_opened_directories: Vec<PathBuf>,
 
@@ -71,6 +71,11 @@ pub struct Wasi {
         value_parser=parse_mapdir,
     )]
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
+
+    /// Set the module's initial CWD to this path; does not work with
+    /// WASI preview 1 modules.
+    #[clap(long = "cwd")]
+    pub(crate) cwd: Option<PathBuf>,
 
     /// Pass custom environment variables
     #[clap(
@@ -294,7 +299,7 @@ impl Wasi {
             uses.push(pkg);
         }
 
-        let builder = WasiEnv::builder(program_name)
+        let mut builder = WasiEnv::builder(program_name)
             .runtime(Arc::clone(&rt))
             .args(args)
             .envs(self.env_vars.clone())
@@ -394,7 +399,7 @@ impl Wasi {
             if !mapped_dirs.is_empty() {
                 // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
+                    Arc::new(PassthruFileSystem::new_arc(default_fs_backing()));
                 for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
                     let host = if !host.is_absolute() {
                         Path::new("/").join(host)
@@ -405,16 +410,23 @@ impl Wasi {
                 }
             }
 
+            if let Some(cwd) = self.cwd.as_ref() {
+                if !cwd.starts_with("/") {
+                    bail!("The argument to --cwd must be an absolute path");
+                }
+                builder = builder.current_dir(cwd.clone());
+            }
+
             // Open the root of the new filesystem
-            let b = builder
+            builder = builder
                 .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap();
 
             if have_current_dir {
-                b.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+                builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
             } else {
-                b.map_dir(".", "/")?
+                builder.map_dir(".", "/")?
             }
         };
 
@@ -483,9 +495,7 @@ impl Wasi {
         Ok(Vec::new())
     }
 
-    pub fn build_mapped_directories(
-        &self,
-    ) -> Result<(bool, bool, Vec<MappedDirectory>), anyhow::Error> {
+    pub fn build_mapped_directories(&self) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
         let mut mapped_dirs = Vec::new();
 
         // Process the --dirs flag and merge it with --mapdir.
@@ -570,9 +580,7 @@ impl Wasi {
             mapped_dirs.push(mapping);
         }
 
-        let is_tmp_mapped = mapped_dirs.iter().any(|d| d.guest == "/tmp");
-
-        Ok((have_current_dir, is_tmp_mapped, mapped_dirs))
+        Ok((have_current_dir, mapped_dirs))
     }
 
     pub fn build_mapped_commands(&self) -> Result<Vec<MappedCommand>, anyhow::Error> {
@@ -810,17 +818,17 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
     let config = env.config()?;
 
     for credentials in config.registry.tokens {
-        if let Ok(url) = Url::parse(&credentials.registry) {
-            if url.has_authority() {
-                tokens.insert(url.authority().to_string(), credentials.token);
-            }
+        if let Ok(url) = Url::parse(&credentials.registry)
+            && url.has_authority()
+        {
+            tokens.insert(url.authority().to_string(), credentials.token);
         }
     }
 
-    if let (Ok(current_registry), Some(token)) = (env.registry_endpoint(), env.token()) {
-        if current_registry.has_authority() {
-            tokens.insert(current_registry.authority().to_string(), token);
-        }
+    if let (Ok(current_registry), Some(token)) = (env.registry_endpoint(), env.token())
+        && current_registry.has_authority()
+    {
+        tokens.insert(current_registry.authority().to_string(), token);
     }
 
     // Note: The global wasmer.toml config file stores URLs for the GraphQL
@@ -837,10 +845,10 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
 
     let mut frontend_tokens = HashMap::new();
     for (hostname, token) in &tokens {
-        if let Some(frontend_url) = hostname.strip_prefix("registry.") {
-            if !tokens.contains_key(frontend_url) {
-                frontend_tokens.insert(frontend_url.to_string(), token.clone());
-            }
+        if let Some(frontend_url) = hostname.strip_prefix("registry.")
+            && !tokens.contains_key(frontend_url)
+        {
+            frontend_tokens.insert(frontend_url.to_string(), token.clone());
         }
     }
     tokens.extend(frontend_tokens);

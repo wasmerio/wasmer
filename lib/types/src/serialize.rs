@@ -13,7 +13,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    pub const CURRENT_VERSION: u32 = 11;
+    pub const CURRENT_VERSION: u32 = 12;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";
@@ -40,7 +40,7 @@ impl MetadataHeader {
 
     /// Parses the header and returns the length of the metadata following it.
     pub fn parse(bytes: &[u8]) -> Result<usize, DeserializeError> {
-        if bytes.as_ptr() as usize % 8 != 0 {
+        if !(bytes.as_ptr() as usize).is_multiple_of(8) {
             return Err(DeserializeError::CorruptedBinary(
                 "misaligned metadata".to_string(),
             ));

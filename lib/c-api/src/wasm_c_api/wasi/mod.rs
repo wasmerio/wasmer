@@ -21,7 +21,7 @@ use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasix::{
     Pipe, PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
     default_fs_backing, get_wasi_version,
-    runtime::task_manager::{InlineWaker, tokio::TokioTaskManager},
+    runtime::task_manager::{block_on, tokio::TokioTaskManager},
     virtual_fs::AsyncReadExt,
     virtual_fs::VirtualFile,
 };
@@ -264,6 +264,7 @@ fn prepare_webc_env(
     package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
     use virtual_fs::static_fs::StaticFileSystem;
+    use wasmer_wasix::virtual_fs::FileSystem;
     use webc::v1::{FsEntryType, WebC};
 
     let store_mut = store.as_store_mut();
@@ -298,7 +299,8 @@ fn prepare_webc_env(
         })
         .collect::<Vec<_>>();
 
-    let filesystem = Box::new(StaticFileSystem::init(slice, package_name)?);
+    let filesystem =
+        Arc::new(StaticFileSystem::init(slice, package_name)?) as Arc<dyn FileSystem + Send + Sync>;
     let mut builder = config.builder.runtime(Arc::new(rt));
 
     if !config.inherit_stdout {
@@ -452,7 +454,7 @@ fn read_inner(
     wasi_file: &mut Box<dyn VirtualFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
 ) -> isize {
-    InlineWaker::block_on(async {
+    block_on(async {
         match wasi_file.read(inner_buffer).await {
             Ok(a) => a as isize,
             Err(err) => {
@@ -651,7 +653,7 @@ mod tests {
         unexpected_cfgs,
         reason = "tools like cargo-llvm-coverage pass --cfg coverage"
     )]
-    #[cfg_attr(coverage, ignore)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_wasi_get_wasi_version_snapshot0() {
         (assert_c! {
@@ -689,7 +691,7 @@ mod tests {
         unexpected_cfgs,
         reason = "tools like cargo-llvm-coverage pass --cfg coverage"
     )]
-    #[cfg_attr(coverage, ignore)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_wasi_get_wasi_version_snapshot1() {
         (assert_c! {
@@ -727,7 +729,7 @@ mod tests {
         unexpected_cfgs,
         reason = "tools like cargo-llvm-coverage pass --cfg coverage"
     )]
-    #[cfg_attr(coverage, ignore)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_wasi_get_wasi_version_invalid() {
         (assert_c! {

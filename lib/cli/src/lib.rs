@@ -13,7 +13,7 @@
 )]
 // Allowed because it makes code more readable.
 #![allow(clippy::bool_comparison, clippy::match_like_matches_macro)]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //#[cfg(all(target_os = "linux", feature = "tun-tap"))]
 //mod net;

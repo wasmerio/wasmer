@@ -251,27 +251,27 @@ where
         while let Some(event) = stream.next().await {
             tracing::debug!(?event, "received autobuild event");
             let event = event.map_err(|err| DeployRemoteError::Other(err.into()))?;
-            if let Some(data) = event.data {
-                if let Some(log) = data.autobuild_deployment {
-                    on_progress(DeployRemoteEvent::AutobuildLog { log: log.clone() });
-                    let message = log.message.clone();
-                    let kind = log.kind;
+            if let Some(data) = event.data
+                && let Some(log) = data.autobuild_deployment
+            {
+                on_progress(DeployRemoteEvent::AutobuildLog { log: log.clone() });
+                let message = log.message.clone();
+                let kind = log.kind;
 
-                    match kind {
-                        AutoBuildDeployAppLogKind::Failed => {
-                            let msg = message.unwrap_or_else(|| "remote deployment failed".into());
-                            return Err(DeployRemoteError::DeploymentFailed(msg));
-                        }
-                        AutoBuildDeployAppLogKind::Complete => {
-                            let version = log
-                                .app_version
-                                .ok_or(DeployRemoteError::MissingAppVersion)?;
-
-                            final_version = Some(version);
-                            break 'OUTER;
-                        }
-                        _ => {}
+                match kind {
+                    AutoBuildDeployAppLogKind::Failed => {
+                        let msg = message.unwrap_or_else(|| "remote deployment failed".into());
+                        return Err(DeployRemoteError::DeploymentFailed(msg));
                     }
+                    AutoBuildDeployAppLogKind::Complete => {
+                        let version = log
+                            .app_version
+                            .ok_or(DeployRemoteError::MissingAppVersion)?;
+
+                        final_version = Some(version);
+                        break 'OUTER;
+                    }
+                    _ => {}
                 }
             }
         }

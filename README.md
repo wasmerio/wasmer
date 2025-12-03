@@ -142,6 +142,7 @@ languages** with the Wasmer SDK:
 | ![Ruby logo]     | [**Ruby**][Ruby integration]         | [`wasmer` Ruby Gem]                   | [Learn][ruby docs]     |
 | ![Java logo]     | [**Java**][Java integration]         | [`wasmer/wasmer-jni` Bintray package] | [Learn][java docs]     |
 | ![R logo]        | [**R**][R integration]               | _no published package_                | [Learn][r docs]        |
+| ![R logo]        | [**R**][R integration_1]               | _no published package_              | [Learn][r docs_1]      |
 | ![Postgres logo] | [**Postgres**][Postgres integration] | _no published package_                | [Learn][postgres docs] |
 | ![Swift logo]    | [**Swift**][Swift integration]       | _no published package_                |                        |
 | ![Dart logo]     | [**Dart**][Dart integration]         | [`wasm` pub package]                  |                        |
@@ -202,6 +203,8 @@ languages** with the Wasmer SDK:
 [r logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/r.svg
 [r integration]: https://github.com/dirkschumacher/wasmr
 [r docs]: https://github.com/dirkschumacher/wasmr#example
+[r integration_1]: https://sounkou-bioinfo.r-universe.dev/wasmer
+[r docs_1]: https://sounkou-bioinfo.r-universe.dev/wasmer/doc/manual.html
 [postgres logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/postgres.svg
 [postgres integration]: https://github.com/wasmerio/wasmer-postgres
 [postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
@@ -263,6 +266,7 @@ Wasmer has an amazing community of developers and contributors. Welcome, please 
 
 - [Wasmer Community Discord](https://discord.gg/rWkMNStrEW)
 - [Wasmer on Twitter](https://twitter.com/wasmerio)
+- [Wasmer on LinkedIn](https://www.linkedin.com/company/wasmerio)
 
 --------
 

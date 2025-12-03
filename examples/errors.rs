@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let div_by_zero: TypedFunction<(), i32> = instance
         .exports
         .get_function("div_by_zero")?
-        .typed(&mut store)?;
+        .typed(&store)?;
 
     println!("Calling `div_by_zero` function...");
     // Let's call the `div_by_zero` exported function.
@@ -81,12 +81,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let frames = e.trace();
             let frames_len = frames.len();
 
-            for i in 0..frames_len {
+            for (i, frame) in frames.iter().enumerate() {
                 println!(
                     "  Frame #{}: {:?}::{:?}",
                     frames_len - i,
-                    frames[i].module_name(),
-                    frames[i].function_name().or(Some("<func>")).unwrap()
+                    frame.module_name(),
+                    frame.function_name().unwrap_or("<func>")
                 );
             }
         }

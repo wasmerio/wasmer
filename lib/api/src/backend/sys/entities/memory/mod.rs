@@ -147,12 +147,7 @@ impl SharedMemoryOps for ThreadConditionsHandle {
         let count = self
             .upgrade()
             .ok_or(crate::AtomicsError::Unimplemented)?
-            .do_notify(
-                wasmer_vm::NotifyLocation {
-                    address: dst.address,
-                },
-                count,
-            );
+            .do_notify(dst.address, count);
         Ok(count)
     }
 
@@ -161,20 +156,25 @@ impl SharedMemoryOps for ThreadConditionsHandle {
         dst: MemoryLocation,
         timeout: Option<std::time::Duration>,
     ) -> Result<u32, crate::AtomicsError> {
-        self.upgrade()
-            .ok_or(crate::AtomicsError::Unimplemented)?
-            .do_wait(
-                wasmer_vm::NotifyLocation {
-                    address: dst.address,
-                },
-                timeout,
-            )
-            .map_err(|e| match e {
-                wasmer_vm::WaiterError::Unimplemented => crate::AtomicsError::Unimplemented,
-                wasmer_vm::WaiterError::TooManyWaiters => crate::AtomicsError::TooManyWaiters,
-                wasmer_vm::WaiterError::AtomicsDisabled => crate::AtomicsError::AtomicsDisabled,
-                _ => crate::AtomicsError::Unimplemented,
-            })
+        // Safety: `ExpectedValue::None` has no safety requirements.
+        unsafe {
+            self.upgrade()
+                .ok_or(crate::AtomicsError::Unimplemented)?
+                .do_wait(
+                    wasmer_vm::NotifyLocation {
+                        memory_base: std::ptr::null_mut(),
+                        address: dst.address,
+                    },
+                    wasmer_vm::ExpectedValue::None,
+                    timeout,
+                )
+                .map_err(|e| match e {
+                    wasmer_vm::WaiterError::Unimplemented => crate::AtomicsError::Unimplemented,
+                    wasmer_vm::WaiterError::TooManyWaiters => crate::AtomicsError::TooManyWaiters,
+                    wasmer_vm::WaiterError::AtomicsDisabled => crate::AtomicsError::AtomicsDisabled,
+                    _ => crate::AtomicsError::Unimplemented,
+                })
+        }
     }
 
     fn disable_atomics(&self) -> Result<(), MemoryError> {

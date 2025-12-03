@@ -12,6 +12,7 @@ use cranelift_codegen::{
     ir::{
         self, AbiParam, ArgumentPurpose, BlockArg, Endianness, ExceptionTableData,
         ExceptionTableItem, ExceptionTag, Function, InstBuilder, MemFlags, Signature,
+        UserExternalName,
         condcodes::IntCC,
         immediates::{Offset32, Uimm64},
         types::*,
@@ -30,8 +31,11 @@ use wasmer_types::{
 };
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
-pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
-    ir::ExternalName::user(ir::UserExternalNameRef::from_u32(func_index.as_u32()))
+pub fn get_function_name(func: &mut Function, func_index: FunctionIndex) -> ir::ExternalName {
+    ir::ExternalName::user(
+        func.params
+            .ensure_user_func_name(UserExternalName::new(0, func_index.as_u32())),
+    )
 }
 
 /// The type of the `current_elements` field.
@@ -981,7 +985,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             self.throw_sig = Some(sig);
             sig
         });
-        (sig, VMBuiltinFunctionIndex::get_imported_throw_index())
+        todo!()
+        // (sig, VMBuiltinFunctionIndex::get_imported_throw_index())
     }
 
     fn get_rethrow_func(&mut self, func: &mut Function) -> (ir::SigRef, VMBuiltinFunctionIndex) {
@@ -992,7 +997,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             self.rethrow_sig = Some(sig);
             sig
         });
-        (sig, VMBuiltinFunctionIndex::get_imported_rethrow_index())
+        todo!()
+        // (sig, VMBuiltinFunctionIndex::get_imported_rethrow_index())
     }
 
     fn get_alloc_exception_func(
@@ -1007,10 +1013,11 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             self.alloc_exception_sig = Some(sig);
             sig
         });
-        (
-            sig,
-            VMBuiltinFunctionIndex::get_imported_alloc_exception_index(),
-        )
+        // (
+        //     sig,
+        //     VMBuiltinFunctionIndex::get_imported_alloc_exception_index(),
+        // )
+        todo!()
     }
 
     fn get_read_exception_func(
@@ -1025,10 +1032,11 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             self.read_exception_sig = Some(sig);
             sig
         });
-        (
-            sig,
-            VMBuiltinFunctionIndex::get_imported_read_exception_index(),
-        )
+        // (
+        //     sig,
+        //     VMBuiltinFunctionIndex::get_imported_read_exception_index(),
+        // )
+        todo!()
     }
 
     fn exception_type_layout(&mut self, tag_index: TagIndex) -> WasmResult<&ExceptionTypeLayout> {
@@ -1563,7 +1571,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
     ) -> WasmResult<ir::FuncRef> {
         let sigidx = self.module.functions[index];
         let signature = func.import_signature(self.signatures[sigidx].clone());
-        let name = get_function_name(index);
+        let name = get_function_name(func, index);
+
         Ok(func.import_function(ir::ExtFuncData {
             name,
             signature,

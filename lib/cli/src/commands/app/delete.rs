@@ -1,7 +1,7 @@
 //! Delete an Edge app.
 
 use dialoguer::Confirm;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 
 use super::util::AppIdentOpts;
 use crate::{commands::AsyncCliCommand, config::WasmerEnv};

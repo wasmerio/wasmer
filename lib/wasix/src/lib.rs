@@ -3,7 +3,7 @@
 #![allow(clippy::result_large_err)]
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Wasmer's WASI implementation
 //!
@@ -71,7 +71,6 @@ use std::sync::Arc;
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
-use tracing::error;
 // re-exports needed for OS
 pub use wasmer;
 pub use wasmer_wasix_types;
@@ -283,7 +282,7 @@ pub enum WasiRuntimeError {
 impl WasiRuntimeError {
     /// Retrieve the concrete exit code returned by an instance.
     ///
-    /// Returns [`None`] if a general execution error ocurred.
+    /// Returns [`None`] if a general execution error occurred.
     pub fn as_exit_code(&self) -> Option<ExitCode> {
         if let WasiRuntimeError::Wasi(WasiError::Exit(code)) = self {
             Some(*code)
@@ -295,6 +294,28 @@ impl WasiRuntimeError {
             }
         } else {
             None
+        }
+    }
+
+    pub fn display<'a>(&'a self, store: &'a mut impl AsStoreMut) -> WasiRuntimeErrorDisplay<'a> {
+        if let WasiRuntimeError::Runtime(err) = self {
+            WasiRuntimeErrorDisplay::Runtime(err.display(store))
+        } else {
+            WasiRuntimeErrorDisplay::Other(self)
+        }
+    }
+}
+
+pub enum WasiRuntimeErrorDisplay<'a> {
+    Runtime(wasmer::RuntimeErrorDisplay<'a>),
+    Other(&'a WasiRuntimeError),
+}
+
+impl std::fmt::Display for WasiRuntimeErrorDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WasiRuntimeErrorDisplay::Runtime(display) => write!(f, "{display}"),
+            WasiRuntimeErrorDisplay::Other(err) => write!(f, "{err}"),
         }
     }
 }
@@ -891,5 +912,24 @@ where
         } else {
             tokio::task::spawn_blocking(f).await
         }
+    }
+}
+
+pub(crate) fn flatten_runtime_error(err: RuntimeError) -> RuntimeError {
+    let e_ref = err.downcast_ref::<WasiRuntimeError>();
+    match e_ref {
+        Some(WasiRuntimeError::Wasi(_)) => {
+            let Ok(WasiRuntimeError::Wasi(err)) = err.downcast::<WasiRuntimeError>() else {
+                unreachable!()
+            };
+            RuntimeError::user(Box::new(err))
+        }
+        Some(WasiRuntimeError::Runtime(_)) => {
+            let Ok(WasiRuntimeError::Runtime(err)) = err.downcast::<WasiRuntimeError>() else {
+                unreachable!()
+            };
+            flatten_runtime_error(err)
+        }
+        _ => err,
     }
 }

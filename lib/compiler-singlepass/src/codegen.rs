@@ -7,16 +7,21 @@ use crate::{
     common_decl::*,
     config::Singlepass,
     location::{Location, Reg},
-    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE, UnsignedCondition},
+    machine::{
+        AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
+    },
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
+use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
-use std::{cmp, iter};
+use std::{cmp, collections::HashMap, iter, ops::Neg};
+use target_lexicon::Architecture;
 
 use wasmer_compiler::{
     FunctionBodyData,
+    misc::CompiledKind,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
@@ -38,6 +43,10 @@ use wasmer_types::{
     VMBuiltinFunctionIndex, VMOffsets,
     entity::{EntityRef, PrimaryMap},
 };
+
+#[allow(type_alias_bounds)]
+type LocationWithCanonicalization<M: Machine> = (Location<M::GPR, M::SIMD>, CanonicalizeType);
+
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
     // Immutable properties assigned at creation time.
@@ -66,21 +75,15 @@ pub struct FuncGen<'a, M: Machine> {
     local_types: Vec<WpType>,
 
     /// Value stack.
-    value_stack: Vec<Location<M::GPR, M::SIMD>>,
-
-    /// Metadata about floating point values on the stack.
-    fp_stack: Vec<FloatValue>,
+    value_stack: Vec<LocationWithCanonicalization<M>>,
 
     /// A list of frames describing the current control stack.
-    control_stack: Vec<ControlFrame>,
+    control_stack: Vec<ControlFrame<M>>,
 
-    stack_offset: MachineStackOffset,
+    /// Stack offset tracking in bytes.
+    stack_offset: usize,
 
-    save_area_offset: Option<MachineStackOffset>,
-
-    state: MachineState,
-
-    track_state: bool,
+    save_area_offset: Option<usize>,
 
     /// Low-level machine state.
     machine: M,
@@ -88,8 +91,8 @@ pub struct FuncGen<'a, M: Machine> {
     /// Nesting level of unreachable code.
     unreachable_depth: usize,
 
-    /// Function state map. Not yet used in the reborn version but let's keep it.
-    fsm: FunctionStateMap,
+    /// Index of a function defined locally inside the WebAssembly module.
+    local_func_index: LocalFunctionIndex,
 
     /// Relocation information.
     relocations: Vec<Relocation>,
@@ -99,6 +102,12 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Calling convention to use.
     calling_convention: CallingConvention,
+
+    /// Name of the function.
+    function_name: String,
+
+    /// Assembly comments.
+    assembly_comments: HashMap<usize, AssemblyComment>,
 }
 
 struct SpecialLabelSet {
@@ -111,105 +120,38 @@ struct SpecialLabelSet {
     unaligned_atomic: Label,
 }
 
-/// Metadata about a floating-point value.
-#[derive(Copy, Clone, Debug)]
-struct FloatValue {
-    /// Do we need to canonicalize the value before its bit pattern is next observed? If so, how?
-    canonicalization: Option<CanonicalizeType>,
-
-    /// Corresponding depth in the main value stack.
-    depth: usize,
-}
-
-impl FloatValue {
-    fn new(depth: usize) -> Self {
-        FloatValue {
-            canonicalization: None,
-            depth,
-        }
-    }
-
-    fn cncl_f32(depth: usize) -> Self {
-        FloatValue {
-            canonicalization: Some(CanonicalizeType::F32),
-            depth,
-        }
-    }
-
-    fn cncl_f64(depth: usize) -> Self {
-        FloatValue {
-            canonicalization: Some(CanonicalizeType::F64),
-            depth,
-        }
-    }
-
-    fn promote(self, depth: usize) -> Result<FloatValue, CompileError> {
-        let ret = FloatValue {
-            canonicalization: match self.canonicalization {
-                Some(CanonicalizeType::F32) => Some(CanonicalizeType::F64),
-                Some(CanonicalizeType::F64) => codegen_error!("cannot promote F64"),
-                None => None,
-            },
-            depth,
-        };
-        Ok(ret)
-    }
-
-    fn demote(self, depth: usize) -> Result<FloatValue, CompileError> {
-        let ret = FloatValue {
-            canonicalization: match self.canonicalization {
-                Some(CanonicalizeType::F64) => Some(CanonicalizeType::F32),
-                Some(CanonicalizeType::F32) => codegen_error!("cannot demote F32"),
-                None => None,
-            },
-            depth,
-        };
-        Ok(ret)
-    }
-}
-
 /// Type of a pending canonicalization floating point value.
 /// Sometimes we don't have the type information elsewhere and therefore we need to track it here.
 #[derive(Copy, Clone, Debug)]
-enum CanonicalizeType {
+pub(crate) enum CanonicalizeType {
+    None,
     F32,
     F64,
 }
 
 impl CanonicalizeType {
-    fn to_size(self) -> Size {
+    fn to_size(self) -> Option<Size> {
         match self {
-            CanonicalizeType::F32 => Size::S32,
-            CanonicalizeType::F64 => Size::S64,
+            CanonicalizeType::F32 => Some(Size::S32),
+            CanonicalizeType::F64 => Some(Size::S64),
+            CanonicalizeType::None => None,
         }
     }
-}
 
-trait PopMany<T> {
-    fn peek1(&self) -> Result<&T, CompileError>;
-    fn pop1(&mut self) -> Result<T, CompileError>;
-    fn pop2(&mut self) -> Result<(T, T), CompileError>;
-}
-
-impl<T> PopMany<T> for Vec<T> {
-    fn peek1(&self) -> Result<&T, CompileError> {
-        self.last()
-            .ok_or_else(|| CompileError::Codegen("peek1() expects at least 1 element".to_owned()))
-    }
-    fn pop1(&mut self) -> Result<T, CompileError> {
-        self.pop()
-            .ok_or_else(|| CompileError::Codegen("pop1() expects at least 1 element".to_owned()))
-    }
-    fn pop2(&mut self) -> Result<(T, T), CompileError> {
-        if self.len() < 2 {
-            return Err(CompileError::Codegen(
-                "pop2() expects at least 2 elements".to_owned(),
-            ));
+    fn promote(self) -> Result<Self, CompileError> {
+        match self {
+            CanonicalizeType::None => Ok(CanonicalizeType::None),
+            CanonicalizeType::F32 => Ok(CanonicalizeType::F64),
+            CanonicalizeType::F64 => codegen_error!("cannot promote F64"),
         }
+    }
 
-        let right = self.pop().unwrap();
-        let left = self.pop().unwrap();
-        Ok((left, right))
+    fn demote(self) -> Result<Self, CompileError> {
+        match self {
+            CanonicalizeType::None => Ok(CanonicalizeType::None),
+            CanonicalizeType::F32 => codegen_error!("cannot demote F64"),
+            CanonicalizeType::F64 => Ok(CanonicalizeType::F32),
+        }
     }
 }
 
@@ -223,26 +165,51 @@ impl WpTypeExt for WpType {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ControlFrame {
-    pub label: Label,
-    pub loop_like: bool,
-    pub if_else: IfElseState,
-    pub returns: SmallVec<[WpType; 1]>,
-    pub value_stack_depth: usize,
-    pub fp_stack_depth: usize,
-    pub state: MachineState,
-    pub state_diff_id: usize,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum IfElseState {
-    None,
-    If(Label),
+#[derive(Clone)]
+pub enum ControlState<M: Machine> {
+    Function,
+    Block,
+    Loop,
+    If {
+        label_else: Label,
+        // Store the input parameters for the If block, as they'll need to be
+        // restored when processing the Else block (if present).
+        inputs: SmallVec<[LocationWithCanonicalization<M>; 1]>,
+    },
     Else,
 }
 
-fn type_to_wp_type(ty: Type) -> WpType {
+#[derive(Clone)]
+struct ControlFrame<M: Machine> {
+    pub state: ControlState<M>,
+    pub label: Label,
+    pub param_types: SmallVec<[WpType; 8]>,
+    pub return_types: SmallVec<[WpType; 1]>,
+    /// Value stack depth at the beginning of the frame (including params and results).
+    value_stack_depth: usize,
+}
+
+impl<M: Machine> ControlFrame<M> {
+    // Get value stack depth at the end of the frame.
+    fn value_stack_depth_after(&self) -> usize {
+        let mut depth: usize = self.value_stack_depth - self.param_types.len();
+
+        // For Loop, we have to use another slot for params that implements the PHI operation.
+        if matches!(self.state, ControlState::Loop) {
+            depth -= self.param_types.len();
+        }
+
+        depth
+    }
+
+    /// Returns the value stack depth at which resources should be deallocated.
+    /// For loops, this preserves PHI arguments by excluding them from deallocation.
+    fn value_stack_depth_for_release(&self) -> usize {
+        self.value_stack_depth - self.param_types.len()
+    }
+}
+
+fn type_to_wp_type(ty: &Type) -> WpType {
     match ty {
         Type::I32 => WpType::I32,
         Type::I64 => WpType::I64,
@@ -263,263 +230,195 @@ struct I2O1<R: Reg, S: Reg> {
     ret: Location<R, S>,
 }
 
+/// Type of native call we emit.
+enum NativeCallType {
+    IncludeVMCtxArgument,
+    Unreachable,
+}
+
 impl<'a, M: Machine> FuncGen<'a, M> {
-    fn get_stack_offset(&self) -> usize {
-        self.stack_offset.0
+    /// Acquires location from the machine state.
+    ///
+    /// If the returned location is used for stack value, `release_location` needs to be called on it;
+    /// Otherwise, if the returned locations is used for a local, `release_location` does not need to be called on it.
+    fn acquire_location(&mut self, ty: &WpType) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
+        let loc = match *ty {
+            WpType::F32 | WpType::F64 => self.machine.pick_simd().map(Location::SIMD),
+            WpType::I32 | WpType::I64 => self.machine.pick_gpr().map(Location::GPR),
+            WpType::Ref(ty) if ty.is_extern_ref() || ty.is_func_ref() => {
+                self.machine.pick_gpr().map(Location::GPR)
+            }
+            _ => codegen_error!("can't acquire location for type {:?}", ty),
+        };
+
+        let Some(loc) = loc else {
+            return self.acquire_location_on_stack();
+        };
+
+        if let Location::GPR(x) = loc {
+            self.machine.reserve_gpr(x);
+        } else if let Location::SIMD(x) = loc {
+            self.machine.reserve_simd(x);
+        }
+        Ok(loc)
     }
 
-    /// Acquires locations from the machine state.
-    ///
-    /// If the returned locations are used for stack value, `release_location` needs to be called on them;
-    /// Otherwise, if the returned locations are used for locals, `release_location` does not need to be called on them.
-    #[allow(clippy::type_complexity)]
-    fn acquire_locations(
-        &mut self,
-        tys: &[(WpType, MachineValue)],
-        zeroed: bool,
-    ) -> Result<SmallVec<[Location<M::GPR, M::SIMD>; 1]>, CompileError> {
-        let mut ret = smallvec![];
-        let mut delta_stack_offset: usize = 0;
+    /// Acquire location that will live on the stack.
+    fn acquire_location_on_stack(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
+        self.stack_offset += 8;
+        let loc = self.machine.local_on_stack(self.stack_offset as i32);
+        self.machine
+            .extend_stack(self.machine.round_stack_adjust(8) as u32)?;
 
-        for (ty, mv) in tys {
-            let loc = match *ty {
-                WpType::F32 | WpType::F64 => self.machine.pick_simd().map(Location::SIMD),
-                WpType::I32 | WpType::I64 => self.machine.pick_gpr().map(Location::GPR),
-                WpType::Ref(ty) if ty.is_extern_ref() || ty.is_func_ref() => {
-                    self.machine.pick_gpr().map(Location::GPR)
-                }
-                _ => codegen_error!("can't acquire location for type {:?}", ty),
-            };
-
-            let loc = if let Some(x) = loc {
-                x
-            } else {
-                self.stack_offset.0 += 8;
-                delta_stack_offset += 8;
-                self.machine.local_on_stack(self.stack_offset.0 as i32)
-            };
-            if let Location::GPR(x) = loc {
-                self.machine.reserve_gpr(x);
-                self.state.register_values[self.machine.index_from_gpr(x).0] = mv.clone();
-            } else if let Location::SIMD(x) = loc {
-                self.machine.reserve_simd(x);
-                self.state.register_values[self.machine.index_from_simd(x).0] = mv.clone();
-            } else {
-                self.state.stack_values.push(mv.clone());
-            }
-            self.state.wasm_stack.push(WasmAbstractValue::Runtime);
-            ret.push(loc);
-        }
-
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.adjust_stack(delta_stack_offset as u32)?;
-        }
-        if zeroed {
-            for i in 0..tys.len() {
-                self.machine.zero_location(Size::S64, ret[i])?;
-            }
-        }
-        Ok(ret)
+        Ok(loc)
     }
 
     /// Releases locations used for stack value.
     fn release_locations(
         &mut self,
-        locs: &[Location<M::GPR, M::SIMD>],
+        locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
-
-        for loc in locs.iter().rev() {
-            match *loc {
-                Location::GPR(ref x) => {
-                    self.machine.release_gpr(*x);
-                    self.state.register_values[self.machine.index_from_gpr(*x).0] =
-                        MachineValue::Undefined;
-                }
-                Location::SIMD(ref x) => {
-                    self.machine.release_simd(*x);
-                    self.state.register_values[self.machine.index_from_simd(*x).0] =
-                        MachineValue::Undefined;
-                }
-                Location::Memory(y, x) => {
-                    if y == self.machine.local_pointer() {
-                        if x >= 0 {
-                            codegen_error!("Invalid memory offset {}", x);
-                        }
-                        let offset = (-x) as usize;
-                        if offset != self.stack_offset.0 {
-                            codegen_error!(
-                                "Invalid memory offset {}!={}",
-                                offset,
-                                self.stack_offset.0
-                            );
-                        }
-                        self.stack_offset.0 -= 8;
-                        delta_stack_offset += 8;
-                        self.state
-                            .stack_values
-                            .pop()
-                            .ok_or_else(|| CompileError::Codegen("Empty stack_value".to_owned()))?;
-                    }
-                }
-                _ => {}
-            }
-            self.state
-                .wasm_stack
-                .pop()
-                .ok_or_else(|| CompileError::Codegen("Pop with wasm stack empty".to_owned()))?;
-        }
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.restore_stack(delta_stack_offset as u32)?;
-        }
-        Ok(())
-    }
-    /// Releases locations used for stack value.
-    fn release_locations_value(&mut self, stack_depth: usize) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
-        let locs: &[Location<M::GPR, M::SIMD>] = &self.value_stack[stack_depth..];
-
-        for loc in locs.iter().rev() {
-            match *loc {
-                Location::GPR(ref x) => {
-                    self.machine.release_gpr(*x);
-                    self.state.register_values[self.machine.index_from_gpr(*x).0] =
-                        MachineValue::Undefined;
-                }
-                Location::SIMD(ref x) => {
-                    self.machine.release_simd(*x);
-                    self.state.register_values[self.machine.index_from_simd(*x).0] =
-                        MachineValue::Undefined;
-                }
-                Location::Memory(y, x) => {
-                    if y == self.machine.local_pointer() {
-                        if x >= 0 {
-                            codegen_error!("Invalid memory offset {}", x);
-                        }
-                        let offset = (-x) as usize;
-                        if offset != self.stack_offset.0 {
-                            codegen_error!(
-                                "Invalid memory offset {}!={}",
-                                offset,
-                                self.stack_offset.0
-                            );
-                        }
-                        self.stack_offset.0 -= 8;
-                        delta_stack_offset += 8;
-                        self.state.stack_values.pop().ok_or_else(|| {
-                            CompileError::Codegen("Pop with values stack empty".to_owned())
-                        })?;
-                    }
-                }
-                _ => {}
-            }
-            self.state
-                .wasm_stack
-                .pop()
-                .ok_or_else(|| CompileError::Codegen("Pop with wasm stack empty".to_owned()))?;
-        }
-
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.adjust_stack(delta_stack_offset as u32)?;
-        }
-        Ok(())
+        self.release_stack_locations(locs)?;
+        self.release_reg_locations(locs)
     }
 
-    fn release_locations_only_regs(
+    fn release_reg_locations(
         &mut self,
-        locs: &[Location<M::GPR, M::SIMD>],
+        locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
-        for loc in locs.iter().rev() {
+        for (loc, _) in locs.iter().rev() {
             match *loc {
                 Location::GPR(ref x) => {
                     self.machine.release_gpr(*x);
-                    self.state.register_values[self.machine.index_from_gpr(*x).0] =
-                        MachineValue::Undefined;
                 }
                 Location::SIMD(ref x) => {
                     self.machine.release_simd(*x);
-                    self.state.register_values[self.machine.index_from_simd(*x).0] =
-                        MachineValue::Undefined;
                 }
                 _ => {}
             }
-            // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
         Ok(())
     }
 
-    fn release_locations_only_stack(
+    fn release_stack_locations(
         &mut self,
-        locs: &[Location<M::GPR, M::SIMD>],
+        locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
-
-        for loc in locs.iter().rev() {
-            if let Location::Memory(y, x) = *loc {
-                if y == self.machine.local_pointer() {
-                    if x >= 0 {
-                        codegen_error!("Invalid memory offset {}", x);
-                    }
-                    let offset = (-x) as usize;
-                    if offset != self.stack_offset.0 {
-                        codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
-                    }
-                    self.stack_offset.0 -= 8;
-                    delta_stack_offset += 8;
-                    self.state.stack_values.pop().ok_or_else(|| {
-                        CompileError::Codegen("Pop on empty value stack".to_owned())
-                    })?;
-                }
+        for (loc, _) in locs.iter().rev() {
+            if let Location::Memory(..) = *loc {
+                self.check_location_on_stack(loc, self.stack_offset)?;
+                self.stack_offset -= 8;
+                self.machine
+                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
             }
-            // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
 
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.pop_stack_locals(delta_stack_offset as u32)?;
-        }
         Ok(())
     }
 
-    fn release_locations_only_osr_state(&mut self, n: usize) -> Result<(), CompileError> {
-        let new_length = self
-            .state
-            .wasm_stack
-            .len()
-            .checked_sub(n)
-            .expect("release_locations_only_osr_state: length underflow");
-        self.state.wasm_stack.truncate(new_length);
-        Ok(())
-    }
-
-    fn release_locations_keep_state(&mut self, stack_depth: usize) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
-        let mut stack_offset = self.stack_offset.0;
+    fn release_stack_locations_keep_stack_offset(
+        &mut self,
+        stack_depth: usize,
+    ) -> Result<(), CompileError> {
+        let mut stack_offset = self.stack_offset;
         let locs = &self.value_stack[stack_depth..];
 
-        for loc in locs.iter().rev() {
-            if let Location::Memory(y, x) = *loc {
-                if y == self.machine.local_pointer() {
-                    if x >= 0 {
-                        codegen_error!("Invalid memory offset {}", x);
-                    }
-                    let offset = (-x) as usize;
-                    if offset != stack_offset {
-                        codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
-                    }
-                    stack_offset -= 8;
-                    delta_stack_offset += 8;
-                }
+        for (loc, _) in locs.iter().rev() {
+            if let Location::Memory(..) = *loc {
+                self.check_location_on_stack(loc, stack_offset)?;
+                stack_offset -= 8;
+                self.machine
+                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
             }
         }
 
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.pop_stack_locals(delta_stack_offset as u32)?;
+        Ok(())
+    }
+
+    fn check_location_on_stack(
+        &self,
+        loc: &Location<M::GPR, M::SIMD>,
+        expected_stack_offset: usize,
+    ) -> Result<(), CompileError> {
+        let Location::Memory(reg, offset) = loc else {
+            codegen_error!("Expected stack memory location");
+        };
+        if reg != &self.machine.local_pointer() {
+            codegen_error!("Expected location pointer for value on stack");
         }
+        if *offset >= 0 {
+            codegen_error!("Invalid memory offset {offset}");
+        }
+        let offset = offset.neg() as usize;
+        if offset != expected_stack_offset {
+            codegen_error!("Invalid memory offset {offset}!={}", self.stack_offset);
+        }
+        Ok(())
+    }
+
+    /// Allocate return slots for block operands (Block, If, Loop) and swap them with
+    /// the corresponding input parameters on the value stack.
+    ///
+    /// This method reserves memory slots that can accommodate both integer and
+    /// floating-point types, then swaps these slots with the last `stack_slots`
+    /// values on the stack to position them correctly for the block's return values.
+    /// that are already present at the value stack.
+    fn allocate_return_slots_and_swap(
+        &mut self,
+        stack_slots: usize,
+        return_slots: usize,
+    ) -> Result<(), CompileError> {
+        // No shuffling needed.
+        if return_slots == 0 {
+            return Ok(());
+        }
+
+        /* To allocate N return slots, we first allocate N additional stack (memory) slots and then "shift" the
+        existing stack slots. This results in the layout: [value stack before frame, ret0, ret1, ret2, ..., retN, arg0, arg1, ..., argN],
+        where some of the argN values may reside in registers and others in memory on the stack. */
+        let latest_slots = self
+            .value_stack
+            .drain(self.value_stack.len() - stack_slots..)
+            .collect_vec();
+        let extra_slots = (0..return_slots)
+            .map(|_| self.acquire_location_on_stack())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut all_memory_slots = latest_slots
+            .iter()
+            .filter_map(|(loc, _)| {
+                if let Location::Memory(..) = loc {
+                    Some(loc)
+                } else {
+                    None
+                }
+            })
+            .chain(extra_slots.iter())
+            .collect_vec();
+
+        // First put the newly allocated return values to the value stack.
+        self.value_stack.extend(
+            all_memory_slots
+                .iter()
+                .take(return_slots)
+                .map(|loc| (**loc, CanonicalizeType::None)),
+        );
+
+        // Then map all memory stack slots to a new location (in reverse order).
+        let mut new_params_reversed = Vec::new();
+        for (loc, canonicalize) in latest_slots.iter().rev() {
+            let mapped_loc = if matches!(loc, Location::Memory(..)) {
+                let dest = all_memory_slots.pop().unwrap();
+                self.machine.emit_relaxed_mov(Size::S64, *loc, *dest)?;
+                *dest
+            } else {
+                *loc
+            };
+            new_params_reversed.push((mapped_loc, *canonicalize));
+        }
+        self.value_stack
+            .extend(new_params_reversed.into_iter().rev());
+
         Ok(())
     }
 
@@ -530,6 +429,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         sig: FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<Vec<Location<M::GPR, M::SIMD>>, CompileError> {
+        self.add_assembly_comment(AssemblyComment::InitializeLocals);
+
         // How many machine stack slots will all the locals use?
         let num_mem_slots = (0..n)
             .filter(|&x| self.machine.is_local_on_stack(x))
@@ -579,52 +480,32 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.zero_location(Size::S64, locations[i])?;
         }
 
-        self.machine.adjust_stack(static_area_size as _)?;
+        self.machine.extend_stack(static_area_size as _)?;
 
         // Save callee-saved registers.
         for loc in locations.iter() {
-            if let Location::GPR(x) = *loc {
-                self.stack_offset.0 += 8;
-                self.machine.move_local(self.stack_offset.0 as i32, *loc)?;
-                self.state.stack_values.push(MachineValue::PreserveRegister(
-                    self.machine.index_from_gpr(x),
-                ));
+            if let Location::GPR(_) = *loc {
+                self.stack_offset += 8;
+                self.machine.move_local(self.stack_offset as i32, *loc)?;
             }
         }
 
         // Save the Reg use for vmctx.
-        self.stack_offset.0 += 8;
+        self.stack_offset += 8;
         self.machine.move_local(
-            self.stack_offset.0 as i32,
+            self.stack_offset as i32,
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
-        self.state.stack_values.push(MachineValue::PreserveRegister(
-            self.machine.index_from_gpr(self.machine.get_vmctx_reg()),
-        ));
 
         // Check if need to same some CallingConvention specific regs
         let regs_to_save = self.machine.list_to_save(calling_convention);
         for loc in regs_to_save.iter() {
-            self.stack_offset.0 += 8;
-            self.machine.move_local(self.stack_offset.0 as i32, *loc)?;
+            self.stack_offset += 8;
+            self.machine.move_local(self.stack_offset as i32, *loc)?;
         }
 
         // Save the offset of register save area.
-        self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
-
-        // Save location information for locals.
-        for (i, loc) in locations.iter().enumerate() {
-            match *loc {
-                Location::GPR(x) => {
-                    self.state.register_values[self.machine.index_from_gpr(x).0] =
-                        MachineValue::WasmLocal(i);
-                }
-                Location::Memory(_, _) => {
-                    self.state.stack_values.push(MachineValue::WasmLocal(i));
-                }
-                _ => codegen_error!("singlpass init_local unreachable"),
-            }
-        }
+        self.save_area_offset = Some(self.stack_offset);
 
         // Load in-register parameters into the allocated locations.
         // Locals are allocated on the stack from higher address to lower address,
@@ -638,6 +519,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 _ => codegen_error!("singlepass init_local unimplemented"),
             };
             let loc = self.machine.get_call_param_location(
+                sig.results().len(),
                 i + 1,
                 sz,
                 &mut stack_offset,
@@ -650,8 +532,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Load vmctx into it's GPR.
         self.machine.move_location(
             Size::S64,
-            self.machine
-                .get_simple_param_location(0, calling_convention),
+            Location::GPR(
+                self.machine
+                    .get_simple_param_location(0, calling_convention),
+            ),
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
 
@@ -676,7 +560,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         // Add the size of all locals allocated to stack.
-        self.stack_offset.0 += static_area_size - callee_saved_regs_size;
+        self.stack_offset += static_area_size - callee_saved_regs_size;
 
         Ok(locations)
     }
@@ -687,7 +571,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     ) -> Result<(), CompileError> {
         // Unwind stack to the "save area".
         self.machine
-            .restore_saved_area(self.save_area_offset.as_ref().unwrap().0 as i32)?;
+            .restore_saved_area(self.save_area_offset.unwrap() as i32)?;
 
         let regs_to_save = self.machine.list_to_save(calling_convention);
         for loc in regs_to_save.iter().rev() {
@@ -714,61 +598,31 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     fn get_location_released(
         &mut self,
-        loc: Location<M::GPR, M::SIMD>,
-    ) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
+        loc: (Location<M::GPR, M::SIMD>, CanonicalizeType),
+    ) -> Result<LocationWithCanonicalization<M>, CompileError> {
         self.release_locations(&[loc])?;
         Ok(loc)
     }
 
-    fn pop_value_released(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
+    fn pop_value_released(&mut self) -> Result<LocationWithCanonicalization<M>, CompileError> {
         let loc = self.value_stack.pop().ok_or_else(|| {
             CompileError::Codegen("pop_value_released: value stack is empty".to_owned())
         })?;
-        self.get_location_released(loc)
+        self.get_location_released(loc)?;
+        Ok(loc)
     }
 
     /// Prepare data for binary operator with 2 inputs and 1 output.
-    fn i2o1_prepare(&mut self, ty: WpType) -> Result<I2O1<M::GPR, M::SIMD>, CompileError> {
-        let loc_b = self.pop_value_released()?;
-        let loc_a = self.pop_value_released()?;
-        let ret = self.acquire_locations(
-            &[(ty, MachineValue::WasmStack(self.value_stack.len()))],
-            false,
-        )?[0];
-        self.value_stack.push(ret);
+    fn i2o1_prepare(
+        &mut self,
+        ty: WpType,
+        canonicalize: CanonicalizeType,
+    ) -> Result<I2O1<M::GPR, M::SIMD>, CompileError> {
+        let loc_b = self.pop_value_released()?.0;
+        let loc_a = self.pop_value_released()?.0;
+        let ret = self.acquire_location(&ty)?;
+        self.value_stack.push((ret, canonicalize));
         Ok(I2O1 { loc_a, loc_b, ret })
-    }
-
-    fn mark_trappable(&mut self) {
-        let state_diff_id = self.get_state_diff();
-        let offset = self.machine.assembler_get_offset().0;
-        self.fsm.trappable_offsets.insert(
-            offset,
-            OffsetInfo {
-                end_offset: offset + 1,
-                activate_offset: offset,
-                diff_id: state_diff_id,
-            },
-        );
-        self.fsm.wasm_offset_to_target_offset.insert(
-            self.state.wasm_inst_offset,
-            SuspendOffset::Trappable(offset),
-        );
-    }
-    fn mark_offset_trappable(&mut self, offset: usize) {
-        let state_diff_id = self.get_state_diff();
-        self.fsm.trappable_offsets.insert(
-            offset,
-            OffsetInfo {
-                end_offset: offset + 1,
-                activate_offset: offset,
-                diff_id: state_diff_id,
-            },
-        );
-        self.fsm.wasm_offset_to_target_offset.insert(
-            self.state.wasm_inst_offset,
-            SuspendOffset::Trappable(offset),
-        );
     }
 
     /// Emits a Native ABI call sequence.
@@ -776,59 +630,68 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
     /// this function.
     fn emit_call_native<
-        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
+        I: Iterator<Item = (Location<M::GPR, M::SIMD>, CanonicalizeType)>,
         J: Iterator<Item = WpType>,
+        K: Iterator<Item = WpType>,
         F: FnOnce(&mut Self) -> Result<(), CompileError>,
     >(
         &mut self,
         cb: F,
         params: I,
         params_type: J,
+        return_types: K,
+        call_type: NativeCallType,
     ) -> Result<(), CompileError> {
-        // Values pushed in this function are above the shadow region.
-        self.state.stack_values.push(MachineValue::ExplicitShadow);
-
-        let params: Vec<_> = params.collect();
-        let params_size: Vec<_> = params_type
-            .map(|x| match x {
-                WpType::F32 | WpType::I32 => Size::S32,
-                WpType::V128 => unimplemented!(),
-                _ => Size::S64,
+        let params = params.collect_vec();
+        let stack_params = params
+            .iter()
+            .copied()
+            .filter(|(param, _)| {
+                if let Location::Memory(reg, _) = param {
+                    debug_assert_eq!(reg, &self.machine.local_pointer());
+                    true
+                } else {
+                    false
+                }
             })
-            .collect();
+            .collect_vec();
+        let get_size = |param_type: WpType| match param_type {
+            WpType::F32 | WpType::I32 => Size::S32,
+            WpType::V128 => unimplemented!(),
+            _ => Size::S64,
+        };
+        let param_sizes = params_type.map(get_size).collect_vec();
+        let return_value_sizes = return_types.map(get_size).collect_vec();
+
+        /* We're going to reuse the memory param locations for the return values. Any extra needed slots will be allocated on stack. */
+        let used_stack_params = stack_params
+            .iter()
+            .take(return_value_sizes.len())
+            .copied()
+            .collect_vec();
+        let mut return_values = used_stack_params.clone();
+        let extra_return_values = (0..return_value_sizes.len().saturating_sub(stack_params.len()))
+            .map(|_| -> Result<_, CompileError> {
+                Ok((self.acquire_location_on_stack()?, CanonicalizeType::None))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        return_values.extend(extra_return_values);
+
+        // Release the parameter slots that live in registers.
+        self.release_reg_locations(&params)?;
 
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
         let mut used_stack = self.machine.push_used_gpr(&used_gprs)?;
-        for r in used_gprs.iter() {
-            let content = self.state.register_values[self.machine.index_from_gpr(*r).0].clone();
-            if content == MachineValue::Undefined {
-                return Err(CompileError::Codegen(
-                    "emit_call_native: Undefined used_gprs content".to_owned(),
-                ));
-            }
-            self.state.stack_values.push(content);
-        }
 
         // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
         if !used_simds.is_empty() {
             used_stack += self.machine.push_used_simd(&used_simds)?;
-
-            for r in used_simds.iter().rev() {
-                let content =
-                    self.state.register_values[self.machine.index_from_simd(*r).0].clone();
-                if content == MachineValue::Undefined {
-                    return Err(CompileError::Codegen(
-                        "emit_call_native: Undefined used_simds content".to_owned(),
-                    ));
-                }
-                self.state.stack_values.push(content);
-            }
         }
         // mark the GPR used for Call as used
         self.machine
-            .reserve_unused_temp_gpr(self.machine.get_grp_for_call());
+            .reserve_unused_temp_gpr(self.machine.get_gpr_for_call());
 
         let calling_convention = self.calling_convention;
 
@@ -838,13 +701,25 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
 
         let mut stack_offset: usize = 0;
-        let mut args: Vec<Location<M::GPR, M::SIMD>> = vec![];
-        let mut pushed_args: usize = 0;
-        // Calculate stack offset.
-        for (i, _param) in params.iter().enumerate() {
+        // Allocate space for return values relative to SP (the allocation happens in reverse order, thus start with return slots).
+        let mut return_args = Vec::with_capacity(return_value_sizes.len());
+        for i in 0..return_value_sizes.len() {
+            return_args.push(self.machine.get_return_value_location(
+                i,
+                &mut stack_offset,
+                self.calling_convention,
+            ));
+        }
+
+        // Allocate space for arguments relative to SP.
+        let mut args = Vec::with_capacity(params.len());
+        for (i, param_size) in param_sizes.iter().enumerate() {
             args.push(self.machine.get_param_location(
-                1 + i,
-                params_size[i],
+                match call_type {
+                    NativeCallType::IncludeVMCtxArgument => 1,
+                    NativeCallType::Unreachable => 0,
+                } + i,
+                *param_size,
                 &mut stack_offset,
                 calling_convention,
             ));
@@ -852,59 +727,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Align stack to 16 bytes.
         let stack_unaligned =
-            (self.machine.round_stack_adjust(self.get_stack_offset()) + used_stack + stack_offset)
-                % 16;
+            (self.machine.round_stack_adjust(self.stack_offset) + used_stack + stack_offset) % 16;
         if stack_unaligned != 0 {
             stack_offset += 16 - stack_unaligned;
         }
-        self.machine.adjust_stack(stack_offset as u32)?;
+        self.machine.extend_stack(stack_offset as u32)?;
 
         #[allow(clippy::type_complexity)]
         let mut call_movs: Vec<(Location<M::GPR, M::SIMD>, M::GPR)> = vec![];
         // Prepare register & stack parameters.
-        for (i, param) in params.iter().enumerate().rev() {
+        for (i, (param, _)) in params.iter().enumerate().rev() {
             let loc = args[i];
             match loc {
                 Location::GPR(x) => {
                     call_movs.push((*param, x));
                 }
                 Location::Memory(_, _) => {
-                    pushed_args += 1;
-                    match *param {
-                        Location::GPR(x) => {
-                            let content = self.state.register_values
-                                [self.machine.index_from_gpr(x).0]
-                                .clone();
-                            // FIXME: There might be some corner cases (release -> emit_call_native -> acquire?) that cause this assertion to fail.
-                            // Hopefully nothing would be incorrect at runtime.
-
-                            //assert!(content != MachineValue::Undefined);
-                            self.state.stack_values.push(content);
-                        }
-                        Location::SIMD(x) => {
-                            let content = self.state.register_values
-                                [self.machine.index_from_simd(x).0]
-                                .clone();
-                            //assert!(content != MachineValue::Undefined);
-                            self.state.stack_values.push(content);
-                        }
-                        Location::Memory(reg, offset) => {
-                            if reg != self.machine.local_pointer() {
-                                return Err(CompileError::Codegen(
-                                    "emit_call_native loc param: unreachable code".to_owned(),
-                                ));
-                            }
-                            self.state
-                                .stack_values
-                                .push(MachineValue::CopyStackBPRelative(offset));
-                            // TODO: Read value at this offset
-                        }
-                        _ => {
-                            self.state.stack_values.push(MachineValue::Undefined);
-                        }
-                    }
                     self.machine
-                        .move_location_for_native(params_size[i], *param, loc)?;
+                        .move_location_for_native(param_sizes[i], *param, loc)?;
                 }
                 _ => {
                     return Err(CompileError::Codegen(
@@ -925,107 +765,66 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Put vmctx as the first parameter.
-        self.machine.move_location(
-            Size::S64,
-            Location::GPR(self.machine.get_vmctx_reg()),
-            self.machine
-                .get_simple_param_location(0, calling_convention),
-        )?; // vmctx
+        if matches!(call_type, NativeCallType::IncludeVMCtxArgument) {
+            // Put vmctx as the first parameter.
+            self.machine.move_location(
+                Size::S64,
+                Location::GPR(self.machine.get_vmctx_reg()),
+                Location::GPR(
+                    self.machine
+                        .get_simple_param_location(0, calling_convention),
+                ),
+            )?; // vmctx
+        }
 
         if stack_padding > 0 {
-            self.machine.adjust_stack(stack_padding as u32)?;
+            self.machine.extend_stack(stack_padding as u32)?;
         }
         // release the GPR used for call
-        self.machine.release_gpr(self.machine.get_grp_for_call());
-        cb(self)?;
+        self.machine.release_gpr(self.machine.get_gpr_for_call());
 
-        // Offset needs to be after the 'call' instruction.
-        // TODO: Now the state information is also inserted for internal calls (e.g. MemoryGrow). Is this expected?
-        {
-            let state_diff_id = self.get_state_diff();
-            let offset = self.machine.assembler_get_offset().0;
-            self.fsm.call_offsets.insert(
-                offset,
-                OffsetInfo {
-                    end_offset: offset + 1,
-                    activate_offset: offset,
-                    diff_id: state_diff_id,
-                },
+        let begin = self.machine.assembler_get_offset().0;
+        cb(self)?;
+        if matches!(call_type, NativeCallType::Unreachable) {
+            let end = self.machine.assembler_get_offset().0;
+            self.machine.mark_address_range_with_trap_code(
+                TrapCode::UnreachableCodeReached,
+                begin,
+                end,
             );
-            self.fsm
-                .wasm_offset_to_target_offset
-                .insert(self.state.wasm_inst_offset, SuspendOffset::Call(offset));
+        }
+
+        // Take the returned values from the fn call.
+        for (i, &return_type) in return_value_sizes.iter().enumerate() {
+            self.machine.move_location_for_native(
+                return_type,
+                return_args[i],
+                return_values[i].0,
+            )?;
         }
 
         // Restore stack.
         if stack_offset + stack_padding > 0 {
-            self.machine.restore_stack(
-                self.machine
-                    .round_stack_adjust(stack_offset + stack_padding) as u32,
-            )?;
-            if (stack_offset % 8) != 0 {
-                return Err(CompileError::Codegen(
-                    "emit_call_native: Bad restoring stack alignement".to_owned(),
-                ));
-            }
-            for _ in 0..pushed_args {
-                self.state
-                    .stack_values
-                    .pop()
-                    .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
-            }
+            self.machine
+                .truncate_stack((stack_offset + stack_padding) as u32)?;
         }
 
         // Restore SIMDs.
         if !used_simds.is_empty() {
             self.machine.pop_used_simd(&used_simds)?;
-            for _ in 0..used_simds.len() {
-                self.state
-                    .stack_values
-                    .pop()
-                    .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
-            }
         }
 
         // Restore GPRs.
         self.machine.pop_used_gpr(&used_gprs)?;
-        for _ in used_gprs.iter().rev() {
-            self.state
-                .stack_values
-                .pop()
-                .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
-        }
 
-        if self
-            .state
-            .stack_values
-            .pop()
-            .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?
-            != MachineValue::ExplicitShadow
-        {
-            return Err(CompileError::Codegen(
-                "emit_call_native: Popped value is not ExplicitShadow".to_owned(),
-            ));
-        }
-        Ok(())
-    }
+        // We are re-using the params for the return values, thus release just the chunk
+        // we're not planning to use!
+        let params_to_release =
+            &stack_params[cmp::min(stack_params.len(), return_value_sizes.len())..];
+        self.release_stack_locations(params_to_release)?;
 
-    /// Emits a Native ABI call sequence, specialized for labels as the call target.
-    fn _emit_call_native_label<
-        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
-        J: Iterator<Item = WpType>,
-    >(
-        &mut self,
-        label: Label,
-        params: I,
-        params_type: J,
-    ) -> Result<(), CompileError> {
-        self.emit_call_native(
-            |this| this.machine.emit_call_label(label),
-            params,
-            params_type,
-        )?;
+        self.value_stack.extend(return_values);
+
         Ok(())
     }
 
@@ -1058,21 +857,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         )
     }
 
-    pub fn get_state_diff(&mut self) -> usize {
-        if !self.track_state {
-            return usize::MAX;
-        }
-        let last_frame = self.control_stack.last_mut().unwrap();
-        let mut diff = self.state.diff(&last_frame.state);
-        diff.last = Some(last_frame.state_diff_id);
-        let id = self.fsm.diffs.len();
-        last_frame.state = self.state.clone();
-        last_frame.state_diff_id = id;
-        self.fsm.diffs.push(diff);
-        id
-    }
-
     fn emit_head(&mut self) -> Result<(), CompileError> {
+        self.add_assembly_comment(AssemblyComment::FunctionPrologue);
         self.machine.emit_function_prolog()?;
 
         // Initialize locals.
@@ -1082,32 +868,32 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.calling_convention,
         )?;
 
-        // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
-        self.state.register_values[self.machine.index_from_gpr(self.machine.get_vmctx_reg()).0] =
-            MachineValue::Vmctx;
-
-        // TODO: Explicit stack check is not supported for now.
-        let diff = self.state.diff(&self.machine.new_machine_state());
-        let state_diff_id = self.fsm.diffs.len();
-        self.fsm.diffs.push(diff);
-
         // simulate "red zone" if not supported by the platform
-        self.machine.adjust_stack(32)?;
+        self.add_assembly_comment(AssemblyComment::RedZone);
+        self.machine.extend_stack(32)?;
+
+        let return_types: SmallVec<_> = self
+            .signature
+            .results()
+            .iter()
+            .map(type_to_wp_type)
+            .collect();
+
+        // Push return value slots for the function return on the stack.
+        self.value_stack.extend((0..return_types.len()).map(|i| {
+            (
+                self.machine
+                    .get_call_return_value_location(i, self.calling_convention),
+                CanonicalizeType::None,
+            )
+        }));
 
         self.control_stack.push(ControlFrame {
+            state: ControlState::Function,
             label: self.machine.get_label(),
-            loop_like: false,
-            if_else: IfElseState::None,
-            returns: self
-                .signature
-                .results()
-                .iter()
-                .map(|&x| type_to_wp_type(x))
-                .collect(),
-            value_stack_depth: 0,
-            fp_stack_depth: 0,
-            state: self.state.clone(),
-            state_diff_id,
+            value_stack_depth: return_types.len(),
+            param_types: smallvec![],
+            return_types,
         });
 
         // TODO: Full preemption by explicit signal checking
@@ -1115,12 +901,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // We insert set StackOverflow as the default trap that can happen
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
+        self.add_assembly_comment(AssemblyComment::FunctionBody);
 
-        if self.state.wasm_inst_offset != usize::MAX {
-            return Err(CompileError::Codegen(
-                "emit_head: wasm_inst_offset not usize::MAX".to_owned(),
-            ));
-        }
         Ok(())
     }
 
@@ -1140,11 +922,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let sig_index = module.functions[func_index];
         let signature = module.signatures[sig_index].clone();
 
-        let mut local_types: Vec<_> = signature
-            .params()
-            .iter()
-            .map(|&x| type_to_wp_type(x))
-            .collect();
+        let mut local_types: Vec<_> = signature.params().iter().map(type_to_wp_type).collect();
         local_types.extend_from_slice(local_types_excluding_arguments);
 
         let mut machine = machine;
@@ -1157,15 +935,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             bad_signature: machine.get_label(),
             unaligned_atomic: machine.get_label(),
         };
-
-        let fsm = FunctionStateMap::new(
-            machine.new_machine_state(),
-            local_func_index.index() as usize,
-            32,
-            (0..local_types.len())
-                .map(|_| WasmAbstractValue::Runtime)
-                .collect(),
-        );
+        let function_name = module
+            .function_names
+            .get(&func_index)
+            .map(|fname| fname.to_string())
+            .unwrap_or_else(|| format!("function_{}", func_index.as_u32()));
 
         let mut fg = FuncGen {
             module,
@@ -1177,18 +951,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             locals: vec![], // initialization deferred to emit_head
             local_types,
             value_stack: vec![],
-            fp_stack: vec![],
             control_stack: vec![],
-            stack_offset: MachineStackOffset(0),
+            stack_offset: 0,
             save_area_offset: None,
-            state: machine.new_machine_state(),
-            track_state: true,
             machine,
             unreachable_depth: 0,
-            fsm,
+            local_func_index,
             relocations: vec![],
             special_labels,
             calling_convention,
+            function_name,
+            assembly_comments: HashMap::new(),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -1198,12 +971,87 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         !self.control_stack.is_empty()
     }
 
+    /// Moves the top `return_values` items from the value stack into the
+    /// preallocated return slots starting at `value_stack_depth_after`.
+    ///
+    /// Used when completing Block/If/Loop constructs or returning from the
+    /// function. Applies NaN canonicalization when enabled and supported.
+    fn emit_return_values(
+        &mut self,
+        value_stack_depth_after: usize,
+        return_values: usize,
+    ) -> Result<(), CompileError> {
+        for (i, (stack_value, canonicalize)) in self
+            .value_stack
+            .iter()
+            .rev()
+            .take(return_values)
+            .enumerate()
+        {
+            let dst = self.value_stack[value_stack_depth_after - i - 1].0;
+            if let Some(canonicalize_size) = canonicalize.to_size()
+                && self.config.enable_nan_canonicalization
+            {
+                self.machine
+                    .canonicalize_nan(canonicalize_size, *stack_value, dst)?;
+            } else {
+                self.machine
+                    .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Similar to `emit_return_values`, except it stores the `return_values` items into the slots
+    /// preallocated for parameters of a loop.
+    fn emit_loop_params_store(
+        &mut self,
+        value_stack_depth_after: usize,
+        param_count: usize,
+    ) -> Result<(), CompileError> {
+        for (i, (stack_value, _)) in self
+            .value_stack
+            .iter()
+            .rev()
+            .take(param_count)
+            .rev()
+            .enumerate()
+        {
+            let dst = self.value_stack[value_stack_depth_after + i].0;
+            self.machine
+                .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
+        }
+
+        Ok(())
+    }
+
+    fn return_types_for_block(&self, block_type: WpTypeOrFuncType) -> SmallVec<[WpType; 1]> {
+        match block_type {
+            WpTypeOrFuncType::Empty => smallvec![],
+            WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+            WpTypeOrFuncType::FuncType(sig_index) => SmallVec::from_iter(
+                self.module.signatures[SignatureIndex::from_u32(sig_index)]
+                    .results()
+                    .iter()
+                    .map(type_to_wp_type),
+            ),
+        }
+    }
+
+    fn param_types_for_block(&self, block_type: WpTypeOrFuncType) -> SmallVec<[WpType; 8]> {
+        match block_type {
+            WpTypeOrFuncType::Empty | WpTypeOrFuncType::Type(_) => smallvec![],
+            WpTypeOrFuncType::FuncType(sig_index) => SmallVec::from_iter(
+                self.module.signatures[SignatureIndex::from_u32(sig_index)]
+                    .params()
+                    .iter()
+                    .map(type_to_wp_type),
+            ),
+        }
+    }
+
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
-        assert!(self.fp_stack.len() <= self.value_stack.len());
-
-        self.state.wasm_inst_offset = self.state.wasm_inst_offset.wrapping_add(1);
-
-        //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
 
         if self.unreachable_depth > 0 {
@@ -1218,12 +1066,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 Operator::Else => {
                     // We are in a reachable true branch
-                    if self.unreachable_depth == 1 {
-                        if let Some(IfElseState::If(_)) =
-                            self.control_stack.last().map(|x| x.if_else)
-                        {
-                            self.unreachable_depth -= 1;
-                        }
+                    if self.unreachable_depth == 1
+                        && self
+                            .control_stack
+                            .last()
+                            .is_some_and(|frame| matches!(frame.state, ControlState::If { .. }))
+                    {
+                        self.unreachable_depth -= 1;
                     }
                 }
                 _ => {}
@@ -1239,15 +1088,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
 
-                let ty = type_to_wp_type(self.module.globals[global_index].ty);
-                if ty.is_float() {
-                    self.fp_stack.push(FloatValue::new(self.value_stack.len()));
-                }
-                let loc = self.acquire_locations(
-                    &[(ty, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(loc);
+                let ty = type_to_wp_type(&self.module.globals[global_index].ty);
+                let loc = self.acquire_location(&ty)?;
+                self.value_stack.push((loc, CanonicalizeType::None));
 
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
 
@@ -1303,23 +1146,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     )?;
                     Location::Memory(tmp, 0)
                 };
-                let ty = type_to_wp_type(self.module.globals[global_index].ty);
-                let loc = self.pop_value_released()?;
-                if ty.is_float() {
-                    let fp = self.fp_stack.pop1()?;
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                        && fp.canonicalization.is_some()
-                    {
-                        self.machine.canonicalize_nan(
-                            match ty {
-                                WpType::F32 => Size::S32,
-                                WpType::F64 => Size::S64,
-                                _ => codegen_error!("singlepass Operator::GlobalSet unreachable"),
-                            },
-                            loc,
-                            dst,
-                        )?;
+                let (loc, canonicalize) = self.pop_value_released()?;
+                if let Some(canonicalize_size) = canonicalize.to_size() {
+                    if self.config.enable_nan_canonicalization {
+                        self.machine.canonicalize_nan(canonicalize_size, loc, dst)?;
                     } else {
                         self.machine.emit_relaxed_mov(Size::S64, loc, dst)?;
                     }
@@ -1330,34 +1160,21 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::LocalGet { local_index } => {
                 let local_index = local_index as usize;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
+                let ret = self.acquire_location(&WpType::I64)?;
                 self.machine
                     .emit_relaxed_mov(Size::S64, self.locals[local_index], ret)?;
-                self.value_stack.push(ret);
-                if self.local_types[local_index].is_float() {
-                    self.fp_stack
-                        .push(FloatValue::new(self.value_stack.len() - 1));
-                }
+                self.value_stack.push((ret, CanonicalizeType::None));
             }
             Operator::LocalSet { local_index } => {
                 let local_index = local_index as usize;
-                let loc = self.pop_value_released()?;
+                let (loc, canonicalize) = self.pop_value_released()?;
 
-                if self.local_types[local_index].is_float() {
-                    let fp = self.fp_stack.pop1()?;
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                        && fp.canonicalization.is_some()
-                    {
+                if self.local_types[local_index].is_float()
+                    && let Some(canonicalize_size) = canonicalize.to_size()
+                {
+                    if self.config.enable_nan_canonicalization {
                         self.machine.canonicalize_nan(
-                            match self.local_types[local_index] {
-                                WpType::F32 => Size::S32,
-                                WpType::F64 => Size::S64,
-                                _ => codegen_error!("singlepass Operator::LocalSet unreachable"),
-                            },
+                            canonicalize_size,
                             loc,
                             self.locals[local_index],
                         )
@@ -1372,20 +1189,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::LocalTee { local_index } => {
                 let local_index = local_index as usize;
-                let loc = *self.value_stack.last().unwrap();
+                let (loc, canonicalize) = *self.value_stack.last().unwrap();
 
-                if self.local_types[local_index].is_float() {
-                    let fp = self.fp_stack.peek1()?;
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                        && fp.canonicalization.is_some()
-                    {
+                if self.local_types[local_index].is_float()
+                    && let Some(canonicalize_size) = canonicalize.to_size()
+                {
+                    if self.config.enable_nan_canonicalization {
                         self.machine.canonicalize_nan(
-                            match self.local_types[local_index] {
-                                WpType::F32 => Size::S32,
-                                WpType::F64 => Size::S64,
-                                _ => codegen_error!("singlepass Operator::LocalTee unreachable"),
-                            },
+                            canonicalize_size,
                             loc,
                             self.locals[local_index],
                         )
@@ -1399,351 +1210,358 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }?;
             }
             Operator::I32Const { value } => {
-                self.value_stack.push(Location::Imm32(value as u32));
-                self.state
-                    .wasm_stack
-                    .push(WasmAbstractValue::Const(value as u32 as u64));
+                self.value_stack
+                    .push((Location::Imm32(value as u32), CanonicalizeType::None));
             }
             Operator::I32Add => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.emit_binop_add32(loc_a, loc_b, ret)?;
             }
             Operator::I32Sub => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.emit_binop_sub32(loc_a, loc_b, ret)?;
             }
             Operator::I32Mul => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.emit_binop_mul32(loc_a, loc_b, ret)?;
             }
             Operator::I32DivU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
-                let offset = self.machine.emit_binop_udiv32(
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
+                self.machine.emit_binop_udiv32(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I32DivS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
-                let offset = self.machine.emit_binop_sdiv32(
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
+                self.machine.emit_binop_sdiv32(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I32RemU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
-                let offset = self.machine.emit_binop_urem32(
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
+                self.machine.emit_binop_urem32(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I32RemS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
-                let offset = self.machine.emit_binop_srem32(
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
+                self.machine.emit_binop_srem32(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I32And => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.emit_binop_and32(loc_a, loc_b, ret)?;
             }
             Operator::I32Or => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.emit_binop_or32(loc_a, loc_b, ret)?;
             }
             Operator::I32Xor => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.emit_binop_xor32(loc_a, loc_b, ret)?;
             }
             Operator::I32Eq => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_eq(loc_a, loc_b, ret)?;
             }
             Operator::I32Ne => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_ne(loc_a, loc_b, ret)?;
             }
             Operator::I32Eqz => {
-                let loc_a = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
+                let loc_a = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
                 self.machine.i32_cmp_eq(loc_a, Location::Imm32(0), ret)?;
-                self.value_stack.push(ret);
+                self.value_stack.push((ret, CanonicalizeType::None));
             }
             Operator::I32Clz => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.i32_clz(loc, ret)?;
             }
             Operator::I32Ctz => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.i32_ctz(loc, ret)?;
             }
             Operator::I32Popcnt => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.i32_popcnt(loc, ret)?;
             }
             Operator::I32Shl => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_shl(loc_a, loc_b, ret)?;
             }
             Operator::I32ShrU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_shr(loc_a, loc_b, ret)?;
             }
             Operator::I32ShrS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_sar(loc_a, loc_b, ret)?;
             }
             Operator::I32Rotl => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_rol(loc_a, loc_b, ret)?;
             }
             Operator::I32Rotr => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_ror(loc_a, loc_b, ret)?;
             }
             Operator::I32LtU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_lt_u(loc_a, loc_b, ret)?;
             }
             Operator::I32LeU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_le_u(loc_a, loc_b, ret)?;
             }
             Operator::I32GtU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_gt_u(loc_a, loc_b, ret)?;
             }
             Operator::I32GeU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_ge_u(loc_a, loc_b, ret)?;
             }
             Operator::I32LtS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_lt_s(loc_a, loc_b, ret)?;
             }
             Operator::I32LeS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_le_s(loc_a, loc_b, ret)?;
             }
             Operator::I32GtS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_gt_s(loc_a, loc_b, ret)?;
             }
             Operator::I32GeS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.i32_cmp_ge_s(loc_a, loc_b, ret)?;
             }
             Operator::I64Const { value } => {
                 let value = value as u64;
-                self.value_stack.push(Location::Imm64(value));
-                self.state.wasm_stack.push(WasmAbstractValue::Const(value));
+                self.value_stack
+                    .push((Location::Imm64(value), CanonicalizeType::None));
             }
             Operator::I64Add => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.emit_binop_add64(loc_a, loc_b, ret)?;
             }
             Operator::I64Sub => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.emit_binop_sub64(loc_a, loc_b, ret)?;
             }
             Operator::I64Mul => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.emit_binop_mul64(loc_a, loc_b, ret)?;
             }
             Operator::I64DivU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
-                let offset = self.machine.emit_binop_udiv64(
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
+                self.machine.emit_binop_udiv64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I64DivS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
-                let offset = self.machine.emit_binop_sdiv64(
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
+                self.machine.emit_binop_sdiv64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I64RemU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
-                let offset = self.machine.emit_binop_urem64(
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
+                self.machine.emit_binop_urem64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I64RemS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
-                let offset = self.machine.emit_binop_srem64(
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
+                self.machine.emit_binop_srem64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I64And => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.emit_binop_and64(loc_a, loc_b, ret)?;
             }
             Operator::I64Or => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.emit_binop_or64(loc_a, loc_b, ret)?;
             }
             Operator::I64Xor => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.emit_binop_xor64(loc_a, loc_b, ret)?;
             }
             Operator::I64Eq => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_eq(loc_a, loc_b, ret)?;
             }
             Operator::I64Ne => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_ne(loc_a, loc_b, ret)?;
             }
             Operator::I64Eqz => {
-                let loc_a = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
+                let loc_a = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
                 self.machine.i64_cmp_eq(loc_a, Location::Imm64(0), ret)?;
-                self.value_stack.push(ret);
+                self.value_stack.push((ret, CanonicalizeType::None));
             }
             Operator::I64Clz => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.i64_clz(loc, ret)?;
             }
             Operator::I64Ctz => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.i64_ctz(loc, ret)?;
             }
             Operator::I64Popcnt => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.i64_popcnt(loc, ret)?;
             }
             Operator::I64Shl => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_shl(loc_a, loc_b, ret)?;
             }
             Operator::I64ShrU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_shr(loc_a, loc_b, ret)?;
             }
             Operator::I64ShrS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_sar(loc_a, loc_b, ret)?;
             }
             Operator::I64Rotl => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_rol(loc_a, loc_b, ret)?;
             }
             Operator::I64Rotr => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_ror(loc_a, loc_b, ret)?;
             }
             Operator::I64LtU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_lt_u(loc_a, loc_b, ret)?;
             }
             Operator::I64LeU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_le_u(loc_a, loc_b, ret)?;
             }
             Operator::I64GtU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_gt_u(loc_a, loc_b, ret)?;
             }
             Operator::I64GeU => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_ge_u(loc_a, loc_b, ret)?;
             }
             Operator::I64LtS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_lt_s(loc_a, loc_b, ret)?;
             }
             Operator::I64LeS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_le_s(loc_a, loc_b, ret)?;
             }
             Operator::I64GtS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_gt_s(loc_a, loc_b, ret)?;
             }
             Operator::I64GeS => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I64, CanonicalizeType::None)?;
                 self.machine.i64_cmp_ge_s(loc_a, loc_b, ret)?;
             }
             Operator::I64ExtendI32U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.emit_relaxed_mov(Size::S32, loc, ret)?;
 
                 // A 32-bit memory write does not automatically clear the upper 32 bits of a 64-bit word.
@@ -1757,255 +1575,178 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
             }
             Operator::I64ExtendI32S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine
                     .emit_relaxed_sign_extension(Size::S32, loc, Size::S64, ret)?;
             }
             Operator::I32Extend8S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine
                     .emit_relaxed_sign_extension(Size::S8, loc, Size::S32, ret)?;
             }
             Operator::I32Extend16S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine
                     .emit_relaxed_sign_extension(Size::S16, loc, Size::S32, ret)?;
             }
             Operator::I64Extend8S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine
                     .emit_relaxed_sign_extension(Size::S8, loc, Size::S64, ret)?;
             }
             Operator::I64Extend16S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine
                     .emit_relaxed_sign_extension(Size::S16, loc, Size::S64, ret)?;
             }
             Operator::I64Extend32S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine
                     .emit_relaxed_sign_extension(Size::S32, loc, Size::S64, ret)?;
             }
             Operator::I32WrapI64 => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.emit_relaxed_mov(Size::S32, loc, ret)?;
             }
 
             Operator::F32Const { value } => {
-                self.value_stack.push(Location::Imm32(value.bits()));
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1));
-                self.state
-                    .wasm_stack
-                    .push(WasmAbstractValue::Const(value.bits() as u64));
+                self.value_stack
+                    .push((Location::Imm32(value.bits()), CanonicalizeType::None));
             }
             Operator::F32Add => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::F32)?;
                 self.machine.f32_add(loc_a, loc_b, ret)?;
             }
             Operator::F32Sub => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::F32)?;
                 self.machine.f32_sub(loc_a, loc_b, ret)?;
             }
             Operator::F32Mul => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::F32)?;
                 self.machine.f32_mul(loc_a, loc_b, ret)?;
             }
             Operator::F32Div => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::F32)?;
                 self.machine.f32_div(loc_a, loc_b, ret)?;
             }
             Operator::F32Max => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::None)?;
                 self.machine.f32_max(loc_a, loc_b, ret)?;
             }
             Operator::F32Min => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::None)?;
                 self.machine.f32_min(loc_a, loc_b, ret)?;
             }
             Operator::F32Eq => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f32_cmp_eq(loc_a, loc_b, ret)?;
             }
             Operator::F32Ne => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f32_cmp_ne(loc_a, loc_b, ret)?;
             }
             Operator::F32Lt => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f32_cmp_lt(loc_a, loc_b, ret)?;
             }
             Operator::F32Le => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f32_cmp_le(loc_a, loc_b, ret)?;
             }
             Operator::F32Gt => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f32_cmp_gt(loc_a, loc_b, ret)?;
             }
             Operator::F32Ge => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f32_cmp_ge(loc_a, loc_b, ret)?;
             }
             Operator::F32Nearest => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F32));
                 self.machine.f32_nearest(loc, ret)?;
             }
             Operator::F32Floor => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F32));
                 self.machine.f32_floor(loc, ret)?;
             }
             Operator::F32Ceil => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F32));
                 self.machine.f32_ceil(loc, ret)?;
             }
             Operator::F32Trunc => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F32));
                 self.machine.f32_trunc(loc, ret)?;
             }
             Operator::F32Sqrt => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F32));
                 self.machine.f32_sqrt(loc, ret)?;
             }
 
             Operator::F32Copysign => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F32)?;
-
-                let (fp_src1, fp_src2) = self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1));
+                let loc_b = self.pop_value_released()?;
+                let loc_a = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
-                    for (fp, loc, tmp) in [(fp_src1, loc_a, tmp1), (fp_src2, loc_b, tmp2)].iter() {
-                        match fp.canonicalization {
-                            Some(_) => {
-                                self.machine
-                                    .canonicalize_nan(Size::S32, *loc, Location::GPR(*tmp))
-                            }
-                            None => {
-                                self.machine
-                                    .move_location(Size::S32, *loc, Location::GPR(*tmp))
-                            }
-                        }?;
+                if self.config.enable_nan_canonicalization {
+                    for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)] {
+                        if fp.to_size().is_some() {
+                            self.machine
+                                .canonicalize_nan(Size::S32, loc, Location::GPR(tmp))?
+                        } else {
+                            self.machine
+                                .move_location(Size::S32, loc, Location::GPR(tmp))?
+                        }
                     }
                 } else {
                     self.machine
-                        .move_location(Size::S32, loc_a, Location::GPR(tmp1))?;
+                        .move_location(Size::S32, loc_a.0, Location::GPR(tmp1))?;
                     self.machine
-                        .move_location(Size::S32, loc_b, Location::GPR(tmp2))?;
+                        .move_location(Size::S32, loc_b.0, Location::GPR(tmp2))?;
                 }
                 self.machine.emit_i32_copysign(tmp1, tmp2)?;
                 self.machine
@@ -2017,12 +1758,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::F32Abs => {
                 // Preserve canonicalization state.
 
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.f32_abs(loc, ret)?;
             }
@@ -2030,191 +1768,132 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::F32Neg => {
                 // Preserve canonicalization state.
 
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.f32_neg(loc, ret)?;
             }
 
             Operator::F64Const { value } => {
-                self.value_stack.push(Location::Imm64(value.bits()));
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1));
-                self.state
-                    .wasm_stack
-                    .push(WasmAbstractValue::Const(value.bits()));
+                self.value_stack
+                    .push((Location::Imm64(value.bits()), CanonicalizeType::None));
             }
             Operator::F64Add => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::F64)?;
                 self.machine.f64_add(loc_a, loc_b, ret)?;
             }
             Operator::F64Sub => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::F64)?;
                 self.machine.f64_sub(loc_a, loc_b, ret)?;
             }
             Operator::F64Mul => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::F64)?;
                 self.machine.f64_mul(loc_a, loc_b, ret)?;
             }
             Operator::F64Div => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::F64)?;
                 self.machine.f64_div(loc_a, loc_b, ret)?;
             }
             Operator::F64Max => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::None)?;
                 self.machine.f64_max(loc_a, loc_b, ret)?;
             }
             Operator::F64Min => {
-                self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 2));
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::F64, CanonicalizeType::None)?;
                 self.machine.f64_min(loc_a, loc_b, ret)?;
             }
             Operator::F64Eq => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f64_cmp_eq(loc_a, loc_b, ret)?;
             }
             Operator::F64Ne => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f64_cmp_ne(loc_a, loc_b, ret)?;
             }
             Operator::F64Lt => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f64_cmp_lt(loc_a, loc_b, ret)?;
             }
             Operator::F64Le => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f64_cmp_le(loc_a, loc_b, ret)?;
             }
             Operator::F64Gt => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f64_cmp_gt(loc_a, loc_b, ret)?;
             }
             Operator::F64Ge => {
-                self.fp_stack.pop2()?;
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
+                let I2O1 { loc_a, loc_b, ret } =
+                    self.i2o1_prepare(WpType::I32, CanonicalizeType::None)?;
                 self.machine.f64_cmp_ge(loc_a, loc_b, ret)?;
             }
             Operator::F64Nearest => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F64));
                 self.machine.f64_nearest(loc, ret)?;
             }
             Operator::F64Floor => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F64));
                 self.machine.f64_floor(loc, ret)?;
             }
             Operator::F64Ceil => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F64));
                 self.machine.f64_ceil(loc, ret)?;
             }
             Operator::F64Trunc => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F64));
                 self.machine.f64_trunc(loc, ret)?;
             }
             Operator::F64Sqrt => {
-                self.fp_stack.pop1()?;
-                self.fp_stack
-                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::F64));
                 self.machine.f64_sqrt(loc, ret)?;
             }
 
             Operator::F64Copysign => {
-                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64)?;
-
-                let (fp_src1, fp_src2) = self.fp_stack.pop2()?;
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1));
+                let loc_b = self.pop_value_released()?;
+                let loc_a = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
-                    for (fp, loc, tmp) in [(fp_src1, loc_a, tmp1), (fp_src2, loc_b, tmp2)].iter() {
-                        match fp.canonicalization {
-                            Some(_) => {
-                                self.machine
-                                    .canonicalize_nan(Size::S64, *loc, Location::GPR(*tmp))
-                            }
-                            None => {
-                                self.machine
-                                    .move_location(Size::S64, *loc, Location::GPR(*tmp))
-                            }
-                        }?;
+                if self.config.enable_nan_canonicalization {
+                    for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)] {
+                        if fp.to_size().is_some() {
+                            self.machine
+                                .canonicalize_nan(Size::S64, loc, Location::GPR(tmp))?
+                        } else {
+                            self.machine
+                                .move_location(Size::S64, loc, Location::GPR(tmp))?
+                        }
                     }
                 } else {
                     self.machine
-                        .move_location(Size::S64, loc_a, Location::GPR(tmp1))?;
+                        .move_location(Size::S64, loc_a.0, Location::GPR(tmp1))?;
                     self.machine
-                        .move_location(Size::S64, loc_b, Location::GPR(tmp2))?;
+                        .move_location(Size::S64, loc_b.0, Location::GPR(tmp2))?;
                 }
                 self.machine.emit_i64_copysign(tmp1, tmp2)?;
                 self.machine
@@ -2225,66 +1904,41 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
 
             Operator::F64Abs => {
-                // Preserve canonicalization state.
-
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let (loc, canonicalize) = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, canonicalize));
 
                 self.machine.f64_abs(loc, ret)?;
             }
 
             Operator::F64Neg => {
-                // Preserve canonicalization state.
-
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let (loc, canonicalize) = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, canonicalize));
 
                 self.machine.f64_neg(loc, ret)?;
             }
 
             Operator::F64PromoteF32 => {
-                let fp = self.fp_stack.pop1()?;
-                self.fp_stack.push(fp.promote(self.value_stack.len() - 1)?);
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let (loc, canonicalize) = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, canonicalize.promote()?));
                 self.machine.convert_f64_f32(loc, ret)?;
             }
             Operator::F32DemoteF64 => {
-                let fp = self.fp_stack.pop1()?;
-                self.fp_stack.push(fp.demote(self.value_stack.len() - 1)?);
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let (loc, canonicalize) = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, canonicalize.demote()?));
                 self.machine.convert_f32_f64(loc, ret)?;
             }
 
             Operator::I32ReinterpretF32 => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                let fp = self.fp_stack.pop1()?;
+                let (loc, canonicalize) = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
-                if !self.machine.arch_supports_canonicalize_nan()
-                    || !self.config.enable_nan_canonicalization
-                    || fp.canonicalization.is_none()
+                if !self.config.enable_nan_canonicalization
+                    || matches!(canonicalize, CanonicalizeType::None)
                 {
                     if loc != ret {
                         self.machine.emit_relaxed_mov(Size::S32, loc, ret)?;
@@ -2294,14 +1948,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
             }
             Operator::F32ReinterpretI32 => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1));
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 if loc != ret {
                     self.machine.emit_relaxed_mov(Size::S32, loc, ret)?;
@@ -2309,17 +1958,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
 
             Operator::I64ReinterpretF64 => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                let fp = self.fp_stack.pop1()?;
+                let (loc, canonicalize) = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
-                if !self.machine.arch_supports_canonicalize_nan()
-                    || !self.config.enable_nan_canonicalization
-                    || fp.canonicalization.is_none()
+                if !self.config.enable_nan_canonicalization
+                    || matches!(canonicalize, CanonicalizeType::None)
                 {
                     if loc != ret {
                         self.machine.emit_relaxed_mov(Size::S64, loc, ret)?;
@@ -2329,14 +1973,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
             }
             Operator::F64ReinterpretI64 => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1));
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 if loc != ret {
                     self.machine.emit_relaxed_mov(Size::S64, loc, ret)?;
@@ -2344,289 +1983,185 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
 
             Operator::I32TruncF32U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i32_f32(loc, ret, false, false)?;
             }
 
             Operator::I32TruncSatF32U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i32_f32(loc, ret, false, true)?;
             }
 
             Operator::I32TruncF32S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i32_f32(loc, ret, true, false)?;
             }
             Operator::I32TruncSatF32S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i32_f32(loc, ret, true, true)?;
             }
 
             Operator::I64TruncF32S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i64_f32(loc, ret, true, false)?;
             }
 
             Operator::I64TruncSatF32S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i64_f32(loc, ret, true, true)?;
             }
 
             Operator::I64TruncF32U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i64_f32(loc, ret, false, false)?;
             }
             Operator::I64TruncSatF32U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i64_f32(loc, ret, false, true)?;
             }
 
             Operator::I32TruncF64U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i32_f64(loc, ret, false, false)?;
             }
 
             Operator::I32TruncSatF64U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i32_f64(loc, ret, false, true)?;
             }
 
             Operator::I32TruncF64S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i32_f64(loc, ret, true, false)?;
             }
 
             Operator::I32TruncSatF64S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i32_f64(loc, ret, true, true)?;
             }
 
             Operator::I64TruncF64S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i64_f64(loc, ret, true, false)?;
             }
 
             Operator::I64TruncSatF64S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i64_f64(loc, ret, true, true)?;
             }
 
             Operator::I64TruncF64U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i64_f64(loc, ret, false, false)?;
             }
 
             Operator::I64TruncSatF64U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack.pop1()?;
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_i64_f64(loc, ret, false, true)?;
             }
 
             Operator::F32ConvertI32S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f32 never results in NaN.
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_f32_i32(loc, true, ret)?;
             }
             Operator::F32ConvertI32U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f32 never results in NaN.
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_f32_i32(loc, false, ret)?;
             }
             Operator::F32ConvertI64S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f32 never results in NaN.
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_f32_i64(loc, true, ret)?;
             }
             Operator::F32ConvertI64U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f32 never results in NaN.
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_f32_i64(loc, false, ret)?;
             }
 
             Operator::F64ConvertI32S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f64 never results in NaN.
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_f64_i32(loc, true, ret)?;
             }
             Operator::F64ConvertI32U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f64 never results in NaN.
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_f64_i32(loc, false, ret)?;
             }
             Operator::F64ConvertI64S => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f64 never results in NaN.
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_f64_i64(loc, true, ret)?;
             }
             Operator::F64ConvertI64U => {
-                let loc = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f64 never results in NaN.
+                let loc = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 self.machine.convert_f64_i64(loc, false, ret)?;
             }
@@ -2641,36 +2176,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .unwrap();
                 let sig = self.module.signatures.get(sig_index).unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
-                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                    sig.params().iter().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
-                    sig.results().iter().cloned().map(type_to_wp_type).collect();
+                    sig.results().iter().map(type_to_wp_type).collect();
 
                 let params: SmallVec<[_; 8]> = self
                     .value_stack
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
-                self.release_locations_only_regs(&params)?;
-
-                self.release_locations_only_osr_state(params.len())?;
 
                 // Pop arguments off the FP stack and canonicalize them if needed.
                 //
                 // Canonicalization state will be lost across function calls, so early canonicalization
                 // is necessary here.
-                while let Some(fp) = self.fp_stack.last() {
-                    if fp.depth >= self.value_stack.len() {
-                        let index = fp.depth - self.value_stack.len();
-                        if self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                        {
-                            let size = fp.canonicalization.unwrap().to_size();
-                            self.machine
-                                .canonicalize_nan(size, params[index], params[index])?;
+                if self.config.enable_nan_canonicalization {
+                    for (loc, canonicalize) in params.iter() {
+                        if let Some(size) = canonicalize.to_size() {
+                            self.machine.canonicalize_nan(size, *loc, *loc)?;
                         }
-                        self.fp_stack.pop().unwrap();
-                    } else {
-                        break;
                     }
                 }
 
@@ -2698,35 +2221,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
+                    return_types.iter().copied(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&params)?;
-
-                if !return_types.is_empty() {
-                    let ret = self.acquire_locations(
-                        &[(
-                            return_types[0],
-                            MachineValue::WasmStack(self.value_stack.len()),
-                        )],
-                        false,
-                    )?[0];
-                    self.value_stack.push(ret);
-                    if return_types[0].is_float() {
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::SIMD(self.machine.get_simd_for_ret()),
-                            ret,
-                        )?;
-                        self.fp_stack
-                            .push(FloatValue::new(self.value_stack.len() - 1));
-                    } else {
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::GPR(self.machine.get_gpr_for_ret()),
-                            ret,
-                        )?;
-                    }
-                }
             }
             Operator::CallIndirect {
                 type_index,
@@ -2738,36 +2235,26 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let index = SignatureIndex::new(type_index as usize);
                 let sig = self.module.signatures.get(index).unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
-                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                    sig.params().iter().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
-                    sig.results().iter().cloned().map(type_to_wp_type).collect();
+                    sig.results().iter().map(type_to_wp_type).collect();
 
-                let func_index = self.pop_value_released()?;
+                let func_index = self.pop_value_released()?.0;
 
                 let params: SmallVec<[_; 8]> = self
                     .value_stack
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
-                self.release_locations_only_regs(&params)?;
 
                 // Pop arguments off the FP stack and canonicalize them if needed.
                 //
                 // Canonicalization state will be lost across function calls, so early canonicalization
                 // is necessary here.
-                while let Some(fp) = self.fp_stack.last() {
-                    if fp.depth >= self.value_stack.len() {
-                        let index = fp.depth - self.value_stack.len();
-                        if self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                        {
-                            let size = fp.canonicalization.unwrap().to_size();
-                            self.machine
-                                .canonicalize_nan(size, params[index], params[index])?;
+                if self.config.enable_nan_canonicalization {
+                    for (loc, canonicalize) in params.iter() {
+                        if let Some(size) = canonicalize.to_size() {
+                            self.machine.canonicalize_nan(size, *loc, *loc)?;
                         }
-                        self.fp_stack.pop().unwrap();
-                    } else {
-                        break;
                     }
                 }
 
@@ -2821,8 +2308,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::BelowEqual,
                     Size::S32,
-                    func_index,
                     Location::GPR(table_count),
+                    func_index,
                     self.special_labels.table_access_oob,
                 )?;
                 self.machine
@@ -2849,8 +2336,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S64,
-                    Location::Imm32(0),
                     Location::GPR(table_count),
+                    Location::Imm32(0),
                     self.special_labels.indirect_call_null,
                 )?;
                 self.machine.move_location(
@@ -2877,7 +2364,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.release_gpr(table_count);
                 self.machine.release_gpr(table_base);
 
-                let gpr_for_call = self.machine.get_grp_for_call();
+                let gpr_for_call = self.machine.get_gpr_for_call();
                 if table_count != gpr_for_call {
                     self.machine.move_location(
                         Size::S64,
@@ -2885,8 +2372,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::GPR(gpr_for_call),
                     )?;
                 }
-
-                self.release_locations_only_osr_state(params.len())?;
 
                 let vmcaller_checked_anyfunc_func_ptr =
                     self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize;
@@ -2896,163 +2381,140 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.emit_call_native(
                     |this| {
-                        if this.machine.arch_requires_indirect_call_trampoline() {
-                            this.machine
-                                .arch_emit_indirect_call_with_trampoline(Location::Memory(
-                                    gpr_for_call,
-                                    vmcaller_checked_anyfunc_func_ptr as i32,
-                                ))
-                        } else {
-                            let offset = this
-                                .machine
-                                .mark_instruction_with_trap_code(TrapCode::StackOverflow);
+                        let offset = this
+                            .machine
+                            .mark_instruction_with_trap_code(TrapCode::StackOverflow);
 
-                            // We set the context pointer
-                            this.machine.move_location(
-                                Size::S64,
-                                Location::Memory(
-                                    gpr_for_call,
-                                    vmcaller_checked_anyfunc_vmctx as i32,
-                                ),
+                        // We set the context pointer
+                        this.machine.move_location(
+                            Size::S64,
+                            Location::Memory(gpr_for_call, vmcaller_checked_anyfunc_vmctx as i32),
+                            Location::GPR(
                                 this.machine
                                     .get_simple_param_location(0, calling_convention),
-                            )?;
+                            ),
+                        )?;
 
-                            this.machine.emit_call_location(Location::Memory(
-                                gpr_for_call,
-                                vmcaller_checked_anyfunc_func_ptr as i32,
-                            ))?;
-                            this.machine.mark_instruction_address_end(offset);
-                            Ok(())
-                        }
+                        this.machine.emit_call_location(Location::Memory(
+                            gpr_for_call,
+                            vmcaller_checked_anyfunc_func_ptr as i32,
+                        ))?;
+                        this.machine.mark_instruction_address_end(offset);
+                        Ok(())
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
+                    return_types.iter().copied(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&params)?;
-
-                if !return_types.is_empty() {
-                    let ret = self.acquire_locations(
-                        &[(
-                            return_types[0],
-                            MachineValue::WasmStack(self.value_stack.len()),
-                        )],
-                        false,
-                    )?[0];
-                    self.value_stack.push(ret);
-                    if return_types[0].is_float() {
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::SIMD(self.machine.get_simd_for_ret()),
-                            ret,
-                        )?;
-                        self.fp_stack
-                            .push(FloatValue::new(self.value_stack.len() - 1));
-                    } else {
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::GPR(self.machine.get_gpr_for_ret()),
-                            ret,
-                        )?;
-                    }
-                }
             }
             Operator::If { blockty } => {
                 let label_end = self.machine.get_label();
                 let label_else = self.machine.get_label();
 
-                let cond = self.pop_value_released()?;
+                let return_types = self.return_types_for_block(blockty);
+                let param_types = self.param_types_for_block(blockty);
+                self.allocate_return_slots_and_swap(param_types.len() + 1, return_types.len())?;
+
+                let cond = self.pop_value_released()?.0;
+
+                /* We might hit a situation where an Operator::If is missing an Operator::Else. In such a situation,
+                the result value just fallthrough from the If block inputs! However, we don't know the information upfront. */
+                if param_types.len() == return_types.len() {
+                    for (input, return_value) in self
+                        .value_stack
+                        .iter()
+                        .rev()
+                        .take(param_types.len())
+                        .zip(self.value_stack.iter().rev().skip(param_types.len()))
+                    {
+                        self.machine
+                            .emit_relaxed_mov(Size::S64, input.0, return_value.0)?;
+                    }
+                }
 
                 let frame = ControlFrame {
-                    label: label_end,
-                    loop_like: false,
-                    if_else: IfElseState::If(label_else),
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
-                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => {
-                            return Err(CompileError::Codegen(
-                                "If: multi-value returns not yet implemented".to_owned(),
-                            ));
-                        }
+                    state: ControlState::If {
+                        label_else,
+                        inputs: SmallVec::from_iter(
+                            self.value_stack
+                                .iter()
+                                .rev()
+                                .take(param_types.len())
+                                .rev()
+                                .copied(),
+                        ),
                     },
+                    label: label_end,
+                    param_types,
+                    return_types,
                     value_stack_depth: self.value_stack.len(),
-                    fp_stack_depth: self.fp_stack.len(),
-                    state: self.state.clone(),
-                    state_diff_id: self.get_state_diff(),
                 };
                 self.control_stack.push(frame);
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     label_else,
                 )?;
             }
             Operator::Else => {
-                let frame = self.control_stack.last_mut().unwrap();
+                let frame = self.control_stack.last().unwrap();
 
-                if !was_unreachable && !frame.returns.is_empty() {
-                    let first_return = frame.returns[0];
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if first_return.is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                    } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(first_return, canonicalize, loc)?;
+                if !was_unreachable && !frame.return_types.is_empty() {
+                    self.emit_return_values(
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
+                    )?;
                 }
 
                 let frame = &self.control_stack.last_mut().unwrap();
-                let stack_depth = frame.value_stack_depth;
-                let fp_depth = frame.fp_stack_depth;
-                self.release_locations_value(stack_depth)?;
-                self.value_stack.truncate(stack_depth);
-                self.fp_stack.truncate(fp_depth);
+                let locs = self
+                    .value_stack
+                    .drain(frame.value_stack_depth_after()..)
+                    .collect_vec();
+                self.release_locations(&locs)?;
                 let frame = &mut self.control_stack.last_mut().unwrap();
 
-                match frame.if_else {
-                    IfElseState::If(label) => {
-                        self.machine.jmp_unconditionnal(frame.label)?;
-                        self.machine.emit_label(label)?;
-                        frame.if_else = IfElseState::Else;
-                    }
-                    _ => {
-                        return Err(CompileError::Codegen(
-                            "Else: frame.if_else unreachable code".to_owned(),
-                        ));
+                // The Else block must be provided the very same inputs as the previous If block had,
+                // and so we need to copy the already consumed stack values.
+                let ControlState::If {
+                    label_else,
+                    ref inputs,
+                } = frame.state
+                else {
+                    panic!("Operator::Else must be connected to Operator::If statement");
+                };
+                for (input, _) in inputs {
+                    match input {
+                        Location::GPR(x) => {
+                            self.machine.reserve_gpr(*x);
+                        }
+                        Location::SIMD(x) => {
+                            self.machine.reserve_simd(*x);
+                        }
+                        Location::Memory(reg, _) => {
+                            debug_assert_eq!(reg, &self.machine.local_pointer());
+                            self.stack_offset += 8;
+                        }
+                        _ => {}
                     }
                 }
+                self.value_stack.extend(inputs);
+
+                self.machine.jmp_unconditional(frame.label)?;
+                self.machine.emit_label(label_else)?;
+                frame.state = ControlState::Else;
             }
             // `TypedSelect` must be used for extern refs so ref counting should
             // be done with TypedSelect. But otherwise they're the same.
             Operator::TypedSelect { .. } | Operator::Select => {
-                let cond = self.pop_value_released()?;
-                let v_b = self.pop_value_released()?;
-                let v_a = self.pop_value_released()?;
-                let cncl: Option<(Option<CanonicalizeType>, Option<CanonicalizeType>)> =
-                    if self.fp_stack.len() >= 2
-                        && self.fp_stack[self.fp_stack.len() - 2].depth == self.value_stack.len()
-                        && self.fp_stack[self.fp_stack.len() - 1].depth
-                            == self.value_stack.len() + 1
-                    {
-                        let (left, right) = self.fp_stack.pop2()?;
-                        self.fp_stack.push(FloatValue::new(self.value_stack.len()));
-                        Some((left.canonicalization, right.canonicalization))
-                    } else {
-                        None
-                    };
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let cond = self.pop_value_released()?.0;
+                let (v_b, canonicalize_b) = self.pop_value_released()?;
+                let (v_a, canonicalize_a) = self.pop_value_released()?;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
 
                 let end_label = self.machine.get_label();
                 let zero_label = self.machine.get_label();
@@ -3060,86 +2522,90 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     zero_label,
                 )?;
-                match cncl {
-                    Some((Some(fp), _))
-                        if self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization =>
-                    {
-                        self.machine.canonicalize_nan(fp.to_size(), v_a, ret)?;
-                    }
-                    _ => {
-                        if v_a != ret {
-                            self.machine.emit_relaxed_mov(Size::S64, v_a, ret)?;
-                        }
-                    }
+                if self.config.enable_nan_canonicalization
+                    && let Some(size) = canonicalize_a.to_size()
+                {
+                    self.machine.canonicalize_nan(size, v_a, ret)?;
+                } else if v_a != ret {
+                    self.machine.emit_relaxed_mov(Size::S64, v_a, ret)?;
                 }
-                self.machine.jmp_unconditionnal(end_label)?;
+                self.machine.jmp_unconditional(end_label)?;
                 self.machine.emit_label(zero_label)?;
-                match cncl {
-                    Some((_, Some(fp)))
-                        if self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization =>
-                    {
-                        self.machine.canonicalize_nan(fp.to_size(), v_b, ret)?;
-                    }
-                    _ => {
-                        if v_b != ret {
-                            self.machine.emit_relaxed_mov(Size::S64, v_b, ret)?;
-                        }
-                    }
+                if self.config.enable_nan_canonicalization
+                    && let Some(size) = canonicalize_b.to_size()
+                {
+                    self.machine.canonicalize_nan(size, v_b, ret)?;
+                } else if v_b != ret {
+                    self.machine.emit_relaxed_mov(Size::S64, v_b, ret)?;
                 }
                 self.machine.emit_label(end_label)?;
             }
             Operator::Block { blockty } => {
+                let return_types = self.return_types_for_block(blockty);
+                let param_types = self.param_types_for_block(blockty);
+                self.allocate_return_slots_and_swap(param_types.len(), return_types.len())?;
+
                 let frame = ControlFrame {
+                    state: ControlState::Block,
                     label: self.machine.get_label(),
-                    loop_like: false,
-                    if_else: IfElseState::None,
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
-                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => {
-                            return Err(CompileError::Codegen(
-                                "Block: multi-value returns not yet implemented".to_owned(),
-                            ));
-                        }
-                    },
+                    param_types,
+                    return_types,
                     value_stack_depth: self.value_stack.len(),
-                    fp_stack_depth: self.fp_stack.len(),
-                    state: self.state.clone(),
-                    state_diff_id: self.get_state_diff(),
                 };
                 self.control_stack.push(frame);
             }
             Operator::Loop { blockty } => {
                 self.machine.align_for_loop()?;
                 let label = self.machine.get_label();
-                let state_diff_id = self.get_state_diff();
-                let _activate_offset = self.machine.assembler_get_offset().0;
+
+                let return_types = self.return_types_for_block(blockty);
+                let param_types = self.param_types_for_block(blockty);
+                let params_count = param_types.len();
+                // We need extra space for params as we need to implement the PHI operation.
+                self.allocate_return_slots_and_swap(
+                    param_types.len(),
+                    param_types.len() + return_types.len(),
+                )?;
 
                 self.control_stack.push(ControlFrame {
+                    state: ControlState::Loop,
                     label,
-                    loop_like: true,
-                    if_else: IfElseState::None,
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
-                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => {
-                            return Err(CompileError::Codegen(
-                                "Loop: multi-value returns not yet implemented".to_owned(),
-                            ));
-                        }
-                    },
+                    param_types: param_types.clone(),
+                    return_types: return_types.clone(),
                     value_stack_depth: self.value_stack.len(),
-                    fp_stack_depth: self.fp_stack.len(),
-                    state: self.state.clone(),
-                    state_diff_id,
                 });
+
+                // For proper PHI implementation, we must copy pre-loop params to PHI params.
+                let params = self
+                    .value_stack
+                    .drain((self.value_stack.len() - params_count)..)
+                    .collect_vec();
+                for (param, phi_param) in params.iter().rev().zip(self.value_stack.iter().rev()) {
+                    self.machine
+                        .emit_relaxed_mov(Size::S64, param.0, phi_param.0)?;
+                }
+                self.release_locations(&params)?;
+
                 self.machine.emit_label(label)?;
+
+                // Put on the stack PHI inputs for further use.
+                let phi_params = self
+                    .value_stack
+                    .iter()
+                    .rev()
+                    .take(params_count)
+                    .rev()
+                    .copied()
+                    .collect_vec();
+                for (i, phi_param) in phi_params.into_iter().enumerate() {
+                    let loc = self.acquire_location(&param_types[i])?;
+                    self.machine.emit_relaxed_mov(Size::S64, phi_param.0, loc)?;
+                    self.value_stack.push((loc, phi_param.1));
+                }
 
                 // TODO: Re-enable interrupt signal check without branching
             }
@@ -3158,33 +2624,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index]
-                    iter::once(Location::Imm32(memory_index.index() as u32)),
+                    iter::once((
+                        Location::Imm32(memory_index.index() as u32),
+                        CanonicalizeType::None,
+                    )),
                     iter::once(WpType::I64),
-                )?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::I64),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::MemoryInit { data_index, mem } => {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, src, dst])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -3194,21 +2654,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_memory_init_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
-
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, data_index, dst, src, len]
                     [
-                        Location::Imm32(mem),
-                        Location::Imm32(data_index),
+                        (Location::Imm32(mem), CanonicalizeType::None),
+                        (Location::Imm32(data_index), CanonicalizeType::None),
                         dst,
                         src,
                         len,
@@ -3224,8 +2681,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, src, len])?;
             }
             Operator::DataDrop { data_index } => {
                 self.machine.move_location(
@@ -3236,26 +2694,26 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_data_drop_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, data_index]
-                    iter::once(Location::Imm32(data_index)),
+                    iter::once((Location::Imm32(data_index), CanonicalizeType::None)),
                     iter::once(WpType::I64),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
-            Operator::MemoryCopy { dst_mem, src_mem } => {
+            Operator::MemoryCopy { src_mem, .. } => {
                 // ignore until we support multiple memories
-                let _dst = dst_mem;
                 let len = self.value_stack.pop().unwrap();
                 let src_pos = self.value_stack.pop().unwrap();
                 let dst_pos = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, src_pos, dst_pos])?;
 
                 let memory_index = MemoryIndex::new(src_mem as usize);
                 let (memory_copy_index, memory_index) =
@@ -3277,20 +2735,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_copy_index) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
-
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, len]
                     [
-                        Location::Imm32(memory_index.index() as u32),
+                        (
+                            Location::Imm32(memory_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
                         dst_pos,
                         src_pos,
                         len,
@@ -3300,14 +2758,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst_pos, src_pos, len])?;
             }
             Operator::MemoryFill { mem } => {
                 let len = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, val, dst])?;
 
                 let memory_index = MemoryIndex::new(mem as usize);
                 let (memory_fill_index, memory_index) =
@@ -3329,32 +2787,36 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_fill_index) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
-
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, len]
-                    [Location::Imm32(memory_index.index() as u32), dst, val, len]
-                        .iter()
-                        .cloned(),
+                    [
+                        (
+                            Location::Imm32(memory_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
+                        dst,
+                        val,
+                        len,
+                    ]
+                    .iter()
+                    .cloned(),
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, val, len])?;
             }
             Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::new(mem as usize);
                 let param_pages = self.value_stack.pop().unwrap();
-
-                self.release_locations_only_regs(&[param_pages])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -3368,42 +2830,33 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
-
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, val, memory_index]
-                    iter::once(param_pages)
-                        .chain(iter::once(Location::Imm32(memory_index.index() as u32))),
+                    [
+                        param_pages,
+                        (
+                            Location::Imm32(memory_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
+                    ]
+                    .iter()
+                    .cloned(),
                     [WpType::I64, WpType::I64].iter().cloned(),
-                )?;
-
-                self.release_locations_only_stack(&[param_pages])?;
-
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::I64),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::I32Load { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3425,14 +2878,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::F32Load { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1));
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3454,12 +2902,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32Load8U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3481,12 +2926,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32Load8S { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3508,12 +2950,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32Load16U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3535,12 +2974,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32Load16S { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3562,8 +2998,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32Store { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -3585,10 +3021,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::F32Store { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
-                let fp = self.fp_stack.pop1()?;
-                let config_nan_canonicalization = self.config.enable_nan_canonicalization;
+                let (target_value, canonicalize) = self.pop_value_released()?;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -3600,7 +3034,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             target_value,
                             memarg,
                             target_addr,
-                            config_nan_canonicalization && fp.canonicalization.is_some(),
+                            self.config.enable_nan_canonicalization
+                                && !matches!(canonicalize, CanonicalizeType::None),
                             need_check,
                             imported_memories,
                             offset,
@@ -3611,8 +3046,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32Store8 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -3634,8 +3069,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32Store16 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -3657,12 +3092,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Load { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3684,14 +3116,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::F64Load { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.fp_stack
-                    .push(FloatValue::new(self.value_stack.len() - 1));
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::F64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3713,12 +3140,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Load8U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3740,12 +3164,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Load8S { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3767,12 +3188,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Load16U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3794,12 +3212,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Load16S { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3821,12 +3236,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Load32U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3848,12 +3260,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Load32S { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -3875,8 +3284,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Store { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
 
                 self.op_memory(
                     |this,
@@ -3899,10 +3308,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::F64Store { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
-                let fp = self.fp_stack.pop1()?;
-                let config_nan_canonicalization = self.config.enable_nan_canonicalization;
+                let (target_value, canonicalize) = self.pop_value_released()?;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -3914,7 +3321,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             target_value,
                             memarg,
                             target_addr,
-                            config_nan_canonicalization && fp.canonicalization.is_some(),
+                            self.config.enable_nan_canonicalization
+                                && !matches!(canonicalize, CanonicalizeType::None),
                             need_check,
                             imported_memories,
                             offset,
@@ -3925,8 +3333,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Store8 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -3948,8 +3356,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Store16 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -3971,8 +3379,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64Store32 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -3994,109 +3402,109 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::Unreachable => {
-                self.mark_trappable();
-                self.machine
-                    .emit_illegal_op(TrapCode::UnreachableCodeReached)?;
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_raise_trap_index())
+                            as i32,
+                    ),
+                    Location::GPR(self.machine.get_gpr_for_call()),
+                )?;
+
+                self.emit_call_native(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_gpr_for_call())
+                    },
+                    // [trap_code]
+                    [(
+                        Location::Imm32(TrapCode::UnreachableCodeReached as u32),
+                        CanonicalizeType::None,
+                    )]
+                    .iter()
+                    .cloned(),
+                    [WpType::I32].iter().cloned(),
+                    iter::empty(),
+                    NativeCallType::Unreachable,
+                )?;
                 self.unreachable_depth = 1;
             }
             Operator::Return => {
                 let frame = &self.control_stack[0];
-                if !frame.returns.is_empty() {
-                    if frame.returns.len() != 1 {
-                        return Err(CompileError::Codegen(
-                            "Return: incorrect frame.returns".to_owned(),
-                        ));
-                    }
-                    let first_return = frame.returns[0];
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if first_return.is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                    } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(first_return, canonicalize, loc)?;
+                if !frame.return_types.is_empty() {
+                    self.emit_return_values(
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
+                    )?;
                 }
                 let frame = &self.control_stack[0];
-                let frame_depth = frame.value_stack_depth;
+                let frame_depth = frame.value_stack_depth_for_release();
                 let label = frame.label;
-                self.release_locations_keep_state(frame_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.release_stack_locations_keep_stack_offset(frame_depth)?;
+                self.machine.jmp_unconditional(label)?;
                 self.unreachable_depth = 1;
             }
             Operator::Br { relative_depth } => {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.loop_like && !frame.returns.is_empty() {
-                    if frame.returns.len() != 1 {
-                        return Err(CompileError::Codegen(
-                            "Br: incorrect frame.returns".to_owned(),
-                        ));
-                    }
-                    let first_return = frame.returns[0];
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if first_return.is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
+                if !frame.return_types.is_empty() {
+                    if matches!(frame.state, ControlState::Loop) {
+                        // Store into the PHI params of the loop, not to the return values.
+                        self.emit_loop_params_store(
+                            frame.value_stack_depth_after(),
+                            frame.param_types.len(),
+                        )?;
                     } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(first_return, canonicalize, loc)?;
+                        self.emit_return_values(
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
+                        )?;
+                    }
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
-                let frame_depth = frame.value_stack_depth;
+                let frame_depth = frame.value_stack_depth_for_release();
                 let label = frame.label;
 
-                self.release_locations_keep_state(frame_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.release_stack_locations_keep_stack_offset(frame_depth)?;
+                self.machine.jmp_unconditional(label)?;
                 self.unreachable_depth = 1;
             }
             Operator::BrIf { relative_depth } => {
                 let after = self.machine.get_label();
-                let cond = self.pop_value_released()?;
+                let cond = self.pop_value_released()?.0;
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     after,
                 )?;
 
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.loop_like && !frame.returns.is_empty() {
-                    if frame.returns.len() != 1 {
-                        return Err(CompileError::Codegen(
-                            "BrIf: incorrect frame.returns".to_owned(),
-                        ));
-                    }
-
-                    let first_return = frame.returns[0];
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if first_return.is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
+                if !frame.return_types.is_empty() {
+                    if matches!(frame.state, ControlState::Loop) {
+                        // Store into the PHI params of the loop, not to the return values.
+                        self.emit_loop_params_store(
+                            frame.value_stack_depth_after(),
+                            frame.param_types.len(),
+                        )?;
                     } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(first_return, canonicalize, loc)?;
+                        self.emit_return_values(
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
+                        )?;
+                    }
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
-                let stack_depth = frame.value_stack_depth;
+                let stack_depth = frame.value_stack_depth_for_release();
                 let label = frame.label;
-                self.release_locations_keep_state(stack_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.release_stack_locations_keep_stack_offset(stack_depth)?;
+                self.machine.jmp_unconditional(label)?;
 
                 self.machine.emit_label(after)?;
             }
@@ -4106,15 +3514,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .targets()
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|e| CompileError::Codegen(format!("BrTable read_table: {e:?}")))?;
-                let cond = self.pop_value_released()?;
+                let cond = self.pop_value_released()?.0;
                 let table_label = self.machine.get_label();
                 let mut table: Vec<Label> = vec![];
                 let default_br = self.machine.get_label();
                 self.machine.jmp_on_condition(
                     UnsignedCondition::AboveEqual,
                     Size::S32,
-                    Location::Imm32(targets.len() as u32),
                     cond,
+                    Location::Imm32(targets.len() as u32),
                     default_br,
                 )?;
 
@@ -4126,95 +3534,71 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     table.push(label);
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    if !frame.loop_like && !frame.returns.is_empty() {
-                        if frame.returns.len() != 1 {
-                            return Err(CompileError::Codegen(format!(
-                                "BrTable: incorrect frame.returns for {target:?}",
-                            )));
-                        }
-
-                        let first_return = frame.returns[0];
-                        let loc = *self.value_stack.last().unwrap();
-                        let canonicalize = if first_return.is_float() {
-                            let fp = self.fp_stack.peek1()?;
-                            self.machine.arch_supports_canonicalize_nan()
-                                && self.config.enable_nan_canonicalization
-                                && fp.canonicalization.is_some()
+                    if !frame.return_types.is_empty() {
+                        if matches!(frame.state, ControlState::Loop) {
+                            // Store into the PHI params of the loop, not to the return values.
+                            self.emit_loop_params_store(
+                                frame.value_stack_depth_after(),
+                                frame.param_types.len(),
+                            )?;
                         } else {
-                            false
-                        };
-                        self.machine
-                            .emit_function_return_value(first_return, canonicalize, loc)?;
+                            self.emit_return_values(
+                                frame.value_stack_depth_after(),
+                                frame.return_types.len(),
+                            )?;
+                        }
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    let stack_depth = frame.value_stack_depth;
+                    let stack_depth = frame.value_stack_depth_for_release();
                     let label = frame.label;
-                    self.release_locations_keep_state(stack_depth)?;
-                    self.machine.jmp_unconditionnal(label)?;
+                    self.release_stack_locations_keep_stack_offset(stack_depth)?;
+                    self.machine.jmp_unconditional(label)?;
                 }
                 self.machine.emit_label(default_br)?;
 
                 {
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    if !frame.loop_like && !frame.returns.is_empty() {
-                        if frame.returns.len() != 1 {
-                            return Err(CompileError::Codegen(
-                                "BrTable: incorrect frame.returns".to_owned(),
-                            ));
-                        }
-
-                        let first_return = frame.returns[0];
-                        let loc = *self.value_stack.last().unwrap();
-                        let canonicalize = if first_return.is_float() {
-                            let fp = self.fp_stack.peek1()?;
-                            self.machine.arch_supports_canonicalize_nan()
-                                && self.config.enable_nan_canonicalization
-                                && fp.canonicalization.is_some()
+                    if !frame.return_types.is_empty() {
+                        if matches!(frame.state, ControlState::Loop) {
+                            // Store into the PHI params of the loop, not to the return values.
+                            self.emit_loop_params_store(
+                                frame.value_stack_depth_after(),
+                                frame.param_types.len(),
+                            )?;
                         } else {
-                            false
-                        };
-                        self.machine
-                            .emit_function_return_value(first_return, canonicalize, loc)?;
+                            self.emit_return_values(
+                                frame.value_stack_depth_after(),
+                                frame.return_types.len(),
+                            )?;
+                        }
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    let stack_depth = frame.value_stack_depth;
+                    let stack_depth = frame.value_stack_depth_for_release();
                     let label = frame.label;
-                    self.release_locations_keep_state(stack_depth)?;
-                    self.machine.jmp_unconditionnal(label)?;
+                    self.release_stack_locations_keep_stack_offset(stack_depth)?;
+                    self.machine.jmp_unconditional(label)?;
                 }
 
                 self.machine.emit_label(table_label)?;
                 for x in table {
-                    self.machine.jmp_unconditionnal(x)?;
+                    self.machine.jmp_unconditional(x)?;
                 }
                 self.unreachable_depth = 1;
             }
             Operator::Drop => {
                 self.pop_value_released()?;
-                if let Some(x) = self.fp_stack.last() {
-                    if x.depth == self.value_stack.len() {
-                        self.fp_stack.pop1()?;
-                    }
-                }
             }
             Operator::End => {
                 let frame = self.control_stack.pop().unwrap();
 
-                if !was_unreachable && !frame.returns.is_empty() {
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if frame.returns[0].is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                    } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(frame.returns[0], canonicalize, loc)?;
+                if !was_unreachable && !frame.return_types.is_empty() {
+                    self.emit_return_values(
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
+                    )?;
                 }
 
                 if self.control_stack.is_empty() {
@@ -4223,52 +3607,26 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.machine.emit_function_epilog()?;
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
-                    match self.signature.results() {
-                        [x] if *x == Type::F32 || *x == Type::F64 => {
-                            self.machine.emit_function_return_float()?;
-                        }
-                        _ => {}
-                    }
+                    if let Ok(&return_type) = self.signature.results().iter().exactly_one()
+                        && (return_type == Type::F32 || return_type == Type::F64)
+                    {
+                        self.machine.emit_function_return_float()?;
+                    };
                     self.machine.emit_ret()?;
                 } else {
-                    let released = &self.value_stack.clone()[frame.value_stack_depth..];
+                    let released = &self.value_stack.clone()[frame.value_stack_depth_after()..];
                     self.release_locations(released)?;
-                    self.value_stack.truncate(frame.value_stack_depth);
-                    self.fp_stack.truncate(frame.fp_stack_depth);
+                    self.value_stack.truncate(frame.value_stack_depth_after());
 
-                    if !frame.loop_like {
+                    if !matches!(frame.state, ControlState::Loop) {
                         self.machine.emit_label(frame.label)?;
                     }
 
-                    if let IfElseState::If(label) = frame.if_else {
-                        self.machine.emit_label(label)?;
+                    if let ControlState::If { label_else, .. } = frame.state {
+                        self.machine.emit_label(label_else)?;
                     }
 
-                    if !frame.returns.is_empty() {
-                        if frame.returns.len() != 1 {
-                            return Err(CompileError::Codegen(
-                                "End: incorrect frame.returns".to_owned(),
-                            ));
-                        }
-                        let loc = self.acquire_locations(
-                            &[(
-                                frame.returns[0],
-                                MachineValue::WasmStack(self.value_stack.len()),
-                            )],
-                            false,
-                        )?[0];
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::GPR(self.machine.get_gpr_for_ret()),
-                            loc,
-                        )?;
-                        self.value_stack.push(loc);
-                        if frame.returns[0].is_float() {
-                            self.fp_stack
-                                .push(FloatValue::new(self.value_stack.len() - 1));
-                            // we already canonicalized at the `Br*` instruction or here previously.
-                        }
-                    }
+                    // At this point the return values are properly sitting in the value_stack and are properly canonicalized.
                 }
             }
             Operator::AtomicFence => {
@@ -4282,12 +3640,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_memory_fence()?;
             }
             Operator::I32AtomicLoad { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4309,12 +3664,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4336,12 +3688,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicLoad16U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4363,8 +3712,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicStore { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -4386,8 +3735,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicStore8 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -4409,8 +3758,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicStore16 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -4432,12 +3781,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicLoad { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4459,12 +3805,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicLoad8U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4486,12 +3829,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicLoad16U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4513,12 +3853,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicLoad32U { ref memarg } => {
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4540,8 +3877,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicStore { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -4563,8 +3900,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicStore8 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -4586,8 +3923,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicStore16 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -4609,8 +3946,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicStore32 { ref memarg } => {
-                let target_value = self.pop_value_released()?;
-                let target_addr = self.pop_value_released()?;
+                let target_value = self.pop_value_released()?.0;
+                let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
                     |this,
                      need_check,
@@ -4632,13 +3969,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmwAdd { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4661,13 +3995,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmwAdd { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4690,13 +4021,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw8AddU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4719,13 +4047,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw16AddU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4748,13 +4073,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw8AddU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4777,13 +4099,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw16AddU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4806,13 +4125,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw32AddU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4835,13 +4151,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmwSub { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4864,13 +4177,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmwSub { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4893,13 +4203,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw8SubU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4922,13 +4229,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw16SubU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4951,13 +4255,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw8SubU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -4980,13 +4281,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw16SubU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5009,13 +4307,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw32SubU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5038,13 +4333,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmwAnd { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5067,13 +4359,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmwAnd { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5096,13 +4385,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw8AndU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5125,13 +4411,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw16AndU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5154,13 +4437,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw8AndU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5183,13 +4463,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw16AndU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5212,13 +4489,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw32AndU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5241,13 +4515,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmwOr { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5270,13 +4541,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmwOr { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5299,13 +4567,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw8OrU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5328,13 +4593,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw16OrU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5357,13 +4619,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw8OrU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5386,13 +4645,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw16OrU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5415,13 +4671,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw32OrU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5444,13 +4697,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmwXor { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5473,13 +4723,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmwXor { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5502,13 +4749,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw8XorU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5531,13 +4775,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw16XorU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5560,13 +4801,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw8XorU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5589,13 +4827,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw16XorU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5618,13 +4853,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw32XorU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5647,13 +4879,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmwXchg { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5676,13 +4905,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmwXchg { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5705,13 +4931,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw8XchgU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5734,13 +4957,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw16XchgU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5763,13 +4983,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw8XchgU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5792,13 +5009,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw16XchgU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5821,13 +5035,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw32XchgU { ref memarg } => {
-                let loc = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let loc = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5850,14 +5061,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmwCmpxchg { ref memarg } => {
-                let new = self.pop_value_released()?;
-                let cmp = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let new = self.pop_value_released()?.0;
+                let cmp = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5881,14 +5089,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmwCmpxchg { ref memarg } => {
-                let new = self.pop_value_released()?;
-                let cmp = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let new = self.pop_value_released()?.0;
+                let cmp = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5912,14 +5117,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw8CmpxchgU { ref memarg } => {
-                let new = self.pop_value_released()?;
-                let cmp = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let new = self.pop_value_released()?.0;
+                let cmp = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5943,14 +5145,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I32AtomicRmw16CmpxchgU { ref memarg } => {
-                let new = self.pop_value_released()?;
-                let cmp = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let new = self.pop_value_released()?.0;
+                let cmp = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -5974,14 +5173,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw8CmpxchgU { ref memarg } => {
-                let new = self.pop_value_released()?;
-                let cmp = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let new = self.pop_value_released()?.0;
+                let cmp = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -6005,14 +5201,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw16CmpxchgU { ref memarg } => {
-                let new = self.pop_value_released()?;
-                let cmp = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let new = self.pop_value_released()?.0;
+                let cmp = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -6036,14 +5229,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::I64AtomicRmw32CmpxchgU { ref memarg } => {
-                let new = self.pop_value_released()?;
-                let cmp = self.pop_value_released()?;
-                let target = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
+                let new = self.pop_value_released()?.0;
+                let cmp = self.pop_value_released()?.0;
+                let target = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I64)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
                     |this,
                      need_check,
@@ -6068,8 +5258,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
 
             Operator::RefNull { .. } => {
-                self.value_stack.push(Location::Imm64(0));
-                self.state.wasm_stack.push(WasmAbstractValue::Const(0));
+                self.value_stack
+                    .push((Location::Imm64(0), CanonicalizeType::None));
             }
             Operator::RefFunc { function_index } => {
                 self.machine.move_location(
@@ -6080,51 +5270,34 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_func_ref_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
-                // TODO: unclear if we need this? check other new insts with no stack ops
-                //.machine.release_locations_only_osr_state(1);
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, func_index] -> funcref
-                    iter::once(Location::Imm32(function_index as u32)),
+                    iter::once((
+                        Location::Imm32(function_index as u32),
+                        CanonicalizeType::None,
+                    )),
                     iter::once(WpType::I64),
-                )?;
-
-                let ret = self.acquire_locations(
-                    &[(
-                        WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
-                        MachineValue::WasmStack(self.value_stack.len()),
-                    )],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap())),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::RefIsNull => {
-                let loc_a = self.pop_value_released()?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
+                let loc_a = self.pop_value_released()?.0;
+                let ret = self.acquire_location(&WpType::I32)?;
                 self.machine.i64_cmp_eq(loc_a, Location::Imm64(0), ret)?;
-                self.value_stack.push(ret);
+                self.value_stack.push((ret, CanonicalizeType::None));
             }
             Operator::TableSet { table: index } => {
                 let table_index = TableIndex::new(index as _);
                 let value = self.value_stack.pop().unwrap();
                 let index = self.value_stack.pop().unwrap();
-
-                // double check this does what I think it does
-                self.release_locations_only_regs(&[value, index])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -6138,30 +5311,33 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
-                // TODO: should this be 2?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index, elem_index, reftype]
-                    [Location::Imm32(table_index.index() as u32), index, value]
-                        .iter()
-                        .cloned(),
+                    [
+                        (
+                            Location::Imm32(table_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
+                        index,
+                        value,
+                    ]
+                    .iter()
+                    .cloned(),
                     [WpType::I32, WpType::I64, WpType::I64].iter().cloned(),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&[index, value])?;
             }
             Operator::TableGet { table: index } => {
                 let table_index = TableIndex::new(index as _);
                 let index = self.value_stack.pop().unwrap();
-
-                self.release_locations_only_regs(&[index])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -6175,36 +5351,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index, elem_index] -> reftype
-                    [Location::Imm32(table_index.index() as u32), index]
-                        .iter()
-                        .cloned(),
+                    [
+                        (
+                            Location::Imm32(table_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
+                        index,
+                    ]
+                    .iter()
+                    .cloned(),
                     [WpType::I32, WpType::I64].iter().cloned(),
-                )?;
-
-                self.release_locations_only_stack(&[index])?;
-
-                let ret = self.acquire_locations(
-                    &[(
-                        WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
-                        MachineValue::WasmStack(self.value_stack.len()),
-                    )],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap())),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::TableSize { table: index } => {
@@ -6222,35 +5389,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index] -> i32
-                    iter::once(Location::Imm32(table_index.index() as u32)),
+                    iter::once((
+                        Location::Imm32(table_index.index() as u32),
+                        CanonicalizeType::None,
+                    )),
                     iter::once(WpType::I32),
-                )?;
-
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::I32),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::TableGrow { table: index } => {
                 let table_index = TableIndex::new(index as _);
                 let delta = self.value_stack.pop().unwrap();
                 let init_value = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[delta, init_value])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -6264,38 +5424,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
-                // TODO: should this be 2?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, init_value, delta, table_index] -> u32
                     [
                         init_value,
                         delta,
-                        Location::Imm32(table_index.index() as u32),
+                        (
+                            Location::Imm32(table_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
                     ]
                     .iter()
                     .cloned(),
                     [WpType::I64, WpType::I64, WpType::I64].iter().cloned(),
-                )?;
-
-                self.release_locations_only_stack(&[init_value, delta])?;
-
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::I32),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::TableCopy {
@@ -6305,7 +5455,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, src, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -6315,20 +5464,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_copy_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, dst_table_index, src_table_index, dst, src, len]
                     [
-                        Location::Imm32(dst_table),
-                        Location::Imm32(src_table),
+                        (Location::Imm32(dst_table), CanonicalizeType::None),
+                        (Location::Imm32(src_table), CanonicalizeType::None),
                         dest,
                         src,
                         len,
@@ -6344,16 +5491,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&[dest, src, len])?;
             }
 
             Operator::TableFill { table } => {
                 let len = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, val, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -6363,30 +5509,34 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_fill_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index, start_idx, item, len]
-                    [Location::Imm32(table), dest, val, len].iter().cloned(),
+                    [
+                        (Location::Imm32(table), CanonicalizeType::None),
+                        dest,
+                        val,
+                        len,
+                    ]
+                    .iter()
+                    .cloned(),
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&[dest, val, len])?;
             }
             Operator::TableInit { elem_index, table } => {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, src, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -6396,20 +5546,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_init_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index, elem_index, dst, src, len]
                     [
-                        Location::Imm32(table),
-                        Location::Imm32(elem_index),
+                        (Location::Imm32(table), CanonicalizeType::None),
+                        (Location::Imm32(elem_index), CanonicalizeType::None),
                         dest,
                         src,
                         len,
@@ -6425,9 +5573,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&[dest, src, len])?;
             }
             Operator::ElemDrop { elem_index } => {
                 self.machine.move_location(
@@ -6438,26 +5586,25 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_elem_drop_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
-                // TODO: do we need this?
-                //.machine.release_locations_only_osr_state(1);
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, elem_index]
-                    [Location::Imm32(elem_index)].iter().cloned(),
+                    iter::once((Location::Imm32(elem_index), CanonicalizeType::None)),
                     [WpType::I32].iter().cloned(),
+                    iter::empty(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::MemoryAtomicWait32 { ref memarg } => {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[timeout, val, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait32, memory_index) =
@@ -6479,20 +5626,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_atomic_wait32) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
-
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, timeout]
                     [
-                        Location::Imm32(memory_index.index() as u32),
+                        (
+                            Location::Imm32(memory_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
                         dst,
                         val,
                         timeout,
@@ -6502,24 +5649,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I32, WpType::I32, WpType::I64]
                         .iter()
                         .cloned(),
-                )?;
-                self.release_locations_only_stack(&[dst, val, timeout])?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::I32),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::MemoryAtomicWait64 { ref memarg } => {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[timeout, val, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait64, memory_index) =
@@ -6541,20 +5678,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_atomic_wait64) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
-
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, timeout]
                     [
-                        Location::Imm32(memory_index.index() as u32),
+                        (
+                            Location::Imm32(memory_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
                         dst,
                         val,
                         timeout,
@@ -6564,23 +5701,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I32, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
-                )?;
-                self.release_locations_only_stack(&[dst, val, timeout])?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::I32),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::MemoryAtomicNotify { ref memarg } => {
-                let cnt = self.value_stack.pop().unwrap();
+                let _cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[cnt, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_notify, memory_index) =
@@ -6602,33 +5729,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_atomic_notify) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
-
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, timeout]
-                    [Location::Imm32(memory_index.index() as u32), dst]
-                        .iter()
-                        .cloned(),
+                    [
+                        (
+                            Location::Imm32(memory_index.index() as u32),
+                            CanonicalizeType::None,
+                        ),
+                        dst,
+                    ]
+                    .iter()
+                    .cloned(),
                     [WpType::I32, WpType::I32].iter().cloned(),
-                )?;
-                self.release_locations_only_stack(&[dst, cnt])?;
-                let ret = self.acquire_locations(
-                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )?[0];
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
+                    iter::once(WpType::I32),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             _ => {
@@ -6641,10 +5762,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    fn add_assembly_comment(&mut self, comment: AssemblyComment) {
+        // Collect assembly comments only if we're going to emit them.
+        if self.config.callbacks.is_some() {
+            self.assembly_comments
+                .insert(self.machine.get_offset().0, comment);
+        }
+    }
+
     pub fn finalize(
         mut self,
         data: &FunctionBodyData,
+        arch: Architecture,
     ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
+        self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero)?;
@@ -6692,7 +5823,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if let Some(unwind) = unwind {
                     fde = Some(unwind.to_fde(Address::Symbol {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
-                        addend: self.fsm.local_function_id as _,
+                        addend: self.local_func_index.index() as _,
                     }));
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
@@ -6709,8 +5840,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
-        let mut body = self.machine.assembler_finalize()?;
+        let FinalizedAssembly {
+            mut body,
+            assembly_comments,
+        } = self.machine.assembler_finalize(self.assembly_comments)?;
         body.shrink_to_fit();
+
+        if let Some(callbacks) = self.config.callbacks.as_ref() {
+            callbacks.obj_memory_buffer(
+                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &body,
+            );
+            callbacks.asm_memory_buffer(
+                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                arch,
+                &body,
+                assembly_comments,
+            )?;
+        }
 
         Ok((
             CompiledFunction {
@@ -6727,10 +5874,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn sort_call_movs(movs: &mut [(Location<M::GPR, M::SIMD>, M::GPR)]) {
         for i in 0..movs.len() {
             for j in (i + 1)..movs.len() {
-                if let Location::GPR(src_gpr) = movs[j].0 {
-                    if src_gpr == movs[i].1 {
-                        movs.swap(i, j);
-                    }
+                if let Location::GPR(src_gpr) = movs[j].0
+                    && src_gpr == movs[i].1
+                {
+                    movs.swap(i, j);
                 }
             }
         }

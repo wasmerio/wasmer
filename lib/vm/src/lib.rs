@@ -12,9 +12,9 @@
     clippy::unicode_not_nfc,
     clippy::use_self
 )]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
-mod exception_ref;
+mod exception;
 mod export;
 mod extern_ref;
 mod function_env;
@@ -35,7 +35,7 @@ pub mod libcalls;
 
 use std::ptr::NonNull;
 
-pub use crate::exception_ref::{VMExceptionObj, VMExceptionRef};
+pub use crate::exception::{VMExceptionObj, VMExceptionRef};
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};
 pub use crate::function_env::VMFunctionEnvironment;
@@ -52,7 +52,9 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 pub use crate::table::{TableElement, VMTable};
 #[doc(hidden)]
-pub use crate::threadconditions::{ThreadConditions, ThreadConditionsHandle, WaiterError};
+pub use crate::threadconditions::{
+    ExpectedValue, ThreadConditions, ThreadConditionsHandle, WaiterError,
+};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,

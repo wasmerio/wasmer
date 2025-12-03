@@ -29,7 +29,7 @@ use wasmer_types::TrapCode;
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub struct VMConfig {
-    /// Optionnal stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
+    /// Optional stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
     pub wasm_stack_size: Option<usize>,
 }
 
@@ -163,7 +163,7 @@ cfg_if::cfg_if! {
                 // crash while handling the signal, and fall through to the
                 // Breakpad handler by testing handlingSegFault.
                 handler.sa_flags = libc::SA_SIGINFO | libc::SA_NODEFER | libc::SA_ONSTACK;
-                handler.sa_sigaction = trap_handler as usize;
+                handler.sa_sigaction = trap_handler as *const () as usize;
                 libc::sigemptyset(&mut handler.sa_mask);
                 if libc::sigaction(signal, &handler, slot.as_mut_ptr()) != 0 {
                     panic!(
@@ -833,10 +833,10 @@ impl TrapHandlerContext {
             let ctx = &*ptr;
 
             // Check if this trap is handled by a custom trap handler.
-            if let Some(trap_handler) = ctx.custom_trap {
-                if call_handler(&*trap_handler) {
-                    return true;
-                }
+            if let Some(trap_handler) = ctx.custom_trap
+                && call_handler(&*trap_handler)
+            {
+                return true;
             }
 
             (ctx.handle_trap)(

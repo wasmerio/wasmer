@@ -1,10 +1,8 @@
 //! X64 structures.
 
 #![allow(clippy::upper_case_acronyms)]
-use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
-use std::collections::BTreeMap;
 use std::slice::Iter;
 use wasmer_types::{CompileError, Type, target::CallingConvention};
 
@@ -66,16 +64,6 @@ impl From<XMM> for u8 {
 }
 
 impl AbstractReg for GPR {
-    fn is_callee_save(self) -> bool {
-        const IS_CALLEE_SAVE: [bool; 16] = [
-            false, false, false, true, true, true, false, false, false, false, false, false, true,
-            true, true, true,
-        ];
-        IS_CALLEE_SAVE[self as usize]
-    }
-    fn is_reserved(self) -> bool {
-        self == GPR::RSP || self == GPR::RBP || self == GPR::R10 || self == GPR::R15
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -132,16 +120,6 @@ impl AbstractReg for GPR {
 }
 
 impl AbstractReg for XMM {
-    fn is_callee_save(self) -> bool {
-        const IS_CALLEE_SAVE: [bool; 16] = [
-            false, false, false, false, false, false, false, false, true, true, true, true, true,
-            true, true, true,
-        ];
-        IS_CALLEE_SAVE[self as usize]
-    }
-    fn is_reserved(self) -> bool {
-        false
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -207,13 +185,6 @@ pub enum X64Register {
 }
 
 impl CombinedRegister for X64Register {
-    /// Returns the index of the register.
-    fn to_index(&self) -> RegisterIndex {
-        match *self {
-            X64Register::GPR(x) => RegisterIndex(x as usize),
-            X64Register::XMM(x) => RegisterIndex(x as usize + 16),
-        }
-    }
     /// Convert from a GPR register
     fn from_gpr(x: u16) -> Self {
         X64Register::GPR(GPR::from_index(x as usize).unwrap())
@@ -345,16 +316,5 @@ impl ArgumentRegisterAllocator {
         };
 
         Ok(ret)
-    }
-}
-
-/// Create a new `MachineState` with default values.
-pub fn new_machine_state() -> MachineState {
-    MachineState {
-        stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; 16 + 8],
-        prev_frame: BTreeMap::new(),
-        wasm_stack: vec![],
-        wasm_inst_offset: usize::MAX,
     }
 }

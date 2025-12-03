@@ -37,21 +37,22 @@
 
 #![allow(missing_docs)] // For some reason lint fails saying that `LibCall` is not documented, when it actually is
 
-use std::panic;
+use std::{ffi::c_void, panic};
 mod eh;
-use eh::UwExceptionWrapper;
-pub(crate) use eh::WasmerException;
-pub use eh::{wasmer_eh_personality, wasmer_eh_personality2};
 
-use crate::probestack::PROBESTACK;
-use crate::table::{RawTableElement, TableElement};
 use crate::trap::{Trap, TrapCode, raise_lib_trap};
 use crate::vmcontext::VMContext;
+use crate::{
+    InternalStoreHandle,
+    table::{RawTableElement, TableElement},
+};
+use crate::{VMExceptionObj, probestack::PROBESTACK};
 use crate::{VMFuncRef, on_host_stack};
+pub use eh::{throw, wasmer_eh_personality, wasmer_eh_personality2};
 pub use wasmer_types::LibCall;
 use wasmer_types::{
-    DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    TableIndex, Type,
+    DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, RawValue,
+    TableIndex, TagIndex, Type,
 };
 
 /// Implementation of f32.ceil
@@ -712,32 +713,6 @@ pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
     }
 }
 
-/// Implementation for throwing an exception.
-///
-/// # Safety
-///
-/// Calls libunwind to perform unwinding magic.
-#[unsafe(no_mangle)]
-pub unsafe extern "C-unwind" fn wasmer_vm_throw(
-    tag: u32,
-    vmctx: *mut VMContext,
-    data_ptr: usize,
-    data_size: u64,
-) -> ! {
-    unsafe { eh::throw(tag, vmctx, data_ptr, data_size) }
-}
-
-/// Implementation for throwing an exception.
-///
-/// # Safety
-///
-/// Calls libunwind to perform unwinding magic.
-#[cfg_attr(target_os = "windows", allow(unused_unsafe))]
-#[unsafe(no_mangle)]
-pub unsafe extern "C-unwind" fn wasmer_vm_rethrow(exc: *mut UwExceptionWrapper) -> ! {
-    unsafe { eh::rethrow(exc) }
-}
-
 /// (debug) Print an usize.
 #[unsafe(no_mangle)]
 pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
@@ -758,46 +733,58 @@ pub extern "C-unwind" fn wasmer_vm_dbg_str(ptr: usize, len: u32) {
     }
 }
 
-/// Implementation for allocating an exception.
-#[unsafe(no_mangle)]
-pub extern "C-unwind" fn wasmer_vm_alloc_exception(size: usize) -> u64 {
-    Vec::<u8>::with_capacity(size).leak().as_ptr() as usize as u64
-}
-
-/// Implementation for deleting the data of an exception.
+/// Implementation for throwing an exception.
 ///
 /// # Safety
 ///
-/// `exception` must be dereferenceable.
+/// Calls libunwind to perform unwinding magic.
 #[unsafe(no_mangle)]
-pub unsafe extern "C-unwind" fn wasmer_vm_delete_exception(exception: *mut WasmerException) {
-    unsafe {
-        if !exception.is_null() {
-            let size = (*exception).data_size as usize;
-            let data = Vec::<u8>::from_raw_parts((*exception).data_ptr as *mut u8, size, size);
-            std::mem::drop(data);
-        }
-    }
+pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u32) -> ! {
+    let instance = unsafe { (*vmctx).instance() };
+    unsafe { eh::throw(instance.context(), exnref) }
 }
 
-/// Implementation for reading a `WasmerException` from a `UwExceptionWrapper`.
+/// Implementation for allocating an exception. Returns the exnref, i.e. a handle to the
+/// exception within the store.
+///
 /// # Safety
 ///
-/// `exception` must be dereferenceable.
+/// The vmctx pointer must be dereferenceable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C-unwind" fn wasmer_vm_read_exception(
-    exception: *const UwExceptionWrapper,
-) -> *const WasmerException {
+pub unsafe extern "C-unwind" fn wasmer_vm_alloc_exception(vmctx: *mut VMContext, tag: u32) -> u32 {
+    let instance = unsafe { (*vmctx).instance_mut() };
+    let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
+    let exn = VMExceptionObj::new_zeroed(
+        instance.context(),
+        InternalStoreHandle::from_index(unique_tag as usize).unwrap(),
+    );
+    let exnref = InternalStoreHandle::new(instance.context_mut(), exn);
+    exnref.index() as u32
+}
+
+/// Given a VMContext and an exnref (handle to an exception within the store),
+/// returns a pointer to the payload buffer of the underlying VMExceptionObj.
+#[unsafe(no_mangle)]
+pub extern "C-unwind" fn wasmer_vm_read_exnref(
+    vmctx: *mut VMContext,
+    exnref: u32,
+) -> *mut RawValue {
+    let exn = eh::exn_obj_from_exnref(vmctx, exnref);
+    unsafe { (*exn).payload().as_ptr() as *mut RawValue }
+}
+
+/// Given a pointer to a caught exception, return the exnref contained within.
+///
+/// # Safety
+///
+/// `exception` must be a pointer the platform-specific exception type; this is
+/// `UwExceptionWrapper` for gcc.
+#[unsafe(no_mangle)]
+pub unsafe extern "C-unwind" fn wasmer_vm_exception_into_exnref(exception: *mut c_void) -> u32 {
     unsafe {
-        if !exception.is_null() {
-            if let Some(w) = (*exception).cause.downcast_ref() {
-                w as *const WasmerException
-            } else {
-                panic!()
-            }
-        } else {
-            std::ptr::null()
-        }
+        let exnref = eh::read_exnref(exception);
+        eh::delete_exception(exception);
+        exnref
     }
 }
 
@@ -918,7 +905,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait64(
     }
 }
 
-/// Implementation of memory.notfy for locally-defined 32-bit memories.
+/// Implementation of memory.notify for locally-defined 32-bit memories.
 ///
 /// # Safety
 ///
@@ -973,51 +960,58 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
 /// The function pointer to a libcall
 pub fn function_pointer(libcall: LibCall) -> usize {
     match libcall {
-        LibCall::CeilF32 => wasmer_vm_f32_ceil as usize,
-        LibCall::CeilF64 => wasmer_vm_f64_ceil as usize,
-        LibCall::FloorF32 => wasmer_vm_f32_floor as usize,
-        LibCall::FloorF64 => wasmer_vm_f64_floor as usize,
-        LibCall::NearestF32 => wasmer_vm_f32_nearest as usize,
-        LibCall::NearestF64 => wasmer_vm_f64_nearest as usize,
-        LibCall::TruncF32 => wasmer_vm_f32_trunc as usize,
-        LibCall::TruncF64 => wasmer_vm_f64_trunc as usize,
-        LibCall::Memory32Size => wasmer_vm_memory32_size as usize,
-        LibCall::ImportedMemory32Size => wasmer_vm_imported_memory32_size as usize,
-        LibCall::TableCopy => wasmer_vm_table_copy as usize,
-        LibCall::TableInit => wasmer_vm_table_init as usize,
-        LibCall::TableFill => wasmer_vm_table_fill as usize,
-        LibCall::TableSize => wasmer_vm_table_size as usize,
-        LibCall::ImportedTableSize => wasmer_vm_imported_table_size as usize,
-        LibCall::TableGet => wasmer_vm_table_get as usize,
-        LibCall::ImportedTableGet => wasmer_vm_imported_table_get as usize,
-        LibCall::TableSet => wasmer_vm_table_set as usize,
-        LibCall::ImportedTableSet => wasmer_vm_imported_table_set as usize,
-        LibCall::TableGrow => wasmer_vm_table_grow as usize,
-        LibCall::ImportedTableGrow => wasmer_vm_imported_table_grow as usize,
-        LibCall::FuncRef => wasmer_vm_func_ref as usize,
-        LibCall::ElemDrop => wasmer_vm_elem_drop as usize,
-        LibCall::Memory32Copy => wasmer_vm_memory32_copy as usize,
-        LibCall::ImportedMemory32Copy => wasmer_vm_imported_memory32_copy as usize,
-        LibCall::Memory32Fill => wasmer_vm_memory32_fill as usize,
-        LibCall::ImportedMemory32Fill => wasmer_vm_imported_memory32_fill as usize,
-        LibCall::Memory32Init => wasmer_vm_memory32_init as usize,
-        LibCall::DataDrop => wasmer_vm_data_drop as usize,
-        LibCall::Probestack => WASMER_VM_PROBESTACK as usize,
-        LibCall::RaiseTrap => wasmer_vm_raise_trap as usize,
-        LibCall::Memory32AtomicWait32 => wasmer_vm_memory32_atomic_wait32 as usize,
-        LibCall::ImportedMemory32AtomicWait32 => wasmer_vm_imported_memory32_atomic_wait32 as usize,
-        LibCall::Memory32AtomicWait64 => wasmer_vm_memory32_atomic_wait64 as usize,
-        LibCall::ImportedMemory32AtomicWait64 => wasmer_vm_imported_memory32_atomic_wait64 as usize,
-        LibCall::Memory32AtomicNotify => wasmer_vm_memory32_atomic_notify as usize,
-        LibCall::ImportedMemory32AtomicNotify => wasmer_vm_imported_memory32_atomic_notify as usize,
-        LibCall::Throw => wasmer_vm_throw as usize,
-        LibCall::Rethrow => wasmer_vm_rethrow as usize,
-        LibCall::EHPersonality => wasmer_eh_personality as usize,
-        LibCall::EHPersonality2 => wasmer_eh_personality2 as usize,
-        LibCall::AllocException => wasmer_vm_alloc_exception as usize,
-        LibCall::DeleteException => wasmer_vm_delete_exception as usize,
-        LibCall::ReadException => wasmer_vm_read_exception as usize,
-        LibCall::DebugUsize => wasmer_vm_dbg_usize as usize,
-        LibCall::DebugStr => wasmer_vm_dbg_str as usize,
+        LibCall::CeilF32 => wasmer_vm_f32_ceil as *const () as usize,
+        LibCall::CeilF64 => wasmer_vm_f64_ceil as *const () as usize,
+        LibCall::FloorF32 => wasmer_vm_f32_floor as *const () as usize,
+        LibCall::FloorF64 => wasmer_vm_f64_floor as *const () as usize,
+        LibCall::NearestF32 => wasmer_vm_f32_nearest as *const () as usize,
+        LibCall::NearestF64 => wasmer_vm_f64_nearest as *const () as usize,
+        LibCall::TruncF32 => wasmer_vm_f32_trunc as *const () as usize,
+        LibCall::TruncF64 => wasmer_vm_f64_trunc as *const () as usize,
+        LibCall::Memory32Size => wasmer_vm_memory32_size as *const () as usize,
+        LibCall::ImportedMemory32Size => wasmer_vm_imported_memory32_size as *const () as usize,
+        LibCall::TableCopy => wasmer_vm_table_copy as *const () as usize,
+        LibCall::TableInit => wasmer_vm_table_init as *const () as usize,
+        LibCall::TableFill => wasmer_vm_table_fill as *const () as usize,
+        LibCall::TableSize => wasmer_vm_table_size as *const () as usize,
+        LibCall::ImportedTableSize => wasmer_vm_imported_table_size as *const () as usize,
+        LibCall::TableGet => wasmer_vm_table_get as *const () as usize,
+        LibCall::ImportedTableGet => wasmer_vm_imported_table_get as *const () as usize,
+        LibCall::TableSet => wasmer_vm_table_set as *const () as usize,
+        LibCall::ImportedTableSet => wasmer_vm_imported_table_set as *const () as usize,
+        LibCall::TableGrow => wasmer_vm_table_grow as *const () as usize,
+        LibCall::ImportedTableGrow => wasmer_vm_imported_table_grow as *const () as usize,
+        LibCall::FuncRef => wasmer_vm_func_ref as *const () as usize,
+        LibCall::ElemDrop => wasmer_vm_elem_drop as *const () as usize,
+        LibCall::Memory32Copy => wasmer_vm_memory32_copy as *const () as usize,
+        LibCall::ImportedMemory32Copy => wasmer_vm_imported_memory32_copy as *const () as usize,
+        LibCall::Memory32Fill => wasmer_vm_memory32_fill as *const () as usize,
+        LibCall::ImportedMemory32Fill => wasmer_vm_imported_memory32_fill as *const () as usize,
+        LibCall::Memory32Init => wasmer_vm_memory32_init as *const () as usize,
+        LibCall::DataDrop => wasmer_vm_data_drop as *const () as usize,
+        LibCall::Probestack => WASMER_VM_PROBESTACK as *const () as usize,
+        LibCall::RaiseTrap => wasmer_vm_raise_trap as *const () as usize,
+        LibCall::Memory32AtomicWait32 => wasmer_vm_memory32_atomic_wait32 as *const () as usize,
+        LibCall::ImportedMemory32AtomicWait32 => {
+            wasmer_vm_imported_memory32_atomic_wait32 as *const () as usize
+        }
+        LibCall::Memory32AtomicWait64 => wasmer_vm_memory32_atomic_wait64 as *const () as usize,
+        LibCall::ImportedMemory32AtomicWait64 => {
+            wasmer_vm_imported_memory32_atomic_wait64 as *const () as usize
+        }
+        LibCall::Memory32AtomicNotify => wasmer_vm_memory32_atomic_notify as *const () as usize,
+        LibCall::ImportedMemory32AtomicNotify => {
+            wasmer_vm_imported_memory32_atomic_notify as *const () as usize
+        }
+        LibCall::Throw => wasmer_vm_throw as *const () as usize,
+        LibCall::EHPersonality => eh::wasmer_eh_personality as *const () as usize,
+        LibCall::EHPersonality2 => eh::wasmer_eh_personality2 as *const () as usize,
+        LibCall::AllocException => wasmer_vm_alloc_exception as *const () as usize,
+        LibCall::ReadExnRef => wasmer_vm_read_exnref as *const () as usize,
+        LibCall::LibunwindExceptionIntoExnRef => {
+            wasmer_vm_exception_into_exnref as *const () as usize
+        }
+        LibCall::DebugUsize => wasmer_vm_dbg_usize as *const () as usize,
+        LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
     }
 }

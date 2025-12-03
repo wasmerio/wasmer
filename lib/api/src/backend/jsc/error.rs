@@ -1,6 +1,6 @@
 use rusty_jsc::{JSContext, JSObject, JSValue};
 
-use crate::RuntimeError;
+use crate::{RuntimeError, jsc::vm::VMExceptionRef};
 use std::error::Error;
 use std::fmt;
 
@@ -52,6 +52,16 @@ impl Trap {
         }
     }
 
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
+    }
+
     pub(crate) fn into_jsc_value(self, ctx: &JSContext) -> JSValue {
         match self.inner {
             InnerTrap::User(err) => {
@@ -93,7 +103,7 @@ impl std::error::Error for Trap {
 impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "user: {}", e),
+            InnerTrap::User(e) => write!(f, "user: {e}"),
             InnerTrap::Jsc(_value) => write!(f, "jsc: obscure"),
         }
     }

@@ -1,13 +1,51 @@
 //! ARM64 structures.
 
-use crate::{
-    common_decl::{MachineState, MachineValue, RegisterIndex},
-    location::{CombinedRegister, Reg as AbstractReg},
-};
-use std::collections::BTreeMap;
+use crate::location::{CombinedRegister, Reg as AbstractReg};
 use std::slice::Iter;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{CompileError, Type};
+
+/*
+Register definition: https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst#611general-purpose-registers
+
++------+-----------+--------------------------------------------+-------------------+
+| Reg  | ABI Name  | Description                                | Saved by Callee   |
++------+-----------+--------------------------------------------+-------------------+
+| x0   | a0        | argument / return value 0                  | -R                |
+| x1   | a1        | argument / return value 1                  | -R                |
+| x2   | a2        | argument 2                                 | -R                |
+| x3   | a3        | argument 3                                 | -R                |
+| x4   | a4        | argument 4                                 | -R                |
+| x5   | a5        | argument 5                                 | -R                |
+| x6   | a6        | argument 6                                 | -R                |
+| x7   | a7        | argument 7                                 | -R                |
+| x8   | x8 (IP0)  | indirect result / scratch (IP0)            | -R                |
+| x9   | x9 (IP1)  | scratch / intra-proc-call temporary        | -R                |
+| x10  | x10       | scratch / temporary                        | -R                |
+| x11  | x11       | scratch / temporary                        | -R                |
+| x12  | x12       | scratch / temporary                        | -R                |
+| x13  | x13       | scratch / temporary                        | -R                |
+| x14  | x14       | scratch / temporary                        | -R                |
+| x15  | x15       | scratch / temporary                        | -R                |
+| x16  | ip0       | intra-procedure-call scratch (IP0)         | -R                |
+| x17  | ip1       | intra-procedure-call scratch (IP1)         | -R                |
+| x18  | pr        | platform register (varies by OS/platform)  | -                 |
+| x19  | s0        | callee-saved register 0                    | -E                |
+| x20  | s1        | callee-saved register 1                    | -E                |
+| x21  | s2        | callee-saved register 2                    | -E                |
+| x22  | s3        | callee-saved register 3                    | -E                |
+| x23  | s4        | callee-saved register 4                    | -E                |
+| x24  | s5        | callee-saved register 5                    | -E                |
+| x25  | s6        | callee-saved register 6                    | -E                |
+| x26  | s7        | callee-saved register 7                    | -E                |
+| x27  | s8        | callee-saved register 8                    | -E                |
+| x28  | s9        | callee-saved register 9                    | -E                |
+| x29  | fp / s10  | frame pointer / callee-saved register 10   | -E                |
+| x30  | lr        | link register (return address)             | -R                |
+| x31  | sp / wzr  | stack pointer (sp) or zero register (wzr)  | -                 |
++------+-----------+--------------------------------------------+-------------------+
+Legend: -R = caller-saved, -E = callee-saved, - = not saved
+*/
 
 /// General-purpose registers.
 #[repr(u8)]
@@ -101,12 +139,6 @@ impl From<NEON> for u8 {
 }
 
 impl AbstractReg for GPR {
-    fn is_callee_save(self) -> bool {
-        self as usize > 18
-    }
-    fn is_reserved(self) -> bool {
-        !matches!(self.into_index(), 0..=16 | 19..=27)
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -195,12 +227,6 @@ impl AbstractReg for GPR {
 }
 
 impl AbstractReg for NEON {
-    fn is_callee_save(self) -> bool {
-        self as usize > 16
-    }
-    fn is_reserved(self) -> bool {
-        false
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -299,13 +325,6 @@ pub enum ARM64Register {
 }
 
 impl CombinedRegister for ARM64Register {
-    /// Returns the index of the register.
-    fn to_index(&self) -> RegisterIndex {
-        match *self {
-            ARM64Register::GPR(x) => RegisterIndex(x as usize),
-            ARM64Register::NEON(x) => RegisterIndex(x as usize + 64),
-        }
-    }
     /// Convert from a GPR register
     fn from_gpr(x: u16) -> Self {
         ARM64Register::GPR(GPR::from_index(x as usize).unwrap())
@@ -386,16 +405,5 @@ impl ArgumentRegisterAllocator {
         };
 
         Ok(ret)
-    }
-}
-
-/// Create a new `MachineState` with default values.
-pub fn new_machine_state() -> MachineState {
-    MachineState {
-        stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; 32 + 32],
-        prev_frame: BTreeMap::new(),
-        wasm_stack: vec![],
-        wasm_inst_offset: usize::MAX,
     }
 }

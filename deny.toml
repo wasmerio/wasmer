@@ -101,15 +101,14 @@ allow = [
 	"MPL-2.0",
 	"0BSD",
 	"CC0-1.0",
-	"OpenSSL",
 	"BSD-3-Clause",
-	"Unicode-DFS-2016",
-	"Unicode-3.0",
 	# BOOST source license
 	# NOTE: not to be confused with business source license!
 	"BSL-1.0",
 	"Unicode-3.0",
 	"CDLA-Permissive-2.0",
+	"Zlib",
+	"bzip2-1.0.6"
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
@@ -130,7 +129,20 @@ exceptions = [
 # Some crates don't have (easily) machine readable licensing information,
 # adding a clarification entry for it allows you to manually specify the
 # licensing information
-#[[licenses.clarify]]
+[[licenses.clarify]]
+crate = "wasmer-compiler-singlepass"
+expression = "BUSL-1.1"
+license-files = [
+    { path = "LICENSE", hash = 0x11303e40 },
+]
+
+[[licenses.clarify]]
+crate = "wasmer-compiler-llvm"
+expression = "BUSL-1.1"
+license-files = [
+    { path = "LICENSE", hash = 0x79b6d01b },
+]
+
 # The package spec the clarification applies to
 #crate = "ring"
 # The SPDX expression for the license requirements of the crate

@@ -1,4 +1,5 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
+use git_version::git_version;
 
 const WASMER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -6,15 +7,13 @@ const WASMER_VERSION: &str = env!("CARGO_PKG_VERSION");
 fn short_version_string() {
     let version_number = format!("wasmer {WASMER_VERSION}");
 
-    Command::cargo_bin("wasmer")
-        .unwrap()
+    cargo_bin_cmd!("wasmer")
         .arg("--version")
         .assert()
         .success()
         .stdout(predicates::str::contains(&version_number));
 
-    Command::cargo_bin("wasmer")
-        .unwrap()
+    cargo_bin_cmd!("wasmer")
         .arg("-V")
         .assert()
         .success()
@@ -26,12 +25,14 @@ fn long_version_string() {
     let long_version_number = format!(
         "wasmer {} ({} {})",
         env!("CARGO_PKG_VERSION"),
-        env!("WASMER_BUILD_GIT_HASH_SHORT"),
+        git_version!(
+            args = ["--abbrev=8", "--always", "--dirty=-modified", "--exclude=*"],
+            fallback = ""
+        ),
         env!("WASMER_BUILD_DATE")
     );
 
-    Command::cargo_bin("wasmer")
-        .unwrap()
+    cargo_bin_cmd!("wasmer")
         .arg("--version")
         .arg("--verbose")
         .assert()
@@ -39,8 +40,7 @@ fn long_version_string() {
         .stdout(predicates::str::contains(&long_version_number))
         .stdout(predicates::str::contains("binary:"));
 
-    Command::cargo_bin("wasmer")
-        .unwrap()
+    cargo_bin_cmd!("wasmer")
         .arg("-Vv")
         .assert()
         .success()
@@ -52,15 +52,13 @@ fn long_version_string() {
 fn help_text_contains_version() {
     let version_number = format!("wasmer {WASMER_VERSION}");
 
-    Command::cargo_bin("wasmer")
-        .unwrap()
+    cargo_bin_cmd!("wasmer")
         .arg("-h")
         .assert()
         .success()
         .stdout(predicates::str::contains(&version_number));
 
-    Command::cargo_bin("wasmer")
-        .unwrap()
+    cargo_bin_cmd!("wasmer")
         .arg("--help")
         .assert()
         .success()

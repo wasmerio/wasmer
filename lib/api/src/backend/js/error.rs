@@ -3,7 +3,10 @@ use std::error::Error;
 use js_sys::Reflect;
 use wasm_bindgen::{JsValue, prelude::*};
 
-use crate::RuntimeError;
+use crate::{
+    RuntimeError,
+    js::{exception::Exception, vm::VMExceptionRef},
+};
 
 #[derive(Debug)]
 enum InnerTrap {
@@ -50,6 +53,16 @@ impl Trap {
             _ => false,
         }
     }
+
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
+    }
 }
 
 #[wasm_bindgen]
@@ -81,10 +94,10 @@ impl From<JsValue> for RuntimeError {
     fn from(value: JsValue) -> Self {
         // We try to downcast the error and see if it's an instance of Trap
         // instead, so we don't need to re-wrap it.
-        if let Some(obj) = value.dyn_ref() {
-            if let Some(trap) = downcast_from_ptr(obj) {
-                return trap.into();
-            }
+        if let Some(obj) = value.dyn_ref()
+            && let Some(trap) = downcast_from_ptr(obj)
+        {
+            return trap.into();
         }
 
         Self::from(Trap {

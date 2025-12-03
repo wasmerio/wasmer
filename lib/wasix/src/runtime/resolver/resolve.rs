@@ -290,16 +290,16 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
         let pkg = &node.pkg;
 
         // update the entrypoint, if necessary
-        if entrypoint.is_none() {
-            if let Some(entry) = &pkg.entrypoint {
-                tracing::trace!(
-                    entrypoint = entry.as_str(),
-                    parent=%id,
-                    "Inheriting the entrypoint",
-                );
+        if entrypoint.is_none()
+            && let Some(entry) = &pkg.entrypoint
+        {
+            tracing::trace!(
+                entrypoint = entry.as_str(),
+                parent=%id,
+                "Inheriting the entrypoint",
+            );
 
-                entrypoint = Some(entry.clone());
-            }
+            entrypoint = Some(entry.clone());
         }
 
         for cmd in &pkg.commands {
