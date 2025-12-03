@@ -733,7 +733,7 @@ jobs:
 
       - name: Lint C-API
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
         run: make lint-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -742,7 +742,7 @@ jobs:
 
       - name: Test C-API
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
         run: make test-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -752,7 +752,7 @@ jobs:
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
         run: export WASMER_DIR=`pwd`/package && make test-stage-7-capi-integration-tests
         env:
           TARGET: ${{ matrix.metadata.target }}
