@@ -12,6 +12,8 @@ use cranelift_codegen::{
 use cranelift_entity::EntityRef;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
+use std::fs::File;
+use std::io::Write;
 
 use wasmer_compiler::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
@@ -110,24 +112,24 @@ pub fn build_function_lsda<'a>(
 
     let action_table = encode_action_table(&callsite_actions);
     let call_site_table = encode_call_site_table(&sites, &action_table);
-    let (type_table_bytes, type_table_relocs) = type_entries.encode(pointer_bytes);
+    let (type_table_bytes, type_table_relocs) = dbg!(type_entries.encode(pointer_bytes));
 
     let call_site_table_len = call_site_table.len() as u64;
     let mut bytes = Vec::new();
     bytes.push(DW_EH_PE_OMIT); // lpstart encoding omitted (relative to function start)
 
-    if type_entries.is_empty() {
+    if dbg!(&type_entries).is_empty() {
         bytes.push(DW_EH_PE_OMIT);
     } else {
         bytes.push(DW_EH_PE_ABSPTR);
     }
 
     if !type_entries.is_empty() {
-        let class_info_offset = 1 // call-site encoding byte
+        let class_info_offset = 9 // call-site encoding byte
             + uleb128_len(call_site_table_len)
             + call_site_table.len()
             + action_table.bytes.len();
-        write_uleb128(class_info_offset as u64, &mut bytes);
+        write_uleb128(dbg!(class_info_offset) as u64, &mut bytes);
     }
 
     bytes.push(DW_EH_PE_UDATA4);
@@ -229,6 +231,8 @@ pub fn build_lsda_section(
 
             offsets_per_function.push(Some(base));
             if debug_lsda {
+                let mut f = File::create("/tmp/lsda.bin").unwrap();
+                f.write_all(&data.bytes).unwrap();
                 eprintln!(
                     "[wasmer][eh] func #{func_idx} lsda size={} relocations={} bytes={:02x?}",
                     data.bytes.len(),
@@ -275,6 +279,7 @@ enum ActionKind {
     CatchAll,
 }
 
+#[derive(Debug)]
 struct TypeTable {
     entries: Vec<TypeEntry>,
     index_map: HashMap<TypeKey, usize>,

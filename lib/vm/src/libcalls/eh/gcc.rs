@@ -194,6 +194,7 @@ pub unsafe extern "C" fn wasmer_eh_personality2(
     exception_object: *mut UwExceptionWrapper,
 ) -> i32 {
     unsafe {
+        dbg!("wasmer_eh_personality2");
         let debug_eh = true; // TEMP DEBUG
         let Some(current_frame_info) = (*exception_object).current_frame_info.take() else {
             // This should never happen
