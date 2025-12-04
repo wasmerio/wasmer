@@ -177,7 +177,7 @@ tracing-subscriber = { workspace = true }
 wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
-	"cranelift",
+	"llvm",
 ] }
 
 [features]

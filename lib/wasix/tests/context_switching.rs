@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::process::Command;
 use wasmer::Module;
@@ -12,12 +13,37 @@ fn test_with_wasixcc(name: &str) -> Result<(), anyhow::Error> {
             file!().split('/').last().unwrap().trim_end_matches(".rs"),
         ));
     let main_c = test_dir.join(format!("{name}.c"));
+    let main_cpp = test_dir.join(format!("{name}.cpp"));
+    let source = if main_c.exists() {
+        main_c
+    } else if main_cpp.exists() {
+        main_cpp
+    } else {
+        anyhow::bail!("No source file found for context switching test '{name}'");
+    };
+    let is_cpp = source
+        .extension()
+        .and_then(OsStr::to_str)
+        .map(|ext| ext.eq_ignore_ascii_case("cpp"))
+        .unwrap_or(false);
     let main_wasm = test_dir.join(format!("{name}.test.wasm"));
 
     // Compile with wasixcc
-    let mut command = Command::new("wasixcc");
+    let mut command = Command::new(if is_cpp { "wasix++" } else { "wasixcc" });
     command
-        .arg(&main_c)
+        .arg("-iwithsysroot")
+        .arg("/usr/local/include/c++/v1")
+        .arg("-iwithsysroot")
+        .arg("/include/c++/v1")
+        .arg("-iwithsysroot")
+        .arg("/usr/include/c++/v1")
+        .arg("-iwithsysroot")
+        .arg("/usr/local/include")
+        .arg("-iwithsysroot")
+        .arg("/include")
+        .arg("-iwithsysroot")
+        .arg("/usr/include")
+        .arg(&source)
         .arg("-fwasm-exceptions")
         .arg("-o")
         .arg(&main_wasm)
@@ -261,4 +287,16 @@ fn test_mutual_recursion() {
 #[test]
 fn test_three_way_recursion() {
     test_with_wasixcc("three_way_recursion").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_context_exception_dynamic() {
+    test_with_wasixcc("context_exception_dynamic").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_context_exception_to_main() {
+    test_with_wasixcc("context_exception_to_main").unwrap();
 }
