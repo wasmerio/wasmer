@@ -35,5 +35,5 @@ filesystem = []
 blake3-pure = ["blake3/pure"]
 
 [package.metadata.docs.rs]
-features = ["wasmer/sys", "wasmer/compiler"]
+features = ["wasmer/sys", "wasmer/compiler", "wasmer/cranelift"]
 rustc-args = ["--cfg", "docsrs"]

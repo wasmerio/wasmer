@@ -42,5 +42,5 @@ singlepass = ["wasmer/singlepass"]
 llvm = ["wasmer/llvm"]
 
 [package.metadata.docs.rs]
-features = ["wasmer/sys", "wasmer/compiler"]
+features = ["wasmer/sys", "wasmer/cranelift"]
 rustc-args = ["--cfg", "docsrs"]

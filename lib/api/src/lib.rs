@@ -412,31 +412,70 @@
 //! [`wamr`]: https://github.com/bytecodealliance/wasm-micro-runtime
 //! [`wasmi`]: https://github.com/wasmi-labs/wasmi
 
+macro_rules! cfg_compiler {
+    ($($item:item)*) => {
+        $(
+            #[cfg(any(
+                feature = "cranelift",
+                feature = "singlepass",
+                feature = "llvm",
+                feature = "js",
+                feature = "jsc",
+                feature = "wamr",
+                feature = "v8",
+                feature = "wasmi"
+            ))]
+            $item
+        )*
+    };
+}
+
 #[cfg(not(any(
+    feature = "singlepass",
+    feature = "cranelift",
+    feature = "llvm",
+    feature = "wamr",
+    feature = "wasmi",
+    feature = "v8",
+    feature = "js",
+    feature = "jsc"
+)))]
+compile_error!(
+    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `wamr`, `wasmi`, `v8`, `js`, or `jsc`."
+);
+
+#[cfg(all(
     feature = "sys",
+    not(any(feature = "singlepass", feature = "cranelift", feature = "llvm"))
+))]
+compile_error!(
+    "the `sys` feature requires enabling at least one compiler backend: `singlepass`, `cranelift`, or `llvm`."
+);
+
+cfg_compiler! {
+    mod utils;
+    pub use utils::*;
+    pub use entities::memory::{MemoryView, location::MemoryLocation};
+    mod error;
+    pub use error::*;
+    pub use entities::*;
+    mod backend;
+    pub use backend::*;
+    mod vm;
+}
+
+// TODO: cannot be placed into cfg_compiler due to: error: `inner` is ambiguous
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
     feature = "js",
     feature = "jsc",
     feature = "wamr",
     feature = "v8",
     feature = "wasmi"
-)))]
-compile_error!(
-    "One of: `sys`, `js`, `jsc` `wamr`, `wasmi` or `v8` features must be enabled. Please, pick one."
-);
-
-mod utils;
-pub use utils::*;
-
+))]
 mod entities;
-pub use entities::memory::{MemoryView, location::MemoryLocation};
-pub use entities::*;
-
-mod error;
-pub use error::*;
-
-mod backend;
-pub use backend::*;
-mod vm;
 
 pub use wasmer_types::{
     Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
