@@ -63,7 +63,13 @@ pub async fn context_switch(
 
     // Drop the write lock before we suspend ourself, as that would cause a deadlock
     drop(write_lock);
+    tracing::trace!("Suspending context {active_context_id} to switch to {target_context_id}");
 
     // Wait until we are unblocked again
-    wait_for_unblock.map(|v| v.map(|_| Errno::Success)).await
+    let result = wait_for_unblock.map(|v| v.map(|_| Errno::Success)).await;
+    tracing::trace!("Resumed context {active_context_id} after being switched back to");
+    if let Err(e) = &result {
+        tracing::trace!("But it has an error {e:?}");
+    }
+    result
 }
