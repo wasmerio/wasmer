@@ -233,7 +233,7 @@ impl ContextSwitchingEnvironment {
             let result = match unblock_result {
                 Ok(v) => v,
                 Err(canceled) => {
-                    tracing::trace!("Context {own_context_id} was canceled while it was suspended");
+                    tracing::trace!("Canceled context {own_context_id} while it was suspended");
 
                     // When our context was canceled return the `ContextCanceled` error.
                     // It will be handled by the entrypoint wrapper and the context will exit silently.
@@ -335,7 +335,7 @@ impl ContextSwitchingEnvironment {
                 // as there can only be one active context at a time and that one (the main context) just exited.
                 // So there can't be another context in that context-switching environment that could switch to this one.
                 panic!(
-                    "Context {new_context_id} was switched to after the context-switching environment was dropped. This indicates a bug where multiple contexts are active at the same time which should never happen"
+                    "Resumed context {new_context_id} after the context-switching environment was dropped. This indicates a bug where multiple contexts are active at the same time which should never happen"
                 );
             };
             // Set the current context ID
@@ -344,6 +344,8 @@ impl ContextSwitchingEnvironment {
                 .store(new_context_id, Ordering::Relaxed);
             // Drop inner again so we don't hold a strong ref while running the entrypoint, so it cleans itself up properly
             drop(inner);
+
+            tracing::trace!("Resumed context {new_context_id} for the first time");
 
             // Launch the context entrypoint
             let entrypoint_result = entrypoint.await;
@@ -360,7 +362,9 @@ impl ContextSwitchingEnvironment {
             // If it's another error, we resume the main context with the error
             let error = match entrypoint_result.downcast::<ContextCanceled>() {
                 Ok(canceled) => {
-                    tracing::trace!("Context {new_context_id} was successfully destroyed");
+                    tracing::trace!(
+                        "Destroyed context {new_context_id} successfully after it was canceled"
+                    );
                     // We know what we are doing, so we can prevent the panic on drop
                     canceled.defuse();
                     // Context was cancelled, so we can just let it return.
@@ -370,6 +374,8 @@ impl ContextSwitchingEnvironment {
                 }
                 Err(error) => error, // Propagate the runtime error to main
             };
+
+            tracing::trace!("Context {new_context_id} entrypoint returned with {error:?}");
 
             // Retrieve the main context
             let Some(inner) = Weak::upgrade(&weak_inner) else {
@@ -386,9 +392,13 @@ impl ContextSwitchingEnvironment {
                 //
                 // So in conclusion if we reach this point it is a bug in WASIX and should never happen, so we panic here.
                 panic!(
-                    "Context {new_context_id} was switched to after the context-switching environment was dropped. This indicates a bug where multiple contexts are active at the same time which should never happen"
+                    "Context {new_context_id} entrypoint returned after the context-switching environment was dropped. This indicates a bug where multiple contexts are active at the same time which should never happen"
                 );
             };
+
+            tracing::trace!(
+                "Resuming main context {MAIN_CONTEXT_ID} with error from context {new_context_id}"
+            );
             let Some(main_context) = inner.unblockers.write().unwrap().remove(&MAIN_CONTEXT_ID)
             else {
                 // The main context should always be suspended when another context returns or traps with anything but cancellation
@@ -396,14 +406,16 @@ impl ContextSwitchingEnvironment {
                     "The main context should always be suspended when another context returns or traps (with anything but a cancellation)."
                 );
             };
+            drop(inner);
+
             // Resume the main context with the error
             main_context
                 .send(Err(error))
                 .expect("Failed to send error to main context, this should not happen");
-            drop(inner);
         };
 
         // Queue the future onto the thread-local executor
+        tracing::trace!("Spawning context {new_context_id} onto the thread-local executor");
         let spawn_result = self.inner.spawner.spawn_local(context_future);
 
         match spawn_result {
@@ -427,7 +439,7 @@ impl ContextSwitchingEnvironment {
                 )
             }
             Err(ThreadLocalSpawnerError::SpawnError) => {
-                panic!("Failed to spawn_local context {new_context_id}, this should not happen");
+                panic!("Failed to spawn context {new_context_id}, this should not happen");
             }
         }
     }
