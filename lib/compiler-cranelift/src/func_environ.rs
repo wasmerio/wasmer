@@ -991,18 +991,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         (sig, VMBuiltinFunctionIndex::get_imported_throw_index())
     }
 
-    fn get_rethrow_func(&mut self, func: &mut Function) -> (ir::SigRef, VMBuiltinFunctionIndex) {
-        let sig = self.rethrow_sig.unwrap_or_else(|| {
-            let mut signature = Signature::new(self.target_config.default_call_conv);
-            signature.params.push(AbiParam::new(self.pointer_type()));
-            let sig = func.import_signature(signature);
-            self.rethrow_sig = Some(sig);
-            sig
-        });
-        todo!()
-        // (sig, VMBuiltinFunctionIndex::get_imported_rethrow_index())
-    }
-
     fn get_alloc_exception_func(
         &mut self,
         func: &mut Function,
@@ -1880,7 +1868,6 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let mut pos = builder.cursor();
         let (vmctx_value, throw_addr) =
             self.translate_load_builtin_function_address(&mut pos, throw_idx);
-
         let call_args = [vmctx_value, exnref];
 
         assert!(!handlers.is_empty(), "translate_exn_throw without handlers");
@@ -1903,21 +1890,21 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         exnref: ir::Value,
         handlers: &[(Option<ExceptionTag>, ir::Block)],
     ) -> WasmResult<()> {
-        let (rethrow_sig, rethrow_idx) = self.get_rethrow_func(builder.func);
+        let (throw_sig, throw_idx) = self.get_throw_func(builder.func);
         let mut pos = builder.cursor();
-        let (vmctx_value, rethrow_addr) =
-            self.translate_load_builtin_function_address(&mut pos, rethrow_idx);
+        let (vmctx_value, throw_addr) =
+            self.translate_load_builtin_function_address(&mut pos, throw_idx);
+        let call_args = [vmctx_value, exnref];
 
-        let args = [exnref];
         assert!(
             !handlers.is_empty(),
             "translate_exn_throw_ref without handlers"
         );
         let _ = self.call_indirect_with_handlers(
             builder,
-            rethrow_sig,
-            rethrow_addr,
-            &args,
+            throw_sig,
+            throw_addr,
+            &call_args,
             Some(vmctx_value),
             handlers,
             true,
@@ -1955,10 +1942,13 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         builder: &mut FunctionBuilder,
         exnref: ir::Value,
     ) -> WasmResult<()> {
-        let (sig, idx) = self.get_rethrow_func(builder.func);
+        let (throw_sig, throw_idx) = self.get_throw_func(builder.func);
         let mut pos = builder.cursor();
-        let (_, func_addr) = self.translate_load_builtin_function_address(&mut pos, idx);
-        builder.ins().call_indirect(sig, func_addr, &[exnref]);
+        let (vmctx_value, throw_addr) =
+            self.translate_load_builtin_function_address(&mut pos, throw_idx);
+        builder
+            .ins()
+            .call_indirect(throw_sig, throw_addr, &[vmctx_value, exnref]);
         builder.ins().trap(crate::TRAP_UNREACHABLE);
         Ok(())
     }
