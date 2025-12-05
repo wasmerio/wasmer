@@ -953,9 +953,6 @@ jobs:
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
-          - build: macos-x64
-            os: macos-15-intel
-            target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
             os: depot-macos-14
