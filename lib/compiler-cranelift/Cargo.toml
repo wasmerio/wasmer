@@ -23,7 +23,11 @@ wasmer-types = { path = "../types", version = "=6.1.0", default-features = false
 ] }
 
 cranelift-entity = { workspace = true }
-cranelift-codegen = { workspace = true, features = ["x86", "arm64", "riscv64"] }
+cranelift-codegen = { workspace = true, features = [
+	"x86",
+	"arm64",
+	"riscv64",
+] }
 cranelift-frontend = { workspace = true }
 
 itertools.workspace = true
