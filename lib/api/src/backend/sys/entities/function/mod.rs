@@ -13,8 +13,8 @@ use crate::{
     },
 };
 use crate::{
-    BackendFunction, DynamicCallResult, DynamicFunctionResult, FunctionEnv, FunctionEnvMut,
-    FunctionType, HostFunction, RuntimeError, StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
+    BackendFunction, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
+    StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
@@ -55,7 +55,10 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
         let function_type = ty.into();
         let func_ty = function_type.clone();
@@ -132,7 +135,7 @@ impl Function {
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Fut + 'static,
-        Fut: Future<Output = DynamicFunctionResult> + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         let env = FunctionEnv::new(store, ());
         let wrapped = move |_env: AsyncFunctionEnvMut<()>, values: &[Value]| func(values);
@@ -149,7 +152,7 @@ impl Function {
     where
         FT: Into<FunctionType>,
         F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
-        Fut: Future<Output = DynamicFunctionResult> + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         let function_type = ty.into();
         let func_ty = function_type.clone();
@@ -302,7 +305,9 @@ impl Function {
             store,
             &env,
             signature,
-            move |mut env_mut, values| -> Pin<Box<dyn Future<Output = DynamicFunctionResult>>> {
+            move |mut env_mut,
+                  values|
+                  -> Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>> {
                 let sys_env = match env_mut.0 {
                     BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
                     _ => panic!("Not a sys backend"),
@@ -354,7 +359,9 @@ impl Function {
             store,
             env,
             signature,
-            move |mut env_mut, values| -> Pin<Box<dyn Future<Output = DynamicFunctionResult>>> {
+            move |mut env_mut,
+                  values|
+                  -> Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>> {
                 let sys_env = match env_mut.0 {
                     BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
                     _ => panic!("Not a sys backend"),
@@ -573,7 +580,11 @@ impl Function {
         self.ty(store).results().len()
     }
 
-    pub(crate) fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> DynamicCallResult {
+    pub(crate) fn call(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
                 .get(store.objects_mut().as_sys())
@@ -588,11 +599,12 @@ impl Function {
     }
 
     #[cfg(feature = "experimental-async")]
+    #[allow(clippy::type_complexity)]
     pub(crate) fn call_async(
         &self,
         store: &impl AsStoreAsync,
         params: Vec<Value>,
-    ) -> Pin<Box<dyn Future<Output = DynamicCallResult> + 'static>> {
+    ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'static>> {
         let function = self.clone();
         let store = store.store();
         Box::pin(call_function_async(function, store, params))
@@ -604,7 +616,7 @@ impl Function {
         &self,
         store: &mut impl AsStoreMut,
         params: Vec<RawValue>,
-    ) -> DynamicCallResult {
+    ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
                 .get(store.objects_mut().as_sys())
@@ -725,7 +737,7 @@ fn finalize_dynamic_call(
     store_id: StoreId,
     func_ty: FunctionType,
     values_vec: *mut RawValue,
-    result: DynamicFunctionResult,
+    result: Result<Vec<Value>, RuntimeError>,
 ) -> Result<(), RuntimeError> {
     match result {
         Ok(values) => write_dynamic_results(store_id, &func_ty, values, values_vec),
@@ -767,7 +779,7 @@ fn typed_results_to_values<Rets>(
     store: &mut StoreMut,
     func_ty: &FunctionType,
     rets: Rets,
-) -> DynamicFunctionResult
+) -> Result<Vec<Value>, RuntimeError>
 where
     Rets: WasmTypeList,
 {
@@ -784,12 +796,12 @@ where
 pub(crate) enum HostCallOutcome {
     Ready {
         func_ty: FunctionType,
-        result: DynamicFunctionResult,
+        result: Result<Vec<Value>, RuntimeError>,
     },
     #[cfg(feature = "experimental-async")]
     Future {
         func_ty: FunctionType,
-        future: Pin<Box<dyn Future<Output = DynamicFunctionResult>>>,
+        future: Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>>,
     },
 }
 

@@ -29,8 +29,8 @@ use url::Url;
 #[cfg(feature = "sys")]
 use wasmer::sys::NativeEngineExt;
 use wasmer::{
-    AsStoreMut, DeserializeError, DynamicCallResult, Engine, Function, Imports, Instance, Module,
-    RuntimeError, Store, Type, TypedFunction, Value,
+    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, RuntimeError, Store,
+    Type, TypedFunction, Value,
 };
 
 use wasmer_types::{Features, target::Target};
@@ -645,7 +645,7 @@ fn invoke_function(
     store: &mut Store,
     func: &Function,
     args: &[String],
-) -> anyhow::Result<DynamicCallResult> {
+) -> anyhow::Result<Result<Box<[Value]>, RuntimeError>> {
     let func_ty = func.ty(store);
     let required_arguments = func_ty.params().len();
     let provided_arguments = args.len();

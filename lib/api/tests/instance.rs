@@ -61,7 +61,7 @@ fn unit_native_function_env() -> Result<(), String> {
         multiplier: u32,
     }
 
-    fn imported_fn(env: FunctionEnvMut<Env>, args: &[Value]) -> DynamicFunctionResult {
+    fn imported_fn(env: FunctionEnvMut<Env>, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
         let value = env.data().multiplier * args[0].unwrap_i32() as u32;
         Ok(vec![Value::I32(value as _)])
     }

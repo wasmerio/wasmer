@@ -10,9 +10,9 @@ use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
-    DynamicCallResult, DynamicFunctionResult, FromToNativeWasmType, FunctionEnv, FunctionEnvMut,
-    HostFunction, HostFunctionKind, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError,
-    StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind, IntoResult,
+    NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
+    WithoutEnv,
     js::{
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
@@ -59,7 +59,10 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
         let mut store = store.as_store_mut();
         let function_type = ty.into();
@@ -188,14 +191,18 @@ impl Function {
         &self,
         _store: &mut impl AsStoreMut,
         _params: Vec<RawValue>,
-    ) -> DynamicCallResult {
+    ) -> Result<Box<[Value]>, RuntimeError> {
         // There is no optimal call_raw in JS, so we just
         // simply rely the call
         // self.call(store, params)
         unimplemented!();
     }
 
-    pub fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> DynamicCallResult {
+    pub fn call(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         // Annotation is here to prevent spurious IDE warnings.
         let arr = js_sys::Array::new_with_length(params.len() as u32);
 

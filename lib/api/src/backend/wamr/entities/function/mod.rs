@@ -7,10 +7,9 @@ use std::{
 };
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap, DynamicCallResult,
-    DynamicFunctionResult, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult,
-    NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
-    WithoutEnv,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap,
+    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType,
+    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
     vm::{VMExtern, VMExternFunction},
     wamr::{
         bindings::*,
@@ -82,7 +81,10 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
         let fn_ty: FunctionType = ty.into();
         let params = fn_ty.params();
@@ -342,14 +344,18 @@ impl Function {
         &self,
         _store: &mut impl AsStoreMut,
         _params: Vec<RawValue>,
-    ) -> DynamicCallResult {
+    ) -> Result<Box<[Value]>, RuntimeError> {
         // There is no optimal call_raw in JSC, so we just
         // simply rely the call
         // self.call(store, params)
         unimplemented!();
     }
 
-    pub fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> DynamicCallResult {
+    pub fn call(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         // unimplemented!();
         let store_mut = store.as_store_mut();
         // let wasm_func_param_arity(self.handle)
@@ -435,7 +441,10 @@ impl Function {
 
 fn make_fn_callback<F, T: Send + 'static>(func: &F, args: usize) -> CCallback
 where
-    F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+    F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+        + 'static
+        + Send
+        + Sync,
 {
     unsafe extern "C" fn fn_callback<F, T: Send + 'static>(
         env: *mut c_void,
@@ -443,7 +452,10 @@ where
         rets: *mut wasm_val_vec_t,
     ) -> *mut wasm_trap_t
     where
-        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
         let r: *mut (FunctionCallbackEnv<'_, F>) = env as _;
 

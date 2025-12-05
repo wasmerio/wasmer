@@ -9,10 +9,9 @@ use std::panic::{self, AssertUnwindSafe};
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, DynamicCallResult,
-    DynamicFunctionResult, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction,
-    HostFunctionKind, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut,
-    Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, FromToNativeWasmType,
+    FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind, IntoResult, NativeWasmType,
+    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
     jsc::{
         store::{InternalStoreHandle, StoreHandle},
         utils::convert::{AsJsc, jsc_value_to_wasmer},
@@ -58,7 +57,10 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
         let store = store.as_store_mut();
         let context = store.jsc().context();
@@ -180,14 +182,18 @@ impl Function {
         &self,
         _store: &mut impl AsStoreMut,
         _params: Vec<RawValue>,
-    ) -> DynamicCallResult {
+    ) -> Result<Box<[Value]>, RuntimeError> {
         // There is no optimal call_raw in JSC, so we just
         // simply rely the call
         // self.call(store, params)
         unimplemented!();
     }
 
-    pub fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> DynamicCallResult {
+    pub fn call(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         let store_mut = store.as_store_mut();
         let engine = store_mut.engine();
         let context = engine.as_jsc().context();

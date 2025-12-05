@@ -28,12 +28,6 @@ use crate::{
     vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
-/// The return type from dynamic imported functions.
-pub type DynamicFunctionResult = Result<Vec<Value>, RuntimeError>;
-
-/// The return type from dynamically calling Wasm functions.
-pub type DynamicCallResult = Result<Box<[Value]>, RuntimeError>;
-
 /// A WebAssembly `function` instance.
 ///
 /// A function instance is the runtime representation of a function.
@@ -63,7 +57,7 @@ impl Function {
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(&[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
         Self(BackendFunction::new(store, ty, func))
     }
@@ -113,7 +107,10 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
         Self(BackendFunction::new_with_env(store, env, ty, func))
     }
@@ -174,7 +171,7 @@ impl Function {
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Fut + 'static,
-        Fut: Future<Output = DynamicFunctionResult> + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         Self(BackendFunction::new_async(store, ty, func))
     }
@@ -197,7 +194,7 @@ impl Function {
     where
         FT: Into<FunctionType>,
         F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
-        Fut: Future<Output = DynamicFunctionResult> + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         Self(BackendFunction::new_with_env_async(store, env, ty, func))
     }
@@ -326,7 +323,11 @@ impl Function {
     ///
     /// assert_eq!(sum.call(&mut store, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
-    pub fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> DynamicCallResult {
+    pub fn call(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call(store, params)
     }
 
@@ -342,7 +343,7 @@ impl Function {
         &self,
         store: &impl AsStoreAsync,
         params: Vec<Value>,
-    ) -> impl Future<Output = DynamicCallResult> + 'static {
+    ) -> impl Future<Output = Result<Box<[Value]>, RuntimeError>> + 'static {
         self.0.call_async(store, params)
     }
 
@@ -352,7 +353,7 @@ impl Function {
         &self,
         store: &mut impl AsStoreMut,
         params: Vec<RawValue>,
-    ) -> DynamicCallResult {
+    ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call_raw(store, params)
     }
 

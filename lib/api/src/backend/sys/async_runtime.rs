@@ -13,13 +13,12 @@ use corosensei::{Coroutine, CoroutineResult, Yielder};
 
 use super::entities::function::Function as SysFunction;
 use crate::{
-    AsStoreMut, AsStoreRef, DynamicCallResult, DynamicFunctionResult, ForcedStoreInstallGuard,
-    LocalRwLockWriteGuard, RuntimeError, Store, StoreAsync, StoreContext, StoreInner, StoreMut,
-    StoreRef, Value,
+    AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, LocalRwLockWriteGuard, RuntimeError, Store,
+    StoreAsync, StoreContext, StoreInner, StoreMut, StoreRef, Value,
 };
 use wasmer_types::StoreId;
 
-type HostFuture = Pin<Box<dyn Future<Output = DynamicFunctionResult> + 'static>>;
+type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + 'static>>;
 
 pub(crate) fn call_function_async(
     function: SysFunction,
@@ -33,15 +32,16 @@ struct AsyncYield(HostFuture);
 
 enum AsyncResume {
     Start,
-    HostFutureReady(DynamicFunctionResult),
+    HostFutureReady(Result<Vec<Value>, RuntimeError>),
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) struct AsyncCallFuture {
-    coroutine: Option<Coroutine<AsyncResume, AsyncYield, DynamicCallResult>>,
+    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
-    result: Option<DynamicCallResult>,
+    result: Option<Result<Box<[Value]>, RuntimeError>>,
 
     // Store handle we can use to lock the store down
     store: StoreAsync,
@@ -130,7 +130,7 @@ impl AsyncCallFuture {
 }
 
 impl Future for AsyncCallFuture {
-    type Output = DynamicCallResult;
+    type Output = Result<Box<[Value]>, RuntimeError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
@@ -231,7 +231,7 @@ pub enum AsyncRuntimeError {
 
 pub(crate) fn block_on_host_future<Fut>(future: Fut) -> Result<Vec<Value>, AsyncRuntimeError>
 where
-    Fut: Future<Output = DynamicFunctionResult> + 'static,
+    Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
 {
     CURRENT_CONTEXT.with(|cell| {
         match CoroutineContext::get_current() {
@@ -294,7 +294,7 @@ impl CoroutineContext {
         CURRENT_CONTEXT.with(|cell| cell.borrow().last().copied())
     }
 
-    fn block_on_future(&self, future: HostFuture) -> DynamicFunctionResult {
+    fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
         // Leave the coroutine context since we're yielding back to the
         // parent stack, and will be inactive until the future is ready.
         self.leave();
@@ -314,7 +314,7 @@ impl CoroutineContext {
 }
 
 fn run_immediate(
-    future: impl Future<Output = DynamicFunctionResult> + 'static,
+    future: impl Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
 ) -> Result<Vec<Value>, AsyncRuntimeError> {
     let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);

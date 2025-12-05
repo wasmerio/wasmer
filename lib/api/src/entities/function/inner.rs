@@ -5,9 +5,8 @@ use wasmer_types::{FunctionType, RawValue};
 #[cfg(feature = "experimental-async")]
 use crate::{AsStoreAsync, AsyncFunctionEnvMut, entities::function::async_host::AsyncHostFunction};
 use crate::{
-    AsStoreMut, AsStoreRef, DynamicCallResult, DynamicFunctionResult, ExportError, Exportable,
-    Extern, FunctionEnv, FunctionEnvMut, HostFunction, StoreMut, StoreRef, TypedFunction, Value,
-    WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
+    HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternFunction, VMFuncRef},
@@ -44,11 +43,12 @@ impl BackendFunction {
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(&[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
         let env = FunctionEnv::new(&mut store.as_store_mut(), ());
-        let wrapped_func =
-            move |_env: FunctionEnvMut<()>, args: &[Value]| -> DynamicFunctionResult { func(args) };
+        let wrapped_func = move |_env: FunctionEnvMut<()>,
+                                 args: &[Value]|
+              -> Result<Vec<Value>, RuntimeError> { func(args) };
         Self::new_with_env(store, &env, ty, wrapped_func)
     }
 
@@ -98,7 +98,10 @@ impl BackendFunction {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
+        F: Fn(FunctionEnvMut<T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -266,7 +269,7 @@ impl BackendFunction {
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Fut + 'static,
-        Fut: Future<Output = DynamicFunctionResult> + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -305,7 +308,7 @@ impl BackendFunction {
     where
         FT: Into<FunctionType>,
         F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
-        Fut: Future<Output = DynamicFunctionResult> + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -491,7 +494,11 @@ impl BackendFunction {
     /// assert_eq!(sum.call(&mut store, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
     #[inline]
-    pub fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> DynamicCallResult {
+    pub fn call(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         match_rt!(on self => f {
             f.call(store, params)
         })
@@ -504,18 +511,19 @@ impl BackendFunction {
         &self,
         store: &mut impl AsStoreMut,
         params: Vec<RawValue>,
-    ) -> DynamicCallResult {
+    ) -> Result<Box<[Value]>, RuntimeError> {
         match_rt!(on self => f {
             f.call_raw(store, params)
         })
     }
 
     #[cfg(feature = "experimental-async")]
+    #[allow(clippy::type_complexity)]
     pub fn call_async(
         &self,
         store: &impl AsStoreAsync,
         params: Vec<Value>,
-    ) -> Pin<Box<dyn Future<Output = DynamicCallResult> + 'static>> {
+    ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'static>> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => f.call_async(store, params),
@@ -773,8 +781,9 @@ fn unsupported_async_backend(backend: &str) -> ! {
     )
 }
 
-pub(super) fn unsupported_async_future<'a>() -> Pin<Box<dyn Future<Output = DynamicCallResult> + 'a>>
-{
+#[allow(clippy::type_complexity)]
+pub(super) fn unsupported_async_future<'a>()
+-> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a>> {
     Box::pin(async {
         Err(RuntimeError::new(
             "async calls are only supported with the `sys` backend",
