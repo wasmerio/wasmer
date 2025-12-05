@@ -193,6 +193,7 @@ pub unsafe extern "C" fn wasmer_eh_personality2(
     vmctx: *mut VMContext,
     exception_object: *mut UwExceptionWrapper,
 ) -> i32 {
+    unsafe { dbg!((*vmctx).instance()) };
     unsafe {
         dbg!("wasmer_eh_personality2");
         let debug_eh = true; // TEMP DEBUG
