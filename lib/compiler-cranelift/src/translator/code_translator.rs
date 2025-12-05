@@ -613,6 +613,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             ));
         }
         Operator::TryTable { try_table } => {
+            dbg!(&try_table);
             let body = builder.create_block();
             let (params, results) =
                 module_translation_state.blocktype_params_results(&try_table.ty)?;
@@ -3472,6 +3473,7 @@ pub fn bitcast_wasm_params<FE: FuncEnvironment + ?Sized>(
     }
 }
 
+#[derive(Debug)]
 struct CatchClause {
     wasm_tag: Option<u32>,
     tag_value: i32,
@@ -3525,6 +3527,7 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     environ: &mut FE,
     clauses: &[CatchClause],
 ) -> WasmResult<ir::Block> {
+    dbg!(&clauses);
     let dispatch_block = builder.create_block();
     let exnref = builder.append_block_param(dispatch_block, environ.reference_type());
 

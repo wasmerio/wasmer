@@ -20,7 +20,7 @@ use cranelift_codegen::{
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
@@ -1785,12 +1785,18 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             let layout_ref = self.exception_type_layout(tag_index)?;
             layout_ref.clone()
         };
-        let (read_sig, read_idx) = self.get_read_exception_func(builder.func);
-
+        if layout.fields.is_empty() {
+            return Ok(smallvec![]);
+        }
+        let (read_exnref_sig, read_exnref_idx) = self.get_read_exnref_func(builder.func);
         let mut pos = builder.cursor();
-        let (_, read_addr) = self.translate_load_builtin_function_address(&mut pos, read_idx);
-        let read_call = builder.ins().call_indirect(read_sig, read_addr, &[exn_ref]);
-        let exception_ptr = builder.inst_results(read_call)[0];
+        let (vmctx, read_exnref_addr) =
+            self.translate_load_builtin_function_address(&mut pos, read_exnref_idx);
+        let read_exnref_call =
+            builder
+                .ins()
+                .call_indirect(read_exnref_sig, read_exnref_addr, &[vmctx, exn_ref]);
+        let exception_ptr = builder.inst_results(read_exnref_call)[0];
 
         let (data_ptr_offset, _) = self.wasmer_exception_offsets();
         let mut header_flags = ir::MemFlags::trusted();
