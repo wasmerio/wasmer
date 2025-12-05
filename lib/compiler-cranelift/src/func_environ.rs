@@ -1059,11 +1059,10 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             self.read_exception_sig = Some(sig);
             sig
         });
-        // (
-        //     sig,
-        //     VMBuiltinFunctionIndex::get_imported_read_exception_index(),
-        // )
-        todo!()
+        (
+            sig,
+            VMBuiltinFunctionIndex::get_imported_exception_into_exnref_index(),
+        )
     }
 
     fn exception_type_layout(&mut self, tag_index: TagIndex) -> WasmResult<&ExceptionTypeLayout> {
@@ -1785,9 +1784,14 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             let layout_ref = self.exception_type_layout(tag_index)?;
             layout_ref.clone()
         };
-        if layout.fields.is_empty() {
-            return Ok(smallvec![]);
-        }
+        // First, convert the exception pointer provided by libunwind to the VMExceptionRef.
+        let (read_sig, read_idx) = self.get_read_exception_func(builder.func);
+        let mut pos = builder.cursor();
+        let (_, read_addr) = self.translate_load_builtin_function_address(&mut pos, read_idx);
+        let read_call = builder.ins().call_indirect(read_sig, read_addr, &[exn_ref]);
+        let exnref = builder.inst_results(read_call)[0];
+
+        // And then we can get the payload and load the fields connected to the exception tag.
         let (read_exnref_sig, read_exnref_idx) = self.get_read_exnref_func(builder.func);
         let mut pos = builder.cursor();
         let (vmctx, read_exnref_addr) =
@@ -1795,18 +1799,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let read_exnref_call =
             builder
                 .ins()
-                .call_indirect(read_exnref_sig, read_exnref_addr, &[vmctx, exn_ref]);
-        let exception_ptr = builder.inst_results(read_exnref_call)[0];
-
-        let (data_ptr_offset, _) = self.wasmer_exception_offsets();
-        let mut header_flags = ir::MemFlags::trusted();
-        header_flags.set_readonly();
-        let data_ptr = builder.ins().load(
-            self.pointer_type(),
-            header_flags,
-            exception_ptr,
-            Offset32::new(data_ptr_offset as i32),
-        );
+                .call_indirect(read_exnref_sig, read_exnref_addr, &[vmctx, exnref]);
+        let payload_ptr = builder.inst_results(read_exnref_call)[0];
 
         let mut values = SmallVec::<[ir::Value; 4]>::with_capacity(layout.fields.len());
         let data_flags = ir::MemFlags::trusted();
@@ -1814,7 +1808,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             let value = builder.ins().load(
                 field.ty,
                 data_flags,
-                data_ptr,
+                payload_ptr,
                 Offset32::new(field.offset as i32),
             );
             values.push(value);

@@ -764,6 +764,8 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_throw as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_read_exnref_index().index() as usize] =
             wasmer_vm_read_exnref as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_exception_into_exnref_index().index() as usize] =
+            wasmer_vm_exception_into_exnref as *const () as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

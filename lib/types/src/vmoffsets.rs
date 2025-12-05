@@ -172,9 +172,14 @@ impl VMBuiltinFunctionIndex {
         Self(35)
     }
 
+    /// Returns an index for wasm's imported `read_exnref` builtin function.
+    pub const fn get_imported_exception_into_exnref_index() -> Self {
+        Self(36)
+    }
+
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        36
+        37
     }
 
     /// Return the index as an u32 number.

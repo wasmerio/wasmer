@@ -773,7 +773,7 @@ pub extern "C-unwind" fn wasmer_vm_read_exnref(
 ) -> *mut RawValue {
     let exn = eh::exn_obj_from_exnref(vmctx, exnref);
     eprintln!("read_exnref: {exnref}");
-    unsafe { (*exn).payload().as_ptr() as *mut RawValue }
+    unsafe { dbg!((*exn).payload().as_ptr() as *mut RawValue) }
 }
 
 /// Given a pointer to a caught exception, return the exnref contained within.
