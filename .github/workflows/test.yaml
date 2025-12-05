@@ -521,7 +521,7 @@ jobs:
             {
               key: "api-feats",
               build-cmd: "make check-api-features",
-              name: "API (all sys features)",
+              name: "API (all sys)",
             },
           ]
         metadata: [
@@ -948,7 +948,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
 
   test_integration_cli:
-    name: CLI integration tests - ${{ matrix.build }}
+    name: CLI tests - ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: [build, build_linux_aarch64, build_linux_riscv64]
     strategy:
