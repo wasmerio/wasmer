@@ -199,10 +199,7 @@ impl ContextSwitchingEnvironment {
         let mut unblockers = self.inner.unblockers.write().unwrap();
         let own_context_id = self.active_context_id();
 
-        // Assert preconditions (target is blocked && we are unblocked)
-        if unblockers.get(&target_context_id).is_none() {
-            return Err(ContextSwitchError::SwitchTargetMissing);
-        }
+        // Assert that we are unblocked
         if unblockers.get(&own_context_id).is_some() {
             // This should never happen, because if we are blocked, we should not be running code at all
             //
@@ -210,9 +207,13 @@ impl ContextSwitchingEnvironment {
             panic!("There is already a unblock present for the current context {own_context_id}");
         }
 
+        // Assert that the target is blocked
+        let Some(unblock_target) = unblockers.remove(&target_context_id) else {
+            return Err(ContextSwitchError::SwitchTargetMissing);
+        };
+
         // Unblock the target
         // Dont mark ourself as blocked yet, as we first need to know that unblocking succeeded
-        let unblock_target = unblockers.remove(&target_context_id).unwrap(); // Unwrap is safe due to precondition check above
         let unblock_result: std::result::Result<(), std::result::Result<(), RuntimeError>> =
             unblock_target.send(Ok(()));
         let Ok(_) = unblock_result else {
