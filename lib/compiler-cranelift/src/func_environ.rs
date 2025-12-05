@@ -1774,24 +1774,30 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         signature.params().len()
     }
 
+    fn translate_exn_pointer_to_ref(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exn_ptr: ir::Value,
+    ) -> ir::Value {
+        let (read_sig, read_idx) = self.get_read_exception_func(builder.func);
+        let mut pos = builder.cursor();
+        let (_, read_addr) = self.translate_load_builtin_function_address(&mut pos, read_idx);
+        let read_call = builder.ins().call_indirect(read_sig, read_addr, &[exn_ptr]);
+        builder.inst_results(read_call)[0]
+    }
+
     fn translate_exn_unbox(
         &mut self,
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
-        exn_ref: ir::Value,
+        exn_ptr: ir::Value,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let layout = {
             let layout_ref = self.exception_type_layout(tag_index)?;
             layout_ref.clone()
         };
-        // First, convert the exception pointer provided by libunwind to the VMExceptionRef.
-        let (read_sig, read_idx) = self.get_read_exception_func(builder.func);
-        let mut pos = builder.cursor();
-        let (_, read_addr) = self.translate_load_builtin_function_address(&mut pos, read_idx);
-        let read_call = builder.ins().call_indirect(read_sig, read_addr, &[exn_ref]);
-        let exnref = builder.inst_results(read_call)[0];
 
-        // And then we can get the payload and load the fields connected to the exception tag.
+        let exnref = self.translate_exn_pointer_to_ref(builder, exn_ptr);
         let (read_exnref_sig, read_exnref_idx) = self.get_read_exnref_func(builder.func);
         let mut pos = builder.cursor();
         let (vmctx, read_exnref_addr) =
@@ -1923,17 +1929,17 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
     fn translate_exn_personality_selector(
         &mut self,
         builder: &mut FunctionBuilder,
-        exnref: ir::Value,
+        exn_ptr: ir::Value,
     ) -> WasmResult<ir::Value> {
         let (sig, idx) = self.get_personality2_func(builder.func);
         let pointer_type = self.pointer_type();
-        let exn_ty = builder.func.dfg.value_type(exnref);
+        let exn_ty = builder.func.dfg.value_type(exn_ptr);
         let exn_arg = if exn_ty == pointer_type {
-            exnref
+            exn_ptr
         } else {
             let mut flags = MemFlags::new();
             flags.set_endianness(Endianness::Little);
-            builder.ins().bitcast(pointer_type, flags, exnref)
+            builder.ins().bitcast(pointer_type, flags, exn_ptr)
         };
 
         let mut pos = builder.cursor();

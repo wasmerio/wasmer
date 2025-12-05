@@ -218,12 +218,19 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// Return the number of WebAssembly values contained in the payload for the given exception tag.
     fn tag_param_arity(&self, tag_index: TagIndex) -> usize;
 
+    /// Get the exception reference from the raw exception pointer (used by libunwind).
+    fn translate_exn_pointer_to_ref(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exn_ptr: ir::Value,
+    ) -> ir::Value;
+
     /// Extract the payload values from an exception reference produced by the given tag.
     fn translate_exn_unbox(
         &mut self,
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
-        exn_ref: ir::Value,
+        exn_ptr: ir::Value,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Emit IR to allocate and throw a new exception with the specified tag.
@@ -247,7 +254,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_exn_personality_selector(
         &mut self,
         builder: &mut FunctionBuilder,
-        exnref: ir::Value,
+        exn_ptr: ir::Value,
     ) -> WasmResult<ir::Value>;
 
     /// Reraise an exception when no catch clause within the current handler matches.

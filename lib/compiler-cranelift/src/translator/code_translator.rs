@@ -3493,20 +3493,20 @@ fn create_catch_block<FE: FuncEnvironment + ?Sized>(
         wasmparser::Catch::AllRef { label } => (true, None, *label),
     };
 
-    let tag_value = wasm_tag.map(|t| t as i32).unwrap_or(CATCH_ALL_TAG_VALUE);
+    let tag_value = wasm_tag.map_or(CATCH_ALL_TAG_VALUE, |t| t as i32);
 
     let block = builder.create_block();
-    let exnref = builder.append_block_param(block, environ.reference_type());
+    let exn_ptr = builder.append_block_param(block, environ.reference_type());
 
     builder.switch_to_block(block);
 
     let mut params = SmallVec::<[Value; 4]>::new();
     if let Some(tag) = wasm_tag {
         let tag_index = TagIndex::from_u32(tag);
-        params.extend(environ.translate_exn_unbox(builder, tag_index, exnref)?);
+        params.extend(environ.translate_exn_unbox(builder, tag_index, exn_ptr)?);
     }
     if is_ref {
-        params.push(exnref);
+        params.push(exn_ptr);
     }
 
     let depth = label as usize;
@@ -3529,18 +3529,18 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
 ) -> WasmResult<ir::Block> {
     dbg!(&clauses);
     let dispatch_block = builder.create_block();
-    let exnref = builder.append_block_param(dispatch_block, environ.reference_type());
+    let exn_ptr = builder.append_block_param(dispatch_block, environ.reference_type());
 
     builder.switch_to_block(dispatch_block);
 
-    let selector = environ.translate_exn_personality_selector(builder, exnref)?;
+    let selector = environ.translate_exn_personality_selector(builder, exn_ptr)?;
     let selector_ty = builder.func.dfg.value_type(selector);
 
     let rethrow_block = builder.create_block();
     builder.append_block_param(rethrow_block, environ.reference_type());
 
     let mut current_selector = selector;
-    let mut current_exn = exnref;
+    let mut current_exn = exn_ptr;
 
     for (idx, clause) in clauses.iter().enumerate() {
         let tag_value = builder
