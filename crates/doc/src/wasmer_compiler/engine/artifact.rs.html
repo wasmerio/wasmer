@@ -454,7 +454,7 @@
 <a href=#454 id=454 data-nosnippet>454</a>            get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
 <a href=#455 id=455 data-nosnippet>455</a>        )<span class="question-mark">?</span>;
 <a href=#456 id=456 data-nosnippet>456</a>
-<a href=#457 id=457 data-nosnippet>457</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#457 id=457 data-nosnippet>457</a>        <span class="attr">#[cfg(all(not(target_arch = <span class="string">"wasm32"</span>), feature = <span class="string">"compiler"</span>))]
 <a href=#458 id=458 data-nosnippet>458</a>        </span>{
 <a href=#459 id=459 data-nosnippet>459</a>            engine_inner.register_perfmap(<span class="kw-2">&amp;</span>finished_functions, module_info)<span class="question-mark">?</span>;
 <a href=#460 id=460 data-nosnippet>460</a>        }

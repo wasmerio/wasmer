@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CURRENT_CONTEXT"],"enum":["AsyncResume","AsyncRuntimeError"],"fn":["block_on_host_future","call_function_async","install_store_context","run_immediate"],"struct":["AsyncCallFuture","AsyncCallStoreMut","AsyncYield","CoroutineContext"],"type":["HostFuture"]};

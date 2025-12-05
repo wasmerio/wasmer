@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["inner"],"struct":["FunctionEnv","FunctionEnvMut"]};
+window.SIDEBAR_ITEMS = {"mod":["inner"],"struct":["AsyncFunctionEnvHandle","AsyncFunctionEnvHandleMut","AsyncFunctionEnvMut","FunctionEnv","FunctionEnvMut"]};

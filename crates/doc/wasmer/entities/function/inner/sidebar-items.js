@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BackendFunction"]};
+window.SIDEBAR_ITEMS = {"enum":["BackendFunction"],"fn":["unsupported_async_backend","unsupported_async_future"]};

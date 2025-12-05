@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["env","host","inner"],"struct":["Function"]};
+window.SIDEBAR_ITEMS = {"mod":["async_host","env","host","inner"],"struct":["Function"]};

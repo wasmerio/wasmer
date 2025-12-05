@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["StoreAsync","StoreAsyncReadLock","StoreAsyncWriteLock"],"trait":["AsStoreAsync"]};

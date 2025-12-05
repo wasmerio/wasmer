@@ -1,10 +1,14 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A WebAssembly function that can be called natively (using the Native ABI)."><title>TypedFunction in wasmer_wasix::syscalls - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><h2><a href="../../wasmer_wasix/index.html">wasmer_<wbr>wasix</a><span class="version">0.601.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Typed<wbr>Function</a></h2><h3><a href="#fields">Fields</a></h3><ul class="block structfield"><li><a href="#structfield._phantom" title="_phantom">_phantom</a></li><li><a href="#structfield.func" title="func">func</a></li></ul><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.call" title="call">call</a></li><li><a href="#method.call-1" title="call">call</a></li><li><a href="#method.call-10" title="call">call</a></li><li><a href="#method.call-11" title="call">call</a></li><li><a href="#method.call-12" title="call">call</a></li><li><a href="#method.call-13" title="call">call</a></li><li><a href="#method.call-14" title="call">call</a></li><li><a href="#method.call-15" title="call">call</a></li><li><a href="#method.call-16" title="call">call</a></li><li><a href="#method.call-17" title="call">call</a></li><li><a href="#method.call-18" title="call">call</a></li><li><a href="#method.call-19" title="call">call</a></li><li><a href="#method.call-2" title="call">call</a></li><li><a href="#method.call-20" title="call">call</a></li><li><a href="#method.call-3" title="call">call</a></li><li><a href="#method.call-4" title="call">call</a></li><li><a href="#method.call-5" title="call">call</a></li><li><a href="#method.call-6" title="call">call</a></li><li><a href="#method.call-7" title="call">call</a></li><li><a href="#method.call-8" title="call">call</a></li><li><a href="#method.call-9" title="call">call</a></li><li><a href="#method.call_sys" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-1" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-10" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-11" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-12" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-13" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-14" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-15" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-16" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-17" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-18" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-19" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-2" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-20" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-3" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-4" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-5" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-6" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-7" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-8" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-9" title="call_sys">call_sys</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-Clone-for-TypedFunction%3CArgs,+Rets%3E" title="Clone">Clone</a></li><li><a href="#impl-Debug-for-TypedFunction%3CArgs,+Rets%3E" title="Debug">Debug</a></li><li><a href="#impl-From%3CTypedFunction%3CArgs,+Rets%3E%3E-for-Function" title="From&#60;TypedFunction&#60;Args, Rets&#62;&#62;">From&#60;TypedFunction&#60;Args, Rets&#62;&#62;</a></li><li><a href="#impl-Send-for-TypedFunction%3CArgs,+Rets%3E" title="Send">Send</a></li><li><a href="#impl-Sync-for-TypedFunction%3CArgs,+Rets%3E" title="Sync">Sync</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-Freeze-for-TypedFunction%3CArgs,+Rets%3E" title="Freeze">Freeze</a></li><li><a href="#impl-RefUnwindSafe-for-TypedFunction%3CArgs,+Rets%3E" title="RefUnwindSafe">RefUnwindSafe</a></li><li><a href="#impl-Unpin-for-TypedFunction%3CArgs,+Rets%3E" title="Unpin">Unpin</a></li><li><a href="#impl-UnwindSafe-for-TypedFunction%3CArgs,+Rets%3E" title="UnwindSafe">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T" title="Any">Any</a></li><li><a href="#impl-ArchivePointee-for-T" title="ArchivePointee">ArchivePointee</a></li><li><a href="#impl-Borrow%3CT%3E-for-T" title="Borrow&#60;T&#62;">Borrow&#60;T&#62;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T" title="BorrowMut&#60;T&#62;">BorrowMut&#60;T&#62;</a></li><li><a href="#impl-CloneToUninit-for-T" title="CloneToUninit">CloneToUninit</a></li><li><a href="#impl-DynClone-for-T" title="DynClone">DynClone</a></li><li><a href="#impl-From%3CT%3E-for-T" title="From&#60;T&#62;">From&#60;T&#62;</a></li><li><a href="#impl-HttpServerConnExec%3CA,+B%3E-for-T" title="HttpServerConnExec&#60;A, B&#62;">HttpServerConnExec&#60;A, B&#62;</a></li><li><a href="#impl-Instrument-for-T" title="Instrument">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-T" title="Into&#60;U&#62;">Into&#60;U&#62;</a></li><li><a href="#impl-IntoEither-for-T" title="IntoEither">IntoEither</a></li><li><a href="#impl-LayoutRaw-for-T" title="LayoutRaw">LayoutRaw</a></li><li><a href="#impl-Niching%3CNichedOption%3CT,+N1%3E%3E-for-N2" title="Niching&#60;NichedOption&#60;T, N1&#62;&#62;">Niching&#60;NichedOption&#60;T, N1&#62;&#62;</a></li><li><a href="#impl-Pointable-for-T" title="Pointable">Pointable</a></li><li><a href="#impl-Pointee-for-T" title="Pointee">Pointee</a></li><li><a href="#impl-PolicyExt-for-T" title="PolicyExt">PolicyExt</a></li><li><a href="#impl-Same-for-T" title="Same">Same</a></li><li><a href="#impl-ServiceExt-for-T" title="ServiceExt">ServiceExt</a></li><li><a href="#impl-ToOwned-for-T" title="ToOwned">ToOwned</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T" title="TryFrom&#60;U&#62;">TryFrom&#60;U&#62;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T" title="TryInto&#60;U&#62;">TryInto&#60;U&#62;</a></li><li><a href="#impl-Upcastable-for-T" title="Upcastable">Upcastable</a></li><li><a href="#impl-Upcastable-for-T-1" title="Upcastable">Upcastable</a></li><li><a href="#impl-VZip%3CV%3E-for-T" title="VZip&#60;V&#62;">VZip&#60;V&#62;</a></li><li><a href="#impl-WithSubscriber-for-T" title="WithSubscriber">WithSubscriber</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In wasmer_<wbr>wasix::<wbr>syscalls</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">wasmer_wasix</a>::<wbr><a href="index.html">syscalls</a></div><h1>Struct <span class="struct">TypedFunction</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><pre class="rust item-decl"><code>pub(crate) struct TypedFunction&lt;Args, Rets&gt; {
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A WebAssembly function that can be called natively (using the Native ABI)."><title>TypedFunction in wasmer_wasix::syscalls - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><h2><a href="../../wasmer_wasix/index.html">wasmer_<wbr>wasix</a><span class="version">0.601.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Typed<wbr>Function</a></h2><h3><a href="#fields">Fields</a></h3><ul class="block structfield"><li><a href="#structfield._phantom" title="_phantom">_phantom</a></li><li><a href="#structfield.func" title="func">func</a></li></ul><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.call" title="call">call</a></li><li><a href="#method.call-1" title="call">call</a></li><li><a href="#method.call-10" title="call">call</a></li><li><a href="#method.call-11" title="call">call</a></li><li><a href="#method.call-12" title="call">call</a></li><li><a href="#method.call-13" title="call">call</a></li><li><a href="#method.call-14" title="call">call</a></li><li><a href="#method.call-15" title="call">call</a></li><li><a href="#method.call-16" title="call">call</a></li><li><a href="#method.call-17" title="call">call</a></li><li><a href="#method.call-18" title="call">call</a></li><li><a href="#method.call-19" title="call">call</a></li><li><a href="#method.call-2" title="call">call</a></li><li><a href="#method.call-20" title="call">call</a></li><li><a href="#method.call-3" title="call">call</a></li><li><a href="#method.call-4" title="call">call</a></li><li><a href="#method.call-5" title="call">call</a></li><li><a href="#method.call-6" title="call">call</a></li><li><a href="#method.call-7" title="call">call</a></li><li><a href="#method.call-8" title="call">call</a></li><li><a href="#method.call-9" title="call">call</a></li><li><a href="#method.call_async" title="call_async">call_async</a></li><li><a href="#method.call_async-1" title="call_async">call_async</a></li><li><a href="#method.call_async-10" title="call_async">call_async</a></li><li><a href="#method.call_async-11" title="call_async">call_async</a></li><li><a href="#method.call_async-12" title="call_async">call_async</a></li><li><a href="#method.call_async-13" title="call_async">call_async</a></li><li><a href="#method.call_async-14" title="call_async">call_async</a></li><li><a href="#method.call_async-15" title="call_async">call_async</a></li><li><a href="#method.call_async-16" title="call_async">call_async</a></li><li><a href="#method.call_async-17" title="call_async">call_async</a></li><li><a href="#method.call_async-18" title="call_async">call_async</a></li><li><a href="#method.call_async-19" title="call_async">call_async</a></li><li><a href="#method.call_async-2" title="call_async">call_async</a></li><li><a href="#method.call_async-20" title="call_async">call_async</a></li><li><a href="#method.call_async-3" title="call_async">call_async</a></li><li><a href="#method.call_async-4" title="call_async">call_async</a></li><li><a href="#method.call_async-5" title="call_async">call_async</a></li><li><a href="#method.call_async-6" title="call_async">call_async</a></li><li><a href="#method.call_async-7" title="call_async">call_async</a></li><li><a href="#method.call_async-8" title="call_async">call_async</a></li><li><a href="#method.call_async-9" title="call_async">call_async</a></li><li><a href="#method.call_sys" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-1" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-10" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-11" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-12" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-13" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-14" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-15" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-16" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-17" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-18" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-19" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-2" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-20" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-3" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-4" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-5" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-6" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-7" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-8" title="call_sys">call_sys</a></li><li><a href="#method.call_sys-9" title="call_sys">call_sys</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-Clone-for-TypedFunction%3CArgs,+Rets%3E" title="Clone">Clone</a></li><li><a href="#impl-Debug-for-TypedFunction%3CArgs,+Rets%3E" title="Debug">Debug</a></li><li><a href="#impl-From%3CTypedFunction%3CArgs,+Rets%3E%3E-for-Function" title="From&#60;TypedFunction&#60;Args, Rets&#62;&#62;">From&#60;TypedFunction&#60;Args, Rets&#62;&#62;</a></li><li><a href="#impl-Send-for-TypedFunction%3CArgs,+Rets%3E" title="Send">Send</a></li><li><a href="#impl-Sync-for-TypedFunction%3CArgs,+Rets%3E" title="Sync">Sync</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-Freeze-for-TypedFunction%3CArgs,+Rets%3E" title="Freeze">Freeze</a></li><li><a href="#impl-RefUnwindSafe-for-TypedFunction%3CArgs,+Rets%3E" title="RefUnwindSafe">RefUnwindSafe</a></li><li><a href="#impl-Unpin-for-TypedFunction%3CArgs,+Rets%3E" title="Unpin">Unpin</a></li><li><a href="#impl-UnwindSafe-for-TypedFunction%3CArgs,+Rets%3E" title="UnwindSafe">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T" title="Any">Any</a></li><li><a href="#impl-ArchivePointee-for-T" title="ArchivePointee">ArchivePointee</a></li><li><a href="#impl-Borrow%3CT%3E-for-T" title="Borrow&#60;T&#62;">Borrow&#60;T&#62;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T" title="BorrowMut&#60;T&#62;">BorrowMut&#60;T&#62;</a></li><li><a href="#impl-CloneToUninit-for-T" title="CloneToUninit">CloneToUninit</a></li><li><a href="#impl-DynClone-for-T" title="DynClone">DynClone</a></li><li><a href="#impl-From%3CT%3E-for-T" title="From&#60;T&#62;">From&#60;T&#62;</a></li><li><a href="#impl-HttpServerConnExec%3CA,+B%3E-for-T" title="HttpServerConnExec&#60;A, B&#62;">HttpServerConnExec&#60;A, B&#62;</a></li><li><a href="#impl-Instrument-for-T" title="Instrument">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-T" title="Into&#60;U&#62;">Into&#60;U&#62;</a></li><li><a href="#impl-IntoEither-for-T" title="IntoEither">IntoEither</a></li><li><a href="#impl-LayoutRaw-for-T" title="LayoutRaw">LayoutRaw</a></li><li><a href="#impl-Niching%3CNichedOption%3CT,+N1%3E%3E-for-N2" title="Niching&#60;NichedOption&#60;T, N1&#62;&#62;">Niching&#60;NichedOption&#60;T, N1&#62;&#62;</a></li><li><a href="#impl-Pointable-for-T" title="Pointable">Pointable</a></li><li><a href="#impl-Pointee-for-T" title="Pointee">Pointee</a></li><li><a href="#impl-PolicyExt-for-T" title="PolicyExt">PolicyExt</a></li><li><a href="#impl-Same-for-T" title="Same">Same</a></li><li><a href="#impl-ServiceExt-for-T" title="ServiceExt">ServiceExt</a></li><li><a href="#impl-ToOwned-for-T" title="ToOwned">ToOwned</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T" title="TryFrom&#60;U&#62;">TryFrom&#60;U&#62;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T" title="TryInto&#60;U&#62;">TryInto&#60;U&#62;</a></li><li><a href="#impl-Upcastable-for-T" title="Upcastable">Upcastable</a></li><li><a href="#impl-Upcastable-for-T-1" title="Upcastable">Upcastable</a></li><li><a href="#impl-VZip%3CV%3E-for-T" title="VZip&#60;V&#62;">VZip&#60;V&#62;</a></li><li><a href="#impl-WithSubscriber-for-T" title="WithSubscriber">WithSubscriber</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In wasmer_<wbr>wasix::<wbr>syscalls</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">wasmer_wasix</a>::<wbr><a href="index.html">syscalls</a></div><h1>Struct <span class="struct">TypedFunction</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><pre class="rust item-decl"><code>pub(crate) struct TypedFunction&lt;Args, Rets&gt; {
     pub(crate) func: <a class="struct" href="struct.Function.html" title="struct wasmer_wasix::syscalls::Function">Function</a>,
     _phantom: <a class="struct" href="https://doc.rust-lang.org/1.89.0/core/marker/struct.PhantomData.html" title="struct core::marker::PhantomData">PhantomData</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.fn.html">fn</a>(Args) -&gt; Rets&gt;,
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A WebAssembly function that can be called natively
 (using the Native ABI).</p>
 </div></details><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.func" class="structfield section-header"><a href="#structfield.func" class="anchor field">§</a><code>func: <a class="struct" href="struct.Function.html" title="struct wasmer_wasix::syscalls::Function">Function</a></code></span><span id="structfield._phantom" class="structfield section-header"><a href="#structfield._phantom" class="anchor field">§</a><code>_phantom: <a class="struct" href="https://doc.rust-lang.org/1.89.0/core/marker/struct.PhantomData.html" title="struct core::marker::PhantomData">PhantomData</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.fn.html">fn</a>(Args) -&gt; Rets&gt;</code></span><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.unit.html">()</a>, Rets&gt;<div class="where">where
     Rets: WasmTypeList,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.call" class="method"><h4 class="code-header">pub fn <a href="#method.call" class="fn">call</a>(&amp;self, store: &amp;mut impl <a class="trait" href="trait.AsStoreMut.html" title="trait wasmer_wasix::syscalls::AsStoreMut">AsStoreMut</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;</h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async" class="method"><h4 class="code-header">pub fn <a href="#method.call_async" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static</h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3CA1,+Rets%3E" class="impl"><a href="#impl-TypedFunction%3CA1,+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;A1, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     Rets: WasmTypeList,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.call-1" class="method"><h4 class="code-header">pub fn <a href="#method.call-1" class="fn">call</a>(
@@ -13,6 +17,12 @@
     A1: A1,
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;<div class="where">where
     A1: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-1" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-1" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -24,6 +34,14 @@
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-2" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-2" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -38,6 +56,16 @@
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
     A3: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-3" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-3" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -55,6 +83,18 @@
     A2: FromToNativeWasmType,
     A3: FromToNativeWasmType,
     A4: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-4" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-4" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -75,6 +115,20 @@
     A3: FromToNativeWasmType,
     A4: FromToNativeWasmType,
     A5: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-5" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-5" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -98,6 +152,22 @@
     A4: FromToNativeWasmType,
     A5: FromToNativeWasmType,
     A6: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-6" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-6" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -124,6 +194,24 @@
     A5: FromToNativeWasmType,
     A6: FromToNativeWasmType,
     A7: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-7" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-7" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -153,6 +241,26 @@
     A6: FromToNativeWasmType,
     A7: FromToNativeWasmType,
     A8: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-8" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-8" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -185,6 +293,28 @@
     A7: FromToNativeWasmType,
     A8: FromToNativeWasmType,
     A9: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-9" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-9" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -220,6 +350,30 @@
     A8: FromToNativeWasmType,
     A9: FromToNativeWasmType,
     A10: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-10" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-10" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -258,6 +412,32 @@
     A9: FromToNativeWasmType,
     A10: FromToNativeWasmType,
     A11: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-11" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-11" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -299,6 +479,34 @@
     A10: FromToNativeWasmType,
     A11: FromToNativeWasmType,
     A12: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-12" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-12" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -343,6 +551,36 @@
     A11: FromToNativeWasmType,
     A12: FromToNativeWasmType,
     A13: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-13" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-13" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+    A13: A13,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,
+    A13: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -390,6 +628,38 @@
     A12: FromToNativeWasmType,
     A13: FromToNativeWasmType,
     A14: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-14" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-14" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+    A13: A13,
+    A14: A14,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,
+    A13: FromToNativeWasmType + 'static,
+    A14: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -440,6 +710,40 @@
     A13: FromToNativeWasmType,
     A14: FromToNativeWasmType,
     A15: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-15" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-15" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+    A13: A13,
+    A14: A14,
+    A15: A15,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,
+    A13: FromToNativeWasmType + 'static,
+    A14: FromToNativeWasmType + 'static,
+    A15: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -493,6 +797,42 @@
     A14: FromToNativeWasmType,
     A15: FromToNativeWasmType,
     A16: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-16" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-16" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+    A13: A13,
+    A14: A14,
+    A15: A15,
+    A16: A16,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,
+    A13: FromToNativeWasmType + 'static,
+    A14: FromToNativeWasmType + 'static,
+    A15: FromToNativeWasmType + 'static,
+    A16: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16,+A17),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16,+A17),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -549,6 +889,44 @@
     A15: FromToNativeWasmType,
     A16: FromToNativeWasmType,
     A17: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-17" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-17" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+    A13: A13,
+    A14: A14,
+    A15: A15,
+    A16: A16,
+    A17: A17,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,
+    A13: FromToNativeWasmType + 'static,
+    A14: FromToNativeWasmType + 'static,
+    A15: FromToNativeWasmType + 'static,
+    A16: FromToNativeWasmType + 'static,
+    A17: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16,+A17,+A18),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16,+A17,+A18),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -608,6 +986,46 @@
     A16: FromToNativeWasmType,
     A17: FromToNativeWasmType,
     A18: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-18" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-18" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+    A13: A13,
+    A14: A14,
+    A15: A15,
+    A16: A16,
+    A17: A17,
+    A18: A18,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,
+    A13: FromToNativeWasmType + 'static,
+    A14: FromToNativeWasmType + 'static,
+    A15: FromToNativeWasmType + 'static,
+    A16: FromToNativeWasmType + 'static,
+    A17: FromToNativeWasmType + 'static,
+    A18: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16,+A17,+A18,+A19),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16,+A17,+A18,+A19),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -670,6 +1088,48 @@
     A17: FromToNativeWasmType,
     A18: FromToNativeWasmType,
     A19: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-19" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-19" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+    A13: A13,
+    A14: A14,
+    A15: A15,
+    A16: A16,
+    A17: A17,
+    A18: A18,
+    A19: A19,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,
+    A13: FromToNativeWasmType + 'static,
+    A14: FromToNativeWasmType + 'static,
+    A15: FromToNativeWasmType + 'static,
+    A16: FromToNativeWasmType + 'static,
+    A17: FromToNativeWasmType + 'static,
+    A18: FromToNativeWasmType + 'static,
+    A19: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16,+A17,+A18,+A19,+A20),+Rets%3E" class="impl"><a href="#impl-TypedFunction%3C(A1,+A2,+A3,+A4,+A5,+A6,+A7,+A8,+A9,+A10,+A11,+A12,+A13,+A14,+A15,+A16,+A17,+A18,+A19,+A20),+Rets%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.tuple.html">(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20)</a>, Rets&gt;<div class="where">where
     A1: FromToNativeWasmType,
     A2: FromToNativeWasmType,
@@ -735,6 +1195,50 @@
     A18: FromToNativeWasmType,
     A19: FromToNativeWasmType,
     A20: FromToNativeWasmType,</div></h4></section></summary><div class="docblock"><p>Call the typed func and return results.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_async-20" class="method"><h4 class="code-header">pub fn <a href="#method.call_async-20" class="fn">call_async</a>(
+    &amp;self,
+    store: &amp;impl AsStoreAsync,
+    A1: A1,
+    A2: A2,
+    A3: A3,
+    A4: A4,
+    A5: A5,
+    A6: A6,
+    A7: A7,
+    A8: A8,
+    A9: A9,
+    A10: A10,
+    A11: A11,
+    A12: A12,
+    A13: A13,
+    A14: A14,
+    A15: A15,
+    A16: A16,
+    A17: A17,
+    A18: A18,
+    A19: A19,
+    A20: A20,
+) -&gt; impl <a class="trait" href="../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Rets, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer_wasix::syscalls::RuntimeError">RuntimeError</a>&gt;&gt; + 'static<div class="where">where
+    A1: FromToNativeWasmType + 'static,
+    A2: FromToNativeWasmType + 'static,
+    A3: FromToNativeWasmType + 'static,
+    A4: FromToNativeWasmType + 'static,
+    A5: FromToNativeWasmType + 'static,
+    A6: FromToNativeWasmType + 'static,
+    A7: FromToNativeWasmType + 'static,
+    A8: FromToNativeWasmType + 'static,
+    A9: FromToNativeWasmType + 'static,
+    A10: FromToNativeWasmType + 'static,
+    A11: FromToNativeWasmType + 'static,
+    A12: FromToNativeWasmType + 'static,
+    A13: FromToNativeWasmType + 'static,
+    A14: FromToNativeWasmType + 'static,
+    A15: FromToNativeWasmType + 'static,
+    A16: FromToNativeWasmType + 'static,
+    A17: FromToNativeWasmType + 'static,
+    A18: FromToNativeWasmType + 'static,
+    A19: FromToNativeWasmType + 'static,
+    A20: FromToNativeWasmType + 'static,</div></h4></section></summary><div class="docblock"><p>Call the typed func asynchronously.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypedFunction%3C(),+Rets%3E-1" class="impl"><a href="#impl-TypedFunction%3C(),+Rets%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;Rets&gt; <a class="struct" href="struct.TypedFunction.html" title="struct wasmer_wasix::syscalls::TypedFunction">TypedFunction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.unit.html">()</a>, Rets&gt;<div class="where">where
     Rets: WasmTypeList,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.call_sys" class="method"><h4 class="code-header">pub fn <a href="#method.call_sys" class="fn">call_sys</a>(
     &amp;self,
@@ -1304,8 +1808,8 @@ otherwise. <a href="https://docs.rs/either/1/either/into_either/trait.IntoEither
     Self: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class='docblock'>Catch panics and convert them into <code>500 Internal Server</code> responses. <a>Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-ToOwned-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/alloc/borrow.rs.html#82-84">Source</a><a href="#impl-ToOwned-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.89.0/alloc/borrow/trait.ToOwned.html" title="trait alloc::borrow::ToOwned">ToOwned</a> for T<div class="where">where
     T: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Owned" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/alloc/borrow.rs.html#86">Source</a><a href="#associatedtype.Owned" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.89.0/alloc/borrow/trait.ToOwned.html#associatedtype.Owned" class="associatedtype">Owned</a> = T</h4></section></summary><div class='docblock'>The resulting type after obtaining ownership.</div></details><details class="toggle method-toggle" open><summary><section id="method.to_owned" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/alloc/borrow.rs.html#87">Source</a><a href="#method.to_owned" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.89.0/alloc/borrow/trait.ToOwned.html#tymethod.to_owned" class="fn">to_owned</a>(&amp;self) -&gt; T</h4></section></summary><div class='docblock'>Creates owned data from borrowed data, usually by cloning. <a href="https://doc.rust-lang.org/1.89.0/alloc/borrow/trait.ToOwned.html#tymethod.to_owned">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.clone_into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/alloc/borrow.rs.html#91">Source</a><a href="#method.clone_into" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.89.0/alloc/borrow/trait.ToOwned.html#method.clone_into" class="fn">clone_into</a>(&amp;self, target: <a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.reference.html">&amp;mut T</a>)</h4></section></summary><div class='docblock'>Uses borrowed data to replace owned data, usually by cloning. <a href="https://doc.rust-lang.org/1.89.0/alloc/borrow/trait.ToOwned.html#method.clone_into">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TryFrom%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/core/convert/mod.rs.html#813-815">Source</a><a href="#impl-TryFrom%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt; for T<div class="where">where
     U: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error-1" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/core/convert/mod.rs.html#817">Source</a><a href="#associatedtype.Error-1" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html#associatedtype.Error" class="associatedtype">Error</a> = <a class="enum" href="enum.Infallible.html" title="enum wasmer_wasix::syscalls::Infallible">Infallible</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_from" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/core/convert/mod.rs.html#820">Source</a><a href="#method.try_from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html#tymethod.try_from" class="fn">try_from</a>(value: U) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, &lt;T as <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TryInto%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/core/convert/mod.rs.html#798-800">Source</a><a href="#impl-TryInto%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="trait.TryInto.html" title="trait wasmer_wasix::syscalls::TryInto">TryInto</a>&lt;U&gt; for T<div class="where">where
-    U: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/core/convert/mod.rs.html#802">Source</a><a href="#associatedtype.Error" class="anchor">§</a><h4 class="code-header">type <a href="trait.TryInto.html#associatedtype.Error" class="associatedtype">Error</a> = &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/core/convert/mod.rs.html#805">Source</a><a href="#method.try_into" class="anchor">§</a><h4 class="code-header">fn <a href="trait.TryInto.html#tymethod.try_into" class="fn">try_into</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;U, &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Upcastable-for-T" class="impl"><a class="src rightside" href="../../src/virtual_fs/lib.rs.html#440">Source</a><a href="#impl-Upcastable-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../../virtual_fs/trait.Upcastable.html" title="trait virtual_fs::Upcastable">Upcastable</a> for T<div class="where">where
-    T: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + 'static,</div></h3></section></summary><div class="impl-items"><section id="method.upcast_any_ref" class="method trait-impl"><a class="src rightside" href="../../src/virtual_fs/lib.rs.html#442">Source</a><a href="#method.upcast_any_ref" class="anchor">§</a><h4 class="code-header">fn <a href="../../virtual_fs/trait.Upcastable.html#tymethod.upcast_any_ref" class="fn">upcast_any_ref</a>(&amp;self) -&gt; &amp;(dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + 'static)</h4></section><section id="method.upcast_any_mut" class="method trait-impl"><a class="src rightside" href="../../src/virtual_fs/lib.rs.html#446">Source</a><a href="#method.upcast_any_mut" class="anchor">§</a><h4 class="code-header">fn <a href="../../virtual_fs/trait.Upcastable.html#tymethod.upcast_any_mut" class="fn">upcast_any_mut</a>(&amp;mut self) -&gt; &amp;mut (dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + 'static)</h4></section><section id="method.upcast_any_box" class="method trait-impl"><a class="src rightside" href="../../src/virtual_fs/lib.rs.html#450">Source</a><a href="#method.upcast_any_box" class="anchor">§</a><h4 class="code-header">fn <a href="../../virtual_fs/trait.Upcastable.html#tymethod.upcast_any_box" class="fn">upcast_any_box</a>(self: <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T&gt;) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Upcastable-for-T-1" class="impl"><a href="#impl-Upcastable-for-T-1" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; Upcastable for T<div class="where">where
+    U: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/core/convert/mod.rs.html#802">Source</a><a href="#associatedtype.Error" class="anchor">§</a><h4 class="code-header">type <a href="trait.TryInto.html#associatedtype.Error" class="associatedtype">Error</a> = &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.89.0/src/core/convert/mod.rs.html#805">Source</a><a href="#method.try_into" class="anchor">§</a><h4 class="code-header">fn <a href="trait.TryInto.html#tymethod.try_into" class="fn">try_into</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;U, &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Upcastable-for-T" class="impl"><a href="#impl-Upcastable-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; Upcastable for T<div class="where">where
+    T: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + 'static,</div></h3></section></summary><div class="impl-items"><section id="method.upcast_any_ref" class="method trait-impl"><a href="#method.upcast_any_ref" class="anchor">§</a><h4 class="code-header">fn <a class="fn">upcast_any_ref</a>(&amp;self) -&gt; &amp;(dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + 'static)</h4></section><section id="method.upcast_any_mut" class="method trait-impl"><a href="#method.upcast_any_mut" class="anchor">§</a><h4 class="code-header">fn <a class="fn">upcast_any_mut</a>(&amp;mut self) -&gt; &amp;mut (dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + 'static)</h4></section><section id="method.upcast_any_box" class="method trait-impl"><a href="#method.upcast_any_box" class="anchor">§</a><h4 class="code-header">fn <a class="fn">upcast_any_box</a>(self: <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T&gt;) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Upcastable-for-T-1" class="impl"><a href="#impl-Upcastable-for-T-1" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; Upcastable for T<div class="where">where
     T: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.upcast_any_ref-1" class="method trait-impl"><a href="#method.upcast_any_ref-1" class="anchor">§</a><h4 class="code-header">fn <a class="fn">upcast_any_ref</a>(&amp;self) -&gt; &amp;(dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + 'static)</h4></section></summary><div class='docblock'>upcast ref</div></details><details class="toggle method-toggle" open><summary><section id="method.upcast_any_mut-1" class="method trait-impl"><a href="#method.upcast_any_mut-1" class="anchor">§</a><h4 class="code-header">fn <a class="fn">upcast_any_mut</a>(&amp;mut self) -&gt; &amp;mut (dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + 'static)</h4></section></summary><div class='docblock'>upcast mut ref</div></details><details class="toggle method-toggle" open><summary><section id="method.upcast_any_box-1" class="method trait-impl"><a href="#method.upcast_any_box-1" class="anchor">§</a><h4 class="code-header">fn <a class="fn">upcast_any_box</a>(self: <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T&gt;) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>&gt;</h4></section></summary><div class='docblock'>upcast boxed dyn</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-VZip%3CV%3E-for-T" class="impl"><a href="#impl-VZip%3CV%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;V, T&gt; VZip&lt;V&gt; for T<div class="where">where
     V: MultiLane&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><section id="method.vzip" class="method trait-impl"><a href="#method.vzip" class="anchor">§</a><h4 class="code-header">fn <a class="fn">vzip</a>(self) -&gt; V</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-WithSubscriber-for-T" class="impl"><a href="#impl-WithSubscriber-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; WithSubscriber for T</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.with_subscriber" class="method trait-impl"><a href="#method.with_subscriber" class="anchor">§</a><h4 class="code-header">fn <a class="fn">with_subscriber</a>&lt;S&gt;(self, subscriber: S) -&gt; WithDispatch&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="WithDispatch&lt;Self&gt;">ⓘ</a><div class="where">where
     S: <a class="trait" href="https://doc.rust-lang.org/1.89.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;Dispatch&gt;,</div></h4></section></summary><div class='docblock'>Attaches the provided <a href="super::Subscriber"><code>Subscriber</code></a> to this type, returning a

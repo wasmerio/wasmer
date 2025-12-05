@@ -208,7 +208,7 @@
 <a href=#208 id=208 data-nosnippet>208</a>                </span><span class="kw">crate</span>::BackendStore::Sys(<span class="kw">_</span>) =&gt; <span class="self">Self</span>::ExceptionRef(
 <a href=#209 id=209 data-nosnippet>209</a>                    <span class="kw">unsafe </span>{
 <a href=#210 id=210 data-nosnippet>210</a>                        <span class="kw">crate</span>::backend::sys::vm::VMExceptionRef::from_raw(
-<a href=#211 id=211 data-nosnippet>211</a>                            store.as_store_ref().objects().id(),
+<a href=#211 id=211 data-nosnippet>211</a>                            store.objects_mut().id(),
 <a href=#212 id=212 data-nosnippet>212</a>                            raw,
 <a href=#213 id=213 data-nosnippet>213</a>                        )
 <a href=#214 id=214 data-nosnippet>214</a>                    }

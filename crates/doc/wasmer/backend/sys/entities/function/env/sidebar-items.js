@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["FunctionEnv","FunctionEnvMut"]};
+window.SIDEBAR_ITEMS = {"enum":["AsyncFunctionEnvMutStore"],"struct":["AsyncFunctionEnvHandle","AsyncFunctionEnvHandleMut","AsyncFunctionEnvMut","FunctionEnv","FunctionEnvMut"]};

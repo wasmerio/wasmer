@@ -241,7 +241,7 @@
 <a href=#241 id=241 data-nosnippet>241</a><span class="attr">#[cfg(feature = <span class="string">"artifact-size"</span>)]
 <a href=#242 id=242 data-nosnippet>242</a></span><span class="kw">impl</span>&lt;T&gt; loupe::MemoryUsage <span class="kw">for </span>InternalStoreHandle&lt;T&gt; {
 <a href=#243 id=243 data-nosnippet>243</a>    <span class="kw">fn </span>size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>, _tracker: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>loupe::MemoryUsageTracker) -&gt; usize {
-<a href=#244 id=244 data-nosnippet>244</a>        std::mem::size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>)
+<a href=#244 id=244 data-nosnippet>244</a>        std::mem::size_of_val(<span class="self">self</span>)
 <a href=#245 id=245 data-nosnippet>245</a>    }
 <a href=#246 id=246 data-nosnippet>246</a>}
 <a href=#247 id=247 data-nosnippet>247</a>

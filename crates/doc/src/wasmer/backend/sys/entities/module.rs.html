@@ -10,7 +10,7 @@
 <a href=#10 id=10 data-nosnippet>10</a>};
 <a href=#11 id=11 data-nosnippet>11</a>
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use crate</span>::{
-<a href=#13 id=13 data-nosnippet>13</a>    AsStoreMut, AsStoreRef, BackendModule, IntoBytes,
+<a href=#13 id=13 data-nosnippet>13</a>    AsStoreMut, AsStoreRef, BackendModule, IntoBytes, StoreContext,
 <a href=#14 id=14 data-nosnippet>14</a>    backend::sys::entities::engine::NativeEngineExt, engine::AsEngineRef,
 <a href=#15 id=15 data-nosnippet>15</a>    error::InstantiationError, vm::VMInstance,
 <a href=#16 id=16 data-nosnippet>16</a>};
@@ -167,81 +167,87 @@
 <a href=#167 id=167 data-nosnippet>167</a>        }
 <a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">let </span>signal_handler = store.as_store_ref().signal_handler();
 <a href=#169 id=169 data-nosnippet>169</a>        <span class="kw">let </span><span class="kw-2">mut </span>store_mut = store.as_store_mut();
-<a href=#170 id=170 data-nosnippet>170</a>        <span class="kw">let </span>(engine, objects) = store_mut.engine_and_objects_mut();
-<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">let </span>config = engine.tunables().vmconfig();
-<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">unsafe </span>{
-<a href=#173 id=173 data-nosnippet>173</a>            <span class="kw">let </span><span class="kw-2">mut </span>instance_handle = <span class="self">self</span>.artifact.instantiate(
-<a href=#174 id=174 data-nosnippet>174</a>                engine.tunables(),
-<a href=#175 id=175 data-nosnippet>175</a>                <span class="kw-2">&amp;</span>imports
-<a href=#176 id=176 data-nosnippet>176</a>                    .iter()
-<a href=#177 id=177 data-nosnippet>177</a>                    .map(|e| <span class="kw">crate</span>::Extern::to_vm_extern(e).into_sys())
-<a href=#178 id=178 data-nosnippet>178</a>                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-<a href=#179 id=179 data-nosnippet>179</a>                objects.as_sys_mut(),
-<a href=#180 id=180 data-nosnippet>180</a>            )<span class="question-mark">?</span>;
-<a href=#181 id=181 data-nosnippet>181</a>
-<a href=#182 id=182 data-nosnippet>182</a>            <span class="comment">// After the instance handle is created, we need to initialize
-<a href=#183 id=183 data-nosnippet>183</a>            // the data, call the start function and so. However, if any
-<a href=#184 id=184 data-nosnippet>184</a>            // of this steps traps, we still need to keep the instance alive
-<a href=#185 id=185 data-nosnippet>185</a>            // as some of the Instance elements may have placed in other
-<a href=#186 id=186 data-nosnippet>186</a>            // instance tables.
-<a href=#187 id=187 data-nosnippet>187</a>            </span><span class="self">self</span>.artifact
-<a href=#188 id=188 data-nosnippet>188</a>                .finish_instantiation(config, signal_handler, <span class="kw-2">&amp;mut </span>instance_handle)<span class="question-mark">?</span>;
-<a href=#189 id=189 data-nosnippet>189</a>
-<a href=#190 id=190 data-nosnippet>190</a>            <span class="prelude-val">Ok</span>(VMInstance::Sys(instance_handle))
-<a href=#191 id=191 data-nosnippet>191</a>        }
-<a href=#192 id=192 data-nosnippet>192</a>    }
+<a href=#170 id=170 data-nosnippet>170</a>        <span class="kw">let </span>store_ptr = store_mut.inner <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>;
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">let </span>(engine, objects) = store_mut.engine_and_objects_mut();
+<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span>config = engine.tunables().vmconfig();
+<a href=#173 id=173 data-nosnippet>173</a>        <span class="kw">unsafe </span>{
+<a href=#174 id=174 data-nosnippet>174</a>            <span class="kw">let </span><span class="kw-2">mut </span>instance_handle = <span class="self">self</span>.artifact.instantiate(
+<a href=#175 id=175 data-nosnippet>175</a>                engine.tunables(),
+<a href=#176 id=176 data-nosnippet>176</a>                <span class="kw-2">&amp;</span>imports
+<a href=#177 id=177 data-nosnippet>177</a>                    .iter()
+<a href=#178 id=178 data-nosnippet>178</a>                    .map(|e| <span class="kw">crate</span>::Extern::to_vm_extern(e).into_sys())
+<a href=#179 id=179 data-nosnippet>179</a>                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#180 id=180 data-nosnippet>180</a>                objects.as_sys_mut(),
+<a href=#181 id=181 data-nosnippet>181</a>            )<span class="question-mark">?</span>;
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a>            <span class="kw">let </span>store_id = objects.id();
+<a href=#184 id=184 data-nosnippet>184</a>            <span class="kw">let </span>store_install_guard = StoreContext::ensure_installed(store_ptr);
+<a href=#185 id=185 data-nosnippet>185</a>
+<a href=#186 id=186 data-nosnippet>186</a>            <span class="comment">// After the instance handle is created, we need to initialize
+<a href=#187 id=187 data-nosnippet>187</a>            // the data, call the start function and so. However, if any
+<a href=#188 id=188 data-nosnippet>188</a>            // of this steps traps, we still need to keep the instance alive
+<a href=#189 id=189 data-nosnippet>189</a>            // as some of the Instance elements may have placed in other
+<a href=#190 id=190 data-nosnippet>190</a>            // instance tables.
+<a href=#191 id=191 data-nosnippet>191</a>            </span><span class="self">self</span>.artifact
+<a href=#192 id=192 data-nosnippet>192</a>                .finish_instantiation(config, signal_handler, <span class="kw-2">&amp;mut </span>instance_handle)<span class="question-mark">?</span>;
 <a href=#193 id=193 data-nosnippet>193</a>
-<a href=#194 id=194 data-nosnippet>194</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
-<a href=#195 id=195 data-nosnippet>195</a>        <span class="self">self</span>.info().name.as_deref()
-<a href=#196 id=196 data-nosnippet>196</a>    }
-<a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; bool {
-<a href=#199 id=199 data-nosnippet>199</a>        Arc::get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>.artifact)
-<a href=#200 id=200 data-nosnippet>200</a>            .is_some_and(|artifact| artifact.set_module_info_name(name.to_string()))
-<a href=#201 id=201 data-nosnippet>201</a>    }
-<a href=#202 id=202 data-nosnippet>202</a>
-<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportsIterator&lt;Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">'_</span>&gt;&gt; {
-<a href=#204 id=204 data-nosnippet>204</a>        <span class="self">self</span>.info().imports()
-<a href=#205 id=205 data-nosnippet>205</a>    }
-<a href=#206 id=206 data-nosnippet>206</a>
-<a href=#207 id=207 data-nosnippet>207</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExportsIterator&lt;Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">'_</span>&gt;&gt; {
-<a href=#208 id=208 data-nosnippet>208</a>        <span class="self">self</span>.info().exports()
-<a href=#209 id=209 data-nosnippet>209</a>    }
-<a href=#210 id=210 data-nosnippet>210</a>
-<a href=#211 id=211 data-nosnippet>211</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>custom_sections&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#212 id=212 data-nosnippet>212</a>        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-<a href=#213 id=213 data-nosnippet>213</a>        name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
-<a href=#214 id=214 data-nosnippet>214</a>    ) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">'a</span>&gt; {
-<a href=#215 id=215 data-nosnippet>215</a>        <span class="self">self</span>.info().custom_sections(name)
-<a href=#216 id=216 data-nosnippet>216</a>    }
-<a href=#217 id=217 data-nosnippet>217</a>
-<a href=#218 id=218 data-nosnippet>218</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo {
-<a href=#219 id=219 data-nosnippet>219</a>        <span class="self">self</span>.artifact.module_info()
-<a href=#220 id=220 data-nosnippet>220</a>    }
-<a href=#221 id=221 data-nosnippet>221</a>}
-<a href=#222 id=222 data-nosnippet>222</a>
-<a href=#223 id=223 data-nosnippet>223</a><span class="kw">impl </span><span class="kw">crate</span>::Module {
-<a href=#224 id=224 data-nosnippet>224</a>    <span class="doccomment">/// Consume [`self`] into a reference [`crate::backend::sys::module::Module`].
-<a href=#225 id=225 data-nosnippet>225</a>    </span><span class="kw">pub fn </span>into_sys(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::sys::module::Module {
-<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">match </span><span class="self">self</span>.<span class="number">0 </span>{
-<a href=#227 id=227 data-nosnippet>227</a>            BackendModule::Sys(s) =&gt; s,
-<a href=#228 id=228 data-nosnippet>228</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` module!"</span>),
-<a href=#229 id=229 data-nosnippet>229</a>        }
-<a href=#230 id=230 data-nosnippet>230</a>    }
-<a href=#231 id=231 data-nosnippet>231</a>
-<a href=#232 id=232 data-nosnippet>232</a>    <span class="doccomment">/// Convert a reference to [`self`] into a reference [`crate::backend::sys::module::Module`].
-<a href=#233 id=233 data-nosnippet>233</a>    </span><span class="kw">pub fn </span>as_sys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::sys::module::Module {
-<a href=#234 id=234 data-nosnippet>234</a>        <span class="kw">match </span><span class="self">self</span>.<span class="number">0 </span>{
-<a href=#235 id=235 data-nosnippet>235</a>            BackendModule::Sys(<span class="kw-2">ref </span>s) =&gt; s,
-<a href=#236 id=236 data-nosnippet>236</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` module!"</span>),
-<a href=#237 id=237 data-nosnippet>237</a>        }
-<a href=#238 id=238 data-nosnippet>238</a>    }
-<a href=#239 id=239 data-nosnippet>239</a>
-<a href=#240 id=240 data-nosnippet>240</a>    <span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::sys::module::Module`].
-<a href=#241 id=241 data-nosnippet>241</a>    </span><span class="kw">pub fn </span>as_sys_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::sys::module::Module {
-<a href=#242 id=242 data-nosnippet>242</a>        <span class="kw">match </span><span class="self">self</span>.<span class="number">0 </span>{
-<a href=#243 id=243 data-nosnippet>243</a>            BackendModule::Sys(<span class="kw-2">ref mut </span>s) =&gt; s,
-<a href=#244 id=244 data-nosnippet>244</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` module!"</span>),
-<a href=#245 id=245 data-nosnippet>245</a>        }
-<a href=#246 id=246 data-nosnippet>246</a>    }
-<a href=#247 id=247 data-nosnippet>247</a>}</code></pre></div></section></main></body></html>
+<a href=#194 id=194 data-nosnippet>194</a>            drop(store_install_guard);
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>            <span class="prelude-val">Ok</span>(VMInstance::Sys(instance_handle))
+<a href=#197 id=197 data-nosnippet>197</a>        }
+<a href=#198 id=198 data-nosnippet>198</a>    }
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+<a href=#201 id=201 data-nosnippet>201</a>        <span class="self">self</span>.info().name.as_deref()
+<a href=#202 id=202 data-nosnippet>202</a>    }
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#205 id=205 data-nosnippet>205</a>        Arc::get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>.artifact)
+<a href=#206 id=206 data-nosnippet>206</a>            .is_some_and(|artifact| artifact.set_module_info_name(name.to_string()))
+<a href=#207 id=207 data-nosnippet>207</a>    }
+<a href=#208 id=208 data-nosnippet>208</a>
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportsIterator&lt;Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">'_</span>&gt;&gt; {
+<a href=#210 id=210 data-nosnippet>210</a>        <span class="self">self</span>.info().imports()
+<a href=#211 id=211 data-nosnippet>211</a>    }
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExportsIterator&lt;Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">'_</span>&gt;&gt; {
+<a href=#214 id=214 data-nosnippet>214</a>        <span class="self">self</span>.info().exports()
+<a href=#215 id=215 data-nosnippet>215</a>    }
+<a href=#216 id=216 data-nosnippet>216</a>
+<a href=#217 id=217 data-nosnippet>217</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>custom_sections&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+<a href=#219 id=219 data-nosnippet>219</a>        name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+<a href=#220 id=220 data-nosnippet>220</a>    ) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+<a href=#221 id=221 data-nosnippet>221</a>        <span class="self">self</span>.info().custom_sections(name)
+<a href=#222 id=222 data-nosnippet>222</a>    }
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo {
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="self">self</span>.artifact.module_info()
+<a href=#226 id=226 data-nosnippet>226</a>    }
+<a href=#227 id=227 data-nosnippet>227</a>}
+<a href=#228 id=228 data-nosnippet>228</a>
+<a href=#229 id=229 data-nosnippet>229</a><span class="kw">impl </span><span class="kw">crate</span>::Module {
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="doccomment">/// Consume [`self`] into a reference [`crate::backend::sys::module::Module`].
+<a href=#231 id=231 data-nosnippet>231</a>    </span><span class="kw">pub fn </span>into_sys(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::sys::module::Module {
+<a href=#232 id=232 data-nosnippet>232</a>        <span class="kw">match </span><span class="self">self</span>.<span class="number">0 </span>{
+<a href=#233 id=233 data-nosnippet>233</a>            BackendModule::Sys(s) =&gt; s,
+<a href=#234 id=234 data-nosnippet>234</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` module!"</span>),
+<a href=#235 id=235 data-nosnippet>235</a>        }
+<a href=#236 id=236 data-nosnippet>236</a>    }
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a>    <span class="doccomment">/// Convert a reference to [`self`] into a reference [`crate::backend::sys::module::Module`].
+<a href=#239 id=239 data-nosnippet>239</a>    </span><span class="kw">pub fn </span>as_sys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::sys::module::Module {
+<a href=#240 id=240 data-nosnippet>240</a>        <span class="kw">match </span><span class="self">self</span>.<span class="number">0 </span>{
+<a href=#241 id=241 data-nosnippet>241</a>            BackendModule::Sys(<span class="kw-2">ref </span>s) =&gt; s,
+<a href=#242 id=242 data-nosnippet>242</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` module!"</span>),
+<a href=#243 id=243 data-nosnippet>243</a>        }
+<a href=#244 id=244 data-nosnippet>244</a>    }
+<a href=#245 id=245 data-nosnippet>245</a>
+<a href=#246 id=246 data-nosnippet>246</a>    <span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::sys::module::Module`].
+<a href=#247 id=247 data-nosnippet>247</a>    </span><span class="kw">pub fn </span>as_sys_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::sys::module::Module {
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">match </span><span class="self">self</span>.<span class="number">0 </span>{
+<a href=#249 id=249 data-nosnippet>249</a>            BackendModule::Sys(<span class="kw-2">ref mut </span>s) =&gt; s,
+<a href=#250 id=250 data-nosnippet>250</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` module!"</span>),
+<a href=#251 id=251 data-nosnippet>251</a>        }
+<a href=#252 id=252 data-nosnippet>252</a>    }
+<a href=#253 id=253 data-nosnippet>253</a>}</code></pre></div></section></main></body></html>

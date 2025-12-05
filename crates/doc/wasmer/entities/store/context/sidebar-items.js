@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["STORE_CONTEXT_STACK"],"enum":["GetStoreAsyncGuardResult","StoreContextEntry","StoreInstallGuard"],"struct":["ForcedStoreInstallGuard","StoreAsyncGuardWrapper","StoreContext","StorePtrPauseGuard","StorePtrWrapper"]};

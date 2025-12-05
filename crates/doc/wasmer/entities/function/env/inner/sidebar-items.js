@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BackendFunctionEnv","BackendFunctionEnvMut"]};
+window.SIDEBAR_ITEMS = {"enum":["BackendAsyncFunctionEnvHandle","BackendAsyncFunctionEnvHandleMut","BackendAsyncFunctionEnvMut","BackendFunctionEnv","BackendFunctionEnvMut"],"fn":["unsupported_async_backend"]};
