@@ -1,9 +1,13 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering::SeqCst},
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering::SeqCst},
+    },
+    thread::sleep,
+    time::Duration,
 };
 
 #[cfg(feature = "compiler")]
@@ -1296,5 +1300,13 @@ impl Artifact {
                 }),
             })
         }
+    }
+}
+
+impl Drop for Artifact {
+    fn drop(&mut self) {
+        eprintln!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Pausing before dropping Artifact");
+        sleep(Duration::from_millis(10));
+        eprintln!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Dropping Artifact");
     }
 }

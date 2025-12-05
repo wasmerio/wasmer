@@ -18,7 +18,6 @@ pub struct UnwindRegistry {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     compact_unwind_mgr: compact_unwind::CompactUnwindManager,
 }
-
 unsafe extern "C" {
     // libunwind import
     fn __register_frame(fde: *const u8);
@@ -261,6 +260,7 @@ extern "C" fn atexit_handler() {
 
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
+        eprintln!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Dropping UnwindRegistry");
         if self.published {
             unsafe {
                 // libgcc stores the frame entries as a linked list in decreasing sort order
