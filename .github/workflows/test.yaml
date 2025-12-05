@@ -1047,7 +1047,7 @@ jobs:
           cp package/cache/wasmercache2/build-capi.tar.gz package/cache/wasmer-windows-gnu64.tar.gz
           cp package/cache/wasmercache3/build-capi.tar.gz package/cache/wasmer-darwin-arm64.tar.gz
           cp package/cache/wasmercache4/build-capi.tar.gz package/cache/wasmer-darwin-amd64.tar.gz
-          cp package/cache/wasmercache5/build-capi.tar.gz package/cache/wasmer-linux-amd64.tar.gz
+          cp package/cache/wasmercache5/wasmer.tar.gz package/cache/wasmer-linux-riscv64.tar.gz
       - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'windows-x64' }}
         with:
