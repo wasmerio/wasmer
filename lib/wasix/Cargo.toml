@@ -18,7 +18,9 @@ wasmer-wasix-types = { path = "../wasi-types", version = "0.601.0", features = [
 	"enable-serde",
 ] }
 wasmer-types = { path = "../types", version = "=6.1.0", default-features = false }
-wasmer = { path = "../api", version = "=6.1.0", default-features = false }
+wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = [
+	"experimental-async",
+] }
 virtual-mio = { path = "../virtual-io", version = "0.601.0", default-features = false }
 virtual-fs = { path = "../virtual-fs", version = "0.601.0", default-features = false, features = [
 	"webc-fs",
@@ -221,7 +223,6 @@ sys = [
 	"ctrlc",
 	"wasmer/wat",
 	"wasmer/js-serializable-module",
-	"wasmer/experimental-async",
 ]
 sys-default = ["sys", "wasmer/sys"]
 sys-poll = []
