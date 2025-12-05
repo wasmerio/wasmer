@@ -104,7 +104,7 @@ macro_rules! impl_native_traits {
                         #[cfg(feature = "sys")]
                         BackendStore::Sys(_) => {
                             drop(read_lock);
-                            Self::call_async_sys_internal(func, store, $([<p_ $x>]),*).await
+                            Self::call_async_sys(func, store, $([<p_ $x>]),*).await
                         }
                         #[cfg(feature = "wamr")]
                         BackendStore::Wamr(_) => async_backend_error(),

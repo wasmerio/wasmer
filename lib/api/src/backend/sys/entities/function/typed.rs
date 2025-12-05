@@ -117,27 +117,11 @@ macro_rules! impl_native_traits {
                 // Ok(Rets::from_c_struct(results))
             }
 
-            #[allow(unused_mut)]
-            #[allow(clippy::too_many_arguments)]
-            #[cfg(feature = "experimental-async")]
-            pub(crate) fn call_async_sys(
-                &self,
-                store: &impl AsStoreAsync,
-                $( $x: $x, )*
-            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'static
-            where
-                $( $x: FromToNativeWasmType + 'static, )*
-            {
-                let func = self.func.clone();
-                let store = store.store();
-                Self::call_async_sys_internal(func, store, $($x),*)
-            }
-
             /// Call the typed func asynchronously.
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             #[cfg(feature = "experimental-async")]
-            pub(crate) fn call_async_sys_internal(
+            pub(crate) fn call_async_sys(
                 func: Function,
                 store: StoreAsync,
                 $( $x: $x, )*
