@@ -34,7 +34,9 @@ pub async fn context_switch(
     let environment = match &data.context_switching_environment {
         Some(c) => c,
         None => {
-            tracing::trace!("Context switching is not enabled");
+            tracing::warn!(
+                "The WASIX context-switching API is only available after entering the main function"
+            );
             return Ok(Errno::Notsup);
         }
     };
