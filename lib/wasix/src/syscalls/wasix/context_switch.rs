@@ -1,7 +1,7 @@
-use crate::{WasiEnv, state::context_switching::ContextSwitchError};
+use crate::{WasiEnv, WasiError, state::context_switching::ContextSwitchError};
 use futures::FutureExt;
 use tracing::instrument;
-use wasmer::{AsyncFunctionEnvMut, RuntimeError};
+use wasmer::{AsyncFunctionEnvMut, FunctionEnvMut, RuntimeError};
 use wasmer_wasix_types::wasi::Errno;
 
 /// Suspend the active context and resume another
@@ -72,4 +72,21 @@ pub async fn context_switch(
         tracing::trace!("But it has an error {e:?}");
     }
     result
+}
+
+/// This stub is used for context_switch, when the engine does not support async
+///
+/// It prints a warning and indicates that no context-switching environment is available.
+#[instrument(level = "trace", skip(ctx))]
+pub fn context_switch_not_supported(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    _target_context_id: u64,
+) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
+    tracing::warn!(
+        "The WASIX context-switching API is only available in engines supporting async execution"
+    );
+    // Indicate that no context-switching environment is available
+    Ok(Errno::Again)
 }

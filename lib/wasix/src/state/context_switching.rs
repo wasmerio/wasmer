@@ -109,12 +109,19 @@ impl ContextSwitchingEnvironment {
         entrypoint: wasmer::Function,
         params: Vec<wasmer::Value>,
     ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
+        // Do a normal call and dont install the context switching env, if the engine does not support async
+        let engine_supports_async = store.engine().is_sys();
+        if !engine_supports_async {
+            let result = entrypoint.call(&mut store, &params);
+            return (store, result);
+        }
+
         // Create a new executor
         let mut local_executor = ThreadLocalExecutor::new();
 
         let this = Self::new(local_executor.spawner());
 
-        // Put the spawner into the WASI env, so that syscalls can use it to queue up new tasks
+        // Add the context-switching environment to the WasiEnv
         let env = ctx.data_mut(&mut store);
         let previous_environment = env.context_switching_environment.replace(this);
         if previous_environment.is_some() {
@@ -123,8 +130,8 @@ impl ContextSwitchingEnvironment {
             );
         }
 
+        // Turn the store into an async store and run the entrypoint
         let store_async = store.into_async();
-        // Run function with the spawner
         let result = local_executor.run_until(entrypoint.call_async(&store_async, params));
 
         // Process if this was terminated by a context entrypoint returning
@@ -142,12 +149,12 @@ impl ContextSwitchingEnvironment {
             },
             _ => result,
         };
-        // Drop the executor to ensure all spawned tasks are dropped, so we have no references to the StoreAsync left
-        drop(local_executor);
 
-        // Remove the spawner again
+        // Drop the executor to ensure all references to the StoreAsync are gone and convert back to a normal store
+        drop(local_executor);
         let mut store = store_async.into_store().ok().unwrap();
 
+        // Remove the context-switching environment from the WasiEnv
         let env = ctx.data_mut(&mut store);
         env.context_switching_environment.take().expect(
             "Failed to remove wasix context-switching environment from WASIX env after main context finished, this should never happen",

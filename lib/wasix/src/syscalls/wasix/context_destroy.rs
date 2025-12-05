@@ -1,6 +1,6 @@
 use crate::{WasiEnv, WasiError};
 use tracing::instrument;
-use wasmer::{FunctionEnvMut, MemoryView};
+use wasmer::{AsStoreRef, FunctionEnvMut, MemoryView};
 use wasmer_wasix_types::wasi::Errno;
 
 /// Destroy a suspended or terminated context
@@ -26,7 +26,9 @@ pub fn context_destroy(
     let environment = match &env.context_switching_environment {
         Some(c) => c,
         None => {
-            tracing::trace!("Context switching is not enabled");
+            tracing::warn!(
+                "The WASIX context-switching API is only available in engines supporting async execution"
+            );
             return Ok(Errno::Again);
         }
     };

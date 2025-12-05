@@ -1,7 +1,8 @@
 use crate::{WasiEnv, WasiError};
 use tracing::instrument;
 use wasmer::{
-    Function, FunctionEnvMut, MemorySize, RuntimeError, StoreMut, TypedFunction, Value, WasmPtr,
+    AsStoreRef, Function, FunctionEnvMut, MemorySize, RuntimeError, StoreMut, TypedFunction, Value,
+    WasmPtr,
 };
 use wasmer_wasix_types::wasi::Errno;
 
@@ -57,23 +58,22 @@ pub fn context_create<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     // Verify that we are in an async context
-    let async_store = match ctx.as_store_async() {
-        Some(c) => c,
-        None => {
-            tracing::trace!("The current store is not async");
-            return Ok(Errno::Again);
-        }
+    // We need to do this first, before we borrow the store mutably
+    let Some(async_store) = ctx.as_store_async() else {
+        tracing::warn!(
+            "The WASIX context-switching API is only available in engines supporting async execution"
+        );
+        return Ok(Errno::Again);
     };
 
     let (data, mut store) = ctx.data_and_store_mut();
 
-    // Verify that we are in an async context
-    let environment = match &data.context_switching_environment {
-        Some(c) => c,
-        None => {
-            tracing::trace!("Context switching is not enabled");
-            return Ok(Errno::Again);
-        }
+    // Get the context-switching environment
+    let Some(environment) = &data.context_switching_environment else {
+        tracing::warn!(
+            "The WASIX context-switching API is only available in engines supporting async execution"
+        );
+        return Ok(Errno::Again);
     };
 
     // Lookup and check the entrypoint function
