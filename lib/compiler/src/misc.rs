@@ -1,16 +1,17 @@
 //! A common functionality used among various compilers.
 
 use core::fmt::Display;
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    process::{Command, Stdio},
-};
+use std::{collections::HashMap, path::PathBuf};
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::process::{Command, Stdio};
 
 use itertools::Itertools;
 use target_lexicon::Architecture;
-use tempfile::NamedTempFile;
 use wasmer_types::{CompileError, FunctionType, LocalFunctionIndex, Type};
+
+#[cfg(not(target_arch = "wasm32"))]
+use tempfile::NamedTempFile;
 
 /// Represents the kind of compiled function or module, used for debugging and identification
 /// purposes across multiple compiler backends (e.g., LLVM, Cranelift).

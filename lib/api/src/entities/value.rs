@@ -208,7 +208,7 @@ impl Value {
                 crate::BackendStore::Sys(_) => Self::ExceptionRef(
                     unsafe {
                         crate::backend::sys::vm::VMExceptionRef::from_raw(
-                            store.as_store_ref().objects().id(),
+                            store.objects_mut().id(),
                             raw,
                         )
                     }

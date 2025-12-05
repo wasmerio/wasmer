@@ -3611,7 +3611,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         && (return_type == Type::F32 || return_type == Type::F64)
                     {
                         self.machine.emit_function_return_float()?;
-                    };
+                    }
                     self.machine.emit_ret()?;
                 } else {
                     let released = &self.value_stack.clone()[frame.value_stack_depth_after()..];
