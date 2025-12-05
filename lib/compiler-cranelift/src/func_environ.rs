@@ -1054,7 +1054,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         let sig = self.read_exception_sig.unwrap_or_else(|| {
             let mut signature = Signature::new(self.target_config.default_call_conv);
             signature.params.push(AbiParam::new(self.pointer_type()));
-            signature.returns.push(AbiParam::new(self.pointer_type()));
+            signature.returns.push(AbiParam::new(I32));
             let sig = func.import_signature(signature);
             self.read_exception_sig = Some(sig);
             sig
@@ -1239,7 +1239,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             let block_call = builder
                 .func
                 .dfg
-                .block_call(block, &[BlockArg::TryCallExn(0)]);
+                .block_call(block, &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)]);
             table_items.push(match tag {
                 Some(tag) => ExceptionTableItem::Tag(tag, block_call),
                 None => ExceptionTableItem::Default(block_call),

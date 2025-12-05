@@ -3528,13 +3528,34 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     clauses: &[CatchClause],
 ) -> WasmResult<ir::Block> {
     dbg!(&clauses);
+
+    let catch_block = builder.create_block();
+    let exn_ptr = builder.append_block_param(catch_block, environ.reference_type());
+    let pre_selector = builder.append_block_param(catch_block, I32);
+    let catch_all_block = builder.create_block();
+    let catch_one_block = builder.create_block();
     let dispatch_block = builder.create_block();
-    let exn_ptr = builder.append_block_param(dispatch_block, environ.reference_type());
+
+    builder.switch_to_block(catch_block);
+    let catch_all_tag = builder.ins().iconst(I32, 0);
+    let matches = builder
+        .ins()
+        .icmp(IntCC::Equal, pre_selector, catch_all_tag);
+    canonicalise_brif(builder, matches, catch_all_block, &[], catch_one_block, &[]);
+
+    builder.switch_to_block(catch_all_block);
+    let catch_all_tag = builder.ins().iconst(I32, i64::from(CATCH_ALL_TAG_VALUE));
+    canonicalise_then_jump(builder, dispatch_block, &[catch_all_tag]);
+    builder.seal_block(catch_all_block);
+
+    builder.switch_to_block(catch_one_block);
+    let selector = environ.translate_exn_personality_selector(builder, exn_ptr)?;
+    canonicalise_then_jump(builder, dispatch_block, &[selector]);
+    builder.seal_block(catch_one_block);
 
     builder.switch_to_block(dispatch_block);
-
-    let selector = environ.translate_exn_personality_selector(builder, exn_ptr)?;
-    let selector_ty = builder.func.dfg.value_type(selector);
+    let selector = builder.append_block_param(dispatch_block, I32);
+    let selector_ty = I32;
 
     let rethrow_block = builder.create_block();
     builder.append_block_param(rethrow_block, environ.reference_type());
@@ -3580,6 +3601,7 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
             current_exn = params[1];
         }
     }
+    builder.seal_block(dispatch_block);
 
     builder.switch_to_block(rethrow_block);
     let rethrow_exn = builder.func.dfg.block_params(rethrow_block)[0];
@@ -3587,5 +3609,5 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     //environ.translate_exn_reraise_unmatched(builder, rethrow_exn)?;
     builder.seal_block(rethrow_block);
 
-    Ok(dispatch_block)
+    Ok(catch_block)
 }
