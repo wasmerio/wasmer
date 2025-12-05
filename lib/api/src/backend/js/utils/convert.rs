@@ -57,6 +57,42 @@ pub fn js_value_to_wasmer(ty: &Type, js_val: &JsValue) -> Value {
 }
 
 #[inline]
+/// Convert a JsValue into a wasmer Value without knowing the value's type
+/// by trying to guess it... which is the only thing we can do for dynamic
+/// function results.
+pub fn js_value_to_wasmer_guess_type(ty: Option<&Type>, js_val: &JsValue) -> Value {
+    if let Some(ty) = ty {
+        return js_value_to_wasmer(ty, js_val);
+    }
+
+    if js_val.is_bigint() {
+        let big_num: u128 = js_sys::BigInt::from(js_val.clone()).try_into().unwrap();
+        if big_num <= u64::MAX as u128 {
+            return Value::I64(big_num as i64);
+        } else {
+            return Value::V128(big_num);
+        }
+    } else if let Some(num) = js_val.as_f64() {
+        if num.fract() == 0.0 {
+            let int_num = num as u64;
+            if int_num <= i32::MAX as u64 {
+                return Value::I32(int_num as i32);
+            } else {
+                return Value::I64(int_num as i64);
+            }
+        } else {
+            if num <= f32::MAX as f64 {
+                return Value::F32(num as f32);
+            } else {
+                return Value::F64(num);
+            }
+        }
+    } else {
+        unimplemented!("Failed to convert value `{:?}` to a WASM value", js_val)
+    }
+}
+
+#[inline]
 /// Convert a wasmer Value into a JsValue
 pub fn wasmer_value_to_js(val: &Value) -> JsValue {
     match val {
