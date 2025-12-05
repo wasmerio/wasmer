@@ -63,7 +63,7 @@ pub fn context_create<M: MemorySize>(
         tracing::warn!(
             "The WASIX context-switching API is only available in engines supporting async execution"
         );
-        return Ok(Errno::Again);
+        return Ok(Errno::Notsup);
     };
 
     let (data, mut store) = ctx.data_and_store_mut();
@@ -73,7 +73,7 @@ pub fn context_create<M: MemorySize>(
         tracing::warn!(
             "The WASIX context-switching API is only available in engines supporting async execution"
         );
-        return Ok(Errno::Again);
+        return Ok(Errno::Notsup);
     };
 
     // Lookup and check the entrypoint function

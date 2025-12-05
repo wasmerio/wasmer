@@ -35,7 +35,7 @@ pub async fn context_switch(
         Some(c) => c,
         None => {
             tracing::trace!("Context switching is not enabled");
-            return Ok(Errno::Again);
+            return Ok(Errno::Notsup);
         }
     };
 
@@ -88,5 +88,5 @@ pub fn context_switch_not_supported(
         "The WASIX context-switching API is only available in engines supporting async execution"
     );
     // Indicate that no context-switching environment is available
-    Ok(Errno::Again)
+    Ok(Errno::Notsup)
 }
