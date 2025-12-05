@@ -132,6 +132,7 @@ impl Artifact {
         tunables: &dyn Tunables,
         hash_algorithm: Option<HashAlgorithm>,
     ) -> Result<Self, CompileError> {
+        let data = Box::leak(Box::from(data));
         let mut inner_engine = engine.inner_mut();
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
@@ -1305,8 +1306,6 @@ impl Artifact {
 
 impl Drop for Artifact {
     fn drop(&mut self) {
-        eprintln!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Pausing before dropping Artifact");
-        sleep(Duration::from_millis(10));
         eprintln!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Dropping Artifact");
     }
 }
