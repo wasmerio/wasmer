@@ -173,7 +173,7 @@ impl ContextSwitchingEnvironment {
         MAIN_CONTEXT_ID
     }
 
-    pub(crate) fn remove_unblocker(&self, target_context_id: &u64) -> bool {
+    pub(crate) fn destroy_context(&self, target_context_id: &u64) -> bool {
         self.inner
             .unblockers
             .write()
@@ -185,7 +185,7 @@ impl ContextSwitchingEnvironment {
     /// Unblock the target context and suspend own context
     ///
     /// If this function succeeds, you MUST await the returned future
-    pub(crate) fn switch(
+    pub(crate) fn switch_context(
         &self,
         target_context_id: u64,
     ) -> Result<

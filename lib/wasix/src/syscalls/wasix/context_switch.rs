@@ -51,7 +51,7 @@ pub async fn context_switch(
     // Try to unblock the target and get future to wait until we are unblocked again
     //
     // We must be careful not to return after this point without awaiting the resulting future
-    let wait_for_unblock = match environment.switch(target_context_id) {
+    let wait_for_unblock = match environment.switch_context(target_context_id) {
         Ok(wait_for_unblock) => wait_for_unblock,
         Err(ContextSwitchError::SwitchTargetMissing) => {
             tracing::trace!(
