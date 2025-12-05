@@ -494,6 +494,8 @@ fn wasi_snapshot_preview1_exports(
 }
 
 fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
+    let engine_supports_async = store.as_store_ref().engine().is_sys();
+
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory32>),
@@ -587,7 +589,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "stack_checkpoint" => Function::new_typed_with_env(&mut store, env, stack_checkpoint::<Memory32>),
         "stack_restore" => Function::new_typed_with_env(&mut store, env, stack_restore::<Memory32>),
         "context_create" => Function::new_typed_with_env(&mut store, env, context_create::<Memory32>),
-        "context_switch" => Function::new_typed_with_env_async(&mut store, env, context_switch),
+        "context_switch" => if engine_supports_async { Function::new_typed_with_env_async(&mut store, env, context_switch) } else { Function::new_typed_with_env(&mut store, env, context_switch_not_supported) },
         "context_destroy" => Function::new_typed_with_env(&mut store, env, context_destroy),
         "futex_wait" => Function::new_typed_with_env(&mut store, env, futex_wait::<Memory32>),
         "futex_wake" => Function::new_typed_with_env(&mut store, env, futex_wake::<Memory32>),
@@ -637,6 +639,8 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
 }
 
 fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
+    let engine_supports_async = store.as_store_ref().engine().is_sys();
+
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory64>),
@@ -730,7 +734,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "stack_checkpoint" => Function::new_typed_with_env(&mut store, env, stack_checkpoint::<Memory64>),
         "stack_restore" => Function::new_typed_with_env(&mut store, env, stack_restore::<Memory64>),
         "context_create" => Function::new_typed_with_env(&mut store, env, context_create::<Memory64>),
-        "context_switch" => Function::new_typed_with_env_async(&mut store, env, context_switch),
+        "context_switch" => if engine_supports_async { Function::new_typed_with_env_async(&mut store, env, context_switch) } else { Function::new_typed_with_env(&mut store, env, context_switch_not_supported) },
         "context_destroy" => Function::new_typed_with_env(&mut store, env, context_destroy),
         "futex_wait" => Function::new_typed_with_env(&mut store, env, futex_wait::<Memory64>),
         "futex_wake" => Function::new_typed_with_env(&mut store, env, futex_wake::<Memory64>),
