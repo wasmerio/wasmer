@@ -1,4 +1,5 @@
 mod call_dynamic;
+mod call_dynamic2;
 mod callback_signal;
 mod chdir;
 mod closure_allocate;
@@ -91,6 +92,7 @@ mod tty_get;
 mod tty_set;
 
 pub use call_dynamic::*;
+pub use call_dynamic2::*;
 pub use callback_signal::*;
 pub use chdir::*;
 pub use closure_allocate::*;

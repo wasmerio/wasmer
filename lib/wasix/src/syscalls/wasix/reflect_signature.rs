@@ -51,6 +51,12 @@ pub fn reflect_signature<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     let (env, mut store) = ctx.data_and_store_mut();
 
+    // Function reflection API doesn't exist in JS environments
+    #[cfg(feature = "js")]
+    if store.engine().is_js() {
+        return Ok(Errno::Notsup);
+    }
+
     let function_lookup_result = env
         .inner()
         .indirect_function_table_lookup(&mut store, function_id);

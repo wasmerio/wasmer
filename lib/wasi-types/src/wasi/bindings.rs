@@ -2522,6 +2522,31 @@ impl From<WasmValueType> for wasmer::Type {
     }
 }
 
+#[doc = " A raw WASM value. The lowest bytes will be filled with the value, and extra bytes will be zero."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct WasmRawValue {
+    pub bytes: [u8; 16],
+}
+
+unsafe impl wasmer_types::ValueType for WasmRawValue {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+#[doc = " A raw WASM value and its corresponding type."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct WasmRawValueWithType {
+    pub value: WasmRawValue,
+    pub type_: WasmValueType,
+}
+
+unsafe impl wasmer_types::ValueType for WasmRawValueWithType {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
 #[doc = " A structure representing the reflection information for a function signature"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

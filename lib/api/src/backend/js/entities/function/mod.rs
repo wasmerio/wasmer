@@ -14,6 +14,7 @@ use crate::{
     NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
     WithoutEnv,
     js::{
+        js_value_to_wasmer_guess_type,
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
     },
@@ -247,7 +248,7 @@ impl Function {
         match result_types.len() {
             0 => Ok(Box::new([])),
             1 => {
-                let value = js_value_to_wasmer(&result_types[0], &result);
+                let value = js_value_to_wasmer_guess_type(result_types.get(0), &result);
                 Ok(vec![value].into_boxed_slice())
             }
             _n => {
@@ -255,7 +256,7 @@ impl Function {
                 Ok(result_array
                     .iter()
                     .enumerate()
-                    .map(|(i, js_val)| js_value_to_wasmer(&result_types[i], &js_val))
+                    .map(|(i, js_val)| js_value_to_wasmer_guess_type(result_types.get(i), &js_val))
                     .collect::<Vec<_>>()
                     .into_boxed_slice())
             }
