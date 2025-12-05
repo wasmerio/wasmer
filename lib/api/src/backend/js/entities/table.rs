@@ -4,7 +4,9 @@ use crate::{
     vm::{VMExtern, VMExternTable},
 };
 use js_sys::Function;
-use wasmer_types::{FunctionType, TableType};
+use tracing::trace;
+use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::{FunctionType, TableType, Type};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Table {
@@ -16,7 +18,21 @@ pub struct Table {
 // unsafe impl Send for Table {}
 
 fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(), RuntimeError> {
-    table.table.set(item_index, item).map_err(|e| e.into())
+    Ok(table.table.set(item_index, item)?)
+}
+fn set_table_null(table: &VMTable, item_index: u32) -> Result<(), RuntimeError> {
+    // Get the method `table.set`
+    let set = js_sys::Reflect::get(&table.table, &JsValue::from_str("set"))?
+        .dyn_into::<Function>()
+        .unwrap();
+
+    // Call: table.set(index, null)
+    set.call2(
+        &table.table.as_ref(),      // this
+        &JsValue::from(item_index), // first arg
+        &JsValue::NULL,             // second arg
+    )?;
+    Ok(())
 }
 
 fn get_function(store: &mut impl AsStoreMut, val: Value) -> Result<Option<Function>, RuntimeError> {
@@ -71,16 +87,21 @@ impl Table {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
-        if let Ok(func) = self.handle.table.get(index) {
-            let ty = FunctionType::new(vec![], vec![]);
-            let vm_function = VMFunction::new(func, ty);
-            let function = crate::Function::from_vm_extern(
-                store,
-                crate::vm::VMExternFunction::Js(vm_function),
-            );
-            Some(Value::FuncRef(Some(function)))
-        } else {
-            None
+        match self.handle.table.get(index) {
+            Ok(value) => {
+                if value.is_null() || value.is_undefined() {
+                    return Some(Value::FuncRef(None));
+                }
+
+                let ty = FunctionType::new(vec![], vec![]);
+                let vm_function = VMFunction::new(value, ty);
+                let function = crate::Function::from_vm_extern(
+                    store,
+                    crate::vm::VMExternFunction::Js(vm_function),
+                );
+                Some(Value::FuncRef(Some(function)))
+            }
+            Err(_) => None,
         }
     }
 
@@ -91,8 +112,10 @@ impl Table {
         val: Value,
     ) -> Result<(), RuntimeError> {
         let item = get_function(store, val)?;
-        if let Some(item) = item {
-            set_table_item(&self.handle, index, &item)?;
+        if let Some(func) = item {
+            set_table_item(&self.handle, index, &func)?;
+        } else {
+            set_table_null(&self.handle, index)?;
         }
         Ok(())
     }
@@ -109,13 +132,17 @@ impl Table {
     ) -> Result<u32, RuntimeError> {
         // TODO: use `Table.grow_with_value` method from wasm-bindgen
         // https://github.com/wasm-bindgen/wasm-bindgen/pull/4698
-        let grow_by = self.handle.table.grow(delta)?;
+        let old_size = self.handle.table.grow(delta)?;
         if let Some(func) = get_function(store, init)? {
-            for i in grow_by..(grow_by + delta) {
+            for i in old_size..(old_size + delta) {
                 set_table_item(&self.handle, i, &func)?;
             }
+        } else {
+            for i in old_size..(old_size + delta) {
+                set_table_null(&self.handle, i)?;
+            }
         }
-        Ok(grow_by)
+        Ok(old_size)
     }
 
     pub fn copy(

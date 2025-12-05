@@ -16,6 +16,12 @@ unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
     pub(crate) fn new(function: JsFunction, ty: FunctionType) -> Self {
+        if function.is_null() {
+            panic!("Cannot create a VMFunction with a null function");
+        }
+        if function.is_undefined() {
+            panic!("Cannot create a VMFunction with an undefined function");
+        }
         Self {
             function: JsHandle::new(function),
             ty,

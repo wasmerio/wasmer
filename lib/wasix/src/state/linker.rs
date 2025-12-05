@@ -981,7 +981,7 @@ impl Linker {
 
         trace!(
             minimum_size = ?function_table_type.minimum,
-            "Creating indirect function table"
+            "Creating indirect function table for main module"
         );
         let indirect_function_table = Table::new(store, function_table_type, Value::FuncRef(None))
             .map_err(LinkError::TableAllocationError)?;
@@ -991,11 +991,20 @@ impl Linker {
         // _may_ not need this. Need to experiment and figure this out.
         let expected_table_length =
             dylink_section.mem_info.table_size + MAIN_MODULE_TABLE_BASE as u32;
+        trace!(
+            expected_table_length,
+            "found expected indirect function table length from dylink.0 section"
+        );
+
         // Make sure the function table is as big as the dylink.0 section expects it to be
         if indirect_function_table.size(store) < expected_table_length {
             let current_size = indirect_function_table.size(store);
             let delta = expected_table_length - current_size;
-            trace!(?current_size, ?delta, "Growing indirect function table");
+            trace!(
+                ?current_size,
+                ?delta,
+                "Growing indirect function table for main module"
+            );
             indirect_function_table
                 .grow(store, delta, Value::FuncRef(None))
                 .map_err(LinkError::TableAllocationError)?;
@@ -1141,6 +1150,7 @@ impl Linker {
         // functions and those are called frequently by basically any code, then giving
         // stubs to main will be faster, but we need numbers before we decide this.
         let main_instance = Instance::new(store, main_module, &imports)?;
+        // TODO: this takes a long time on the JS backend
         instance_group.main_instance = Some(main_instance.clone());
 
         let tls_base = get_tls_base_export(&main_instance, store)?;
@@ -1161,7 +1171,7 @@ impl Linker {
                 &mut link_state,
                 &wasi_env.runtime,
                 &wasi_env.state,
-                runtime_path.as_ref(),
+                &runtime_path,
                 // HACK: The main module doesn't have to exist in the virtual FS at all; e.g.
                 // if one runs `wasmer ../module.wasm --dir .`, we won't have access to the
                 // main module's folder within the virtual FS. This is why we're picking PWD
@@ -1172,6 +1182,7 @@ impl Linker {
             )?;
         }
 
+        trace!("Instantiating side modules");
         for module_handle in link_state
             .new_modules
             .iter()
@@ -1187,12 +1198,14 @@ impl Linker {
                 module_handle,
             )?;
         }
+        trace!("All side modules instantiated");
 
         let linker = Self {
             linker_state: Arc::new(RwLock::new(linker_state)),
             instance_group_state: Arc::new(Mutex::new(Some(instance_group))),
             dl_operation_pending: Arc::new(AtomicBool::new(false)),
         };
+        trace!("Linker created");
 
         let stack_layout = WasiMemoryLayout {
             stack_lower: stack_low,
@@ -1236,7 +1249,7 @@ impl Linker {
 
             // The main module isn't added to the link state's list of new modules, so we need to
             // call its initialization functions separately
-            trace!("Calling data relocator function for main module");
+            trace!("Calling relocator functions for main module");
             call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
             call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
 
@@ -1306,7 +1319,11 @@ impl Linker {
         if indirect_function_table.size(store) < expected_table_length {
             let current_size = indirect_function_table.size(store);
             let delta = expected_table_length - current_size;
-            trace!(?current_size, ?delta, "Growing indirect function table");
+            trace!(
+                ?current_size,
+                ?delta,
+                "Growing indirect function table for new instance group"
+            );
             indirect_function_table
                 .grow(store, delta, Value::FuncRef(None))
                 .map_err(LinkError::TableAllocationError)?;
@@ -2474,7 +2491,11 @@ impl InstanceGroupState {
             };
 
             let delta = table_size + offset;
-            trace!(?current_size, ?delta, "Growing indirect function table");
+            trace!(
+                ?current_size,
+                ?delta,
+                "Growing indirect function table for new function"
+            );
             let start = self
                 .indirect_function_table
                 .grow(store, delta, Value::FuncRef(None))?;
