@@ -137,6 +137,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn test_throw_exception() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }

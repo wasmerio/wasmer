@@ -990,7 +990,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         {
             let dst = self.value_stack[value_stack_depth_after - i - 1].0;
             if let Some(canonicalize_size) = canonicalize.to_size()
-                && self.machine.arch_supports_canonicalize_nan()
                 && self.config.enable_nan_canonicalization
             {
                 self.machine
@@ -1149,9 +1148,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 };
                 let (loc, canonicalize) = self.pop_value_released()?;
                 if let Some(canonicalize_size) = canonicalize.to_size() {
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                    {
+                    if self.config.enable_nan_canonicalization {
                         self.machine.canonicalize_nan(canonicalize_size, loc, dst)?;
                     } else {
                         self.machine.emit_relaxed_mov(Size::S64, loc, dst)?;
@@ -1175,9 +1172,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if self.local_types[local_index].is_float()
                     && let Some(canonicalize_size) = canonicalize.to_size()
                 {
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                    {
+                    if self.config.enable_nan_canonicalization {
                         self.machine.canonicalize_nan(
                             canonicalize_size,
                             loc,
@@ -1199,9 +1194,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if self.local_types[local_index].is_float()
                     && let Some(canonicalize_size) = canonicalize.to_size()
                 {
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                    {
+                    if self.config.enable_nan_canonicalization {
                         self.machine.canonicalize_nan(
                             canonicalize_size,
                             loc,
@@ -1739,9 +1732,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
+                if self.config.enable_nan_canonicalization {
                     for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)] {
                         if fp.to_size().is_some() {
                             self.machine
@@ -1888,9 +1879,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
+                if self.config.enable_nan_canonicalization {
                     for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)] {
                         if fp.to_size().is_some() {
                             self.machine
@@ -1948,8 +1937,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
 
-                if !self.machine.arch_supports_canonicalize_nan()
-                    || !self.config.enable_nan_canonicalization
+                if !self.config.enable_nan_canonicalization
                     || matches!(canonicalize, CanonicalizeType::None)
                 {
                     if loc != ret {
@@ -1974,8 +1962,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
 
-                if !self.machine.arch_supports_canonicalize_nan()
-                    || !self.config.enable_nan_canonicalization
+                if !self.config.enable_nan_canonicalization
                     || matches!(canonicalize, CanonicalizeType::None)
                 {
                     if loc != ret {
@@ -2202,9 +2189,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 //
                 // Canonicalization state will be lost across function calls, so early canonicalization
                 // is necessary here.
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
+                if self.config.enable_nan_canonicalization {
                     for (loc, canonicalize) in params.iter() {
                         if let Some(size) = canonicalize.to_size() {
                             self.machine.canonicalize_nan(size, *loc, *loc)?;
@@ -2265,9 +2250,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 //
                 // Canonicalization state will be lost across function calls, so early canonicalization
                 // is necessary here.
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
+                if self.config.enable_nan_canonicalization {
                     for (loc, canonicalize) in params.iter() {
                         if let Some(size) = canonicalize.to_size() {
                             self.machine.canonicalize_nan(size, *loc, *loc)?;
@@ -2398,37 +2381,26 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.emit_call_native(
                     |this| {
-                        if this.machine.arch_requires_indirect_call_trampoline() {
-                            this.machine
-                                .arch_emit_indirect_call_with_trampoline(Location::Memory(
-                                    gpr_for_call,
-                                    vmcaller_checked_anyfunc_func_ptr as i32,
-                                ))
-                        } else {
-                            let offset = this
-                                .machine
-                                .mark_instruction_with_trap_code(TrapCode::StackOverflow);
+                        let offset = this
+                            .machine
+                            .mark_instruction_with_trap_code(TrapCode::StackOverflow);
 
-                            // We set the context pointer
-                            this.machine.move_location(
-                                Size::S64,
-                                Location::Memory(
-                                    gpr_for_call,
-                                    vmcaller_checked_anyfunc_vmctx as i32,
-                                ),
-                                Location::GPR(
-                                    this.machine
-                                        .get_simple_param_location(0, calling_convention),
-                                ),
-                            )?;
+                        // We set the context pointer
+                        this.machine.move_location(
+                            Size::S64,
+                            Location::Memory(gpr_for_call, vmcaller_checked_anyfunc_vmctx as i32),
+                            Location::GPR(
+                                this.machine
+                                    .get_simple_param_location(0, calling_convention),
+                            ),
+                        )?;
 
-                            this.machine.emit_call_location(Location::Memory(
-                                gpr_for_call,
-                                vmcaller_checked_anyfunc_func_ptr as i32,
-                            ))?;
-                            this.machine.mark_instruction_address_end(offset);
-                            Ok(())
-                        }
+                        this.machine.emit_call_location(Location::Memory(
+                            gpr_for_call,
+                            vmcaller_checked_anyfunc_func_ptr as i32,
+                        ))?;
+                        this.machine.mark_instruction_address_end(offset);
+                        Ok(())
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
@@ -2554,8 +2526,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::Imm32(0),
                     zero_label,
                 )?;
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
+                if self.config.enable_nan_canonicalization
                     && let Some(size) = canonicalize_a.to_size()
                 {
                     self.machine.canonicalize_nan(size, v_a, ret)?;
@@ -2564,8 +2535,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 self.machine.jmp_unconditional(end_label)?;
                 self.machine.emit_label(zero_label)?;
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
+                if self.config.enable_nan_canonicalization
                     && let Some(size) = canonicalize_b.to_size()
                 {
                     self.machine.canonicalize_nan(size, v_b, ret)?;

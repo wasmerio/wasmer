@@ -28,7 +28,7 @@ env:
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
-  S3_CACHE_VERSION: "1"
+  S3_CACHE_VERSION: "2"
 
 jobs:
   setup:
@@ -277,7 +277,7 @@ jobs:
           ]
         metadata: [
             { build: linux-x64, os: ubuntu-22.04 },
-            { build: macos-arm, os: macos-14 },
+            { build: macos-arm, os: depot-macos-14 },
             #{
             #  build: windows-x64,
             #  os: windows-2022,
@@ -551,7 +551,7 @@ jobs:
             },
             {
               build: macos-arm,
-              os: macos-14,
+              os: depot-macos-14,
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz",
@@ -562,8 +562,7 @@ jobs:
               os: windows-2022,
               target: x86_64-pc-windows-msvc,
               exe: ".exe",
-              # For now, disable LLVM in `windows-x64.`
-              # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz'
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz",
               supports_v8: false,
             },
             {
@@ -577,7 +576,7 @@ jobs:
               target: x86_64-unknown-linux-musl,
               os: ubuntu-22.04,
               exe: "",
-              container: "alpine:latest",
+              container: "alpine:edge",
               supports_v8: false,
             },
           ]
@@ -587,6 +586,8 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v6
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
       - name: Set up libstdc++ on Linux
         if: matrix.metadata.build == 'linux-x64'
         run: |
@@ -596,10 +597,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: |
-          ./scripts/alpine-linux-install-deps.sh 
-          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
-          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-20" >> $GITHUB_ENV
-        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
+          ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -831,7 +829,7 @@ jobs:
             },
             {
               build: macos-arm,
-              os: macos-14,
+              os: depot-macos-14,
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz",
@@ -841,15 +839,14 @@ jobs:
               os: windows-2022,
               target: x86_64-pc-windows-msvc,
               exe: ".exe",
-              # For now, disable LLVM in `windows-x64.`
-              # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz'
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
             },
             {
               build: linux-musl,
               target: x86_64-unknown-linux-musl,
               os: ubuntu-22.04,
               exe: "",
-              container: "alpine:latest",
+              container: "alpine:edge",
             },
           ]
     container: ${{ matrix.metadata.container }}
@@ -868,9 +865,6 @@ jobs:
         if: matrix.metadata.build == 'linux-musl'
         run: |
           ./scripts/alpine-linux-install-deps.sh
-          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
-          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-20" >> $GITHUB_ENV
-        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.metadata.build == 'windows-x64' }}
@@ -913,7 +907,7 @@ jobs:
         env:
           LLVM_DIR: .llvm
       - name: Add `brew` libs to `RUSTFLAGS`
-        if: matrix.metadata.os == 'macos-14'
+        if: matrix.metadata.os == 'macos-14' || matrix.metadata.os == 'depot-macos-14'
         shell: bash
         run: |
           echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
@@ -967,17 +961,16 @@ jobs:
             target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
-            os: macos-14
+            os: depot-macos-14
             target: aarch64-apple-darwin,
           - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
-            container: alpine:latest
+            container: alpine:edge
           - build: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            # For now, disable LLVM in `windows-x64.`
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz'
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
 
     container: ${{ matrix.container }}
     env:
@@ -992,9 +985,6 @@ jobs:
         if: matrix.build == 'linux-musl'
         run: |
           ./scripts/alpine-linux-install-deps.sh
-          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
-          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-20" >> $GITHUB_ENV
-        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - uses: actions/download-artifact@v4
         id: download
         with:
