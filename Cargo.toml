@@ -390,6 +390,7 @@ wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
+experimental-async = ["wasmer/experimental-async"]
 
 # Testing features
 test-singlepass = ["singlepass"]
