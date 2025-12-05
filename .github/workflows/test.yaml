@@ -855,6 +855,9 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v6
+      - name: Show disk capacity
+        if: startsWith(matrix.metadata.build, 'linux')
+        run: df -h
       - name: Set up libstdc++ on Linux
         if: matrix.metadata.build == 'linux-x64'
         run: |
