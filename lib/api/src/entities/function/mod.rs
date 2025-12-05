@@ -119,8 +119,8 @@ impl Function {
     pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
-        Args: WasmTypeList + 'static,
-        Rets: WasmTypeList + 'static,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
     {
         Self(BackendFunction::new_typed(store, func))
     }
@@ -150,8 +150,8 @@ impl Function {
     ) -> Self
     where
         F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
-        Args: WasmTypeList + 'static,
-        Rets: WasmTypeList + 'static,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
     {
         Self(BackendFunction::new_typed_with_env(store, env, func))
     }
