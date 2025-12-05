@@ -52,7 +52,7 @@ pub fn context_destroy(
         return Ok(Errno::Inval);
     }
 
-    let removed_unblocker = environment.remove_unblocker(&target_context_id);
+    let removed_unblocker = environment.destroy_context(&target_context_id);
     // As soon as the Sender is dropped, the corresponding context will be able unblocked,
     // the executor will continue executing it. The context will respond to the
     // cancelation by terminating gracefully.
