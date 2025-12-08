@@ -41,6 +41,7 @@ pub struct FunctionLsdaData {
 /// call-site metadata.
 pub fn build_function_lsda<'a>(
     call_sites: impl Iterator<Item = FinalizedMachCallSite<'a>>,
+    function_length: usize,
     pointer_bytes: u8,
 ) -> Option<FunctionLsdaData> {
     let mut sites = Vec::new();
@@ -91,6 +92,37 @@ pub fn build_function_lsda<'a>(
         return None;
     }
 
+    // Ensure all instructions in the function are covered by filling gaps with
+    // default unwinding behavior (no catch actions).
+    let mut current_pos = 0u32;
+    let mut filled_sites = Vec::new();
+
+    for site in sites {
+        if site.start > current_pos {
+            // Gap found: add a default site that covers instructions with no handlers
+            filled_sites.push(CallSiteDesc {
+                start: current_pos,
+                len: site.start - current_pos,
+                landing_pad: 0,
+                actions: Vec::new(),
+            });
+        }
+        current_pos = site.start + site.len;
+        filled_sites.push(site);
+    }
+
+    // Cover any remaining instructions at the end of the function
+    if current_pos < function_length as u32 {
+        filled_sites.push(CallSiteDesc {
+            start: current_pos,
+            len: function_length as u32 - current_pos,
+            landing_pad: 0,
+            actions: Vec::new(),
+        });
+    }
+
+    let sites = filled_sites;
+
     if std::env::var_os("WASMER_DEBUG_EH").is_some() {
         eprintln!("[wasmer][eh] call sites: {sites:?}");
     }
@@ -112,13 +144,13 @@ pub fn build_function_lsda<'a>(
 
     let action_table = encode_action_table(&callsite_actions);
     let call_site_table = encode_call_site_table(&sites, &action_table);
-    let (type_table_bytes, type_table_relocs) = dbg!(type_entries.encode(pointer_bytes));
+    let (type_table_bytes, type_table_relocs) = type_entries.encode(pointer_bytes);
 
     let call_site_table_len = call_site_table.len() as u64;
     let mut bytes = Vec::new();
     bytes.push(DW_EH_PE_OMIT); // lpstart encoding omitted (relative to function start)
 
-    if dbg!(&type_entries).is_empty() {
+    if type_entries.is_empty() {
         bytes.push(DW_EH_PE_OMIT);
     } else {
         bytes.push(DW_EH_PE_ABSPTR);
@@ -129,7 +161,7 @@ pub fn build_function_lsda<'a>(
             + uleb128_len(call_site_table_len)
             + call_site_table.len()
             + action_table.bytes.len();
-        write_uleb128(dbg!(class_info_offset) as u64, &mut bytes);
+        write_uleb128(class_info_offset as u64, &mut bytes);
     }
 
     bytes.push(DW_EH_PE_UDATA4);

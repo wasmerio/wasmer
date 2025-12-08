@@ -309,9 +309,7 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
                     ctx.id(),
                     InternalStoreHandle::from_index(exnref as usize).unwrap(),
                 ));
-                crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
-                // TODO: ???
-                // unreachable!()
+                unreachable!()
             }
         }
     }

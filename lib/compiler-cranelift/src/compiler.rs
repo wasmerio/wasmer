@@ -229,7 +229,11 @@ impl CraneliftCompiler {
 
                 #[cfg(feature = "unwind")]
                 let function_lsda = if dwarf_frametable.is_some() {
-                    build_function_lsda(result.buffer.call_sites(), pointer_bytes)
+                    build_function_lsda(
+                        result.buffer.call_sites(),
+                        result.buffer.data().len(),
+                        pointer_bytes,
+                    )
                 } else {
                     None
                 };
