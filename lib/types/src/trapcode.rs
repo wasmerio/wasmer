@@ -66,6 +66,10 @@ pub enum TrapCode {
 
     /// A throw_ref was executed but the exnref was not initialized.
     UninitializedExnRef = 12,
+
+    /// An async imported function tried to yield when not called
+    /// via `Function::call_async`.
+    YieldOutsideAsyncContext = 13,
 }
 
 impl TrapCode {
@@ -85,6 +89,9 @@ impl TrapCode {
             Self::UnalignedAtomic => "unaligned atomic access",
             Self::UncaughtException => "uncaught exception",
             Self::UninitializedExnRef => "uninitialized exnref",
+            Self::YieldOutsideAsyncContext => {
+                "async imported function yielded when not called via `Function::call_async`"
+            }
         }
     }
 }
@@ -105,6 +112,7 @@ impl Display for TrapCode {
             Self::UnalignedAtomic => "unalign_atom",
             Self::UncaughtException => "uncaught_exception",
             Self::UninitializedExnRef => "uninitialized_exnref",
+            Self::YieldOutsideAsyncContext => "yield_outside_async_context",
         };
         f.write_str(identifier)
     }
@@ -128,6 +136,7 @@ impl FromStr for TrapCode {
             "unalign_atom" => Ok(Self::UnalignedAtomic),
             "uncaught_exception" => Ok(Self::UncaughtException),
             "uninitialized_exnref" => Ok(Self::UninitializedExnRef),
+            "yield_outside_async_context" => Ok(Self::YieldOutsideAsyncContext),
             _ => Err(()),
         }
     }
