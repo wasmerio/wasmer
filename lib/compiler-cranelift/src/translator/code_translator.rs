@@ -631,11 +631,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             }
 
             let dispatch_block = create_dispatch_block(builder, environ, clauses.as_slice())?;
-            catch_blocks.push(dispatch_block);
+            catch_blocks.push(dbg!(dispatch_block));
 
             for clause in clauses.iter() {
                 let handler_tag = clause.wasm_tag.map(ExceptionTag::from_u32);
-                state.handlers.add_handler(handler_tag, dispatch_block);
+                state
+                    .handlers
+                    .add_handler(handler_tag, dbg!(dispatch_block));
             }
 
             state.push_try_table_block(next, catch_blocks, params.len(), results.len(), checkpoint);
@@ -3496,17 +3498,19 @@ fn create_catch_block<FE: FuncEnvironment + ?Sized>(
     let tag_value = wasm_tag.map_or(CATCH_ALL_TAG_VALUE, |t| t as i32);
 
     let block = builder.create_block();
-    let exn_ptr = builder.append_block_param(block, environ.reference_type());
+    // TODO type - create TAG_TYPE in the module header
+    let exnref = builder.append_block_param(block, I32);
 
     builder.switch_to_block(block);
 
     let mut params = SmallVec::<[Value; 4]>::new();
     if let Some(tag) = wasm_tag {
         let tag_index = TagIndex::from_u32(tag);
-        params.extend(environ.translate_exn_unbox(builder, tag_index, exn_ptr)?);
+        params.extend(environ.translate_exn_unbox(builder, tag_index, exnref)?);
     }
+    // TODO: really needed?
     if is_ref {
-        params.push(exn_ptr);
+        params.push(exnref);
     }
 
     let depth = label as usize;
@@ -3531,13 +3535,13 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
 
     let catch_block = builder.create_block();
     let exn_ptr = builder.append_block_param(catch_block, environ.reference_type());
-    let pre_selector = builder.append_block_param(catch_block, I32);
+    let pre_selector = builder.append_block_param(catch_block, I64);
     let catch_all_block = builder.create_block();
     let catch_one_block = builder.create_block();
     let dispatch_block = builder.create_block();
 
     builder.switch_to_block(catch_block);
-    let catch_all_tag = builder.ins().iconst(I32, 0);
+    let catch_all_tag = builder.ins().iconst(I64, 0);
     let matches = builder
         .ins()
         .icmp(IntCC::Equal, pre_selector, catch_all_tag);
@@ -3562,7 +3566,7 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     builder.append_block_param(rethrow_block, I32);
 
     let mut current_selector = selector;
-    let mut current_exn = exn_ptr;
+    let mut current_exn = exnref;
 
     for (idx, clause) in clauses.iter().enumerate() {
         let tag_value = builder

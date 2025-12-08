@@ -225,12 +225,12 @@ pub trait FuncEnvironment: TargetEnvironment {
         exn_ptr: ir::Value,
     ) -> ir::Value;
 
-    /// Extract the payload values from an exception pointer produced by the given tag.
+    /// Extract the payload values from an exception reference produced by the given tag.
     fn translate_exn_unbox(
         &mut self,
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
-        exn_ptr: ir::Value,
+        exnref: ir::Value,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Emit IR to allocate and throw a new exception with the specified tag.

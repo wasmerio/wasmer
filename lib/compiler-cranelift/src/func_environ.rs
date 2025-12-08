@@ -1137,7 +1137,9 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
 
         let continuation = builder.create_block();
         let current_block = builder.current_block().expect("current block");
-        builder.insert_block_after(continuation, current_block);
+        let func: &Function = builder.func;
+        // TODO: remove?
+        // builder.insert_block_after(continuation, current_block);
 
         let mut normal_args = SmallVec::<[BlockArg; 4]>::with_capacity(return_types.len());
         let mut result_values = SmallVec::<[ir::Value; 4]>::with_capacity(return_types.len());
@@ -1159,7 +1161,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             let block_call = builder
                 .func
                 .dfg
-                .block_call(block, &[BlockArg::TryCallExn(0)]);
+                .block_call(block, &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)]);
             table_items.push(match tag {
                 Some(tag) => ExceptionTableItem::Tag(tag, block_call),
                 None => ExceptionTableItem::Default(block_call),
@@ -1711,7 +1713,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 callee,
                 &real_call_args,
                 Some(caller_vmctx),
-                handlers,
+                dbg!(handlers),
                 false,
             );
             return Ok(results);
@@ -1778,14 +1780,13 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         &mut self,
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
-        exn_ptr: ir::Value,
+        exnref: ir::Value,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let layout = {
             let layout_ref = self.exception_type_layout(tag_index)?;
             layout_ref.clone()
         };
 
-        let exnref = self.translate_exn_pointer_to_ref(builder, exn_ptr);
         let (read_exnref_sig, read_exnref_idx) = self.get_read_exnref_func(builder.func);
         let mut pos = builder.cursor();
         let (vmctx, read_exnref_addr) =
@@ -1870,7 +1871,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             self.translate_load_builtin_function_address(&mut pos, throw_idx);
         let call_args = [vmctx_value, exnref];
 
-        assert!(!handlers.is_empty(), "translate_exn_throw without handlers");
+        // assert!(!handlers.is_empty(), "translate_exn_throw without handlers");
         let _ = self.call_indirect_with_handlers(
             builder,
             throw_sig,
@@ -1896,10 +1897,10 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             self.translate_load_builtin_function_address(&mut pos, throw_idx);
         let call_args = [vmctx_value, exnref];
 
-        assert!(
-            !handlers.is_empty(),
-            "translate_exn_throw_ref without handlers"
-        );
+        // assert!(
+        //     !handlers.is_empty(),
+        //     "translate_exn_throw_ref without handlers"
+        // );
         let _ = self.call_indirect_with_handlers(
             builder,
             throw_sig,
