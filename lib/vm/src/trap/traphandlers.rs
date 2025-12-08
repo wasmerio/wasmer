@@ -482,12 +482,12 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.__gregs[5] = a1;
                     context.uc_mcontext.__gregs[22] = fp;
                 } else if #[cfg(all(target_os = "linux", target_arch = "powerpc64"))] {
-                    let TrapHandlerRegs { pc, sp, r3, r4, r31, lr } = regs;
+                    let TrapHandlerRegs { pc, sp, r3, r4, r12, lr } = regs;
                     (*context.uc_mcontext.regs).nip = pc;
                     (*context.uc_mcontext.regs).gpr[1] = sp;
                     (*context.uc_mcontext.regs).gpr[3] = r3;
                     (*context.uc_mcontext.regs).gpr[4] = r4;
-                    (*context.uc_mcontext.regs).gpr[31] = r31;
+                    (*context.uc_mcontext.regs).gpr[31] = r12;
                     (*context.uc_mcontext.regs).link = lr;
                 } else {
                     compile_error!("Unsupported platform");
