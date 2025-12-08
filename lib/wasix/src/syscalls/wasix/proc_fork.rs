@@ -3,6 +3,7 @@ use crate::{
     WasiThreadHandle, capture_store_snapshot,
     os::task::OwnedTaskStatus,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    state::context_switching::ContextSwitchingEnvironment,
     syscalls::*,
 };
 use serde::{Deserialize, Serialize};
@@ -270,7 +271,7 @@ fn run<M: MemorySize>(
     }
 
     let mut ret: ExitCode = Errno::Success.into();
-    let err = if ctx.data(&store).thread.is_main() {
+    let (mut store, err) = if ctx.data(&store).thread.is_main() {
         trace!(%pid, %tid, "re-invoking main");
         let start = ctx
             .data(&store)
@@ -280,7 +281,7 @@ fn run<M: MemorySize>(
             .start
             .clone()
             .unwrap();
-        start.call(&mut store)
+        ContextSwitchingEnvironment::run_main_context(&ctx, store, start.into(), vec![])
     } else {
         trace!(%pid, %tid, "re-invoking thread_spawn");
         let start = ctx
@@ -291,7 +292,8 @@ fn run<M: MemorySize>(
             .thread_spawn
             .clone()
             .unwrap();
-        start.call(&mut store, 0, 0)
+        let params = vec![0i32.into(), 0i32.into()];
+        ContextSwitchingEnvironment::run_main_context(&ctx, store, start.into(), params)
     };
     if let Err(err) = err {
         match err.downcast::<WasiError>() {
