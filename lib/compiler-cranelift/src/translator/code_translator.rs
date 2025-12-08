@@ -3560,6 +3560,7 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     builder.switch_to_block(dispatch_block);
     let selector = builder.append_block_param(dispatch_block, I32);
     let exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr);
+    let exnref_type = builder.func.dfg.value_type(exnref);
     let selector_ty = I32;
 
     let rethrow_block = builder.create_block();
@@ -3588,7 +3589,7 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
         } else {
             let continue_block = builder.create_block();
             builder.append_block_param(continue_block, selector_ty);
-            builder.append_block_param(continue_block, environ.reference_type());
+            builder.append_block_param(continue_block, exnref_type);
 
             canonicalise_brif(
                 builder,
