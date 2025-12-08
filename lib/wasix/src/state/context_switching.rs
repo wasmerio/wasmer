@@ -123,6 +123,21 @@ impl ContextSwitchingEnvironment {
 
         // Add the context-switching environment to the WasiEnv
         let env = ctx.data_mut(&mut store);
+
+        if env.vfork.is_some() {
+            // This is enforced here and in proc_fork
+            tracing::error!(
+                "process forking is mutally exclusive with WASIX context-switching features. If you need both, please open an issue."
+            );
+            return (
+                store,
+                Err(RuntimeError::user(
+                    // Exit with code 129 to indicate an internal error
+                    WasiError::Exit(ExitCode::from(129)).into(),
+                )),
+            );
+        }
+
         let previous_environment = env.context_switching_environment.replace(this);
         if previous_environment.is_some() {
             panic!(
