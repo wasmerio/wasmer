@@ -630,14 +630,16 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 clauses.push(clause);
             }
 
-            let dispatch_block = create_dispatch_block(builder, environ, clauses.as_slice())?;
-            catch_blocks.push(dbg!(dispatch_block));
+            if !clauses.is_empty() {
+                let dispatch_block = create_dispatch_block(builder, environ, clauses.as_slice())?;
+                catch_blocks.push(dbg!(dispatch_block));
 
-            for clause in clauses.iter() {
-                let handler_tag = clause.wasm_tag.map(ExceptionTag::from_u32);
-                state
-                    .handlers
-                    .add_handler(handler_tag, dbg!(dispatch_block));
+                for clause in clauses.iter() {
+                    let handler_tag = clause.wasm_tag.map(ExceptionTag::from_u32);
+                    state
+                        .handlers
+                        .add_handler(handler_tag, dbg!(dispatch_block));
+                }
             }
 
             state.push_try_table_block(next, catch_blocks, params.len(), results.len(), checkpoint);
@@ -3508,8 +3510,8 @@ fn create_catch_block<FE: FuncEnvironment + ?Sized>(
         let tag_index = TagIndex::from_u32(tag);
         params.extend(environ.translate_exn_unbox(builder, tag_index, exnref)?);
     }
-    // TODO: really needed?
     if is_ref {
+        let exnref = builder.ins().uextend(environ.reference_type(), exnref);
         params.push(exnref);
     }
 
