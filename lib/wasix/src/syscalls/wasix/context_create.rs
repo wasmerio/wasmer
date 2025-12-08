@@ -1,4 +1,5 @@
 use crate::{WasiEnv, WasiError};
+use futures::FutureExt;
 use tracing::instrument;
 use wasmer::{
     AsStoreRef, Function, FunctionEnvMut, MemorySize, RuntimeError, StoreMut, TypedFunction, Value,
@@ -11,7 +12,7 @@ pub fn lookup_typechecked_entrypoint(
     data: &WasiEnv,
     mut store: &mut StoreMut<'_>,
     entrypoint_id: u32,
-) -> Result<TypedFunction<(), ()>, Errno> {
+) -> Result<Function, Errno> {
     let entrypoint = match data
         .inner()
         .indirect_function_table_lookup(&mut store, entrypoint_id)
@@ -27,15 +28,19 @@ pub fn lookup_typechecked_entrypoint(
         }
     };
 
-    let entrypoint_type = entrypoint.ty(&store);
-    let Ok(entrypoint) = entrypoint.typed::<(), ()>(&store) else {
-        tracing::trace!(
-            "Entrypoint function {entrypoint_id} has invalid signature: expected () -> (), got {:?} -> {:?}",
-            entrypoint_type.params(),
-            entrypoint_type.results()
-        );
-        return Err(Errno::Inval);
-    };
+    // TODO: Remove this check and return a TypedFunction once all backends support types
+    #[cfg(not(feature = "js"))]
+    {
+        let entrypoint_type = entrypoint.ty(&store);
+        if !entrypoint_type.params().is_empty() && !entrypoint_type.results().is_empty() {
+            tracing::trace!(
+                "Entrypoint function {entrypoint_id} has invalid signature: expected () -> (), got {:?} -> {:?}",
+                entrypoint_type.params(),
+                entrypoint_type.results()
+            );
+            return Err(Errno::Inval);
+        }
+    }
 
     Ok(entrypoint)
 }
@@ -85,7 +90,11 @@ pub fn context_create<M: MemorySize>(
     };
 
     // Create the new context
-    let new_context_id = environment.create_context(entrypoint.call_async(&async_store));
+    let new_context_id = environment.create_context(
+        entrypoint
+            .call_async(&async_store, vec![])
+            .map(|r| r.map(|_| ())),
+    );
 
     // Write the new context ID into memory
     let memory = unsafe { data.memory_view(&store) };
