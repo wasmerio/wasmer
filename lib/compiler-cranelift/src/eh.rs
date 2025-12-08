@@ -157,11 +157,12 @@ pub fn build_function_lsda<'a>(
     }
 
     if !type_entries.is_empty() {
-        let class_info_offset = 9 // call-site encoding byte
+        let ttype_table_end = 1 // call-site encoding byte
             + uleb128_len(call_site_table_len)
             + call_site_table.len()
-            + action_table.bytes.len();
-        write_uleb128(class_info_offset as u64, &mut bytes);
+            + action_table.bytes.len()
+            + type_table_bytes.len();
+        write_uleb128(ttype_table_end as u64, &mut bytes);
     }
 
     bytes.push(DW_EH_PE_UDATA4);
@@ -392,84 +393,34 @@ struct ActionTable {
 }
 
 fn encode_action_table(callsite_actions: &[Vec<i32>]) -> ActionTable {
-    let mut records = Vec::new();
-    let mut chain_ranges = Vec::new();
+    let mut bytes = Vec::new();
+    let mut first_action_offsets = Vec::new();
 
     for actions in callsite_actions {
         if actions.is_empty() {
-            chain_ranges.push(None);
-            continue;
-        }
-
-        let start = records.len();
-        for &ttype_index in actions {
-            records.push(ActionRecord {
-                ttype_index,
-                next: None,
-                offset: 0,
-                size: 0,
-                byte_offset: 0,
-            });
-        }
-        let end = records.len();
-        for idx in start..(end - 1) {
-            records[idx].next = Some(idx + 1);
-        }
-        chain_ranges.push(Some((start, end)));
-    }
-
-    // Compute record sizes and offsets (backwards to accumulate lengths).
-    for chain in chain_ranges.iter().flatten() {
-        let (start, end) = *chain;
-        let mut cumulative = 0usize;
-        for idx in (start..end).rev() {
-            let offset_to_next = if records[idx].next.is_some() {
-                cumulative as i64
-            } else {
-                0
-            };
-            records[idx].offset = offset_to_next;
-            let size = sleb128_len(records[idx].ttype_index as i64) + sleb128_len(offset_to_next);
-            records[idx].size = size;
-            cumulative += size;
-        }
-    }
-
-    // Compute starting byte offset for each record.
-    let mut current = 0usize;
-    for record in &mut records {
-        record.byte_offset = current as u32;
-        current += record.size;
-    }
-
-    let mut bytes = Vec::with_capacity(current);
-    for record in &records {
-        write_sleb128(record.ttype_index as i64, &mut bytes);
-        write_sleb128(record.offset, &mut bytes);
-    }
-
-    let mut first_offsets = Vec::with_capacity(chain_ranges.len());
-    for chain in chain_ranges {
-        if let Some((start, _)) = chain {
-            first_offsets.push(Some(records[start].byte_offset));
+            first_action_offsets.push(None);
         } else {
-            first_offsets.push(None);
+            let mut last_action_start = 0;
+            for (i, &ttype_index) in actions.iter().enumerate() {
+                let next_action_start = bytes.len() as i64;
+                write_sleb128(ttype_index as i64, &mut bytes);
+
+                if i != 0 {
+                    // Make a linked list to the previous action
+                    write_sleb128(last_action_start - bytes.len() as i64, &mut bytes);
+                } else {
+                    write_sleb128(0, &mut bytes);
+                }
+                last_action_start = next_action_start;
+            }
+            first_action_offsets.push(Some(last_action_start as u32));
         }
     }
 
     ActionTable {
         bytes,
-        first_action_offsets: first_offsets,
+        first_action_offsets,
     }
-}
-
-#[derive(Debug)]
-struct ActionRecord {
-    ttype_index: i32,
-    next: Option<usize>,
-    offset: i64,
-    size: usize,
-    byte_offset: u32,
 }
 
 fn encode_call_site_table(callsites: &[CallSiteDesc], action_table: &ActionTable) -> Vec<u8> {
