@@ -293,7 +293,13 @@ impl WasmerCmd {
         let args_vec = args.chain(binfmt_args).chain(args_os).collect::<Vec<_>>();
 
         match WasmerCmd::try_parse_from(args_vec.iter()) {
-            Ok(args) => args.execute().unwrap_or(ExitCode::from(1)),
+            Ok(args) => match args.execute() {
+                Ok(exit_code) => exit_code,
+                Err(e) => {
+                    eprintln!("{:?}", crate::error::PrettyError::new(e));
+                    ExitCode::from(1)
+                }
+            },
             Err(e) => {
                 let first_arg_is_subcommand = if let Some(first_arg) = args_vec.get(1) {
                     let mut ret = false;
@@ -326,7 +332,8 @@ impl WasmerCmd {
                     output.initialize_logging();
                     run.execute(output)
                 } else {
-                    ExitCode::from(EXIT_FAILURE)
+                    eprintln!("{}", e);
+                    ExitCode::from(e.exit_code() as i32)
                 }
             }
         }
