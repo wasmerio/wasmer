@@ -32,10 +32,16 @@ pub fn proc_fork<M: MemorySize>(
         Errno::Notsup
     }));
 
-    wasi_try_ok!(ctx.data().context_switching_environment.as_ref().ok_or_else(|| {
-        warn!("process forking is mutally exclusive with WASIX context-switching features. If you need both, please open an issue.");
-        Errno::Notsup
-    }));
+    if let Some(context_switching_environment) = ctx.data().context_switching_environment.as_ref() {
+        if context_switching_environment.active_context_id()
+            != context_switching_environment.main_context_id()
+        {
+            warn!(
+                "process forking is only supported from the main context when using WASIX context-switching features"
+            );
+            return Ok(Errno::Notsup);
+        }
+    }
 
     // If we were just restored then we need to return the value instead
     if let Some(result) = unsafe { handle_rewind::<M, ForkResult>(&mut ctx) } {

@@ -149,7 +149,7 @@ pub fn proc_exec3<M: MemorySize>(
         wasi_env.owned_handles.push(vfork.handle.clone());
         _prepare_wasi(&mut wasi_env, Some(args), envs, None);
 
-        // Recrod the stack offsets before we give up ownership of the wasi_env
+        // Record the stack offsets before we give up ownership of the wasi_env
         let stack_lower = wasi_env.layout.stack_lower;
         let stack_upper = wasi_env.layout.stack_upper;
 
@@ -195,7 +195,7 @@ pub fn proc_exec3<M: MemorySize>(
 
         match spawn_result {
             Err(e) => {
-                // We failed to spawn a new process - put the vfork back
+                // We failed to spawn a new process - put the child env back
                 child_env.swap_inner(ctx.data_mut());
                 std::mem::swap(child_env.as_mut(), ctx.data_mut());
 
@@ -203,6 +203,12 @@ pub fn proc_exec3<M: MemorySize>(
                 return Ok(e);
             }
             Ok(()) => {
+                // We spawned a new process - put the parent env back
+                ctx.data_mut().swap_inner(&mut vfork.env);
+                std::mem::swap(ctx.data_mut(), &mut vfork.env);
+
+                assert!(!vfork.env.context_switching_environment.is_some());
+                assert!(ctx.data().context_switching_environment.is_some());
                 // Jump back to the vfork point and current on execution
                 // note: fork does not return any values hence passing `()`
                 let rewind_stack = vfork.rewind_stack.freeze();
