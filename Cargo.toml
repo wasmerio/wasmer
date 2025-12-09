@@ -82,7 +82,7 @@ edition = "2024"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.89"
+rust-version = "1.90"
 version = "6.1.0"
 
 [workspace.dependencies]
