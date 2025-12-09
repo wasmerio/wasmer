@@ -253,7 +253,7 @@ impl UnwindRegistry {
     }
 }
 
-static EXIT_CALLED: AtomicBool = AtomicBool::new(false);
+pub static EXIT_CALLED: AtomicBool = AtomicBool::new(false);
 
 extern "C" fn atexit_handler() {
     EXIT_CALLED.store(true, Ordering::SeqCst);
