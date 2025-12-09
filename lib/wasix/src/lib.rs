@@ -494,7 +494,7 @@ fn wasi_snapshot_preview1_exports(
 }
 
 fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
-    let engine_supports_async = store.as_store_ref().engine().is_sys();
+    let engine_supports_async = store.as_store_ref().engine().supports_async();
 
     use syscalls::*;
     let namespace = namespace! {
@@ -639,7 +639,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
 }
 
 fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
-    let engine_supports_async = store.as_store_ref().engine().is_sys();
+    let engine_supports_async = store.as_store_ref().engine().supports_async();
 
     use syscalls::*;
     let namespace = namespace! {
