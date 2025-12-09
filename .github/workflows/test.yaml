@@ -521,12 +521,12 @@ jobs:
             {
               key: "check",
               build-cmd: "make check",
-              name: "Wasmer API (all sys)",
+              name: "Wasmer API (sys)",
             },
             {
               key: "api-feats",
               build-cmd: "make check-api-features",
-              name: "API (all sys)",
+              name: "API (sys)",
             },
           ]
         metadata: [
