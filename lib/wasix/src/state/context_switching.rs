@@ -110,7 +110,7 @@ impl ContextSwitchingEnvironment {
         params: Vec<wasmer::Value>,
     ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
         // Do a normal call and dont install the context switching env, if the engine does not support async
-        let engine_supports_async = store.engine().is_sys();
+        let engine_supports_async = store.engine().supports_async();
         if !engine_supports_async {
             let result = entrypoint.call(&mut store, &params);
             return (store, result);
