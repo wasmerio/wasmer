@@ -124,20 +124,6 @@ impl ContextSwitchingEnvironment {
         // Add the context-switching environment to the WasiEnv
         let env = ctx.data_mut(&mut store);
 
-        if env.vfork.is_some() {
-            // This is enforced here and in proc_fork
-            tracing::error!(
-                "process forking is mutally exclusive with WASIX context-switching features. If you need both, please open an issue."
-            );
-            return (
-                store,
-                Err(RuntimeError::user(
-                    // Exit with code 129 to indicate an internal error
-                    WasiError::Exit(ExitCode::from(129)).into(),
-                )),
-            );
-        }
-
         let previous_environment = env.context_switching_environment.replace(this);
         if previous_environment.is_some() {
             panic!(
@@ -171,9 +157,24 @@ impl ContextSwitchingEnvironment {
 
         // Remove the context-switching environment from the WasiEnv
         let env = ctx.data_mut(&mut store);
-        env.context_switching_environment.take().expect(
-            "Failed to remove wasix context-switching environment from WASIX env after main context finished, this should never happen",
-        );
+        if env.context_switching_environment.take().is_none() {
+            if env
+                .vfork
+                .as_ref()
+                .and_then(|vfork| vfork.env.context_switching_environment.as_ref())
+                .is_some()
+            {
+                // Grace for vforks, so they don't bring everything down with them.
+                // This is still an error.
+                tracing::error!(
+                    "Failed to remove wasix context-switching environment from WASIX env after main context finished, this means you triggered undefined behaviour"
+                );
+            } else {
+                panic!(
+                    "Failed to remove wasix context-switching environment from WASIX env after main context finished, this should never happen"
+                )
+            }
+        }
 
         (store, result)
     }

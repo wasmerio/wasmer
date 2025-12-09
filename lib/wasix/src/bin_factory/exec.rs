@@ -442,6 +442,14 @@ fn resume_vfork(
         // Terminate the child process
         child_env.process.terminate(code);
 
+        // If the vfork contained a context-switching environment, exit now
+        if ctx.data(store).context_switching_environment.is_some() {
+            tracing::error!(
+                "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent parent process will be terminated."
+            );
+            return Err(code.into());
+        }
+
         // Jump back to the vfork point and current on execution
         let child_pid = child_env.process.pid();
         let rewind_stack = vfork.rewind_stack.freeze();
