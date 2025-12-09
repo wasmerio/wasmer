@@ -152,7 +152,8 @@ impl UnwindRegistry {
         // Register atexit handler that will tell use if exit has been called.
         static INIT: Once = Once::new();
         INIT.call_once(|| unsafe {
-            libc::atexit(atexit_handler);
+            let result = libc::atexit(atexit_handler);
+            assert_eq!(result, 0, "libc::atexit must succeed");
         });
 
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
