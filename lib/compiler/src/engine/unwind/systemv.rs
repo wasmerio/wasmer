@@ -149,7 +149,7 @@ impl UnwindRegistry {
 
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
-        // Register atexit handler that will tell use if exit has been called.
+        // Register atexit handler that will tell us if exit has been called.
         static INIT: Once = Once::new();
         INIT.call_once(|| unsafe {
             let result = libc::atexit(atexit_handler);
