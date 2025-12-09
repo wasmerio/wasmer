@@ -521,7 +521,7 @@ jobs:
             {
               key: "check",
               build-cmd: "make check",
-              name: "Check wasmer API with all sys features enabled",
+              name: "Wasmer API (all sys)",
             },
             {
               key: "api-feats",
