@@ -444,14 +444,6 @@ pub trait EmitterX64 {
         codegen_error!("singlepass arch_emit_tzcnt unimplemented")
     }
 
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        true
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        false
-    }
-
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
         _loc: Location,

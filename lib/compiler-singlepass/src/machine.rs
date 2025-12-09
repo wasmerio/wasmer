@@ -292,8 +292,6 @@ pub trait Machine {
     fn emit_function_epilog(&mut self) -> Result<(), CompileError>;
     /// Handle copy to SIMD register from ret value (if needed by the arch/calling convention)
     fn emit_function_return_float(&mut self) -> Result<(), CompileError>;
-    /// Is NaN canonicalization supported
-    fn arch_supports_canonicalize_nan(&self) -> bool;
     /// Cannonicalize a NaN (or panic if not supported)
     fn canonicalize_nan(
         &mut self,
@@ -315,8 +313,6 @@ pub trait Machine {
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError>;
     /// Emit a call to a label
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError>;
-    /// Does an trampoline is neededfor indirect call
-    fn arch_requires_indirect_call_trampoline(&self) -> bool;
     /// indirect call with trampoline
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,

@@ -5,7 +5,7 @@
 //! signature checking.
 
 use crate::vmcontext::VMSharedSignatureIndex;
-use more_asserts::{assert_lt, debug_assert_lt};
+use more_asserts::debug_assert_lt;
 use std::collections::{HashMap, hash_map};
 use std::convert::TryFrom;
 use std::sync::RwLock;

@@ -173,7 +173,7 @@ wasm-bindgen-test.workspace = true
 tracing-wasm.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tracing-subscriber = { workspace = true}
+tracing-subscriber = { workspace = true }
 wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
@@ -221,6 +221,7 @@ sys = [
 	"ctrlc",
 	"wasmer/wat",
 	"wasmer/js-serializable-module",
+	"wasmer/experimental-async",
 ]
 sys-default = ["sys", "wasmer/sys"]
 sys-poll = []

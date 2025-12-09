@@ -241,7 +241,7 @@ pub struct InternalStoreHandle<T> {
 #[cfg(feature = "artifact-size")]
 impl<T> loupe::MemoryUsage for InternalStoreHandle<T> {
     fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
-        std::mem::size_of_val(&self)
+        std::mem::size_of_val(self)
     }
 }
 
