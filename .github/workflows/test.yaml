@@ -714,7 +714,7 @@ jobs:
       - name: Build C-API
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
-        if: ${{ matrix.build-what.key == 'capi' }}
+        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build != 'macos-x64' }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
@@ -725,7 +725,7 @@ jobs:
         if: ${{ matrix.build-what.key == 'capi-v8' && matrix.metadata.supports_v8 == true  }}
       - name: Build Wasmer
         shell: bash
-        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' }}
+        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' && matrix.metadata.build != 'macos-x64' }}
         run: ${{ matrix.build-what.build-cmd }}
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -733,12 +733,12 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Check `wasmer` crate with all the `sys` features enabled
         shell: bash
-        if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' }}
+        if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' && matrix.metadata.build != 'macos-x64' }}
         run: ${{ matrix.build-what.build-cmd }}
 
       - name: Lint C-API
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
         run: make lint-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -747,7 +747,7 @@ jobs:
 
       - name: Test C-API
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
         run: make test-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -757,7 +757,7 @@ jobs:
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
         run: export WASMER_DIR=`pwd`/package && make test-stage-7-capi-integration-tests
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -922,6 +922,8 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
+        # TODO: fix disk space issue for linux-musl connected to the cache size
+        if: matrix.stage.make != 'test-stage-5-test-examples' || matrix.metadata.build != 'linux-musl'
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -939,6 +941,8 @@ jobs:
       - name: ${{ matrix.stage.description }}
         shell: bash
         run: make ${{ matrix.stage.make }}
+        # For MacOS x64 - run tests only on main or release branches
+        if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-') || matrix.metadata.os != 'macos-15-intel'
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
@@ -956,9 +960,6 @@ jobs:
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
-          - build: macos-x64
-            os: macos-15-intel
-            target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
             os: depot-macos-14
@@ -1035,16 +1036,12 @@ jobs:
           path: package/cache/wasmercache3
       - uses: actions/download-artifact@v4
         with:
-          name: capi-macos-x64
+          name: capi-linux-x64
           path: package/cache/wasmercache4
       - uses: actions/download-artifact@v4
         with:
-          name: capi-linux-x64
-          path: package/cache/wasmercache5
-      - uses: actions/download-artifact@v4
-        with:
           name: capi-linux-riscv64
-          path: package/cache/wasmercache6
+          path: package/cache/wasmercache5
       - name: Copy .tar.gz files to proper location
         shell: bash
         run: |
@@ -1057,8 +1054,7 @@ jobs:
           cp package/cache/wasmercache2/build-capi.tar.gz package/cache/wasmer-windows-gnu64.tar.gz
           cp package/cache/wasmercache3/build-capi.tar.gz package/cache/wasmer-darwin-arm64.tar.gz
           cp package/cache/wasmercache4/build-capi.tar.gz package/cache/wasmer-darwin-amd64.tar.gz
-          cp package/cache/wasmercache5/build-capi.tar.gz package/cache/wasmer-linux-amd64.tar.gz
-          cp package/cache/wasmercache6/wasmer.tar.gz package/cache/wasmer-linux-riscv64.tar.gz
+          cp package/cache/wasmercache5/wasmer.tar.gz package/cache/wasmer-linux-riscv64.tar.gz
       - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'windows-x64' }}
         with:
@@ -1073,11 +1069,6 @@ jobs:
         if: ${{ matrix.build == 'macos-arm' }}
         with:
           name: capi-macos-arm
-          path: download_link
-      - uses: actions/download-artifact@v4
-        if: ${{ matrix.build == 'macos-x64' }}
-        with:
-          name: capi-macos-x64
           path: download_link
       - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'linux-x64' }}
