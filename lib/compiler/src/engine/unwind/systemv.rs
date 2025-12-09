@@ -253,6 +253,10 @@ impl UnwindRegistry {
     }
 }
 
+/// Global flag indicating whether the program exit has been initiated.
+/// Set to true by an atexit handler to prevent crashes during shutdown
+/// when deregistering unwind frames. Accesses use `Ordering::SeqCst`
+/// to ensure correct memory ordering across threads.
 pub static EXIT_CALLED: AtomicBool = AtomicBool::new(false);
 
 extern "C" fn atexit_handler() {
