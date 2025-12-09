@@ -107,7 +107,7 @@ impl StoreObjects {
     }
 
     /// Return an immutable iterator over all globals
-    pub fn iter_globals(&'_ self) -> core::slice::Iter<'_, VMGlobal> {
+    pub fn iter_globals<'a>(&'a self) -> core::slice::Iter<'a, VMGlobal> {
         self.globals.iter()
     }
 

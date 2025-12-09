@@ -99,6 +99,9 @@ const UNWIND_DATA_REG: (i32, i32) = (10, 11); // x10, x11
 #[cfg(target_arch = "loongarch64")]
 const UNWIND_DATA_REG: (i32, i32) = (4, 5); // a0, a1
 
+#[cfg(target_arch = "powerpc64")]
+const UNWIND_DATA_REG: (i32, i32) = (3, 4); // R3, R4
+
 #[unsafe(no_mangle)]
 /// The implementation of Wasmer's personality function.
 ///

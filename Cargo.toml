@@ -82,7 +82,7 @@ edition = "2024"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.89"
+rust-version = "1.90"
 version = "6.1.0"
 
 [workspace.dependencies]
@@ -125,6 +125,7 @@ smallvec = "1.6"
 region = "3.0"
 once_cell = "1.17.1"
 num_enum = "0.7.3"
+corosensei = "0.3.0"
 dashmap = "6.1.0"
 http = "1.4.0"
 hyper = "1.8.1"
@@ -174,7 +175,7 @@ clap = { version = "4.5.53", default-features = false }
 clap_builder = { version = "4.5.53" }
 clap_derive = { version = "4.5.49" }
 clap_lex = { version = "0.7.6" }
-fs_extra = {version = "1.3.0"}
+fs_extra = { version = "1.3.0" }
 # TODO: use a proper release
 inkwell = { git = "https://github.com/TheDan64/inkwell.git", rev = "b9c53276e30935ccec841d12c9687a17e9199958", default-features = false }
 phf = "0.13.1"
@@ -275,7 +276,6 @@ iprange = "0.6.7"
 smoltcp = { version = "0.12.0", default-features = false }
 tokio-serde = "0.9"
 tokio-util = "0.7.8"
-corosensei = "0.3.0"
 crossbeam-queue = "0.3.8"
 fnv = "1.0.3"
 scopeguard = "1.1.0"
@@ -391,6 +391,7 @@ wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
+experimental-async = ["wasmer/experimental-async"]
 
 # Testing features
 test-singlepass = ["singlepass"]

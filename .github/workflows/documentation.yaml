@@ -8,7 +8,7 @@ on:
       - "lib/**"
 
 env:
-  MSRV: "1.89"
+  MSRV: "1.90"
 
 jobs:
   documentation:

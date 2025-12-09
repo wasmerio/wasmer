@@ -438,8 +438,8 @@ impl BackendModule {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
     /// let module = Module::deserialize_from_file(&store, path)?;
     /// # Ok(())
     /// # }
@@ -525,8 +525,8 @@ impl BackendModule {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
     /// let module = Module::deserialize_from_file_unchecked(&store, path)?;
     /// # Ok(())
     /// # }
