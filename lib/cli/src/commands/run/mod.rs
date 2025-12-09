@@ -23,6 +23,7 @@ use anyhow::{Context, Error, anyhow, bail};
 use clap::{Parser, ValueEnum};
 use futures::future::BoxFuture;
 use indicatif::{MultiProgress, ProgressBar};
+use libc::{EXIT_FAILURE, EXIT_SUCCESS};
 use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use url::Url;
@@ -60,6 +61,7 @@ use wasmer_wasix::{
         resolver::QueryError,
         task_manager::VirtualTaskManagerExt,
     },
+    types::wasi::ExitCode,
 };
 use webc::Container;
 use webc::metadata::Manifest;
@@ -109,9 +111,9 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn execute(self, output: Output) -> ! {
+    pub fn execute(self, output: Output) -> ExitCode {
         let result = self.execute_inner(output);
-        exit_with_wasi_exit_code(result);
+        get_wasi_exit_code(result)
     }
 
     #[tracing::instrument(level = "debug", name = "wasmer_run", skip_all)]
@@ -765,27 +767,21 @@ impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
     }
 }
 
-/// Exit the current process, using the WASI exit code if the error contains
-/// one.
-fn exit_with_wasi_exit_code(result: Result<(), Error>) -> ! {
-    let exit_code = match result {
-        Ok(_) => 0,
+/// Get WASI exit code.
+fn get_wasi_exit_code(result: Result<(), Error>) -> ExitCode {
+    match result {
+        Ok(_) => ExitCode::from(EXIT_SUCCESS),
         Err(error) => {
             match error.chain().find_map(get_exit_code) {
-                Some(exit_code) => exit_code.raw(),
+                Some(exit_code) => exit_code,
                 None => {
                     eprintln!("{:?}", PrettyError::new(error));
                     // Something else happened
-                    1
+                    ExitCode::from(EXIT_FAILURE)
                 }
             }
         }
-    };
-
-    std::io::stdout().flush().ok();
-    std::io::stderr().flush().ok();
-
-    std::process::exit(exit_code);
+    }
 }
 
 fn get_exit_code(

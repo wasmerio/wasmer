@@ -1,8 +1,12 @@
+use std::process::ExitCode;
+
+use libc::EXIT_FAILURE;
+
 #[cfg(not(feature = "backend"))]
 compile_error!(
     "Either enable at least one backend, or compile the wasmer-headless binary instead.\nWith cargo, you can provide a compiler option with the --features flag.\n\nExample values:\n\n\t\t--features cranelift,singlepass\n\t\t--features jsc\n\t\t--features wamr\n\t\t--features wamr\n\t\t--features v8\n\n\n"
 );
 
-fn main() {
-    wasmer_cli::run_cli();
+fn main() -> ExitCode {
+    ExitCode::from(u8::try_from(wasmer_cli::run_cli().raw()).unwrap_or(EXIT_FAILURE as u8))
 }

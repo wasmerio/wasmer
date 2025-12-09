@@ -31,6 +31,7 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
+use libc::{EXIT_FAILURE, EXIT_SUCCESS};
 use std::ffi::OsString;
 use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
@@ -42,6 +43,7 @@ use clap::{CommandFactory, Parser};
 pub use compile::*;
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 pub use create_exe::*;
+use wasmer_wasix::types::wasi::ExitCode;
 #[cfg(feature = "wast")]
 pub use wast::*;
 #[cfg(feature = "static-artifact-create")]
@@ -53,7 +55,6 @@ pub use self::{
     add::*, auth::*, cache::*, config::*, container::*, init::*, inspect::*, package::*,
     publish::*, run::Run, self_update::*, validate::*,
 };
-use crate::error::PrettyError;
 use git_version::git_version;
 
 /// An executable CLI command.
@@ -157,7 +158,7 @@ pub struct WasmerCmd {
 }
 
 impl WasmerCmd {
-    fn execute(self) -> Result<(), anyhow::Error> {
+    fn execute(self) -> Result<ExitCode, anyhow::Error> {
         let WasmerCmd {
             cmd,
             version,
@@ -167,13 +168,16 @@ impl WasmerCmd {
         output.initialize_logging();
 
         if version {
-            return print_version(output.is_verbose());
+            print_version(output.is_verbose())?;
+            return Ok(ExitCode::from(EXIT_SUCCESS));
         }
 
         match cmd {
             Some(Cmd::GenManPage(cmd)) => cmd.execute(),
             Some(Cmd::GenCompletions(cmd)) => cmd.execute(),
-            Some(Cmd::Run(options)) => options.execute(output),
+            Some(Cmd::Run(options)) => {
+                return Ok(options.execute(output));
+            }
             Some(Cmd::SelfUpdate(options)) => options.execute(),
             Some(Cmd::Cache(cache)) => cache.execute(),
             Some(Cmd::Validate(validate)) => validate.execute(),
@@ -220,21 +224,23 @@ impl WasmerCmd {
             None => {
                 WasmerCmd::command().print_long_help()?;
                 // Note: clap uses an exit code of 2 when CLI parsing fails
-                std::process::exit(2);
+                return Ok(ExitCode::from(2));
             }
-        }
+        }?;
+
+        Ok(ExitCode::from(EXIT_SUCCESS))
     }
 
     /// The main function for the Wasmer CLI tool.
-    pub fn run() {
+    pub fn run() -> ExitCode {
         // We allow windows to print properly colors
         #[cfg(windows)]
         colored::control::set_virtual_terminal(true).unwrap();
 
-        PrettyError::report(Self::run_inner())
+        Self::run_inner()
     }
 
-    fn run_inner() -> Result<(), anyhow::Error> {
+    fn run_inner() -> ExitCode {
         let mut args_os = std::env::args_os();
 
         let args = args_os.next().into_iter();
@@ -287,7 +293,7 @@ impl WasmerCmd {
         let args_vec = args.chain(binfmt_args).chain(args_os).collect::<Vec<_>>();
 
         match WasmerCmd::try_parse_from(args_vec.iter()) {
-            Ok(args) => args.execute(),
+            Ok(args) => args.execute().unwrap_or(ExitCode::from(1)),
             Err(e) => {
                 let first_arg_is_subcommand = if let Some(first_arg) = args_vec.get(1) {
                     let mut ret = false;
@@ -318,10 +324,10 @@ impl WasmerCmd {
                     // parser's help, but that's fine.
                     let output = crate::logging::Output::default();
                     output.initialize_logging();
-                    run.execute(output);
+                    run.execute(output)
+                } else {
+                    ExitCode::from(EXIT_FAILURE)
                 }
-
-                e.exit();
             }
         }
     }

@@ -18,6 +18,8 @@
 //#[cfg(all(target_os = "linux", feature = "tun-tap"))]
 //mod net;
 
+use wasmer_wasix::types::wasi::ExitCode;
+
 mod commands;
 mod common;
 mod config;
@@ -37,6 +39,6 @@ mod edge_config;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Run the Wasmer CLI.
-pub fn run_cli() {
-    self::commands::WasmerCmd::run();
+pub fn run_cli() -> ExitCode {
+    self::commands::WasmerCmd::run()
 }
