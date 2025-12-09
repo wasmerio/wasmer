@@ -261,13 +261,6 @@ extern "C" fn atexit_handler() {
 
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
-        // We don't want to deregister frames in UnwindRegistry::Drop as that could be called during
-        // program shutdown and can collide with release_registered_frames and lead to
-        // crashes.
-        if EXIT_CALLED.load(Ordering::SeqCst) {
-            return;
-        }
-
         if self.published {
             unsafe {
                 // libgcc stores the frame entries as a linked list in decreasing sort order
@@ -279,6 +272,13 @@ impl Drop for UnwindRegistry {
                 // To ensure that we just pop off the first element in the list upon every
                 // deregistration, walk our list of registrations backwards.
                 for registration in self.registrations.iter().rev() {
+                    // We don't want to deregister frames in UnwindRegistry::Drop as that could be called during
+                    // program shutdown and can collide with release_registered_frames and lead to
+                    // crashes.
+                    if EXIT_CALLED.load(Ordering::SeqCst) {
+                        return;
+                    }
+
                     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
                     {
                         compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
