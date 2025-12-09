@@ -31,7 +31,7 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-use libc::{EXIT_FAILURE, EXIT_SUCCESS};
+use libc::EXIT_SUCCESS;
 use std::ffi::OsString;
 use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
@@ -332,8 +332,8 @@ impl WasmerCmd {
                     output.initialize_logging();
                     run.execute(output)
                 } else {
-                    eprintln!("{}", e);
-                    ExitCode::from(e.exit_code() as i32)
+                    println!("{}", e);
+                    ExitCode::from(e.exit_code())
                 }
             }
         }
