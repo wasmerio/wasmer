@@ -156,6 +156,11 @@ impl UnwindRegistry {
             assert_eq!(result, 0, "libc::atexit must succeed");
         });
 
+        assert!(
+            !EXIT_CALLED.load(Ordering::SeqCst),
+            "Cannot register unwind information during the process exit"
+        );
+
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
             // Special call for macOS on aarch64 to register the `.eh_frame` section.
@@ -180,6 +185,7 @@ impl UnwindRegistry {
 
             let mut current = 0;
             let mut last_len = 0;
+            let using_libunwind = using_libunwind();
             while current <= (eh_frame.len() - size_of::<u32>()) {
                 // If a CFI or a FDE starts with 0u32 it is a terminator.
                 let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
@@ -194,18 +200,17 @@ impl UnwindRegistry {
                 let record = eh_frame.as_ptr() as usize + current;
                 current = current + len as usize + 4;
 
-                if using_libunwind() {
+                if using_libunwind {
                     // For libunwind based systems, `__register_frame` takes a pointer to an FDE.
                     if !is_cie {
                         // Every record that's not a CIE is an FDE.
                         records_to_register.push(record);
                     }
-                    continue;
-                }
-
-                // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
-                if is_cie {
-                    records_to_register.push(record);
+                } else {
+                    // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
+                    if is_cie {
+                        records_to_register.push(record);
+                    }
                 }
             }
 
