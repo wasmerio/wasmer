@@ -3,7 +3,11 @@
 
 //! Module for System V ABI unwind registry.
 
-use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+use core::sync::atomic::{
+    AtomicBool, AtomicUsize,
+    Ordering::{self, Relaxed},
+};
+use std::sync::Once;
 
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 
@@ -145,6 +149,13 @@ impl UnwindRegistry {
 
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
+        // Register atexit handler that will tell us if exit has been called.
+        static INIT: Once = Once::new();
+        INIT.call_once(|| unsafe {
+            let result = libc::atexit(atexit_handler);
+            assert_eq!(result, 0, "libc::atexit must succeed");
+        });
+
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
             // Special call for macOS on aarch64 to register the `.eh_frame` section.
@@ -243,6 +254,16 @@ impl UnwindRegistry {
     }
 }
 
+/// Global flag indicating whether the program exit has been initiated.
+/// Set to true by an atexit handler to prevent crashes during shutdown
+/// when deregistering unwind frames. Accesses use `Ordering::SeqCst`
+/// to ensure correct memory ordering across threads.
+pub static EXIT_CALLED: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn atexit_handler() {
+    EXIT_CALLED.store(true, Ordering::SeqCst);
+}
+
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
         if self.published {
@@ -256,6 +277,13 @@ impl Drop for UnwindRegistry {
                 // To ensure that we just pop off the first element in the list upon every
                 // deregistration, walk our list of registrations backwards.
                 for registration in self.registrations.iter().rev() {
+                    // We don't want to deregister frames in UnwindRegistry::Drop as that could be called during
+                    // program shutdown and can collide with release_registered_frames and lead to
+                    // crashes.
+                    if EXIT_CALLED.load(Ordering::SeqCst) {
+                        return;
+                    }
+
                     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
                     {
                         compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
