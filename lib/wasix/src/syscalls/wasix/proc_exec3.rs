@@ -207,7 +207,7 @@ pub fn proc_exec3<M: MemorySize>(
                 ctx.data_mut().swap_inner(&mut vfork.env);
                 std::mem::swap(ctx.data_mut(), &mut vfork.env);
 
-                assert!(!vfork.env.context_switching_environment.is_some());
+                assert!(vfork.env.context_switching_environment.is_none());
                 assert!(ctx.data().context_switching_environment.is_some());
                 // Jump back to the vfork point and current on execution
                 // note: fork does not return any values hence passing `()`
