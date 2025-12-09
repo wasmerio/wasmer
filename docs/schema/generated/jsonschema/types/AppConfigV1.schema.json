@@ -48,6 +48,13 @@
         "type": "string"
       }
     },
+    "enable_email": {
+      "description": "Associate an email account with the app",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
     "env": {
       "description": "Environment variables.",
       "type": "object",
