@@ -31,7 +31,10 @@ use crate::{
 type Assembler = VecAssembler<RiscvRelocation>;
 type Location = AbstractLocation<GPR, FPR>;
 
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 /// The RISC-V assembler wrapper, providing FPU feature tracking and a dynasmrt assembler.
 pub struct AssemblerRiscv {
     /// Inner dynasm assembler.
@@ -2200,11 +2203,8 @@ impl Machine for MachineRiscv {
         &self,
         idx: usize,
         calling_convention: CallingConvention,
-    ) -> Location {
-        self.get_param_registers(calling_convention)
-            .get(idx)
-            .map(|reg| Location::GPR(*reg))
-            .expect("memory parameters are not supported yet")
+    ) -> Self::GPR {
+        self.get_param_registers(calling_convention)[idx]
     }
 
     fn get_return_value_location(
@@ -2427,9 +2427,15 @@ impl Machine for MachineRiscv {
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.emit_pop(Size::S64, location)
     }
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
+        Ok(FinalizedAssembly {
+            body: self.assembler.finalize().map_err(|e| {
+                CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+            })?,
+            assembly_comments,
         })
     }
     fn get_offset(&self) -> Offset {
@@ -2502,9 +2508,6 @@ impl Machine for MachineRiscv {
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::X10), Location::SIMD(FPR::F10))
     }
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        true
-    }
     fn canonicalize_nan(
         &mut self,
         sz: Size,
@@ -2566,9 +2569,6 @@ impl Machine for MachineRiscv {
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
-    }
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        false
     }
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
@@ -5584,7 +5584,6 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             addr,
             memarg,
@@ -5638,7 +5637,6 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             addr,
             memarg,

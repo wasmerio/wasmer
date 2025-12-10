@@ -28,7 +28,7 @@ RUN apt-get update  && \
 # install rust tools
 RUN curl --proto "=https" --tlsv1.2 --retry 3 -sSfL https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup -v toolchain install 1.89
+RUN rustup -v toolchain install 1.90
 # add docker the manual way
 COPY install_docker.sh /
 RUN /install_docker.sh
@@ -61,7 +61,7 @@ ENV CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc
     RUST_TEST_THREADS=1 \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
-RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.89-x86_64-unknown-linux-gnu
+RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.90-x86_64-unknown-linux-gnu
 
 # quickly install cargo nextest by using pre-built binary
 RUN curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin

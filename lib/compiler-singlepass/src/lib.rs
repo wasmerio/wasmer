@@ -9,7 +9,7 @@
 //! runtime performance.
 
 #![allow(clippy::unnecessary_cast)]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod address_map;
 mod arm64_decl;
@@ -37,4 +37,4 @@ mod unwind_winx64;
 mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;
-pub use crate::config::Singlepass;
+pub use {crate::config::Singlepass, crate::config::SinglepassCallbacks};

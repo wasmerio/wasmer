@@ -194,6 +194,7 @@ impl LLVMCompiler {
                     &compile_info.memory_styles,
                     &compile_info.table_styles,
                     symbol_registry,
+                    target.triple(),
                 )?;
 
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
@@ -410,6 +411,7 @@ impl Compiler for LLVMCompiler {
                                 memory_styles,
                                 table_styles,
                                 &symbol_registry,
+                                target.triple(),
                             )
                         },
                     )
@@ -436,6 +438,7 @@ impl Compiler for LLVMCompiler {
                         memory_styles,
                         table_styles,
                         &symbol_registry,
+                        target.triple(),
                     )
                 })
                 .collect::<Result<Vec<_>, CompileError>>()?

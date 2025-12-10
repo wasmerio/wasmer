@@ -3,7 +3,7 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.89"
+  MSRV: "1.90"
 
 on:
   push:
@@ -72,7 +72,7 @@ jobs:
             enable_wasmi: true
             enable_wamr: true
           - build: macos-x64
-            os: macos-13
+            os: macos-15-intel
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz"
             artifact_name: "wasmer-darwin-amd64"
             cross_compilation_artifact_name: "cross_compiled_from_mac"
@@ -83,7 +83,7 @@ jobs:
             enable_wasmi: true
             enable_wamr: true
           - build: macos-arm64
-            os: macos-14
+            os: depot-macos-14
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
             use_sccache: false
@@ -165,8 +165,8 @@ jobs:
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         if: ${{ matrix.use_sccache != true && matrix.use_rustcache != false }}
-      - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-13' && !matrix.llvm_url
+      - name: Install LLVM (macOS Intel)
+        if: matrix.os == 'macos-15-intel' && !matrix.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -192,7 +192,7 @@ jobs:
       - name: Add `brew` libraries (Apple Silicon)
         run: |
           echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-        if: matrix.os == 'macos-14'
+        if: matrix.os == 'macos-14' || matrix.os == 'depot-macos-14'
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -408,7 +408,7 @@ jobs:
   darwin_aarch64_jsc:
     name: macOS aarch64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: macos-13
+    runs-on: depot-macos-14
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -442,7 +442,7 @@ jobs:
   darwin_x86_64_jsc:
     name: macOS x86_64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable

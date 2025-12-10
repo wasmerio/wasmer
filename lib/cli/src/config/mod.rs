@@ -81,6 +81,7 @@ impl Default for MultiRegistry {
     }
 }
 
+#[allow(unused)]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct Registry {
     pub url: String,
