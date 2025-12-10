@@ -239,19 +239,19 @@ impl<'a> WasiTest<'a> {
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
 
-                builder.set_fs(Box::new(fs));
+                builder.set_fs(Arc::new(fs) as Arc<dyn FileSystem + Send + Sync>);
             }
 
             other => {
-                let fs: Box<dyn FileSystem + Send + Sync> = match other {
-                    WasiFileSystemKind::InMemory => Box::<mem_fs::FileSystem>::default(),
-                    WasiFileSystemKind::Tmp => Box::<tmp_fs::TmpFileSystem>::default(),
+                let fs: Arc<dyn FileSystem + Send + Sync> = match other {
+                    WasiFileSystemKind::InMemory => Arc::<mem_fs::FileSystem>::default(),
+                    WasiFileSystemKind::Tmp => Arc::<tmp_fs::TmpFileSystem>::default(),
                     WasiFileSystemKind::PassthruMemory => {
-                        let fs = Box::<mem_fs::FileSystem>::default();
-                        Box::new(passthru_fs::PassthruFileSystem::new(fs))
+                        let fs = Arc::<mem_fs::FileSystem>::default();
+                        Arc::new(passthru_fs::PassthruFileSystem::new_arc(fs))
                     }
                     WasiFileSystemKind::RootFileSystemBuilder => {
-                        Box::new(RootFileSystemBuilder::new().build())
+                        Arc::new(RootFileSystemBuilder::new().build())
                     }
                     WasiFileSystemKind::UnionHostMemory => {
                         let a = mem_fs::FileSystem::default();
@@ -294,7 +294,7 @@ impl<'a> WasiTest<'a> {
                             Box::new(f),
                         )?;
 
-                        Box::new(union)
+                        Arc::new(union)
                     }
                     _ => {
                         panic!("unexpected filesystem type {other:?}");

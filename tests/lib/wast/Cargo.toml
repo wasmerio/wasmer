@@ -1,14 +1,14 @@
 [package]
 name = "wasmer-wast"
-version = "6.1.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
+version.workspace = true
+authors.workspace = true
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
 repository = "https://github.com/wasmerio/wasmer"
 readme = "README.md"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
 wasmer-types = { path = "../../../lib/types", version = "=6.1.0" }
@@ -17,11 +17,11 @@ wasmer = { path = "../../../lib/api", version = "=6.1.0", default-features = fal
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.601.0" }
 
 anyhow.workspace = true
-wast = "221.0.2"
-serde = "1"
+wast.workspace = true
+serde.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
-futures = "0.3"
+futures.workspace = true
 tokio = { workspace = true, features = [
 	"io-util",
 	"rt",

@@ -44,8 +44,8 @@ enumset.workspace = true
 cfg-if.workspace = true
 libc.workspace = true
 thiserror.workspace = true
-typetag = { version = "0.1", optional = true }
-paste = "1.0"
+typetag = { workspace = true, optional = true }
+paste.workspace = true
 tokio = { workspace = true, features = [
 	"rt",
 	"rt-multi-thread",
@@ -57,13 +57,13 @@ tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
-field-offset = "0.3.3"
+field-offset.workspace = true
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
-wasmer-inline-c = "0.1.1"
+wasmer-inline-c.workspace = true
 
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
-inline-c = "0.1.7"
+inline-c.workspace = true
 
 [features]
 default = ["wat", "sys-default", "cranelift", "compiler", "wasi", "middlewares"]
@@ -146,7 +146,7 @@ webc_runner = ["virtual-fs", "webc"]
 jit = ["compiler"]
 
 [build-dependencies]
-cbindgen = { version = "0.29", default-features = false }
+cbindgen = { workspace = true, default-features = false }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }

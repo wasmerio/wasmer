@@ -43,12 +43,11 @@ mod codegen {
         let mut map = IndexMap::new();
 
         fn add_schema<T: schemars::JsonSchema>(map: &mut IndexMap<String, String>, name: &str) {
-            let r#gen = schemars::r#gen::SchemaGenerator::new(
-                schemars::r#gen::SchemaSettings::draft2019_09(),
-            );
+            let generator =
+                schemars::SchemaGenerator::new(schemars::generate::SchemaSettings::draft2019_09());
             map.insert(
                 format!("{name}.schema.json"),
-                serde_json::to_string_pretty(&r#gen.into_root_schema_for::<T>()).unwrap(),
+                serde_json::to_string_pretty(&generator.into_root_schema_for::<T>()).unwrap(),
             );
         }
         add_schema::<wasmer_config::app::AppConfigV1>(&mut map, "AppConfigV1");
@@ -66,9 +65,11 @@ mod codegen {
             .unwrap();
 
         let schema_dir = root_dir.join("docs/schema/generated");
-        if !schema_dir.is_dir() {
-            panic!("Expected the {} directory to exist", schema_dir.display());
-        }
+        assert!(
+            schema_dir.is_dir(),
+            "Expected the {} directory to exist",
+            schema_dir.display()
+        );
 
         schema_dir
     }
@@ -86,12 +87,12 @@ mod codegen {
             let path = json_dir.join(filename);
             let contents = std::fs::read_to_string(&path).unwrap();
 
-            if contents != *jsonschema {
-                panic!(
-                    "Auto-generated OpenAPI schema at '{}' is not up to date!\n",
-                    path.display()
-                );
-            }
+            assert_eq!(
+                contents,
+                *jsonschema,
+                "Auto-generated OpenAPI schema at '{}' is not up to date!\n",
+                path.display()
+            );
         }
 
         for res in std::fs::read_dir(&json_dir).unwrap() {
@@ -103,12 +104,11 @@ mod codegen {
                 .expect("non-utf8 filename")
                 .to_string();
 
-            if !jsonschema.contains_key(&file_name) {
-                panic!(
-                    "Found unexpected file in the json schemas directory: '{}' - delete it!",
-                    entry.path().display(),
-                );
-            }
+            assert!(
+                jsonschema.contains_key(&file_name),
+                "Found unexpected file in the json schemas directory: '{}' - delete it!",
+                entry.path().display()
+            );
         }
     }
 }

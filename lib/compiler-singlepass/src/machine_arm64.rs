@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use dynasmrt::{VecAssembler, aarch64::Aarch64Relocation};
 #[cfg(feature = "unwind")]
 use gimli::{AArch64, write::CallFrameInstruction};
@@ -1787,22 +1789,13 @@ impl Machine for MachineARM64 {
             ),
         }
     }
-    // Get simple param location, Will not be accurate for Apple calling convention on "stack" arguments
+
     fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
-    ) -> Location {
-        let register_params = self.get_param_registers(calling_convention);
-        register_params.get(idx).map_or_else(
-            || {
-                Location::Memory(
-                    GPR::X29,
-                    (16 * 2 + (idx - register_params.len()) * 8) as i32,
-                )
-            },
-            |reg| Location::GPR(*reg),
-        )
+    ) -> Self::GPR {
+        self.get_param_registers(calling_convention)[idx]
     }
 
     fn get_return_value_location(
@@ -2189,9 +2182,15 @@ impl Machine for MachineARM64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
+        Ok(FinalizedAssembly {
+            body: self.assembler.finalize().map_err(|e| {
+                CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+            })?,
+            assembly_comments,
         })
     }
 
@@ -2247,9 +2246,6 @@ impl Machine for MachineARM64 {
             .emit_mov(Size::S64, Location::GPR(GPR::X0), Location::SIMD(NEON::V0))
     }
 
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        self.assembler.arch_supports_canonicalize_nan()
-    }
     fn canonicalize_nan(
         &mut self,
         sz: Size,
@@ -2318,10 +2314,6 @@ impl Machine for MachineARM64 {
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        self.assembler.arch_requires_indirect_call_trampoline()
     }
 
     fn arch_emit_indirect_call_with_trampoline(
@@ -7378,7 +7370,6 @@ impl Machine for MachineARM64 {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
             memarg,
@@ -7434,7 +7425,6 @@ impl Machine for MachineARM64 {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
             memarg,

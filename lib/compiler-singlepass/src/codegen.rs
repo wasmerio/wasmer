@@ -7,17 +7,21 @@ use crate::{
     common_decl::*,
     config::Singlepass,
     location::{Location, Reg},
-    machine::{Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition},
+    machine::{
+        AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
+    },
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
-use std::{cmp, iter, ops::Neg};
+use std::{cmp, collections::HashMap, iter, ops::Neg};
+use target_lexicon::Architecture;
 
 use wasmer_compiler::{
     FunctionBodyData,
+    misc::CompiledKind,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
@@ -98,6 +102,12 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Calling convention to use.
     calling_convention: CallingConvention,
+
+    /// Name of the function.
+    function_name: String,
+
+    /// Assembly comments.
+    assembly_comments: HashMap<usize, AssemblyComment>,
 }
 
 struct SpecialLabelSet {
@@ -294,20 +304,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
-
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
                 self.check_location_on_stack(loc, self.stack_offset)?;
                 self.stack_offset -= 8;
-                delta_stack_offset += 8;
+                self.machine
+                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
             }
         }
 
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.truncate_stack(delta_stack_offset as u32)?;
-        }
         Ok(())
     }
 
@@ -315,7 +320,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         stack_depth: usize,
     ) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
         let mut stack_offset = self.stack_offset;
         let locs = &self.value_stack[stack_depth..];
 
@@ -323,14 +327,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             if let Location::Memory(..) = *loc {
                 self.check_location_on_stack(loc, stack_offset)?;
                 stack_offset -= 8;
-                delta_stack_offset += 8;
+                self.machine
+                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
             }
         }
 
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.truncate_stack(delta_stack_offset as u32)?;
-        }
         Ok(())
     }
 
@@ -428,6 +429,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         sig: FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<Vec<Location<M::GPR, M::SIMD>>, CompileError> {
+        self.add_assembly_comment(AssemblyComment::InitializeLocals);
+
         // How many machine stack slots will all the locals use?
         let num_mem_slots = (0..n)
             .filter(|&x| self.machine.is_local_on_stack(x))
@@ -529,8 +532,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Load vmctx into it's GPR.
         self.machine.move_location(
             Size::S64,
-            self.machine
-                .get_simple_param_location(0, calling_convention),
+            Location::GPR(
+                self.machine
+                    .get_simple_param_location(0, calling_convention),
+            ),
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
 
@@ -765,8 +770,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.move_location(
                 Size::S64,
                 Location::GPR(self.machine.get_vmctx_reg()),
-                self.machine
-                    .get_simple_param_location(0, calling_convention),
+                Location::GPR(
+                    self.machine
+                        .get_simple_param_location(0, calling_convention),
+                ),
             )?; // vmctx
         }
 
@@ -851,6 +858,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn emit_head(&mut self) -> Result<(), CompileError> {
+        self.add_assembly_comment(AssemblyComment::FunctionPrologue);
         self.machine.emit_function_prolog()?;
 
         // Initialize locals.
@@ -861,6 +869,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         )?;
 
         // simulate "red zone" if not supported by the platform
+        self.add_assembly_comment(AssemblyComment::RedZone);
         self.machine.extend_stack(32)?;
 
         let return_types: SmallVec<_> = self
@@ -892,6 +901,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // We insert set StackOverflow as the default trap that can happen
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
+        self.add_assembly_comment(AssemblyComment::FunctionBody);
 
         Ok(())
     }
@@ -925,6 +935,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             bad_signature: machine.get_label(),
             unaligned_atomic: machine.get_label(),
         };
+        let function_name = module
+            .function_names
+            .get(&func_index)
+            .map(|fname| fname.to_string())
+            .unwrap_or_else(|| format!("function_{}", func_index.as_u32()));
 
         let mut fg = FuncGen {
             module,
@@ -945,6 +960,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             relocations: vec![],
             special_labels,
             calling_convention,
+            function_name,
+            assembly_comments: HashMap::new(),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -973,7 +990,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         {
             let dst = self.value_stack[value_stack_depth_after - i - 1].0;
             if let Some(canonicalize_size) = canonicalize.to_size()
-                && self.machine.arch_supports_canonicalize_nan()
                 && self.config.enable_nan_canonicalization
             {
                 self.machine
@@ -1132,9 +1148,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 };
                 let (loc, canonicalize) = self.pop_value_released()?;
                 if let Some(canonicalize_size) = canonicalize.to_size() {
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                    {
+                    if self.config.enable_nan_canonicalization {
                         self.machine.canonicalize_nan(canonicalize_size, loc, dst)?;
                     } else {
                         self.machine.emit_relaxed_mov(Size::S64, loc, dst)?;
@@ -1158,9 +1172,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if self.local_types[local_index].is_float()
                     && let Some(canonicalize_size) = canonicalize.to_size()
                 {
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                    {
+                    if self.config.enable_nan_canonicalization {
                         self.machine.canonicalize_nan(
                             canonicalize_size,
                             loc,
@@ -1182,9 +1194,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if self.local_types[local_index].is_float()
                     && let Some(canonicalize_size) = canonicalize.to_size()
                 {
-                    if self.machine.arch_supports_canonicalize_nan()
-                        && self.config.enable_nan_canonicalization
-                    {
+                    if self.config.enable_nan_canonicalization {
                         self.machine.canonicalize_nan(
                             canonicalize_size,
                             loc,
@@ -1722,9 +1732,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
+                if self.config.enable_nan_canonicalization {
                     for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)] {
                         if fp.to_size().is_some() {
                             self.machine
@@ -1871,9 +1879,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
+                if self.config.enable_nan_canonicalization {
                     for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)] {
                         if fp.to_size().is_some() {
                             self.machine
@@ -1931,8 +1937,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
 
-                if !self.machine.arch_supports_canonicalize_nan()
-                    || !self.config.enable_nan_canonicalization
+                if !self.config.enable_nan_canonicalization
                     || matches!(canonicalize, CanonicalizeType::None)
                 {
                     if loc != ret {
@@ -1957,8 +1962,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
 
-                if !self.machine.arch_supports_canonicalize_nan()
-                    || !self.config.enable_nan_canonicalization
+                if !self.config.enable_nan_canonicalization
                     || matches!(canonicalize, CanonicalizeType::None)
                 {
                     if loc != ret {
@@ -2185,9 +2189,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 //
                 // Canonicalization state will be lost across function calls, so early canonicalization
                 // is necessary here.
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
+                if self.config.enable_nan_canonicalization {
                     for (loc, canonicalize) in params.iter() {
                         if let Some(size) = canonicalize.to_size() {
                             self.machine.canonicalize_nan(size, *loc, *loc)?;
@@ -2248,9 +2250,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 //
                 // Canonicalization state will be lost across function calls, so early canonicalization
                 // is necessary here.
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
-                {
+                if self.config.enable_nan_canonicalization {
                     for (loc, canonicalize) in params.iter() {
                         if let Some(size) = canonicalize.to_size() {
                             self.machine.canonicalize_nan(size, *loc, *loc)?;
@@ -2381,35 +2381,26 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.emit_call_native(
                     |this| {
-                        if this.machine.arch_requires_indirect_call_trampoline() {
-                            this.machine
-                                .arch_emit_indirect_call_with_trampoline(Location::Memory(
-                                    gpr_for_call,
-                                    vmcaller_checked_anyfunc_func_ptr as i32,
-                                ))
-                        } else {
-                            let offset = this
-                                .machine
-                                .mark_instruction_with_trap_code(TrapCode::StackOverflow);
+                        let offset = this
+                            .machine
+                            .mark_instruction_with_trap_code(TrapCode::StackOverflow);
 
-                            // We set the context pointer
-                            this.machine.move_location(
-                                Size::S64,
-                                Location::Memory(
-                                    gpr_for_call,
-                                    vmcaller_checked_anyfunc_vmctx as i32,
-                                ),
+                        // We set the context pointer
+                        this.machine.move_location(
+                            Size::S64,
+                            Location::Memory(gpr_for_call, vmcaller_checked_anyfunc_vmctx as i32),
+                            Location::GPR(
                                 this.machine
                                     .get_simple_param_location(0, calling_convention),
-                            )?;
+                            ),
+                        )?;
 
-                            this.machine.emit_call_location(Location::Memory(
-                                gpr_for_call,
-                                vmcaller_checked_anyfunc_func_ptr as i32,
-                            ))?;
-                            this.machine.mark_instruction_address_end(offset);
-                            Ok(())
-                        }
+                        this.machine.emit_call_location(Location::Memory(
+                            gpr_for_call,
+                            vmcaller_checked_anyfunc_func_ptr as i32,
+                        ))?;
+                        this.machine.mark_instruction_address_end(offset);
+                        Ok(())
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
@@ -2535,8 +2526,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::Imm32(0),
                     zero_label,
                 )?;
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
+                if self.config.enable_nan_canonicalization
                     && let Some(size) = canonicalize_a.to_size()
                 {
                     self.machine.canonicalize_nan(size, v_a, ret)?;
@@ -2545,8 +2535,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 self.machine.jmp_unconditional(end_label)?;
                 self.machine.emit_label(zero_label)?;
-                if self.machine.arch_supports_canonicalize_nan()
-                    && self.config.enable_nan_canonicalization
+                if self.config.enable_nan_canonicalization
                     && let Some(size) = canonicalize_b.to_size()
                 {
                     self.machine.canonicalize_nan(size, v_b, ret)?;
@@ -3622,7 +3611,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         && (return_type == Type::F32 || return_type == Type::F64)
                     {
                         self.machine.emit_function_return_float()?;
-                    };
+                    }
                     self.machine.emit_ret()?;
                 } else {
                     let released = &self.value_stack.clone()[frame.value_stack_depth_after()..];
@@ -5773,10 +5762,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    fn add_assembly_comment(&mut self, comment: AssemblyComment) {
+        // Collect assembly comments only if we're going to emit them.
+        if self.config.callbacks.is_some() {
+            self.assembly_comments
+                .insert(self.machine.get_offset().0, comment);
+        }
+    }
+
     pub fn finalize(
         mut self,
         data: &FunctionBodyData,
+        arch: Architecture,
     ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
+        self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero)?;
@@ -5841,8 +5840,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
-        let mut body = self.machine.assembler_finalize()?;
+        let FinalizedAssembly {
+            mut body,
+            assembly_comments,
+        } = self.machine.assembler_finalize(self.assembly_comments)?;
         body.shrink_to_fit();
+
+        if let Some(callbacks) = self.config.callbacks.as_ref() {
+            callbacks.obj_memory_buffer(
+                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &body,
+            );
+            callbacks.asm_memory_buffer(
+                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                arch,
+                &body,
+                assembly_comments,
+            )?;
+        }
 
         Ok((
             CompiledFunction {

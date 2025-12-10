@@ -399,7 +399,7 @@ impl Wasi {
             if !mapped_dirs.is_empty() {
                 // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
+                    Arc::new(PassthruFileSystem::new_arc(default_fs_backing()));
                 for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
                     let host = if !host.is_absolute() {
                         Path::new("/").join(host)

@@ -492,14 +492,6 @@ pub trait EmitterARM64 {
     fn emit_read_fpsr(&mut self, reg: GPR) -> Result<(), CompileError>;
     fn emit_write_fpsr(&mut self, reg: GPR) -> Result<(), CompileError>;
 
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        true
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        false
-    }
-
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
         _loc: Location,
