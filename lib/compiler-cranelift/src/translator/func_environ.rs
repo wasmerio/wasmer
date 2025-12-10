@@ -7,10 +7,11 @@
 use super::func_state::FuncTranslationState;
 use super::translation_utils::reference_type;
 use crate::heap::{Heap, HeapData};
+use crate::translator::code_translator::CatchClause;
 use core::convert::From;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::Offset32;
-use cranelift_codegen::ir::{self, ExceptionTag, InstBuilder};
+use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use smallvec::SmallVec;
@@ -190,7 +191,8 @@ pub trait FuncEnvironment: TargetEnvironment {
         _callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Translate a `call_indirect` WebAssembly instruction at `pos`.
@@ -213,7 +215,8 @@ pub trait FuncEnvironment: TargetEnvironment {
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Return the number of WebAssembly values contained in the payload for the given exception tag.
@@ -240,7 +243,8 @@ pub trait FuncEnvironment: TargetEnvironment {
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
         args: &[ir::Value],
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
     ) -> WasmResult<()>;
 
     /// Emit IR to rethrow an existing exception reference.
@@ -248,7 +252,8 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         builder: &mut FunctionBuilder,
         exnref: ir::Value,
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
     ) -> WasmResult<()>;
 
     /// Invoke the runtime personality helper to choose the matching catch tag for an exception.

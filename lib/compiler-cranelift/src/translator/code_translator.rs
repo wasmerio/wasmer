@@ -87,8 +87,8 @@ use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
-    self, AtomicRmwOp, BlockArg, ConstantData, ExceptionTag, InstBuilder, JumpTableData, MemFlags,
-    Value, ValueLabel,
+    self, AtomicRmwOp, BlockArg, ConstantData, InstBuilder, JumpTableData, MemFlags, Value,
+    ValueLabel,
 };
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
@@ -624,7 +624,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let mut clauses = Vec::with_capacity(try_table.catches.len());
             let outer_clauses = state
                 .handlers
-                .clauses()
+                .unique_clauses()
                 .unique_by(|clause| clause.tag_value)
                 .collect_vec();
             let mut catch_blocks = Vec::with_capacity(try_table.catches.len() + 1);
@@ -657,11 +657,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     clauses.iter().chain(outer_clauses.iter()).cloned(),
                 )?;
                 catch_blocks.push(dispatch_block);
-
-                for clause in clauses.iter() {
-                    let handler_tag = clause.wasm_tag.map(ExceptionTag::from_u32);
-                    state.handlers.add_handler(handler_tag, dispatch_block);
-                }
+                state.handlers.add_handler(dispatch_block);
             }
 
             state.push_try_table_block(next, catch_blocks, params.len(), results.len(), checkpoint);
@@ -672,17 +668,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let tag_index = TagIndex::from_u32(*tag_index);
             let arity = environ.tag_param_arity(tag_index);
             let args = state.peekn(arity);
-            let handler_list: SmallVec<[(Option<ExceptionTag>, ir::Block); 4]> =
-                state.handlers.handlers().collect();
-            environ.translate_exn_throw(builder, tag_index, args, handler_list.as_slice())?;
+            let eh_handler = state.handlers.last_handler();
+            let clauses = state.handlers.unique_clauses().collect_vec();
+            environ.translate_exn_throw(builder, tag_index, args, eh_handler, &clauses)?;
             state.popn(arity);
             state.reachable = false;
         }
         Operator::ThrowRef => {
             let exnref = state.pop1();
-            let handler_list: SmallVec<[(Option<ExceptionTag>, ir::Block); 4]> =
-                state.handlers.handlers().collect();
-            environ.translate_exn_throw_ref(builder, exnref, handler_list.as_slice())?;
+            let eh_handler = state.handlers.last_handler();
+            let clauses = state.handlers.unique_clauses().collect_vec();
+            environ.translate_exn_throw_ref(builder, exnref, eh_handler, &clauses)?;
             state.reachable = false;
         }
         /************************************ Calls ****************************************
@@ -703,15 +699,16 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     builder,
                 );
             }
-            let handler_list: SmallVec<[(Option<ExceptionTag>, ir::Block); 4]> =
-                state.handlers.handlers().collect();
+            let eh_handler = state.handlers.last_handler();
+            let clauses = state.handlers.unique_clauses().collect_vec();
             let args = state.peekn(num_args);
             let results = environ.translate_call(
                 builder,
                 FunctionIndex::from_u32(*function_index),
                 fref,
                 args,
-                handler_list.as_slice(),
+                eh_handler,
+                &clauses,
             )?;
             let sig_ref = builder.func.dfg.ext_funcs[fref].signature;
             debug_assert_eq!(
@@ -738,8 +735,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 let args_mut = state.peekn_mut(num_args);
                 bitcast_wasm_params(environ, sigref, args_mut, builder);
             }
-            let handler_list: SmallVec<[(Option<ExceptionTag>, ir::Block); 4]> =
-                state.handlers.handlers().collect();
+            let eh_handler = state.handlers.last_handler();
+            let clauses = state.handlers.unique_clauses().collect_vec();
             let args = state.peekn(num_args);
             let results = environ.translate_call_indirect(
                 builder,
@@ -748,7 +745,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 sigref,
                 callee,
                 args,
-                handler_list.as_slice(),
+                eh_handler,
+                &clauses,
             )?;
             debug_assert_eq!(
                 results.len(),
@@ -3501,9 +3499,9 @@ pub fn bitcast_wasm_params<FE: FuncEnvironment + ?Sized>(
 
 #[derive(Debug, Clone)]
 pub(crate) struct CatchClause {
-    wasm_tag: Option<u32>,
-    tag_value: i32,
-    block: ir::Block,
+    pub(crate) wasm_tag: Option<u32>,
+    pub(crate) tag_value: i32,
+    pub(crate) block: ir::Block,
 }
 
 fn create_catch_block<FE: FuncEnvironment + ?Sized>(

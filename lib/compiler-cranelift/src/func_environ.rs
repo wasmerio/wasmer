@@ -5,7 +5,9 @@ use crate::{
     HashMap,
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
-    translator::{FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment},
+    translator::{
+        CatchClause, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment,
+    },
 };
 use cranelift_codegen::{
     cursor::FuncCursor,
@@ -1095,7 +1097,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         callee: ir::FuncRef,
         args: &[ir::Value],
         context: Option<ir::Value>,
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
         unreachable_on_return: bool,
     ) -> SmallVec<[ir::Value; 4]> {
         let sig_ref = builder.func.dfg.ext_funcs[callee].signature;
@@ -1105,7 +1108,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             .map(|ret| ret.value_type)
             .collect();
 
-        if handlers.is_empty() {
+        if eh_handler.is_none() {
             let inst = builder.ins().call(callee, args);
             let results: SmallVec<[ir::Value; 4]> =
                 builder.inst_results(inst).iter().copied().collect();
@@ -1128,21 +1131,23 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             .dfg
             .block_call(continuation, normal_args.iter());
 
-        let mut table_items = Vec::with_capacity(handlers.len() + context.is_some() as usize);
+        let mut table_items = Vec::new();
         if let Some(ctx) = context {
             table_items.push(ExceptionTableItem::Context(ctx));
         }
-        for &(tag, block) in handlers {
-            let block_call = builder
-                .func
-                .dfg
-                .block_call(block, &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)]);
-            table_items.push(match tag {
-                Some(tag) => ExceptionTableItem::Tag(tag, block_call),
+        for tag in clauses {
+            let Some(eh_block) = eh_handler else {
+                panic!("EH landing pad must exist");
+            };
+            let block_call = builder.func.dfg.block_call(
+                eh_block,
+                &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)],
+            );
+            table_items.push(match tag.wasm_tag {
+                Some(tag) => ExceptionTableItem::Tag(ExceptionTag::from_u32(tag), block_call),
                 None => ExceptionTableItem::Default(block_call),
             });
         }
-
         let etd = ExceptionTableData::new(sig_ref, continuation_call, table_items);
         let et = builder.func.dfg.exception_tables.push(etd);
         builder.ins().try_call(callee, args, et);
@@ -1162,7 +1167,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         func_addr: ir::Value,
         args: &[ir::Value],
         context: Option<ir::Value>,
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
         unreachable_on_return: bool,
     ) -> SmallVec<[ir::Value; 4]> {
         let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig]
@@ -1171,7 +1177,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             .map(|ret| ret.value_type)
             .collect();
 
-        if handlers.is_empty() {
+        if eh_handler.is_none() {
             let inst = builder.ins().call_indirect(sig, func_addr, args);
             let results: SmallVec<[ir::Value; 4]> =
                 builder.inst_results(inst).iter().copied().collect();
@@ -1197,17 +1203,20 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             .dfg
             .block_call(continuation, normal_args.iter());
 
-        let mut table_items = Vec::with_capacity(handlers.len() + context.is_some() as usize);
+        let mut table_items = Vec::new();
         if let Some(ctx) = context {
             table_items.push(ExceptionTableItem::Context(ctx));
         }
-        for &(tag, block) in handlers {
-            let block_call = builder
-                .func
-                .dfg
-                .block_call(block, &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)]);
-            table_items.push(match tag {
-                Some(tag) => ExceptionTableItem::Tag(tag, block_call),
+        for tag in clauses {
+            let Some(eh_block) = eh_handler else {
+                panic!("EH landing pad must exist");
+            };
+            let block_call = builder.func.dfg.block_call(
+                eh_block,
+                &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)],
+            );
+            table_items.push(match tag.wasm_tag {
+                Some(tag) => ExceptionTableItem::Tag(ExceptionTag::from_u32(tag), block_call),
                 None => ExceptionTableItem::Default(block_call),
             });
         }
@@ -1580,7 +1589,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let pointer_type = self.pointer_type();
 
@@ -1654,7 +1664,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             func_addr,
             &real_call_args,
             Some(vmctx),
-            handlers,
+            eh_handler,
+            clauses,
             false,
         );
         Ok(results)
@@ -1666,7 +1677,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
 
@@ -1689,7 +1701,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 callee,
                 &real_call_args,
                 Some(caller_vmctx),
-                handlers,
+                eh_handler,
+                clauses,
                 false,
             );
             return Ok(results);
@@ -1728,7 +1741,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             func_addr,
             &real_call_args,
             Some(vmctx),
-            handlers,
+            eh_handler,
+            clauses,
             false,
         );
         Ok(results)
@@ -1793,7 +1807,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
         args: &[ir::Value],
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
     ) -> WasmResult<()> {
         let layout = {
             let layout_ref = self.exception_type_layout(tag_index)?;
@@ -1847,14 +1862,14 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             self.translate_load_builtin_function_address(&mut pos, throw_idx);
         let call_args = [vmctx_value, exnref];
 
-        // assert!(!handlers.is_empty(), "translate_exn_throw without handlers");
         let _ = self.call_indirect_with_handlers(
             builder,
             throw_sig,
             throw_addr,
             &call_args,
             Some(vmctx_value),
-            handlers,
+            eh_handler,
+            clauses,
             true,
         );
 
@@ -1865,7 +1880,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         &mut self,
         builder: &mut FunctionBuilder,
         exnref: ir::Value,
-        handlers: &[(Option<ExceptionTag>, ir::Block)],
+        eh_handler: Option<ir::Block>,
+        clauses: &[CatchClause],
     ) -> WasmResult<()> {
         let (throw_sig, throw_idx) = self.get_throw_func(builder.func);
         let mut pos = builder.cursor();
@@ -1873,17 +1889,14 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             self.translate_load_builtin_function_address(&mut pos, throw_idx);
         let call_args = [vmctx_value, exnref];
 
-        // assert!(
-        //     !handlers.is_empty(),
-        //     "translate_exn_throw_ref without handlers"
-        // );
         let _ = self.call_indirect_with_handlers(
             builder,
             throw_sig,
             throw_addr,
             &call_args,
             Some(vmctx_value),
-            handlers,
+            eh_handler,
+            clauses,
             true,
         );
 

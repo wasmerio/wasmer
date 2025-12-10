@@ -13,8 +13,9 @@ use super::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::heap::Heap;
 use crate::translator::code_translator::CatchClause;
 use crate::{HashMap, Occupied, Vacant};
-use cranelift_codegen::ir::{self, Block, ExceptionTag, Inst, Value};
+use cranelift_codegen::ir::{self, Block, Inst, Value};
 use cranelift_frontend::FunctionBuilder;
+use itertools::Itertools;
 use std::vec::Vec;
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult};
 
@@ -289,13 +290,13 @@ pub struct HandlerStateCheckpoint(usize, usize);
 
 #[derive(Default)]
 pub struct HandlerState {
-    handlers: Vec<(Option<ExceptionTag>, Block)>,
+    handlers: Vec<Block>,
     clauses: Vec<CatchClause>,
 }
 
 impl HandlerState {
-    pub fn add_handler(&mut self, tag: Option<ExceptionTag>, block: Block) {
-        self.handlers.push((tag, block));
+    pub fn add_handler(&mut self, block: Block) {
+        self.handlers.push(block);
     }
 
     pub fn add_clause(&mut self, clause: CatchClause) {
@@ -313,15 +314,19 @@ impl HandlerState {
         self.clauses.truncate(checkpoint.1);
     }
 
-    pub fn handlers(&self) -> impl Iterator<Item = (Option<ExceptionTag>, Block)> + '_ {
-        self.handlers
-            .iter()
-            .rev()
-            .map(|(tag, block)| (*tag, *block))
+    /// Register an exception handler for a call instruction.
+    /// A single handler can support all existing exception tags, including outer catch clauses.
+    pub fn last_handler(&self) -> Option<Block> {
+        self.handlers.last().copied()
     }
 
-    pub fn clauses(&self) -> impl Iterator<Item = CatchClause> + '_ {
-        self.clauses.clone().into_iter().rev()
+    /// Returns an iterator over the catch clauses in reverse order, with duplicates removed.
+    pub fn unique_clauses(&self) -> impl Iterator<Item = CatchClause> + '_ {
+        self.clauses
+            .clone()
+            .into_iter()
+            .unique_by(|c| c.wasm_tag)
+            .rev()
     }
 
     pub fn is_empty(&self) -> bool {
