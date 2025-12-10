@@ -77,6 +77,8 @@
 mod bounds_checks;
 
 const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
+pub(crate) const TAG_TYPE: ir::Type = I32;
+pub(crate) const EXN_REF_TYPE: ir::Type = I32;
 
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
@@ -3520,8 +3522,7 @@ fn create_catch_block<FE: FuncEnvironment + ?Sized>(
     let tag_value = wasm_tag.map_or(CATCH_ALL_TAG_VALUE, |t| t as i32);
 
     let block = builder.create_block();
-    // TODO type - create TAG_TYPE in the module header
-    let exnref = builder.append_block_param(block, I32);
+    let exnref = builder.append_block_param(block, EXN_REF_TYPE);
 
     builder.switch_to_block(block);
 
@@ -3569,7 +3570,9 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     canonicalise_brif(builder, matches, catch_all_block, &[], catch_one_block, &[]);
 
     builder.switch_to_block(catch_all_block);
-    let catch_all_tag = builder.ins().iconst(I32, i64::from(CATCH_ALL_TAG_VALUE));
+    let catch_all_tag = builder
+        .ins()
+        .iconst(TAG_TYPE, i64::from(CATCH_ALL_TAG_VALUE));
     canonicalise_then_jump(builder, dispatch_block, &[catch_all_tag]);
     builder.seal_block(catch_all_block);
 
@@ -3579,21 +3582,17 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     builder.seal_block(catch_one_block);
 
     builder.switch_to_block(dispatch_block);
-    let selector = builder.append_block_param(dispatch_block, I32);
+    let selector = builder.append_block_param(dispatch_block, TAG_TYPE);
     let exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr);
-    let exnref_type = builder.func.dfg.value_type(exnref);
-    let selector_ty = I32;
 
     let rethrow_block = builder.create_block();
-    builder.append_block_param(rethrow_block, I32);
+    builder.append_block_param(rethrow_block, EXN_REF_TYPE);
 
     let mut current_selector = selector;
     let mut current_exn = exnref;
 
     for (idx, clause) in clauses.iter().enumerate() {
-        let tag_value = builder
-            .ins()
-            .iconst(selector_ty, i64::from(clause.tag_value));
+        let tag_value = builder.ins().iconst(TAG_TYPE, i64::from(clause.tag_value));
         let matches = builder
             .ins()
             .icmp(IntCC::Equal, current_selector, tag_value);
@@ -3609,8 +3608,8 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
             );
         } else {
             let continue_block = builder.create_block();
-            builder.append_block_param(continue_block, selector_ty);
-            builder.append_block_param(continue_block, exnref_type);
+            builder.append_block_param(continue_block, TAG_TYPE);
+            builder.append_block_param(continue_block, EXN_REF_TYPE);
 
             canonicalise_brif(
                 builder,

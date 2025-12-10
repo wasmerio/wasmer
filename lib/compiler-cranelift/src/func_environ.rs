@@ -6,7 +6,8 @@ use crate::{
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
     translator::{
-        CatchClause, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment,
+        CatchClause, EXN_REF_TYPE, FuncEnvironment as BaseFuncEnvironment, GlobalVariable,
+        TAG_TYPE, TargetEnvironment,
     },
 };
 use cranelift_codegen::{
@@ -956,7 +957,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             let mut signature = Signature::new(self.target_config.default_call_conv);
             signature.params.push(AbiParam::new(self.pointer_type()));
             signature.params.push(AbiParam::new(self.pointer_type()));
-            signature.returns.push(AbiParam::new(I32));
+            signature.returns.push(AbiParam::new(TAG_TYPE));
             let sig = func.import_signature(signature);
             self.personality2_sig = Some(sig);
             sig
@@ -974,7 +975,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 self.pointer_type(),
                 ArgumentPurpose::VMContext,
             ));
-            signature.params.push(AbiParam::new(I32));
+            signature.params.push(AbiParam::new(EXN_REF_TYPE));
             let sig = func.import_signature(signature);
             self.throw_sig = Some(sig);
             sig
@@ -992,8 +993,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 self.pointer_type(),
                 ArgumentPurpose::VMContext,
             ));
-            signature.params.push(AbiParam::new(I32));
-            signature.returns.push(AbiParam::new(I32));
+            signature.params.push(AbiParam::new(TAG_TYPE));
+            signature.returns.push(AbiParam::new(EXN_REF_TYPE));
             let sig = func.import_signature(signature);
             self.alloc_exception_sig = Some(sig);
             sig
@@ -1014,7 +1015,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 self.pointer_type(),
                 ArgumentPurpose::VMContext,
             ));
-            signature.params.push(AbiParam::new(I32));
+            signature.params.push(AbiParam::new(EXN_REF_TYPE));
             signature.returns.push(AbiParam::new(self.pointer_type()));
             let sig = func.import_signature(signature);
             self.read_exnref_sig = Some(sig);
@@ -1033,7 +1034,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         let sig = self.read_exception_sig.unwrap_or_else(|| {
             let mut signature = Signature::new(self.target_config.default_call_conv);
             signature.params.push(AbiParam::new(self.pointer_type()));
-            signature.returns.push(AbiParam::new(I32));
+            signature.returns.push(AbiParam::new(EXN_REF_TYPE));
             let sig = func.import_signature(signature);
             self.read_exception_sig = Some(sig);
             sig
