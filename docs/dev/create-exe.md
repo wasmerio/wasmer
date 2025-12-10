@@ -1,5 +1,8 @@
 # wasmer create-exe
 
+> [!Caution] 
+This feature has been removed from wasmer-cli due to insufficient support capabilities.
+
 ## Motivation and Goal
 
 The goal of create-exe is to create easily runnable executables on every
