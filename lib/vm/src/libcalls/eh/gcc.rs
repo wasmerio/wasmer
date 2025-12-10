@@ -227,7 +227,7 @@ pub unsafe extern "C" fn wasmer_eh_personality2(
             log!("[wasmer][eh] stage2 checking tag {}", tag);
             let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
             if unique_tag == (*exn).tag_index() {
-                return dbg!(tag as i32);
+                return tag as i32;
             }
         }
 
