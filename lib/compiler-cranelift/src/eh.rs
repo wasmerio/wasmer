@@ -10,8 +10,6 @@ use cranelift_codegen::{
 use cranelift_entity::EntityRef;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::fs::File;
-use std::io::Write;
 
 use wasmer_compiler::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
@@ -263,8 +261,6 @@ pub fn build_lsda_section(
 
             offsets_per_function.push(Some(base));
             if debug_lsda {
-                let mut f = File::create("/tmp/lsda.bin").unwrap();
-                f.write_all(&data.bytes).unwrap();
                 eprintln!(
                     "[wasmer][eh] func #{func_idx} lsda size={} relocations={} bytes={:02x?}",
                     data.bytes.len(),

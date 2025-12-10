@@ -3555,7 +3555,6 @@ fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     clauses: impl Iterator<Item = CatchClause>,
 ) -> WasmResult<ir::Block> {
     let clauses = clauses.collect_vec();
-    dbg!(&clauses);
 
     let catch_block = builder.create_block();
     let exn_ptr = builder.append_block_param(catch_block, environ.reference_type());

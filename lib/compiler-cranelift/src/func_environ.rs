@@ -1689,7 +1689,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 callee,
                 &real_call_args,
                 Some(caller_vmctx),
-                dbg!(handlers),
+                handlers,
                 false,
             );
             return Ok(results);
