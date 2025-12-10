@@ -16,7 +16,6 @@ use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, ExceptionTag, Inst, Value};
 use cranelift_frontend::FunctionBuilder;
 use std::vec::Vec;
-use wasmer_compiler::wasmparser::Catch;
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult};
 
 /// Information about the presence of an associated `else` for an `if`, or the

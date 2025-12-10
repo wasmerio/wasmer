@@ -786,7 +786,6 @@ pub extern "C-unwind" fn wasmer_vm_read_exnref(
 pub unsafe extern "C-unwind" fn wasmer_vm_exception_into_exnref(exception: *mut c_void) -> u32 {
     unsafe {
         let exnref = eh::read_exnref(exception);
-        println!("into_exnref: {exnref}, deleting exception");
         eh::delete_exception(exception);
         exnref
     }

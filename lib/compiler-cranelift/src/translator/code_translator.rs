@@ -93,7 +93,6 @@ use cranelift_codegen::ir::{
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
 use itertools::Itertools;
-use rayon::array::IntoIter;
 use smallvec::SmallVec;
 use std::vec::Vec;
 

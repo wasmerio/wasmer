@@ -20,7 +20,7 @@ use cranelift_codegen::{
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
@@ -52,16 +52,7 @@ struct ExceptionFieldLayout {
 
 #[derive(Clone)]
 struct ExceptionTypeLayout {
-    size: u32,
     fields: SmallVec<[ExceptionFieldLayout; 4]>,
-}
-
-fn align_to(value: u32, align: u32) -> u32 {
-    if align <= 1 {
-        value
-    } else {
-        ((value + align - 1) / align) * align
-    }
 }
 
 /// The `FuncEnvironment` implementation for use by the `ModuleEnvironment`.
@@ -148,7 +139,6 @@ pub struct FuncEnvironment<'module_environment> {
     /// Cached signatures for exception helper builtins.
     personality2_sig: Option<ir::SigRef>,
     throw_sig: Option<ir::SigRef>,
-    rethrow_sig: Option<ir::SigRef>,
     alloc_exception_sig: Option<ir::SigRef>,
     read_exception_sig: Option<ir::SigRef>,
     read_exnref_sig: Option<ir::SigRef>,
@@ -203,7 +193,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             memory32_atomic_notify_sig: None,
             personality2_sig: None,
             throw_sig: None,
-            rethrow_sig: None,
             alloc_exception_sig: None,
             read_exception_sig: None,
             read_exnref_sig: None,
@@ -1074,19 +1063,17 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
 
         for wasm_ty in func_type.params() {
             let ir_ty = self.map_wasmer_type_to_ir(*wasm_ty)?;
-            let field_size = u32::from(ir_ty.bytes());
+            let field_size = ir_ty.bytes();
             let align = field_size.max(1);
             max_align = max_align.max(align);
-            offset = align_to(offset, align);
+            offset = offset.next_multiple_of(align);
             fields.push(ExceptionFieldLayout { offset, ty: ir_ty });
             offset = offset
                 .checked_add(field_size)
                 .ok_or_else(|| WasmError::Unsupported("exception payload too large".to_string()))?;
         }
 
-        let size = align_to(offset, max_align);
-
-        Ok(ExceptionTypeLayout { size, fields })
+        Ok(ExceptionTypeLayout { fields })
     }
 
     fn map_wasmer_type_to_ir(&self, ty: WasmerType) -> WasmResult<ir::Type> {
@@ -1100,13 +1087,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 self.reference_type()
             }
         })
-    }
-
-    fn wasmer_exception_offsets(&self) -> (u32, u32) {
-        let pointer_bytes = u32::from(self.pointer_bytes());
-        let data_ptr_offset = align_to(4, pointer_bytes);
-        let data_size_offset = align_to(data_ptr_offset + pointer_bytes, 8);
-        (data_ptr_offset, data_size_offset)
     }
 
     fn call_with_handlers(
@@ -1136,11 +1116,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         }
 
         let continuation = builder.create_block();
-        let current_block = builder.current_block().expect("current block");
-        let func: &Function = builder.func;
-        // TODO: remove?
-        // builder.insert_block_after(continuation, current_block);
-
         let mut normal_args = SmallVec::<[BlockArg; 4]>::with_capacity(return_types.len());
         let mut result_values = SmallVec::<[ir::Value; 4]>::with_capacity(return_types.len());
         for (i, ty) in return_types.iter().enumerate() {
@@ -1179,6 +1154,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         result_values
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn call_indirect_with_handlers(
         &mut self,
         builder: &mut FunctionBuilder,

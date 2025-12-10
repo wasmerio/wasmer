@@ -204,6 +204,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// Return the call instruction whose results are the WebAssembly return values.
     /// Returns `None` if this statically traps instead of creating a call
     /// instruction.
+    #[allow(clippy::too_many_arguments)]
     fn translate_call_indirect(
         &mut self,
         builder: &mut FunctionBuilder,

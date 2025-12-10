@@ -4,8 +4,6 @@
 //! Wasm exception handling so that Wasmer's libunwind personalities can parse
 //! the tables without any runtime changes.
 
-#![cfg(feature = "unwind")]
-
 use cranelift_codegen::{
     ExceptionContextLoc, FinalizedMachCallSite, FinalizedMachExceptionHandler,
 };
@@ -482,21 +480,6 @@ fn write_sleb128(mut value: i64, out: &mut Vec<u8>) {
             break;
         }
     }
-}
-
-fn sleb128_len(mut value: i64) -> usize {
-    let mut len = 0;
-    loop {
-        let byte = (value & 0x7f) as u8;
-        let sign_bit = (byte & 0x40) != 0;
-        value >>= 7;
-        len += 1;
-        let done = (value == 0 && !sign_bit) || (value == -1 && sign_bit);
-        if done {
-            break;
-        }
-    }
-    len
 }
 
 const DW_EH_PE_OMIT: u8 = 0xff;

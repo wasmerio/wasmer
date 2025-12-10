@@ -308,10 +308,6 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
                 if debug_eh {
                     eprintln!("[wasmer][eh] throw -> unexpected code {:?}", other);
                 }
-                let exnref = VMExceptionRef(StoreHandle::from_internal(
-                    ctx.id(),
-                    InternalStoreHandle::from_index(exnref as usize).unwrap(),
-                ));
                 unreachable!()
             }
         }
