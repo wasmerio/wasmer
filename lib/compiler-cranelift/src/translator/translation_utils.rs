@@ -7,7 +7,10 @@ use cranelift_codegen::{
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
-use wasmer_compiler::{types::relocation::RelocationKind, wasmparser};
+use wasmer_compiler::{
+    types::relocation::RelocationKind,
+    wasmparser::{self, RefType},
+};
 use wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
 /// Helper function translate a Function signature into Cranelift Ir
@@ -108,14 +111,7 @@ pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
             wasmparser::ValType::Ref(ty) => {
                 if ty.is_extern_ref() || ty.is_func_ref() {
                     builder.append_block_param(block, environ.reference_type());
-                } else if matches!(
-                    // TODO: simpler?
-                    ty.heap_type(),
-                    wasmparser::HeapType::Abstract {
-                        ty: wasmparser::AbstractHeapType::Exn,
-                        ..
-                    }
-                ) {
+                } else if ty == &RefType::EXNREF {
                     builder.append_block_param(block, ir::types::I32);
                 } else {
                     return Err(WasmError::Unsupported(format!(
