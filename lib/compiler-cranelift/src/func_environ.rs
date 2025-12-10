@@ -1827,7 +1827,9 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let (alloc_sig, alloc_idx) = self.get_alloc_exception_func(builder.func);
         let mut pos = builder.cursor();
         let (vmctx, alloc_addr) = self.translate_load_builtin_function_address(&mut pos, alloc_idx);
-        let tag_value = builder.ins().iconst(I32, i64::from(tag_index.as_u32()));
+        let tag_value = builder
+            .ins()
+            .iconst(TAG_TYPE, i64::from(tag_index.as_u32()));
         let alloc_call = builder
             .ins()
             .call_indirect(alloc_sig, alloc_addr, &[vmctx, tag_value]);

@@ -11,6 +11,7 @@ use super::code_translator::translate_operator;
 use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
+use crate::translator::EXN_REF_TYPE;
 use crate::translator::code_translator::bitcast_wasm_returns;
 use core::convert::TryFrom;
 use cranelift_codegen::entity::EntityRef;
@@ -203,7 +204,7 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
             if ty.is_func_ref() || ty.is_extern_ref() {
                 builder.ins().iconst(environ.reference_type(), 0)
             } else if ty == RefType::EXNREF {
-                builder.ins().iconst(ir::types::I32, 0)
+                builder.ins().iconst(EXN_REF_TYPE, 0)
             } else {
                 return Err(wasm_unsupported!("unsupported reference type: {:?}", ty));
             }

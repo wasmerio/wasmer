@@ -1,5 +1,7 @@
 //! Helper functions and structures for the translation.
 
+use crate::translator::EXN_REF_TYPE;
+
 use super::func_environ::TargetEnvironment;
 use cranelift_codegen::{
     binemit::Reloc,
@@ -51,7 +53,7 @@ pub fn type_to_irtype(ty: Type, target_config: TargetFrontendConfig) -> WasmResu
         Type::F64 => Ok(ir::types::F64),
         Type::V128 => Ok(ir::types::I8X16),
         Type::ExternRef | Type::FuncRef => reference_type(target_config),
-        Type::ExceptionRef => Ok(ir::types::I32),
+        Type::ExceptionRef => Ok(EXN_REF_TYPE),
         // ty => Err(wasm_unsupported!("type_to_type: wasm type {:?}", ty)),
     }
 }
@@ -112,7 +114,7 @@ pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
                 if ty.is_extern_ref() || ty.is_func_ref() {
                     builder.append_block_param(block, environ.reference_type());
                 } else if ty == &RefType::EXNREF {
-                    builder.append_block_param(block, ir::types::I32);
+                    builder.append_block_param(block, EXN_REF_TYPE);
                 } else {
                     return Err(WasmError::Unsupported(format!(
                         "unsupported reference type: {ty:?}"
