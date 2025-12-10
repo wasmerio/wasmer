@@ -1091,6 +1091,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn call_with_handlers(
         &mut self,
         builder: &mut FunctionBuilder,

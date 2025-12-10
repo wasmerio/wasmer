@@ -11,6 +11,7 @@ use cranelift_entity::EntityRef;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
+use std::io::{Cursor, Write};
 
 use wasmer_compiler::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
@@ -146,13 +147,13 @@ pub fn build_function_lsda<'a>(
     let (type_table_bytes, type_table_relocs) = type_entries.encode(pointer_bytes);
 
     let call_site_table_len = call_site_table.len() as u64;
-    let mut bytes = Vec::new();
-    bytes.push(DW_EH_PE_OMIT); // lpstart encoding omitted (relative to function start)
+    let mut writer = Cursor::new(Vec::new());
+    writer.write_all(&DW_EH_PE_OMIT.to_le_bytes()).unwrap(); // lpstart encoding omitted (relative to function start)
 
     if type_entries.is_empty() {
-        bytes.push(DW_EH_PE_OMIT);
+        writer.write_all(&DW_EH_PE_OMIT.to_le_bytes()).unwrap();
     } else {
-        bytes.push(DW_EH_PE_ABSPTR);
+        writer.write_all(&DW_EH_PE_ABSPTR.to_le_bytes()).unwrap();
     }
 
     if !type_entries.is_empty() {
@@ -161,16 +162,16 @@ pub fn build_function_lsda<'a>(
             + call_site_table.len()
             + action_table.bytes.len()
             + type_table_bytes.len();
-        write_uleb128(ttype_table_end as u64, &mut bytes);
+        leb128::write::unsigned(&mut writer, ttype_table_end as u64).unwrap();
     }
 
-    bytes.push(DW_EH_PE_UDATA4);
-    write_uleb128(call_site_table_len, &mut bytes);
-    bytes.extend_from_slice(&call_site_table);
-    bytes.extend_from_slice(&action_table.bytes);
+    writer.write_all(&DW_EH_PE_UDATA4.to_le_bytes()).unwrap();
+    leb128::write::unsigned(&mut writer, call_site_table_len).unwrap();
+    writer.write_all(&call_site_table).unwrap();
+    writer.write_all(&action_table.bytes).unwrap();
 
-    let type_table_offset = bytes.len() as u32;
-    bytes.extend_from_slice(&type_table_bytes);
+    let type_table_offset = writer.position() as u32;
+    writer.write_all(&type_table_bytes).unwrap();
 
     let mut relocations = Vec::new();
     for reloc in type_table_relocs {
@@ -180,7 +181,10 @@ pub fn build_function_lsda<'a>(
         });
     }
 
-    Some(FunctionLsdaData { bytes, relocations })
+    Some(FunctionLsdaData {
+        bytes: writer.into_inner(),
+        relocations,
+    })
 }
 
 /// Build the global tag section and a tag->offset map.
@@ -395,7 +399,7 @@ struct ActionTable {
 }
 
 fn encode_action_table(callsite_actions: &[Vec<i32>]) -> ActionTable {
-    let mut bytes = Vec::new();
+    let mut writer = Cursor::new(Vec::new());
     let mut first_action_offsets = Vec::new();
 
     let mut cache = HashMap::new();
@@ -411,16 +415,19 @@ fn encode_action_table(callsite_actions: &[Vec<i32>]) -> ActionTable {
                 Entry::Vacant(entry) => {
                     let mut last_action_start = 0;
                     for (i, &ttype_index) in actions.iter().enumerate() {
-                        let next_action_start = bytes.len() as i64;
-                        write_sleb128(ttype_index as i64, &mut bytes);
+                        let next_action_start = writer.position();
+                        leb128::write::signed(&mut writer, ttype_index as i64)
+                            .expect("leb128 write failed");
 
                         if i != 0 {
                             // Make a linked list to the previous action
-                            write_sleb128(last_action_start - bytes.len() as i64, &mut bytes);
+                            let displacement = last_action_start - writer.position() as i64;
+                            leb128::write::signed(&mut writer, displacement)
+                                .expect("leb128 write failed");
                         } else {
-                            write_sleb128(0, &mut bytes);
+                            leb128::write::signed(&mut writer, 0).expect("leb128 write failed");
                         }
-                        last_action_start = next_action_start;
+                        last_action_start = next_action_start as i64;
                     }
                     let last_action_start = last_action_start as u32;
                     entry.insert(last_action_start);
@@ -431,69 +438,36 @@ fn encode_action_table(callsite_actions: &[Vec<i32>]) -> ActionTable {
     }
 
     ActionTable {
-        bytes,
+        bytes: writer.into_inner(),
         first_action_offsets,
     }
 }
 
 fn encode_call_site_table(callsites: &[CallSiteDesc], action_table: &ActionTable) -> Vec<u8> {
-    let mut bytes = Vec::new();
+    let mut writer = Cursor::new(Vec::new());
     for (idx, site) in callsites.iter().enumerate() {
-        write_encoded_offset(site.start, &mut bytes);
-        write_encoded_offset(site.len, &mut bytes);
-        write_encoded_offset(site.landing_pad, &mut bytes);
+        write_encoded_offset(site.start, &mut writer);
+        write_encoded_offset(site.len, &mut writer);
+        write_encoded_offset(site.landing_pad, &mut writer);
 
         let action = match action_table.first_action_offsets[idx] {
             Some(offset) => offset as u64 + 1,
             None => 0,
         };
-        write_uleb128(action, &mut bytes);
+        leb128::write::unsigned(&mut writer, action).expect("leb128 write failed");
     }
-    bytes
+    writer.into_inner()
 }
 
-fn write_encoded_offset(val: u32, out: &mut Vec<u8>) {
+fn write_encoded_offset(val: u32, out: &mut impl Write) {
     // We use DW_EH_PE_udata4 for all offsets.
-    out.extend_from_slice(&val.to_le_bytes());
+    out.write_all(&val.to_le_bytes())
+        .expect("write to buffer failed")
 }
 
-fn write_uleb128(mut value: u64, out: &mut Vec<u8>) {
-    loop {
-        let mut byte = (value & 0x7f) as u8;
-        value >>= 7;
-        if value != 0 {
-            byte |= 0x80;
-        }
-        out.push(byte);
-        if value == 0 {
-            break;
-        }
-    }
-}
-
-fn uleb128_len(mut value: u64) -> usize {
-    let mut len = 0;
-    loop {
-        value >>= 7;
-        len += 1;
-        if value == 0 {
-            break;
-        }
-    }
-    len
-}
-
-fn write_sleb128(mut value: i64, out: &mut Vec<u8>) {
-    loop {
-        let byte = (value & 0x7f) as u8;
-        let sign_bit = (byte & 0x40) != 0;
-        value >>= 7;
-        let done = (value == 0 && !sign_bit) || (value == -1 && sign_bit);
-        out.push(if done { byte } else { byte | 0x80 });
-        if done {
-            break;
-        }
-    }
+fn uleb128_len(value: u64) -> usize {
+    let mut cursor = Cursor::new([0u8; 10]);
+    leb128::write::unsigned(&mut cursor, value).unwrap()
 }
 
 const DW_EH_PE_OMIT: u8 = 0xff;
