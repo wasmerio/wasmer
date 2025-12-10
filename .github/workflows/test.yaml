@@ -963,18 +963,22 @@ jobs:
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
+            exe: ""
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin,
+            exe: ""
           - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
             container: alpine:edge
+            exe: ""
           - build: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
+            exe: ".exe"
 
     container: ${{ matrix.container }}
     env:
@@ -1002,6 +1006,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
+          target: ${{ matrix.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Cache
@@ -1096,7 +1101,7 @@ jobs:
           #   if: false # matrix.build != 'macos-arm'
           #   shell: bash
           #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
           #     export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
           #   env:
           #     TARGET: ${{ matrix.target }}
@@ -1116,7 +1121,7 @@ jobs:
           # - name: Test CLI integration (WAMR) 
           #   shell: bash
           #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
           #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wamr-ci
           #   env:
           #     TARGET: ${{ matrix.target }}
@@ -1128,7 +1133,7 @@ jobs:
           # - name: Test CLI integration (WASMI) 
           #   shell: bash
           #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
           #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wasmi-ci
           #   env:
           #     TARGET: ${{ matrix.target }}
