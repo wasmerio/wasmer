@@ -8,6 +8,7 @@ use cranelift_codegen::{
     ExceptionContextLoc, FinalizedMachCallSite, FinalizedMachExceptionHandler,
 };
 use cranelift_entity::EntityRef;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 
@@ -222,6 +223,11 @@ pub fn build_tag_section(
 ///
 /// Returns the section (if any) and a vector mapping each function index to
 /// its LSDA offset inside the section.
+///
+/// The section can be dumped using the elfutils' readelf tool:
+/// ```shell
+/// objcopy -I binary -O elf64-x86-64 --rename-section .data=.gcc_except_table,alloc,contents lsda.bin object.o && eu-readelf -w object.o
+/// ```
 pub fn build_lsda_section(
     lsda_data: Vec<Option<FunctionLsdaData>>,
     pointer_bytes: u8,
@@ -392,24 +398,35 @@ fn encode_action_table(callsite_actions: &[Vec<i32>]) -> ActionTable {
     let mut bytes = Vec::new();
     let mut first_action_offsets = Vec::new();
 
+    let mut cache = HashMap::new();
+
     for actions in callsite_actions {
         if actions.is_empty() {
             first_action_offsets.push(None);
         } else {
-            let mut last_action_start = 0;
-            for (i, &ttype_index) in actions.iter().enumerate() {
-                let next_action_start = bytes.len() as i64;
-                write_sleb128(ttype_index as i64, &mut bytes);
-
-                if i != 0 {
-                    // Make a linked list to the previous action
-                    write_sleb128(last_action_start - bytes.len() as i64, &mut bytes);
-                } else {
-                    write_sleb128(0, &mut bytes);
+            match cache.entry(actions.clone()) {
+                Entry::Occupied(entry) => {
+                    first_action_offsets.push(Some(*entry.get()));
                 }
-                last_action_start = next_action_start;
+                Entry::Vacant(entry) => {
+                    let mut last_action_start = 0;
+                    for (i, &ttype_index) in actions.iter().enumerate() {
+                        let next_action_start = bytes.len() as i64;
+                        write_sleb128(ttype_index as i64, &mut bytes);
+
+                        if i != 0 {
+                            // Make a linked list to the previous action
+                            write_sleb128(last_action_start - bytes.len() as i64, &mut bytes);
+                        } else {
+                            write_sleb128(0, &mut bytes);
+                        }
+                        last_action_start = next_action_start;
+                    }
+                    let last_action_start = last_action_start as u32;
+                    entry.insert(last_action_start);
+                    first_action_offsets.push(Some(last_action_start));
+                }
             }
-            first_action_offsets.push(Some(last_action_start as u32));
         }
     }
 
