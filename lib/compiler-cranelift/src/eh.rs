@@ -46,7 +46,8 @@ pub fn build_function_lsda<'a>(
         let mut catches = Vec::new();
         let mut landing_pad = None;
 
-        // TODO: adjust to a single handler -> reflects the reality what we use!!!
+        // Out landing pads handle all the tags considered for a call instruction, thus
+        // we use the latest landing pad.
         for handler in site.exception_handlers {
             match handler {
                 FinalizedMachExceptionHandler::Tag(tag, offset) => {
