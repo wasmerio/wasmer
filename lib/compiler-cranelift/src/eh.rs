@@ -50,6 +50,7 @@ pub fn build_function_lsda<'a>(
         let mut catches = Vec::new();
         let mut landing_pad = None;
 
+        // TODO: adjust to a single handler -> reflects the reality what we use!!!
         for handler in site.exception_handlers {
             match handler {
                 FinalizedMachExceptionHandler::Tag(tag, offset) => {

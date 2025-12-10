@@ -11,10 +11,12 @@
 
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::heap::Heap;
+use crate::translator::code_translator::CatchClause;
 use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, ExceptionTag, Inst, Value};
 use cranelift_frontend::FunctionBuilder;
 use std::vec::Vec;
+use wasmer_compiler::wasmparser::Catch;
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult};
 
 /// Information about the presence of an associated `else` for an `if`, or the
@@ -284,18 +286,12 @@ impl FuncTranslationState {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct HandlerStateCheckpoint(usize);
+pub struct HandlerStateCheckpoint(usize, usize);
 
+#[derive(Default)]
 pub struct HandlerState {
     handlers: Vec<(Option<ExceptionTag>, Block)>,
-}
-
-impl core::default::Default for HandlerState {
-    fn default() -> Self {
-        Self {
-            handlers: Vec::new(),
-        }
-    }
+    clauses: Vec<CatchClause>,
 }
 
 impl HandlerState {
@@ -303,13 +299,19 @@ impl HandlerState {
         self.handlers.push((tag, block));
     }
 
+    pub fn add_clause(&mut self, clause: CatchClause) {
+        self.clauses.push(clause);
+    }
+
     pub fn take_checkpoint(&self) -> HandlerStateCheckpoint {
-        HandlerStateCheckpoint(self.handlers.len())
+        HandlerStateCheckpoint(self.handlers.len(), self.clauses.len())
     }
 
     pub fn restore_checkpoint(&mut self, checkpoint: HandlerStateCheckpoint) {
         debug_assert!(checkpoint.0 <= self.handlers.len());
+        debug_assert!(checkpoint.1 <= self.clauses.len());
         self.handlers.truncate(checkpoint.0);
+        self.clauses.truncate(checkpoint.1);
     }
 
     pub fn handlers(&self) -> impl Iterator<Item = (Option<ExceptionTag>, Block)> + '_ {
@@ -319,12 +321,17 @@ impl HandlerState {
             .map(|(tag, block)| (*tag, *block))
     }
 
+    pub fn clauses(&self) -> impl Iterator<Item = CatchClause> + '_ {
+        self.clauses.clone().into_iter().rev()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.handlers.is_empty()
     }
 
     pub fn clear(&mut self) {
         self.handlers.clear();
+        self.clauses.clear();
     }
 }
 

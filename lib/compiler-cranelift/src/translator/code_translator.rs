@@ -93,6 +93,7 @@ use cranelift_codegen::ir::{
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
 use itertools::Itertools;
+use rayon::array::IntoIter;
 use smallvec::SmallVec;
 use std::vec::Vec;
 
@@ -613,7 +614,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             ));
         }
         Operator::TryTable { try_table } => {
-            dbg!(&try_table);
             let body = builder.create_block();
             let (params, results) =
                 module_translation_state.blocktype_params_results(&try_table.ty)?;
@@ -623,22 +623,35 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 
             let checkpoint = state.handlers.take_checkpoint();
             let mut clauses = Vec::with_capacity(try_table.catches.len());
+            let outer_clauses = state
+                .handlers
+                .clauses()
+                .unique_by(|clause| clause.tag_value)
+                .collect_vec();
             let mut catch_blocks = Vec::with_capacity(try_table.catches.len() + 1);
             for catch in try_table.catches.iter().rev() {
                 let clause = create_catch_block(builder, state, catch, environ)?;
                 catch_blocks.push(clause.block);
+                state.handlers.add_clause(clause.clone());
                 clauses.push(clause);
             }
 
+            let outer_clauses = outer_clauses
+                .into_iter()
+                .filter(|clause| clauses.iter().all(|c| c.tag_value != clause.tag_value))
+                .collect_vec();
+
             if !clauses.is_empty() {
-                let dispatch_block = create_dispatch_block(builder, environ, clauses.as_slice())?;
-                catch_blocks.push(dbg!(dispatch_block));
+                let dispatch_block = create_dispatch_block(
+                    builder,
+                    environ,
+                    clauses.iter().chain(outer_clauses.iter()).cloned(),
+                )?;
+                catch_blocks.push(dispatch_block);
 
                 for clause in clauses.iter() {
                     let handler_tag = clause.wasm_tag.map(ExceptionTag::from_u32);
-                    state
-                        .handlers
-                        .add_handler(handler_tag, dbg!(dispatch_block));
+                    state.handlers.add_handler(handler_tag, dispatch_block);
                 }
             }
 
@@ -3477,8 +3490,8 @@ pub fn bitcast_wasm_params<FE: FuncEnvironment + ?Sized>(
     }
 }
 
-#[derive(Debug)]
-struct CatchClause {
+#[derive(Debug, Clone)]
+pub(crate) struct CatchClause {
     wasm_tag: Option<u32>,
     tag_value: i32,
     block: ir::Block,
@@ -3531,8 +3544,9 @@ fn create_catch_block<FE: FuncEnvironment + ?Sized>(
 fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
     builder: &mut FunctionBuilder,
     environ: &mut FE,
-    clauses: &[CatchClause],
+    clauses: impl Iterator<Item = CatchClause>,
 ) -> WasmResult<ir::Block> {
+    let clauses = clauses.collect_vec();
     dbg!(&clauses);
 
     let catch_block = builder.create_block();
