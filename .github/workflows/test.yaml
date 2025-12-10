@@ -926,8 +926,8 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        # TODO: fix disk space issue for linux-musl connected to the cache size
-        if: matrix.stage.make != 'test-stage-5-test-examples' || matrix.metadata.build != 'linux-musl'
+        # TODO: fix disk space issue for a couple of Linux runners
+        if: !((matrix.stage.make == 'test-stage-5-test-examples' && matrix.metadata.build == 'linux-musl') || (matrix.stage.make == 'test-stage-5-test-examples' && matrix.metadata.build == 'linux-x64'))
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
         with:
