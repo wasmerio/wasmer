@@ -1,7 +1,7 @@
 # wasmer create-exe
 
 > [!Caution] 
-This feature has been removed from wasmer-cli due to insufficient support capabilities.
+This feature has been disabled from wasmer-cli due to unresolved issues and insufficient support capabilities to fix them. We would like to re-enable this as soon as all the existing issues are resolved (feel free to create a PR if you would like to help us with this quest: [LINK TO EXISTING ISSUES])
 
 ## Motivation and Goal
 
