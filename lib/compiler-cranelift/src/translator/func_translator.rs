@@ -17,6 +17,7 @@ use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+use wasmer_compiler::wasmparser::RefType;
 use wasmer_compiler::{FunctionBinaryReader, ModuleTranslationState, wptype_to_type};
 use wasmer_compiler::{wasm_unsupported, wasmparser};
 use wasmer_types::{LocalFunctionIndex, WasmResult};
@@ -201,6 +202,8 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
         Ref(ty) => {
             if ty.is_func_ref() || ty.is_extern_ref() {
                 builder.ins().iconst(environ.reference_type(), 0)
+            } else if ty == RefType::EXNREF {
+                builder.ins().iconst(ir::types::I32, 0)
             } else {
                 return Err(wasm_unsupported!("unsupported reference type: {:?}", ty));
             }

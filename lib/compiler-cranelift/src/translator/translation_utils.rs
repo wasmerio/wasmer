@@ -47,7 +47,8 @@ pub fn type_to_irtype(ty: Type, target_config: TargetFrontendConfig) -> WasmResu
         Type::F32 => Ok(ir::types::F32),
         Type::F64 => Ok(ir::types::F64),
         Type::V128 => Ok(ir::types::I8X16),
-        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => reference_type(target_config),
+        Type::ExternRef | Type::FuncRef => reference_type(target_config),
+        Type::ExceptionRef => Ok(ir::types::I32),
         // ty => Err(wasm_unsupported!("type_to_type: wasm type {:?}", ty)),
     }
 }
@@ -108,13 +109,14 @@ pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
                 if ty.is_extern_ref() || ty.is_func_ref() {
                     builder.append_block_param(block, environ.reference_type());
                 } else if matches!(
+                    // TODO: simpler?
                     ty.heap_type(),
                     wasmparser::HeapType::Abstract {
                         ty: wasmparser::AbstractHeapType::Exn,
                         ..
                     }
                 ) {
-                    builder.append_block_param(block, environ.reference_type());
+                    builder.append_block_param(block, ir::types::I32);
                 } else {
                     return Err(WasmError::Unsupported(format!(
                         "unsupported reference type: {ty:?}"

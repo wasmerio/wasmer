@@ -3534,7 +3534,6 @@ fn create_catch_block<FE: FuncEnvironment + ?Sized>(
         params.extend(environ.translate_exn_unbox(builder, tag_index, exnref)?);
     }
     if is_ref {
-        let exnref = builder.ins().uextend(environ.reference_type(), exnref);
         params.push(exnref);
     }
 
