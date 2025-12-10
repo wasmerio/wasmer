@@ -200,7 +200,8 @@ jobs:
           echo "$(pwd)/wasixcc-install" >> $GITHUB_PATH
           mkdir -p ~/.wasixcc/llvm
           mkdir -p ~/.wasixcc/sysroot
-          wasixcc --download-all
+          wasixcc --download-sysroot v2025-11-06.1
+          wasixcc --download-llvm
 
       - name: Tool versions
         run: |
