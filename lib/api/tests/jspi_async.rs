@@ -165,7 +165,7 @@ fn typed_async_host_and_calls_work() -> Result<()> {
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
     let compute: TypedFunction<i32, i32> =
-        instance.exports.get_typed_function(&mut store, "compute")?;
+        instance.exports.get_typed_function(&store, "compute")?;
 
     let store_async = store.into_async();
 
@@ -283,7 +283,7 @@ fn nested_async_in_sync() -> Result<()> {
 
     let inner_async = instance
         .exports
-        .get_typed_function::<(), i32>(&mut store, "inner_async")
+        .get_typed_function::<(), i32>(&store, "inner_async")
         .unwrap();
     env.as_mut(&mut store)
         .inner_async
@@ -292,7 +292,7 @@ fn nested_async_in_sync() -> Result<()> {
 
     let entry = instance
         .exports
-        .get_typed_function::<(), i32>(&mut store, "entry")?;
+        .get_typed_function::<(), i32>(&store, "entry")?;
     let result = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()

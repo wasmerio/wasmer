@@ -1,3 +1,8 @@
+use std::sync::atomic::Ordering;
+
+#[cfg(unix)]
+use crate::engine::unwind::EXIT_CALLED;
+
 use super::frame_info::{FRAME_INFO, GlobalFrameInfo};
 use backtrace::Backtrace;
 use wasmer_types::{FrameInfo, TrapCode};
@@ -5,6 +10,12 @@ use wasmer_vm::Trap;
 
 /// Given a `Trap`, this function returns the Wasm trace and the trap code.
 pub fn get_trace_and_trapcode(trap: &Trap) -> (Vec<FrameInfo>, Option<TrapCode>) {
+    #[cfg(unix)]
+    // If the exit is called, we can't access the back-trace information any longer (#5877)
+    if EXIT_CALLED.load(Ordering::SeqCst) {
+        return (Vec::new(), None);
+    }
+
     let info = FRAME_INFO.read().unwrap();
     match &trap {
         // A user error
