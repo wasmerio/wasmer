@@ -97,7 +97,7 @@ use rayon::array::IntoIter;
 use smallvec::SmallVec;
 use std::vec::Vec;
 
-use wasmer_compiler::wasmparser::{self, MemArg, Operator};
+use wasmer_compiler::wasmparser::{self, Catch, MemArg, Operator};
 use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
 use wasmer_types::{
     FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, TagIndex, WasmResult,
@@ -629,7 +629,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 .unique_by(|clause| clause.tag_value)
                 .collect_vec();
             let mut catch_blocks = Vec::with_capacity(try_table.catches.len() + 1);
-            for catch in try_table.catches.iter().rev() {
+
+            let catches = try_table
+                .catches
+                .iter()
+                .unique_by(|v| match v {
+                    Catch::One { tag, .. } | Catch::OneRef { tag, .. } => *tag as i32,
+                    Catch::All { .. } | Catch::AllRef { .. } => CATCH_ALL_TAG_VALUE,
+                })
+                .collect_vec();
+
+            for catch in catches.iter().rev() {
                 let clause = create_catch_block(builder, state, catch, environ)?;
                 catch_blocks.push(clause.block);
                 state.handlers.add_clause(clause.clone());
