@@ -107,7 +107,7 @@ jobs:
           log-level: error
 
   test_nodejs:
-    name: Test on NodeJS
+    name: NodeJS
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -127,7 +127,7 @@ jobs:
           make test-js
 
   test_wasi_fyi:
-    name: Test wasi-fyi
+    name: Wasi-fyi
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -161,7 +161,7 @@ jobs:
       #     make test-js-core
 
   test_wasix:
-    name: Test WASIX
+    name: WASIX
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -226,7 +226,7 @@ jobs:
           WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
 
   test_build_jsc:
-    name: Test JSC build
+    name: JSC
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -249,7 +249,7 @@ jobs:
         run: make build-wasmer-jsc
 
   test_interpreter_api:
-    name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
+    name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     strategy:
       fail-fast: false
@@ -260,19 +260,19 @@ jobs:
               key: wamr,
               lint-cmd: "make lint-wamr",
               build-cmd: "make test-wamr-api",
-              name: "Test API for wamr feature",
+              name: "API (wamr)",
             },
             {
               key: wasmi,
               lint-cmd: "make lint-wasmi",
               build-cmd: "make test-wasmi-api",
-              name: "Test API for wasmi feature",
+              name: "API (wasmi)",
             },
             {
               key: v8,
               lint-cmd: "make lint-v8",
               build-cmd: "make test-v8-api",
-              name: "Test API for v8 feature",
+              name: "API (v8)",
             },
           ]
         metadata: [
@@ -344,7 +344,7 @@ jobs:
         run: ${{ matrix.build-what.build-cmd }}
 
   test_build_docs_rs:
-    name: Test build docs rs
+    name: Build docs.rs
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -375,7 +375,7 @@ jobs:
         run: make test-build-docs-rs-ci
 
   build_linux_aarch64:
-    name: ${{ matrix.build-what.name }} on linux-aarch64
+    name: ${{ matrix.build-what.name }} - linux-aarch64
     runs-on: ubuntu-22.04-arm
     strategy:
       fail-fast: false
@@ -385,12 +385,12 @@ jobs:
             {
               key: capi,
               build-cmd: "make build-capi && make package-capi",
-              name: "Build C-API",
+              name: "C-API",
             },
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Build wasmer-cli",
+              name: "Wasmer-cli",
             },
           ]
     steps:
@@ -404,7 +404,7 @@ jobs:
           docker build -t wasmer/aarch64 ${GITHUB_WORKSPACE}/.github/cross-linux-aarch64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
-      - name: Build ${{ matrix.build-what.key }}
+      - name: ${{ matrix.build-what.key }}
         run: |
           ${{ matrix.build-what.build-cmd }}
         env:
@@ -436,7 +436,7 @@ jobs:
           retention-days: 2
 
   build_linux_riscv64:
-    name: ${{ matrix.build-what.name }} on linux-riscv64
+    name: ${{ matrix.build-what.name }} - linux-riscv64
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -446,12 +446,12 @@ jobs:
             {
               key: capi,
               build-cmd: "make build-capi && make package-capi",
-              name: "Build C-API",
+              name: "C-API",
             },
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Build wasmer-cli",
+              name: "Wasmer-cli",
             },
           ]
     steps:
@@ -495,7 +495,7 @@ jobs:
           retention-days: 2
 
   build:
-    name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
+    name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     needs: setup
     strategy:
@@ -506,27 +506,27 @@ jobs:
             {
               key: capi,
               build-cmd: "make build-capi && make build-capi-headless && make package-capi && make tar-capi",
-              name: "Build and test C-API",
+              name: "C-API",
             },
             {
               key: capi-v8,
               build-cmd: "make test-capi-v8",
-              name: "Build and test C-API with v8",
+              name: "C-API with v8",
             },
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Build wasmer-cli",
+              name: "Wasmer-cli",
             },
             {
               key: "check",
               build-cmd: "make check",
-              name: "Check wasmer API with all sys features enabled",
+              name: "Wasmer API (sys)",
             },
             {
               key: "api-feats",
               build-cmd: "make check-api-features",
-              name: "Check wasmer API with all sys features enabled",
+              name: "API (sys)",
             },
           ]
         metadata: [
@@ -719,7 +719,7 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
-      - name: Test C-API (v8)
+      - name: C-API (v8)
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
         if: ${{ matrix.build-what.key == 'capi-v8' && matrix.metadata.supports_v8 == true  }}
@@ -779,7 +779,7 @@ jobs:
           retention-days: 2
 
   test:
-    name: ${{ matrix.stage.description }} on ${{ matrix.metadata.build }}
+    name: ${{ matrix.stage.description }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     needs: setup
     strategy:
@@ -788,27 +788,27 @@ jobs:
         stage:
           [
             {
-              description: "Run wast test suite for all compilers",
+              description: "WAST (all comp.)",
               make: "test-stage-0-wast",
             },
             {
-              description: "Unit-test packages on std",
+              description: "Packages - std",
               make: "test-stage-1-test-all",
             },
             {
-              description: "Unit-test cranelift on no-std",
+              description: "Cranelift - no-std",
               make: "test-stage-2-test-compiler-cranelift-nostd",
             },
             {
-              description: "Unit-test singlepass on no-std",
+              description: "Singlepass - no-std",
               make: "test-stage-3-test-compiler-singlepass-nostd",
             },
             {
-              description: "Unit-test wasmer-cli",
+              description: "Wasmer-cli",
               make: "test-stage-4-wasmer-cli",
             },
             {
-              description: "Unit-test examples",
+              description: "Examples",
               make: "test-stage-5-test-examples",
             },
           ]
@@ -855,6 +855,9 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v6
+      - name: Show disk capacity
+        if: startsWith(matrix.metadata.build, 'linux')
+        run: df -h
       - name: Set up libstdc++ on Linux
         if: matrix.metadata.build == 'linux-x64'
         run: |
@@ -949,7 +952,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
 
   test_integration_cli:
-    name: CLI integration tests on ${{ matrix.build }}
+    name: CLI tests - ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: [build, build_linux_aarch64, build_linux_riscv64]
     strategy:
@@ -1136,6 +1139,7 @@ jobs:
           #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test-wasmer-integration-tests:
+    name: "Remote integ. tests"
     needs: [build]
     uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main
     with:
