@@ -115,9 +115,6 @@ impl UnwindRegistry {
         _func_len: u32,
         info: &CompiledFunctionUnwindInfoReference,
     ) -> Result<(), String> {
-        if std::env::var_os("WASMER_DEBUG_EH").is_some() {
-            eprintln!("[wasmer][eh] register unwind info: {info:?}");
-        }
         match info {
             CompiledFunctionUnwindInfoReference::Dwarf => {}
             _ => return Err(format!("unsupported unwind information {info:?}")),
@@ -132,22 +129,6 @@ impl UnwindRegistry {
         }
 
         if let Some(eh_frame) = eh_frame {
-            if std::env::var_os("WASMER_DEBUG_EH").is_some() {
-                let personality = if eh_frame.len() >= 27 {
-                    let start = 19;
-                    let end = start + size_of::<usize>();
-                    let mut buf = [0u8; size_of::<usize>()];
-                    buf.copy_from_slice(&eh_frame[start..end]);
-                    usize::from_ne_bytes(buf)
-                } else {
-                    0
-                };
-                eprintln!(
-                    "[wasmer][eh] publishing eh_frame size={} personality=0x{personality:x} bytes={:02x?}",
-                    eh_frame.len(),
-                    &eh_frame[..eh_frame.len().min(64)]
-                );
-            }
             unsafe {
                 self.register_frames(eh_frame);
             }

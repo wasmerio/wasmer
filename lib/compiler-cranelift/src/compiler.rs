@@ -92,9 +92,6 @@ impl CraneliftCompiler {
             .config()
             .isa(target)
             .map_err(|error| CompileError::Codegen(error.to_string()))?;
-        if std::env::var_os("WASMER_DEBUG_EH").is_some() {
-            eprintln!("[wasmer][eh] isa unwind_info={}", isa.flags().unwind_info());
-        }
         let frontend_config = isa.frontend_config();
         #[cfg(feature = "unwind")]
         let pointer_bytes = frontend_config.pointer_bytes();
@@ -237,21 +234,7 @@ impl CraneliftCompiler {
                 } else {
                     None
                 };
-                #[cfg(feature = "unwind")]
-                if std::env::var_os("WASMER_DEBUG_EH").is_some() {
-                    let name = compile_info.module.get_function_name(func_index);
-                    match &function_lsda {
-                        Some(lsda) => eprintln!(
-                            "[wasmer][eh] lsda present for {name:?} (local func #{}) size={}",
-                            i.index(),
-                            lsda.bytes.len()
-                        ),
-                        None => eprintln!(
-                            "[wasmer][eh] no lsda for {name:?} (local func #{})",
-                            i.index()
-                        ),
-                    }
-                }
+
                 #[cfg(not(feature = "unwind"))]
                 let function_lsda = ();
 

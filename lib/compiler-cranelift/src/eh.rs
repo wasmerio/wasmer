@@ -123,10 +123,6 @@ pub fn build_function_lsda<'a>(
 
     let sites = filled_sites;
 
-    if std::env::var_os("WASMER_DEBUG_EH").is_some() {
-        eprintln!("[wasmer][eh] call sites: {sites:?}");
-    }
-
     let mut type_entries = TypeTable::new();
     let mut callsite_actions = Vec::with_capacity(sites.len());
 
@@ -241,7 +237,6 @@ pub fn build_lsda_section(
     let mut bytes = Vec::new();
     let mut relocations = Vec::new();
     let mut offsets_per_function = Vec::with_capacity(lsda_data.len());
-    let debug_lsda = std::env::var_os("WASMER_DEBUG_EH").is_some();
 
     let pointer_kind = match pointer_bytes {
         4 => RelocationKind::Abs4,
@@ -249,7 +244,7 @@ pub fn build_lsda_section(
         other => panic!("unsupported pointer size {other} for LSDA generation"),
     };
 
-    for (func_idx, data) in lsda_data.into_iter().enumerate() {
+    for data in lsda_data.into_iter() {
         if let Some(data) = data {
             let base = bytes.len() as u32;
             bytes.extend_from_slice(&data.bytes);
@@ -271,19 +266,8 @@ pub fn build_lsda_section(
             }
 
             offsets_per_function.push(Some(base));
-            if debug_lsda {
-                eprintln!(
-                    "[wasmer][eh] func #{func_idx} lsda size={} relocations={} bytes={:02x?}",
-                    data.bytes.len(),
-                    data.relocations.len(),
-                    &data.bytes
-                );
-            }
         } else {
             offsets_per_function.push(None);
-            if debug_lsda {
-                eprintln!("[wasmer][eh] func #{func_idx} has no LSDA");
-            }
         }
     }
 

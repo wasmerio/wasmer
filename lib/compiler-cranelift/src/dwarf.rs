@@ -45,13 +45,6 @@ impl WriterRelocate {
         // GCC expects a terminating "empty" length, so write a 0 length at the end of the table.
         self.writer.write_u32(0).unwrap();
         let data = self.writer.into_vec();
-        if std::env::var_os("WASMER_DEBUG_EH").is_some() {
-            eprintln!(
-                "[wasmer][eh] eh_frame size={} relocs={:?}",
-                data.len(),
-                self.relocs
-            );
-        }
         CustomSection {
             protection: CustomSectionProtection::Read,
             alignment: None,
