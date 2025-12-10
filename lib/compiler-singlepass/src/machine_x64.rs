@@ -7,12 +7,15 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::*,
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
-    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM, new_machine_state},
+    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM},
 };
 use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
 use gimli::{X86_64, write::CallFrameInstruction};
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 use wasmer_compiler::{
     types::{
         address_map::InstructionAddressMap,
@@ -20,7 +23,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::{CustomSection, CustomSectionProtection, SectionBody},
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
@@ -35,27 +38,27 @@ pub struct AssemblerX64 {
     pub inner: Assembler,
     /// the simd instructions set on the target.
     /// Currently only supports SSE 4.2 and AVX
-    pub simd_arch: Option<CpuFeature>,
+    pub simd_arch: CpuFeature,
     /// Full Target cpu
     pub target: Option<Target>,
 }
 
 impl AssemblerX64 {
     fn new(baseaddr: usize, target: Option<Target>) -> Result<Self, CompileError> {
-        let simd_arch = if target.is_none() {
-            Some(CpuFeature::SSE42)
-        } else {
-            let target = target.as_ref().unwrap();
-            if target.cpu_features().contains(CpuFeature::AVX) {
-                Some(CpuFeature::AVX)
-            } else if target.cpu_features().contains(CpuFeature::SSE42) {
-                Some(CpuFeature::SSE42)
-            } else {
-                return Err(CompileError::UnsupportedTarget(
-                    "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
-                ));
-            }
-        };
+        let simd_arch = target.as_ref().map_or_else(
+            || Ok(CpuFeature::SSE42),
+            |target| {
+                if target.cpu_features().contains(CpuFeature::AVX) {
+                    Ok(CpuFeature::AVX)
+                } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                    Ok(CpuFeature::SSE42)
+                } else {
+                    Err(CompileError::UnsupportedTarget(
+                        "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
+                    ))
+                }
+            },
+        )?;
 
         Ok(Self {
             inner: Assembler::new(baseaddr),
@@ -99,6 +102,10 @@ pub struct MachineX86_64 {
     /// Vector of unwind operations with offset
     unwind_ops: Vec<(usize, UnwindOps<GPR, XMM>)>,
 }
+
+/// Get registers for first N function return values.
+/// NOTE: The register set must be disjoint from pick_gpr registers!
+pub(crate) const X86_64_RETURN_VALUE_REGISTERS: [GPR; 2] = [GPR::RAX, GPR::RDX];
 
 impl MachineX86_64 {
     pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
@@ -1963,12 +1970,6 @@ impl Machine for MachineX86_64 {
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
-    fn index_from_gpr(&self, x: GPR) -> RegisterIndex {
-        RegisterIndex(x as usize)
-    }
-    fn index_from_simd(&self, x: XMM) -> RegisterIndex {
-        RegisterIndex(x as usize + 16)
-    }
 
     fn get_vmctx_reg(&self) -> GPR {
         GPR::R15
@@ -2089,7 +2090,7 @@ impl Machine for MachineX86_64 {
     }
 
     fn push_used_simd(&mut self, used_xmms: &[XMM]) -> Result<usize, CompileError> {
-        self.adjust_stack((used_xmms.len() * 8) as u32)?;
+        self.extend_stack((used_xmms.len() * 8) as u32)?;
 
         for (i, r) in used_xmms.iter().enumerate() {
             self.move_location(
@@ -2186,29 +2187,22 @@ impl Machine for MachineX86_64 {
         value
     }
 
-    // Adjust stack for locals
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+    fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_sub(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         )
     }
-    // restore stack
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+
+    fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_add(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         )
     }
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        self.assembler.emit_add(
-            Size::S64,
-            Location::Imm32(delta_stack_offset),
-            Location::GPR(GPR::RSP),
-        )
-    }
+
     // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,
@@ -2321,36 +2315,88 @@ impl Machine for MachineX86_64 {
     // Get call param location
     fn get_call_param_location(
         &self,
+        return_slots: usize,
         idx: usize,
         _sz: Size,
         _stack_location: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        self.get_simple_param_location(idx, calling_convention)
-    }
-    // Get simple param location
-    fn get_simple_param_location(
-        &self,
-        idx: usize,
-        calling_convention: CallingConvention,
-    ) -> Location {
         let register_params = self.get_param_registers(calling_convention);
+        let return_values_memory_size =
+            8 * return_slots.saturating_sub(X86_64_RETURN_VALUE_REGISTERS.len());
         match calling_convention {
             CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
                 || {
                     Location::Memory(
                         GPR::RBP,
-                        (32 + 16 + (idx - register_params.len()) * 8) as i32,
+                        (32 + 16 + return_values_memory_size + (idx - register_params.len()) * 8)
+                            as i32,
                     )
                 },
                 |reg| Location::GPR(*reg),
             ),
             _ => register_params.get(idx).map_or_else(
-                || Location::Memory(GPR::RBP, (16 + (idx - register_params.len()) * 8) as i32),
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (16 + return_values_memory_size + (idx - register_params.len()) * 8) as i32,
+                    )
+                },
                 |reg| Location::GPR(*reg),
             ),
         }
     }
+
+    fn get_simple_param_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Self::GPR {
+        self.get_param_registers(calling_convention)[idx]
+    }
+
+    /// Get return value location (to build a call, using SP for stack return values).
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                let stack_padding = match calling_convention {
+                    CallingConvention::WindowsFastcall => 32,
+                    _ => 0,
+                };
+                let loc = Location::Memory(GPR::RSP, *stack_location as i32 + stack_padding);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
+    /// Get return value location (from a call, using FP for stack return values).
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                let stack_padding = match calling_convention {
+                    CallingConvention::WindowsFastcall => 32,
+                    _ => 0,
+                };
+                Location::Memory(
+                    GPR::RBP,
+                    (16 + stack_padding + (idx - X86_64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
+                )
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
     // move a location to another
     fn move_location(
         &mut self,
@@ -2474,15 +2520,17 @@ impl Machine for MachineX86_64 {
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_pop(Size::S64, location)
     }
-    // Create a new `MachineState` with default values.
-    fn new_machine_state(&self) -> MachineState {
-        new_machine_state()
-    }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
+        Ok(FinalizedAssembly {
+            body: self.assembler.finalize().map_err(|e| {
+                CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+            })?,
+            assembly_comments,
         })
     }
 
@@ -2507,27 +2555,6 @@ impl Machine for MachineX86_64 {
         self.emit_pop(Size::S64, Location::GPR(GPR::RBP))
     }
 
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        canonicalize: bool,
-        loc: Location,
-    ) -> Result<(), CompileError> {
-        if canonicalize {
-            self.canonicalize_nan(
-                match ty {
-                    WpType::F32 => Size::S32,
-                    WpType::F64 => Size::S64,
-                    _ => codegen_error!("singlepass emit_function_return_value unreachable"),
-                },
-                loc,
-                Location::GPR(GPR::RAX),
-            )
-        } else {
-            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::RAX))
-        }
-    }
-
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
         self.move_location(
             Size::S64,
@@ -2536,9 +2563,6 @@ impl Machine for MachineX86_64 {
         )
     }
 
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        self.assembler.arch_supports_canonicalize_nan()
-    }
     fn canonicalize_nan(
         &mut self,
         sz: Size,
@@ -2621,7 +2645,7 @@ impl Machine for MachineX86_64 {
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
-    fn get_grp_for_call(&self) -> GPR {
+    fn get_gpr_for_call(&self) -> GPR {
         GPR::RAX
     }
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
@@ -2629,16 +2653,6 @@ impl Machine for MachineX86_64 {
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
-    }
-    fn get_gpr_for_ret(&self) -> GPR {
-        GPR::RAX
-    }
-    fn get_simd_for_ret(&self) -> XMM {
-        XMM::XMM0
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        self.assembler.arch_requires_indirect_call_trampoline()
     }
 
     fn arch_emit_indirect_call_with_trampoline(
@@ -6555,7 +6569,6 @@ impl Machine for MachineX86_64 {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
             memarg,
@@ -6623,7 +6636,6 @@ impl Machine for MachineX86_64 {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
             memarg,
@@ -7051,126 +7063,119 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        if !self.arch_supports_canonicalize_nan() {
-            self.emit_relaxed_avx(AssemblerX64::emit_vminsd, loc_a, loc_b, ret)
-        } else {
-            let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
-            })?;
-            let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
-            })?;
-            let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
-            let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
+        // Canonicalize the result to differentiate arithmetic NaNs from canonical NaNs.
+        let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
 
-            let src1 = match loc_a {
-                Location::SIMD(x) => x,
-                Location::GPR(_) | Location::Memory(_, _) => {
-                    self.move_location(Size::S64, loc_a, Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                Location::Imm32(_) => {
-                    self.move_location(Size::S32, loc_a, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                Location::Imm64(_) => {
-                    self.move_location(Size::S64, loc_a, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                _ => {
-                    codegen_error!("singlepass f64_min unreachable");
-                }
-            };
-            let src2 = match loc_b {
-                Location::SIMD(x) => x,
-                Location::GPR(_) | Location::Memory(_, _) => {
-                    self.move_location(Size::S64, loc_b, Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                Location::Imm32(_) => {
-                    self.move_location(Size::S32, loc_b, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                Location::Imm64(_) => {
-                    self.move_location(Size::S64, loc_b, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                _ => {
-                    codegen_error!("singlepass f64_min unreachable");
-                }
-            };
-
-            let tmp_xmm1 = XMM::XMM8;
-            let tmp_xmm2 = XMM::XMM9;
-            let tmp_xmm3 = XMM::XMM10;
-
-            self.move_location(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1))?;
-            self.move_location(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2))?;
-            self.assembler
-                .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
-            self.assembler
-                .emit_vminsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
-            let label1 = self.assembler.get_label();
-            let label2 = self.assembler.get_label();
-            self.assembler.emit_jmp(Condition::NotEqual, label1)?;
-            self.assembler
-                .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2))?;
-            self.assembler.emit_jmp(Condition::None, label2)?;
-            self.emit_label(label1)?;
-            // load float -0.0
-            self.move_location(
-                Size::S64,
-                Location::Imm64(0x8000_0000_0000_0000), // Negative zero
-                Location::GPR(tmpg1),
-            )?;
-            self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp_xmm2))?;
-            self.emit_label(label2)?;
-            self.assembler
-                .emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3)?;
-            self.assembler.emit_vblendvpd(
-                tmp_xmm3,
-                XMMOrMemory::XMM(tmp_xmm2),
-                tmp_xmm1,
-                tmp_xmm1,
-            )?;
-            self.assembler
-                .emit_vcmpunordsd(src1, XMMOrMemory::XMM(src2), src1)?;
-            // load float canonical nan
-            self.move_location(
-                Size::S64,
-                Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
-                Location::GPR(tmpg1),
-            )?;
-            self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2))?;
-            self.assembler
-                .emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1)?;
-            match ret {
-                Location::SIMD(x) => {
-                    self.assembler
-                        .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x))?;
-                }
-                Location::Memory(_, _) | Location::GPR(_) => {
-                    self.move_location(Size::S64, Location::SIMD(src1), ret)?;
-                }
-                _ => {
-                    codegen_error!("singlepass f64_min unreachable");
-                }
+        let src1 = match loc_a {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.move_location(Size::S64, loc_a, Location::SIMD(tmp1))?;
+                tmp1
             }
+            Location::Imm32(_) => {
+                self.move_location(Size::S32, loc_a, Location::GPR(tmpg1))?;
+                self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
+                tmp1
+            }
+            Location::Imm64(_) => {
+                self.move_location(Size::S64, loc_a, Location::GPR(tmpg1))?;
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
+                tmp1
+            }
+            _ => {
+                codegen_error!("singlepass f64_min unreachable");
+            }
+        };
+        let src2 = match loc_b {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.move_location(Size::S64, loc_b, Location::SIMD(tmp2))?;
+                tmp2
+            }
+            Location::Imm32(_) => {
+                self.move_location(Size::S32, loc_b, Location::GPR(tmpg1))?;
+                self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
+                tmp2
+            }
+            Location::Imm64(_) => {
+                self.move_location(Size::S64, loc_b, Location::GPR(tmpg1))?;
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
+                tmp2
+            }
+            _ => {
+                codegen_error!("singlepass f64_min unreachable");
+            }
+        };
 
-            self.release_gpr(tmpg2);
-            self.release_gpr(tmpg1);
-            self.release_simd(tmp2);
-            self.release_simd(tmp1);
-            Ok(())
+        let tmp_xmm1 = XMM::XMM8;
+        let tmp_xmm2 = XMM::XMM9;
+        let tmp_xmm3 = XMM::XMM10;
+
+        self.move_location(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1))?;
+        self.move_location(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2))?;
+        self.assembler
+            .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
+        self.assembler
+            .emit_vminsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
+        let label1 = self.assembler.get_label();
+        let label2 = self.assembler.get_label();
+        self.assembler.emit_jmp(Condition::NotEqual, label1)?;
+        self.assembler
+            .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2))?;
+        self.assembler.emit_jmp(Condition::None, label2)?;
+        self.emit_label(label1)?;
+        // load float -0.0
+        self.move_location(
+            Size::S64,
+            Location::Imm64(0x8000_0000_0000_0000), // Negative zero
+            Location::GPR(tmpg1),
+        )?;
+        self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp_xmm2))?;
+        self.emit_label(label2)?;
+        self.assembler
+            .emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3)?;
+        self.assembler
+            .emit_vblendvpd(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1)?;
+        self.assembler
+            .emit_vcmpunordsd(src1, XMMOrMemory::XMM(src2), src1)?;
+        // load float canonical nan
+        self.move_location(
+            Size::S64,
+            Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
+            Location::GPR(tmpg1),
+        )?;
+        self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2))?;
+        self.assembler
+            .emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1)?;
+        match ret {
+            Location::SIMD(x) => {
+                self.assembler
+                    .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x))?;
+            }
+            Location::Memory(_, _) | Location::GPR(_) => {
+                self.move_location(Size::S64, Location::SIMD(src1), ret)?;
+            }
+            _ => {
+                codegen_error!("singlepass f64_min unreachable");
+            }
         }
+
+        self.release_gpr(tmpg2);
+        self.release_gpr(tmpg1);
+        self.release_simd(tmp2);
+        self.release_simd(tmp1);
+        Ok(())
     }
     fn f64_max(
         &mut self,
@@ -7178,121 +7183,114 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        if !self.arch_supports_canonicalize_nan() {
-            self.emit_relaxed_avx(AssemblerX64::emit_vmaxsd, loc_a, loc_b, ret)
-        } else {
-            let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
-            })?;
-            let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
-            })?;
-            let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
-            let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
+        // Canonicalize the result to differentiate arithmetic NaNs from canonical NaNs.
+        let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
 
-            let src1 = match loc_a {
-                Location::SIMD(x) => x,
-                Location::GPR(_) | Location::Memory(_, _) => {
-                    self.move_location(Size::S64, loc_a, Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                Location::Imm32(_) => {
-                    self.move_location(Size::S32, loc_a, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                Location::Imm64(_) => {
-                    self.move_location(Size::S64, loc_a, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                _ => {
-                    codegen_error!("singlepass f64_max unreachable");
-                }
-            };
-            let src2 = match loc_b {
-                Location::SIMD(x) => x,
-                Location::GPR(_) | Location::Memory(_, _) => {
-                    self.move_location(Size::S64, loc_b, Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                Location::Imm32(_) => {
-                    self.move_location(Size::S32, loc_b, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                Location::Imm64(_) => {
-                    self.move_location(Size::S64, loc_b, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                _ => {
-                    codegen_error!("singlepass f64_max unreachable");
-                }
-            };
-
-            let tmp_xmm1 = XMM::XMM8;
-            let tmp_xmm2 = XMM::XMM9;
-            let tmp_xmm3 = XMM::XMM10;
-
-            self.move_location(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1))?;
-            self.move_location(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2))?;
-            self.assembler
-                .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
-            self.assembler
-                .emit_vmaxsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
-            let label1 = self.assembler.get_label();
-            let label2 = self.assembler.get_label();
-            self.assembler.emit_jmp(Condition::NotEqual, label1)?;
-            self.assembler
-                .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2))?;
-            self.assembler.emit_jmp(Condition::None, label2)?;
-            self.emit_label(label1)?;
-            self.assembler
-                .emit_vxorpd(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2)?;
-            self.emit_label(label2)?;
-            self.assembler
-                .emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3)?;
-            self.assembler.emit_vblendvpd(
-                tmp_xmm3,
-                XMMOrMemory::XMM(tmp_xmm2),
-                tmp_xmm1,
-                tmp_xmm1,
-            )?;
-            self.assembler
-                .emit_vcmpunordsd(src1, XMMOrMemory::XMM(src2), src1)?;
-            // load float canonical nan
-            self.move_location(
-                Size::S64,
-                Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
-                Location::GPR(tmpg1),
-            )?;
-            self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2))?;
-            self.assembler
-                .emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1)?;
-            match ret {
-                Location::SIMD(x) => {
-                    self.assembler
-                        .emit_vmovapd(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x))?;
-                }
-                Location::Memory(_, _) | Location::GPR(_) => {
-                    self.move_location(Size::S64, Location::SIMD(src1), ret)?;
-                }
-                _ => {
-                    codegen_error!("singlepass f64_max unreachable");
-                }
+        let src1 = match loc_a {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.move_location(Size::S64, loc_a, Location::SIMD(tmp1))?;
+                tmp1
             }
+            Location::Imm32(_) => {
+                self.move_location(Size::S32, loc_a, Location::GPR(tmpg1))?;
+                self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
+                tmp1
+            }
+            Location::Imm64(_) => {
+                self.move_location(Size::S64, loc_a, Location::GPR(tmpg1))?;
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
+                tmp1
+            }
+            _ => {
+                codegen_error!("singlepass f64_max unreachable");
+            }
+        };
+        let src2 = match loc_b {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.move_location(Size::S64, loc_b, Location::SIMD(tmp2))?;
+                tmp2
+            }
+            Location::Imm32(_) => {
+                self.move_location(Size::S32, loc_b, Location::GPR(tmpg1))?;
+                self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
+                tmp2
+            }
+            Location::Imm64(_) => {
+                self.move_location(Size::S64, loc_b, Location::GPR(tmpg1))?;
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
+                tmp2
+            }
+            _ => {
+                codegen_error!("singlepass f64_max unreachable");
+            }
+        };
 
-            self.release_gpr(tmpg2);
-            self.release_gpr(tmpg1);
-            self.release_simd(tmp2);
-            self.release_simd(tmp1);
-            Ok(())
+        let tmp_xmm1 = XMM::XMM8;
+        let tmp_xmm2 = XMM::XMM9;
+        let tmp_xmm3 = XMM::XMM10;
+
+        self.move_location(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1))?;
+        self.move_location(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2))?;
+        self.assembler
+            .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
+        self.assembler
+            .emit_vmaxsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
+        let label1 = self.assembler.get_label();
+        let label2 = self.assembler.get_label();
+        self.assembler.emit_jmp(Condition::NotEqual, label1)?;
+        self.assembler
+            .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2))?;
+        self.assembler.emit_jmp(Condition::None, label2)?;
+        self.emit_label(label1)?;
+        self.assembler
+            .emit_vxorpd(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2)?;
+        self.emit_label(label2)?;
+        self.assembler
+            .emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3)?;
+        self.assembler
+            .emit_vblendvpd(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1)?;
+        self.assembler
+            .emit_vcmpunordsd(src1, XMMOrMemory::XMM(src2), src1)?;
+        // load float canonical nan
+        self.move_location(
+            Size::S64,
+            Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
+            Location::GPR(tmpg1),
+        )?;
+        self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2))?;
+        self.assembler
+            .emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1)?;
+        match ret {
+            Location::SIMD(x) => {
+                self.assembler
+                    .emit_vmovapd(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x))?;
+            }
+            Location::Memory(_, _) | Location::GPR(_) => {
+                self.move_location(Size::S64, Location::SIMD(src1), ret)?;
+            }
+            _ => {
+                codegen_error!("singlepass f64_max unreachable");
+            }
         }
+
+        self.release_gpr(tmpg2);
+        self.release_gpr(tmpg1);
+        self.release_simd(tmp2);
+        self.release_simd(tmp1);
+        Ok(())
     }
     fn f64_add(
         &mut self,
@@ -7449,126 +7447,119 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        if !self.arch_supports_canonicalize_nan() {
-            self.emit_relaxed_avx(AssemblerX64::emit_vminss, loc_a, loc_b, ret)
-        } else {
-            let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
-            })?;
-            let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
-            })?;
-            let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
-            let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
+        // Canonicalize the result to differentiate arithmetic NaNs from canonical NaNs.
+        let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
 
-            let src1 = match loc_a {
-                Location::SIMD(x) => x,
-                Location::GPR(_) | Location::Memory(_, _) => {
-                    self.move_location(Size::S64, loc_a, Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                Location::Imm32(_) => {
-                    self.move_location(Size::S32, loc_a, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                Location::Imm64(_) => {
-                    self.move_location(Size::S64, loc_a, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                _ => {
-                    codegen_error!("singlepass f32_min unreachable");
-                }
-            };
-            let src2 = match loc_b {
-                Location::SIMD(x) => x,
-                Location::GPR(_) | Location::Memory(_, _) => {
-                    self.move_location(Size::S64, loc_b, Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                Location::Imm32(_) => {
-                    self.move_location(Size::S32, loc_b, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                Location::Imm64(_) => {
-                    self.move_location(Size::S64, loc_b, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                _ => {
-                    codegen_error!("singlepass f32_min unreachable");
-                }
-            };
-
-            let tmp_xmm1 = XMM::XMM8;
-            let tmp_xmm2 = XMM::XMM9;
-            let tmp_xmm3 = XMM::XMM10;
-
-            self.move_location(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1))?;
-            self.move_location(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2))?;
-            self.assembler
-                .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
-            self.assembler
-                .emit_vminss(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
-            let label1 = self.assembler.get_label();
-            let label2 = self.assembler.get_label();
-            self.assembler.emit_jmp(Condition::NotEqual, label1)?;
-            self.assembler
-                .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2))?;
-            self.assembler.emit_jmp(Condition::None, label2)?;
-            self.emit_label(label1)?;
-            // load float -0.0
-            self.move_location(
-                Size::S64,
-                Location::Imm32(0x8000_0000), // Negative zero
-                Location::GPR(tmpg1),
-            )?;
-            self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp_xmm2))?;
-            self.emit_label(label2)?;
-            self.assembler
-                .emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3)?;
-            self.assembler.emit_vblendvps(
-                tmp_xmm3,
-                XMMOrMemory::XMM(tmp_xmm2),
-                tmp_xmm1,
-                tmp_xmm1,
-            )?;
-            self.assembler
-                .emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1)?;
-            // load float canonical nan
-            self.move_location(
-                Size::S64,
-                Location::Imm32(0x7FC0_0000), // Canonical NaN
-                Location::GPR(tmpg1),
-            )?;
-            self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2))?;
-            self.assembler
-                .emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1)?;
-            match ret {
-                Location::SIMD(x) => {
-                    self.assembler
-                        .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x))?;
-                }
-                Location::Memory(_, _) | Location::GPR(_) => {
-                    self.move_location(Size::S64, Location::SIMD(src1), ret)?;
-                }
-                _ => {
-                    codegen_error!("singlepass f32_min unreachable");
-                }
+        let src1 = match loc_a {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.move_location(Size::S64, loc_a, Location::SIMD(tmp1))?;
+                tmp1
             }
+            Location::Imm32(_) => {
+                self.move_location(Size::S32, loc_a, Location::GPR(tmpg1))?;
+                self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
+                tmp1
+            }
+            Location::Imm64(_) => {
+                self.move_location(Size::S64, loc_a, Location::GPR(tmpg1))?;
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
+                tmp1
+            }
+            _ => {
+                codegen_error!("singlepass f32_min unreachable");
+            }
+        };
+        let src2 = match loc_b {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.move_location(Size::S64, loc_b, Location::SIMD(tmp2))?;
+                tmp2
+            }
+            Location::Imm32(_) => {
+                self.move_location(Size::S32, loc_b, Location::GPR(tmpg1))?;
+                self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
+                tmp2
+            }
+            Location::Imm64(_) => {
+                self.move_location(Size::S64, loc_b, Location::GPR(tmpg1))?;
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
+                tmp2
+            }
+            _ => {
+                codegen_error!("singlepass f32_min unreachable");
+            }
+        };
 
-            self.release_gpr(tmpg2);
-            self.release_gpr(tmpg1);
-            self.release_simd(tmp2);
-            self.release_simd(tmp1);
-            Ok(())
+        let tmp_xmm1 = XMM::XMM8;
+        let tmp_xmm2 = XMM::XMM9;
+        let tmp_xmm3 = XMM::XMM10;
+
+        self.move_location(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1))?;
+        self.move_location(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2))?;
+        self.assembler
+            .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
+        self.assembler
+            .emit_vminss(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
+        let label1 = self.assembler.get_label();
+        let label2 = self.assembler.get_label();
+        self.assembler.emit_jmp(Condition::NotEqual, label1)?;
+        self.assembler
+            .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2))?;
+        self.assembler.emit_jmp(Condition::None, label2)?;
+        self.emit_label(label1)?;
+        // load float -0.0
+        self.move_location(
+            Size::S64,
+            Location::Imm32(0x8000_0000), // Negative zero
+            Location::GPR(tmpg1),
+        )?;
+        self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp_xmm2))?;
+        self.emit_label(label2)?;
+        self.assembler
+            .emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3)?;
+        self.assembler
+            .emit_vblendvps(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1)?;
+        self.assembler
+            .emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1)?;
+        // load float canonical nan
+        self.move_location(
+            Size::S64,
+            Location::Imm32(0x7FC0_0000), // Canonical NaN
+            Location::GPR(tmpg1),
+        )?;
+        self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2))?;
+        self.assembler
+            .emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1)?;
+        match ret {
+            Location::SIMD(x) => {
+                self.assembler
+                    .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x))?;
+            }
+            Location::Memory(_, _) | Location::GPR(_) => {
+                self.move_location(Size::S64, Location::SIMD(src1), ret)?;
+            }
+            _ => {
+                codegen_error!("singlepass f32_min unreachable");
+            }
         }
+
+        self.release_gpr(tmpg2);
+        self.release_gpr(tmpg1);
+        self.release_simd(tmp2);
+        self.release_simd(tmp1);
+        Ok(())
     }
     fn f32_max(
         &mut self,
@@ -7576,121 +7567,114 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        if !self.arch_supports_canonicalize_nan() {
-            self.emit_relaxed_avx(AssemblerX64::emit_vmaxss, loc_a, loc_b, ret)
-        } else {
-            let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
-            })?;
-            let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
-            })?;
-            let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
-            let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
+        // Canonicalize the result to differentiate arithmetic NaNs from canonical NaNs.
+        let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
 
-            let src1 = match loc_a {
-                Location::SIMD(x) => x,
-                Location::GPR(_) | Location::Memory(_, _) => {
-                    self.move_location(Size::S64, loc_a, Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                Location::Imm32(_) => {
-                    self.move_location(Size::S32, loc_a, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                Location::Imm64(_) => {
-                    self.move_location(Size::S64, loc_a, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
-                    tmp1
-                }
-                _ => {
-                    codegen_error!("singlepass f32_max unreachable");
-                }
-            };
-            let src2 = match loc_b {
-                Location::SIMD(x) => x,
-                Location::GPR(_) | Location::Memory(_, _) => {
-                    self.move_location(Size::S64, loc_b, Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                Location::Imm32(_) => {
-                    self.move_location(Size::S32, loc_b, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                Location::Imm64(_) => {
-                    self.move_location(Size::S64, loc_b, Location::GPR(tmpg1))?;
-                    self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
-                    tmp2
-                }
-                _ => {
-                    codegen_error!("singlepass f32_max unreachable");
-                }
-            };
-
-            let tmp_xmm1 = XMM::XMM8;
-            let tmp_xmm2 = XMM::XMM9;
-            let tmp_xmm3 = XMM::XMM10;
-
-            self.move_location(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1))?;
-            self.move_location(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2))?;
-            self.assembler
-                .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
-            self.assembler
-                .emit_vmaxss(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
-            let label1 = self.assembler.get_label();
-            let label2 = self.assembler.get_label();
-            self.assembler.emit_jmp(Condition::NotEqual, label1)?;
-            self.assembler
-                .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2))?;
-            self.assembler.emit_jmp(Condition::None, label2)?;
-            self.emit_label(label1)?;
-            self.assembler
-                .emit_vxorps(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2)?;
-            self.emit_label(label2)?;
-            self.assembler
-                .emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3)?;
-            self.assembler.emit_vblendvps(
-                tmp_xmm3,
-                XMMOrMemory::XMM(tmp_xmm2),
-                tmp_xmm1,
-                tmp_xmm1,
-            )?;
-            self.assembler
-                .emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1)?;
-            // load float canonical nan
-            self.move_location(
-                Size::S64,
-                Location::Imm32(0x7FC0_0000), // Canonical NaN
-                Location::GPR(tmpg1),
-            )?;
-            self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2))?;
-            self.assembler
-                .emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1)?;
-            match ret {
-                Location::SIMD(x) => {
-                    self.assembler
-                        .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x))?;
-                }
-                Location::Memory(_, _) | Location::GPR(_) => {
-                    self.move_location(Size::S64, Location::SIMD(src1), ret)?;
-                }
-                _ => {
-                    codegen_error!("singlepass f32_max unreachable");
-                }
+        let src1 = match loc_a {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.move_location(Size::S64, loc_a, Location::SIMD(tmp1))?;
+                tmp1
             }
+            Location::Imm32(_) => {
+                self.move_location(Size::S32, loc_a, Location::GPR(tmpg1))?;
+                self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
+                tmp1
+            }
+            Location::Imm64(_) => {
+                self.move_location(Size::S64, loc_a, Location::GPR(tmpg1))?;
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp1))?;
+                tmp1
+            }
+            _ => {
+                codegen_error!("singlepass f32_max unreachable");
+            }
+        };
+        let src2 = match loc_b {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.move_location(Size::S64, loc_b, Location::SIMD(tmp2))?;
+                tmp2
+            }
+            Location::Imm32(_) => {
+                self.move_location(Size::S32, loc_b, Location::GPR(tmpg1))?;
+                self.move_location(Size::S32, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
+                tmp2
+            }
+            Location::Imm64(_) => {
+                self.move_location(Size::S64, loc_b, Location::GPR(tmpg1))?;
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp2))?;
+                tmp2
+            }
+            _ => {
+                codegen_error!("singlepass f32_max unreachable");
+            }
+        };
 
-            self.release_gpr(tmpg2);
-            self.release_gpr(tmpg1);
-            self.release_simd(tmp2);
-            self.release_simd(tmp1);
-            Ok(())
+        let tmp_xmm1 = XMM::XMM8;
+        let tmp_xmm2 = XMM::XMM9;
+        let tmp_xmm3 = XMM::XMM10;
+
+        self.move_location(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1))?;
+        self.move_location(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2))?;
+        self.assembler
+            .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
+        self.assembler
+            .emit_vmaxss(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
+        let label1 = self.assembler.get_label();
+        let label2 = self.assembler.get_label();
+        self.assembler.emit_jmp(Condition::NotEqual, label1)?;
+        self.assembler
+            .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2))?;
+        self.assembler.emit_jmp(Condition::None, label2)?;
+        self.emit_label(label1)?;
+        self.assembler
+            .emit_vxorps(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2)?;
+        self.emit_label(label2)?;
+        self.assembler
+            .emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3)?;
+        self.assembler
+            .emit_vblendvps(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1)?;
+        self.assembler
+            .emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1)?;
+        // load float canonical nan
+        self.move_location(
+            Size::S64,
+            Location::Imm32(0x7FC0_0000), // Canonical NaN
+            Location::GPR(tmpg1),
+        )?;
+        self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2))?;
+        self.assembler
+            .emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1)?;
+        match ret {
+            Location::SIMD(x) => {
+                self.assembler
+                    .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x))?;
+            }
+            Location::Memory(_, _) | Location::GPR(_) => {
+                self.move_location(Size::S64, Location::SIMD(src1), ret)?;
+            }
+            _ => {
+                codegen_error!("singlepass f32_max unreachable");
+            }
         }
+
+        self.release_gpr(tmpg2);
+        self.release_gpr(tmpg1);
+        self.release_simd(tmp2);
+        self.release_simd(tmp1);
+        Ok(())
     }
     fn f32_add(
         &mut self,
@@ -7733,15 +7717,21 @@ impl Machine for MachineX86_64 {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
 
-        // Calculate stack offset.
-        let mut stack_offset: u32 = 0;
-        for (i, _param) in sig.params().iter().enumerate() {
-            if let Location::Memory(_, _) =
-                self.get_simple_param_location(1 + i, calling_convention)
-            {
-                stack_offset += 8;
-            }
-        }
+        // Calculate stack offset (+1 for the vmctx argument we are going to pass).
+        let stack_params = (0..sig.params().len() + 1)
+            .filter(|&i| {
+                self.get_param_registers(calling_convention)
+                    .get(i)
+                    .is_none()
+            })
+            .count();
+        let stack_return_slots = sig
+            .results()
+            .len()
+            .saturating_sub(X86_64_RETURN_VALUE_REGISTERS.len());
+
+        // Stack slots are not shared in between function params and return values.
+        let mut stack_offset = 8 * (stack_params + stack_return_slots) as u32;
         let stack_padding: u32 = match calling_convention {
             CallingConvention::WindowsFastcall => 32,
             _ => 0,
@@ -7766,28 +7756,28 @@ impl Machine for MachineX86_64 {
         // Arguments
         a.emit_mov(
             Size::S64,
-            self.get_simple_param_location(1, calling_convention),
+            Location::GPR(self.get_simple_param_location(1, calling_convention)),
             Location::GPR(GPR::R15),
         )?; // func_ptr
         a.emit_mov(
             Size::S64,
-            self.get_simple_param_location(2, calling_convention),
+            Location::GPR(self.get_simple_param_location(2, calling_convention)),
             Location::GPR(GPR::R14),
         )?; // args_rets
 
         // Move arguments to their locations.
         // `callee_vmctx` is already in the first argument register, so no need to move.
         {
-            let mut n_stack_args: usize = 0;
+            let mut n_stack_args = 0u32;
             for (i, _param) in sig.params().iter().enumerate() {
                 let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
-                let dst_loc = self.get_simple_param_location(1 + i, calling_convention);
+                let dst_loc = self.get_param_registers(calling_convention).get(1 + i);
 
                 match dst_loc {
-                    Location::GPR(_) => {
-                        a.emit_mov(Size::S64, src_loc, dst_loc)?;
+                    Some(&gpr) => {
+                        a.emit_mov(Size::S64, src_loc, Location::GPR(gpr))?;
                     }
-                    Location::Memory(_, _) => {
+                    None => {
                         // This location is for reading arguments but we are writing arguments here.
                         // So recalculate it.
                         a.emit_mov(Size::S64, src_loc, Location::GPR(GPR::RAX))?;
@@ -7796,12 +7786,12 @@ impl Machine for MachineX86_64 {
                             Location::GPR(GPR::RAX),
                             Location::Memory(
                                 GPR::RSP,
-                                (stack_padding as usize + n_stack_args * 8) as _,
+                                (stack_padding + (n_stack_args + stack_return_slots as u32) * 8)
+                                    as _,
                             ),
                         )?;
                         n_stack_args += 1;
                     }
-                    _ => codegen_error!("singlepass gen_std_trampoline unreachable"),
                 }
             }
         }
@@ -7809,21 +7799,33 @@ impl Machine for MachineX86_64 {
         // Call.
         a.emit_call_location(Location::GPR(GPR::R15))?;
 
+        // Write return values.
+        let mut n_stack_return_slots: usize = 0;
+        for i in 0..sig.results().len() {
+            let src = if let Some(&reg) = X86_64_RETURN_VALUE_REGISTERS.get(i) {
+                Location::GPR(reg)
+            } else {
+                let loc = Location::GPR(GPR::R15);
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        GPR::RSP,
+                        (stack_padding + (n_stack_return_slots as u32 * 8)) as _,
+                    ),
+                    loc,
+                )?;
+                n_stack_return_slots += 1;
+                loc
+            };
+            a.emit_mov(Size::S64, src, Location::Memory(GPR::R14, (i * 16) as _))?;
+        }
+
         // Restore stack.
         a.emit_add(
             Size::S64,
             Location::Imm32(stack_offset + stack_padding),
             Location::GPR(GPR::RSP),
         )?;
-
-        // Write return value.
-        if !sig.results().is_empty() {
-            a.emit_mov(
-                Size::S64,
-                Location::GPR(GPR::RAX),
-                Location::Memory(GPR::R14, 0),
-            )?;
-        }
 
         // Restore callee-saved registers.
         a.emit_pop(Size::S64, Location::GPR(GPR::R14))?;
@@ -7833,6 +7835,7 @@ impl Machine for MachineX86_64 {
 
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
+
         Ok(FunctionBody {
             body,
             unwind_info: None,

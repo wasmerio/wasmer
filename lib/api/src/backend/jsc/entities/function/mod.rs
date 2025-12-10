@@ -91,7 +91,7 @@ impl Function {
                 .map(|(i, param)| jsc_value_to_wasmer(&ctx, param, &args[i]))
                 .collect::<Vec<_>>();
             let results = func(env, &wasm_arguments).map_err(|e| {
-                let value = format!("{}", e);
+                let value = format!("{e}");
                 JSValue::string(&ctx, value)
             })?;
             match new_function_type.results().len() {
@@ -294,7 +294,7 @@ impl std::fmt::Debug for Function {
 /// Represents a low-level Wasm static host function. See
 /// `super::Function::new` and `super::Function::new_env` to learn
 /// more.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash)]
 pub struct WasmFunction<Args = (), Rets = ()> {
     callback: JSObjectCallAsFunctionCallback,
     _phantom: PhantomData<(Args, Rets)>,

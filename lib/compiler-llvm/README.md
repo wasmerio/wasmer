@@ -23,20 +23,20 @@ to native speeds.
 ## Requirements
 
 The LLVM compiler requires a valid installation of LLVM in your system.
-It currently requires **LLVM 18**.
+It currently requires **LLVM 21**.
 
 
 You can install LLVM easily on your Debian-like system via this command:
 
 ```bash
 wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
-sudo bash /tmp/llvm.sh 18
+sudo bash /tmp/llvm.sh 21
 ```
 
 Or in macOS:
 
 ```bash
-brew install llvm@18
+brew install llvm@21
 ```
 
 Or via any of the [pre-built binaries that LLVM offers][llvm-pre-built].

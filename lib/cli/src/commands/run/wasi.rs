@@ -51,7 +51,7 @@ use crate::{
 };
 
 use super::{
-    ExecutableTarget, PackageSource,
+    CliPackageSource, ExecutableTarget,
     capabilities::{self, PkgCapabilityCache},
 };
 
@@ -399,7 +399,7 @@ impl Wasi {
             if !mapped_dirs.is_empty() {
                 // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
+                    Arc::new(PassthruFileSystem::new_arc(default_fs_backing()));
                 for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
                     let host = if !host.is_absolute() {
                         Path::new("/").join(host)
@@ -818,17 +818,17 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
     let config = env.config()?;
 
     for credentials in config.registry.tokens {
-        if let Ok(url) = Url::parse(&credentials.registry) {
-            if url.has_authority() {
-                tokens.insert(url.authority().to_string(), credentials.token);
-            }
+        if let Ok(url) = Url::parse(&credentials.registry)
+            && url.has_authority()
+        {
+            tokens.insert(url.authority().to_string(), credentials.token);
         }
     }
 
-    if let (Ok(current_registry), Some(token)) = (env.registry_endpoint(), env.token()) {
-        if current_registry.has_authority() {
-            tokens.insert(current_registry.authority().to_string(), token);
-        }
+    if let (Ok(current_registry), Some(token)) = (env.registry_endpoint(), env.token())
+        && current_registry.has_authority()
+    {
+        tokens.insert(current_registry.authority().to_string(), token);
     }
 
     // Note: The global wasmer.toml config file stores URLs for the GraphQL
@@ -845,10 +845,10 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
 
     let mut frontend_tokens = HashMap::new();
     for (hostname, token) in &tokens {
-        if let Some(frontend_url) = hostname.strip_prefix("registry.") {
-            if !tokens.contains_key(frontend_url) {
-                frontend_tokens.insert(frontend_url.to_string(), token.clone());
-            }
+        if let Some(frontend_url) = hostname.strip_prefix("registry.")
+            && !tokens.contains_key(frontend_url)
+        {
+            frontend_tokens.insert(frontend_url.to_string(), token.clone());
         }
     }
     tokens.extend(frontend_tokens);

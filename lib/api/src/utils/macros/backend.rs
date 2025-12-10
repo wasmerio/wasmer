@@ -37,6 +37,7 @@ macro_rules! gen_rt_ty {
         paste::paste! {
             $($(#[cfg_attr($if, $then)])*)?
             #[derive($($derive,)*)]
+            #[allow(clippy::large_enum_variant)]
             pub(crate) enum [<Backend $id>]$(<$lt>)? {
                 #[cfg(feature = "sys")]
                 /// The implementation from the `sys` backend.

@@ -496,14 +496,16 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         };
 
         #[cfg(feature = "journal")]
-        if should_snapshot && can_snapshot && bytes_written > 0 {
-            if let FdWriteSource::Iovs { iovs, iovs_len } = data {
-                JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
-                    .map_err(|err| {
-                        tracing::error!("failed to save terminal data - {}", err);
-                        WasiError::Exit(ExitCode::from(Errno::Fault))
-                    })?;
-            }
+        if should_snapshot
+            && can_snapshot
+            && bytes_written > 0
+            && let FdWriteSource::Iovs { iovs, iovs_len } = data
+        {
+            JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
+                .map_err(|err| {
+                    tracing::error!("failed to save terminal data - {}", err);
+                    WasiError::Exit(ExitCode::from(Errno::Fault))
+                })?;
         }
 
         env = ctx.data();

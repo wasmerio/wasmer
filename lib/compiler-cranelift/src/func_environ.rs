@@ -10,6 +10,7 @@ use cranelift_codegen::{
     cursor::FuncCursor,
     ir::{
         self, AbiParam, ArgumentPurpose, Function, InstBuilder, MemFlags, Signature,
+        UserExternalName,
         condcodes::IntCC,
         immediates::{Offset32, Uimm64},
         types::*,
@@ -27,8 +28,11 @@ use wasmer_types::{
 };
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
-pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
-    ir::ExternalName::user(ir::UserExternalNameRef::from_u32(func_index.as_u32()))
+pub fn get_function_name(func: &mut Function, func_index: FunctionIndex) -> ir::ExternalName {
+    ir::ExternalName::user(
+        func.params
+            .ensure_user_func_name(UserExternalName::new(0, func_index.as_u32())),
+    )
 }
 
 /// The type of the `current_elements` field.
@@ -1251,7 +1255,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
     ) -> WasmResult<ir::FuncRef> {
         let sigidx = self.module.functions[index];
         let signature = func.import_signature(self.signatures[sigidx].clone());
-        let name = get_function_name(index);
+        let name = get_function_name(func, index);
+
         Ok(func.import_function(ir::ExtFuncData {
             name,
             signature,

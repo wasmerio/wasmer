@@ -65,7 +65,7 @@ impl Memory {
             .as_jsc()
             .wasm_memory_type()
             .construct(context, &[descriptor.to_jsvalue()])
-            .map_err(|e| MemoryError::Generic(format!("{:?}", e)))
+            .map_err(|e| MemoryError::Generic(format!("{e:?}")))
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {

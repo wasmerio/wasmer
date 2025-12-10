@@ -12,7 +12,7 @@
     clippy::unicode_not_nfc,
     clippy::use_self
 )]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod exception;
 mod export;
@@ -52,7 +52,9 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 pub use crate::table::{TableElement, VMTable};
 #[doc(hidden)]
-pub use crate::threadconditions::{ThreadConditions, ThreadConditionsHandle, WaiterError};
+pub use crate::threadconditions::{
+    ExpectedValue, ThreadConditions, ThreadConditionsHandle, WaiterError,
+};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,

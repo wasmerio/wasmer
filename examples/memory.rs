@@ -100,7 +100,7 @@ fn main() -> anyhow::Result<()> {
     let result = mem_size.call(&mut store)?;
 
     let memory_view = memory.view(&store);
-    println!("Memory size: {:?}", result);
+    println!("Memory size: {result:?}");
     assert_eq!(Pages::from(result as u32), memory_view.size());
 
     // Now that we know the size of our memory, it's time to see how wa

@@ -7,7 +7,6 @@ pub use crate::{
     machine::{Label, Offset},
     x64_decl::{GPR, XMM},
 };
-use dynasm::dynasm;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use wasmer_types::{CompileError, target::CpuFeature};
 
@@ -443,14 +442,6 @@ pub trait EmitterX64 {
         _dst: Location,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass arch_emit_tzcnt unimplemented")
-    }
-
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        true
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        false
     }
 
     fn arch_emit_indirect_call_with_trampoline(
@@ -909,7 +900,7 @@ macro_rules! sse_round_fn {
 
 impl EmitterX64 for AssemblerX64 {
     fn get_simd_arch(&self) -> Option<&CpuFeature> {
-        self.simd_arch.as_ref()
+        Some(&self.simd_arch)
     }
 
     fn get_label(&mut self) -> DynamicLabel {

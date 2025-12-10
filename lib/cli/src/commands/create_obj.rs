@@ -21,8 +21,8 @@ pub struct CreateObj {
     #[clap(name = "OUTPUT_PATH", short = 'o')]
     output: PathBuf,
 
-    /// Optional directorey used for debugging: if present, will
-    /// output the files to a debug instead of a temp directory
+    /// Optional directory used for debugging: if present, will
+    /// output the files to a debug instead of a temporary directory.
     #[clap(long, name = "DEBUG PATH")]
     debug_dir: Option<PathBuf>,
 

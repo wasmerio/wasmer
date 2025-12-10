@@ -3,7 +3,7 @@
 #![allow(clippy::result_large_err)]
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Wasmer's WASI implementation
 //!
@@ -71,7 +71,6 @@ use std::sync::Arc;
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
-use tracing::error;
 // re-exports needed for OS
 pub use wasmer;
 pub use wasmer_wasix_types;

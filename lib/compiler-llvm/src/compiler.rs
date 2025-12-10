@@ -1,4 +1,3 @@
-use crate::CompiledKind;
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
@@ -13,6 +12,7 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use wasmer_compiler::misc::CompiledKind;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
@@ -114,7 +114,7 @@ impl ModuleBasedSymbolRegistry {
     }
 
     // If the name starts with a problematic prefix, we prefix it with an underscore.
-    fn fixup_problematic_name(name: &str) -> Cow<str> {
+    fn fixup_problematic_name(name: &str) -> Cow<'_, str> {
         for prefix in Self::PROBLEMATIC_PREFIXES {
             if name.starts_with(prefix) {
                 return format!("_{name}").into();
@@ -194,6 +194,7 @@ impl LLVMCompiler {
                     &compile_info.memory_styles,
                     &compile_info.table_styles,
                     symbol_registry,
+                    target.triple(),
                 )?;
 
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
@@ -410,6 +411,7 @@ impl Compiler for LLVMCompiler {
                                 memory_styles,
                                 table_styles,
                                 &symbol_registry,
+                                target.triple(),
                             )
                         },
                     )
@@ -436,6 +438,7 @@ impl Compiler for LLVMCompiler {
                         memory_styles,
                         table_styles,
                         &symbol_registry,
+                        target.triple(),
                     )
                 })
                 .collect::<Result<Vec<_>, CompileError>>()?

@@ -3,7 +3,7 @@ use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
 use futures::{Future, future::BoxFuture};
 use tokio::runtime::{Handle, Runtime};
-use virtual_mio::InlineWaker;
+use virtual_mio::block_on;
 use wasmer::AsStoreMut;
 
 use crate::runtime::SpawnType;
@@ -29,10 +29,10 @@ impl From<Runtime> for RuntimeOrHandle {
 
 impl Drop for RuntimeOrHandle {
     fn drop(&mut self) {
-        if let Self::Runtime(_, runtime) = self {
-            if let Some(h) = runtime.lock().unwrap().take() {
-                h.shutdown_timeout(Duration::from_secs(0))
-            }
+        if let Self::Runtime(_, runtime) = self
+            && let Some(h) = runtime.lock().unwrap().take()
+        {
+            h.shutdown_timeout(Duration::from_secs(0))
         }
     }
 }
@@ -293,7 +293,7 @@ impl VirtualTaskManager for TokioTaskManager {
                 };
 
                 if let Some(pre_run) = pre_run {
-                    InlineWaker::block_on(pre_run(&mut ctx, &mut store));
+                    block_on(pre_run(&mut ctx, &mut store));
                 }
 
                 // Invoke the callback

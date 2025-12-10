@@ -17,7 +17,7 @@ use crate::{
     syscalls::rewind_ext,
 };
 use tracing::*;
-use virtual_mio::InlineWaker;
+use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
 
@@ -422,7 +422,7 @@ fn resume_vfork(
             eprintln!("{err}");
         }
 
-        InlineWaker::block_on(
+        block_on(
             unsafe { ctx.data(store).get_memory_and_wasi_state(store, 0) }
                 .1
                 .fs

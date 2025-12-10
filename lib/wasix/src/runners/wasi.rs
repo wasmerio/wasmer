@@ -291,7 +291,8 @@ impl WasiRunner {
                 builder.add_webc(pkg.clone());
                 builder.set_module_hash(pkg.hash());
                 builder.include_packages(pkg.package_ids.clone());
-                Some(Arc::clone(&pkg.webc_fs))
+
+                pkg.webc_fs.as_deref().map(|fs| fs.duplicate())
             }
             PackageOrHash::Hash(hash) => {
                 builder.set_module_hash(hash);

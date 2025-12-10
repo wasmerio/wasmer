@@ -303,7 +303,7 @@ mod queries {
         pub cursor: String,
     }
 
-    #[derive(serde::Serialize, cynic::QueryFragment, PartialEq, Eq, Debug)]
+    #[derive(serde::Serialize, cynic::QueryFragment, PartialEq, Eq, Debug, Clone)]
     pub struct AppTemplate {
         #[serde(rename = "demoUrl")]
         pub demo_url: String,
@@ -326,6 +326,10 @@ mod queries {
         pub updated_at: DateTime,
         #[serde(rename = "useCases")]
         pub use_cases: Jsonstring,
+        #[serde(rename = "branch")]
+        pub branch: Option<String>,
+        #[serde(rename = "rootDir")]
+        pub root_dir: Option<String>,
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
@@ -1324,7 +1328,7 @@ mod queries {
     pub enum StatusEnum {
         Success,
         Working,
-        Failure,
+        Failed,
         Queued,
         Timeout,
         InternalError,
@@ -1337,7 +1341,7 @@ mod queries {
             match self {
                 Self::Success => "success",
                 Self::Working => "working",
-                Self::Failure => "failure",
+                Self::Failed => "failed",
                 Self::Queued => "queued",
                 Self::Timeout => "timeout",
                 Self::InternalError => "internal_error",
@@ -1365,17 +1369,16 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct AutobuildConfigForZipUploadPayload {
         pub build_config: Option<BuildConfig>,
-        pub deployed_apps: Option<Vec<Option<DeployApp>>>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct BuildConfig {
-        pub build_cmd: String,
-        pub install_cmd: String,
+        pub build_cmd: Option<String>,
+        pub install_cmd: Option<String>,
+        pub start_cmd: Option<String>,
         pub setup_db: bool,
         pub preset_name: String,
         pub app_name: String,
-        pub can_deploy_without_repo: bool,
         pub completion_time_in_seconds: i32,
         pub branch: Option<String>,
     }
