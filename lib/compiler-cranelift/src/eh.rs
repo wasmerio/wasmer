@@ -18,6 +18,10 @@ use wasmer_compiler::types::{
     section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
 };
 
+const DW_EH_PE_OMIT: u8 = 0xff;
+const DW_EH_PE_ABSPTR: u8 = 0x00;
+const DW_EH_PE_UDATA4: u8 = 0x03;
+
 /// Relocation information for an LSDA entry that references a tag constant.
 #[derive(Debug, Clone)]
 pub struct TagRelocation {
@@ -288,8 +292,6 @@ pub fn build_lsda_section(
     }
 }
 
-// === internal helpers ===
-
 #[derive(Debug)]
 struct CallSiteDesc {
     start: u32,
@@ -455,7 +457,3 @@ fn uleb128_len(value: u64) -> usize {
     let mut cursor = Cursor::new([0u8; 10]);
     leb128::write::unsigned(&mut cursor, value).unwrap()
 }
-
-const DW_EH_PE_OMIT: u8 = 0xff;
-const DW_EH_PE_ABSPTR: u8 = 0x00;
-const DW_EH_PE_UDATA4: u8 = 0x03;
