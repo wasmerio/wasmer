@@ -419,6 +419,7 @@ enum Cmd {
     // #[structopt(name = "create-obj", verbatim_doc_comment)]
     // CreateObj(CreateObj),
 
+    ///
     /// Generate the C static_defs.h header file for the input .wasm module
     #[cfg(feature = "static-artifact-create")]
     GenCHeader(GenCHeader),
