@@ -1728,10 +1728,7 @@ pub fn gen_std_trampoline_riscv(
         .saturating_sub(RISCV_RETURN_VALUE_REGISTERS.len());
     let mut stack_offset = (stack_args + stack_return_slots) as u32 * 8;
     if stack_offset > 0 {
-        if stack_offset % 16 != 0 {
-            stack_offset += 8;
-            assert!(stack_offset % 16 == 0);
-        }
+        stack_offset = stack_offset.next_multiple_of(16);
         if ImmType::Bits12Subtraction.compatible_imm(stack_offset as _) {
             dynasm!(a ; addi sp, sp, -(stack_offset as i32));
         } else {
