@@ -222,7 +222,9 @@ pub fn build_tag_section(
 /// Build the LSDA custom section and record the offset for each function.
 ///
 /// Returns the section (if any) and a vector mapping each function index to
-/// its LSDA offset inside the section.
+/// its LSDA offset inside the section. Even when utilizing the same landing pad for exception tags,
+/// Cranelift generates separate landing pad locations.
+/// These locations are essentially small trampolines that redirect to the basic block we established (the EH dispatch block).
 ///
 /// The section can be dumped using the elfutils' readelf tool:
 /// ```shell
