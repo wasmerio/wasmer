@@ -6,7 +6,8 @@ bash build.sh
 status=0
 
 # Define skip list as an array
-SKIP_LIST=()
+# gh#5958
+SKIP_LIST=(ported_path_link.wasm)
 
 # List and process .foo files
 for file in *.wasm; do
