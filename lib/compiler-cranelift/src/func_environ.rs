@@ -6,8 +6,8 @@ use crate::{
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
     translator::{
-        CatchClause, EXN_REF_TYPE, FuncEnvironment as BaseFuncEnvironment, GlobalVariable,
-        TAG_TYPE, TargetEnvironment,
+        EXN_REF_TYPE, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, LandingPad, TAG_TYPE,
+        TargetEnvironment,
     },
 };
 use cranelift_codegen::{
@@ -1092,15 +1092,13 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn call_with_handlers(
         &mut self,
         builder: &mut FunctionBuilder,
         callee: ir::FuncRef,
         args: &[ir::Value],
         context: Option<ir::Value>,
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
         unreachable_on_return: bool,
     ) -> SmallVec<[ir::Value; 4]> {
         let sig_ref = builder.func.dfg.ext_funcs[callee].signature;
@@ -1110,7 +1108,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             .map(|ret| ret.value_type)
             .collect();
 
-        if eh_handler.is_none() {
+        if landing_pad.is_none() {
             let inst = builder.ins().call(callee, args);
             let results: SmallVec<[ir::Value; 4]> =
                 builder.inst_results(inst).iter().copied().collect();
@@ -1137,18 +1135,17 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         if let Some(ctx) = context {
             table_items.push(ExceptionTableItem::Context(ctx));
         }
-        for tag in clauses {
-            let Some(eh_block) = eh_handler else {
-                panic!("EH landing pad must exist");
-            };
-            let block_call = builder.func.dfg.block_call(
-                eh_block,
-                &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)],
-            );
-            table_items.push(match tag.wasm_tag {
-                Some(tag) => ExceptionTableItem::Tag(ExceptionTag::from_u32(tag), block_call),
-                None => ExceptionTableItem::Default(block_call),
-            });
+        if let Some(landing_pad) = landing_pad {
+            for tag in landing_pad.clauses {
+                let block_call = builder.func.dfg.block_call(
+                    landing_pad.block,
+                    &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)],
+                );
+                table_items.push(match tag.wasm_tag {
+                    Some(tag) => ExceptionTableItem::Tag(ExceptionTag::from_u32(tag), block_call),
+                    None => ExceptionTableItem::Default(block_call),
+                });
+            }
         }
         let etd = ExceptionTableData::new(sig_ref, continuation_call, table_items);
         let et = builder.func.dfg.exception_tables.push(etd);
@@ -1169,8 +1166,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         func_addr: ir::Value,
         args: &[ir::Value],
         context: Option<ir::Value>,
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
         unreachable_on_return: bool,
     ) -> SmallVec<[ir::Value; 4]> {
         let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig]
@@ -1179,7 +1175,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             .map(|ret| ret.value_type)
             .collect();
 
-        if eh_handler.is_none() {
+        if landing_pad.is_none() {
             let inst = builder.ins().call_indirect(sig, func_addr, args);
             let results: SmallVec<[ir::Value; 4]> =
                 builder.inst_results(inst).iter().copied().collect();
@@ -1209,18 +1205,17 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         if let Some(ctx) = context {
             table_items.push(ExceptionTableItem::Context(ctx));
         }
-        for tag in clauses {
-            let Some(eh_block) = eh_handler else {
-                panic!("EH landing pad must exist");
-            };
-            let block_call = builder.func.dfg.block_call(
-                eh_block,
-                &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)],
-            );
-            table_items.push(match tag.wasm_tag {
-                Some(tag) => ExceptionTableItem::Tag(ExceptionTag::from_u32(tag), block_call),
-                None => ExceptionTableItem::Default(block_call),
-            });
+        if let Some(landing_pad) = landing_pad {
+            for tag in landing_pad.clauses {
+                let block_call = builder.func.dfg.block_call(
+                    landing_pad.block,
+                    &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)],
+                );
+                table_items.push(match tag.wasm_tag {
+                    Some(tag) => ExceptionTableItem::Tag(ExceptionTag::from_u32(tag), block_call),
+                    None => ExceptionTableItem::Default(block_call),
+                });
+            }
         }
 
         let etd = ExceptionTableData::new(sig, continuation_call, table_items);
@@ -1591,8 +1586,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let pointer_type = self.pointer_type();
 
@@ -1666,8 +1660,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             func_addr,
             &real_call_args,
             Some(vmctx),
-            eh_handler,
-            clauses,
+            landing_pad,
             false,
         );
         Ok(results)
@@ -1679,8 +1672,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
 
@@ -1703,8 +1695,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 callee,
                 &real_call_args,
                 Some(caller_vmctx),
-                eh_handler,
-                clauses,
+                landing_pad,
                 false,
             );
             return Ok(results);
@@ -1743,8 +1734,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             func_addr,
             &real_call_args,
             Some(vmctx),
-            eh_handler,
-            clauses,
+            landing_pad,
             false,
         );
         Ok(results)
@@ -1809,8 +1799,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
         args: &[ir::Value],
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
     ) -> WasmResult<()> {
         let layout = {
             let layout_ref = self.exception_type_layout(tag_index)?;
@@ -1872,8 +1861,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             throw_addr,
             &call_args,
             Some(vmctx_value),
-            eh_handler,
-            clauses,
+            landing_pad,
             true,
         );
 
@@ -1884,8 +1872,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         &mut self,
         builder: &mut FunctionBuilder,
         exnref: ir::Value,
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
     ) -> WasmResult<()> {
         let (throw_sig, throw_idx) = self.get_throw_func(builder.func);
         let mut pos = builder.cursor();
@@ -1899,8 +1886,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             throw_addr,
             &call_args,
             Some(vmctx_value),
-            eh_handler,
-            clauses,
+            landing_pad,
             true,
         );
 

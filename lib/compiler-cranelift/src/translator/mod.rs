@@ -17,6 +17,6 @@ pub(crate) use self::unwind::CraneliftUnwindInfo;
 pub(crate) use self::unwind::compiled_function_unwind_info;
 
 pub(crate) use {
-    self::code_translator::CatchClause, self::code_translator::EXN_REF_TYPE,
-    self::code_translator::TAG_TYPE,
+    self::code_translator::EXN_REF_TYPE, self::code_translator::TAG_TYPE,
+    self::func_state::LandingPad,
 };

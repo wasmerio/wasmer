@@ -627,6 +627,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let outer_clauses = state
                 .handlers
                 .unique_clauses()
+                .into_iter()
                 .unique_by(|clause| clause.tag_value)
                 .collect_vec();
             let mut catch_blocks = Vec::with_capacity(try_table.catches.len() + 1);
@@ -670,17 +671,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let tag_index = TagIndex::from_u32(*tag_index);
             let arity = environ.tag_param_arity(tag_index);
             let args = state.peekn(arity);
-            let eh_handler = state.handlers.last_handler();
-            let clauses = state.handlers.unique_clauses().collect_vec();
-            environ.translate_exn_throw(builder, tag_index, args, eh_handler, &clauses)?;
+            environ.translate_exn_throw(builder, tag_index, args, state.handlers.landing_pad())?;
             state.popn(arity);
             state.reachable = false;
         }
         Operator::ThrowRef => {
             let exnref = state.pop1();
-            let eh_handler = state.handlers.last_handler();
-            let clauses = state.handlers.unique_clauses().collect_vec();
-            environ.translate_exn_throw_ref(builder, exnref, eh_handler, &clauses)?;
+            environ.translate_exn_throw_ref(builder, exnref, state.handlers.landing_pad())?;
             state.reachable = false;
         }
         /************************************ Calls ****************************************
@@ -701,16 +698,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     builder,
                 );
             }
-            let eh_handler = state.handlers.last_handler();
-            let clauses = state.handlers.unique_clauses().collect_vec();
             let args = state.peekn(num_args);
             let results = environ.translate_call(
                 builder,
                 FunctionIndex::from_u32(*function_index),
                 fref,
                 args,
-                eh_handler,
-                &clauses,
+                state.handlers.landing_pad(),
             )?;
             let sig_ref = builder.func.dfg.ext_funcs[fref].signature;
             debug_assert_eq!(
@@ -737,8 +731,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 let args_mut = state.peekn_mut(num_args);
                 bitcast_wasm_params(environ, sigref, args_mut, builder);
             }
-            let eh_handler = state.handlers.last_handler();
-            let clauses = state.handlers.unique_clauses().collect_vec();
             let args = state.peekn(num_args);
             let results = environ.translate_call_indirect(
                 builder,
@@ -747,8 +739,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 sigref,
                 callee,
                 args,
-                eh_handler,
-                &clauses,
+                state.handlers.landing_pad(),
             )?;
             debug_assert_eq!(
                 results.len(),

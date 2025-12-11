@@ -7,7 +7,7 @@
 use super::func_state::FuncTranslationState;
 use super::translation_utils::reference_type;
 use crate::heap::{Heap, HeapData};
-use crate::translator::code_translator::CatchClause;
+use crate::translator::func_state::LandingPad;
 use core::convert::From;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::Offset32;
@@ -191,8 +191,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         _callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Translate a `call_indirect` WebAssembly instruction at `pos`.
@@ -215,8 +214,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Return the number of WebAssembly values contained in the payload for the given exception tag.
@@ -243,8 +241,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
         args: &[ir::Value],
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
     ) -> WasmResult<()>;
 
     /// Emit IR to rethrow an existing exception reference.
@@ -252,8 +249,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         builder: &mut FunctionBuilder,
         exnref: ir::Value,
-        eh_handler: Option<ir::Block>,
-        clauses: &[CatchClause],
+        landing_pad: Option<LandingPad>,
     ) -> WasmResult<()>;
 
     /// Invoke the runtime personality helper to choose the matching catch tag for an exception.

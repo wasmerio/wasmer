@@ -286,12 +286,17 @@ impl FuncTranslationState {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct HandlerStateCheckpoint(usize, usize);
+pub(crate) struct HandlerStateCheckpoint(usize, usize);
 
 #[derive(Default)]
-pub struct HandlerState {
+pub(crate) struct HandlerState {
     handlers: Vec<Block>,
     clauses: Vec<CatchClause>,
+}
+
+pub(crate) struct LandingPad {
+    pub(crate) block: Block,
+    pub(crate) clauses: Vec<CatchClause>,
 }
 
 impl HandlerState {
@@ -314,19 +319,22 @@ impl HandlerState {
         self.clauses.truncate(checkpoint.1);
     }
 
-    /// Register an exception handler for a call instruction.
-    /// A single handler can support all existing exception tags, including outer catch clauses.
-    pub fn last_handler(&self) -> Option<Block> {
-        self.handlers.last().copied()
+    /// Get the latest landing pad block including all the tags covered by it.    
+    pub fn landing_pad(&self) -> Option<LandingPad> {
+        self.handlers.last().copied().map(|block| LandingPad {
+            block,
+            clauses: self.unique_clauses(),
+        })
     }
 
     /// Returns an iterator over the catch clauses in reverse order, with duplicates removed.
-    pub fn unique_clauses(&self) -> impl Iterator<Item = CatchClause> + '_ {
+    pub fn unique_clauses(&self) -> Vec<CatchClause> {
         self.clauses
             .clone()
             .into_iter()
             .unique_by(|c| c.wasm_tag)
             .rev()
+            .collect()
     }
 
     pub fn is_empty(&self) -> bool {
