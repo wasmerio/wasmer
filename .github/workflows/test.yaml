@@ -898,7 +898,7 @@ jobs:
           echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
 
       - name: Install wasixcc
-        if: matrix.metadata.build == 'linux-x64'
+        if: matrix.metadata.build == 'linux-x64' || matrix.metadata.build == 'linux-musl'
         run: |
           export RUST_LOG=wasixcc=trace
           export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
