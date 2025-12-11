@@ -319,7 +319,7 @@ impl HandlerState {
         self.clauses.truncate(checkpoint.1);
     }
 
-    /// Get the latest landing pad block including all the tags covered by it.    
+    /// Get the latest landing pad block including all the tags covered by it.
     pub fn landing_pad(&self) -> Option<LandingPad> {
         self.handlers.last().copied().map(|block| LandingPad {
             block,
@@ -330,10 +330,10 @@ impl HandlerState {
     /// Returns an iterator over the catch clauses in reverse order, with duplicates removed.
     pub fn unique_clauses(&self) -> Vec<CatchClause> {
         self.clauses
-            .clone()
-            .into_iter()
+            .iter()
             .unique_by(|c| c.wasm_tag)
             .rev()
+            .cloned()
             .collect()
     }
 

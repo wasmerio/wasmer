@@ -628,7 +628,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 .handlers
                 .unique_clauses()
                 .into_iter()
-                .unique_by(|clause| clause.tag_value)
+
                 .collect_vec();
             let mut catch_blocks = Vec::with_capacity(try_table.catches.len() + 1);
 

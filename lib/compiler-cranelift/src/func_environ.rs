@@ -1764,10 +1764,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         tag_index: TagIndex,
         exnref: ir::Value,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
-        let layout = {
-            let layout_ref = self.exception_type_layout(tag_index)?;
-            layout_ref.clone()
-        };
+        let layout = self.exception_type_layout(tag_index)?;
 
         let (read_exnref_sig, read_exnref_idx) = self.get_read_exnref_func(builder.func);
         let mut pos = builder.cursor();
@@ -1801,10 +1798,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         args: &[ir::Value],
         landing_pad: Option<LandingPad>,
     ) -> WasmResult<()> {
-        let layout = {
-            let layout_ref = self.exception_type_layout(tag_index)?;
-            layout_ref.clone()
-        };
+        let layout = self.exception_type_layout(tag_index)?;
         if layout.fields.len() != args.len() {
             return Err(WasmError::Generic(format!(
                 "exception payload arity mismatch: expected {}, got {}",

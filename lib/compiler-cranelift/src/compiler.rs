@@ -343,7 +343,7 @@ impl CraneliftCompiler {
                 }
                 (tag_section_index, lsda_section_index, offsets_per_function)
             } else {
-                drop(lsda_data);
+
                 (None, None, vec![None; functions.len()])
             };
 
