@@ -45,6 +45,7 @@ pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
 #[cfg(feature = "static-artifact-create")]
+#[allow(unused_imports)]
 pub use {create_obj::*, gen_c_header::*};
 
 #[cfg(feature = "journal")]
@@ -179,10 +180,11 @@ impl WasmerCmd {
             Some(Cmd::Validate(validate)) => validate.execute(),
             #[cfg(feature = "compiler")]
             Some(Cmd::Compile(compile)) => compile.execute(),
-            #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-            Some(Cmd::CreateExe(create_exe)) => create_exe.run(),
-            #[cfg(feature = "static-artifact-create")]
-            Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
+            // CreateExe and CreateObj commands are temporarily disabled
+            // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
+            // Some(Cmd::CreateExe(create_exe)) => create_exe.run(),
+            // #[cfg(feature = "static-artifact-create")]
+            // Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
             Some(Cmd::Config(config)) => config.run(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.run(),
@@ -351,40 +353,39 @@ enum Cmd {
     #[cfg(feature = "compiler")]
     Compile(Compile),
 
-    /// Compile a WebAssembly binary into a native executable
-    ///
-    /// To use, you need to set the `WASMER_DIR` environment variable
-    /// to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
-    /// should include a `lib`, `include` and `bin` subdirectories. To create an executable
-    /// you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
-    /// header files and libraries.
-    ///
-    /// Example usage:
-    ///
-    /// ```text
-    /// $ # in two lines:
-    /// $ export WASMER_DIR=/home/user/.wasmer/
-    /// $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
-    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
-    /// $ file qjs.exe
-    /// qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
-    /// ```
-    ///
-    /// ## Cross-compilation
-    ///
-    /// Accepted target triple values must follow the
-    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
-    ///
-    /// The recommended targets we try to support are:
-    ///
-    /// - "x86_64-linux-gnu"
-    /// - "aarch64-linux-gnu"
-    /// - "x86_64-apple-darwin"
-    /// - "arm64-apple-darwin"
-    #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-    #[clap(name = "create-exe", verbatim_doc_comment)]
-    CreateExe(CreateExe),
-
+    // Compile a WebAssembly binary into a native executable
+    //
+    // To use, you need to set the `WASMER_DIR` environment variable
+    // to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
+    // should include a `lib`, `include` and `bin` subdirectories. To create an executable
+    // you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
+    // header files and libraries.
+    //
+    // Example usage:
+    //
+    // ```text
+    // $ # in two lines:
+    // $ export WASMER_DIR=/home/user/.wasmer/
+    // $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
+    // $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
+    // $ file qjs.exe
+    // qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
+    // ```
+    //
+    // ## Cross-compilation
+    //
+    // Accepted target triple values must follow the
+    // ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
+    //
+    // The recommended targets we try to support are:
+    //
+    // - "x86_64-linux-gnu"
+    // - "aarch64-linux-gnu"
+    // - "x86_64-apple-darwin"
+    // - "arm64-apple-darwin"
+    // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
+    // #[clap(name = "create-exe", verbatim_doc_comment)]
+    // CreateExe(CreateExe),
     /// Compile a WebAssembly binary into an object file
     ///
     /// To use, you need to set the `WASMER_DIR` environment variable to the location of your
@@ -414,10 +415,11 @@ enum Cmd {
     /// - "aarch64-linux-gnu"
     /// - "x86_64-apple-darwin"
     /// - "arm64-apple-darwin"
-    #[cfg(feature = "static-artifact-create")]
-    #[structopt(name = "create-obj", verbatim_doc_comment)]
-    CreateObj(CreateObj),
+    // #[cfg(feature = "static-artifact-create")]
+    // #[structopt(name = "create-obj", verbatim_doc_comment)]
+    // CreateObj(CreateObj),
 
+    ///
     /// Generate the C static_defs.h header file for the input .wasm module
     ///
     #[cfg(feature = "static-artifact-create")]
