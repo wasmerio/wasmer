@@ -76,7 +76,6 @@
 
 mod bounds_checks;
 
-const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 pub(crate) const TAG_TYPE: ir::Type = I32;
 pub(crate) const EXN_REF_TYPE: ir::Type = I32;
 
@@ -101,7 +100,8 @@ use std::vec::Vec;
 use wasmer_compiler::wasmparser::{self, Catch, MemArg, Operator};
 use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, TagIndex, WasmResult,
+    CATCH_ALL_TAG_VALUE, FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
+    TagIndex, WasmResult,
 };
 
 /// Given a `Reachability<T>`, unwrap the inner `T` or, when unreachable, set
@@ -624,12 +624,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 
             let checkpoint = state.handlers.take_checkpoint();
             let mut clauses = Vec::with_capacity(try_table.catches.len());
-            let outer_clauses = state
-                .handlers
-                .unique_clauses()
-                .into_iter()
-
-                .collect_vec();
+            let outer_clauses = state.handlers.unique_clauses().into_iter().collect_vec();
             let mut catch_blocks = Vec::with_capacity(try_table.catches.len() + 1);
 
             let catches = try_table
