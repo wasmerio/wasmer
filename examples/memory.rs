@@ -71,7 +71,9 @@ fn main() -> anyhow::Result<()> {
     // These function will be used later in this example.
     let mem_size: TypedFunction<(), i32> =
         instance.exports.get_typed_function(&store, "mem_size")?;
+    #[cfg(not(feature = "wamr"))]
     let get_at: TypedFunction<i32, i32> = instance.exports.get_typed_function(&store, "get_at")?;
+    #[cfg(not(feature = "wamr"))]
     let set_at: TypedFunction<(i32, i32), ()> =
         instance.exports.get_typed_function(&store, "set_at")?;
     let memory = instance.exports.get_memory("memory")?;
