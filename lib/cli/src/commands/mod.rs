@@ -419,6 +419,7 @@ enum Cmd {
     CreateObj(CreateObj),
 
     /// Generate the C static_defs.h header file for the input .wasm module
+    ///
     #[cfg(feature = "static-artifact-create")]
     GenCHeader(GenCHeader),
 
