@@ -288,17 +288,13 @@ impl CraneliftCompiler {
         #[cfg(not(feature = "rayon"))]
         let mut func_translator = FuncTranslator::new();
         #[cfg(not(feature = "rayon"))]
-        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
-        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
+        let results = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .into_iter()
             .map(|(i, input)| compile_function(&mut func_translator, (&i, input)))
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .unzip();
+            .collect::<Result<Vec<_>, CompileError>>()?;
         #[cfg(feature = "rayon")]
-        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
         let results = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -308,19 +304,14 @@ impl CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        let mut functions = Vec::with_capacity(results.len());
-        let mut fdes = Vec::with_capacity(results.len());
-        #[cfg(feature = "unwind")]
-        let mut lsda_data = Vec::with_capacity(results.len());
+        let mut functions = Vec::with_capacity(function_body_inputs.len());
+        let mut fdes = Vec::with_capacity(function_body_inputs.len());
+        let mut lsda_data = Vec::with_capacity(function_body_inputs.len());
+
         for (func, fde, lsda) in results {
             functions.push(func);
             fdes.push(fde);
-            #[cfg(feature = "unwind")]
             lsda_data.push(lsda);
-            #[cfg(not(feature = "unwind"))]
-            {
-                let _ = lsda;
-            }
         }
 
         #[cfg(feature = "unwind")]
@@ -343,7 +334,6 @@ impl CraneliftCompiler {
                 }
                 (tag_section_index, lsda_section_index, offsets_per_function)
             } else {
-
                 (None, None, vec![None; functions.len()])
             };
 
