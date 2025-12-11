@@ -896,6 +896,23 @@ jobs:
         run: |
           brew install llvm
           echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
+
+      - name: Install wasixcc
+        if: matrix.metadata.build == 'linux-x64'
+        run: |
+          export RUST_LOG=wasixcc=trace
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          cargo install --git https://github.com/wasix-org/wasixcc.git --rev d9ab260eb557ce90406ccf07ac52ac5e211caf60 -F bin
+          mkdir wasixcc-install
+          wasixcc --install-executables ./wasixcc-install
+          echo "$(pwd)/wasixcc-install" >> $GITHUB_PATH
+          mkdir -p ~/.wasixcc/llvm
+          mkdir -p ~/.wasixcc/sysroot
+          mkdir -p ~/.wasixcc/binaryen
+          wasixcc --download-sysroot v2025-12-10.1
+          wasixcc --download-llvm
+          wasixcc --download-binaryen
+
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
