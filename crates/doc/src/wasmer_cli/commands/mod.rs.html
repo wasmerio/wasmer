@@ -419,163 +419,164 @@
 <a href=#419 id=419 data-nosnippet>419</a>    </span>CreateObj(CreateObj),
 <a href=#420 id=420 data-nosnippet>420</a>
 <a href=#421 id=421 data-nosnippet>421</a>    <span class="doccomment">/// Generate the C static_defs.h header file for the input .wasm module
-<a href=#422 id=422 data-nosnippet>422</a>    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
-<a href=#423 id=423 data-nosnippet>423</a>    </span>GenCHeader(GenCHeader),
-<a href=#424 id=424 data-nosnippet>424</a>
-<a href=#425 id=425 data-nosnippet>425</a>    <span class="doccomment">/// Get various configuration information needed
-<a href=#426 id=426 data-nosnippet>426</a>    /// to compile programs which use Wasmer
-<a href=#427 id=427 data-nosnippet>427</a>    </span>Config(Config),
-<a href=#428 id=428 data-nosnippet>428</a>
-<a href=#429 id=429 data-nosnippet>429</a>    <span class="doccomment">/// Update wasmer to the latest version
-<a href=#430 id=430 data-nosnippet>430</a>    </span><span class="attr">#[clap(name = <span class="string">"self-update"</span>)]
-<a href=#431 id=431 data-nosnippet>431</a>    </span>SelfUpdate(SelfUpdate),
-<a href=#432 id=432 data-nosnippet>432</a>
-<a href=#433 id=433 data-nosnippet>433</a>    <span class="doccomment">/// Inspect a WebAssembly file
-<a href=#434 id=434 data-nosnippet>434</a>    </span>Inspect(Inspect),
-<a href=#435 id=435 data-nosnippet>435</a>
-<a href=#436 id=436 data-nosnippet>436</a>    <span class="doccomment">/// Initializes a new wasmer.toml file
-<a href=#437 id=437 data-nosnippet>437</a>    </span><span class="attr">#[clap(name = <span class="string">"init"</span>)]
-<a href=#438 id=438 data-nosnippet>438</a>    </span>Init(Init),
-<a href=#439 id=439 data-nosnippet>439</a>
-<a href=#440 id=440 data-nosnippet>440</a>    <span class="doccomment">/// Run spec testsuite
-<a href=#441 id=441 data-nosnippet>441</a>    </span><span class="attr">#[cfg(feature = <span class="string">"wast"</span>)]
-<a href=#442 id=442 data-nosnippet>442</a>    </span>Wast(Wast),
-<a href=#443 id=443 data-nosnippet>443</a>
-<a href=#444 id=444 data-nosnippet>444</a>    <span class="doccomment">/// Unregister and/or register wasmer as binfmt interpreter
-<a href=#445 id=445 data-nosnippet>445</a>    </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
-<a href=#446 id=446 data-nosnippet>446</a>    </span>Binfmt(Binfmt),
-<a href=#447 id=447 data-nosnippet>447</a>
-<a href=#448 id=448 data-nosnippet>448</a>    <span class="doccomment">/// Shows the current logged in user for the current active registry
-<a href=#449 id=449 data-nosnippet>449</a>    </span>Whoami(Whoami),
-<a href=#450 id=450 data-nosnippet>450</a>
-<a href=#451 id=451 data-nosnippet>451</a>    <span class="doccomment">/// Add a Wasmer package's bindings to your application
-<a href=#452 id=452 data-nosnippet>452</a>    </span>Add(CmdAdd),
-<a href=#453 id=453 data-nosnippet>453</a>
-<a href=#454 id=454 data-nosnippet>454</a>    <span class="doccomment">/// Run a WebAssembly file or Wasmer container
-<a href=#455 id=455 data-nosnippet>455</a>    </span><span class="attr">#[clap(alias = <span class="string">"run-unstable"</span>)]
-<a href=#456 id=456 data-nosnippet>456</a>    </span>Run(Run),
-<a href=#457 id=457 data-nosnippet>457</a>
-<a href=#458 id=458 data-nosnippet>458</a>    <span class="doccomment">/// Manage journals (compacting, inspecting, filtering, ...)
-<a href=#459 id=459 data-nosnippet>459</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#460 id=460 data-nosnippet>460</a>    #[clap(subcommand)]
-<a href=#461 id=461 data-nosnippet>461</a>    </span>Journal(CmdJournal),
-<a href=#462 id=462 data-nosnippet>462</a>
-<a href=#463 id=463 data-nosnippet>463</a>    <span class="attr">#[clap(subcommand)]
-<a href=#464 id=464 data-nosnippet>464</a>    </span>Package(<span class="kw">crate</span>::commands::Package),
-<a href=#465 id=465 data-nosnippet>465</a>
-<a href=#466 id=466 data-nosnippet>466</a>    <span class="attr">#[clap(subcommand)]
-<a href=#467 id=467 data-nosnippet>467</a>    </span>Container(<span class="kw">crate</span>::commands::Container),
-<a href=#468 id=468 data-nosnippet>468</a>
-<a href=#469 id=469 data-nosnippet>469</a>    <span class="comment">// Edge commands
-<a href=#470 id=470 data-nosnippet>470</a>    </span><span class="doccomment">/// Deploy apps to Wasmer Edge [alias: app deploy]
-<a href=#471 id=471 data-nosnippet>471</a>    </span>Deploy(<span class="kw">crate</span>::commands::app::deploy::CmdAppDeploy),
-<a href=#472 id=472 data-nosnippet>472</a>
-<a href=#473 id=473 data-nosnippet>473</a>    <span class="doccomment">/// Create and manage Wasmer Edge apps
-<a href=#474 id=474 data-nosnippet>474</a>    </span><span class="attr">#[clap(subcommand, alias = <span class="string">"apps"</span>)]
-<a href=#475 id=475 data-nosnippet>475</a>    </span>App(<span class="kw">crate</span>::commands::app::CmdApp),
-<a href=#476 id=476 data-nosnippet>476</a>
-<a href=#477 id=477 data-nosnippet>477</a>    <span class="doccomment">/// Run commands/packages on Wasmer Edge in an interactive shell session
-<a href=#478 id=478 data-nosnippet>478</a>    </span>Ssh(<span class="kw">crate</span>::commands::ssh::CmdSsh),
-<a href=#479 id=479 data-nosnippet>479</a>
-<a href=#480 id=480 data-nosnippet>480</a>    <span class="doccomment">/// Manage Wasmer namespaces
-<a href=#481 id=481 data-nosnippet>481</a>    </span><span class="attr">#[clap(subcommand, alias = <span class="string">"namespaces"</span>)]
-<a href=#482 id=482 data-nosnippet>482</a>    </span>Namespace(<span class="kw">crate</span>::commands::namespace::CmdNamespace),
-<a href=#483 id=483 data-nosnippet>483</a>
-<a href=#484 id=484 data-nosnippet>484</a>    <span class="doccomment">/// Manage DNS records
-<a href=#485 id=485 data-nosnippet>485</a>    </span><span class="attr">#[clap(subcommand, alias = <span class="string">"domains"</span>)]
-<a href=#486 id=486 data-nosnippet>486</a>    </span>Domain(<span class="kw">crate</span>::commands::domain::CmdDomain),
-<a href=#487 id=487 data-nosnippet>487</a>
-<a href=#488 id=488 data-nosnippet>488</a>    <span class="doccomment">/// Generate autocompletion for different shells
-<a href=#489 id=489 data-nosnippet>489</a>    </span><span class="attr">#[clap(name = <span class="string">"gen-completions"</span>)]
-<a href=#490 id=490 data-nosnippet>490</a>    </span>GenCompletions(<span class="kw">crate</span>::commands::gen_completions::CmdGenCompletions),
-<a href=#491 id=491 data-nosnippet>491</a>
-<a href=#492 id=492 data-nosnippet>492</a>    <span class="doccomment">/// Generate man pages
-<a href=#493 id=493 data-nosnippet>493</a>    </span><span class="attr">#[clap(name = <span class="string">"gen-man"</span>, hide = <span class="bool-val">true</span>)]
-<a href=#494 id=494 data-nosnippet>494</a>    </span>GenManPage(<span class="kw">crate</span>::commands::gen_manpage::CmdGenManPage),
-<a href=#495 id=495 data-nosnippet>495</a>}
-<a href=#496 id=496 data-nosnippet>496</a>
-<a href=#497 id=497 data-nosnippet>497</a><span class="kw">fn </span>is_binfmt_interpreter() -&gt; bool {
-<a href=#498 id=498 data-nosnippet>498</a>    <span class="macro">cfg_if::cfg_if!</span> {
-<a href=#499 id=499 data-nosnippet>499</a>        <span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>{
-<a href=#500 id=500 data-nosnippet>500</a>            <span class="comment">// Note: we'll be invoked by the kernel as Binfmt::FILENAME
-<a href=#501 id=501 data-nosnippet>501</a>            </span><span class="kw">let </span>binary_path = <span class="kw">match </span>std::env::args_os().next() {
-<a href=#502 id=502 data-nosnippet>502</a>                <span class="prelude-val">Some</span>(path) =&gt; std::path::PathBuf::from(path),
-<a href=#503 id=503 data-nosnippet>503</a>                <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
-<a href=#504 id=504 data-nosnippet>504</a>            };
-<a href=#505 id=505 data-nosnippet>505</a>            binary_path.file_name().and_then(|f| f.to_str()) == <span class="prelude-val">Some</span>(Binfmt::FILENAME)
-<a href=#506 id=506 data-nosnippet>506</a>        } <span class="kw">else </span>{
-<a href=#507 id=507 data-nosnippet>507</a>            <span class="bool-val">false
-<a href=#508 id=508 data-nosnippet>508</a>        </span>}
-<a href=#509 id=509 data-nosnippet>509</a>    }
-<a href=#510 id=510 data-nosnippet>510</a>}
-<a href=#511 id=511 data-nosnippet>511</a>
-<a href=#512 id=512 data-nosnippet>512</a><span class="kw">fn </span>print_version(verbose: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-<a href=#513 id=513 data-nosnippet>513</a>    <span class="kw">if </span>!verbose {
-<a href=#514 id=514 data-nosnippet>514</a>        <span class="macro">println!</span>(<span class="string">"wasmer {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>));
-<a href=#515 id=515 data-nosnippet>515</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#516 id=516 data-nosnippet>516</a>    }
-<a href=#517 id=517 data-nosnippet>517</a>
-<a href=#518 id=518 data-nosnippet>518</a>    <span class="macro">println!</span>(
-<a href=#519 id=519 data-nosnippet>519</a>        <span class="string">"wasmer {} ({} {})"</span>,
-<a href=#520 id=520 data-nosnippet>520</a>        <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>),
-<a href=#521 id=521 data-nosnippet>521</a>        <span class="macro">git_version!</span>(
-<a href=#522 id=522 data-nosnippet>522</a>            args = [<span class="string">"--abbrev=8"</span>, <span class="string">"--always"</span>, <span class="string">"--dirty=-modified"</span>, <span class="string">"--exclude=*"</span>],
-<a href=#523 id=523 data-nosnippet>523</a>            fallback = <span class="string">""
-<a href=#524 id=524 data-nosnippet>524</a>        </span>),
-<a href=#525 id=525 data-nosnippet>525</a>        <span class="macro">env!</span>(<span class="string">"WASMER_BUILD_DATE"</span>)
-<a href=#526 id=526 data-nosnippet>526</a>    );
-<a href=#527 id=527 data-nosnippet>527</a>    <span class="macro">println!</span>(<span class="string">"binary: {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_NAME"</span>));
-<a href=#528 id=528 data-nosnippet>528</a>    <span class="macro">println!</span>(
-<a href=#529 id=529 data-nosnippet>529</a>        <span class="string">"commit-hash: {}"</span>,
-<a href=#530 id=530 data-nosnippet>530</a>        <span class="macro">git_version!</span>(
-<a href=#531 id=531 data-nosnippet>531</a>            args = [
-<a href=#532 id=532 data-nosnippet>532</a>                <span class="string">"--abbrev=40"</span>,
-<a href=#533 id=533 data-nosnippet>533</a>                <span class="string">"--always"</span>,
-<a href=#534 id=534 data-nosnippet>534</a>                <span class="string">"--dirty=-modified"</span>,
-<a href=#535 id=535 data-nosnippet>535</a>                <span class="string">"--exclude=*"
-<a href=#536 id=536 data-nosnippet>536</a>            </span>],
-<a href=#537 id=537 data-nosnippet>537</a>            fallback = <span class="string">""</span>,
-<a href=#538 id=538 data-nosnippet>538</a>        ),
-<a href=#539 id=539 data-nosnippet>539</a>    );
-<a href=#540 id=540 data-nosnippet>540</a>    <span class="macro">println!</span>(<span class="string">"commit-date: {}"</span>, <span class="macro">env!</span>(<span class="string">"WASMER_BUILD_DATE"</span>));
-<a href=#541 id=541 data-nosnippet>541</a>    <span class="macro">println!</span>(<span class="string">"host: {}"</span>, target_lexicon::HOST);
-<a href=#542 id=542 data-nosnippet>542</a>
-<a href=#543 id=543 data-nosnippet>543</a>    <span class="kw">let </span>cpu_features = {
-<a href=#544 id=544 data-nosnippet>544</a>        <span class="kw">let </span>feats = wasmer_types::target::CpuFeature::for_host();
-<a href=#545 id=545 data-nosnippet>545</a>        <span class="kw">let </span>all = wasmer_types::target::CpuFeature::all();
-<a href=#546 id=546 data-nosnippet>546</a>        all.iter()
-<a href=#547 id=547 data-nosnippet>547</a>            .map(|f| {
-<a href=#548 id=548 data-nosnippet>548</a>                <span class="kw">let </span>available = feats.contains(f);
-<a href=#549 id=549 data-nosnippet>549</a>                <span class="macro">format!</span>(<span class="string">"{}={}"</span>, f, <span class="kw">if </span>available { <span class="string">"true" </span>} <span class="kw">else </span>{ <span class="string">"false" </span>})
-<a href=#550 id=550 data-nosnippet>550</a>            })
-<a href=#551 id=551 data-nosnippet>551</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#552 id=552 data-nosnippet>552</a>            .join(<span class="string">","</span>)
-<a href=#553 id=553 data-nosnippet>553</a>    };
-<a href=#554 id=554 data-nosnippet>554</a>    <span class="macro">println!</span>(<span class="string">"cpu: {cpu_features}"</span>);
-<a href=#555 id=555 data-nosnippet>555</a>
-<a href=#556 id=556 data-nosnippet>556</a>    <span class="kw">let </span><span class="kw-2">mut </span>runtimes = Vec::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::new();
-<a href=#557 id=557 data-nosnippet>557</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"singlepass"</span>) {
-<a href=#558 id=558 data-nosnippet>558</a>        runtimes.push(<span class="string">"singlepass"</span>);
-<a href=#559 id=559 data-nosnippet>559</a>    }
-<a href=#560 id=560 data-nosnippet>560</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"cranelift"</span>) {
-<a href=#561 id=561 data-nosnippet>561</a>        runtimes.push(<span class="string">"cranelift"</span>);
-<a href=#562 id=562 data-nosnippet>562</a>    }
-<a href=#563 id=563 data-nosnippet>563</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"llvm"</span>) {
-<a href=#564 id=564 data-nosnippet>564</a>        runtimes.push(<span class="string">"llvm"</span>);
-<a href=#565 id=565 data-nosnippet>565</a>    }
-<a href=#566 id=566 data-nosnippet>566</a>
-<a href=#567 id=567 data-nosnippet>567</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wamr"</span>) {
-<a href=#568 id=568 data-nosnippet>568</a>        runtimes.push(<span class="string">"wamr"</span>);
-<a href=#569 id=569 data-nosnippet>569</a>    }
-<a href=#570 id=570 data-nosnippet>570</a>
-<a href=#571 id=571 data-nosnippet>571</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wasmi"</span>) {
-<a href=#572 id=572 data-nosnippet>572</a>        runtimes.push(<span class="string">"wasmi"</span>);
-<a href=#573 id=573 data-nosnippet>573</a>    }
-<a href=#574 id=574 data-nosnippet>574</a>
-<a href=#575 id=575 data-nosnippet>575</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
-<a href=#576 id=576 data-nosnippet>576</a>        runtimes.push(<span class="string">"v8"</span>);
-<a href=#577 id=577 data-nosnippet>577</a>    }
-<a href=#578 id=578 data-nosnippet>578</a>
-<a href=#579 id=579 data-nosnippet>579</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
-<a href=#580 id=580 data-nosnippet>580</a>    <span class="prelude-val">Ok</span>(())
-<a href=#581 id=581 data-nosnippet>581</a>}</code></pre></div></section></main></body></html>
+<a href=#422 id=422 data-nosnippet>422</a>    ///
+<a href=#423 id=423 data-nosnippet>423</a>    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
+<a href=#424 id=424 data-nosnippet>424</a>    </span>GenCHeader(GenCHeader),
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>    <span class="doccomment">/// Get various configuration information needed
+<a href=#427 id=427 data-nosnippet>427</a>    /// to compile programs which use Wasmer
+<a href=#428 id=428 data-nosnippet>428</a>    </span>Config(Config),
+<a href=#429 id=429 data-nosnippet>429</a>
+<a href=#430 id=430 data-nosnippet>430</a>    <span class="doccomment">/// Update wasmer to the latest version
+<a href=#431 id=431 data-nosnippet>431</a>    </span><span class="attr">#[clap(name = <span class="string">"self-update"</span>)]
+<a href=#432 id=432 data-nosnippet>432</a>    </span>SelfUpdate(SelfUpdate),
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a>    <span class="doccomment">/// Inspect a WebAssembly file
+<a href=#435 id=435 data-nosnippet>435</a>    </span>Inspect(Inspect),
+<a href=#436 id=436 data-nosnippet>436</a>
+<a href=#437 id=437 data-nosnippet>437</a>    <span class="doccomment">/// Initializes a new wasmer.toml file
+<a href=#438 id=438 data-nosnippet>438</a>    </span><span class="attr">#[clap(name = <span class="string">"init"</span>)]
+<a href=#439 id=439 data-nosnippet>439</a>    </span>Init(Init),
+<a href=#440 id=440 data-nosnippet>440</a>
+<a href=#441 id=441 data-nosnippet>441</a>    <span class="doccomment">/// Run spec testsuite
+<a href=#442 id=442 data-nosnippet>442</a>    </span><span class="attr">#[cfg(feature = <span class="string">"wast"</span>)]
+<a href=#443 id=443 data-nosnippet>443</a>    </span>Wast(Wast),
+<a href=#444 id=444 data-nosnippet>444</a>
+<a href=#445 id=445 data-nosnippet>445</a>    <span class="doccomment">/// Unregister and/or register wasmer as binfmt interpreter
+<a href=#446 id=446 data-nosnippet>446</a>    </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
+<a href=#447 id=447 data-nosnippet>447</a>    </span>Binfmt(Binfmt),
+<a href=#448 id=448 data-nosnippet>448</a>
+<a href=#449 id=449 data-nosnippet>449</a>    <span class="doccomment">/// Shows the current logged in user for the current active registry
+<a href=#450 id=450 data-nosnippet>450</a>    </span>Whoami(Whoami),
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>    <span class="doccomment">/// Add a Wasmer package's bindings to your application
+<a href=#453 id=453 data-nosnippet>453</a>    </span>Add(CmdAdd),
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a>    <span class="doccomment">/// Run a WebAssembly file or Wasmer container
+<a href=#456 id=456 data-nosnippet>456</a>    </span><span class="attr">#[clap(alias = <span class="string">"run-unstable"</span>)]
+<a href=#457 id=457 data-nosnippet>457</a>    </span>Run(Run),
+<a href=#458 id=458 data-nosnippet>458</a>
+<a href=#459 id=459 data-nosnippet>459</a>    <span class="doccomment">/// Manage journals (compacting, inspecting, filtering, ...)
+<a href=#460 id=460 data-nosnippet>460</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#461 id=461 data-nosnippet>461</a>    #[clap(subcommand)]
+<a href=#462 id=462 data-nosnippet>462</a>    </span>Journal(CmdJournal),
+<a href=#463 id=463 data-nosnippet>463</a>
+<a href=#464 id=464 data-nosnippet>464</a>    <span class="attr">#[clap(subcommand)]
+<a href=#465 id=465 data-nosnippet>465</a>    </span>Package(<span class="kw">crate</span>::commands::Package),
+<a href=#466 id=466 data-nosnippet>466</a>
+<a href=#467 id=467 data-nosnippet>467</a>    <span class="attr">#[clap(subcommand)]
+<a href=#468 id=468 data-nosnippet>468</a>    </span>Container(<span class="kw">crate</span>::commands::Container),
+<a href=#469 id=469 data-nosnippet>469</a>
+<a href=#470 id=470 data-nosnippet>470</a>    <span class="comment">// Edge commands
+<a href=#471 id=471 data-nosnippet>471</a>    </span><span class="doccomment">/// Deploy apps to Wasmer Edge [alias: app deploy]
+<a href=#472 id=472 data-nosnippet>472</a>    </span>Deploy(<span class="kw">crate</span>::commands::app::deploy::CmdAppDeploy),
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a>    <span class="doccomment">/// Create and manage Wasmer Edge apps
+<a href=#475 id=475 data-nosnippet>475</a>    </span><span class="attr">#[clap(subcommand, alias = <span class="string">"apps"</span>)]
+<a href=#476 id=476 data-nosnippet>476</a>    </span>App(<span class="kw">crate</span>::commands::app::CmdApp),
+<a href=#477 id=477 data-nosnippet>477</a>
+<a href=#478 id=478 data-nosnippet>478</a>    <span class="doccomment">/// Run commands/packages on Wasmer Edge in an interactive shell session
+<a href=#479 id=479 data-nosnippet>479</a>    </span>Ssh(<span class="kw">crate</span>::commands::ssh::CmdSsh),
+<a href=#480 id=480 data-nosnippet>480</a>
+<a href=#481 id=481 data-nosnippet>481</a>    <span class="doccomment">/// Manage Wasmer namespaces
+<a href=#482 id=482 data-nosnippet>482</a>    </span><span class="attr">#[clap(subcommand, alias = <span class="string">"namespaces"</span>)]
+<a href=#483 id=483 data-nosnippet>483</a>    </span>Namespace(<span class="kw">crate</span>::commands::namespace::CmdNamespace),
+<a href=#484 id=484 data-nosnippet>484</a>
+<a href=#485 id=485 data-nosnippet>485</a>    <span class="doccomment">/// Manage DNS records
+<a href=#486 id=486 data-nosnippet>486</a>    </span><span class="attr">#[clap(subcommand, alias = <span class="string">"domains"</span>)]
+<a href=#487 id=487 data-nosnippet>487</a>    </span>Domain(<span class="kw">crate</span>::commands::domain::CmdDomain),
+<a href=#488 id=488 data-nosnippet>488</a>
+<a href=#489 id=489 data-nosnippet>489</a>    <span class="doccomment">/// Generate autocompletion for different shells
+<a href=#490 id=490 data-nosnippet>490</a>    </span><span class="attr">#[clap(name = <span class="string">"gen-completions"</span>)]
+<a href=#491 id=491 data-nosnippet>491</a>    </span>GenCompletions(<span class="kw">crate</span>::commands::gen_completions::CmdGenCompletions),
+<a href=#492 id=492 data-nosnippet>492</a>
+<a href=#493 id=493 data-nosnippet>493</a>    <span class="doccomment">/// Generate man pages
+<a href=#494 id=494 data-nosnippet>494</a>    </span><span class="attr">#[clap(name = <span class="string">"gen-man"</span>, hide = <span class="bool-val">true</span>)]
+<a href=#495 id=495 data-nosnippet>495</a>    </span>GenManPage(<span class="kw">crate</span>::commands::gen_manpage::CmdGenManPage),
+<a href=#496 id=496 data-nosnippet>496</a>}
+<a href=#497 id=497 data-nosnippet>497</a>
+<a href=#498 id=498 data-nosnippet>498</a><span class="kw">fn </span>is_binfmt_interpreter() -&gt; bool {
+<a href=#499 id=499 data-nosnippet>499</a>    <span class="macro">cfg_if::cfg_if!</span> {
+<a href=#500 id=500 data-nosnippet>500</a>        <span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>{
+<a href=#501 id=501 data-nosnippet>501</a>            <span class="comment">// Note: we'll be invoked by the kernel as Binfmt::FILENAME
+<a href=#502 id=502 data-nosnippet>502</a>            </span><span class="kw">let </span>binary_path = <span class="kw">match </span>std::env::args_os().next() {
+<a href=#503 id=503 data-nosnippet>503</a>                <span class="prelude-val">Some</span>(path) =&gt; std::path::PathBuf::from(path),
+<a href=#504 id=504 data-nosnippet>504</a>                <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+<a href=#505 id=505 data-nosnippet>505</a>            };
+<a href=#506 id=506 data-nosnippet>506</a>            binary_path.file_name().and_then(|f| f.to_str()) == <span class="prelude-val">Some</span>(Binfmt::FILENAME)
+<a href=#507 id=507 data-nosnippet>507</a>        } <span class="kw">else </span>{
+<a href=#508 id=508 data-nosnippet>508</a>            <span class="bool-val">false
+<a href=#509 id=509 data-nosnippet>509</a>        </span>}
+<a href=#510 id=510 data-nosnippet>510</a>    }
+<a href=#511 id=511 data-nosnippet>511</a>}
+<a href=#512 id=512 data-nosnippet>512</a>
+<a href=#513 id=513 data-nosnippet>513</a><span class="kw">fn </span>print_version(verbose: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+<a href=#514 id=514 data-nosnippet>514</a>    <span class="kw">if </span>!verbose {
+<a href=#515 id=515 data-nosnippet>515</a>        <span class="macro">println!</span>(<span class="string">"wasmer {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>));
+<a href=#516 id=516 data-nosnippet>516</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#517 id=517 data-nosnippet>517</a>    }
+<a href=#518 id=518 data-nosnippet>518</a>
+<a href=#519 id=519 data-nosnippet>519</a>    <span class="macro">println!</span>(
+<a href=#520 id=520 data-nosnippet>520</a>        <span class="string">"wasmer {} ({} {})"</span>,
+<a href=#521 id=521 data-nosnippet>521</a>        <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>),
+<a href=#522 id=522 data-nosnippet>522</a>        <span class="macro">git_version!</span>(
+<a href=#523 id=523 data-nosnippet>523</a>            args = [<span class="string">"--abbrev=8"</span>, <span class="string">"--always"</span>, <span class="string">"--dirty=-modified"</span>, <span class="string">"--exclude=*"</span>],
+<a href=#524 id=524 data-nosnippet>524</a>            fallback = <span class="string">""
+<a href=#525 id=525 data-nosnippet>525</a>        </span>),
+<a href=#526 id=526 data-nosnippet>526</a>        <span class="macro">env!</span>(<span class="string">"WASMER_BUILD_DATE"</span>)
+<a href=#527 id=527 data-nosnippet>527</a>    );
+<a href=#528 id=528 data-nosnippet>528</a>    <span class="macro">println!</span>(<span class="string">"binary: {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_NAME"</span>));
+<a href=#529 id=529 data-nosnippet>529</a>    <span class="macro">println!</span>(
+<a href=#530 id=530 data-nosnippet>530</a>        <span class="string">"commit-hash: {}"</span>,
+<a href=#531 id=531 data-nosnippet>531</a>        <span class="macro">git_version!</span>(
+<a href=#532 id=532 data-nosnippet>532</a>            args = [
+<a href=#533 id=533 data-nosnippet>533</a>                <span class="string">"--abbrev=40"</span>,
+<a href=#534 id=534 data-nosnippet>534</a>                <span class="string">"--always"</span>,
+<a href=#535 id=535 data-nosnippet>535</a>                <span class="string">"--dirty=-modified"</span>,
+<a href=#536 id=536 data-nosnippet>536</a>                <span class="string">"--exclude=*"
+<a href=#537 id=537 data-nosnippet>537</a>            </span>],
+<a href=#538 id=538 data-nosnippet>538</a>            fallback = <span class="string">""</span>,
+<a href=#539 id=539 data-nosnippet>539</a>        ),
+<a href=#540 id=540 data-nosnippet>540</a>    );
+<a href=#541 id=541 data-nosnippet>541</a>    <span class="macro">println!</span>(<span class="string">"commit-date: {}"</span>, <span class="macro">env!</span>(<span class="string">"WASMER_BUILD_DATE"</span>));
+<a href=#542 id=542 data-nosnippet>542</a>    <span class="macro">println!</span>(<span class="string">"host: {}"</span>, target_lexicon::HOST);
+<a href=#543 id=543 data-nosnippet>543</a>
+<a href=#544 id=544 data-nosnippet>544</a>    <span class="kw">let </span>cpu_features = {
+<a href=#545 id=545 data-nosnippet>545</a>        <span class="kw">let </span>feats = wasmer_types::target::CpuFeature::for_host();
+<a href=#546 id=546 data-nosnippet>546</a>        <span class="kw">let </span>all = wasmer_types::target::CpuFeature::all();
+<a href=#547 id=547 data-nosnippet>547</a>        all.iter()
+<a href=#548 id=548 data-nosnippet>548</a>            .map(|f| {
+<a href=#549 id=549 data-nosnippet>549</a>                <span class="kw">let </span>available = feats.contains(f);
+<a href=#550 id=550 data-nosnippet>550</a>                <span class="macro">format!</span>(<span class="string">"{}={}"</span>, f, <span class="kw">if </span>available { <span class="string">"true" </span>} <span class="kw">else </span>{ <span class="string">"false" </span>})
+<a href=#551 id=551 data-nosnippet>551</a>            })
+<a href=#552 id=552 data-nosnippet>552</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#553 id=553 data-nosnippet>553</a>            .join(<span class="string">","</span>)
+<a href=#554 id=554 data-nosnippet>554</a>    };
+<a href=#555 id=555 data-nosnippet>555</a>    <span class="macro">println!</span>(<span class="string">"cpu: {cpu_features}"</span>);
+<a href=#556 id=556 data-nosnippet>556</a>
+<a href=#557 id=557 data-nosnippet>557</a>    <span class="kw">let </span><span class="kw-2">mut </span>runtimes = Vec::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::new();
+<a href=#558 id=558 data-nosnippet>558</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"singlepass"</span>) {
+<a href=#559 id=559 data-nosnippet>559</a>        runtimes.push(<span class="string">"singlepass"</span>);
+<a href=#560 id=560 data-nosnippet>560</a>    }
+<a href=#561 id=561 data-nosnippet>561</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"cranelift"</span>) {
+<a href=#562 id=562 data-nosnippet>562</a>        runtimes.push(<span class="string">"cranelift"</span>);
+<a href=#563 id=563 data-nosnippet>563</a>    }
+<a href=#564 id=564 data-nosnippet>564</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"llvm"</span>) {
+<a href=#565 id=565 data-nosnippet>565</a>        runtimes.push(<span class="string">"llvm"</span>);
+<a href=#566 id=566 data-nosnippet>566</a>    }
+<a href=#567 id=567 data-nosnippet>567</a>
+<a href=#568 id=568 data-nosnippet>568</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wamr"</span>) {
+<a href=#569 id=569 data-nosnippet>569</a>        runtimes.push(<span class="string">"wamr"</span>);
+<a href=#570 id=570 data-nosnippet>570</a>    }
+<a href=#571 id=571 data-nosnippet>571</a>
+<a href=#572 id=572 data-nosnippet>572</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wasmi"</span>) {
+<a href=#573 id=573 data-nosnippet>573</a>        runtimes.push(<span class="string">"wasmi"</span>);
+<a href=#574 id=574 data-nosnippet>574</a>    }
+<a href=#575 id=575 data-nosnippet>575</a>
+<a href=#576 id=576 data-nosnippet>576</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
+<a href=#577 id=577 data-nosnippet>577</a>        runtimes.push(<span class="string">"v8"</span>);
+<a href=#578 id=578 data-nosnippet>578</a>    }
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
+<a href=#581 id=581 data-nosnippet>581</a>    <span class="prelude-val">Ok</span>(())
+<a href=#582 id=582 data-nosnippet>582</a>}</code></pre></div></section></main></body></html>
