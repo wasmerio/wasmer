@@ -297,7 +297,7 @@ walkdir = "2.3.2"
 wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.37"
 wasm-bindgen-test = "0.3.0"
-wasm-coredump-builder = "0.1.11"
+wasm-coredump-builder = "0.2.2"
 wasm-encoder = { version = "0.242.0", default-features = false, features = [
 	"std",
 ] }
