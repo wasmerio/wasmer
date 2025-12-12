@@ -18,10 +18,6 @@ use wasmer_compiler::types::{
     section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
 };
 
-const DW_EH_PE_OMIT: u8 = 0xff;
-const DW_EH_PE_ABSPTR: u8 = 0x00;
-const DW_EH_PE_UDATA4: u8 = 0x03;
-
 /// Relocation information for an LSDA entry that references a tag constant.
 #[derive(Debug, Clone)]
 pub struct TagRelocation {
@@ -148,12 +144,18 @@ pub fn build_function_lsda<'a>(
 
     let call_site_table_len = call_site_table.len() as u64;
     let mut writer = Cursor::new(Vec::new());
-    writer.write_all(&DW_EH_PE_OMIT.to_le_bytes()).unwrap(); // lpstart encoding omitted (relative to function start)
+    writer
+        .write_all(&gimli::DW_EH_PE_omit.0.to_le_bytes())
+        .unwrap(); // lpstart encoding omitted (relative to function start)
 
     if type_entries.is_empty() {
-        writer.write_all(&DW_EH_PE_OMIT.to_le_bytes()).unwrap();
+        writer
+            .write_all(&gimli::DW_EH_PE_omit.0.to_le_bytes())
+            .unwrap();
     } else {
-        writer.write_all(&DW_EH_PE_ABSPTR.to_le_bytes()).unwrap();
+        writer
+            .write_all(&gimli::DW_EH_PE_absptr.0.to_le_bytes())
+            .unwrap();
     }
 
     if !type_entries.is_empty() {
@@ -165,7 +167,9 @@ pub fn build_function_lsda<'a>(
         leb128::write::unsigned(&mut writer, ttype_table_end as u64).unwrap();
     }
 
-    writer.write_all(&DW_EH_PE_UDATA4.to_le_bytes()).unwrap();
+    writer
+        .write_all(&gimli::DW_EH_PE_udata4.0.to_le_bytes())
+        .unwrap();
     leb128::write::unsigned(&mut writer, call_site_table_len).unwrap();
     writer.write_all(&call_site_table).unwrap();
     writer.write_all(&action_table.bytes).unwrap();
