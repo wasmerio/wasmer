@@ -267,21 +267,6 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
 }
 
 #[inline]
-fn get_encoding_size(encoding: DwEhPe) -> usize {
-    if encoding == gimli::DW_EH_PE_omit {
-        return 0;
-    }
-
-    match encoding {
-        gimli::DW_EH_PE_absptr => size_of::<usize>(),
-        gimli::DW_EH_PE_udata2 | gimli::DW_EH_PE_sdata2 => size_of::<u16>(),
-        gimli::DW_EH_PE_udata4 | gimli::DW_EH_PE_sdata4 => size_of::<u32>(),
-        gimli::DW_EH_PE_udata8 | gimli::DW_EH_PE_sdata8 => size_of::<u64>(),
-        _ => panic!(),
-    }
-}
-
-#[inline]
 fn round_up(unrounded: usize, align: usize) -> Result<usize, ()> {
     if align.is_power_of_two() {
         Ok((unrounded + align - 1) & !(align - 1))
@@ -303,7 +288,7 @@ fn round_up(unrounded: usize, align: usize) -> Result<usize, ()> {
 ///
 /// [LSB-dwarf-ext]: https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dwarfext.html
 unsafe fn read_encoded_offset(reader: &mut DwarfReader, encoding: DwEhPe) -> Result<usize, ()> {
-    if encoding == gimli::DW_EH_PE_omit {
+    if encoding == gimli::DW_EH_PE_omit || encoding.0 & 0xF0 != 0 {
         return Err(());
     }
     let result = unsafe {
