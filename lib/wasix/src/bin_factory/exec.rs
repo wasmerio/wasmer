@@ -300,22 +300,25 @@ fn call_module(
     let (mut store, mut call_ret) =
         ContextSwitchingEnvironment::run_main_context(&ctx, store, start.clone(), vec![]);
 
-    loop {
+    let mut store = loop {
         // Technically, it's an error for a vfork to return from main, but anyway...
-        match resume_vfork(&ctx, &mut store, &start, &call_ret) {
+        store = match resume_vfork(&ctx, store, &start, &call_ret) {
             // A vfork was resumed, there may be another, so loop back
-            Ok(Some(ret)) => call_ret = ret,
+            (store, Ok(Some(ret))) => {
+                call_ret = ret;
+                store
+            }
 
             // An error was encountered when restoring from the vfork, report it
-            Err(e) => {
+            (store, Err(e)) => {
                 call_ret = Err(RuntimeError::user(Box::new(WasiError::Exit(e.into()))));
-                break;
+                break store;
             }
 
             // No vfork, keep the call_ret value
-            Ok(None) => break,
-        }
-    }
+            (store, Ok(None)) => break store,
+        };
+    };
 
     let ret = if let Err(err) = call_ret {
         match err.downcast::<WasiError>() {
@@ -393,15 +396,18 @@ fn call_module(
 #[allow(clippy::type_complexity)]
 fn resume_vfork(
     ctx: &WasiFunctionEnv,
-    store: &mut Store,
+    mut store: Store,
     start: &Function,
     call_ret: &Result<Box<[Value]>, RuntimeError>,
-) -> Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno> {
+) -> (
+    Store,
+    Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno>,
+) {
     let (err, code) = match call_ret {
         Ok(_) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
         Err(err) => match err.downcast_ref::<WasiError>() {
             // If the child process is just deep sleeping, we don't restore the vfork
-            Some(WasiError::DeepSleep(..)) => return Ok(None),
+            Some(WasiError::DeepSleep(..)) => return (store, Ok(None)),
 
             Some(WasiError::Exit(code)) => (None, *code),
             Some(WasiError::ThreadExit) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
@@ -414,28 +420,28 @@ fn resume_vfork(
         },
     };
 
-    if let Some(mut vfork) = ctx.data_mut(store).vfork.take() {
+    if let Some(mut vfork) = ctx.data_mut(&mut store).vfork.take() {
         if let Some(err) = err {
             error!(%err, "Error from child process");
             eprintln!("{err}");
         }
 
         block_on(
-            unsafe { ctx.data(store).get_memory_and_wasi_state(store, 0) }
+            unsafe { ctx.data(&store).get_memory_and_wasi_state(&store, 0) }
                 .1
                 .fs
                 .close_all(),
         );
 
         tracing::debug!(
-            pid = %ctx.data_mut(store).process.pid(),
+            pid = %ctx.data_mut(&mut store).process.pid(),
             vfork_pid = %vfork.env.process.pid(),
             "Resuming from vfork after child process was terminated"
         );
 
         // Restore the WasiEnv to the point when we vforked
-        vfork.env.swap_inner(ctx.data_mut(store));
-        std::mem::swap(vfork.env.as_mut(), ctx.data_mut(store));
+        vfork.env.swap_inner(ctx.data_mut(&mut store));
+        std::mem::swap(vfork.env.as_mut(), ctx.data_mut(&mut store));
         let mut child_env = *vfork.env;
         child_env.owned_handles.push(vfork.handle);
 
@@ -443,11 +449,11 @@ fn resume_vfork(
         child_env.process.terminate(code);
 
         // If the vfork contained a context-switching environment, exit now
-        if ctx.data(store).context_switching_environment.is_some() {
+        if ctx.data(&store).context_switching_environment.is_some() {
             tracing::error!(
                 "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent parent process will be terminated."
             );
-            return Err(code.into());
+            return (store, Err(code.into()));
         }
 
         // Jump back to the vfork point and current on execution
@@ -455,11 +461,11 @@ fn resume_vfork(
         let rewind_stack = vfork.rewind_stack.freeze();
         let store_data = vfork.store_data;
 
-        let ctx = ctx.env.clone().into_mut(store);
+        let ctx_cloned = ctx.env.clone().into_mut(&mut store);
         // Now rewind the previous stack and carry on from where we did the vfork
         let rewind_result = if vfork.is_64bit {
             crate::syscalls::rewind::<Memory64, _>(
-                ctx,
+                ctx_cloned,
                 None,
                 rewind_stack,
                 store_data,
@@ -470,7 +476,7 @@ fn resume_vfork(
             )
         } else {
             crate::syscalls::rewind::<Memory32, _>(
-                ctx,
+                ctx_cloned,
                 None,
                 rewind_stack,
                 store_data,
@@ -482,13 +488,21 @@ fn resume_vfork(
         };
 
         match rewind_result {
-            Errno::Success => Ok(Some(start.call(store, &[]))),
+            Errno::Success => {
+                let (store, result) = ContextSwitchingEnvironment::run_main_context(
+                    ctx,
+                    store,
+                    start.clone(),
+                    vec![],
+                );
+                (store, Ok(Some(result)))
+            }
             err => {
                 warn!("fork failed - could not rewind the stack - errno={}", err);
-                Err(err)
+                (store, Err(err))
             }
         }
     } else {
-        Ok(None)
+        (store, Ok(None))
     }
 }
