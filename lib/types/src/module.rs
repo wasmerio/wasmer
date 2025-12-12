@@ -564,7 +564,14 @@ impl ModuleInfo {
     pub fn name(&self) -> String {
         match self.name {
             Some(ref name) => name.to_string(),
-            None => "<module>".to_string(),
+            None => {
+                format!(
+                    "<module ({} imported globals) ({} imported functions) ({} functions)>",
+                    self.num_imported_globals,
+                    self.num_imported_functions,
+                    self.functions.len()
+                )
+            }
         }
     }
 
