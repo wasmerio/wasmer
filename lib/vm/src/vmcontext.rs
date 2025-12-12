@@ -756,6 +756,16 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_dbg_usize as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_debug_str_index().index() as usize] =
             wasmer_vm_dbg_str as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_personality2_index().index() as usize] =
+            wasmer_eh_personality2 as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_alloc_exception_index().index() as usize] =
+            wasmer_vm_alloc_exception as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_throw_index().index() as usize] =
+            wasmer_vm_throw as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_read_exnref_index().index() as usize] =
+            wasmer_vm_read_exnref as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_exception_into_exnref_index().index() as usize] =
+            wasmer_vm_exception_into_exnref as *const () as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

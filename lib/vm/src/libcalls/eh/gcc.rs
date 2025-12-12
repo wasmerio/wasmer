@@ -102,6 +102,22 @@ const UNWIND_DATA_REG: (i32, i32) = (4, 5); // a0, a1
 #[cfg(target_arch = "powerpc64")]
 const UNWIND_DATA_REG: (i32, i32) = (3, 4); // R3, R4
 
+macro_rules! log {
+    ($e: expr) => {
+        if false {
+            eprintln!($e)
+        }
+
+    };
+
+    ($($e: expr),*) => {
+        if false {
+            eprintln!($($e),*)
+        }
+
+    };
+}
+
 #[unsafe(no_mangle)]
 /// The implementation of Wasmer's personality function.
 ///
@@ -135,6 +151,9 @@ pub unsafe extern "C" fn wasmer_eh_personality(
             }
         };
 
+        let is_catch_specific_or_all = matches!(&eh_action, EHAction::CatchSpecificOrAll { .. });
+        log!("[wasmer][eh] stage1 action: {:?}", eh_action);
+
         if actions as i32 & uw::_Unwind_Action__UA_SEARCH_PHASE as i32 != 0 {
             match eh_action {
                 EHAction::None => uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
@@ -146,8 +165,6 @@ pub unsafe extern "C" fn wasmer_eh_personality(
         } else {
             // For the catch-specific vs catch-specific-or-all case below, checked before
             // we move eh_action out in the match
-            let has_catch_all = matches!(eh_action, EHAction::CatchSpecificOrAll { .. });
-
             match eh_action {
                 EHAction::None => uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
                 EHAction::CatchAll { lpad } => {
@@ -159,9 +176,14 @@ pub unsafe extern "C" fn wasmer_eh_personality(
                 }
                 EHAction::CatchSpecific { lpad, tags }
                 | EHAction::CatchSpecificOrAll { lpad, tags } => {
+                    log!(
+                        "[wasmer][eh] stage1 catch tags={:?} catch_all={}",
+                        tags,
+                        is_catch_specific_or_all
+                    );
                     (*uw_exc).current_frame_info = Some(Box::new(CurrentFrameInfo {
                         catch_tags: tags,
-                        has_catch_all,
+                        has_catch_all: is_catch_specific_or_all,
                     }));
                     uw::_Unwind_SetGR(context, UNWIND_DATA_REG.0, uw_exc as _);
                     // One means enter phase 2
@@ -192,10 +214,17 @@ pub unsafe extern "C" fn wasmer_eh_personality2(
             unreachable!("wasmer_eh_personality2 called without current_frame_info");
         };
 
+        log!(
+            "[wasmer][eh] stage2 catch_tags={:?} has_catch_all={}",
+            current_frame_info.catch_tags,
+            current_frame_info.has_catch_all
+        );
+
         let instance = (*vmctx).instance();
         let exn = super::exn_obj_from_exnref(vmctx, (*exception_object).exnref);
 
         for tag in current_frame_info.catch_tags {
+            log!("[wasmer][eh] stage2 checking tag {}", tag);
             let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
             if unique_tag == (*exn).tag_index() {
                 return tag as i32;
@@ -203,8 +232,10 @@ pub unsafe extern "C" fn wasmer_eh_personality2(
         }
 
         if current_frame_info.has_catch_all {
+            log!("[wasmer][eh] stage2 falling back to catch-all");
             CATCH_ALL_TAG_VALUE
         } else {
+            log!("[wasmer][eh] stage2 found no match");
             NO_MATCH_FOUND_TAG_VALUE
         }
     }
@@ -246,6 +277,7 @@ pub unsafe fn read_exnref(exception: *mut c_void) -> u32 {
 /// Performs libunwind unwinding magic. Highly unsafe.
 pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
     unsafe {
+        log!("[wasmer][eh] throw resolved exnref={exnref}");
         if exnref == 0 {
             crate::raise_lib_trap(crate::Trap::lib(
                 wasmer_types::TrapCode::UninitializedExnRef,
@@ -263,9 +295,14 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
                     ctx.id(),
                     InternalStoreHandle::from_index(exnref as usize).unwrap(),
                 ));
+                log!(
+                    "[wasmer][eh] throw -> URC_END_OF_STACK (personality={:p})",
+                    wasmer_eh_personality as *const ()
+                );
                 crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
             }
-            _ => {
+            other => {
+                log!("[wasmer][eh] throw -> unexpected code {:?}", other);
                 unreachable!()
             }
         }
