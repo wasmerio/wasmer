@@ -27,7 +27,7 @@ pub fn context_destroy(
         Some(c) => c,
         None => {
             tracing::warn!(
-                "The WASIX context-switching API is only available in engines supporting async execution"
+                "The WASIX context-switching API is only available in a context-switching environment"
             );
             return Ok(Errno::Notsup);
         }
