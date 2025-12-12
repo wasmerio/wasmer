@@ -41,116 +41,116 @@ fn test_with_wasixcc(name: &str) -> Result<(), anyhow::Error> {
     )
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_simple_switching() {
     test_with_wasixcc("simple_switching").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_switching_with_main() {
     test_with_wasixcc("switching_with_main").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_switching_to_a_deleted_context() {
     test_with_wasixcc("switching_to_a_deleted_context").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_switching_threads() {
     test_with_wasixcc("switching_in_threads").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_multiple_contexts() {
     test_with_wasixcc("multiple_contexts").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_error_handling() {
     test_with_wasixcc("error_handling").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_nested_switches() {
     test_with_wasixcc("nested_switches").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_mutexes() {
     test_with_wasixcc("contexts_with_mutexes").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_env_vars() {
     test_with_wasixcc("contexts_with_env_vars").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_signals() {
     test_with_wasixcc("contexts_with_signals").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_timers() {
     test_with_wasixcc("contexts_with_timers").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_pipes() {
     test_with_wasixcc("contexts_with_pipes").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_pending_file_operations() {
     test_with_wasixcc("pending_file_operations").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_recursive_host_calls() {
     test_with_wasixcc("recursive_host_calls").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_malloc_during_switch() {
     test_with_wasixcc("malloc_during_switch").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_nested_host_call_switch() {
     test_with_wasixcc("nested_host_call_switch").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_switch_to_never_resumed() {
     test_with_wasixcc("switch_to_never_resumed").unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn test_three_way_recursion() {
     test_with_wasixcc("three_way_recursion").unwrap();
 }
 
 // TODO: Reenable once cranelift supports exception handling
-// #[cfg(target_os = "linux")]
+// #[cfg(unix)]
 // #[test]
 // fn test_contexts_with_setjmp() {
 //     test_with_wasixcc("contexts_with_setjmp").unwrap();
