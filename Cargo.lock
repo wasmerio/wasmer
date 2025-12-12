@@ -7369,6 +7369,7 @@ dependencies = [
  "dashmap",
  "enum-iterator",
  "fnv",
+ "gimli",
  "indexmap 2.12.1",
  "libc",
  "libunwind",

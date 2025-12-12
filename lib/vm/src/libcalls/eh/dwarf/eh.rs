@@ -16,27 +16,9 @@
 
 use core::{mem, ptr};
 
+use gimli::DwEhPe;
+
 use super::DwarfReader;
-
-pub const DW_EH_PE_omit: u8 = 0xFF;
-pub const DW_EH_PE_absptr: u8 = 0x00;
-
-pub const DW_EH_PE_uleb128: u8 = 0x01;
-pub const DW_EH_PE_udata2: u8 = 0x02;
-pub const DW_EH_PE_udata4: u8 = 0x03;
-pub const DW_EH_PE_udata8: u8 = 0x04;
-pub const DW_EH_PE_sleb128: u8 = 0x09;
-pub const DW_EH_PE_sdata2: u8 = 0x0A;
-pub const DW_EH_PE_sdata4: u8 = 0x0B;
-pub const DW_EH_PE_sdata8: u8 = 0x0C;
-
-pub const DW_EH_PE_pcrel: u8 = 0x10;
-pub const DW_EH_PE_textrel: u8 = 0x20;
-pub const DW_EH_PE_datarel: u8 = 0x30;
-pub const DW_EH_PE_funcrel: u8 = 0x40;
-pub const DW_EH_PE_aligned: u8 = 0x50;
-
-pub const DW_EH_PE_indirect: u8 = 0x80;
 
 #[derive(Copy, Clone)]
 pub struct EHContext<'a> {
@@ -98,11 +80,11 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
     let mut reader = DwarfReader::new(lsda);
 
     let lpad_base = unsafe {
-        let lp_start_encoding = reader.read::<u8>();
+        let lp_start_encoding = DwEhPe(reader.read::<u8>());
 
         log!("(pers) Read LP start encoding {lp_start_encoding:?}");
         // base address for landing pad offsets
-        if lp_start_encoding != DW_EH_PE_omit {
+        if lp_start_encoding != gimli::DW_EH_PE_omit {
             read_encoded_pointer(&mut reader, context, lp_start_encoding)?
         } else {
             log!("(pers) (is omit)");
@@ -111,12 +93,12 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
     };
     log!("(pers) read landingpad base: {lpad_base:?}");
 
-    let ttype_encoding = unsafe { reader.read::<u8>() };
+    let ttype_encoding = unsafe { DwEhPe(reader.read::<u8>()) };
     log!("(pers) read ttype encoding: {ttype_encoding:?}");
 
     // If no value for type_table_encoding was given it means that there's no
     // type_table, therefore we can't possibly use this lpad.
-    if ttype_encoding == DW_EH_PE_omit {
+    if ttype_encoding == gimli::DW_EH_PE_omit {
         log!("(pers) ttype is omit, returning None");
         return Ok(EHAction::None);
     }
@@ -128,7 +110,7 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
     };
     log!("(pers) read class_info sits at offset {class_info:?}");
 
-    let call_site_encoding = unsafe { reader.read::<u8>() };
+    let call_site_encoding = unsafe { DwEhPe(reader.read::<u8>()) };
     log!("(pers) read call_site_encoding is {call_site_encoding:?}");
 
     let action_table = unsafe {
@@ -200,13 +182,19 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                                 }
 
                                 let tag_ptr = {
-                                    let new_ttype_index = match ttype_encoding & 0x0f {
-                                        DW_EH_PE_absptr => {
+                                    let new_ttype_index = match ttype_encoding {
+                                        gimli::DW_EH_PE_absptr => {
                                             ttype_index * (size_of::<*const u8>() as i64)
                                         }
-                                        DW_EH_PE_sdata2 | DW_EH_PE_udata2 => ttype_index * 2,
-                                        DW_EH_PE_sdata4 | DW_EH_PE_udata4 => ttype_index * 4,
-                                        DW_EH_PE_sdata8 | DW_EH_PE_udata8 => ttype_index * 8,
+                                        gimli::DW_EH_PE_sdata2 | gimli::DW_EH_PE_udata2 => {
+                                            ttype_index * 2
+                                        }
+                                        gimli::DW_EH_PE_sdata4 | gimli::DW_EH_PE_udata4 => {
+                                            ttype_index * 4
+                                        }
+                                        gimli::DW_EH_PE_sdata8 | gimli::DW_EH_PE_udata8 => {
+                                            ttype_index * 8
+                                        }
                                         _ => panic!(),
                                     };
 
@@ -279,16 +267,16 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
 }
 
 #[inline]
-fn get_encoding_size(encoding: u8) -> usize {
-    if encoding == DW_EH_PE_omit {
+fn get_encoding_size(encoding: DwEhPe) -> usize {
+    if encoding == gimli::DW_EH_PE_omit {
         return 0;
     }
 
-    match encoding & 0x0f {
-        DW_EH_PE_absptr => size_of::<usize>(),
-        DW_EH_PE_udata2 | DW_EH_PE_sdata2 => size_of::<u16>(),
-        DW_EH_PE_udata4 | DW_EH_PE_sdata4 => size_of::<u32>(),
-        DW_EH_PE_udata8 | DW_EH_PE_sdata8 => size_of::<u64>(),
+    match encoding {
+        gimli::DW_EH_PE_absptr => size_of::<usize>(),
+        gimli::DW_EH_PE_udata2 | gimli::DW_EH_PE_sdata2 => size_of::<u16>(),
+        gimli::DW_EH_PE_udata4 | gimli::DW_EH_PE_sdata4 => size_of::<u32>(),
+        gimli::DW_EH_PE_udata8 | gimli::DW_EH_PE_sdata8 => size_of::<u64>(),
         _ => panic!(),
     }
 }
@@ -314,22 +302,22 @@ fn round_up(unrounded: usize, align: usize) -> Result<usize, ()> {
 /// * has a non-zero application part.
 ///
 /// [LSB-dwarf-ext]: https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dwarfext.html
-unsafe fn read_encoded_offset(reader: &mut DwarfReader, encoding: u8) -> Result<usize, ()> {
-    if encoding == DW_EH_PE_omit || encoding & 0xF0 != 0 {
+unsafe fn read_encoded_offset(reader: &mut DwarfReader, encoding: DwEhPe) -> Result<usize, ()> {
+    if encoding == gimli::DW_EH_PE_omit {
         return Err(());
     }
     let result = unsafe {
-        match encoding & 0x0F {
+        match encoding {
             // despite the name, LLVM also uses absptr for offsets instead of pointers
-            DW_EH_PE_absptr => reader.read::<usize>(),
-            DW_EH_PE_uleb128 => reader.read_uleb128() as usize,
-            DW_EH_PE_udata2 => reader.read::<u16>() as usize,
-            DW_EH_PE_udata4 => reader.read::<u32>() as usize,
-            DW_EH_PE_udata8 => reader.read::<u64>() as usize,
-            DW_EH_PE_sleb128 => reader.read_sleb128() as usize,
-            DW_EH_PE_sdata2 => reader.read::<i16>() as usize,
-            DW_EH_PE_sdata4 => reader.read::<i32>() as usize,
-            DW_EH_PE_sdata8 => reader.read::<i64>() as usize,
+            gimli::DW_EH_PE_absptr => reader.read::<usize>(),
+            gimli::DW_EH_PE_uleb128 => reader.read_uleb128() as usize,
+            gimli::DW_EH_PE_udata2 => reader.read::<u16>() as usize,
+            gimli::DW_EH_PE_udata4 => reader.read::<u32>() as usize,
+            gimli::DW_EH_PE_udata8 => reader.read::<u64>() as usize,
+            gimli::DW_EH_PE_sleb128 => reader.read_sleb128() as usize,
+            gimli::DW_EH_PE_sdata2 => reader.read::<i16>() as usize,
+            gimli::DW_EH_PE_sdata4 => reader.read::<i32>() as usize,
+            gimli::DW_EH_PE_sdata8 => reader.read::<i64>() as usize,
             _ => return Err(()),
         }
     };
@@ -351,43 +339,43 @@ unsafe fn read_encoded_offset(reader: &mut DwarfReader, encoding: u8) -> Result<
 unsafe fn read_encoded_pointer(
     reader: &mut DwarfReader,
     context: &EHContext<'_>,
-    encoding: u8,
+    encoding: DwEhPe,
 ) -> Result<*const u8, ()> {
-    if encoding == DW_EH_PE_omit {
+    if encoding == gimli::DW_EH_PE_omit {
         return Err(());
     }
 
     log!("(pers) About to read encoded pointer at {:?}", reader.ptr);
 
-    let base_ptr = match encoding & 0x70 {
-        DW_EH_PE_absptr => {
-            log!("(pers) encoding is: DW_EH_PE_absptr ({DW_EH_PE_absptr})");
+    let base_ptr = match encoding {
+        gimli::DW_EH_PE_absptr => {
+            log!("(pers) encoding is: DW_EH_PE_absptr");
             core::ptr::null()
         }
         // relative to address of the encoded value, despite the name
-        DW_EH_PE_pcrel => {
-            log!("(pers) encoding is: DW_EH_PE_pcrel ({DW_EH_PE_pcrel})");
+        gimli::DW_EH_PE_pcrel => {
+            log!("(pers) encoding is: DW_EH_PE_pcrel");
             reader.ptr
         }
-        DW_EH_PE_funcrel => {
-            log!("(pers) encoding is: DW_EH_PE_funcrel ({DW_EH_PE_funcrel})");
+        gimli::DW_EH_PE_funcrel => {
+            log!("(pers) encoding is: DW_EH_PE_funcrel");
             if context.func_start.is_null() {
                 return Err(());
             }
             context.func_start
         }
-        DW_EH_PE_textrel => {
-            log!("(pers) encoding is: DW_EH_PE_textrel ({DW_EH_PE_textrel})");
+        gimli::DW_EH_PE_textrel => {
+            log!("(pers) encoding is: DW_EH_PE_textrel");
             (*context.get_text_start)()
         }
-        DW_EH_PE_datarel => {
-            log!("(pers) encoding is: DW_EH_PE_textrel ({DW_EH_PE_datarel})");
+        gimli::DW_EH_PE_datarel => {
+            log!("(pers) encoding is: DW_EH_PE_textrel");
 
             (*context.get_data_start)()
         }
         // aligned means the value is aligned to the size of a pointer
-        DW_EH_PE_aligned => {
-            log!("(pers) encoding is: DW_EH_PE_textrel ({DW_EH_PE_aligned})");
+        gimli::DW_EH_PE_aligned => {
+            log!("(pers) encoding is: DW_EH_PE_textrel");
             reader.ptr = {
                 let this = reader.ptr;
                 let addr = round_up(
@@ -415,20 +403,20 @@ unsafe fn read_encoded_pointer(
     let mut ptr = if base_ptr.is_null() {
         // any value encoding other than absptr would be nonsensical here;
         // there would be no source of pointer provenance
-        if encoding & 0x0F != DW_EH_PE_absptr {
+        if encoding != gimli::DW_EH_PE_absptr {
             return Err(());
         }
         unsafe { reader.read::<*const u8>() }
     } else {
         log!("(pers) since base_ptr is not null, we must an offset");
-        let offset = unsafe { read_encoded_offset(reader, encoding & 0x0F)? };
+        let offset = unsafe { read_encoded_offset(reader, encoding)? };
         log!("(pers) read offset is {offset:x?}");
         base_ptr.wrapping_add(offset)
     };
 
     log!("(pers) about to read from {ptr:?}");
 
-    if encoding & DW_EH_PE_indirect != 0 {
+    if encoding == gimli::DW_EH_PE_indirect {
         ptr = unsafe { ptr.cast::<*const u8>().read_unaligned() };
     }
 
