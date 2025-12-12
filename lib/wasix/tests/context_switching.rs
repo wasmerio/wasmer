@@ -149,8 +149,9 @@ fn test_three_way_recursion() {
     test_with_wasixcc("three_way_recursion").unwrap();
 }
 
-#[cfg(target_os = "linux")]
-#[test]
-fn test_contexts_with_setjmp() {
-    test_with_wasixcc("contexts_with_setjmp").unwrap();
-}
+// TODO: Reenable once cranelift supports exception handling
+// #[cfg(target_os = "linux")]
+// #[test]
+// fn test_contexts_with_setjmp() {
+//     test_with_wasixcc("contexts_with_setjmp").unwrap();
+// }
