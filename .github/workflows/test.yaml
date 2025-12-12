@@ -175,18 +175,7 @@ jobs:
           sudo apt-get install -y git make lld curl
 
       - name: Install wasixcc
-        if: matrix.metadata.build != 'windows-x64'
-        run: |
-          export RUST_LOG=wasixcc=trace
-          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          cargo install --git https://github.com/wasix-org/wasixcc.git --rev 2df8392a1cb9e7b050130f6ac01cd84d9e39406f -F bin
-          mkdir wasixcc-install
-          wasixcc --install-executables $HOME/.wasixcc/bin
-          echo $HOME/.wasixcc/bin >> $GITHUB_PATH
-          wasixcc --download-sysroot v2025-12-10.1
-          wasixcc --download-llvm
-          wasixcc --download-binaryen
-          echo $HOME/.wasixcc/binaryen/bin >> $GITHUB_PATH
+        uses: wasix-org/wasixcc@main
 
       - name: Tool versions
         run: |
@@ -884,17 +873,7 @@ jobs:
 
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
-        run: |
-          export RUST_LOG=wasixcc=trace
-          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          cargo install --git https://github.com/wasix-org/wasixcc.git --rev 2df8392a1cb9e7b050130f6ac01cd84d9e39406f -F bin
-          mkdir wasixcc-install
-          wasixcc --install-executables $HOME/.wasixcc/bin
-          echo $HOME/.wasixcc/bin >> $GITHUB_PATH
-          wasixcc --download-sysroot v2025-12-10.1
-          wasixcc --download-llvm
-          wasixcc --download-binaryen
-          echo $HOME/.wasixcc/binaryen/bin >> $GITHUB_PATH
+        uses: wasix-org/wasixcc@main
 
       - name: Install LLVM
         shell: bash
