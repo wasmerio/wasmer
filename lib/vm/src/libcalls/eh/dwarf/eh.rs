@@ -292,7 +292,7 @@ unsafe fn read_encoded_offset(reader: &mut DwarfReader, encoding: DwEhPe) -> Res
         return Err(());
     }
     let result = unsafe {
-        match encoding {
+        match DwEhPe(encoding.0 & 0x0F) {
             // despite the name, LLVM also uses absptr for offsets instead of pointers
             gimli::DW_EH_PE_absptr => reader.read::<usize>(),
             gimli::DW_EH_PE_uleb128 => reader.read_uleb128() as usize,
