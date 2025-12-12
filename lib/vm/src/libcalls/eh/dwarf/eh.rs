@@ -354,13 +354,13 @@ unsafe fn read_encoded_pointer(
             (*context.get_text_start)()
         }
         gimli::DW_EH_PE_datarel => {
-            log!("(pers) encoding is: DW_EH_PE_textrel");
+            log!("(pers) encoding is: DW_EH_PE_datarel");
 
             (*context.get_data_start)()
         }
         // aligned means the value is aligned to the size of a pointer
         gimli::DW_EH_PE_aligned => {
-            log!("(pers) encoding is: DW_EH_PE_textrel");
+            log!("(pers) encoding is: DW_EH_PE_aligned");
             reader.ptr = {
                 let this = reader.ptr;
                 let addr = round_up(
@@ -401,7 +401,7 @@ unsafe fn read_encoded_pointer(
 
     log!("(pers) about to read from {ptr:?}");
 
-    if encoding == gimli::DW_EH_PE_indirect {
+    if encoding & gimli::DW_EH_PE_indirect != 0 {
         ptr = unsafe { ptr.cast::<*const u8>().read_unaligned() };
     }
 
