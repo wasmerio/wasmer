@@ -394,14 +394,14 @@ unsafe fn read_encoded_pointer(
         unsafe { reader.read::<*const u8>() }
     } else {
         log!("(pers) since base_ptr is not null, we must an offset");
-        let offset = unsafe { read_encoded_offset(reader, encoding)? };
+        let offset = unsafe { read_encoded_offset(reader, DwEhPe(encoding.0 & 0x0f))? };
         log!("(pers) read offset is {offset:x?}");
         base_ptr.wrapping_add(offset)
     };
 
     log!("(pers) about to read from {ptr:?}");
 
-    if DwEhPe(encoding.0 & 0x0f) == gimli::DW_EH_PE_indirect {
+    if encoding == gimli::DW_EH_PE_indirect {
         ptr = unsafe { ptr.cast::<*const u8>().read_unaligned() };
     }
 
