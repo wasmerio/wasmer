@@ -31,6 +31,9 @@ pub enum UnwindOps<R: location::Reg, S: location::Reg> {
     PushFP {
         up_to_sp: u32,
     },
+    SubtractFP {
+        up_to_sp: u32,
+    },
     Push2Regs {
         reg1: UnwindRegister<R, S>,
         reg2: UnwindRegister<R, S>,
@@ -103,6 +106,22 @@ pub fn create_systemv_cie(arch: Architecture) -> Option<gimli::write::CommonInfo
                 AArch64::X30,
             );
             entry.add_instruction(CallFrameInstruction::Cfa(AArch64::SP, 0));
+            Some(entry)
+        }
+        Architecture::Riscv64(_) => {
+            use gimli::RiscV;
+
+            let mut entry = CommonInformationEntry::new(
+                Encoding {
+                    address_size: 8,
+                    format: Format::Dwarf32,
+                    version: 1,
+                },
+                1,
+                -8,
+                RiscV::RA,
+            );
+            entry.add_instruction(CallFrameInstruction::Cfa(RiscV::SP, 0));
             Some(entry)
         }
         _ => None,
