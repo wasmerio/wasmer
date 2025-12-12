@@ -9,4 +9,4 @@ wasixcc main.c -o main.wasm -Wl,-pie
 wasixcc side1.c -o libside1.so -Wl,-shared
 wasixcc side2.c -o libside2.so -Wl,-shared
 
-$WASMER -q run main.wasm --dir=.
+$WASMER_RUN main.wasm --dir=.

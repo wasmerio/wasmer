@@ -4,7 +4,7 @@ set -eu
 
 rm -f output*
 
-RUST_LOG=virtual_fs=trace $WASMER run main.wasm --dir . &> output-wasmer-log
+RUST_LOG=virtual_fs=trace $WASMER_RUN main.wasm --dir . &> output-wasmer-log
 
 cat output | grep "parent 1" >/dev/null && \
   cat output | grep "parent 2" >/dev/null && \
