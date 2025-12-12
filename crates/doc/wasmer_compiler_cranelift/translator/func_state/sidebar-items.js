@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ControlStackFrame","ElseData"],"fn":["num_wasm_parameters"],"struct":["FuncTranslationState"]};
+window.SIDEBAR_ITEMS = {"enum":["ControlStackFrame","ElseData"],"fn":["num_wasm_parameters"],"struct":["FuncTranslationState","HandlerState","HandlerStateCheckpoint","LandingPad"]};

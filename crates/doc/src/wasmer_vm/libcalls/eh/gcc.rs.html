@@ -102,190 +102,227 @@
 <a href=#102 id=102 data-nosnippet>102</a></span><span class="attr">#[cfg(target_arch = <span class="string">"powerpc64"</span>)]
 <a href=#103 id=103 data-nosnippet>103</a></span><span class="kw">const </span>UNWIND_DATA_REG: (i32, i32) = (<span class="number">3</span>, <span class="number">4</span>); <span class="comment">// R3, R4
 <a href=#104 id=104 data-nosnippet>104</a>
-<a href=#105 id=105 data-nosnippet>105</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#106 id=106 data-nosnippet>106</a></span><span class="doccomment">/// The implementation of Wasmer's personality function.
-<a href=#107 id=107 data-nosnippet>107</a>///
-<a href=#108 id=108 data-nosnippet>108</a>/// # Safety
-<a href=#109 id=109 data-nosnippet>109</a>///
-<a href=#110 id=110 data-nosnippet>110</a>/// Performs libunwind unwinding magic.
-<a href=#111 id=111 data-nosnippet>111</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_eh_personality(
-<a href=#112 id=112 data-nosnippet>112</a>    version: std::ffi::c_int,
-<a href=#113 id=113 data-nosnippet>113</a>    actions: uw::_Unwind_Action,
-<a href=#114 id=114 data-nosnippet>114</a>    exception_class: uw::_Unwind_Exception_Class,
-<a href=#115 id=115 data-nosnippet>115</a>    exception_object: <span class="kw-2">*mut </span>uw::_Unwind_Exception,
-<a href=#116 id=116 data-nosnippet>116</a>    context: <span class="kw-2">*mut </span>uw::_Unwind_Context,
-<a href=#117 id=117 data-nosnippet>117</a>) -&gt; uw::_Unwind_Reason_Code {
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">unsafe </span>{
-<a href=#119 id=119 data-nosnippet>119</a>        <span class="kw">if </span>version != <span class="number">1 </span>{
-<a href=#120 id=120 data-nosnippet>120</a>            <span class="kw">return </span>uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR;
-<a href=#121 id=121 data-nosnippet>121</a>        }
-<a href=#122 id=122 data-nosnippet>122</a>
-<a href=#123 id=123 data-nosnippet>123</a>        <span class="kw">let </span>uw_exc = std::mem::transmute::&lt;<span class="kw-2">*mut </span>uw::_Unwind_Exception, <span class="kw-2">*mut </span>UwExceptionWrapper&gt;(
-<a href=#124 id=124 data-nosnippet>124</a>            exception_object,
-<a href=#125 id=125 data-nosnippet>125</a>        );
-<a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a>        <span class="kw">if </span>exception_class != WASMER_EXCEPTION_CLASS {
-<a href=#128 id=128 data-nosnippet>128</a>            <span class="kw">return </span>uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND;
-<a href=#129 id=129 data-nosnippet>129</a>        }
-<a href=#130 id=130 data-nosnippet>130</a>
-<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">let </span>eh_action = <span class="kw">match </span>find_eh_action(context) {
-<a href=#132 id=132 data-nosnippet>132</a>            <span class="prelude-val">Ok</span>(action) =&gt; action,
-<a href=#133 id=133 data-nosnippet>133</a>            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-<a href=#134 id=134 data-nosnippet>134</a>                <span class="kw">return </span>uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR;
-<a href=#135 id=135 data-nosnippet>135</a>            }
-<a href=#136 id=136 data-nosnippet>136</a>        };
-<a href=#137 id=137 data-nosnippet>137</a>
-<a href=#138 id=138 data-nosnippet>138</a>        <span class="kw">if </span>actions <span class="kw">as </span>i32 &amp; uw::_Unwind_Action__UA_SEARCH_PHASE <span class="kw">as </span>i32 != <span class="number">0 </span>{
-<a href=#139 id=139 data-nosnippet>139</a>            <span class="kw">match </span>eh_action {
-<a href=#140 id=140 data-nosnippet>140</a>                EHAction::None =&gt; uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
-<a href=#141 id=141 data-nosnippet>141</a>                EHAction::CatchAll { .. }
-<a href=#142 id=142 data-nosnippet>142</a>                | EHAction::CatchSpecific { .. }
-<a href=#143 id=143 data-nosnippet>143</a>                | EHAction::CatchSpecificOrAll { .. } =&gt; uw::_Unwind_Reason_Code__URC_HANDLER_FOUND,
-<a href=#144 id=144 data-nosnippet>144</a>                EHAction::Terminate =&gt; uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR,
-<a href=#145 id=145 data-nosnippet>145</a>            }
-<a href=#146 id=146 data-nosnippet>146</a>        } <span class="kw">else </span>{
-<a href=#147 id=147 data-nosnippet>147</a>            <span class="comment">// For the catch-specific vs catch-specific-or-all case below, checked before
-<a href=#148 id=148 data-nosnippet>148</a>            // we move eh_action out in the match
-<a href=#149 id=149 data-nosnippet>149</a>            </span><span class="kw">let </span>has_catch_all = <span class="macro">matches!</span>(eh_action, EHAction::CatchSpecificOrAll { .. });
-<a href=#150 id=150 data-nosnippet>150</a>
-<a href=#151 id=151 data-nosnippet>151</a>            <span class="kw">match </span>eh_action {
-<a href=#152 id=152 data-nosnippet>152</a>                EHAction::None =&gt; uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
-<a href=#153 id=153 data-nosnippet>153</a>                EHAction::CatchAll { lpad } =&gt; {
-<a href=#154 id=154 data-nosnippet>154</a>                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">0</span>, uw_exc <span class="kw">as _</span>);
-<a href=#155 id=155 data-nosnippet>155</a>                    <span class="comment">// Zero means immediate catch-all
-<a href=#156 id=156 data-nosnippet>156</a>                    </span>uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">1</span>, <span class="number">0</span>);
-<a href=#157 id=157 data-nosnippet>157</a>                    uw::_Unwind_SetIP(context, lpad <span class="kw">as </span>usize <span class="kw">as _</span>);
-<a href=#158 id=158 data-nosnippet>158</a>                    uw::_Unwind_Reason_Code__URC_INSTALL_CONTEXT
-<a href=#159 id=159 data-nosnippet>159</a>                }
-<a href=#160 id=160 data-nosnippet>160</a>                EHAction::CatchSpecific { lpad, tags }
-<a href=#161 id=161 data-nosnippet>161</a>                | EHAction::CatchSpecificOrAll { lpad, tags } =&gt; {
-<a href=#162 id=162 data-nosnippet>162</a>                    (<span class="kw-2">*</span>uw_exc).current_frame_info = <span class="prelude-val">Some</span>(Box::new(CurrentFrameInfo {
-<a href=#163 id=163 data-nosnippet>163</a>                        catch_tags: tags,
-<a href=#164 id=164 data-nosnippet>164</a>                        has_catch_all,
-<a href=#165 id=165 data-nosnippet>165</a>                    }));
-<a href=#166 id=166 data-nosnippet>166</a>                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">0</span>, uw_exc <span class="kw">as _</span>);
-<a href=#167 id=167 data-nosnippet>167</a>                    <span class="comment">// One means enter phase 2
-<a href=#168 id=168 data-nosnippet>168</a>                    </span>uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">1</span>, <span class="number">1</span>);
-<a href=#169 id=169 data-nosnippet>169</a>                    uw::_Unwind_SetIP(context, lpad <span class="kw">as </span>usize <span class="kw">as _</span>);
-<a href=#170 id=170 data-nosnippet>170</a>                    uw::_Unwind_Reason_Code__URC_INSTALL_CONTEXT
-<a href=#171 id=171 data-nosnippet>171</a>                }
-<a href=#172 id=172 data-nosnippet>172</a>                EHAction::Terminate =&gt; uw::_Unwind_Reason_Code__URC_FATAL_PHASE2_ERROR,
-<a href=#173 id=173 data-nosnippet>173</a>            }
-<a href=#174 id=174 data-nosnippet>174</a>        }
-<a href=#175 id=175 data-nosnippet>175</a>    }
-<a href=#176 id=176 data-nosnippet>176</a>}
-<a href=#177 id=177 data-nosnippet>177</a>
-<a href=#178 id=178 data-nosnippet>178</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#179 id=179 data-nosnippet>179</a></span><span class="doccomment">/// The second stage of the personality function. See module level documentation
-<a href=#180 id=180 data-nosnippet>180</a>/// for an explanation of the exact procedure used during unwinding.
-<a href=#181 id=181 data-nosnippet>181</a>///
-<a href=#182 id=182 data-nosnippet>182</a>/// # Safety
-<a href=#183 id=183 data-nosnippet>183</a>///
-<a href=#184 id=184 data-nosnippet>184</a>/// Does pointer accesses, which must be valid.
-<a href=#185 id=185 data-nosnippet>185</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_eh_personality2(
-<a href=#186 id=186 data-nosnippet>186</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#187 id=187 data-nosnippet>187</a>    exception_object: <span class="kw-2">*mut </span>UwExceptionWrapper,
-<a href=#188 id=188 data-nosnippet>188</a>) -&gt; i32 {
-<a href=#189 id=189 data-nosnippet>189</a>    <span class="kw">unsafe </span>{
-<a href=#190 id=190 data-nosnippet>190</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(current_frame_info) = (<span class="kw-2">*</span>exception_object).current_frame_info.take() <span class="kw">else </span>{
-<a href=#191 id=191 data-nosnippet>191</a>            <span class="comment">// This should never happen
-<a href=#192 id=192 data-nosnippet>192</a>            </span><span class="macro">unreachable!</span>(<span class="string">"wasmer_eh_personality2 called without current_frame_info"</span>);
-<a href=#193 id=193 data-nosnippet>193</a>        };
-<a href=#194 id=194 data-nosnippet>194</a>
-<a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
-<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">let </span>exn = <span class="kw">super</span>::exn_obj_from_exnref(vmctx, (<span class="kw-2">*</span>exception_object).exnref);
-<a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a>        <span class="kw">for </span>tag <span class="kw">in </span>current_frame_info.catch_tags {
-<a href=#199 id=199 data-nosnippet>199</a>            <span class="kw">let </span>unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
-<a href=#200 id=200 data-nosnippet>200</a>            <span class="kw">if </span>unique_tag == (<span class="kw-2">*</span>exn).tag_index() {
-<a href=#201 id=201 data-nosnippet>201</a>                <span class="kw">return </span>tag <span class="kw">as </span>i32;
-<a href=#202 id=202 data-nosnippet>202</a>            }
-<a href=#203 id=203 data-nosnippet>203</a>        }
-<a href=#204 id=204 data-nosnippet>204</a>
-<a href=#205 id=205 data-nosnippet>205</a>        <span class="kw">if </span>current_frame_info.has_catch_all {
-<a href=#206 id=206 data-nosnippet>206</a>            CATCH_ALL_TAG_VALUE
-<a href=#207 id=207 data-nosnippet>207</a>        } <span class="kw">else </span>{
-<a href=#208 id=208 data-nosnippet>208</a>            NO_MATCH_FOUND_TAG_VALUE
-<a href=#209 id=209 data-nosnippet>209</a>        }
-<a href=#210 id=210 data-nosnippet>210</a>    }
-<a href=#211 id=211 data-nosnippet>211</a>}
-<a href=#212 id=212 data-nosnippet>212</a>
-<a href=#213 id=213 data-nosnippet>213</a><span class="kw">unsafe fn </span>find_eh_action(context: <span class="kw-2">*mut </span>uw::_Unwind_Context) -&gt; <span class="prelude-ty">Result</span>&lt;EHAction, ()&gt; {
-<a href=#214 id=214 data-nosnippet>214</a>    <span class="kw">unsafe </span>{
-<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">let </span>lsda = uw::_Unwind_GetLanguageSpecificData(context) <span class="kw">as </span><span class="kw-2">*const </span>u8;
-<a href=#216 id=216 data-nosnippet>216</a>        <span class="kw">let </span><span class="kw-2">mut </span>ip_before_instr: std::ffi::c_int = <span class="number">0</span>;
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>ip = uw::_Unwind_GetIPInfo(context, <span class="kw-2">&amp;mut </span>ip_before_instr);
-<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>eh_context = EHContext {
-<a href=#219 id=219 data-nosnippet>219</a>            <span class="comment">// The return address points 1 byte past the call instruction,
-<a href=#220 id=220 data-nosnippet>220</a>            // which could be in the next IP range in LSDA range table.
-<a href=#221 id=221 data-nosnippet>221</a>            //
-<a href=#222 id=222 data-nosnippet>222</a>            // `ip = -1` has special meaning, so use wrapping sub to allow for that
-<a href=#223 id=223 data-nosnippet>223</a>            </span>ip: <span class="kw">if </span>ip_before_instr != <span class="number">0 </span>{
-<a href=#224 id=224 data-nosnippet>224</a>                ip <span class="kw">as _
-<a href=#225 id=225 data-nosnippet>225</a>            </span>} <span class="kw">else </span>{
-<a href=#226 id=226 data-nosnippet>226</a>                ip.wrapping_sub(<span class="number">1</span>) <span class="kw">as _
-<a href=#227 id=227 data-nosnippet>227</a>            </span>},
-<a href=#228 id=228 data-nosnippet>228</a>            func_start: uw::_Unwind_GetRegionStart(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
-<a href=#229 id=229 data-nosnippet>229</a>            get_text_start: <span class="kw-2">&amp;</span>|| uw::_Unwind_GetTextRelBase(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
-<a href=#230 id=230 data-nosnippet>230</a>            get_data_start: <span class="kw-2">&amp;</span>|| uw::_Unwind_GetDataRelBase(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
-<a href=#231 id=231 data-nosnippet>231</a>        };
-<a href=#232 id=232 data-nosnippet>232</a>        eh::find_eh_action(lsda, <span class="kw-2">&amp;</span>eh_context)
-<a href=#233 id=233 data-nosnippet>233</a>    }
-<a href=#234 id=234 data-nosnippet>234</a>}
-<a href=#235 id=235 data-nosnippet>235</a>
-<a href=#236 id=236 data-nosnippet>236</a><span class="kw">pub unsafe fn </span>read_exnref(exception: <span class="kw-2">*mut </span>c_void) -&gt; u32 {
-<a href=#237 id=237 data-nosnippet>237</a>    <span class="kw">if </span>exception.is_null() {
-<a href=#238 id=238 data-nosnippet>238</a>        <span class="number">0
-<a href=#239 id=239 data-nosnippet>239</a>    </span>} <span class="kw">else </span>{
-<a href=#240 id=240 data-nosnippet>240</a>        <span class="kw">unsafe </span>{ (<span class="kw-2">*</span>(exception <span class="kw">as </span><span class="kw-2">*mut </span>UwExceptionWrapper)).exnref }
+<a href=#105 id=105 data-nosnippet>105</a></span><span class="macro">macro_rules!</span> log {
+<a href=#106 id=106 data-nosnippet>106</a>    (<span class="macro-nonterminal">$e</span>: expr) =&gt; {
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">if </span><span class="bool-val">false </span>{
+<a href=#108 id=108 data-nosnippet>108</a>            <span class="macro">eprintln!</span>(<span class="macro-nonterminal">$e</span>)
+<a href=#109 id=109 data-nosnippet>109</a>        }
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>    };
+<a href=#112 id=112 data-nosnippet>112</a>
+<a href=#113 id=113 data-nosnippet>113</a>    ($(<span class="macro-nonterminal">$e</span>: expr),<span class="kw-2">*</span>) =&gt; {
+<a href=#114 id=114 data-nosnippet>114</a>        <span class="kw">if </span><span class="bool-val">false </span>{
+<a href=#115 id=115 data-nosnippet>115</a>            <span class="macro">eprintln!</span>($(<span class="macro-nonterminal">$e</span>),<span class="kw-2">*</span>)
+<a href=#116 id=116 data-nosnippet>116</a>        }
+<a href=#117 id=117 data-nosnippet>117</a>
+<a href=#118 id=118 data-nosnippet>118</a>    };
+<a href=#119 id=119 data-nosnippet>119</a>}
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#122 id=122 data-nosnippet>122</a></span><span class="doccomment">/// The implementation of Wasmer's personality function.
+<a href=#123 id=123 data-nosnippet>123</a>///
+<a href=#124 id=124 data-nosnippet>124</a>/// # Safety
+<a href=#125 id=125 data-nosnippet>125</a>///
+<a href=#126 id=126 data-nosnippet>126</a>/// Performs libunwind unwinding magic.
+<a href=#127 id=127 data-nosnippet>127</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_eh_personality(
+<a href=#128 id=128 data-nosnippet>128</a>    version: std::ffi::c_int,
+<a href=#129 id=129 data-nosnippet>129</a>    actions: uw::_Unwind_Action,
+<a href=#130 id=130 data-nosnippet>130</a>    exception_class: uw::_Unwind_Exception_Class,
+<a href=#131 id=131 data-nosnippet>131</a>    exception_object: <span class="kw-2">*mut </span>uw::_Unwind_Exception,
+<a href=#132 id=132 data-nosnippet>132</a>    context: <span class="kw-2">*mut </span>uw::_Unwind_Context,
+<a href=#133 id=133 data-nosnippet>133</a>) -&gt; uw::_Unwind_Reason_Code {
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="kw">unsafe </span>{
+<a href=#135 id=135 data-nosnippet>135</a>        <span class="kw">if </span>version != <span class="number">1 </span>{
+<a href=#136 id=136 data-nosnippet>136</a>            <span class="kw">return </span>uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR;
+<a href=#137 id=137 data-nosnippet>137</a>        }
+<a href=#138 id=138 data-nosnippet>138</a>
+<a href=#139 id=139 data-nosnippet>139</a>        <span class="kw">let </span>uw_exc = std::mem::transmute::&lt;<span class="kw-2">*mut </span>uw::_Unwind_Exception, <span class="kw-2">*mut </span>UwExceptionWrapper&gt;(
+<a href=#140 id=140 data-nosnippet>140</a>            exception_object,
+<a href=#141 id=141 data-nosnippet>141</a>        );
+<a href=#142 id=142 data-nosnippet>142</a>
+<a href=#143 id=143 data-nosnippet>143</a>        <span class="kw">if </span>exception_class != WASMER_EXCEPTION_CLASS {
+<a href=#144 id=144 data-nosnippet>144</a>            <span class="kw">return </span>uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND;
+<a href=#145 id=145 data-nosnippet>145</a>        }
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a>        <span class="kw">let </span>eh_action = <span class="kw">match </span>find_eh_action(context) {
+<a href=#148 id=148 data-nosnippet>148</a>            <span class="prelude-val">Ok</span>(action) =&gt; action,
+<a href=#149 id=149 data-nosnippet>149</a>            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+<a href=#150 id=150 data-nosnippet>150</a>                <span class="kw">return </span>uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR;
+<a href=#151 id=151 data-nosnippet>151</a>            }
+<a href=#152 id=152 data-nosnippet>152</a>        };
+<a href=#153 id=153 data-nosnippet>153</a>
+<a href=#154 id=154 data-nosnippet>154</a>        <span class="kw">let </span>is_catch_specific_or_all = <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>eh_action, EHAction::CatchSpecificOrAll { .. });
+<a href=#155 id=155 data-nosnippet>155</a>        <span class="macro">log!</span>(<span class="string">"[wasmer][eh] stage1 action: {:?}"</span>, eh_action);
+<a href=#156 id=156 data-nosnippet>156</a>
+<a href=#157 id=157 data-nosnippet>157</a>        <span class="kw">if </span>actions <span class="kw">as </span>i32 &amp; uw::_Unwind_Action__UA_SEARCH_PHASE <span class="kw">as </span>i32 != <span class="number">0 </span>{
+<a href=#158 id=158 data-nosnippet>158</a>            <span class="kw">match </span>eh_action {
+<a href=#159 id=159 data-nosnippet>159</a>                EHAction::None =&gt; uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
+<a href=#160 id=160 data-nosnippet>160</a>                EHAction::CatchAll { .. }
+<a href=#161 id=161 data-nosnippet>161</a>                | EHAction::CatchSpecific { .. }
+<a href=#162 id=162 data-nosnippet>162</a>                | EHAction::CatchSpecificOrAll { .. } =&gt; uw::_Unwind_Reason_Code__URC_HANDLER_FOUND,
+<a href=#163 id=163 data-nosnippet>163</a>                EHAction::Terminate =&gt; uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR,
+<a href=#164 id=164 data-nosnippet>164</a>            }
+<a href=#165 id=165 data-nosnippet>165</a>        } <span class="kw">else </span>{
+<a href=#166 id=166 data-nosnippet>166</a>            <span class="comment">// For the catch-specific vs catch-specific-or-all case below, checked before
+<a href=#167 id=167 data-nosnippet>167</a>            // we move eh_action out in the match
+<a href=#168 id=168 data-nosnippet>168</a>            </span><span class="kw">match </span>eh_action {
+<a href=#169 id=169 data-nosnippet>169</a>                EHAction::None =&gt; uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
+<a href=#170 id=170 data-nosnippet>170</a>                EHAction::CatchAll { lpad } =&gt; {
+<a href=#171 id=171 data-nosnippet>171</a>                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">0</span>, uw_exc <span class="kw">as _</span>);
+<a href=#172 id=172 data-nosnippet>172</a>                    <span class="comment">// Zero means immediate catch-all
+<a href=#173 id=173 data-nosnippet>173</a>                    </span>uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">1</span>, <span class="number">0</span>);
+<a href=#174 id=174 data-nosnippet>174</a>                    uw::_Unwind_SetIP(context, lpad <span class="kw">as </span>usize <span class="kw">as _</span>);
+<a href=#175 id=175 data-nosnippet>175</a>                    uw::_Unwind_Reason_Code__URC_INSTALL_CONTEXT
+<a href=#176 id=176 data-nosnippet>176</a>                }
+<a href=#177 id=177 data-nosnippet>177</a>                EHAction::CatchSpecific { lpad, tags }
+<a href=#178 id=178 data-nosnippet>178</a>                | EHAction::CatchSpecificOrAll { lpad, tags } =&gt; {
+<a href=#179 id=179 data-nosnippet>179</a>                    <span class="macro">log!</span>(
+<a href=#180 id=180 data-nosnippet>180</a>                        <span class="string">"[wasmer][eh] stage1 catch tags={:?} catch_all={}"</span>,
+<a href=#181 id=181 data-nosnippet>181</a>                        tags,
+<a href=#182 id=182 data-nosnippet>182</a>                        is_catch_specific_or_all
+<a href=#183 id=183 data-nosnippet>183</a>                    );
+<a href=#184 id=184 data-nosnippet>184</a>                    (<span class="kw-2">*</span>uw_exc).current_frame_info = <span class="prelude-val">Some</span>(Box::new(CurrentFrameInfo {
+<a href=#185 id=185 data-nosnippet>185</a>                        catch_tags: tags,
+<a href=#186 id=186 data-nosnippet>186</a>                        has_catch_all: is_catch_specific_or_all,
+<a href=#187 id=187 data-nosnippet>187</a>                    }));
+<a href=#188 id=188 data-nosnippet>188</a>                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">0</span>, uw_exc <span class="kw">as _</span>);
+<a href=#189 id=189 data-nosnippet>189</a>                    <span class="comment">// One means enter phase 2
+<a href=#190 id=190 data-nosnippet>190</a>                    </span>uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">1</span>, <span class="number">1</span>);
+<a href=#191 id=191 data-nosnippet>191</a>                    uw::_Unwind_SetIP(context, lpad <span class="kw">as </span>usize <span class="kw">as _</span>);
+<a href=#192 id=192 data-nosnippet>192</a>                    uw::_Unwind_Reason_Code__URC_INSTALL_CONTEXT
+<a href=#193 id=193 data-nosnippet>193</a>                }
+<a href=#194 id=194 data-nosnippet>194</a>                EHAction::Terminate =&gt; uw::_Unwind_Reason_Code__URC_FATAL_PHASE2_ERROR,
+<a href=#195 id=195 data-nosnippet>195</a>            }
+<a href=#196 id=196 data-nosnippet>196</a>        }
+<a href=#197 id=197 data-nosnippet>197</a>    }
+<a href=#198 id=198 data-nosnippet>198</a>}
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#201 id=201 data-nosnippet>201</a></span><span class="doccomment">/// The second stage of the personality function. See module level documentation
+<a href=#202 id=202 data-nosnippet>202</a>/// for an explanation of the exact procedure used during unwinding.
+<a href=#203 id=203 data-nosnippet>203</a>///
+<a href=#204 id=204 data-nosnippet>204</a>/// # Safety
+<a href=#205 id=205 data-nosnippet>205</a>///
+<a href=#206 id=206 data-nosnippet>206</a>/// Does pointer accesses, which must be valid.
+<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_eh_personality2(
+<a href=#208 id=208 data-nosnippet>208</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#209 id=209 data-nosnippet>209</a>    exception_object: <span class="kw-2">*mut </span>UwExceptionWrapper,
+<a href=#210 id=210 data-nosnippet>210</a>) -&gt; i32 {
+<a href=#211 id=211 data-nosnippet>211</a>    <span class="kw">unsafe </span>{
+<a href=#212 id=212 data-nosnippet>212</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(current_frame_info) = (<span class="kw-2">*</span>exception_object).current_frame_info.take() <span class="kw">else </span>{
+<a href=#213 id=213 data-nosnippet>213</a>            <span class="comment">// This should never happen
+<a href=#214 id=214 data-nosnippet>214</a>            </span><span class="macro">unreachable!</span>(<span class="string">"wasmer_eh_personality2 called without current_frame_info"</span>);
+<a href=#215 id=215 data-nosnippet>215</a>        };
+<a href=#216 id=216 data-nosnippet>216</a>
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="macro">log!</span>(
+<a href=#218 id=218 data-nosnippet>218</a>            <span class="string">"[wasmer][eh] stage2 catch_tags={:?} has_catch_all={}"</span>,
+<a href=#219 id=219 data-nosnippet>219</a>            current_frame_info.catch_tags,
+<a href=#220 id=220 data-nosnippet>220</a>            current_frame_info.has_catch_all
+<a href=#221 id=221 data-nosnippet>221</a>        );
+<a href=#222 id=222 data-nosnippet>222</a>
+<a href=#223 id=223 data-nosnippet>223</a>        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+<a href=#224 id=224 data-nosnippet>224</a>        <span class="kw">let </span>exn = <span class="kw">super</span>::exn_obj_from_exnref(vmctx, (<span class="kw-2">*</span>exception_object).exnref);
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">for </span>tag <span class="kw">in </span>current_frame_info.catch_tags {
+<a href=#227 id=227 data-nosnippet>227</a>            <span class="macro">log!</span>(<span class="string">"[wasmer][eh] stage2 checking tag {}"</span>, tag);
+<a href=#228 id=228 data-nosnippet>228</a>            <span class="kw">let </span>unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
+<a href=#229 id=229 data-nosnippet>229</a>            <span class="kw">if </span>unique_tag == (<span class="kw-2">*</span>exn).tag_index() {
+<a href=#230 id=230 data-nosnippet>230</a>                <span class="kw">return </span>tag <span class="kw">as </span>i32;
+<a href=#231 id=231 data-nosnippet>231</a>            }
+<a href=#232 id=232 data-nosnippet>232</a>        }
+<a href=#233 id=233 data-nosnippet>233</a>
+<a href=#234 id=234 data-nosnippet>234</a>        <span class="kw">if </span>current_frame_info.has_catch_all {
+<a href=#235 id=235 data-nosnippet>235</a>            <span class="macro">log!</span>(<span class="string">"[wasmer][eh] stage2 falling back to catch-all"</span>);
+<a href=#236 id=236 data-nosnippet>236</a>            CATCH_ALL_TAG_VALUE
+<a href=#237 id=237 data-nosnippet>237</a>        } <span class="kw">else </span>{
+<a href=#238 id=238 data-nosnippet>238</a>            <span class="macro">log!</span>(<span class="string">"[wasmer][eh] stage2 found no match"</span>);
+<a href=#239 id=239 data-nosnippet>239</a>            NO_MATCH_FOUND_TAG_VALUE
+<a href=#240 id=240 data-nosnippet>240</a>        }
 <a href=#241 id=241 data-nosnippet>241</a>    }
 <a href=#242 id=242 data-nosnippet>242</a>}
 <a href=#243 id=243 data-nosnippet>243</a>
-<a href=#244 id=244 data-nosnippet>244</a><span class="doccomment">/// # Safety
-<a href=#245 id=245 data-nosnippet>245</a>///
-<a href=#246 id=246 data-nosnippet>246</a>/// Performs libunwind unwinding magic. Highly unsafe.
-<a href=#247 id=247 data-nosnippet>247</a></span><span class="kw">pub unsafe fn </span>throw(ctx: <span class="kw-2">&amp;</span>StoreObjects, exnref: u32) -&gt; ! {
-<a href=#248 id=248 data-nosnippet>248</a>    <span class="kw">unsafe </span>{
-<a href=#249 id=249 data-nosnippet>249</a>        <span class="kw">if </span>exnref == <span class="number">0 </span>{
-<a href=#250 id=250 data-nosnippet>250</a>            <span class="kw">crate</span>::raise_lib_trap(<span class="kw">crate</span>::Trap::lib(
-<a href=#251 id=251 data-nosnippet>251</a>                wasmer_types::TrapCode::UninitializedExnRef,
-<a href=#252 id=252 data-nosnippet>252</a>            ))
-<a href=#253 id=253 data-nosnippet>253</a>        }
-<a href=#254 id=254 data-nosnippet>254</a>
-<a href=#255 id=255 data-nosnippet>255</a>        <span class="kw">let </span>exception = Box::new(UwExceptionWrapper::new(exnref));
-<a href=#256 id=256 data-nosnippet>256</a>        <span class="kw">let </span>exception_ptr = Box::into_raw(exception);
-<a href=#257 id=257 data-nosnippet>257</a>
-<a href=#258 id=258 data-nosnippet>258</a>        <span class="kw">match </span>uw::_Unwind_RaiseException(exception_ptr <span class="kw">as </span><span class="kw-2">*mut </span>libunwind::_Unwind_Exception) {
-<a href=#259 id=259 data-nosnippet>259</a>            libunwind::_Unwind_Reason_Code__URC_END_OF_STACK =&gt; {
-<a href=#260 id=260 data-nosnippet>260</a>                delete_exception(exception_ptr <span class="kw">as </span><span class="kw-2">*mut </span>c_void);
-<a href=#261 id=261 data-nosnippet>261</a>
-<a href=#262 id=262 data-nosnippet>262</a>                <span class="kw">let </span>exnref = VMExceptionRef(StoreHandle::from_internal(
-<a href=#263 id=263 data-nosnippet>263</a>                    ctx.id(),
-<a href=#264 id=264 data-nosnippet>264</a>                    InternalStoreHandle::from_index(exnref <span class="kw">as </span>usize).unwrap(),
-<a href=#265 id=265 data-nosnippet>265</a>                ));
-<a href=#266 id=266 data-nosnippet>266</a>                <span class="kw">crate</span>::raise_lib_trap(<span class="kw">crate</span>::Trap::uncaught_exception(exnref, ctx))
-<a href=#267 id=267 data-nosnippet>267</a>            }
-<a href=#268 id=268 data-nosnippet>268</a>            <span class="kw">_ </span>=&gt; {
-<a href=#269 id=269 data-nosnippet>269</a>                <span class="macro">unreachable!</span>()
-<a href=#270 id=270 data-nosnippet>270</a>            }
-<a href=#271 id=271 data-nosnippet>271</a>        }
+<a href=#244 id=244 data-nosnippet>244</a><span class="kw">unsafe fn </span>find_eh_action(context: <span class="kw-2">*mut </span>uw::_Unwind_Context) -&gt; <span class="prelude-ty">Result</span>&lt;EHAction, ()&gt; {
+<a href=#245 id=245 data-nosnippet>245</a>    <span class="kw">unsafe </span>{
+<a href=#246 id=246 data-nosnippet>246</a>        <span class="kw">let </span>lsda = uw::_Unwind_GetLanguageSpecificData(context) <span class="kw">as </span><span class="kw-2">*const </span>u8;
+<a href=#247 id=247 data-nosnippet>247</a>        <span class="kw">let </span><span class="kw-2">mut </span>ip_before_instr: std::ffi::c_int = <span class="number">0</span>;
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>ip = uw::_Unwind_GetIPInfo(context, <span class="kw-2">&amp;mut </span>ip_before_instr);
+<a href=#249 id=249 data-nosnippet>249</a>        <span class="kw">let </span>eh_context = EHContext {
+<a href=#250 id=250 data-nosnippet>250</a>            <span class="comment">// The return address points 1 byte past the call instruction,
+<a href=#251 id=251 data-nosnippet>251</a>            // which could be in the next IP range in LSDA range table.
+<a href=#252 id=252 data-nosnippet>252</a>            //
+<a href=#253 id=253 data-nosnippet>253</a>            // `ip = -1` has special meaning, so use wrapping sub to allow for that
+<a href=#254 id=254 data-nosnippet>254</a>            </span>ip: <span class="kw">if </span>ip_before_instr != <span class="number">0 </span>{
+<a href=#255 id=255 data-nosnippet>255</a>                ip <span class="kw">as _
+<a href=#256 id=256 data-nosnippet>256</a>            </span>} <span class="kw">else </span>{
+<a href=#257 id=257 data-nosnippet>257</a>                ip.wrapping_sub(<span class="number">1</span>) <span class="kw">as _
+<a href=#258 id=258 data-nosnippet>258</a>            </span>},
+<a href=#259 id=259 data-nosnippet>259</a>            func_start: uw::_Unwind_GetRegionStart(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
+<a href=#260 id=260 data-nosnippet>260</a>            get_text_start: <span class="kw-2">&amp;</span>|| uw::_Unwind_GetTextRelBase(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
+<a href=#261 id=261 data-nosnippet>261</a>            get_data_start: <span class="kw-2">&amp;</span>|| uw::_Unwind_GetDataRelBase(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
+<a href=#262 id=262 data-nosnippet>262</a>        };
+<a href=#263 id=263 data-nosnippet>263</a>        eh::find_eh_action(lsda, <span class="kw-2">&amp;</span>eh_context)
+<a href=#264 id=264 data-nosnippet>264</a>    }
+<a href=#265 id=265 data-nosnippet>265</a>}
+<a href=#266 id=266 data-nosnippet>266</a>
+<a href=#267 id=267 data-nosnippet>267</a><span class="kw">pub unsafe fn </span>read_exnref(exception: <span class="kw-2">*mut </span>c_void) -&gt; u32 {
+<a href=#268 id=268 data-nosnippet>268</a>    <span class="kw">if </span>exception.is_null() {
+<a href=#269 id=269 data-nosnippet>269</a>        <span class="number">0
+<a href=#270 id=270 data-nosnippet>270</a>    </span>} <span class="kw">else </span>{
+<a href=#271 id=271 data-nosnippet>271</a>        <span class="kw">unsafe </span>{ (<span class="kw-2">*</span>(exception <span class="kw">as </span><span class="kw-2">*mut </span>UwExceptionWrapper)).exnref }
 <a href=#272 id=272 data-nosnippet>272</a>    }
 <a href=#273 id=273 data-nosnippet>273</a>}
 <a href=#274 id=274 data-nosnippet>274</a>
-<a href=#275 id=275 data-nosnippet>275</a><span class="kw">pub unsafe fn </span>delete_exception(exception: <span class="kw-2">*mut </span>c_void) {
-<a href=#276 id=276 data-nosnippet>276</a>    <span class="kw">unsafe </span>{
-<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">if </span>!exception.is_null() {
-<a href=#278 id=278 data-nosnippet>278</a>            uw::_Unwind_DeleteException(exception <span class="kw">as </span><span class="kw-2">*mut </span>uw::_Unwind_Exception);
-<a href=#279 id=279 data-nosnippet>279</a>        }
-<a href=#280 id=280 data-nosnippet>280</a>    }
-<a href=#281 id=281 data-nosnippet>281</a>}
-<a href=#282 id=282 data-nosnippet>282</a>
-<a href=#283 id=283 data-nosnippet>283</a><span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>deallocate_exception(
-<a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">_</span>: uw::_Unwind_Reason_Code,
-<a href=#285 id=285 data-nosnippet>285</a>    exception: <span class="kw-2">*mut </span>uw::_Unwind_Exception,
-<a href=#286 id=286 data-nosnippet>286</a>) {
-<a href=#287 id=287 data-nosnippet>287</a>    <span class="kw">unsafe </span>{
-<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">let </span>exception = Box::from_raw(exception <span class="kw">as </span><span class="kw-2">*mut </span>UwExceptionWrapper);
-<a href=#289 id=289 data-nosnippet>289</a>        drop(exception);
-<a href=#290 id=290 data-nosnippet>290</a>    }
-<a href=#291 id=291 data-nosnippet>291</a>}</code></pre></div></section></main></body></html>
+<a href=#275 id=275 data-nosnippet>275</a><span class="doccomment">/// # Safety
+<a href=#276 id=276 data-nosnippet>276</a>///
+<a href=#277 id=277 data-nosnippet>277</a>/// Performs libunwind unwinding magic. Highly unsafe.
+<a href=#278 id=278 data-nosnippet>278</a></span><span class="kw">pub unsafe fn </span>throw(ctx: <span class="kw-2">&amp;</span>StoreObjects, exnref: u32) -&gt; ! {
+<a href=#279 id=279 data-nosnippet>279</a>    <span class="kw">unsafe </span>{
+<a href=#280 id=280 data-nosnippet>280</a>        <span class="macro">log!</span>(<span class="string">"[wasmer][eh] throw resolved exnref={exnref}"</span>);
+<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">if </span>exnref == <span class="number">0 </span>{
+<a href=#282 id=282 data-nosnippet>282</a>            <span class="kw">crate</span>::raise_lib_trap(<span class="kw">crate</span>::Trap::lib(
+<a href=#283 id=283 data-nosnippet>283</a>                wasmer_types::TrapCode::UninitializedExnRef,
+<a href=#284 id=284 data-nosnippet>284</a>            ))
+<a href=#285 id=285 data-nosnippet>285</a>        }
+<a href=#286 id=286 data-nosnippet>286</a>
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span>exception = Box::new(UwExceptionWrapper::new(exnref));
+<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">let </span>exception_ptr = Box::into_raw(exception);
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="kw">match </span>uw::_Unwind_RaiseException(exception_ptr <span class="kw">as </span><span class="kw-2">*mut </span>libunwind::_Unwind_Exception) {
+<a href=#291 id=291 data-nosnippet>291</a>            libunwind::_Unwind_Reason_Code__URC_END_OF_STACK =&gt; {
+<a href=#292 id=292 data-nosnippet>292</a>                delete_exception(exception_ptr <span class="kw">as </span><span class="kw-2">*mut </span>c_void);
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a>                <span class="kw">let </span>exnref = VMExceptionRef(StoreHandle::from_internal(
+<a href=#295 id=295 data-nosnippet>295</a>                    ctx.id(),
+<a href=#296 id=296 data-nosnippet>296</a>                    InternalStoreHandle::from_index(exnref <span class="kw">as </span>usize).unwrap(),
+<a href=#297 id=297 data-nosnippet>297</a>                ));
+<a href=#298 id=298 data-nosnippet>298</a>                <span class="macro">log!</span>(
+<a href=#299 id=299 data-nosnippet>299</a>                    <span class="string">"[wasmer][eh] throw -&gt; URC_END_OF_STACK (personality={:p})"</span>,
+<a href=#300 id=300 data-nosnippet>300</a>                    wasmer_eh_personality <span class="kw">as </span><span class="kw-2">*const </span>()
+<a href=#301 id=301 data-nosnippet>301</a>                );
+<a href=#302 id=302 data-nosnippet>302</a>                <span class="kw">crate</span>::raise_lib_trap(<span class="kw">crate</span>::Trap::uncaught_exception(exnref, ctx))
+<a href=#303 id=303 data-nosnippet>303</a>            }
+<a href=#304 id=304 data-nosnippet>304</a>            other =&gt; {
+<a href=#305 id=305 data-nosnippet>305</a>                <span class="macro">log!</span>(<span class="string">"[wasmer][eh] throw -&gt; unexpected code {:?}"</span>, other);
+<a href=#306 id=306 data-nosnippet>306</a>                <span class="macro">unreachable!</span>()
+<a href=#307 id=307 data-nosnippet>307</a>            }
+<a href=#308 id=308 data-nosnippet>308</a>        }
+<a href=#309 id=309 data-nosnippet>309</a>    }
+<a href=#310 id=310 data-nosnippet>310</a>}
+<a href=#311 id=311 data-nosnippet>311</a>
+<a href=#312 id=312 data-nosnippet>312</a><span class="kw">pub unsafe fn </span>delete_exception(exception: <span class="kw-2">*mut </span>c_void) {
+<a href=#313 id=313 data-nosnippet>313</a>    <span class="kw">unsafe </span>{
+<a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">if </span>!exception.is_null() {
+<a href=#315 id=315 data-nosnippet>315</a>            uw::_Unwind_DeleteException(exception <span class="kw">as </span><span class="kw-2">*mut </span>uw::_Unwind_Exception);
+<a href=#316 id=316 data-nosnippet>316</a>        }
+<a href=#317 id=317 data-nosnippet>317</a>    }
+<a href=#318 id=318 data-nosnippet>318</a>}
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a><span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>deallocate_exception(
+<a href=#321 id=321 data-nosnippet>321</a>    <span class="kw">_</span>: uw::_Unwind_Reason_Code,
+<a href=#322 id=322 data-nosnippet>322</a>    exception: <span class="kw-2">*mut </span>uw::_Unwind_Exception,
+<a href=#323 id=323 data-nosnippet>323</a>) {
+<a href=#324 id=324 data-nosnippet>324</a>    <span class="kw">unsafe </span>{
+<a href=#325 id=325 data-nosnippet>325</a>        <span class="kw">let </span>exception = Box::from_raw(exception <span class="kw">as </span><span class="kw-2">*mut </span>UwExceptionWrapper);
+<a href=#326 id=326 data-nosnippet>326</a>        drop(exception);
+<a href=#327 id=327 data-nosnippet>327</a>    }
+<a href=#328 id=328 data-nosnippet>328</a>}</code></pre></div></section></main></body></html>
