@@ -1,3 +1,3 @@
 set -e
 
-$WASMER -q run main.wasm
+$WASMER_RUN main.wasm
