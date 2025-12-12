@@ -332,7 +332,7 @@ unsafe fn read_encoded_pointer(
 
     log!("(pers) About to read encoded pointer at {:?}", reader.ptr);
 
-    let base_ptr = match encoding {
+    let base_ptr = match DwEhPe(encoding.0 & 0x70) {
         gimli::DW_EH_PE_absptr => {
             log!("(pers) encoding is: DW_EH_PE_absptr");
             core::ptr::null()
@@ -388,7 +388,7 @@ unsafe fn read_encoded_pointer(
     let mut ptr = if base_ptr.is_null() {
         // any value encoding other than absptr would be nonsensical here;
         // there would be no source of pointer provenance
-        if encoding != gimli::DW_EH_PE_absptr {
+        if DwEhPe(encoding.0 & 0x0f) != gimli::DW_EH_PE_absptr {
             return Err(());
         }
         unsafe { reader.read::<*const u8>() }
