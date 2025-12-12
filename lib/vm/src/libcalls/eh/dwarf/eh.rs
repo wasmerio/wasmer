@@ -401,7 +401,7 @@ unsafe fn read_encoded_pointer(
 
     log!("(pers) about to read from {ptr:?}");
 
-    if encoding & gimli::DW_EH_PE_indirect != 0 {
+    if DwEhPe(encoding.0 & 0x0f) == gimli::DW_EH_PE_indirect {
         ptr = unsafe { ptr.cast::<*const u8>().read_unaligned() };
     }
 
