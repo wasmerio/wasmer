@@ -182,7 +182,7 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                                 }
 
                                 let tag_ptr = {
-                                    let new_ttype_index = match ttype_encoding {
+                                    let new_ttype_index = match DwEhPe(ttype_encoding.0 & 0x0f) {
                                         gimli::DW_EH_PE_absptr => {
                                             ttype_index * (size_of::<*const u8>() as i64)
                                         }
