@@ -4,7 +4,7 @@ export WASMER="$(realpath "../../target/release/wasmer")"
 status=0
 run_tests() {
     local backend="$1"
-    export WASMER_RUN="${WASMER} run ${backend}"
+    export WASMER_RUN="${WASMER} run -q ${backend}"
 
     printf "\n\nStarting WASIX Test Suite ($backend):\n"
     while read dir; do
