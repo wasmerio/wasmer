@@ -174,27 +174,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git make lld curl
 
-      - name: Download binaryen
-        uses: dsaltares/fetch-gh-release-asset@1.1.2
-        with:
-          repo: WebAssembly/binaryen
-          version: tags/version_123
-          file: binaryen-version_123-x86_64-linux.tar.gz
-          target: binaryen/binaryen.tar.gz
-
-      - name: Install wasixcc, sysroot and LLVM
+      - name: Install wasixcc
+        if: matrix.metadata.build != 'windows-x64'
         run: |
           export RUST_LOG=wasixcc=trace
           export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           cargo install --git https://github.com/wasix-org/wasixcc.git --rev 2df8392a1cb9e7b050130f6ac01cd84d9e39406f -F bin
           mkdir wasixcc-install
-          wasixcc --install-executables ./wasixcc-install
-          echo "$(pwd)/wasixcc-install" >> $GITHUB_PATH
-          mkdir -p ~/.wasixcc/llvm
-          mkdir -p ~/.wasixcc/sysroot
+          wasixcc --install-executables $HOME/.wasixcc/bin
+          echo $HOME/.wasixcc/bin >> $GITHUB_PATH
           wasixcc --download-sysroot v2025-12-10.1
           wasixcc --download-llvm
           wasixcc --download-binaryen
+          echo $HOME/.wasixcc/binaryen/bin >> $GITHUB_PATH
 
       - name: Tool versions
         run: |
@@ -891,20 +883,18 @@ jobs:
           echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
 
       - name: Install wasixcc
-        if: matrix.metadata.build == 'linux-x64' || matrix.metadata.build == 'linux-musl'
+        if: matrix.metadata.build != 'windows-x64'
         run: |
           export RUST_LOG=wasixcc=trace
           export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           cargo install --git https://github.com/wasix-org/wasixcc.git --rev 2df8392a1cb9e7b050130f6ac01cd84d9e39406f -F bin
           mkdir wasixcc-install
-          wasixcc --install-executables ./wasixcc-install
-          echo "$(pwd)/wasixcc-install" >> $GITHUB_PATH
-          mkdir -p ~/.wasixcc/llvm
-          mkdir -p ~/.wasixcc/sysroot
-          mkdir -p ~/.wasixcc/binaryen
+          wasixcc --install-executables $HOME/.wasixcc/bin
+          echo $HOME/.wasixcc/bin >> $GITHUB_PATH
           wasixcc --download-sysroot v2025-12-10.1
           wasixcc --download-llvm
           wasixcc --download-binaryen
+          echo $HOME/.wasixcc/binaryen/bin >> $GITHUB_PATH
 
       - name: Install LLVM
         shell: bash
