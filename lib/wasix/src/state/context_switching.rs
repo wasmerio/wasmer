@@ -25,6 +25,9 @@ use wasmer_wasix_types::wasi::ExitCode;
 /// on a single host thread.
 #[derive(Debug)]
 pub(crate) struct ContextSwitchingEnvironment {
+    // TODO: We might be able to get rid of this Arc by passing an AsyncFunctionEnvMut to the functions instead
+    //       We need to be super-careful about memory leaks by cyclical references if we do that change.
+    //       The Arc allows us to have weak references to the ContextSwitchingEnvironment indepenend of the WasiEnv.
     inner: Arc<ContextSwitchingEnvironmentInner>,
 }
 
