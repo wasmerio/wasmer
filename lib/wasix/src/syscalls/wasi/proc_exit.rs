@@ -34,9 +34,9 @@ pub fn proc_exit<M: MemorySize>(
         );
 
         // Restore the WasiEnv to the point when we vforked
-        vfork.env.swap_inner(ctx.data_mut());
-        std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
-        let mut child_env = *vfork.env;
+        let mut parent_env = vfork.env;
+        ctx.data_mut().swap_inner(parent_env.as_mut());
+        let mut child_env = std::mem::replace(ctx.data_mut(), *parent_env);
         child_env.owned_handles.push(vfork.handle);
 
         // Terminate the child process

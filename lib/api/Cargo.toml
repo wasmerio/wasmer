@@ -133,7 +133,7 @@ sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
 sys-default = ["sys", "wat", "cranelift"]
 
 # Experimental concurrent execution support
-experimental-async = ["sys", "dep:futures", "dep:corosensei"]
+experimental-async = ["dep:futures", "dep:corosensei"]
 
 # - Compilers.
 compiler = [

@@ -1,6 +1,5 @@
 #![allow(clippy::result_large_err)]
-use std::sync::Arc;
-
+use super::{BinaryPackage, BinaryPackageCommand};
 use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
     os::task::{
@@ -14,15 +13,15 @@ use crate::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
     },
+    state::context_switching::ContextSwitchingEnvironment,
     syscalls::rewind_ext,
 };
+use crate::{Runtime, WasiEnv, WasiFunctionEnv};
+use std::sync::Arc;
 use tracing::*;
 use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
-
-use super::{BinaryPackage, BinaryPackageCommand};
-use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
 pub async fn spawn_exec(
@@ -185,28 +184,28 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     let recycle = props.recycle;
 
     // Perform the initialization
-    let ctx = {
-        // If this module exports an _initialize function, run that first.
-        if let Ok(initialize) = ctx
-            .data(&store)
-            .inner()
-            .main_module_instance_handles()
-            .instance
-            .exports
-            .get_function("_initialize")
-        {
-            let initialize = initialize.clone();
-            if let Err(err) = initialize.call(&mut store, &[]) {
-                thread.thread.set_status_finished(Err(err.into()));
-                ctx.data(&store)
-                    .blocking_on_exit(Some(Errno::Noexec.into()));
-                unsafe { run_recycle(recycle, ctx, store) };
-                return;
-            }
-        }
+    // If this module exports an _initialize function, run that first.
+    if let Ok(initialize) = ctx
+        .data(&store)
+        .inner()
+        .main_module_instance_handles()
+        .instance
+        .exports
+        .get_function("_initialize")
+        .cloned()
+    {
+        // This does not need a context switching environment as the documentation
+        // states that that is only available after the first call to main
+        let result = initialize.call(&mut store, &[]);
 
-        WasiFunctionEnv { env: ctx.env }
-    };
+        if let Err(err) = result {
+            thread.thread.set_status_finished(Err(err.into()));
+            ctx.data(&store)
+                .blocking_on_exit(Some(Errno::Noexec.into()));
+            unsafe { run_recycle(recycle, ctx, store) };
+            return;
+        }
+    }
 
     // Bootstrap the process
     // Unsafe: The bootstrap must be executed in the same thread that runs the
@@ -289,85 +288,87 @@ fn call_module(
     }
 
     // Invoke the start function
-    let ret = {
-        // Call the module
-        let Some(start) = get_start(&ctx, &store) else {
-            debug!("wasi[{}]::exec-failed: missing _start function", pid);
-            ctx.data(&store)
-                .blocking_on_exit(Some(Errno::Noexec.into()));
-            unsafe { run_recycle(recycle, ctx, store) };
-            return;
+    // Call the module
+    let Some(start) = get_start(&ctx, &store) else {
+        debug!("wasi[{}]::exec-failed: missing _start function", pid);
+        ctx.data(&store)
+            .blocking_on_exit(Some(Errno::Noexec.into()));
+        unsafe { run_recycle(recycle, ctx, store) };
+        return;
+    };
+
+    let (mut store, mut call_ret) =
+        ContextSwitchingEnvironment::run_main_context(&ctx, store, start.clone(), vec![]);
+
+    let mut store = loop {
+        // Technically, it's an error for a vfork to return from main, but anyway...
+        store = match resume_vfork(&ctx, store, &start, &call_ret) {
+            // A vfork was resumed, there may be another, so loop back
+            (store, Ok(Some(ret))) => {
+                call_ret = ret;
+                store
+            }
+
+            // An error was encountered when restoring from the vfork, report it
+            (store, Err(e)) => {
+                call_ret = Err(RuntimeError::user(Box::new(WasiError::Exit(e.into()))));
+                break store;
+            }
+
+            // No vfork, keep the call_ret value
+            (store, Ok(None)) => break store,
         };
+    };
 
-        let mut call_ret = start.call(&mut store, &[]);
-
-        loop {
-            // Technically, it's an error for a vfork to return from main, but anyway...
-            match resume_vfork(&ctx, &mut store, &start, &call_ret) {
-                // A vfork was resumed, there may be another, so loop back
-                Ok(Some(ret)) => call_ret = ret,
-
-                // An error was encountered when restoring from the vfork, report it
-                Err(e) => {
-                    call_ret = Err(RuntimeError::user(Box::new(WasiError::Exit(e.into()))));
-                    break;
-                }
-
-                // No vfork, keep the call_ret value
-                Ok(None) => break,
+    let ret = if let Err(err) = call_ret {
+        match err.downcast::<WasiError>() {
+            Ok(WasiError::Exit(code)) if code.is_success() => Ok(Errno::Success),
+            Ok(WasiError::ThreadExit) => Ok(Errno::Success),
+            Ok(WasiError::Exit(code)) => {
+                runtime.on_taint(TaintReason::NonZeroExitCode(code));
+                Err(WasiError::Exit(code).into())
             }
-        }
-
-        if let Err(err) = call_ret {
-            match err.downcast::<WasiError>() {
-                Ok(WasiError::Exit(code)) if code.is_success() => Ok(Errno::Success),
-                Ok(WasiError::ThreadExit) => Ok(Errno::Success),
-                Ok(WasiError::Exit(code)) => {
-                    runtime.on_taint(TaintReason::NonZeroExitCode(code));
-                    Err(WasiError::Exit(code).into())
-                }
-                Ok(WasiError::DeepSleep(deep)) => {
-                    // Create the callback that will be invoked when the thread respawns after a deep sleep
-                    let rewind = deep.rewind;
-                    let respawn = {
-                        move |ctx, store, rewind_result| {
-                            // Call the thread
-                            call_module(
-                                ctx,
-                                store,
-                                handle,
-                                Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
-                                recycle,
-                            );
-                        }
-                    };
-
-                    // Spawns the WASM process after a trigger
-                    if let Err(err) = unsafe {
-                        tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
-                    } {
-                        debug!("failed to go into deep sleep - {}", err);
+            Ok(WasiError::DeepSleep(deep)) => {
+                // Create the callback that will be invoked when the thread respawns after a deep sleep
+                let rewind = deep.rewind;
+                let respawn = {
+                    move |ctx, store, rewind_result| {
+                        // Call the thread
+                        call_module(
+                            ctx,
+                            store,
+                            handle,
+                            Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
+                            recycle,
+                        );
                     }
-                    return;
+                };
+
+                // Spawns the WASM process after a trigger
+                if let Err(err) = unsafe {
+                    tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+                } {
+                    debug!("failed to go into deep sleep - {}", err);
                 }
-                Ok(WasiError::UnknownWasiVersion) => {
-                    debug!("failed as wasi version is unknown");
-                    runtime.on_taint(TaintReason::UnknownWasiVersion);
-                    Ok(Errno::Noexec)
-                }
-                Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
-                    debug!("failed as a needed DL symbol could not be resolved");
-                    runtime.on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
-                    Err(WasiError::DlSymbolResolutionFailed(symbol).into())
-                }
-                Err(err) => {
-                    runtime.on_taint(TaintReason::RuntimeError(err.clone()));
-                    Err(WasiRuntimeError::from(err))
-                }
+                return;
             }
-        } else {
-            Ok(Errno::Success)
+            Ok(WasiError::UnknownWasiVersion) => {
+                debug!("failed as wasi version is unknown");
+                runtime.on_taint(TaintReason::UnknownWasiVersion);
+                Ok(Errno::Noexec)
+            }
+            Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
+                debug!("failed as a needed DL symbol could not be resolved");
+                runtime.on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+                Err(WasiError::DlSymbolResolutionFailed(symbol).into())
+            }
+            Err(err) => {
+                runtime.on_taint(TaintReason::RuntimeError(err.clone()));
+                Err(WasiRuntimeError::from(err))
+            }
         }
+    } else {
+        Ok(Errno::Success)
     };
 
     let code = if let Err(err) = &ret {
@@ -395,15 +396,18 @@ fn call_module(
 #[allow(clippy::type_complexity)]
 fn resume_vfork(
     ctx: &WasiFunctionEnv,
-    store: &mut Store,
+    mut store: Store,
     start: &Function,
     call_ret: &Result<Box<[Value]>, RuntimeError>,
-) -> Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno> {
+) -> (
+    Store,
+    Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno>,
+) {
     let (err, code) = match call_ret {
         Ok(_) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
         Err(err) => match err.downcast_ref::<WasiError>() {
             // If the child process is just deep sleeping, we don't restore the vfork
-            Some(WasiError::DeepSleep(..)) => return Ok(None),
+            Some(WasiError::DeepSleep(..)) => return (store, Ok(None)),
 
             Some(WasiError::Exit(code)) => (None, *code),
             Some(WasiError::ThreadExit) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
@@ -416,44 +420,52 @@ fn resume_vfork(
         },
     };
 
-    if let Some(mut vfork) = ctx.data_mut(store).vfork.take() {
+    if let Some(mut vfork) = ctx.data_mut(&mut store).vfork.take() {
         if let Some(err) = err {
             error!(%err, "Error from child process");
             eprintln!("{err}");
         }
 
         block_on(
-            unsafe { ctx.data(store).get_memory_and_wasi_state(store, 0) }
+            unsafe { ctx.data(&store).get_memory_and_wasi_state(&store, 0) }
                 .1
                 .fs
                 .close_all(),
         );
 
         tracing::debug!(
-            pid = %ctx.data_mut(store).process.pid(),
+            pid = %ctx.data_mut(&mut store).process.pid(),
             vfork_pid = %vfork.env.process.pid(),
             "Resuming from vfork after child process was terminated"
         );
 
         // Restore the WasiEnv to the point when we vforked
-        vfork.env.swap_inner(ctx.data_mut(store));
-        std::mem::swap(vfork.env.as_mut(), ctx.data_mut(store));
+        vfork.env.swap_inner(ctx.data_mut(&mut store));
+        std::mem::swap(vfork.env.as_mut(), ctx.data_mut(&mut store));
         let mut child_env = *vfork.env;
         child_env.owned_handles.push(vfork.handle);
 
         // Terminate the child process
         child_env.process.terminate(code);
 
+        // If the vfork contained a context-switching environment, exit now
+        if ctx.data(&store).context_switching_environment.is_some() {
+            tracing::error!(
+                "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent parent process will be terminated."
+            );
+            return (store, Err(code.into()));
+        }
+
         // Jump back to the vfork point and current on execution
         let child_pid = child_env.process.pid();
         let rewind_stack = vfork.rewind_stack.freeze();
         let store_data = vfork.store_data;
 
-        let ctx = ctx.env.clone().into_mut(store);
+        let ctx_cloned = ctx.env.clone().into_mut(&mut store);
         // Now rewind the previous stack and carry on from where we did the vfork
         let rewind_result = if vfork.is_64bit {
             crate::syscalls::rewind::<Memory64, _>(
-                ctx,
+                ctx_cloned,
                 None,
                 rewind_stack,
                 store_data,
@@ -464,7 +476,7 @@ fn resume_vfork(
             )
         } else {
             crate::syscalls::rewind::<Memory32, _>(
-                ctx,
+                ctx_cloned,
                 None,
                 rewind_stack,
                 store_data,
@@ -476,13 +488,23 @@ fn resume_vfork(
         };
 
         match rewind_result {
-            Errno::Success => Ok(Some(start.call(store, &[]))),
+            Errno::Success => {
+                // We should only get here, if the engine does not support context switching
+                // If the engine supports it, we should exit in the check a few lines above
+                let (store, result) = ContextSwitchingEnvironment::run_main_context(
+                    ctx,
+                    store,
+                    start.clone(),
+                    vec![],
+                );
+                (store, Ok(Some(result)))
+            }
             err => {
                 warn!("fork failed - could not rewind the stack - errno={}", err);
-                Err(err)
+                (store, Err(err))
             }
         }
     } else {
-        Ok(None)
+        (store, Ok(None))
     }
 }
