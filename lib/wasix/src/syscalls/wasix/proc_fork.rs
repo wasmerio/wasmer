@@ -58,6 +58,11 @@ pub fn proc_fork<M: MemorySize>(
     }
     trace!(%copy_memory, "capturing");
 
+    if let Some(vfork) = ctx.data().vfork.as_ref() {
+        warn!("process forking not supported in an active vfork");
+        return Ok(Errno::Notsup);
+    }
+
     // Fork the environment which will copy all the open file handlers
     // and associate a new context but otherwise shares things like the
     // file system interface. The handle to the forked process is stored
@@ -108,13 +113,14 @@ pub fn proc_fork<M: MemorySize>(
             // if it had actually forked
             child_env.swap_inner(ctx.data_mut());
             std::mem::swap(ctx.data_mut(), &mut child_env);
-            ctx.data_mut().vfork.replace(WasiVFork {
+            let previous_vfork = ctx.data_mut().vfork.replace(WasiVFork {
                 rewind_stack: rewind_stack.clone(),
                 store_data: store_data.clone(),
                 env: Box::new(child_env),
                 handle: child_handle,
                 is_64bit: M::is_64bit(),
             });
+            assert!(previous_vfork.is_none()); // Already checked above
 
             // Carry on as if the fork had taken place (which basically means
             // it prevents to be the new process with the old one suspended)
