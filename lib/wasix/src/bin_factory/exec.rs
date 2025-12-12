@@ -489,6 +489,8 @@ fn resume_vfork(
 
         match rewind_result {
             Errno::Success => {
+                // We should only get here, if the engine does not support context switching
+                // If the engine supports it, we should exit in the check a few lines above
                 let (store, result) = ContextSwitchingEnvironment::run_main_context(
                     ctx,
                     store,
