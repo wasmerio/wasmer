@@ -182,19 +182,11 @@ jobs:
           file: binaryen-version_123-x86_64-linux.tar.gz
           target: binaryen/binaryen.tar.gz
 
-      - name: Unpack binaryen
-        run: |
-          tar -xf binaryen/binaryen.tar.gz -C binaryen --strip-components=1
-          chmod +x binaryen/bin/*
-          export BINARYEN_DIR=$(pwd)/binaryen
-          echo "$BINARYEN_DIR/bin" >> $GITHUB_PATH
-
       - name: Install wasixcc, sysroot and LLVM
         run: |
           export RUST_LOG=wasixcc=trace
           export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          rustup toolchain install 1.90 --profile minimal --no-self-update
-          cargo +1.90 install wasixcc -F bin
+          cargo install --git https://github.com/wasix-org/wasixcc.git --rev 2df8392a1cb9e7b050130f6ac01cd84d9e39406f -F bin
           mkdir wasixcc-install
           wasixcc --install-executables ./wasixcc-install
           echo "$(pwd)/wasixcc-install" >> $GITHUB_PATH
@@ -202,6 +194,7 @@ jobs:
           mkdir -p ~/.wasixcc/sysroot
           wasixcc --download-sysroot v2025-12-10.1
           wasixcc --download-llvm
+          wasixcc --download-binaryen
 
       - name: Tool versions
         run: |
@@ -902,7 +895,7 @@ jobs:
         run: |
           export RUST_LOG=wasixcc=trace
           export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          cargo install --git https://github.com/wasix-org/wasixcc.git --rev d9ab260eb557ce90406ccf07ac52ac5e211caf60 -F bin
+          cargo install --git https://github.com/wasix-org/wasixcc.git --rev 2df8392a1cb9e7b050130f6ac01cd84d9e39406f -F bin
           mkdir wasixcc-install
           wasixcc --install-executables ./wasixcc-install
           echo "$(pwd)/wasixcc-install" >> $GITHUB_PATH
