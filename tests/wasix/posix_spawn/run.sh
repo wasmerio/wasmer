@@ -6,4 +6,4 @@ wasm-opt --asyncify main-not-asyncified.wasm -o main.wasm
 rm -f output.yyy output.zzz
 
 # Run the not-asyncified variant to make sure posix_spawn doesn't require asyncify
-$WASMER -q run main-not-asyncified.wasm --dir .
+$WASMER_RUN main-not-asyncified.wasm --dir .

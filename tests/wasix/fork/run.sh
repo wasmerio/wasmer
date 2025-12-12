@@ -1,4 +1,4 @@
 set -e
 
-$WASMER -q run main.wasm --dir . -- failing_exec
-$WASMER -q run main.wasm --dir . -- cloexec
+$WASMER_RUN main.wasm --dir . -- failing_exec
+$WASMER_RUN main.wasm --dir . -- cloexec
