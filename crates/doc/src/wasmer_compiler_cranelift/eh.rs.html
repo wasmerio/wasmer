@@ -18,442 +18,446 @@
 <a href=#18 id=18 data-nosnippet>18</a>    section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
 <a href=#19 id=19 data-nosnippet>19</a>};
 <a href=#20 id=20 data-nosnippet>20</a>
-<a href=#21 id=21 data-nosnippet>21</a><span class="kw">const </span>DW_EH_PE_OMIT: u8 = <span class="number">0xff</span>;
-<a href=#22 id=22 data-nosnippet>22</a><span class="kw">const </span>DW_EH_PE_ABSPTR: u8 = <span class="number">0x00</span>;
-<a href=#23 id=23 data-nosnippet>23</a><span class="kw">const </span>DW_EH_PE_UDATA4: u8 = <span class="number">0x03</span>;
-<a href=#24 id=24 data-nosnippet>24</a>
-<a href=#25 id=25 data-nosnippet>25</a><span class="doccomment">/// Relocation information for an LSDA entry that references a tag constant.
-<a href=#26 id=26 data-nosnippet>26</a></span><span class="attr">#[derive(Debug, Clone)]
-<a href=#27 id=27 data-nosnippet>27</a></span><span class="kw">pub struct </span>TagRelocation {
-<a href=#28 id=28 data-nosnippet>28</a>    <span class="doccomment">/// Offset within the LSDA blob where the relocation should be applied.
-<a href=#29 id=29 data-nosnippet>29</a>    </span><span class="kw">pub </span>offset: u32,
-<a href=#30 id=30 data-nosnippet>30</a>    <span class="doccomment">/// The module-local exception tag value.
-<a href=#31 id=31 data-nosnippet>31</a>    </span><span class="kw">pub </span>tag: u32,
-<a href=#32 id=32 data-nosnippet>32</a>}
-<a href=#33 id=33 data-nosnippet>33</a>
-<a href=#34 id=34 data-nosnippet>34</a><span class="doccomment">/// Fully encoded LSDA bytes for a single function, together with pending tag
-<a href=#35 id=35 data-nosnippet>35</a>/// relocations that will be resolved once the global tag section is built.
-<a href=#36 id=36 data-nosnippet>36</a></span><span class="attr">#[derive(Debug, Clone)]
-<a href=#37 id=37 data-nosnippet>37</a></span><span class="kw">pub struct </span>FunctionLsdaData {
-<a href=#38 id=38 data-nosnippet>38</a>    <span class="kw">pub </span>bytes: Vec&lt;u8&gt;,
-<a href=#39 id=39 data-nosnippet>39</a>    <span class="kw">pub </span>relocations: Vec&lt;TagRelocation&gt;,
-<a href=#40 id=40 data-nosnippet>40</a>}
-<a href=#41 id=41 data-nosnippet>41</a>
-<a href=#42 id=42 data-nosnippet>42</a><span class="doccomment">/// Build the LSDA for a single function given the finalized Cranelift
-<a href=#43 id=43 data-nosnippet>43</a>/// call-site metadata.
-<a href=#44 id=44 data-nosnippet>44</a></span><span class="kw">pub fn </span>build_function_lsda&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#45 id=45 data-nosnippet>45</a>    call_sites: <span class="kw">impl </span>Iterator&lt;Item = FinalizedMachCallSite&lt;<span class="lifetime">'a</span>&gt;&gt;,
-<a href=#46 id=46 data-nosnippet>46</a>    function_length: usize,
-<a href=#47 id=47 data-nosnippet>47</a>    pointer_bytes: u8,
-<a href=#48 id=48 data-nosnippet>48</a>) -&gt; <span class="prelude-ty">Option</span>&lt;FunctionLsdaData&gt; {
-<a href=#49 id=49 data-nosnippet>49</a>    <span class="kw">let </span><span class="kw-2">mut </span>sites = Vec::new();
+<a href=#21 id=21 data-nosnippet>21</a><span class="doccomment">/// Relocation information for an LSDA entry that references a tag constant.
+<a href=#22 id=22 data-nosnippet>22</a></span><span class="attr">#[derive(Debug, Clone)]
+<a href=#23 id=23 data-nosnippet>23</a></span><span class="kw">pub struct </span>TagRelocation {
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="doccomment">/// Offset within the LSDA blob where the relocation should be applied.
+<a href=#25 id=25 data-nosnippet>25</a>    </span><span class="kw">pub </span>offset: u32,
+<a href=#26 id=26 data-nosnippet>26</a>    <span class="doccomment">/// The module-local exception tag value.
+<a href=#27 id=27 data-nosnippet>27</a>    </span><span class="kw">pub </span>tag: u32,
+<a href=#28 id=28 data-nosnippet>28</a>}
+<a href=#29 id=29 data-nosnippet>29</a>
+<a href=#30 id=30 data-nosnippet>30</a><span class="doccomment">/// Fully encoded LSDA bytes for a single function, together with pending tag
+<a href=#31 id=31 data-nosnippet>31</a>/// relocations that will be resolved once the global tag section is built.
+<a href=#32 id=32 data-nosnippet>32</a></span><span class="attr">#[derive(Debug, Clone)]
+<a href=#33 id=33 data-nosnippet>33</a></span><span class="kw">pub struct </span>FunctionLsdaData {
+<a href=#34 id=34 data-nosnippet>34</a>    <span class="kw">pub </span>bytes: Vec&lt;u8&gt;,
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">pub </span>relocations: Vec&lt;TagRelocation&gt;,
+<a href=#36 id=36 data-nosnippet>36</a>}
+<a href=#37 id=37 data-nosnippet>37</a>
+<a href=#38 id=38 data-nosnippet>38</a><span class="doccomment">/// Build the LSDA for a single function given the finalized Cranelift
+<a href=#39 id=39 data-nosnippet>39</a>/// call-site metadata.
+<a href=#40 id=40 data-nosnippet>40</a></span><span class="kw">pub fn </span>build_function_lsda&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#41 id=41 data-nosnippet>41</a>    call_sites: <span class="kw">impl </span>Iterator&lt;Item = FinalizedMachCallSite&lt;<span class="lifetime">'a</span>&gt;&gt;,
+<a href=#42 id=42 data-nosnippet>42</a>    function_length: usize,
+<a href=#43 id=43 data-nosnippet>43</a>    pointer_bytes: u8,
+<a href=#44 id=44 data-nosnippet>44</a>) -&gt; <span class="prelude-ty">Option</span>&lt;FunctionLsdaData&gt; {
+<a href=#45 id=45 data-nosnippet>45</a>    <span class="kw">let </span><span class="kw-2">mut </span>sites = Vec::new();
+<a href=#46 id=46 data-nosnippet>46</a>
+<a href=#47 id=47 data-nosnippet>47</a>    <span class="kw">for </span>site <span class="kw">in </span>call_sites {
+<a href=#48 id=48 data-nosnippet>48</a>        <span class="kw">let </span><span class="kw-2">mut </span>catches = Vec::new();
+<a href=#49 id=49 data-nosnippet>49</a>        <span class="kw">let </span><span class="kw-2">mut </span>landing_pad = <span class="prelude-val">None</span>;
 <a href=#50 id=50 data-nosnippet>50</a>
-<a href=#51 id=51 data-nosnippet>51</a>    <span class="kw">for </span>site <span class="kw">in </span>call_sites {
-<a href=#52 id=52 data-nosnippet>52</a>        <span class="kw">let </span><span class="kw-2">mut </span>catches = Vec::new();
-<a href=#53 id=53 data-nosnippet>53</a>        <span class="kw">let </span><span class="kw-2">mut </span>landing_pad = <span class="prelude-val">None</span>;
-<a href=#54 id=54 data-nosnippet>54</a>
-<a href=#55 id=55 data-nosnippet>55</a>        <span class="comment">// Our landing pads handle all the tags considered for a call instruction, thus
-<a href=#56 id=56 data-nosnippet>56</a>        // we use the latest landing pad.
-<a href=#57 id=57 data-nosnippet>57</a>        </span><span class="kw">for </span>handler <span class="kw">in </span>site.exception_handlers {
-<a href=#58 id=58 data-nosnippet>58</a>            <span class="kw">match </span>handler {
-<a href=#59 id=59 data-nosnippet>59</a>                FinalizedMachExceptionHandler::Tag(tag, offset) =&gt; {
-<a href=#60 id=60 data-nosnippet>60</a>                    landing_pad = <span class="prelude-val">Some</span>(landing_pad.unwrap_or(<span class="kw-2">*</span>offset));
-<a href=#61 id=61 data-nosnippet>61</a>                    catches.push(ActionKind::Tag {
-<a href=#62 id=62 data-nosnippet>62</a>                        tag: u32::try_from(tag.index()).expect(<span class="string">"tag index fits in u32"</span>),
-<a href=#63 id=63 data-nosnippet>63</a>                    });
+<a href=#51 id=51 data-nosnippet>51</a>        <span class="comment">// Our landing pads handle all the tags considered for a call instruction, thus
+<a href=#52 id=52 data-nosnippet>52</a>        // we use the latest landing pad.
+<a href=#53 id=53 data-nosnippet>53</a>        </span><span class="kw">for </span>handler <span class="kw">in </span>site.exception_handlers {
+<a href=#54 id=54 data-nosnippet>54</a>            <span class="kw">match </span>handler {
+<a href=#55 id=55 data-nosnippet>55</a>                FinalizedMachExceptionHandler::Tag(tag, offset) =&gt; {
+<a href=#56 id=56 data-nosnippet>56</a>                    landing_pad = <span class="prelude-val">Some</span>(landing_pad.unwrap_or(<span class="kw-2">*</span>offset));
+<a href=#57 id=57 data-nosnippet>57</a>                    catches.push(ActionKind::Tag {
+<a href=#58 id=58 data-nosnippet>58</a>                        tag: u32::try_from(tag.index()).expect(<span class="string">"tag index fits in u32"</span>),
+<a href=#59 id=59 data-nosnippet>59</a>                    });
+<a href=#60 id=60 data-nosnippet>60</a>                }
+<a href=#61 id=61 data-nosnippet>61</a>                FinalizedMachExceptionHandler::Default(offset) =&gt; {
+<a href=#62 id=62 data-nosnippet>62</a>                    landing_pad = <span class="prelude-val">Some</span>(landing_pad.unwrap_or(<span class="kw-2">*</span>offset));
+<a href=#63 id=63 data-nosnippet>63</a>                    catches.push(ActionKind::CatchAll);
 <a href=#64 id=64 data-nosnippet>64</a>                }
-<a href=#65 id=65 data-nosnippet>65</a>                FinalizedMachExceptionHandler::Default(offset) =&gt; {
-<a href=#66 id=66 data-nosnippet>66</a>                    landing_pad = <span class="prelude-val">Some</span>(landing_pad.unwrap_or(<span class="kw-2">*</span>offset));
-<a href=#67 id=67 data-nosnippet>67</a>                    catches.push(ActionKind::CatchAll);
-<a href=#68 id=68 data-nosnippet>68</a>                }
-<a href=#69 id=69 data-nosnippet>69</a>                FinalizedMachExceptionHandler::Context(context) =&gt; {
-<a href=#70 id=70 data-nosnippet>70</a>                    <span class="comment">// Context records are used by Cranelift to thread VMContext
-<a href=#71 id=71 data-nosnippet>71</a>                    // information through the landing pad. We emit the LSDA
-<a href=#72 id=72 data-nosnippet>72</a>                    // regardless of whether we see them; nothing to do here.
-<a href=#73 id=73 data-nosnippet>73</a>                    </span><span class="kw">match </span>context {
-<a href=#74 id=74 data-nosnippet>74</a>                        ExceptionContextLoc::SPOffset(<span class="kw">_</span>) | ExceptionContextLoc::GPR(<span class="kw">_</span>) =&gt; {}
-<a href=#75 id=75 data-nosnippet>75</a>                    }
-<a href=#76 id=76 data-nosnippet>76</a>                }
-<a href=#77 id=77 data-nosnippet>77</a>            }
+<a href=#65 id=65 data-nosnippet>65</a>                FinalizedMachExceptionHandler::Context(context) =&gt; {
+<a href=#66 id=66 data-nosnippet>66</a>                    <span class="comment">// Context records are used by Cranelift to thread VMContext
+<a href=#67 id=67 data-nosnippet>67</a>                    // information through the landing pad. We emit the LSDA
+<a href=#68 id=68 data-nosnippet>68</a>                    // regardless of whether we see them; nothing to do here.
+<a href=#69 id=69 data-nosnippet>69</a>                    </span><span class="kw">match </span>context {
+<a href=#70 id=70 data-nosnippet>70</a>                        ExceptionContextLoc::SPOffset(<span class="kw">_</span>) | ExceptionContextLoc::GPR(<span class="kw">_</span>) =&gt; {}
+<a href=#71 id=71 data-nosnippet>71</a>                    }
+<a href=#72 id=72 data-nosnippet>72</a>                }
+<a href=#73 id=73 data-nosnippet>73</a>            }
+<a href=#74 id=74 data-nosnippet>74</a>        }
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">if </span>catches.is_empty() {
+<a href=#77 id=77 data-nosnippet>77</a>            <span class="kw">continue</span>;
 <a href=#78 id=78 data-nosnippet>78</a>        }
 <a href=#79 id=79 data-nosnippet>79</a>
-<a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">if </span>catches.is_empty() {
-<a href=#81 id=81 data-nosnippet>81</a>            <span class="kw">continue</span>;
-<a href=#82 id=82 data-nosnippet>82</a>        }
-<a href=#83 id=83 data-nosnippet>83</a>
-<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">let </span>landing_pad = landing_pad.expect(<span class="string">"landing pad offset set when catches exist"</span>);
-<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">let </span>cs_start = site.ret_addr.saturating_sub(<span class="number">1</span>);
-<a href=#86 id=86 data-nosnippet>86</a>
-<a href=#87 id=87 data-nosnippet>87</a>        sites.push(CallSiteDesc {
-<a href=#88 id=88 data-nosnippet>88</a>            start: cs_start,
-<a href=#89 id=89 data-nosnippet>89</a>            len: <span class="number">1</span>,
-<a href=#90 id=90 data-nosnippet>90</a>            landing_pad,
-<a href=#91 id=91 data-nosnippet>91</a>            actions: catches,
-<a href=#92 id=92 data-nosnippet>92</a>        });
+<a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">let </span>landing_pad = landing_pad.expect(<span class="string">"landing pad offset set when catches exist"</span>);
+<a href=#81 id=81 data-nosnippet>81</a>        <span class="kw">let </span>cs_start = site.ret_addr.saturating_sub(<span class="number">1</span>);
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a>        sites.push(CallSiteDesc {
+<a href=#84 id=84 data-nosnippet>84</a>            start: cs_start,
+<a href=#85 id=85 data-nosnippet>85</a>            len: <span class="number">1</span>,
+<a href=#86 id=86 data-nosnippet>86</a>            landing_pad,
+<a href=#87 id=87 data-nosnippet>87</a>            actions: catches,
+<a href=#88 id=88 data-nosnippet>88</a>        });
+<a href=#89 id=89 data-nosnippet>89</a>    }
+<a href=#90 id=90 data-nosnippet>90</a>
+<a href=#91 id=91 data-nosnippet>91</a>    <span class="kw">if </span>sites.is_empty() {
+<a href=#92 id=92 data-nosnippet>92</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#93 id=93 data-nosnippet>93</a>    }
 <a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">if </span>sites.is_empty() {
-<a href=#96 id=96 data-nosnippet>96</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#97 id=97 data-nosnippet>97</a>    }
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="comment">// Ensure all instructions in the function are covered by filling gaps with
-<a href=#100 id=100 data-nosnippet>100</a>    // default unwinding behavior (no catch actions).
-<a href=#101 id=101 data-nosnippet>101</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>current_pos = <span class="number">0u32</span>;
-<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">let </span><span class="kw-2">mut </span>filled_sites = Vec::new();
-<a href=#103 id=103 data-nosnippet>103</a>
-<a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">for </span>site <span class="kw">in </span>sites {
-<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">if </span>site.start &gt; current_pos {
-<a href=#106 id=106 data-nosnippet>106</a>            <span class="comment">// Gap found: add a default site that covers instructions with no handlers
-<a href=#107 id=107 data-nosnippet>107</a>            </span>filled_sites.push(CallSiteDesc {
-<a href=#108 id=108 data-nosnippet>108</a>                start: current_pos,
-<a href=#109 id=109 data-nosnippet>109</a>                len: site.start - current_pos,
-<a href=#110 id=110 data-nosnippet>110</a>                landing_pad: <span class="number">0</span>,
-<a href=#111 id=111 data-nosnippet>111</a>                actions: Vec::new(),
-<a href=#112 id=112 data-nosnippet>112</a>            });
-<a href=#113 id=113 data-nosnippet>113</a>        }
-<a href=#114 id=114 data-nosnippet>114</a>        current_pos = site.start + site.len;
-<a href=#115 id=115 data-nosnippet>115</a>        filled_sites.push(site);
-<a href=#116 id=116 data-nosnippet>116</a>    }
-<a href=#117 id=117 data-nosnippet>117</a>
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="comment">// Cover any remaining instructions at the end of the function
-<a href=#119 id=119 data-nosnippet>119</a>    </span><span class="kw">if </span>current_pos &lt; function_length <span class="kw">as </span>u32 {
-<a href=#120 id=120 data-nosnippet>120</a>        filled_sites.push(CallSiteDesc {
-<a href=#121 id=121 data-nosnippet>121</a>            start: current_pos,
-<a href=#122 id=122 data-nosnippet>122</a>            len: function_length <span class="kw">as </span>u32 - current_pos,
-<a href=#123 id=123 data-nosnippet>123</a>            landing_pad: <span class="number">0</span>,
-<a href=#124 id=124 data-nosnippet>124</a>            actions: Vec::new(),
-<a href=#125 id=125 data-nosnippet>125</a>        });
-<a href=#126 id=126 data-nosnippet>126</a>    }
-<a href=#127 id=127 data-nosnippet>127</a>
-<a href=#128 id=128 data-nosnippet>128</a>    <span class="kw">let </span>sites = filled_sites;
-<a href=#129 id=129 data-nosnippet>129</a>
-<a href=#130 id=130 data-nosnippet>130</a>    <span class="kw">let </span><span class="kw-2">mut </span>type_entries = TypeTable::new();
-<a href=#131 id=131 data-nosnippet>131</a>    <span class="kw">let </span><span class="kw-2">mut </span>callsite_actions = Vec::with_capacity(sites.len());
-<a href=#132 id=132 data-nosnippet>132</a>
-<a href=#133 id=133 data-nosnippet>133</a>    <span class="kw">for </span>site <span class="kw">in </span><span class="kw-2">&amp;</span>sites {
-<a href=#134 id=134 data-nosnippet>134</a>        <span class="kw">let </span><span class="kw-2">mut </span>action_indices = Vec::new();
-<a href=#135 id=135 data-nosnippet>135</a>        <span class="kw">for </span>action <span class="kw">in </span><span class="kw-2">&amp;</span>site.actions {
-<a href=#136 id=136 data-nosnippet>136</a>            <span class="kw">let </span>index = <span class="kw">match </span>action {
-<a href=#137 id=137 data-nosnippet>137</a>                ActionKind::Tag { tag } =&gt; type_entries.get_or_insert_tag(<span class="kw-2">*</span>tag),
-<a href=#138 id=138 data-nosnippet>138</a>                ActionKind::CatchAll =&gt; type_entries.get_or_insert_catch_all(),
-<a href=#139 id=139 data-nosnippet>139</a>            };
-<a href=#140 id=140 data-nosnippet>140</a>            action_indices.push(index <span class="kw">as </span>i32);
-<a href=#141 id=141 data-nosnippet>141</a>        }
-<a href=#142 id=142 data-nosnippet>142</a>        callsite_actions.push(action_indices);
-<a href=#143 id=143 data-nosnippet>143</a>    }
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="comment">// Ensure all instructions in the function are covered by filling gaps with
+<a href=#96 id=96 data-nosnippet>96</a>    // default unwinding behavior (no catch actions).
+<a href=#97 id=97 data-nosnippet>97</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>current_pos = <span class="number">0u32</span>;
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">let </span><span class="kw-2">mut </span>filled_sites = Vec::new();
+<a href=#99 id=99 data-nosnippet>99</a>
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">for </span>site <span class="kw">in </span>sites {
+<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">if </span>site.start &gt; current_pos {
+<a href=#102 id=102 data-nosnippet>102</a>            <span class="comment">// Gap found: add a default site that covers instructions with no handlers
+<a href=#103 id=103 data-nosnippet>103</a>            </span>filled_sites.push(CallSiteDesc {
+<a href=#104 id=104 data-nosnippet>104</a>                start: current_pos,
+<a href=#105 id=105 data-nosnippet>105</a>                len: site.start - current_pos,
+<a href=#106 id=106 data-nosnippet>106</a>                landing_pad: <span class="number">0</span>,
+<a href=#107 id=107 data-nosnippet>107</a>                actions: Vec::new(),
+<a href=#108 id=108 data-nosnippet>108</a>            });
+<a href=#109 id=109 data-nosnippet>109</a>        }
+<a href=#110 id=110 data-nosnippet>110</a>        current_pos = site.start + site.len;
+<a href=#111 id=111 data-nosnippet>111</a>        filled_sites.push(site);
+<a href=#112 id=112 data-nosnippet>112</a>    }
+<a href=#113 id=113 data-nosnippet>113</a>
+<a href=#114 id=114 data-nosnippet>114</a>    <span class="comment">// Cover any remaining instructions at the end of the function
+<a href=#115 id=115 data-nosnippet>115</a>    </span><span class="kw">if </span>current_pos &lt; function_length <span class="kw">as </span>u32 {
+<a href=#116 id=116 data-nosnippet>116</a>        filled_sites.push(CallSiteDesc {
+<a href=#117 id=117 data-nosnippet>117</a>            start: current_pos,
+<a href=#118 id=118 data-nosnippet>118</a>            len: function_length <span class="kw">as </span>u32 - current_pos,
+<a href=#119 id=119 data-nosnippet>119</a>            landing_pad: <span class="number">0</span>,
+<a href=#120 id=120 data-nosnippet>120</a>            actions: Vec::new(),
+<a href=#121 id=121 data-nosnippet>121</a>        });
+<a href=#122 id=122 data-nosnippet>122</a>    }
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="kw">let </span>sites = filled_sites;
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>    <span class="kw">let </span><span class="kw-2">mut </span>type_entries = TypeTable::new();
+<a href=#127 id=127 data-nosnippet>127</a>    <span class="kw">let </span><span class="kw-2">mut </span>callsite_actions = Vec::with_capacity(sites.len());
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="kw">for </span>site <span class="kw">in </span><span class="kw-2">&amp;</span>sites {
+<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">let </span><span class="kw-2">mut </span>action_indices = Vec::new();
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">for </span>action <span class="kw">in </span><span class="kw-2">&amp;</span>site.actions {
+<a href=#132 id=132 data-nosnippet>132</a>            <span class="kw">let </span>index = <span class="kw">match </span>action {
+<a href=#133 id=133 data-nosnippet>133</a>                ActionKind::Tag { tag } =&gt; type_entries.get_or_insert_tag(<span class="kw-2">*</span>tag),
+<a href=#134 id=134 data-nosnippet>134</a>                ActionKind::CatchAll =&gt; type_entries.get_or_insert_catch_all(),
+<a href=#135 id=135 data-nosnippet>135</a>            };
+<a href=#136 id=136 data-nosnippet>136</a>            action_indices.push(index <span class="kw">as </span>i32);
+<a href=#137 id=137 data-nosnippet>137</a>        }
+<a href=#138 id=138 data-nosnippet>138</a>        callsite_actions.push(action_indices);
+<a href=#139 id=139 data-nosnippet>139</a>    }
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a>    <span class="kw">let </span>action_table = encode_action_table(<span class="kw-2">&amp;</span>callsite_actions);
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="kw">let </span>call_site_table = encode_call_site_table(<span class="kw-2">&amp;</span>sites, <span class="kw-2">&amp;</span>action_table);
+<a href=#143 id=143 data-nosnippet>143</a>    <span class="kw">let </span>(type_table_bytes, type_table_relocs) = type_entries.encode(pointer_bytes);
 <a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">let </span>action_table = encode_action_table(<span class="kw-2">&amp;</span>callsite_actions);
-<a href=#146 id=146 data-nosnippet>146</a>    <span class="kw">let </span>call_site_table = encode_call_site_table(<span class="kw-2">&amp;</span>sites, <span class="kw-2">&amp;</span>action_table);
-<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">let </span>(type_table_bytes, type_table_relocs) = type_entries.encode(pointer_bytes);
-<a href=#148 id=148 data-nosnippet>148</a>
-<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">let </span>call_site_table_len = call_site_table.len() <span class="kw">as </span>u64;
-<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">let </span><span class="kw-2">mut </span>writer = Cursor::new(Vec::new());
-<a href=#151 id=151 data-nosnippet>151</a>    writer.write_all(<span class="kw-2">&amp;</span>DW_EH_PE_OMIT.to_le_bytes()).unwrap(); <span class="comment">// lpstart encoding omitted (relative to function start)
-<a href=#152 id=152 data-nosnippet>152</a>
-<a href=#153 id=153 data-nosnippet>153</a>    </span><span class="kw">if </span>type_entries.is_empty() {
-<a href=#154 id=154 data-nosnippet>154</a>        writer.write_all(<span class="kw-2">&amp;</span>DW_EH_PE_OMIT.to_le_bytes()).unwrap();
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">let </span>call_site_table_len = call_site_table.len() <span class="kw">as </span>u64;
+<a href=#146 id=146 data-nosnippet>146</a>    <span class="kw">let </span><span class="kw-2">mut </span>writer = Cursor::new(Vec::new());
+<a href=#147 id=147 data-nosnippet>147</a>    writer
+<a href=#148 id=148 data-nosnippet>148</a>        .write_all(<span class="kw-2">&amp;</span>gimli::DW_EH_PE_omit.<span class="number">0</span>.to_le_bytes())
+<a href=#149 id=149 data-nosnippet>149</a>        .unwrap(); <span class="comment">// lpstart encoding omitted (relative to function start)
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>    </span><span class="kw">if </span>type_entries.is_empty() {
+<a href=#152 id=152 data-nosnippet>152</a>        writer
+<a href=#153 id=153 data-nosnippet>153</a>            .write_all(<span class="kw-2">&amp;</span>gimli::DW_EH_PE_omit.<span class="number">0</span>.to_le_bytes())
+<a href=#154 id=154 data-nosnippet>154</a>            .unwrap();
 <a href=#155 id=155 data-nosnippet>155</a>    } <span class="kw">else </span>{
-<a href=#156 id=156 data-nosnippet>156</a>        writer.write_all(<span class="kw-2">&amp;</span>DW_EH_PE_ABSPTR.to_le_bytes()).unwrap();
-<a href=#157 id=157 data-nosnippet>157</a>    }
-<a href=#158 id=158 data-nosnippet>158</a>
-<a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">if </span>!type_entries.is_empty() {
-<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw">let </span>ttype_table_end = <span class="number">1 </span><span class="comment">// call-site encoding byte
-<a href=#161 id=161 data-nosnippet>161</a>            </span>+ uleb128_len(call_site_table_len)
-<a href=#162 id=162 data-nosnippet>162</a>            + call_site_table.len()
-<a href=#163 id=163 data-nosnippet>163</a>            + action_table.bytes.len()
-<a href=#164 id=164 data-nosnippet>164</a>            + type_table_bytes.len();
-<a href=#165 id=165 data-nosnippet>165</a>        leb128::write::unsigned(<span class="kw-2">&amp;mut </span>writer, ttype_table_end <span class="kw">as </span>u64).unwrap();
-<a href=#166 id=166 data-nosnippet>166</a>    }
-<a href=#167 id=167 data-nosnippet>167</a>
-<a href=#168 id=168 data-nosnippet>168</a>    writer.write_all(<span class="kw-2">&amp;</span>DW_EH_PE_UDATA4.to_le_bytes()).unwrap();
-<a href=#169 id=169 data-nosnippet>169</a>    leb128::write::unsigned(<span class="kw-2">&amp;mut </span>writer, call_site_table_len).unwrap();
-<a href=#170 id=170 data-nosnippet>170</a>    writer.write_all(<span class="kw-2">&amp;</span>call_site_table).unwrap();
-<a href=#171 id=171 data-nosnippet>171</a>    writer.write_all(<span class="kw-2">&amp;</span>action_table.bytes).unwrap();
-<a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="kw">let </span>type_table_offset = writer.position() <span class="kw">as </span>u32;
-<a href=#174 id=174 data-nosnippet>174</a>    writer.write_all(<span class="kw-2">&amp;</span>type_table_bytes).unwrap();
-<a href=#175 id=175 data-nosnippet>175</a>
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="kw">let </span><span class="kw-2">mut </span>relocations = Vec::new();
-<a href=#177 id=177 data-nosnippet>177</a>    <span class="kw">for </span>reloc <span class="kw">in </span>type_table_relocs {
-<a href=#178 id=178 data-nosnippet>178</a>        relocations.push(TagRelocation {
-<a href=#179 id=179 data-nosnippet>179</a>            offset: type_table_offset + reloc.offset,
-<a href=#180 id=180 data-nosnippet>180</a>            tag: reloc.tag,
-<a href=#181 id=181 data-nosnippet>181</a>        });
-<a href=#182 id=182 data-nosnippet>182</a>    }
-<a href=#183 id=183 data-nosnippet>183</a>
-<a href=#184 id=184 data-nosnippet>184</a>    <span class="prelude-val">Some</span>(FunctionLsdaData {
-<a href=#185 id=185 data-nosnippet>185</a>        bytes: writer.into_inner(),
-<a href=#186 id=186 data-nosnippet>186</a>        relocations,
-<a href=#187 id=187 data-nosnippet>187</a>    })
-<a href=#188 id=188 data-nosnippet>188</a>}
-<a href=#189 id=189 data-nosnippet>189</a>
-<a href=#190 id=190 data-nosnippet>190</a><span class="doccomment">/// Build the global tag section and a tag-&gt;offset map.
-<a href=#191 id=191 data-nosnippet>191</a></span><span class="kw">pub fn </span>build_tag_section(
-<a href=#192 id=192 data-nosnippet>192</a>    lsda_data: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span>&lt;FunctionLsdaData&gt;],
-<a href=#193 id=193 data-nosnippet>193</a>) -&gt; <span class="prelude-ty">Option</span>&lt;(CustomSection, HashMap&lt;u32, u32&gt;)&gt; {
-<a href=#194 id=194 data-nosnippet>194</a>    <span class="kw">let </span><span class="kw-2">mut </span>unique_tags = HashSet::new();
-<a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">for </span>data <span class="kw">in </span>lsda_data.iter().flatten() {
-<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;</span>data.relocations {
-<a href=#197 id=197 data-nosnippet>197</a>            unique_tags.insert(reloc.tag);
-<a href=#198 id=198 data-nosnippet>198</a>        }
-<a href=#199 id=199 data-nosnippet>199</a>    }
-<a href=#200 id=200 data-nosnippet>200</a>
-<a href=#201 id=201 data-nosnippet>201</a>    <span class="kw">if </span>unique_tags.is_empty() {
-<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#156 id=156 data-nosnippet>156</a>        writer
+<a href=#157 id=157 data-nosnippet>157</a>            .write_all(<span class="kw-2">&amp;</span>gimli::DW_EH_PE_absptr.<span class="number">0</span>.to_le_bytes())
+<a href=#158 id=158 data-nosnippet>158</a>            .unwrap();
+<a href=#159 id=159 data-nosnippet>159</a>    }
+<a href=#160 id=160 data-nosnippet>160</a>
+<a href=#161 id=161 data-nosnippet>161</a>    <span class="kw">if </span>!type_entries.is_empty() {
+<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>ttype_table_end = <span class="number">1 </span><span class="comment">// call-site encoding byte
+<a href=#163 id=163 data-nosnippet>163</a>            </span>+ uleb128_len(call_site_table_len)
+<a href=#164 id=164 data-nosnippet>164</a>            + call_site_table.len()
+<a href=#165 id=165 data-nosnippet>165</a>            + action_table.bytes.len()
+<a href=#166 id=166 data-nosnippet>166</a>            + type_table_bytes.len();
+<a href=#167 id=167 data-nosnippet>167</a>        leb128::write::unsigned(<span class="kw-2">&amp;mut </span>writer, ttype_table_end <span class="kw">as </span>u64).unwrap();
+<a href=#168 id=168 data-nosnippet>168</a>    }
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a>    writer
+<a href=#171 id=171 data-nosnippet>171</a>        .write_all(<span class="kw-2">&amp;</span>gimli::DW_EH_PE_udata4.<span class="number">0</span>.to_le_bytes())
+<a href=#172 id=172 data-nosnippet>172</a>        .unwrap();
+<a href=#173 id=173 data-nosnippet>173</a>    leb128::write::unsigned(<span class="kw-2">&amp;mut </span>writer, call_site_table_len).unwrap();
+<a href=#174 id=174 data-nosnippet>174</a>    writer.write_all(<span class="kw-2">&amp;</span>call_site_table).unwrap();
+<a href=#175 id=175 data-nosnippet>175</a>    writer.write_all(<span class="kw-2">&amp;</span>action_table.bytes).unwrap();
+<a href=#176 id=176 data-nosnippet>176</a>
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="kw">let </span>type_table_offset = writer.position() <span class="kw">as </span>u32;
+<a href=#178 id=178 data-nosnippet>178</a>    writer.write_all(<span class="kw-2">&amp;</span>type_table_bytes).unwrap();
+<a href=#179 id=179 data-nosnippet>179</a>
+<a href=#180 id=180 data-nosnippet>180</a>    <span class="kw">let </span><span class="kw-2">mut </span>relocations = Vec::new();
+<a href=#181 id=181 data-nosnippet>181</a>    <span class="kw">for </span>reloc <span class="kw">in </span>type_table_relocs {
+<a href=#182 id=182 data-nosnippet>182</a>        relocations.push(TagRelocation {
+<a href=#183 id=183 data-nosnippet>183</a>            offset: type_table_offset + reloc.offset,
+<a href=#184 id=184 data-nosnippet>184</a>            tag: reloc.tag,
+<a href=#185 id=185 data-nosnippet>185</a>        });
+<a href=#186 id=186 data-nosnippet>186</a>    }
+<a href=#187 id=187 data-nosnippet>187</a>
+<a href=#188 id=188 data-nosnippet>188</a>    <span class="prelude-val">Some</span>(FunctionLsdaData {
+<a href=#189 id=189 data-nosnippet>189</a>        bytes: writer.into_inner(),
+<a href=#190 id=190 data-nosnippet>190</a>        relocations,
+<a href=#191 id=191 data-nosnippet>191</a>    })
+<a href=#192 id=192 data-nosnippet>192</a>}
+<a href=#193 id=193 data-nosnippet>193</a>
+<a href=#194 id=194 data-nosnippet>194</a><span class="doccomment">/// Build the global tag section and a tag-&gt;offset map.
+<a href=#195 id=195 data-nosnippet>195</a></span><span class="kw">pub fn </span>build_tag_section(
+<a href=#196 id=196 data-nosnippet>196</a>    lsda_data: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span>&lt;FunctionLsdaData&gt;],
+<a href=#197 id=197 data-nosnippet>197</a>) -&gt; <span class="prelude-ty">Option</span>&lt;(CustomSection, HashMap&lt;u32, u32&gt;)&gt; {
+<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">let </span><span class="kw-2">mut </span>unique_tags = HashSet::new();
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="kw">for </span>data <span class="kw">in </span>lsda_data.iter().flatten() {
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;</span>data.relocations {
+<a href=#201 id=201 data-nosnippet>201</a>            unique_tags.insert(reloc.tag);
+<a href=#202 id=202 data-nosnippet>202</a>        }
 <a href=#203 id=203 data-nosnippet>203</a>    }
 <a href=#204 id=204 data-nosnippet>204</a>
-<a href=#205 id=205 data-nosnippet>205</a>    <span class="kw">let </span><span class="kw-2">mut </span>tags: Vec&lt;u32&gt; = unique_tags.into_iter().collect();
-<a href=#206 id=206 data-nosnippet>206</a>    tags.sort_unstable();
-<a href=#207 id=207 data-nosnippet>207</a>
-<a href=#208 id=208 data-nosnippet>208</a>    <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::with_capacity(tags.len() * std::mem::size_of::&lt;u32&gt;());
-<a href=#209 id=209 data-nosnippet>209</a>    <span class="kw">let </span><span class="kw-2">mut </span>offsets = HashMap::new();
-<a href=#210 id=210 data-nosnippet>210</a>    <span class="kw">for </span>tag <span class="kw">in </span>tags {
-<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span>offset = bytes.len() <span class="kw">as </span>u32;
-<a href=#212 id=212 data-nosnippet>212</a>        bytes.extend_from_slice(<span class="kw-2">&amp;</span>tag.to_ne_bytes());
-<a href=#213 id=213 data-nosnippet>213</a>        offsets.insert(tag, offset);
-<a href=#214 id=214 data-nosnippet>214</a>    }
-<a href=#215 id=215 data-nosnippet>215</a>
-<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">let </span>section = CustomSection {
-<a href=#217 id=217 data-nosnippet>217</a>        protection: CustomSectionProtection::Read,
-<a href=#218 id=218 data-nosnippet>218</a>        alignment: <span class="prelude-val">None</span>,
-<a href=#219 id=219 data-nosnippet>219</a>        bytes: SectionBody::new_with_vec(bytes),
-<a href=#220 id=220 data-nosnippet>220</a>        relocations: Vec::new(),
-<a href=#221 id=221 data-nosnippet>221</a>    };
-<a href=#222 id=222 data-nosnippet>222</a>
-<a href=#223 id=223 data-nosnippet>223</a>    <span class="prelude-val">Some</span>((section, offsets))
-<a href=#224 id=224 data-nosnippet>224</a>}
-<a href=#225 id=225 data-nosnippet>225</a>
-<a href=#226 id=226 data-nosnippet>226</a><span class="doccomment">/// Build the LSDA custom section and record the offset for each function.
-<a href=#227 id=227 data-nosnippet>227</a>///
-<a href=#228 id=228 data-nosnippet>228</a>/// Returns the section (if any) and a vector mapping each function index to
-<a href=#229 id=229 data-nosnippet>229</a>/// its LSDA offset inside the section. Even when utilizing the same landing pad for exception tags,
-<a href=#230 id=230 data-nosnippet>230</a>/// Cranelift generates separate landing pad locations.
-<a href=#231 id=231 data-nosnippet>231</a>/// These locations are essentially small trampolines that redirect to the basic block we established (the EH dispatch block).
-<a href=#232 id=232 data-nosnippet>232</a>///
-<a href=#233 id=233 data-nosnippet>233</a>/// The section can be dumped using the elfutils' readelf tool:
-<a href=#234 id=234 data-nosnippet>234</a>/// ```shell
-<a href=#235 id=235 data-nosnippet>235</a>/// objcopy -I binary -O elf64-x86-64 --rename-section .data=.gcc_except_table,alloc,contents lsda.bin object.o &amp;&amp; eu-readelf -w object.o
-<a href=#236 id=236 data-nosnippet>236</a>/// ```
-<a href=#237 id=237 data-nosnippet>237</a></span><span class="kw">pub fn </span>build_lsda_section(
-<a href=#238 id=238 data-nosnippet>238</a>    lsda_data: Vec&lt;<span class="prelude-ty">Option</span>&lt;FunctionLsdaData&gt;&gt;,
-<a href=#239 id=239 data-nosnippet>239</a>    pointer_bytes: u8,
-<a href=#240 id=240 data-nosnippet>240</a>    tag_offsets: <span class="kw-2">&amp;</span>HashMap&lt;u32, u32&gt;,
-<a href=#241 id=241 data-nosnippet>241</a>    tag_section_index: <span class="prelude-ty">Option</span>&lt;SectionIndex&gt;,
-<a href=#242 id=242 data-nosnippet>242</a>) -&gt; (<span class="prelude-ty">Option</span>&lt;CustomSection&gt;, Vec&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt;) {
-<a href=#243 id=243 data-nosnippet>243</a>    <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::new();
-<a href=#244 id=244 data-nosnippet>244</a>    <span class="kw">let </span><span class="kw-2">mut </span>relocations = Vec::new();
-<a href=#245 id=245 data-nosnippet>245</a>    <span class="kw">let </span><span class="kw-2">mut </span>offsets_per_function = Vec::with_capacity(lsda_data.len());
-<a href=#246 id=246 data-nosnippet>246</a>
-<a href=#247 id=247 data-nosnippet>247</a>    <span class="kw">let </span>pointer_kind = <span class="kw">match </span>pointer_bytes {
-<a href=#248 id=248 data-nosnippet>248</a>        <span class="number">4 </span>=&gt; RelocationKind::Abs4,
-<a href=#249 id=249 data-nosnippet>249</a>        <span class="number">8 </span>=&gt; RelocationKind::Abs8,
-<a href=#250 id=250 data-nosnippet>250</a>        other =&gt; <span class="macro">panic!</span>(<span class="string">"unsupported pointer size {other} for LSDA generation"</span>),
-<a href=#251 id=251 data-nosnippet>251</a>    };
-<a href=#252 id=252 data-nosnippet>252</a>
-<a href=#253 id=253 data-nosnippet>253</a>    <span class="kw">for </span>data <span class="kw">in </span>lsda_data.into_iter() {
-<a href=#254 id=254 data-nosnippet>254</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = data {
-<a href=#255 id=255 data-nosnippet>255</a>            <span class="kw">let </span>base = bytes.len() <span class="kw">as </span>u32;
-<a href=#256 id=256 data-nosnippet>256</a>            bytes.extend_from_slice(<span class="kw-2">&amp;</span>data.bytes);
-<a href=#257 id=257 data-nosnippet>257</a>
-<a href=#258 id=258 data-nosnippet>258</a>            <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;</span>data.relocations {
-<a href=#259 id=259 data-nosnippet>259</a>                <span class="kw">let </span>target_offset = tag_offsets
-<a href=#260 id=260 data-nosnippet>260</a>                    .get(<span class="kw-2">&amp;</span>reloc.tag)
-<a href=#261 id=261 data-nosnippet>261</a>                    .copied()
-<a href=#262 id=262 data-nosnippet>262</a>                    .expect(<span class="string">"missing tag offset for relocation"</span>);
-<a href=#263 id=263 data-nosnippet>263</a>                relocations.push(Relocation {
-<a href=#264 id=264 data-nosnippet>264</a>                    kind: pointer_kind,
-<a href=#265 id=265 data-nosnippet>265</a>                    reloc_target: RelocationTarget::CustomSection(
-<a href=#266 id=266 data-nosnippet>266</a>                        tag_section_index
-<a href=#267 id=267 data-nosnippet>267</a>                            .expect(<span class="string">"tag section index must exist when relocations are present"</span>),
-<a href=#268 id=268 data-nosnippet>268</a>                    ),
-<a href=#269 id=269 data-nosnippet>269</a>                    offset: base + reloc.offset,
-<a href=#270 id=270 data-nosnippet>270</a>                    addend: target_offset <span class="kw">as </span>i64,
-<a href=#271 id=271 data-nosnippet>271</a>                });
-<a href=#272 id=272 data-nosnippet>272</a>            }
-<a href=#273 id=273 data-nosnippet>273</a>
-<a href=#274 id=274 data-nosnippet>274</a>            offsets_per_function.push(<span class="prelude-val">Some</span>(base));
-<a href=#275 id=275 data-nosnippet>275</a>        } <span class="kw">else </span>{
-<a href=#276 id=276 data-nosnippet>276</a>            offsets_per_function.push(<span class="prelude-val">None</span>);
-<a href=#277 id=277 data-nosnippet>277</a>        }
-<a href=#278 id=278 data-nosnippet>278</a>    }
-<a href=#279 id=279 data-nosnippet>279</a>
-<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">if </span>bytes.is_empty() {
-<a href=#281 id=281 data-nosnippet>281</a>        (<span class="prelude-val">None</span>, offsets_per_function)
-<a href=#282 id=282 data-nosnippet>282</a>    } <span class="kw">else </span>{
-<a href=#283 id=283 data-nosnippet>283</a>        (
-<a href=#284 id=284 data-nosnippet>284</a>            <span class="prelude-val">Some</span>(CustomSection {
-<a href=#285 id=285 data-nosnippet>285</a>                protection: CustomSectionProtection::Read,
-<a href=#286 id=286 data-nosnippet>286</a>                alignment: <span class="prelude-val">None</span>,
-<a href=#287 id=287 data-nosnippet>287</a>                bytes: SectionBody::new_with_vec(bytes),
-<a href=#288 id=288 data-nosnippet>288</a>                relocations,
-<a href=#289 id=289 data-nosnippet>289</a>            }),
-<a href=#290 id=290 data-nosnippet>290</a>            offsets_per_function,
-<a href=#291 id=291 data-nosnippet>291</a>        )
-<a href=#292 id=292 data-nosnippet>292</a>    }
-<a href=#293 id=293 data-nosnippet>293</a>}
-<a href=#294 id=294 data-nosnippet>294</a>
-<a href=#295 id=295 data-nosnippet>295</a><span class="attr">#[derive(Debug)]
-<a href=#296 id=296 data-nosnippet>296</a></span><span class="kw">struct </span>CallSiteDesc {
-<a href=#297 id=297 data-nosnippet>297</a>    start: u32,
-<a href=#298 id=298 data-nosnippet>298</a>    len: u32,
-<a href=#299 id=299 data-nosnippet>299</a>    landing_pad: u32,
-<a href=#300 id=300 data-nosnippet>300</a>    actions: Vec&lt;ActionKind&gt;,
-<a href=#301 id=301 data-nosnippet>301</a>}
-<a href=#302 id=302 data-nosnippet>302</a>
-<a href=#303 id=303 data-nosnippet>303</a><span class="attr">#[derive(Debug)]
-<a href=#304 id=304 data-nosnippet>304</a></span><span class="kw">enum </span>ActionKind {
-<a href=#305 id=305 data-nosnippet>305</a>    Tag { tag: u32 },
-<a href=#306 id=306 data-nosnippet>306</a>    CatchAll,
-<a href=#307 id=307 data-nosnippet>307</a>}
-<a href=#308 id=308 data-nosnippet>308</a>
-<a href=#309 id=309 data-nosnippet>309</a><span class="attr">#[derive(Debug)]
-<a href=#310 id=310 data-nosnippet>310</a></span><span class="kw">struct </span>TypeTable {
-<a href=#311 id=311 data-nosnippet>311</a>    entries: Vec&lt;TypeEntry&gt;,
-<a href=#312 id=312 data-nosnippet>312</a>    index_map: HashMap&lt;TypeKey, usize&gt;,
-<a href=#313 id=313 data-nosnippet>313</a>}
-<a href=#314 id=314 data-nosnippet>314</a>
-<a href=#315 id=315 data-nosnippet>315</a><span class="kw">impl </span>TypeTable {
-<a href=#316 id=316 data-nosnippet>316</a>    <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-<a href=#317 id=317 data-nosnippet>317</a>        <span class="self">Self </span>{
-<a href=#318 id=318 data-nosnippet>318</a>            entries: Vec::new(),
-<a href=#319 id=319 data-nosnippet>319</a>            index_map: HashMap::new(),
-<a href=#320 id=320 data-nosnippet>320</a>        }
-<a href=#321 id=321 data-nosnippet>321</a>    }
-<a href=#322 id=322 data-nosnippet>322</a>
-<a href=#323 id=323 data-nosnippet>323</a>    <span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#324 id=324 data-nosnippet>324</a>        <span class="self">self</span>.entries.is_empty()
+<a href=#205 id=205 data-nosnippet>205</a>    <span class="kw">if </span>unique_tags.is_empty() {
+<a href=#206 id=206 data-nosnippet>206</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#207 id=207 data-nosnippet>207</a>    }
+<a href=#208 id=208 data-nosnippet>208</a>
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="kw">let </span><span class="kw-2">mut </span>tags: Vec&lt;u32&gt; = unique_tags.into_iter().collect();
+<a href=#210 id=210 data-nosnippet>210</a>    tags.sort_unstable();
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a>    <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::with_capacity(tags.len() * std::mem::size_of::&lt;u32&gt;());
+<a href=#213 id=213 data-nosnippet>213</a>    <span class="kw">let </span><span class="kw-2">mut </span>offsets = HashMap::new();
+<a href=#214 id=214 data-nosnippet>214</a>    <span class="kw">for </span>tag <span class="kw">in </span>tags {
+<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">let </span>offset = bytes.len() <span class="kw">as </span>u32;
+<a href=#216 id=216 data-nosnippet>216</a>        bytes.extend_from_slice(<span class="kw-2">&amp;</span>tag.to_ne_bytes());
+<a href=#217 id=217 data-nosnippet>217</a>        offsets.insert(tag, offset);
+<a href=#218 id=218 data-nosnippet>218</a>    }
+<a href=#219 id=219 data-nosnippet>219</a>
+<a href=#220 id=220 data-nosnippet>220</a>    <span class="kw">let </span>section = CustomSection {
+<a href=#221 id=221 data-nosnippet>221</a>        protection: CustomSectionProtection::Read,
+<a href=#222 id=222 data-nosnippet>222</a>        alignment: <span class="prelude-val">None</span>,
+<a href=#223 id=223 data-nosnippet>223</a>        bytes: SectionBody::new_with_vec(bytes),
+<a href=#224 id=224 data-nosnippet>224</a>        relocations: Vec::new(),
+<a href=#225 id=225 data-nosnippet>225</a>    };
+<a href=#226 id=226 data-nosnippet>226</a>
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="prelude-val">Some</span>((section, offsets))
+<a href=#228 id=228 data-nosnippet>228</a>}
+<a href=#229 id=229 data-nosnippet>229</a>
+<a href=#230 id=230 data-nosnippet>230</a><span class="doccomment">/// Build the LSDA custom section and record the offset for each function.
+<a href=#231 id=231 data-nosnippet>231</a>///
+<a href=#232 id=232 data-nosnippet>232</a>/// Returns the section (if any) and a vector mapping each function index to
+<a href=#233 id=233 data-nosnippet>233</a>/// its LSDA offset inside the section. Even when utilizing the same landing pad for exception tags,
+<a href=#234 id=234 data-nosnippet>234</a>/// Cranelift generates separate landing pad locations.
+<a href=#235 id=235 data-nosnippet>235</a>/// These locations are essentially small trampolines that redirect to the basic block we established (the EH dispatch block).
+<a href=#236 id=236 data-nosnippet>236</a>///
+<a href=#237 id=237 data-nosnippet>237</a>/// The section can be dumped using the elfutils' readelf tool:
+<a href=#238 id=238 data-nosnippet>238</a>/// ```shell
+<a href=#239 id=239 data-nosnippet>239</a>/// objcopy -I binary -O elf64-x86-64 --rename-section .data=.gcc_except_table,alloc,contents lsda.bin object.o &amp;&amp; eu-readelf -w object.o
+<a href=#240 id=240 data-nosnippet>240</a>/// ```
+<a href=#241 id=241 data-nosnippet>241</a></span><span class="kw">pub fn </span>build_lsda_section(
+<a href=#242 id=242 data-nosnippet>242</a>    lsda_data: Vec&lt;<span class="prelude-ty">Option</span>&lt;FunctionLsdaData&gt;&gt;,
+<a href=#243 id=243 data-nosnippet>243</a>    pointer_bytes: u8,
+<a href=#244 id=244 data-nosnippet>244</a>    tag_offsets: <span class="kw-2">&amp;</span>HashMap&lt;u32, u32&gt;,
+<a href=#245 id=245 data-nosnippet>245</a>    tag_section_index: <span class="prelude-ty">Option</span>&lt;SectionIndex&gt;,
+<a href=#246 id=246 data-nosnippet>246</a>) -&gt; (<span class="prelude-ty">Option</span>&lt;CustomSection&gt;, Vec&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt;) {
+<a href=#247 id=247 data-nosnippet>247</a>    <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::new();
+<a href=#248 id=248 data-nosnippet>248</a>    <span class="kw">let </span><span class="kw-2">mut </span>relocations = Vec::new();
+<a href=#249 id=249 data-nosnippet>249</a>    <span class="kw">let </span><span class="kw-2">mut </span>offsets_per_function = Vec::with_capacity(lsda_data.len());
+<a href=#250 id=250 data-nosnippet>250</a>
+<a href=#251 id=251 data-nosnippet>251</a>    <span class="kw">let </span>pointer_kind = <span class="kw">match </span>pointer_bytes {
+<a href=#252 id=252 data-nosnippet>252</a>        <span class="number">4 </span>=&gt; RelocationKind::Abs4,
+<a href=#253 id=253 data-nosnippet>253</a>        <span class="number">8 </span>=&gt; RelocationKind::Abs8,
+<a href=#254 id=254 data-nosnippet>254</a>        other =&gt; <span class="macro">panic!</span>(<span class="string">"unsupported pointer size {other} for LSDA generation"</span>),
+<a href=#255 id=255 data-nosnippet>255</a>    };
+<a href=#256 id=256 data-nosnippet>256</a>
+<a href=#257 id=257 data-nosnippet>257</a>    <span class="kw">for </span>data <span class="kw">in </span>lsda_data.into_iter() {
+<a href=#258 id=258 data-nosnippet>258</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = data {
+<a href=#259 id=259 data-nosnippet>259</a>            <span class="kw">let </span>base = bytes.len() <span class="kw">as </span>u32;
+<a href=#260 id=260 data-nosnippet>260</a>            bytes.extend_from_slice(<span class="kw-2">&amp;</span>data.bytes);
+<a href=#261 id=261 data-nosnippet>261</a>
+<a href=#262 id=262 data-nosnippet>262</a>            <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;</span>data.relocations {
+<a href=#263 id=263 data-nosnippet>263</a>                <span class="kw">let </span>target_offset = tag_offsets
+<a href=#264 id=264 data-nosnippet>264</a>                    .get(<span class="kw-2">&amp;</span>reloc.tag)
+<a href=#265 id=265 data-nosnippet>265</a>                    .copied()
+<a href=#266 id=266 data-nosnippet>266</a>                    .expect(<span class="string">"missing tag offset for relocation"</span>);
+<a href=#267 id=267 data-nosnippet>267</a>                relocations.push(Relocation {
+<a href=#268 id=268 data-nosnippet>268</a>                    kind: pointer_kind,
+<a href=#269 id=269 data-nosnippet>269</a>                    reloc_target: RelocationTarget::CustomSection(
+<a href=#270 id=270 data-nosnippet>270</a>                        tag_section_index
+<a href=#271 id=271 data-nosnippet>271</a>                            .expect(<span class="string">"tag section index must exist when relocations are present"</span>),
+<a href=#272 id=272 data-nosnippet>272</a>                    ),
+<a href=#273 id=273 data-nosnippet>273</a>                    offset: base + reloc.offset,
+<a href=#274 id=274 data-nosnippet>274</a>                    addend: target_offset <span class="kw">as </span>i64,
+<a href=#275 id=275 data-nosnippet>275</a>                });
+<a href=#276 id=276 data-nosnippet>276</a>            }
+<a href=#277 id=277 data-nosnippet>277</a>
+<a href=#278 id=278 data-nosnippet>278</a>            offsets_per_function.push(<span class="prelude-val">Some</span>(base));
+<a href=#279 id=279 data-nosnippet>279</a>        } <span class="kw">else </span>{
+<a href=#280 id=280 data-nosnippet>280</a>            offsets_per_function.push(<span class="prelude-val">None</span>);
+<a href=#281 id=281 data-nosnippet>281</a>        }
+<a href=#282 id=282 data-nosnippet>282</a>    }
+<a href=#283 id=283 data-nosnippet>283</a>
+<a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">if </span>bytes.is_empty() {
+<a href=#285 id=285 data-nosnippet>285</a>        (<span class="prelude-val">None</span>, offsets_per_function)
+<a href=#286 id=286 data-nosnippet>286</a>    } <span class="kw">else </span>{
+<a href=#287 id=287 data-nosnippet>287</a>        (
+<a href=#288 id=288 data-nosnippet>288</a>            <span class="prelude-val">Some</span>(CustomSection {
+<a href=#289 id=289 data-nosnippet>289</a>                protection: CustomSectionProtection::Read,
+<a href=#290 id=290 data-nosnippet>290</a>                alignment: <span class="prelude-val">None</span>,
+<a href=#291 id=291 data-nosnippet>291</a>                bytes: SectionBody::new_with_vec(bytes),
+<a href=#292 id=292 data-nosnippet>292</a>                relocations,
+<a href=#293 id=293 data-nosnippet>293</a>            }),
+<a href=#294 id=294 data-nosnippet>294</a>            offsets_per_function,
+<a href=#295 id=295 data-nosnippet>295</a>        )
+<a href=#296 id=296 data-nosnippet>296</a>    }
+<a href=#297 id=297 data-nosnippet>297</a>}
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a><span class="attr">#[derive(Debug)]
+<a href=#300 id=300 data-nosnippet>300</a></span><span class="kw">struct </span>CallSiteDesc {
+<a href=#301 id=301 data-nosnippet>301</a>    start: u32,
+<a href=#302 id=302 data-nosnippet>302</a>    len: u32,
+<a href=#303 id=303 data-nosnippet>303</a>    landing_pad: u32,
+<a href=#304 id=304 data-nosnippet>304</a>    actions: Vec&lt;ActionKind&gt;,
+<a href=#305 id=305 data-nosnippet>305</a>}
+<a href=#306 id=306 data-nosnippet>306</a>
+<a href=#307 id=307 data-nosnippet>307</a><span class="attr">#[derive(Debug)]
+<a href=#308 id=308 data-nosnippet>308</a></span><span class="kw">enum </span>ActionKind {
+<a href=#309 id=309 data-nosnippet>309</a>    Tag { tag: u32 },
+<a href=#310 id=310 data-nosnippet>310</a>    CatchAll,
+<a href=#311 id=311 data-nosnippet>311</a>}
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a><span class="attr">#[derive(Debug)]
+<a href=#314 id=314 data-nosnippet>314</a></span><span class="kw">struct </span>TypeTable {
+<a href=#315 id=315 data-nosnippet>315</a>    entries: Vec&lt;TypeEntry&gt;,
+<a href=#316 id=316 data-nosnippet>316</a>    index_map: HashMap&lt;TypeKey, usize&gt;,
+<a href=#317 id=317 data-nosnippet>317</a>}
+<a href=#318 id=318 data-nosnippet>318</a>
+<a href=#319 id=319 data-nosnippet>319</a><span class="kw">impl </span>TypeTable {
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+<a href=#321 id=321 data-nosnippet>321</a>        <span class="self">Self </span>{
+<a href=#322 id=322 data-nosnippet>322</a>            entries: Vec::new(),
+<a href=#323 id=323 data-nosnippet>323</a>            index_map: HashMap::new(),
+<a href=#324 id=324 data-nosnippet>324</a>        }
 <a href=#325 id=325 data-nosnippet>325</a>    }
 <a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>    <span class="kw">fn </span>get_or_insert_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: u32) -&gt; usize {
-<a href=#328 id=328 data-nosnippet>328</a>        <span class="kw">let </span>key = TypeKey::Tag(tag);
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.index_map.get(<span class="kw-2">&amp;</span>key) {
-<a href=#330 id=330 data-nosnippet>330</a>            <span class="kw-2">*</span>idx
-<a href=#331 id=331 data-nosnippet>331</a>        } <span class="kw">else </span>{
-<a href=#332 id=332 data-nosnippet>332</a>            <span class="kw">let </span>idx = <span class="self">self</span>.entries.len() + <span class="number">1</span>;
-<a href=#333 id=333 data-nosnippet>333</a>            <span class="self">self</span>.entries.push(TypeEntry::Tag { tag });
-<a href=#334 id=334 data-nosnippet>334</a>            <span class="self">self</span>.index_map.insert(key, idx);
-<a href=#335 id=335 data-nosnippet>335</a>            idx
-<a href=#336 id=336 data-nosnippet>336</a>        }
-<a href=#337 id=337 data-nosnippet>337</a>    }
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a>    <span class="kw">fn </span>get_or_insert_catch_all(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
-<a href=#340 id=340 data-nosnippet>340</a>        <span class="kw">let </span>key = TypeKey::CatchAll;
-<a href=#341 id=341 data-nosnippet>341</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.index_map.get(<span class="kw-2">&amp;</span>key) {
-<a href=#342 id=342 data-nosnippet>342</a>            <span class="kw-2">*</span>idx
-<a href=#343 id=343 data-nosnippet>343</a>        } <span class="kw">else </span>{
-<a href=#344 id=344 data-nosnippet>344</a>            <span class="kw">let </span>idx = <span class="self">self</span>.entries.len() + <span class="number">1</span>;
-<a href=#345 id=345 data-nosnippet>345</a>            <span class="self">self</span>.entries.push(TypeEntry::CatchAll);
-<a href=#346 id=346 data-nosnippet>346</a>            <span class="self">self</span>.index_map.insert(key, idx);
-<a href=#347 id=347 data-nosnippet>347</a>            idx
-<a href=#348 id=348 data-nosnippet>348</a>        }
-<a href=#349 id=349 data-nosnippet>349</a>    }
-<a href=#350 id=350 data-nosnippet>350</a>
-<a href=#351 id=351 data-nosnippet>351</a>    <span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>, pointer_bytes: u8) -&gt; (Vec&lt;u8&gt;, Vec&lt;TagRelocation&gt;) {
-<a href=#352 id=352 data-nosnippet>352</a>        <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::with_capacity(<span class="self">self</span>.entries.len() * pointer_bytes <span class="kw">as </span>usize);
-<a href=#353 id=353 data-nosnippet>353</a>        <span class="kw">let </span><span class="kw-2">mut </span>relocations = Vec::new();
+<a href=#327 id=327 data-nosnippet>327</a>    <span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#328 id=328 data-nosnippet>328</a>        <span class="self">self</span>.entries.is_empty()
+<a href=#329 id=329 data-nosnippet>329</a>    }
+<a href=#330 id=330 data-nosnippet>330</a>
+<a href=#331 id=331 data-nosnippet>331</a>    <span class="kw">fn </span>get_or_insert_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: u32) -&gt; usize {
+<a href=#332 id=332 data-nosnippet>332</a>        <span class="kw">let </span>key = TypeKey::Tag(tag);
+<a href=#333 id=333 data-nosnippet>333</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.index_map.get(<span class="kw-2">&amp;</span>key) {
+<a href=#334 id=334 data-nosnippet>334</a>            <span class="kw-2">*</span>idx
+<a href=#335 id=335 data-nosnippet>335</a>        } <span class="kw">else </span>{
+<a href=#336 id=336 data-nosnippet>336</a>            <span class="kw">let </span>idx = <span class="self">self</span>.entries.len() + <span class="number">1</span>;
+<a href=#337 id=337 data-nosnippet>337</a>            <span class="self">self</span>.entries.push(TypeEntry::Tag { tag });
+<a href=#338 id=338 data-nosnippet>338</a>            <span class="self">self</span>.index_map.insert(key, idx);
+<a href=#339 id=339 data-nosnippet>339</a>            idx
+<a href=#340 id=340 data-nosnippet>340</a>        }
+<a href=#341 id=341 data-nosnippet>341</a>    }
+<a href=#342 id=342 data-nosnippet>342</a>
+<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">fn </span>get_or_insert_catch_all(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
+<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">let </span>key = TypeKey::CatchAll;
+<a href=#345 id=345 data-nosnippet>345</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.index_map.get(<span class="kw-2">&amp;</span>key) {
+<a href=#346 id=346 data-nosnippet>346</a>            <span class="kw-2">*</span>idx
+<a href=#347 id=347 data-nosnippet>347</a>        } <span class="kw">else </span>{
+<a href=#348 id=348 data-nosnippet>348</a>            <span class="kw">let </span>idx = <span class="self">self</span>.entries.len() + <span class="number">1</span>;
+<a href=#349 id=349 data-nosnippet>349</a>            <span class="self">self</span>.entries.push(TypeEntry::CatchAll);
+<a href=#350 id=350 data-nosnippet>350</a>            <span class="self">self</span>.index_map.insert(key, idx);
+<a href=#351 id=351 data-nosnippet>351</a>            idx
+<a href=#352 id=352 data-nosnippet>352</a>        }
+<a href=#353 id=353 data-nosnippet>353</a>    }
 <a href=#354 id=354 data-nosnippet>354</a>
-<a href=#355 id=355 data-nosnippet>355</a>        <span class="kw">for </span>entry <span class="kw">in </span><span class="self">self</span>.entries.iter().rev() {
-<a href=#356 id=356 data-nosnippet>356</a>            <span class="kw">let </span>offset = bytes.len() <span class="kw">as </span>u32;
-<a href=#357 id=357 data-nosnippet>357</a>            <span class="kw">match </span>entry {
-<a href=#358 id=358 data-nosnippet>358</a>                TypeEntry::Tag { tag } =&gt; {
-<a href=#359 id=359 data-nosnippet>359</a>                    bytes.extend_from_slice(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0</span>; pointer_bytes <span class="kw">as </span>usize]);
-<a href=#360 id=360 data-nosnippet>360</a>                    relocations.push(TagRelocation { offset, tag: <span class="kw-2">*</span>tag });
-<a href=#361 id=361 data-nosnippet>361</a>                }
-<a href=#362 id=362 data-nosnippet>362</a>                TypeEntry::CatchAll =&gt; {
+<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>, pointer_bytes: u8) -&gt; (Vec&lt;u8&gt;, Vec&lt;TagRelocation&gt;) {
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::with_capacity(<span class="self">self</span>.entries.len() * pointer_bytes <span class="kw">as </span>usize);
+<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span><span class="kw-2">mut </span>relocations = Vec::new();
+<a href=#358 id=358 data-nosnippet>358</a>
+<a href=#359 id=359 data-nosnippet>359</a>        <span class="kw">for </span>entry <span class="kw">in </span><span class="self">self</span>.entries.iter().rev() {
+<a href=#360 id=360 data-nosnippet>360</a>            <span class="kw">let </span>offset = bytes.len() <span class="kw">as </span>u32;
+<a href=#361 id=361 data-nosnippet>361</a>            <span class="kw">match </span>entry {
+<a href=#362 id=362 data-nosnippet>362</a>                TypeEntry::Tag { tag } =&gt; {
 <a href=#363 id=363 data-nosnippet>363</a>                    bytes.extend_from_slice(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0</span>; pointer_bytes <span class="kw">as </span>usize]);
-<a href=#364 id=364 data-nosnippet>364</a>                }
-<a href=#365 id=365 data-nosnippet>365</a>            }
-<a href=#366 id=366 data-nosnippet>366</a>        }
-<a href=#367 id=367 data-nosnippet>367</a>
-<a href=#368 id=368 data-nosnippet>368</a>        (bytes, relocations)
-<a href=#369 id=369 data-nosnippet>369</a>    }
-<a href=#370 id=370 data-nosnippet>370</a>}
+<a href=#364 id=364 data-nosnippet>364</a>                    relocations.push(TagRelocation { offset, tag: <span class="kw-2">*</span>tag });
+<a href=#365 id=365 data-nosnippet>365</a>                }
+<a href=#366 id=366 data-nosnippet>366</a>                TypeEntry::CatchAll =&gt; {
+<a href=#367 id=367 data-nosnippet>367</a>                    bytes.extend_from_slice(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0</span>; pointer_bytes <span class="kw">as </span>usize]);
+<a href=#368 id=368 data-nosnippet>368</a>                }
+<a href=#369 id=369 data-nosnippet>369</a>            }
+<a href=#370 id=370 data-nosnippet>370</a>        }
 <a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a><span class="attr">#[derive(Debug, Hash, PartialEq, Eq)]
-<a href=#373 id=373 data-nosnippet>373</a></span><span class="kw">enum </span>TypeKey {
-<a href=#374 id=374 data-nosnippet>374</a>    Tag(u32),
-<a href=#375 id=375 data-nosnippet>375</a>    CatchAll,
-<a href=#376 id=376 data-nosnippet>376</a>}
-<a href=#377 id=377 data-nosnippet>377</a>
-<a href=#378 id=378 data-nosnippet>378</a><span class="attr">#[derive(Debug)]
-<a href=#379 id=379 data-nosnippet>379</a></span><span class="kw">enum </span>TypeEntry {
-<a href=#380 id=380 data-nosnippet>380</a>    Tag { tag: u32 },
-<a href=#381 id=381 data-nosnippet>381</a>    CatchAll,
-<a href=#382 id=382 data-nosnippet>382</a>}
-<a href=#383 id=383 data-nosnippet>383</a>
-<a href=#384 id=384 data-nosnippet>384</a><span class="kw">struct </span>ActionTable {
-<a href=#385 id=385 data-nosnippet>385</a>    bytes: Vec&lt;u8&gt;,
-<a href=#386 id=386 data-nosnippet>386</a>    first_action_offsets: Vec&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt;,
-<a href=#387 id=387 data-nosnippet>387</a>}
-<a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a><span class="kw">fn </span>encode_action_table(callsite_actions: <span class="kw-2">&amp;</span>[Vec&lt;i32&gt;]) -&gt; ActionTable {
-<a href=#390 id=390 data-nosnippet>390</a>    <span class="kw">let </span><span class="kw-2">mut </span>writer = Cursor::new(Vec::new());
-<a href=#391 id=391 data-nosnippet>391</a>    <span class="kw">let </span><span class="kw-2">mut </span>first_action_offsets = Vec::new();
+<a href=#372 id=372 data-nosnippet>372</a>        (bytes, relocations)
+<a href=#373 id=373 data-nosnippet>373</a>    }
+<a href=#374 id=374 data-nosnippet>374</a>}
+<a href=#375 id=375 data-nosnippet>375</a>
+<a href=#376 id=376 data-nosnippet>376</a><span class="attr">#[derive(Debug, Hash, PartialEq, Eq)]
+<a href=#377 id=377 data-nosnippet>377</a></span><span class="kw">enum </span>TypeKey {
+<a href=#378 id=378 data-nosnippet>378</a>    Tag(u32),
+<a href=#379 id=379 data-nosnippet>379</a>    CatchAll,
+<a href=#380 id=380 data-nosnippet>380</a>}
+<a href=#381 id=381 data-nosnippet>381</a>
+<a href=#382 id=382 data-nosnippet>382</a><span class="attr">#[derive(Debug)]
+<a href=#383 id=383 data-nosnippet>383</a></span><span class="kw">enum </span>TypeEntry {
+<a href=#384 id=384 data-nosnippet>384</a>    Tag { tag: u32 },
+<a href=#385 id=385 data-nosnippet>385</a>    CatchAll,
+<a href=#386 id=386 data-nosnippet>386</a>}
+<a href=#387 id=387 data-nosnippet>387</a>
+<a href=#388 id=388 data-nosnippet>388</a><span class="kw">struct </span>ActionTable {
+<a href=#389 id=389 data-nosnippet>389</a>    bytes: Vec&lt;u8&gt;,
+<a href=#390 id=390 data-nosnippet>390</a>    first_action_offsets: Vec&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt;,
+<a href=#391 id=391 data-nosnippet>391</a>}
 <a href=#392 id=392 data-nosnippet>392</a>
-<a href=#393 id=393 data-nosnippet>393</a>    <span class="kw">let </span><span class="kw-2">mut </span>cache = HashMap::new();
-<a href=#394 id=394 data-nosnippet>394</a>
-<a href=#395 id=395 data-nosnippet>395</a>    <span class="kw">for </span>actions <span class="kw">in </span>callsite_actions {
-<a href=#396 id=396 data-nosnippet>396</a>        <span class="kw">if </span>actions.is_empty() {
-<a href=#397 id=397 data-nosnippet>397</a>            first_action_offsets.push(<span class="prelude-val">None</span>);
-<a href=#398 id=398 data-nosnippet>398</a>        } <span class="kw">else </span>{
-<a href=#399 id=399 data-nosnippet>399</a>            <span class="kw">match </span>cache.entry(actions.clone()) {
-<a href=#400 id=400 data-nosnippet>400</a>                Entry::Occupied(entry) =&gt; {
-<a href=#401 id=401 data-nosnippet>401</a>                    first_action_offsets.push(<span class="prelude-val">Some</span>(<span class="kw-2">*</span>entry.get()));
-<a href=#402 id=402 data-nosnippet>402</a>                }
-<a href=#403 id=403 data-nosnippet>403</a>                Entry::Vacant(entry) =&gt; {
-<a href=#404 id=404 data-nosnippet>404</a>                    <span class="kw">let </span><span class="kw-2">mut </span>last_action_start = <span class="number">0</span>;
-<a href=#405 id=405 data-nosnippet>405</a>                    <span class="kw">for </span>(i, <span class="kw-2">&amp;</span>ttype_index) <span class="kw">in </span>actions.iter().enumerate() {
-<a href=#406 id=406 data-nosnippet>406</a>                        <span class="kw">let </span>next_action_start = writer.position();
-<a href=#407 id=407 data-nosnippet>407</a>                        leb128::write::signed(<span class="kw-2">&amp;mut </span>writer, ttype_index <span class="kw">as </span>i64)
-<a href=#408 id=408 data-nosnippet>408</a>                            .expect(<span class="string">"leb128 write failed"</span>);
-<a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a>                        <span class="kw">if </span>i != <span class="number">0 </span>{
-<a href=#411 id=411 data-nosnippet>411</a>                            <span class="comment">// Make a linked list to the previous action
-<a href=#412 id=412 data-nosnippet>412</a>                            </span><span class="kw">let </span>displacement = last_action_start - writer.position() <span class="kw">as </span>i64;
-<a href=#413 id=413 data-nosnippet>413</a>                            leb128::write::signed(<span class="kw-2">&amp;mut </span>writer, displacement)
-<a href=#414 id=414 data-nosnippet>414</a>                                .expect(<span class="string">"leb128 write failed"</span>);
-<a href=#415 id=415 data-nosnippet>415</a>                        } <span class="kw">else </span>{
-<a href=#416 id=416 data-nosnippet>416</a>                            leb128::write::signed(<span class="kw-2">&amp;mut </span>writer, <span class="number">0</span>).expect(<span class="string">"leb128 write failed"</span>);
-<a href=#417 id=417 data-nosnippet>417</a>                        }
-<a href=#418 id=418 data-nosnippet>418</a>                        last_action_start = next_action_start <span class="kw">as </span>i64;
-<a href=#419 id=419 data-nosnippet>419</a>                    }
-<a href=#420 id=420 data-nosnippet>420</a>                    <span class="kw">let </span>last_action_start = last_action_start <span class="kw">as </span>u32;
-<a href=#421 id=421 data-nosnippet>421</a>                    entry.insert(last_action_start);
-<a href=#422 id=422 data-nosnippet>422</a>                    first_action_offsets.push(<span class="prelude-val">Some</span>(last_action_start));
-<a href=#423 id=423 data-nosnippet>423</a>                }
-<a href=#424 id=424 data-nosnippet>424</a>            }
-<a href=#425 id=425 data-nosnippet>425</a>        }
-<a href=#426 id=426 data-nosnippet>426</a>    }
-<a href=#427 id=427 data-nosnippet>427</a>
-<a href=#428 id=428 data-nosnippet>428</a>    ActionTable {
-<a href=#429 id=429 data-nosnippet>429</a>        bytes: writer.into_inner(),
-<a href=#430 id=430 data-nosnippet>430</a>        first_action_offsets,
-<a href=#431 id=431 data-nosnippet>431</a>    }
-<a href=#432 id=432 data-nosnippet>432</a>}
-<a href=#433 id=433 data-nosnippet>433</a>
-<a href=#434 id=434 data-nosnippet>434</a><span class="kw">fn </span>encode_call_site_table(callsites: <span class="kw-2">&amp;</span>[CallSiteDesc], action_table: <span class="kw-2">&amp;</span>ActionTable) -&gt; Vec&lt;u8&gt; {
-<a href=#435 id=435 data-nosnippet>435</a>    <span class="kw">let </span><span class="kw-2">mut </span>writer = Cursor::new(Vec::new());
-<a href=#436 id=436 data-nosnippet>436</a>    <span class="kw">for </span>(idx, site) <span class="kw">in </span>callsites.iter().enumerate() {
-<a href=#437 id=437 data-nosnippet>437</a>        write_encoded_offset(site.start, <span class="kw-2">&amp;mut </span>writer);
-<a href=#438 id=438 data-nosnippet>438</a>        write_encoded_offset(site.len, <span class="kw-2">&amp;mut </span>writer);
-<a href=#439 id=439 data-nosnippet>439</a>        write_encoded_offset(site.landing_pad, <span class="kw-2">&amp;mut </span>writer);
-<a href=#440 id=440 data-nosnippet>440</a>
-<a href=#441 id=441 data-nosnippet>441</a>        <span class="kw">let </span>action = <span class="kw">match </span>action_table.first_action_offsets[idx] {
-<a href=#442 id=442 data-nosnippet>442</a>            <span class="prelude-val">Some</span>(offset) =&gt; offset <span class="kw">as </span>u64 + <span class="number">1</span>,
-<a href=#443 id=443 data-nosnippet>443</a>            <span class="prelude-val">None </span>=&gt; <span class="number">0</span>,
-<a href=#444 id=444 data-nosnippet>444</a>        };
-<a href=#445 id=445 data-nosnippet>445</a>        leb128::write::unsigned(<span class="kw-2">&amp;mut </span>writer, action).expect(<span class="string">"leb128 write failed"</span>);
-<a href=#446 id=446 data-nosnippet>446</a>    }
-<a href=#447 id=447 data-nosnippet>447</a>    writer.into_inner()
-<a href=#448 id=448 data-nosnippet>448</a>}
-<a href=#449 id=449 data-nosnippet>449</a>
-<a href=#450 id=450 data-nosnippet>450</a><span class="kw">fn </span>write_encoded_offset(val: u32, out: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Write) {
-<a href=#451 id=451 data-nosnippet>451</a>    <span class="comment">// We use DW_EH_PE_udata4 for all offsets.
-<a href=#452 id=452 data-nosnippet>452</a>    </span>out.write_all(<span class="kw-2">&amp;</span>val.to_le_bytes())
-<a href=#453 id=453 data-nosnippet>453</a>        .expect(<span class="string">"write to buffer failed"</span>)
-<a href=#454 id=454 data-nosnippet>454</a>}
-<a href=#455 id=455 data-nosnippet>455</a>
-<a href=#456 id=456 data-nosnippet>456</a><span class="kw">fn </span>uleb128_len(value: u64) -&gt; usize {
-<a href=#457 id=457 data-nosnippet>457</a>    <span class="kw">let </span><span class="kw-2">mut </span>cursor = Cursor::new([<span class="number">0u8</span>; <span class="number">10</span>]);
-<a href=#458 id=458 data-nosnippet>458</a>    leb128::write::unsigned(<span class="kw-2">&amp;mut </span>cursor, value).unwrap()
-<a href=#459 id=459 data-nosnippet>459</a>}</code></pre></div></section></main></body></html>
+<a href=#393 id=393 data-nosnippet>393</a><span class="kw">fn </span>encode_action_table(callsite_actions: <span class="kw-2">&amp;</span>[Vec&lt;i32&gt;]) -&gt; ActionTable {
+<a href=#394 id=394 data-nosnippet>394</a>    <span class="kw">let </span><span class="kw-2">mut </span>writer = Cursor::new(Vec::new());
+<a href=#395 id=395 data-nosnippet>395</a>    <span class="kw">let </span><span class="kw-2">mut </span>first_action_offsets = Vec::new();
+<a href=#396 id=396 data-nosnippet>396</a>
+<a href=#397 id=397 data-nosnippet>397</a>    <span class="kw">let </span><span class="kw-2">mut </span>cache = HashMap::new();
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a>    <span class="kw">for </span>actions <span class="kw">in </span>callsite_actions {
+<a href=#400 id=400 data-nosnippet>400</a>        <span class="kw">if </span>actions.is_empty() {
+<a href=#401 id=401 data-nosnippet>401</a>            first_action_offsets.push(<span class="prelude-val">None</span>);
+<a href=#402 id=402 data-nosnippet>402</a>        } <span class="kw">else </span>{
+<a href=#403 id=403 data-nosnippet>403</a>            <span class="kw">match </span>cache.entry(actions.clone()) {
+<a href=#404 id=404 data-nosnippet>404</a>                Entry::Occupied(entry) =&gt; {
+<a href=#405 id=405 data-nosnippet>405</a>                    first_action_offsets.push(<span class="prelude-val">Some</span>(<span class="kw-2">*</span>entry.get()));
+<a href=#406 id=406 data-nosnippet>406</a>                }
+<a href=#407 id=407 data-nosnippet>407</a>                Entry::Vacant(entry) =&gt; {
+<a href=#408 id=408 data-nosnippet>408</a>                    <span class="kw">let </span><span class="kw-2">mut </span>last_action_start = <span class="number">0</span>;
+<a href=#409 id=409 data-nosnippet>409</a>                    <span class="kw">for </span>(i, <span class="kw-2">&amp;</span>ttype_index) <span class="kw">in </span>actions.iter().enumerate() {
+<a href=#410 id=410 data-nosnippet>410</a>                        <span class="kw">let </span>next_action_start = writer.position();
+<a href=#411 id=411 data-nosnippet>411</a>                        leb128::write::signed(<span class="kw-2">&amp;mut </span>writer, ttype_index <span class="kw">as </span>i64)
+<a href=#412 id=412 data-nosnippet>412</a>                            .expect(<span class="string">"leb128 write failed"</span>);
+<a href=#413 id=413 data-nosnippet>413</a>
+<a href=#414 id=414 data-nosnippet>414</a>                        <span class="kw">if </span>i != <span class="number">0 </span>{
+<a href=#415 id=415 data-nosnippet>415</a>                            <span class="comment">// Make a linked list to the previous action
+<a href=#416 id=416 data-nosnippet>416</a>                            </span><span class="kw">let </span>displacement = last_action_start - writer.position() <span class="kw">as </span>i64;
+<a href=#417 id=417 data-nosnippet>417</a>                            leb128::write::signed(<span class="kw-2">&amp;mut </span>writer, displacement)
+<a href=#418 id=418 data-nosnippet>418</a>                                .expect(<span class="string">"leb128 write failed"</span>);
+<a href=#419 id=419 data-nosnippet>419</a>                        } <span class="kw">else </span>{
+<a href=#420 id=420 data-nosnippet>420</a>                            leb128::write::signed(<span class="kw-2">&amp;mut </span>writer, <span class="number">0</span>).expect(<span class="string">"leb128 write failed"</span>);
+<a href=#421 id=421 data-nosnippet>421</a>                        }
+<a href=#422 id=422 data-nosnippet>422</a>                        last_action_start = next_action_start <span class="kw">as </span>i64;
+<a href=#423 id=423 data-nosnippet>423</a>                    }
+<a href=#424 id=424 data-nosnippet>424</a>                    <span class="kw">let </span>last_action_start = last_action_start <span class="kw">as </span>u32;
+<a href=#425 id=425 data-nosnippet>425</a>                    entry.insert(last_action_start);
+<a href=#426 id=426 data-nosnippet>426</a>                    first_action_offsets.push(<span class="prelude-val">Some</span>(last_action_start));
+<a href=#427 id=427 data-nosnippet>427</a>                }
+<a href=#428 id=428 data-nosnippet>428</a>            }
+<a href=#429 id=429 data-nosnippet>429</a>        }
+<a href=#430 id=430 data-nosnippet>430</a>    }
+<a href=#431 id=431 data-nosnippet>431</a>
+<a href=#432 id=432 data-nosnippet>432</a>    ActionTable {
+<a href=#433 id=433 data-nosnippet>433</a>        bytes: writer.into_inner(),
+<a href=#434 id=434 data-nosnippet>434</a>        first_action_offsets,
+<a href=#435 id=435 data-nosnippet>435</a>    }
+<a href=#436 id=436 data-nosnippet>436</a>}
+<a href=#437 id=437 data-nosnippet>437</a>
+<a href=#438 id=438 data-nosnippet>438</a><span class="kw">fn </span>encode_call_site_table(callsites: <span class="kw-2">&amp;</span>[CallSiteDesc], action_table: <span class="kw-2">&amp;</span>ActionTable) -&gt; Vec&lt;u8&gt; {
+<a href=#439 id=439 data-nosnippet>439</a>    <span class="kw">let </span><span class="kw-2">mut </span>writer = Cursor::new(Vec::new());
+<a href=#440 id=440 data-nosnippet>440</a>    <span class="kw">for </span>(idx, site) <span class="kw">in </span>callsites.iter().enumerate() {
+<a href=#441 id=441 data-nosnippet>441</a>        write_encoded_offset(site.start, <span class="kw-2">&amp;mut </span>writer);
+<a href=#442 id=442 data-nosnippet>442</a>        write_encoded_offset(site.len, <span class="kw-2">&amp;mut </span>writer);
+<a href=#443 id=443 data-nosnippet>443</a>        write_encoded_offset(site.landing_pad, <span class="kw-2">&amp;mut </span>writer);
+<a href=#444 id=444 data-nosnippet>444</a>
+<a href=#445 id=445 data-nosnippet>445</a>        <span class="kw">let </span>action = <span class="kw">match </span>action_table.first_action_offsets[idx] {
+<a href=#446 id=446 data-nosnippet>446</a>            <span class="prelude-val">Some</span>(offset) =&gt; offset <span class="kw">as </span>u64 + <span class="number">1</span>,
+<a href=#447 id=447 data-nosnippet>447</a>            <span class="prelude-val">None </span>=&gt; <span class="number">0</span>,
+<a href=#448 id=448 data-nosnippet>448</a>        };
+<a href=#449 id=449 data-nosnippet>449</a>        leb128::write::unsigned(<span class="kw-2">&amp;mut </span>writer, action).expect(<span class="string">"leb128 write failed"</span>);
+<a href=#450 id=450 data-nosnippet>450</a>    }
+<a href=#451 id=451 data-nosnippet>451</a>    writer.into_inner()
+<a href=#452 id=452 data-nosnippet>452</a>}
+<a href=#453 id=453 data-nosnippet>453</a>
+<a href=#454 id=454 data-nosnippet>454</a><span class="kw">fn </span>write_encoded_offset(val: u32, out: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Write) {
+<a href=#455 id=455 data-nosnippet>455</a>    <span class="comment">// We use DW_EH_PE_udata4 for all offsets.
+<a href=#456 id=456 data-nosnippet>456</a>    </span>out.write_all(<span class="kw-2">&amp;</span>val.to_le_bytes())
+<a href=#457 id=457 data-nosnippet>457</a>        .expect(<span class="string">"write to buffer failed"</span>)
+<a href=#458 id=458 data-nosnippet>458</a>}
+<a href=#459 id=459 data-nosnippet>459</a>
+<a href=#460 id=460 data-nosnippet>460</a><span class="kw">fn </span>uleb128_len(value: u64) -&gt; usize {
+<a href=#461 id=461 data-nosnippet>461</a>    <span class="kw">let </span><span class="kw-2">mut </span>cursor = Cursor::new([<span class="number">0u8</span>; <span class="number">10</span>]);
+<a href=#462 id=462 data-nosnippet>462</a>    leb128::write::unsigned(<span class="kw-2">&amp;mut </span>cursor, value).unwrap()
+<a href=#463 id=463 data-nosnippet>463</a>}</code></pre></div></section></main></body></html>
