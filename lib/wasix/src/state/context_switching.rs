@@ -196,6 +196,13 @@ impl ContextSwitchingEnvironment {
     }
 
     pub(crate) fn destroy_context(&self, target_context_id: &u64) -> bool {
+        // For now this only queues the context up for destruction by removing its unblocker.
+        // This will only cause destruction when the context_switch is called.
+        // That could cause memory issues if many contexts are created and destroyed without switching
+        // which could happen in applications that use contexts during setup, but not during main execution.
+        // We don't do immediate destruction because that would make this more complex, as it is essentially
+        // identical to switching to the target context
+        // TODO: Implement immediate destruction if the above becoms an issue
         self.inner
             .unblockers
             .write()
