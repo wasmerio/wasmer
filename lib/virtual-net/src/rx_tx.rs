@@ -116,7 +116,7 @@ where
                 let data = match format {
                     crate::meta::FrameSerializationFormat::Bincode => {
                         bincode::serde::encode_to_vec(&req, config::legacy()).map_err(|err| {
-                            tracing::warn!("failed to serialize message - {err:?}");
+                            tracing::warn!("failed to serialize message - {err}");
                             NetworkError::IOError
                         })?
                     }
