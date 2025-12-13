@@ -1,3 +1,5 @@
+use bincode::config;
+
 /// A snapshot that captures the runtime state of an instance.
 #[derive(Default, serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct StoreSnapshot {
@@ -6,12 +8,12 @@ pub struct StoreSnapshot {
 }
 
 impl StoreSnapshot {
-    pub fn serialize(&self) -> Result<Vec<u8>, bincode::Error> {
-        bincode::serialize(self)
+    pub fn serialize(&self) -> Result<Vec<u8>, bincode::error::EncodeError> {
+        bincode::serde::encode_to_vec(self, config::legacy())
     }
 
-    pub fn deserialize(data: &[u8]) -> Result<Self, bincode::Error> {
-        bincode::deserialize(data)
+    pub fn deserialize(data: &[u8]) -> Result<Self, bincode::error::DecodeError> {
+        bincode::serde::decode_from_slice(data, config::legacy()).map(|(ret, _)| ret)
     }
 }
 

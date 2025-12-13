@@ -1,3 +1,5 @@
+use bincode::config;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -45,7 +47,9 @@ pub fn stack_restore<M: MemorySize>(
             let pid = ctx.data().pid();
             let tid = ctx.data().tid();
 
-            let rewind_result = bincode::serialize(&val).unwrap().into();
+            let rewind_result = bincode::encode_to_vec(val, config::legacy())
+                .unwrap()
+                .into();
             let ret = rewind_ext::<M>(
                 &mut ctx,
                 None, // we do not restore the thread memory as `longjmp`` is not meant to do this
