@@ -47,7 +47,7 @@ pub fn stack_restore<M: MemorySize>(
             let pid = ctx.data().pid();
             let tid = ctx.data().tid();
 
-            let rewind_result = bincode::encode_to_vec(&val, config::legacy())
+            let rewind_result = bincode::encode_to_vec(val, config::legacy())
                 .unwrap()
                 .into();
             let ret = rewind_ext::<M>(
