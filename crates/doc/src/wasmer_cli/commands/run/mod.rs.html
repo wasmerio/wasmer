@@ -628,14 +628,14 @@
 <a href=#628 id=628 data-nosnippet>628</a>    <span class="attr">#[allow(unused_variables)]
 <a href=#629 id=629 data-nosnippet>629</a>    </span><span class="kw">fn </span>maybe_save_coredump(<span class="kw-2">&amp;</span><span class="self">self</span>, e: <span class="kw-2">&amp;</span>Error) {
 <a href=#630 id=630 data-nosnippet>630</a>        <span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
-<a href=#631 id=631 data-nosnippet>631</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(coredump) = <span class="kw-2">&amp;</span><span class="self">self</span>.coredump_on_trap {
-<a href=#632 id=632 data-nosnippet>632</a>            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = generate_coredump(e, <span class="self">self</span>.input.to_string(), coredump) {
-<a href=#633 id=633 data-nosnippet>633</a>                <span class="macro">tracing::warn!</span>(
-<a href=#634 id=634 data-nosnippet>634</a>                    error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-<a href=#635 id=635 data-nosnippet>635</a>                    coredump_path=%coredump.display(),
-<a href=#636 id=636 data-nosnippet>636</a>                    <span class="string">"Unable to generate a coredump"</span>,
-<a href=#637 id=637 data-nosnippet>637</a>                );
-<a href=#638 id=638 data-nosnippet>638</a>            }
+<a href=#631 id=631 data-nosnippet>631</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(coredump) = <span class="kw-2">&amp;</span><span class="self">self</span>.coredump_on_trap
+<a href=#632 id=632 data-nosnippet>632</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Err</span>(e) = generate_coredump(e, <span class="self">self</span>.input.to_string(), coredump)
+<a href=#633 id=633 data-nosnippet>633</a>        {
+<a href=#634 id=634 data-nosnippet>634</a>            <span class="macro">tracing::warn!</span>(
+<a href=#635 id=635 data-nosnippet>635</a>                error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+<a href=#636 id=636 data-nosnippet>636</a>                coredump_path=%coredump.display(),
+<a href=#637 id=637 data-nosnippet>637</a>                <span class="string">"Unable to generate a coredump"</span>,
+<a href=#638 id=638 data-nosnippet>638</a>            );
 <a href=#639 id=639 data-nosnippet>639</a>        }
 <a href=#640 id=640 data-nosnippet>640</a>    }
 <a href=#641 id=641 data-nosnippet>641</a>}
