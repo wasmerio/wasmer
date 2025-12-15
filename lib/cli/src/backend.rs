@@ -88,7 +88,7 @@ pub struct WasmFeatures {
 pub struct RuntimeOptions {
     /// Use Singlepass compiler.
     #[cfg(feature = "singlepass")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+    #[clap(short, long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "llvm")]
         "llvm", 
         #[cfg(feature = "v8")]
@@ -104,7 +104,7 @@ pub struct RuntimeOptions {
 
     /// Use Cranelift compiler.
     #[cfg(feature = "cranelift")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+    #[clap(short, long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "llvm")]
         "llvm", 
         #[cfg(feature = "v8")]
@@ -120,7 +120,7 @@ pub struct RuntimeOptions {
 
     /// Use LLVM compiler.
     #[cfg(feature = "llvm")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+    #[clap(short, long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "cranelift")]
         "cranelift", 
         #[cfg(feature = "v8")]
@@ -460,6 +460,12 @@ impl RuntimeOptions {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
+                if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
+                    use wasmer_compiler_singlepass::SinglepassCallbacks;
+
+                    debug_dir.push("singlepass");
+                    config.callbacks(Some(SinglepassCallbacks::new(debug_dir)?));
+                }
 
                 Box::new(config)
             }
@@ -587,6 +593,12 @@ impl BackendType {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
+                }
+                if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
+                    use wasmer_compiler_singlepass::SinglepassCallbacks;
+
+                    debug_dir.push("singlepass");
+                    config.callbacks(Some(SinglepassCallbacks::new(debug_dir)?));
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(features.clone()))

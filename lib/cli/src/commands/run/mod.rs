@@ -628,14 +628,14 @@ impl Run {
     #[allow(unused_variables)]
     fn maybe_save_coredump(&self, e: &Error) {
         #[cfg(feature = "coredump")]
-        if let Some(coredump) = &self.coredump_on_trap {
-            if let Err(e) = generate_coredump(e, self.input.to_string(), coredump) {
-                tracing::warn!(
-                    error = &*e as &dyn std::error::Error,
-                    coredump_path=%coredump.display(),
-                    "Unable to generate a coredump",
-                );
-            }
+        if let Some(coredump) = &self.coredump_on_trap
+            && let Err(e) = generate_coredump(e, self.input.to_string(), coredump)
+        {
+            tracing::warn!(
+                error = &*e as &dyn std::error::Error,
+                coredump_path=%coredump.display(),
+                "Unable to generate a coredump",
+            );
         }
     }
 }

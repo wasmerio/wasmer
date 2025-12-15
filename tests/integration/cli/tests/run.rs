@@ -1055,6 +1055,7 @@ fn run_quickjs_via_url() {
 }
 
 #[test]
+#[allow(unused_attributes)]
 #[cfg_attr(
     all(target_env = "musl", target_os = "linux"),
     ignore = "wasmer run-unstable segfaults on musl"
@@ -1316,5 +1317,5 @@ fn http_get(url: impl IntoUrl) -> Result<String, reqwest::Error> {
 }
 
 fn random_port() -> u16 {
-    rand::thread_rng().gen_range(10_000_u16..u16::MAX)
+    rand::rng().random_range(10_000_u16..u16::MAX)
 }

@@ -16,7 +16,6 @@
 
 // Based on `compiler-builtins` crate with changes in `#[cfg(...)]`:
 // https://raw.githubusercontent.com/rust-lang/compiler-builtins/319637f544d9dda8fc3dd482d9979e0da135a258/compiler-builtins/src/probestack.rs
-#[cfg(missing_rust_probestack)]
 mod compiler_builtins;
 
 // A declaration for the stack probe function in Rust's standard library, for
@@ -60,17 +59,7 @@ cfg_if::cfg_if! {
         /// A default probestack for other architectures
         pub const PROBESTACK: unsafe extern "C" fn() = empty_probestack;
     } else {
-        cfg_if::cfg_if! {
-            if #[cfg(not(missing_rust_probestack))] {
-                unsafe extern "C" {
-                    pub fn __rust_probestack();
-                }
-                /// The probestack based on the Rust probestack
-                pub static PROBESTACK: unsafe extern "C" fn() = __rust_probestack;
-            } else if #[cfg(missing_rust_probestack)] {
-                /// The probestack based on the Rust probestack
-                pub static PROBESTACK: unsafe extern "C" fn() = compiler_builtins::__rust_probestack;
-            }
-        }
+        /// The probestack based on the Rust probestack
+        pub static PROBESTACK: unsafe extern "C" fn() = compiler_builtins::__rust_probestack;
     }
 }

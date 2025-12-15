@@ -56,18 +56,15 @@ impl Default for wasmer_backend_config_kind_t {
                 Self::Sys(sys::wasmer_sys_engine_config_t::default())
             }
             #[cfg(feature = "v8")]
-            super::wasmer_backend_t::V8 => Self::V8(v8::wasmer_v8_engine_config_t::default()),
+            super::wasmer_backend_t::V8 => Self::V8(v8::wasmer_v8_engine_config_t),
             #[cfg(feature = "wasmi")]
-            super::wasmer_backend_t::WASMI => {
-                Self::Wasmi(wasmi::wasmer_wasmi_engine_config_t::default())
-            }
+            super::wasmer_backend_t::WASMI => Self::Wasmi(wasmi::wasmer_wasmi_engine_config_t),
             #[cfg(feature = "wamr")]
-            super::wasmer_backend_t::WAMR => {
-                Self::Wamr(wamr::wasmer_wamr_engine_config_t::default())
-            }
+            super::wasmer_backend_t::WAMR => Self::Wamr(wamr::wasmer_wamr_engine_config_t),
             #[cfg(feature = "jsc")]
-            super::wasmer_backend_t::JSC => Self::Jsc(jsc::wasmer_jsc_engine_config_t::default()),
+            super::wasmer_backend_t::JSC => Self::Jsc(jsc::wasmer_jsc_engine_config_t),
 
+            #[allow(unreachable_patterns)]
             _ => unreachable!(),
         }
     }

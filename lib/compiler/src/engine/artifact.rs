@@ -454,7 +454,7 @@ impl Artifact {
             get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
         )?;
 
-        #[cfg(all(feature = "compiler", not(target_arch = "wasm32")))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
         {
             engine_inner.register_perfmap(&finished_functions, module_info)?;
         }

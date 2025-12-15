@@ -16,7 +16,7 @@
     clippy::unicode_not_nfc,
     clippy::use_self
 )]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(not(feature = "std"))]
 #[macro_use]
@@ -42,6 +42,8 @@ mod config;
 mod debug;
 #[cfg(feature = "unwind")]
 mod dwarf;
+#[cfg(feature = "unwind")]
+mod eh;
 mod func_environ;
 mod heap;
 mod table;

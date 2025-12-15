@@ -2,7 +2,7 @@ use crate::compiler::LLVMCompiler;
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
-    TargetTriple,
+    TargetMachineOptions, TargetTriple,
 };
 use itertools::Itertools;
 use std::fs::File;
@@ -275,66 +275,29 @@ impl LLVM {
 
         let target_triple = self.target_triple(target);
         let llvm_target = InkwellTarget::from_triple(&target_triple).unwrap();
-        let llvm_target_machine = llvm_target
-            .create_target_machine(
-                &target_triple,
-                match triple.architecture {
-                    Architecture::Riscv64(_) => "generic-rv64",
-                    Architecture::LoongArch64 => "generic-la64",
-                    _ => "generic",
-                },
-                match triple.architecture {
-                    Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
-                    Architecture::LoongArch64 => "+f,+d",
-                    _ => &llvm_cpu_features,
-                },
-                self.opt_level,
-                self.reloc_mode(self.target_binary_format(target)),
-                match triple.architecture {
-                    Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
-                    _ => self.code_model(self.target_binary_format(target)),
-                },
-            )
-            .unwrap();
-
+        let mut llvm_target_machine_options = TargetMachineOptions::new()
+            .set_cpu(match triple.architecture {
+                Architecture::Riscv64(_) => "generic-rv64",
+                Architecture::LoongArch64 => "generic-la64",
+                _ => "generic",
+            })
+            .set_features(match triple.architecture {
+                Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
+                Architecture::LoongArch64 => "+f,+d",
+                _ => &llvm_cpu_features,
+            })
+            .set_level(self.opt_level)
+            .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
+            .set_code_model(match triple.architecture {
+                Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
+                _ => self.code_model(self.target_binary_format(target)),
+            });
         if let Architecture::Riscv64(_) = triple.architecture {
-            // TODO: totally non-portable way to change ABI
-            unsafe {
-                // This structure mimic the internal structure from inkwell
-                // that is defined as
-                //  #[derive(Debug)]
-                //  pub struct TargetMachine {
-                //    pub(crate) target_machine: LLVMTargetMachineRef,
-                //  }
-                pub struct MyTargetMachine {
-                    pub target_machine: *const u8,
-                }
-                // It is use to live patch the create LLVMTargetMachine
-                // to hard change the ABI and force "-mabi=lp64d" ABI
-                // instead of the default that don't use float registers
-                // because there is no current way to do this change
-
-                let my_target_machine: MyTargetMachine = std::mem::transmute(llvm_target_machine);
-
-                #[cfg(target_arch = "riscv64")]
-                let target_machine_ptr = my_target_machine.target_machine as *mut u8;
-                #[cfg(not(target_arch = "riscv64"))]
-                let target_machine_ptr = my_target_machine.target_machine as *mut i8;
-
-                *(target_machine_ptr.offset(0x410) as *mut u64) = 5;
-                std::ptr::copy_nonoverlapping(
-                    c"lp64d".as_ptr(),
-                    target_machine_ptr.offset(0x418),
-                    6,
-                );
-
-                std::mem::transmute::<MyTargetMachine, inkwell::targets::TargetMachine>(
-                    my_target_machine,
-                )
-            }
-        } else {
-            llvm_target_machine
+            llvm_target_machine_options = llvm_target_machine_options.set_abi("lp64d");
         }
+        llvm_target
+            .create_target_machine_from_options(&target_triple, llvm_target_machine_options)
+            .unwrap()
     }
 }
 

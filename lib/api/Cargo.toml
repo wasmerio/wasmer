@@ -35,13 +35,13 @@ cfg-if.workspace = true
 thiserror.workspace = true
 more-asserts.workspace = true
 bytes.workspace = true
-tracing.workspace = true
+tracing = { workspace = true, default-features = true }
 # - Optional shared dependencies.
-wat = { version = "1.216.0", optional = true }
-rustc-demangle = "0.1"
+wat = { workspace = true, optional = true }
+rustc-demangle.workspace = true
 shared-buffer.workspace = true
 
-wasmi_c_api = { version = "0.40.0", package = "wasmi_c_api_impl", optional = true, features = [
+wasmi_c_api_impl = { workspace = true, optional = true, features = [
 	"prefix-symbols",
 ] }
 
@@ -49,7 +49,7 @@ loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
 ] }
-paste = "1.0.15"
+paste.workspace = true
 derive_more = { workspace = true, features = ["from", "debug"] }
 
 # Dependencies and Development Dependencies for `sys`.
@@ -64,21 +64,25 @@ target-lexicon = { workspace = true, default-features = false }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=6.1.0", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=6.1.0", optional = true }
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=6.1.0", optional = true }
+corosensei = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
 
-wasm-bindgen = { version = "0.2.74", optional = true }
-js-sys = { version = "0.3.51", optional = true }
-rusty_jsc = { version = "0.1.0", optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+rusty_jsc = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
 
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
-windows-sys = "0.59"
+windows-sys.workspace = true
 # - Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-wat = "1.0"
+wat.workspace = true
 tempfile.workspace = true
 anyhow.workspace = true
 macro-wasmer-universal-test = { version = "6.1.0", path = "./macro-wasmer-universal-test" }
+futures = "0.3"
+tokio = { workspace = true, features = ["full"] }
 
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -86,22 +90,22 @@ macro-wasmer-universal-test = { version = "6.1.0", path = "./macro-wasmer-univer
 wasmer-types = { path = "../types", version = "=6.1.0", default-features = false, features = [
 	"std",
 ] }
-wasm-bindgen = "0.2.100"
-js-sys = "0.3.77"
+wasm-bindgen.workspace = true
+js-sys.workspace = true
 wasmer-derive = { path = "../derive", version = "=6.1.0" }
 wasmer-compiler = { path = "../compiler", version = "=6.1.0" }
 # - Optional dependencies for `js`.
 wasmparser = { workspace = true, default-features = false, optional = true }
 hashbrown = { workspace = true, optional = true }
-serde-wasm-bindgen = { version = "0.6.5" }
+serde-wasm-bindgen.workspace = true
 serde.workspace = true
 target-lexicon.workspace = true
 
 # - Development Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-wat = "1.0"
+wat.workspace = true
 anyhow.workspace = true
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test.workspace = true
 macro-wasmer-universal-test = { version = "6.1.0", path = "./macro-wasmer-universal-test" }
 
 # Specific to `js`.
@@ -128,6 +132,9 @@ artifact-size = [
 sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
 sys-default = ["sys", "wat", "cranelift"]
 
+# Experimental concurrent execution support
+experimental-async = ["sys", "dep:futures", "dep:corosensei"]
+
 # - Compilers.
 compiler = [
 	"sys",
@@ -145,7 +152,7 @@ wamr-default = ["wamr", "wat"]
 wamr = ["wasm-c-api", "std", "dep:which", "dep:zip", "dep:ureq"]
 
 # --- Enable the wasmi backend and use it as default backend.
-wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api"]
+wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api_impl"]
 # --- Enable the wasmi backend and use it as defaul backend only if it is the only one enabled.
 wasmi-default = ["wasmi", "wat"]
 
@@ -183,22 +190,22 @@ static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [build-dependencies]
-cmake = "0.1.50"
+cmake.workspace = true
 tar.workspace = true
-ureq = { version = "2.10.1", optional = true }
-which = { version = "7.0.0", optional = true }
-xz = { version = "0.1.0", optional = true }
-zip = { version = "2.2.0", optional = true }
+ureq = { workspace = true, optional = true }
+which = { workspace = true, optional = true }
+xz = { workspace = true, optional = true }
+zip = { workspace = true, optional = true, default-features = true }
 
 [target.'cfg(target_env = "musl")'.build-dependencies]
-bindgen = { version = "0.72.1", default-features = false, features = [
+bindgen = { workspace = true, default-features = false, features = [
 	"static",
 	"logging",
 	"prettyplease",
 ] }
 
 [target.'cfg(not(target_env = "musl"))'.build-dependencies]
-bindgen = { version = "0.72.1" }
+bindgen = { workspace = true, default-features = true }
 
 [package.metadata.docs.rs]
 features = [

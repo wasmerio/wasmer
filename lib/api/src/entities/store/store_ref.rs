@@ -2,6 +2,8 @@ use std::ops::{Deref, DerefMut};
 
 use super::{StoreObjects, inner::StoreInner};
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
+#[cfg(feature = "experimental-async")]
+use crate::{AsStoreAsync, StoreAsync};
 use wasmer_types::{ExternType, OnCalledAction};
 //use wasmer_vm::{StoreObjects, TrapHandlerFn};
 
@@ -90,6 +92,17 @@ impl StoreMut<'_> {
 pub trait AsStoreRef {
     /// Returns a `StoreRef` pointing to the underlying context.
     fn as_store_ref(&self) -> StoreRef<'_>;
+
+    /// Returns a [`StoreAsync`] if the current
+    /// context is asynchronous. The store will be locked since
+    /// it's already active in the current context, but can be used
+    /// to spawn new coroutines via
+    /// [`Function::call_async`](crate::Function::call_async).
+    #[cfg(feature = "experimental-async")]
+    fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
+        let id = self.as_store_ref().inner.objects.id();
+        StoreAsync::from_context(id)
+    }
 }
 
 /// Helper trait for a value that is convertible to a [`StoreMut`].
