@@ -88,7 +88,7 @@
 <a href=#88 id=88 data-nosnippet>88</a></span><span class="kw">pub struct </span>RuntimeOptions {
 <a href=#89 id=89 data-nosnippet>89</a>    <span class="doccomment">/// Use Singlepass compiler.
 <a href=#90 id=90 data-nosnippet>90</a>    </span><span class="attr">#[cfg(feature = <span class="string">"singlepass"</span>)]
-<a href=#91 id=91 data-nosnippet>91</a>    #[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>Vec::&lt;<span class="kw-2">&amp;</span>str&gt;::from_iter([
+<a href=#91 id=91 data-nosnippet>91</a>    #[clap(short, long, conflicts_with_all = <span class="kw-2">&amp;</span>Vec::&lt;<span class="kw-2">&amp;</span>str&gt;::from_iter([
 <a href=#92 id=92 data-nosnippet>92</a>        <span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)]
 <a href=#93 id=93 data-nosnippet>93</a>        </span><span class="string">"llvm"</span>, 
 <a href=#94 id=94 data-nosnippet>94</a>        <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
@@ -104,7 +104,7 @@
 <a href=#104 id=104 data-nosnippet>104</a>
 <a href=#105 id=105 data-nosnippet>105</a>    <span class="doccomment">/// Use Cranelift compiler.
 <a href=#106 id=106 data-nosnippet>106</a>    </span><span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]
-<a href=#107 id=107 data-nosnippet>107</a>    #[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>Vec::&lt;<span class="kw-2">&amp;</span>str&gt;::from_iter([
+<a href=#107 id=107 data-nosnippet>107</a>    #[clap(short, long, conflicts_with_all = <span class="kw-2">&amp;</span>Vec::&lt;<span class="kw-2">&amp;</span>str&gt;::from_iter([
 <a href=#108 id=108 data-nosnippet>108</a>        <span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)]
 <a href=#109 id=109 data-nosnippet>109</a>        </span><span class="string">"llvm"</span>, 
 <a href=#110 id=110 data-nosnippet>110</a>        <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
@@ -120,7 +120,7 @@
 <a href=#120 id=120 data-nosnippet>120</a>
 <a href=#121 id=121 data-nosnippet>121</a>    <span class="doccomment">/// Use LLVM compiler.
 <a href=#122 id=122 data-nosnippet>122</a>    </span><span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)]
-<a href=#123 id=123 data-nosnippet>123</a>    #[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>Vec::&lt;<span class="kw-2">&amp;</span>str&gt;::from_iter([
+<a href=#123 id=123 data-nosnippet>123</a>    #[clap(short, long, conflicts_with_all = <span class="kw-2">&amp;</span>Vec::&lt;<span class="kw-2">&amp;</span>str&gt;::from_iter([
 <a href=#124 id=124 data-nosnippet>124</a>        <span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]
 <a href=#125 id=125 data-nosnippet>125</a>        </span><span class="string">"cranelift"</span>, 
 <a href=#126 id=126 data-nosnippet>126</a>        <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
