@@ -79,13 +79,13 @@
 <a href=#79 id=79 data-nosnippet>79</a>    <span class="kw">let </span>func_start = context.func_start;
 <a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span><span class="kw-2">mut </span>reader = DwarfReader::new(lsda);
 <a href=#81 id=81 data-nosnippet>81</a>
-<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">let </span>lpad_base = <span class="kw">unsafe </span>{
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">let </span>lp_start_encoding = DwEhPe(reader.read::&lt;u8&gt;());
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">let </span>lpad_start_encoding = <span class="kw">unsafe </span>{ DwEhPe(reader.read::&lt;u8&gt;()) };
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="macro">log!</span>(<span class="string">"(pers) Read LP start encoding {lpad_start_encoding:?}"</span>);
 <a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a>        <span class="macro">log!</span>(<span class="string">"(pers) Read LP start encoding {lp_start_encoding:?}"</span>);
+<a href=#85 id=85 data-nosnippet>85</a>    <span class="kw">let </span>lpad_base = <span class="kw">unsafe </span>{
 <a href=#86 id=86 data-nosnippet>86</a>        <span class="comment">// base address for landing pad offsets
-<a href=#87 id=87 data-nosnippet>87</a>        </span><span class="kw">if </span>lp_start_encoding != gimli::DW_EH_PE_omit {
-<a href=#88 id=88 data-nosnippet>88</a>            read_encoded_pointer(<span class="kw-2">&amp;mut </span>reader, context, lp_start_encoding)<span class="question-mark">?
+<a href=#87 id=87 data-nosnippet>87</a>        </span><span class="kw">if </span>lpad_start_encoding != gimli::DW_EH_PE_omit {
+<a href=#88 id=88 data-nosnippet>88</a>            read_encoded_pointer(<span class="kw-2">&amp;mut </span>reader, context, lpad_start_encoding)<span class="question-mark">?
 <a href=#89 id=89 data-nosnippet>89</a>        </span>} <span class="kw">else </span>{
 <a href=#90 id=90 data-nosnippet>90</a>            <span class="macro">log!</span>(<span class="string">"(pers) (is omit)"</span>);
 <a href=#91 id=91 data-nosnippet>91</a>            func_start
@@ -93,319 +93,343 @@
 <a href=#93 id=93 data-nosnippet>93</a>    };
 <a href=#94 id=94 data-nosnippet>94</a>    <span class="macro">log!</span>(<span class="string">"(pers) read landingpad base: {lpad_base:?}"</span>);
 <a href=#95 id=95 data-nosnippet>95</a>
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">let </span>ttype_encoding = <span class="kw">unsafe </span>{ DwEhPe(reader.read::&lt;u8&gt;()) };
-<a href=#97 id=97 data-nosnippet>97</a>    <span class="macro">log!</span>(<span class="string">"(pers) read ttype encoding: {ttype_encoding:?}"</span>);
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">let </span>types_table_encoding = <span class="kw">unsafe </span>{ DwEhPe(reader.read::&lt;u8&gt;()) };
+<a href=#97 id=97 data-nosnippet>97</a>    <span class="macro">log!</span>(<span class="string">"(pers) read ttype encoding: {types_table_encoding:?}"</span>);
 <a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="comment">// If no value for type_table_encoding was given it means that there's no
-<a href=#100 id=100 data-nosnippet>100</a>    // type_table, therefore we can't possibly use this lpad.
-<a href=#101 id=101 data-nosnippet>101</a>    </span><span class="kw">if </span>ttype_encoding == gimli::DW_EH_PE_omit {
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="comment">// If no value for types_table_encoding was given it means that there's no
+<a href=#100 id=100 data-nosnippet>100</a>    // types_table, therefore we can't possibly use this lpad.
+<a href=#101 id=101 data-nosnippet>101</a>    </span><span class="kw">if </span>types_table_encoding == gimli::DW_EH_PE_omit {
 <a href=#102 id=102 data-nosnippet>102</a>        <span class="macro">log!</span>(<span class="string">"(pers) ttype is omit, returning None"</span>);
 <a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::None);
 <a href=#104 id=104 data-nosnippet>104</a>    }
 <a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">let </span>class_info = <span class="kw">unsafe </span>{
-<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">let </span>offset = reader.read_uleb128();
-<a href=#108 id=108 data-nosnippet>108</a>        <span class="macro">log!</span>(<span class="string">"(pers) read class_info offset {offset:?}"</span>);
-<a href=#109 id=109 data-nosnippet>109</a>        reader.ptr.wrapping_add(offset <span class="kw">as _</span>)
-<a href=#110 id=110 data-nosnippet>110</a>    };
-<a href=#111 id=111 data-nosnippet>111</a>    <span class="macro">log!</span>(<span class="string">"(pers) read class_info sits at offset {class_info:?}"</span>);
-<a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a>    <span class="kw">let </span>call_site_encoding = <span class="kw">unsafe </span>{ DwEhPe(reader.read::&lt;u8&gt;()) };
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="macro">log!</span>(<span class="string">"(pers) read call_site_encoding is {call_site_encoding:?}"</span>);
-<a href=#115 id=115 data-nosnippet>115</a>
-<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">let </span>action_table = <span class="kw">unsafe </span>{
-<a href=#117 id=117 data-nosnippet>117</a>        <span class="kw">let </span>call_site_table_length = reader.read_uleb128();
-<a href=#118 id=118 data-nosnippet>118</a>        <span class="macro">log!</span>(<span class="string">"(pers) read call_site has length {call_site_table_length:?}"</span>);
-<a href=#119 id=119 data-nosnippet>119</a>        reader.ptr.wrapping_add(call_site_table_length <span class="kw">as </span>usize)
-<a href=#120 id=120 data-nosnippet>120</a>    };
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>    <span class="macro">log!</span>(<span class="string">"(pers) action table sits at offset {action_table:?}"</span>);
-<a href=#123 id=123 data-nosnippet>123</a>    <span class="kw">let </span>ip = context.ip;
-<a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a>    <span class="kw">if </span>!USING_SJLJ_EXCEPTIONS {
-<a href=#126 id=126 data-nosnippet>126</a>        <span class="comment">// read the callsite table
-<a href=#127 id=127 data-nosnippet>127</a>        </span><span class="kw">while </span>reader.ptr &lt; action_table {
-<a href=#128 id=128 data-nosnippet>128</a>            <span class="kw">unsafe </span>{
-<a href=#129 id=129 data-nosnippet>129</a>                <span class="comment">// these are offsets rather than pointers;
-<a href=#130 id=130 data-nosnippet>130</a>                </span><span class="kw">let </span>cs_start = read_encoded_offset(<span class="kw-2">&amp;mut </span>reader, call_site_encoding)<span class="question-mark">?</span>;
-<a href=#131 id=131 data-nosnippet>131</a>                <span class="kw">let </span>cs_len = read_encoded_offset(<span class="kw-2">&amp;mut </span>reader, call_site_encoding)<span class="question-mark">?</span>;
-<a href=#132 id=132 data-nosnippet>132</a>                <span class="kw">let </span>cs_lpad = read_encoded_offset(<span class="kw-2">&amp;mut </span>reader, call_site_encoding)<span class="question-mark">?</span>;
-<a href=#133 id=133 data-nosnippet>133</a>                <span class="kw">let </span>cs_action_entry = reader.read_uleb128();
-<a href=#134 id=134 data-nosnippet>134</a>
-<a href=#135 id=135 data-nosnippet>135</a>                <span class="macro">log!</span>(<span class="string">"(pers) read cs_start is {cs_start:?}"</span>);
-<a href=#136 id=136 data-nosnippet>136</a>                <span class="macro">log!</span>(<span class="string">"(pers) read cs_len is {cs_len:?}"</span>);
-<a href=#137 id=137 data-nosnippet>137</a>                <span class="macro">log!</span>(<span class="string">"(pers) read cs_lpad is {cs_lpad:?}"</span>);
-<a href=#138 id=138 data-nosnippet>138</a>                <span class="macro">log!</span>(<span class="string">"(pers) read cs_ae is {cs_action_entry:?}"</span>);
-<a href=#139 id=139 data-nosnippet>139</a>                <span class="comment">// Callsite table is sorted by cs_start, so if we've passed the ip, we
-<a href=#140 id=140 data-nosnippet>140</a>                // may stop searching.
-<a href=#141 id=141 data-nosnippet>141</a>                </span><span class="kw">if </span>ip &lt; func_start.wrapping_add(cs_start) {
-<a href=#142 id=142 data-nosnippet>142</a>                    <span class="kw">break</span>;
-<a href=#143 id=143 data-nosnippet>143</a>                }
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a>                <span class="kw">if </span>ip &lt; func_start.wrapping_add(cs_start + cs_len) {
-<a href=#146 id=146 data-nosnippet>146</a>                    <span class="macro">log!</span>(
-<a href=#147 id=147 data-nosnippet>147</a>                        <span class="string">"(pers) found a matching call site: {func_start:?} &lt;= {ip:?} &lt;= {:?}"</span>,
-<a href=#148 id=148 data-nosnippet>148</a>                        func_start.wrapping_add(cs_start + cs_len)
-<a href=#149 id=149 data-nosnippet>149</a>                    );
-<a href=#150 id=150 data-nosnippet>150</a>                    <span class="kw">if </span>cs_lpad == <span class="number">0 </span>{
-<a href=#151 id=151 data-nosnippet>151</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::None);
-<a href=#152 id=152 data-nosnippet>152</a>                    } <span class="kw">else </span>{
-<a href=#153 id=153 data-nosnippet>153</a>                        <span class="kw">let </span>lpad = lpad_base.wrapping_add(cs_lpad);
-<a href=#154 id=154 data-nosnippet>154</a>                        <span class="kw">let </span><span class="kw-2">mut </span>catches = <span class="macro">vec!</span>[];
-<a href=#155 id=155 data-nosnippet>155</a>
-<a href=#156 id=156 data-nosnippet>156</a>                        <span class="macro">log!</span>(<span class="string">"(pers) lpad sits at {lpad:?}"</span>);
-<a href=#157 id=157 data-nosnippet>157</a>
-<a href=#158 id=158 data-nosnippet>158</a>                        <span class="kw">if </span>cs_action_entry == <span class="number">0 </span>{
-<a href=#159 id=159 data-nosnippet>159</a>                            <span class="comment">// We don't generate cleanup clauses, so this can't happen
-<a href=#160 id=160 data-nosnippet>160</a>                            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Terminate);
-<a href=#161 id=161 data-nosnippet>161</a>                        }
-<a href=#162 id=162 data-nosnippet>162</a>
-<a href=#163 id=163 data-nosnippet>163</a>                        <span class="macro">log!</span>(<span class="string">"(pers) read cs_action_entry: {cs_action_entry}"</span>);
-<a href=#164 id=164 data-nosnippet>164</a>                        <span class="macro">log!</span>(<span class="string">"(pers) action_table: {action_table:?}"</span>);
-<a href=#165 id=165 data-nosnippet>165</a>
-<a href=#166 id=166 data-nosnippet>166</a>                        <span class="comment">// Convert 1-based byte offset into
-<a href=#167 id=167 data-nosnippet>167</a>                        </span><span class="kw">let </span><span class="kw-2">mut </span>action: <span class="kw-2">*const </span>u8 =
-<a href=#168 id=168 data-nosnippet>168</a>                            action_table.wrapping_add((cs_action_entry - <span class="number">1</span>) <span class="kw">as </span>usize);
-<a href=#169 id=169 data-nosnippet>169</a>
-<a href=#170 id=170 data-nosnippet>170</a>                        <span class="macro">log!</span>(<span class="string">"(pers) first action at: {action:?}"</span>);
+<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">let </span>types_table_base_offset = <span class="kw">unsafe </span>{ reader.read_uleb128() };
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">let </span>types_table_base = <span class="kw">unsafe </span>{
+<a href=#109 id=109 data-nosnippet>109</a>        <span class="macro">log!</span>(<span class="string">"(pers) read class_info offset {types_table_base_offset:?}"</span>);
+<a href=#110 id=110 data-nosnippet>110</a>        reader.ptr.wrapping_add(types_table_base_offset <span class="kw">as _</span>)
+<a href=#111 id=111 data-nosnippet>111</a>    };
+<a href=#112 id=112 data-nosnippet>112</a>    <span class="macro">log!</span>(<span class="string">"(pers) read types_table_base sits at offset {types_table_base:?}"</span>);
+<a href=#113 id=113 data-nosnippet>113</a>
+<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">let </span>call_site_table_encoding = <span class="kw">unsafe </span>{ DwEhPe(reader.read::&lt;u8&gt;()) };
+<a href=#115 id=115 data-nosnippet>115</a>    <span class="macro">log!</span>(<span class="string">"(pers) read call_site_table_encoding is {call_site_table_encoding:?}"</span>);
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">let </span>call_site_table_size = <span class="kw">unsafe </span>{ reader.read_uleb128() };
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">let </span>action_table = <span class="kw">unsafe </span>{
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="macro">log!</span>(<span class="string">"(pers) read call_site has length {call_site_table_size:?}"</span>);
+<a href=#120 id=120 data-nosnippet>120</a>        reader.ptr.wrapping_add(call_site_table_size <span class="kw">as </span>usize)
+<a href=#121 id=121 data-nosnippet>121</a>    };
+<a href=#122 id=122 data-nosnippet>122</a>
+<a href=#123 id=123 data-nosnippet>123</a>    <span class="macro">log!</span>(<span class="string">"(pers) action table sits at offset {action_table:?}"</span>);
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="kw">let </span>ip = context.ip;
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>    <span class="kw">if </span>!USING_SJLJ_EXCEPTIONS {
+<a href=#127 id=127 data-nosnippet>127</a>        <span class="comment">// read the callsite table
+<a href=#128 id=128 data-nosnippet>128</a>        </span><span class="kw">while </span>reader.ptr &lt; action_table {
+<a href=#129 id=129 data-nosnippet>129</a>            <span class="kw">let </span>call_site_record_reader = <span class="kw-2">&amp;mut </span>reader;
+<a href=#130 id=130 data-nosnippet>130</a>            <span class="kw">unsafe </span>{
+<a href=#131 id=131 data-nosnippet>131</a>                <span class="comment">// Offset of the call site relative to the previous call site, counted in number of 16-byte bundles
+<a href=#132 id=132 data-nosnippet>132</a>                </span><span class="kw">let </span>call_site_start =
+<a href=#133 id=133 data-nosnippet>133</a>                    read_encoded_offset(call_site_record_reader, call_site_table_encoding)<span class="question-mark">?</span>;
+<a href=#134 id=134 data-nosnippet>134</a>                <span class="kw">let </span>call_site_length =
+<a href=#135 id=135 data-nosnippet>135</a>                    read_encoded_offset(call_site_record_reader, call_site_table_encoding)<span class="question-mark">?</span>;
+<a href=#136 id=136 data-nosnippet>136</a>                <span class="comment">// Offset of the landing pad, typically a byte offset relative to the LPStart address.
+<a href=#137 id=137 data-nosnippet>137</a>                </span><span class="kw">let </span>call_site_lpad =
+<a href=#138 id=138 data-nosnippet>138</a>                    read_encoded_offset(call_site_record_reader, call_site_table_encoding)<span class="question-mark">?</span>;
+<a href=#139 id=139 data-nosnippet>139</a>                <span class="comment">// Offset of the first associated action record, relative to the start of the actions table.
+<a href=#140 id=140 data-nosnippet>140</a>                // This value is biased by 1 (1 indicates the start of the actions table), and 0 indicates that there are no actions.
+<a href=#141 id=141 data-nosnippet>141</a>                </span><span class="kw">let </span>call_site_action_entry = call_site_record_reader.read_uleb128();
+<a href=#142 id=142 data-nosnippet>142</a>
+<a href=#143 id=143 data-nosnippet>143</a>                <span class="macro">log!</span>(<span class="string">"(pers) read cs_start is {call_site_start:?}"</span>);
+<a href=#144 id=144 data-nosnippet>144</a>                <span class="macro">log!</span>(<span class="string">"(pers) read cs_len is {call_site_length:?}"</span>);
+<a href=#145 id=145 data-nosnippet>145</a>                <span class="macro">log!</span>(<span class="string">"(pers) read cs_lpad is {call_site_lpad:?}"</span>);
+<a href=#146 id=146 data-nosnippet>146</a>                <span class="macro">log!</span>(<span class="string">"(pers) read cs_ae is {call_site_action_entry:?}"</span>);
+<a href=#147 id=147 data-nosnippet>147</a>                <span class="comment">// Callsite table is sorted by cs_start, so if we've passed the ip, we
+<a href=#148 id=148 data-nosnippet>148</a>                // may stop searching.
+<a href=#149 id=149 data-nosnippet>149</a>                </span><span class="kw">if </span>ip &lt; func_start.wrapping_add(call_site_start) {
+<a href=#150 id=150 data-nosnippet>150</a>                    <span class="kw">break</span>;
+<a href=#151 id=151 data-nosnippet>151</a>                }
+<a href=#152 id=152 data-nosnippet>152</a>
+<a href=#153 id=153 data-nosnippet>153</a>                <span class="comment">// Call site matches the current ip. It's a candidate.
+<a href=#154 id=154 data-nosnippet>154</a>                </span><span class="kw">if </span>ip &lt; func_start.wrapping_add(call_site_start + call_site_length) {
+<a href=#155 id=155 data-nosnippet>155</a>                    <span class="macro">log!</span>(
+<a href=#156 id=156 data-nosnippet>156</a>                        <span class="string">"(pers) found a matching call site: {func_start:?} &lt;= {ip:?} &lt;= {:?}"</span>,
+<a href=#157 id=157 data-nosnippet>157</a>                        func_start.wrapping_add(call_site_start + call_site_length)
+<a href=#158 id=158 data-nosnippet>158</a>                    );
+<a href=#159 id=159 data-nosnippet>159</a>                    <span class="kw">if </span>call_site_lpad == <span class="number">0 </span>{
+<a href=#160 id=160 data-nosnippet>160</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::None);
+<a href=#161 id=161 data-nosnippet>161</a>                    } <span class="kw">else </span>{
+<a href=#162 id=162 data-nosnippet>162</a>                        <span class="kw">let </span>lpad = lpad_base.wrapping_add(call_site_lpad);
+<a href=#163 id=163 data-nosnippet>163</a>                        <span class="kw">let </span><span class="kw-2">mut </span>catches = <span class="macro">vec!</span>[];
+<a href=#164 id=164 data-nosnippet>164</a>
+<a href=#165 id=165 data-nosnippet>165</a>                        <span class="macro">log!</span>(<span class="string">"(pers) lpad sits at {lpad:?}"</span>);
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>                        <span class="kw">if </span>call_site_action_entry == <span class="number">0 </span>{
+<a href=#168 id=168 data-nosnippet>168</a>                            <span class="comment">// We don't generate cleanup clauses, so this can't happen
+<a href=#169 id=169 data-nosnippet>169</a>                            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Terminate);
+<a href=#170 id=170 data-nosnippet>170</a>                        }
 <a href=#171 id=171 data-nosnippet>171</a>
-<a href=#172 id=172 data-nosnippet>172</a>                        <span class="kw">loop </span>{
-<a href=#173 id=173 data-nosnippet>173</a>                            <span class="kw">let </span><span class="kw-2">mut </span>reader = DwarfReader::new(action);
-<a href=#174 id=174 data-nosnippet>174</a>                            <span class="kw">let </span>ttype_index = reader.read_sleb128();
-<a href=#175 id=175 data-nosnippet>175</a>                            <span class="macro">log!</span>(
-<a href=#176 id=176 data-nosnippet>176</a>                                <span class="string">"(pers) ttype_index for action #{cs_action_entry}: {ttype_index:?}"
-<a href=#177 id=177 data-nosnippet>177</a>                            </span>);
+<a href=#172 id=172 data-nosnippet>172</a>                        <span class="macro">log!</span>(<span class="string">"(pers) read cs_action_entry: {call_site_action_entry}"</span>);
+<a href=#173 id=173 data-nosnippet>173</a>                        <span class="macro">log!</span>(<span class="string">"(pers) action_table: {action_table:?}"</span>);
+<a href=#174 id=174 data-nosnippet>174</a>
+<a href=#175 id=175 data-nosnippet>175</a>                        <span class="comment">// Convert 1-based byte offset into
+<a href=#176 id=176 data-nosnippet>176</a>                        </span><span class="kw">let </span><span class="kw-2">mut </span>action_record: <span class="kw-2">*const </span>u8 =
+<a href=#177 id=177 data-nosnippet>177</a>                            action_table.wrapping_add((call_site_action_entry - <span class="number">1</span>) <span class="kw">as </span>usize);
 <a href=#178 id=178 data-nosnippet>178</a>
-<a href=#179 id=179 data-nosnippet>179</a>                            <span class="kw">if </span>ttype_index &gt; <span class="number">0 </span>{
-<a href=#180 id=180 data-nosnippet>180</a>                                <span class="kw">if </span>class_info.is_null() {
-<a href=#181 id=181 data-nosnippet>181</a>                                    <span class="macro">panic!</span>();
-<a href=#182 id=182 data-nosnippet>182</a>                                }
-<a href=#183 id=183 data-nosnippet>183</a>
-<a href=#184 id=184 data-nosnippet>184</a>                                <span class="kw">let </span>tag_ptr = {
-<a href=#185 id=185 data-nosnippet>185</a>                                    <span class="kw">let </span>new_ttype_index = <span class="kw">match </span>DwEhPe(ttype_encoding.<span class="number">0 </span>&amp; <span class="number">0x0f</span>) {
-<a href=#186 id=186 data-nosnippet>186</a>                                        gimli::DW_EH_PE_absptr =&gt; {
-<a href=#187 id=187 data-nosnippet>187</a>                                            ttype_index * (size_of::&lt;<span class="kw-2">*const </span>u8&gt;() <span class="kw">as </span>i64)
-<a href=#188 id=188 data-nosnippet>188</a>                                        }
-<a href=#189 id=189 data-nosnippet>189</a>                                        gimli::DW_EH_PE_sdata2 | gimli::DW_EH_PE_udata2 =&gt; {
-<a href=#190 id=190 data-nosnippet>190</a>                                            ttype_index * <span class="number">2
-<a href=#191 id=191 data-nosnippet>191</a>                                        </span>}
-<a href=#192 id=192 data-nosnippet>192</a>                                        gimli::DW_EH_PE_sdata4 | gimli::DW_EH_PE_udata4 =&gt; {
-<a href=#193 id=193 data-nosnippet>193</a>                                            ttype_index * <span class="number">4
-<a href=#194 id=194 data-nosnippet>194</a>                                        </span>}
-<a href=#195 id=195 data-nosnippet>195</a>                                        gimli::DW_EH_PE_sdata8 | gimli::DW_EH_PE_udata8 =&gt; {
-<a href=#196 id=196 data-nosnippet>196</a>                                            ttype_index * <span class="number">8
-<a href=#197 id=197 data-nosnippet>197</a>                                        </span>}
-<a href=#198 id=198 data-nosnippet>198</a>                                        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
-<a href=#199 id=199 data-nosnippet>199</a>                                    };
-<a href=#200 id=200 data-nosnippet>200</a>
-<a href=#201 id=201 data-nosnippet>201</a>                                    <span class="macro">log!</span>(
-<a href=#202 id=202 data-nosnippet>202</a>                                        <span class="string">"(pers) new_ttype_index for action #{cs_action_entry}: {new_ttype_index:?}"
-<a href=#203 id=203 data-nosnippet>203</a>                                    </span>);
-<a href=#204 id=204 data-nosnippet>204</a>
-<a href=#205 id=205 data-nosnippet>205</a>                                    <span class="kw">let </span>i = class_info.wrapping_sub(new_ttype_index <span class="kw">as </span>usize);
-<a href=#206 id=206 data-nosnippet>206</a>                                    <span class="macro">log!</span>(<span class="string">"(pers) reading ttype info from {i:?}"</span>);
-<a href=#207 id=207 data-nosnippet>207</a>                                    read_encoded_pointer(
-<a href=#208 id=208 data-nosnippet>208</a>                                        <span class="kw-2">&amp;mut </span>DwarfReader::new(i),
-<a href=#209 id=209 data-nosnippet>209</a>                                        context,
-<a href=#210 id=210 data-nosnippet>210</a>                                        ttype_encoding,
-<a href=#211 id=211 data-nosnippet>211</a>                                    )
-<a href=#212 id=212 data-nosnippet>212</a>                                };
-<a href=#213 id=213 data-nosnippet>213</a>                                <span class="kw">let </span>tag_ptr = tag_ptr.unwrap();
-<a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a>                                <span class="kw">if </span>tag_ptr.is_null() {
-<a href=#216 id=216 data-nosnippet>216</a>                                    <span class="kw">if </span>catches.is_empty() {
-<a href=#217 id=217 data-nosnippet>217</a>                                        <span class="comment">// No specifics so far, so we definitely have a catch-all we should use
-<a href=#218 id=218 data-nosnippet>218</a>                                        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::CatchAll { lpad });
-<a href=#219 id=219 data-nosnippet>219</a>                                    } <span class="kw">else </span>{
-<a href=#220 id=220 data-nosnippet>220</a>                                        <span class="comment">// We do have catch clauses that *may* need to be used, so we must
-<a href=#221 id=221 data-nosnippet>221</a>                                        // defer to phase 2 anyway, but this catch-all will be used if
-<a href=#222 id=222 data-nosnippet>222</a>                                        // none of those clauses match, so we can return early.
-<a href=#223 id=223 data-nosnippet>223</a>                                        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::CatchSpecificOrAll {
-<a href=#224 id=224 data-nosnippet>224</a>                                            lpad,
-<a href=#225 id=225 data-nosnippet>225</a>                                            tags: catches,
-<a href=#226 id=226 data-nosnippet>226</a>                                        });
-<a href=#227 id=227 data-nosnippet>227</a>                                    }
-<a href=#228 id=228 data-nosnippet>228</a>                                }
-<a href=#229 id=229 data-nosnippet>229</a>
-<a href=#230 id=230 data-nosnippet>230</a>                                <span class="kw">let </span>tag = std::mem::transmute::&lt;<span class="kw-2">*const </span>u8, <span class="kw-2">*const </span>u32&gt;(tag_ptr)
-<a href=#231 id=231 data-nosnippet>231</a>                                    .read_unaligned();
-<a href=#232 id=232 data-nosnippet>232</a>
-<a href=#233 id=233 data-nosnippet>233</a>                                <span class="macro">log!</span>(<span class="string">"(pers) read tag {tag:?}"</span>);
-<a href=#234 id=234 data-nosnippet>234</a>
-<a href=#235 id=235 data-nosnippet>235</a>                                <span class="comment">// Since we don't know what this tag corresponds to, we must defer
-<a href=#236 id=236 data-nosnippet>236</a>                                // the decision to the second phase.
-<a href=#237 id=237 data-nosnippet>237</a>                                </span>catches.push(tag);
-<a href=#238 id=238 data-nosnippet>238</a>                            } <span class="kw">else if </span>ttype_index == <span class="number">0 </span>{
-<a href=#239 id=239 data-nosnippet>239</a>                                <span class="comment">// We don't create cleanup clauses, so this can't happen
-<a href=#240 id=240 data-nosnippet>240</a>                                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Terminate);
-<a href=#241 id=241 data-nosnippet>241</a>                            }
-<a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a>                            <span class="kw">let </span>action_offset = reader.clone().read_sleb128();
-<a href=#244 id=244 data-nosnippet>244</a>                            <span class="kw">if </span>action_offset == <span class="number">0 </span>{
-<a href=#245 id=245 data-nosnippet>245</a>                                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="kw">if </span>catches.is_empty() {
-<a href=#246 id=246 data-nosnippet>246</a>                                    EHAction::None
-<a href=#247 id=247 data-nosnippet>247</a>                                } <span class="kw">else </span>{
-<a href=#248 id=248 data-nosnippet>248</a>                                    EHAction::CatchSpecific {
-<a href=#249 id=249 data-nosnippet>249</a>                                        lpad,
-<a href=#250 id=250 data-nosnippet>250</a>                                        tags: catches,
-<a href=#251 id=251 data-nosnippet>251</a>                                    }
-<a href=#252 id=252 data-nosnippet>252</a>                                });
-<a href=#253 id=253 data-nosnippet>253</a>                            }
-<a href=#254 id=254 data-nosnippet>254</a>
-<a href=#255 id=255 data-nosnippet>255</a>                            action = reader.ptr.wrapping_add(action_offset <span class="kw">as </span>usize);
-<a href=#256 id=256 data-nosnippet>256</a>                        }
-<a href=#257 id=257 data-nosnippet>257</a>                    }
-<a href=#258 id=258 data-nosnippet>258</a>                }
-<a href=#259 id=259 data-nosnippet>259</a>            }
-<a href=#260 id=260 data-nosnippet>260</a>        }
-<a href=#261 id=261 data-nosnippet>261</a>
-<a href=#262 id=262 data-nosnippet>262</a>        <span class="comment">// Ip is not present in the table. This indicates a nounwind call.
-<a href=#263 id=263 data-nosnippet>263</a>        </span><span class="prelude-val">Ok</span>(EHAction::Terminate)
-<a href=#264 id=264 data-nosnippet>264</a>    } <span class="kw">else </span>{
-<a href=#265 id=265 data-nosnippet>265</a>        <span class="macro">todo!</span>()
-<a href=#266 id=266 data-nosnippet>266</a>    }
-<a href=#267 id=267 data-nosnippet>267</a>}
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a><span class="attr">#[inline]
-<a href=#270 id=270 data-nosnippet>270</a></span><span class="kw">fn </span>round_up(unrounded: usize, align: usize) -&gt; <span class="prelude-ty">Result</span>&lt;usize, ()&gt; {
-<a href=#271 id=271 data-nosnippet>271</a>    <span class="kw">if </span>align.is_power_of_two() {
-<a href=#272 id=272 data-nosnippet>272</a>        <span class="prelude-val">Ok</span>((unrounded + align - <span class="number">1</span>) &amp; !(align - <span class="number">1</span>))
-<a href=#273 id=273 data-nosnippet>273</a>    } <span class="kw">else </span>{
-<a href=#274 id=274 data-nosnippet>274</a>        <span class="prelude-val">Err</span>(())
-<a href=#275 id=275 data-nosnippet>275</a>    }
-<a href=#276 id=276 data-nosnippet>276</a>}
-<a href=#277 id=277 data-nosnippet>277</a>
-<a href=#278 id=278 data-nosnippet>278</a><span class="doccomment">/// Reads an offset (`usize`) from `reader` whose encoding is described by `encoding`.
-<a href=#279 id=279 data-nosnippet>279</a>///
-<a href=#280 id=280 data-nosnippet>280</a>/// `encoding` must be a [DWARF Exception Header Encoding as described by the LSB spec][LSB-dwarf-ext].
-<a href=#281 id=281 data-nosnippet>281</a>/// In addition the upper ("application") part must be zero.
-<a href=#282 id=282 data-nosnippet>282</a>///
-<a href=#283 id=283 data-nosnippet>283</a>/// # Errors
-<a href=#284 id=284 data-nosnippet>284</a>/// Returns `Err` if `encoding`
-<a href=#285 id=285 data-nosnippet>285</a>/// * is not a valid DWARF Exception Header Encoding,
-<a href=#286 id=286 data-nosnippet>286</a>/// * is `DW_EH_PE_omit`, or
-<a href=#287 id=287 data-nosnippet>287</a>/// * has a non-zero application part.
-<a href=#288 id=288 data-nosnippet>288</a>///
-<a href=#289 id=289 data-nosnippet>289</a>/// [LSB-dwarf-ext]: https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dwarfext.html
-<a href=#290 id=290 data-nosnippet>290</a></span><span class="kw">unsafe fn </span>read_encoded_offset(reader: <span class="kw-2">&amp;mut </span>DwarfReader, encoding: DwEhPe) -&gt; <span class="prelude-ty">Result</span>&lt;usize, ()&gt; {
-<a href=#291 id=291 data-nosnippet>291</a>    <span class="kw">if </span>encoding == gimli::DW_EH_PE_omit || encoding.<span class="number">0 </span>&amp; <span class="number">0xF0 </span>!= <span class="number">0 </span>{
-<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(());
-<a href=#293 id=293 data-nosnippet>293</a>    }
-<a href=#294 id=294 data-nosnippet>294</a>    <span class="kw">let </span>result = <span class="kw">unsafe </span>{
-<a href=#295 id=295 data-nosnippet>295</a>        <span class="kw">match </span>DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x0F</span>) {
-<a href=#296 id=296 data-nosnippet>296</a>            <span class="comment">// despite the name, LLVM also uses absptr for offsets instead of pointers
-<a href=#297 id=297 data-nosnippet>297</a>            </span>gimli::DW_EH_PE_absptr =&gt; reader.read::&lt;usize&gt;(),
-<a href=#298 id=298 data-nosnippet>298</a>            gimli::DW_EH_PE_uleb128 =&gt; reader.read_uleb128() <span class="kw">as </span>usize,
-<a href=#299 id=299 data-nosnippet>299</a>            gimli::DW_EH_PE_udata2 =&gt; reader.read::&lt;u16&gt;() <span class="kw">as </span>usize,
-<a href=#300 id=300 data-nosnippet>300</a>            gimli::DW_EH_PE_udata4 =&gt; reader.read::&lt;u32&gt;() <span class="kw">as </span>usize,
-<a href=#301 id=301 data-nosnippet>301</a>            gimli::DW_EH_PE_udata8 =&gt; reader.read::&lt;u64&gt;() <span class="kw">as </span>usize,
-<a href=#302 id=302 data-nosnippet>302</a>            gimli::DW_EH_PE_sleb128 =&gt; reader.read_sleb128() <span class="kw">as </span>usize,
-<a href=#303 id=303 data-nosnippet>303</a>            gimli::DW_EH_PE_sdata2 =&gt; reader.read::&lt;i16&gt;() <span class="kw">as </span>usize,
-<a href=#304 id=304 data-nosnippet>304</a>            gimli::DW_EH_PE_sdata4 =&gt; reader.read::&lt;i32&gt;() <span class="kw">as </span>usize,
-<a href=#305 id=305 data-nosnippet>305</a>            gimli::DW_EH_PE_sdata8 =&gt; reader.read::&lt;i64&gt;() <span class="kw">as </span>usize,
-<a href=#306 id=306 data-nosnippet>306</a>            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(()),
-<a href=#307 id=307 data-nosnippet>307</a>        }
-<a href=#308 id=308 data-nosnippet>308</a>    };
-<a href=#309 id=309 data-nosnippet>309</a>    <span class="prelude-val">Ok</span>(result)
-<a href=#310 id=310 data-nosnippet>310</a>}
-<a href=#311 id=311 data-nosnippet>311</a>
-<a href=#312 id=312 data-nosnippet>312</a><span class="doccomment">/// Reads a pointer from `reader` whose encoding is described by `encoding`.
-<a href=#313 id=313 data-nosnippet>313</a>///
-<a href=#314 id=314 data-nosnippet>314</a>/// `encoding` must be a [DWARF Exception Header Encoding as described by the LSB spec][LSB-dwarf-ext].
-<a href=#315 id=315 data-nosnippet>315</a>///
-<a href=#316 id=316 data-nosnippet>316</a>/// # Errors
-<a href=#317 id=317 data-nosnippet>317</a>/// Returns `Err` if `encoding`
-<a href=#318 id=318 data-nosnippet>318</a>/// * is not a valid DWARF Exception Header Encoding,
-<a href=#319 id=319 data-nosnippet>319</a>/// * is `DW_EH_PE_omit`, or
-<a href=#320 id=320 data-nosnippet>320</a>/// * combines `DW_EH_PE_absptr` or `DW_EH_PE_aligned` application part with an integer encoding
-<a href=#321 id=321 data-nosnippet>321</a>///   (not `DW_EH_PE_absptr`) in the value format part.
-<a href=#322 id=322 data-nosnippet>322</a>///
-<a href=#323 id=323 data-nosnippet>323</a>/// [LSB-dwarf-ext]: https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dwarfext.html
-<a href=#324 id=324 data-nosnippet>324</a></span><span class="kw">unsafe fn </span>read_encoded_pointer(
-<a href=#325 id=325 data-nosnippet>325</a>    reader: <span class="kw-2">&amp;mut </span>DwarfReader,
-<a href=#326 id=326 data-nosnippet>326</a>    context: <span class="kw-2">&amp;</span>EHContext&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#327 id=327 data-nosnippet>327</a>    encoding: DwEhPe,
-<a href=#328 id=328 data-nosnippet>328</a>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">*const </span>u8, ()&gt; {
-<a href=#329 id=329 data-nosnippet>329</a>    <span class="kw">if </span>encoding == gimli::DW_EH_PE_omit {
-<a href=#330 id=330 data-nosnippet>330</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(());
-<a href=#331 id=331 data-nosnippet>331</a>    }
-<a href=#332 id=332 data-nosnippet>332</a>
-<a href=#333 id=333 data-nosnippet>333</a>    <span class="macro">log!</span>(<span class="string">"(pers) About to read encoded pointer at {:?}"</span>, reader.ptr);
-<a href=#334 id=334 data-nosnippet>334</a>
-<a href=#335 id=335 data-nosnippet>335</a>    <span class="kw">let </span>base_ptr = <span class="kw">match </span>DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x70</span>) {
-<a href=#336 id=336 data-nosnippet>336</a>        gimli::DW_EH_PE_absptr =&gt; {
-<a href=#337 id=337 data-nosnippet>337</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_absptr"</span>);
-<a href=#338 id=338 data-nosnippet>338</a>            core::ptr::null()
-<a href=#339 id=339 data-nosnippet>339</a>        }
-<a href=#340 id=340 data-nosnippet>340</a>        <span class="comment">// relative to address of the encoded value, despite the name
-<a href=#341 id=341 data-nosnippet>341</a>        </span>gimli::DW_EH_PE_pcrel =&gt; {
-<a href=#342 id=342 data-nosnippet>342</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_pcrel"</span>);
-<a href=#343 id=343 data-nosnippet>343</a>            reader.ptr
-<a href=#344 id=344 data-nosnippet>344</a>        }
-<a href=#345 id=345 data-nosnippet>345</a>        gimli::DW_EH_PE_funcrel =&gt; {
-<a href=#346 id=346 data-nosnippet>346</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_funcrel"</span>);
-<a href=#347 id=347 data-nosnippet>347</a>            <span class="kw">if </span>context.func_start.is_null() {
-<a href=#348 id=348 data-nosnippet>348</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(());
-<a href=#349 id=349 data-nosnippet>349</a>            }
-<a href=#350 id=350 data-nosnippet>350</a>            context.func_start
-<a href=#351 id=351 data-nosnippet>351</a>        }
-<a href=#352 id=352 data-nosnippet>352</a>        gimli::DW_EH_PE_textrel =&gt; {
-<a href=#353 id=353 data-nosnippet>353</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_textrel"</span>);
-<a href=#354 id=354 data-nosnippet>354</a>            (<span class="kw-2">*</span>context.get_text_start)()
-<a href=#355 id=355 data-nosnippet>355</a>        }
-<a href=#356 id=356 data-nosnippet>356</a>        gimli::DW_EH_PE_datarel =&gt; {
-<a href=#357 id=357 data-nosnippet>357</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_datarel"</span>);
+<a href=#179 id=179 data-nosnippet>179</a>                        <span class="macro">log!</span>(<span class="string">"(pers) first action at: {action_record:?}"</span>);
+<a href=#180 id=180 data-nosnippet>180</a>
+<a href=#181 id=181 data-nosnippet>181</a>                        <span class="kw">loop </span>{
+<a href=#182 id=182 data-nosnippet>182</a>                            <span class="comment">// Read the action record.
+<a href=#183 id=183 data-nosnippet>183</a>                            </span><span class="kw">let </span><span class="kw-2">mut </span>action_record_reader = DwarfReader::new(action_record);
+<a href=#184 id=184 data-nosnippet>184</a>                            <span class="comment">// The two record kinds have the same format, with only small differences.
+<a href=#185 id=185 data-nosnippet>185</a>                            // They are distinguished by the "type_filter" field: Catch clauses have strictly positive switch values,
+<a href=#186 id=186 data-nosnippet>186</a>                            // and exception specifications have strictly negative switch values. Value 0 indicates a catch-all clause.
+<a href=#187 id=187 data-nosnippet>187</a>                            </span><span class="kw">let </span>type_filter = action_record_reader.read_sleb128();
+<a href=#188 id=188 data-nosnippet>188</a>                            <span class="macro">log!</span>(
+<a href=#189 id=189 data-nosnippet>189</a>                                <span class="string">"(pers) type_filter for action #{call_site_action_entry}: {type_filter:?}"
+<a href=#190 id=190 data-nosnippet>190</a>                            </span>);
+<a href=#191 id=191 data-nosnippet>191</a>
+<a href=#192 id=192 data-nosnippet>192</a>                            <span class="kw">if </span>type_filter &gt; <span class="number">0 </span>{
+<a href=#193 id=193 data-nosnippet>193</a>                                <span class="comment">// This is a catch clause so the type_filter is an index into the types table.
+<a href=#194 id=194 data-nosnippet>194</a>                                //
+<a href=#195 id=195 data-nosnippet>195</a>                                // Positive value, starting at 1.
+<a href=#196 id=196 data-nosnippet>196</a>                                // Index in the types table of the __typeinfo for the catch-clause type.
+<a href=#197 id=197 data-nosnippet>197</a>                                // 1 is the first word preceding TTBase, 2 is the second word, and so on.
+<a href=#198 id=198 data-nosnippet>198</a>                                // Used by the runtime to check if the thrown exception type matches the catch-clause type.
+<a href=#199 id=199 data-nosnippet>199</a>                                </span><span class="kw">let </span>types_table_index = type_filter;
+<a href=#200 id=200 data-nosnippet>200</a>                                <span class="kw">if </span>types_table_base.is_null() {
+<a href=#201 id=201 data-nosnippet>201</a>                                    <span class="macro">panic!</span>();
+<a href=#202 id=202 data-nosnippet>202</a>                                }
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a>                                <span class="kw">let </span>tag_ptr = {
+<a href=#205 id=205 data-nosnippet>205</a>                                    <span class="kw">let </span>new_types_table_index =
+<a href=#206 id=206 data-nosnippet>206</a>                                        <span class="kw">match </span>DwEhPe(types_table_encoding.<span class="number">0 </span>&amp; <span class="number">0x0f</span>) {
+<a href=#207 id=207 data-nosnippet>207</a>                                            gimli::DW_EH_PE_absptr =&gt; {
+<a href=#208 id=208 data-nosnippet>208</a>                                                type_filter * (size_of::&lt;<span class="kw-2">*const </span>u8&gt;() <span class="kw">as </span>i64)
+<a href=#209 id=209 data-nosnippet>209</a>                                            }
+<a href=#210 id=210 data-nosnippet>210</a>                                            gimli::DW_EH_PE_sdata2 | gimli::DW_EH_PE_udata2 =&gt; {
+<a href=#211 id=211 data-nosnippet>211</a>                                                type_filter * <span class="number">2
+<a href=#212 id=212 data-nosnippet>212</a>                                            </span>}
+<a href=#213 id=213 data-nosnippet>213</a>                                            gimli::DW_EH_PE_sdata4 | gimli::DW_EH_PE_udata4 =&gt; {
+<a href=#214 id=214 data-nosnippet>214</a>                                                type_filter * <span class="number">4
+<a href=#215 id=215 data-nosnippet>215</a>                                            </span>}
+<a href=#216 id=216 data-nosnippet>216</a>                                            gimli::DW_EH_PE_sdata8 | gimli::DW_EH_PE_udata8 =&gt; {
+<a href=#217 id=217 data-nosnippet>217</a>                                                type_filter * <span class="number">8
+<a href=#218 id=218 data-nosnippet>218</a>                                            </span>}
+<a href=#219 id=219 data-nosnippet>219</a>                                            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
+<a href=#220 id=220 data-nosnippet>220</a>                                        };
+<a href=#221 id=221 data-nosnippet>221</a>
+<a href=#222 id=222 data-nosnippet>222</a>                                    <span class="macro">log!</span>(
+<a href=#223 id=223 data-nosnippet>223</a>                                        <span class="string">"(pers) new_types_table_index for action #{call_site_action_entry}: {new_types_table_index:?}"
+<a href=#224 id=224 data-nosnippet>224</a>                                    </span>);
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a>                                    <span class="kw">let </span>typeinfo = types_table_base
+<a href=#227 id=227 data-nosnippet>227</a>                                        .wrapping_sub(new_types_table_index <span class="kw">as </span>usize);
+<a href=#228 id=228 data-nosnippet>228</a>                                    <span class="macro">log!</span>(<span class="string">"(pers) reading ttype info from {typeinfo:?}"</span>);
+<a href=#229 id=229 data-nosnippet>229</a>                                    read_encoded_pointer(
+<a href=#230 id=230 data-nosnippet>230</a>                                        <span class="comment">// Basically just reader.read() a SLEB128.
+<a href=#231 id=231 data-nosnippet>231</a>                                        </span><span class="kw-2">&amp;mut </span>DwarfReader::new(typeinfo),
+<a href=#232 id=232 data-nosnippet>232</a>                                        context,
+<a href=#233 id=233 data-nosnippet>233</a>                                        types_table_encoding,
+<a href=#234 id=234 data-nosnippet>234</a>                                    )
+<a href=#235 id=235 data-nosnippet>235</a>                                };
+<a href=#236 id=236 data-nosnippet>236</a>                                <span class="kw">let </span>tag_ptr = tag_ptr.unwrap();
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a>                                <span class="kw">if </span>tag_ptr.is_null() {
+<a href=#239 id=239 data-nosnippet>239</a>                                    <span class="kw">if </span>catches.is_empty() {
+<a href=#240 id=240 data-nosnippet>240</a>                                        <span class="comment">// No specifics so far, so we definitely have a catch-all we should use
+<a href=#241 id=241 data-nosnippet>241</a>                                        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::CatchAll { lpad });
+<a href=#242 id=242 data-nosnippet>242</a>                                    } <span class="kw">else </span>{
+<a href=#243 id=243 data-nosnippet>243</a>                                        <span class="comment">// We do have catch clauses that *may* need to be used, so we must
+<a href=#244 id=244 data-nosnippet>244</a>                                        // defer to phase 2 anyway, but this catch-all will be used if
+<a href=#245 id=245 data-nosnippet>245</a>                                        // none of those clauses match, so we can return early.
+<a href=#246 id=246 data-nosnippet>246</a>                                        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::CatchSpecificOrAll {
+<a href=#247 id=247 data-nosnippet>247</a>                                            lpad,
+<a href=#248 id=248 data-nosnippet>248</a>                                            tags: catches,
+<a href=#249 id=249 data-nosnippet>249</a>                                        });
+<a href=#250 id=250 data-nosnippet>250</a>                                    }
+<a href=#251 id=251 data-nosnippet>251</a>                                }
+<a href=#252 id=252 data-nosnippet>252</a>
+<a href=#253 id=253 data-nosnippet>253</a>                                <span class="kw">let </span>tag = std::mem::transmute::&lt;<span class="kw-2">*const </span>u8, <span class="kw-2">*const </span>u32&gt;(tag_ptr)
+<a href=#254 id=254 data-nosnippet>254</a>                                    .read_unaligned();
+<a href=#255 id=255 data-nosnippet>255</a>                                <span class="macro">log!</span>(<span class="string">"(pers) read tag {tag:?}"</span>);
+<a href=#256 id=256 data-nosnippet>256</a>
+<a href=#257 id=257 data-nosnippet>257</a>                                <span class="comment">// Since we don't know what this tag corresponds to, we must defer
+<a href=#258 id=258 data-nosnippet>258</a>                                // the decision to the second phase.
+<a href=#259 id=259 data-nosnippet>259</a>                                </span>catches.push(tag);
+<a href=#260 id=260 data-nosnippet>260</a>                            } <span class="kw">else if </span>type_filter == <span class="number">0 </span>{
+<a href=#261 id=261 data-nosnippet>261</a>                                <span class="comment">// We don't create cleanup clauses, so this can't happen
+<a href=#262 id=262 data-nosnippet>262</a>                                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Terminate);
+<a href=#263 id=263 data-nosnippet>263</a>                            }
+<a href=#264 id=264 data-nosnippet>264</a>
+<a href=#265 id=265 data-nosnippet>265</a>                            <span class="kw">let </span>next_action_record = action_record_reader.clone().read_sleb128();
+<a href=#266 id=266 data-nosnippet>266</a>                            <span class="kw">if </span>next_action_record == <span class="number">0 </span>{
+<a href=#267 id=267 data-nosnippet>267</a>                                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="kw">if </span>catches.is_empty() {
+<a href=#268 id=268 data-nosnippet>268</a>                                    EHAction::None
+<a href=#269 id=269 data-nosnippet>269</a>                                } <span class="kw">else </span>{
+<a href=#270 id=270 data-nosnippet>270</a>                                    EHAction::CatchSpecific {
+<a href=#271 id=271 data-nosnippet>271</a>                                        lpad,
+<a href=#272 id=272 data-nosnippet>272</a>                                        tags: catches,
+<a href=#273 id=273 data-nosnippet>273</a>                                    }
+<a href=#274 id=274 data-nosnippet>274</a>                                });
+<a href=#275 id=275 data-nosnippet>275</a>                            }
+<a href=#276 id=276 data-nosnippet>276</a>
+<a href=#277 id=277 data-nosnippet>277</a>                            action_record = action_record_reader
+<a href=#278 id=278 data-nosnippet>278</a>                                .ptr
+<a href=#279 id=279 data-nosnippet>279</a>                                .wrapping_add(next_action_record <span class="kw">as </span>usize);
+<a href=#280 id=280 data-nosnippet>280</a>                        }
+<a href=#281 id=281 data-nosnippet>281</a>                    }
+<a href=#282 id=282 data-nosnippet>282</a>                }
+<a href=#283 id=283 data-nosnippet>283</a>            }
+<a href=#284 id=284 data-nosnippet>284</a>        }
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="comment">// Ip is not present in the table. This indicates a nounwind call.
+<a href=#287 id=287 data-nosnippet>287</a>        </span><span class="prelude-val">Ok</span>(EHAction::Terminate)
+<a href=#288 id=288 data-nosnippet>288</a>    } <span class="kw">else </span>{
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="macro">todo!</span>()
+<a href=#290 id=290 data-nosnippet>290</a>    }
+<a href=#291 id=291 data-nosnippet>291</a>}
+<a href=#292 id=292 data-nosnippet>292</a>
+<a href=#293 id=293 data-nosnippet>293</a><span class="attr">#[inline]
+<a href=#294 id=294 data-nosnippet>294</a></span><span class="kw">fn </span>round_up(unrounded: usize, align: usize) -&gt; <span class="prelude-ty">Result</span>&lt;usize, ()&gt; {
+<a href=#295 id=295 data-nosnippet>295</a>    <span class="kw">if </span>align.is_power_of_two() {
+<a href=#296 id=296 data-nosnippet>296</a>        <span class="prelude-val">Ok</span>((unrounded + align - <span class="number">1</span>) &amp; !(align - <span class="number">1</span>))
+<a href=#297 id=297 data-nosnippet>297</a>    } <span class="kw">else </span>{
+<a href=#298 id=298 data-nosnippet>298</a>        <span class="prelude-val">Err</span>(())
+<a href=#299 id=299 data-nosnippet>299</a>    }
+<a href=#300 id=300 data-nosnippet>300</a>}
+<a href=#301 id=301 data-nosnippet>301</a>
+<a href=#302 id=302 data-nosnippet>302</a><span class="doccomment">/// Reads an offset (`usize`) from `reader` whose encoding is described by `encoding`.
+<a href=#303 id=303 data-nosnippet>303</a>///
+<a href=#304 id=304 data-nosnippet>304</a>/// `encoding` must be a [DWARF Exception Header Encoding as described by the LSB spec][LSB-dwarf-ext].
+<a href=#305 id=305 data-nosnippet>305</a>/// In addition the upper ("application") part must be zero.
+<a href=#306 id=306 data-nosnippet>306</a>///
+<a href=#307 id=307 data-nosnippet>307</a>/// # Errors
+<a href=#308 id=308 data-nosnippet>308</a>/// Returns `Err` if `encoding`
+<a href=#309 id=309 data-nosnippet>309</a>/// * is not a valid DWARF Exception Header Encoding,
+<a href=#310 id=310 data-nosnippet>310</a>/// * is `DW_EH_PE_omit`, or
+<a href=#311 id=311 data-nosnippet>311</a>/// * has a non-zero application part.
+<a href=#312 id=312 data-nosnippet>312</a>///
+<a href=#313 id=313 data-nosnippet>313</a>/// [LSB-dwarf-ext]: https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dwarfext.html
+<a href=#314 id=314 data-nosnippet>314</a></span><span class="kw">unsafe fn </span>read_encoded_offset(reader: <span class="kw-2">&amp;mut </span>DwarfReader, encoding: DwEhPe) -&gt; <span class="prelude-ty">Result</span>&lt;usize, ()&gt; {
+<a href=#315 id=315 data-nosnippet>315</a>    <span class="kw">if </span>encoding == gimli::DW_EH_PE_omit || encoding.<span class="number">0 </span>&amp; <span class="number">0xF0 </span>!= <span class="number">0 </span>{
+<a href=#316 id=316 data-nosnippet>316</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(());
+<a href=#317 id=317 data-nosnippet>317</a>    }
+<a href=#318 id=318 data-nosnippet>318</a>    <span class="kw">let </span>result = <span class="kw">unsafe </span>{
+<a href=#319 id=319 data-nosnippet>319</a>        <span class="kw">match </span>DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x0F</span>) {
+<a href=#320 id=320 data-nosnippet>320</a>            <span class="comment">// despite the name, LLVM also uses absptr for offsets instead of pointers
+<a href=#321 id=321 data-nosnippet>321</a>            </span>gimli::DW_EH_PE_absptr =&gt; reader.read::&lt;usize&gt;(),
+<a href=#322 id=322 data-nosnippet>322</a>            gimli::DW_EH_PE_uleb128 =&gt; reader.read_uleb128() <span class="kw">as </span>usize,
+<a href=#323 id=323 data-nosnippet>323</a>            gimli::DW_EH_PE_udata2 =&gt; reader.read::&lt;u16&gt;() <span class="kw">as </span>usize,
+<a href=#324 id=324 data-nosnippet>324</a>            gimli::DW_EH_PE_udata4 =&gt; reader.read::&lt;u32&gt;() <span class="kw">as </span>usize,
+<a href=#325 id=325 data-nosnippet>325</a>            gimli::DW_EH_PE_udata8 =&gt; reader.read::&lt;u64&gt;() <span class="kw">as </span>usize,
+<a href=#326 id=326 data-nosnippet>326</a>            gimli::DW_EH_PE_sleb128 =&gt; reader.read_sleb128() <span class="kw">as </span>usize,
+<a href=#327 id=327 data-nosnippet>327</a>            gimli::DW_EH_PE_sdata2 =&gt; reader.read::&lt;i16&gt;() <span class="kw">as </span>usize,
+<a href=#328 id=328 data-nosnippet>328</a>            gimli::DW_EH_PE_sdata4 =&gt; reader.read::&lt;i32&gt;() <span class="kw">as </span>usize,
+<a href=#329 id=329 data-nosnippet>329</a>            gimli::DW_EH_PE_sdata8 =&gt; reader.read::&lt;i64&gt;() <span class="kw">as </span>usize,
+<a href=#330 id=330 data-nosnippet>330</a>            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(()),
+<a href=#331 id=331 data-nosnippet>331</a>        }
+<a href=#332 id=332 data-nosnippet>332</a>    };
+<a href=#333 id=333 data-nosnippet>333</a>    <span class="prelude-val">Ok</span>(result)
+<a href=#334 id=334 data-nosnippet>334</a>}
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a><span class="doccomment">/// Reads a pointer from `reader` whose encoding is described by `encoding`.
+<a href=#337 id=337 data-nosnippet>337</a>///
+<a href=#338 id=338 data-nosnippet>338</a>/// `encoding` must be a [DWARF Exception Header Encoding as described by the LSB spec][LSB-dwarf-ext].
+<a href=#339 id=339 data-nosnippet>339</a>///
+<a href=#340 id=340 data-nosnippet>340</a>/// # Errors
+<a href=#341 id=341 data-nosnippet>341</a>/// Returns `Err` if `encoding`
+<a href=#342 id=342 data-nosnippet>342</a>/// * is not a valid DWARF Exception Header Encoding,
+<a href=#343 id=343 data-nosnippet>343</a>/// * is `DW_EH_PE_omit`, or
+<a href=#344 id=344 data-nosnippet>344</a>/// * combines `DW_EH_PE_absptr` or `DW_EH_PE_aligned` application part with an integer encoding
+<a href=#345 id=345 data-nosnippet>345</a>///   (not `DW_EH_PE_absptr`) in the value format part.
+<a href=#346 id=346 data-nosnippet>346</a>///
+<a href=#347 id=347 data-nosnippet>347</a>/// [LSB-dwarf-ext]: https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dwarfext.html
+<a href=#348 id=348 data-nosnippet>348</a></span><span class="kw">unsafe fn </span>read_encoded_pointer(
+<a href=#349 id=349 data-nosnippet>349</a>    reader: <span class="kw-2">&amp;mut </span>DwarfReader,
+<a href=#350 id=350 data-nosnippet>350</a>    context: <span class="kw-2">&amp;</span>EHContext&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#351 id=351 data-nosnippet>351</a>    encoding: DwEhPe,
+<a href=#352 id=352 data-nosnippet>352</a>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">*const </span>u8, ()&gt; {
+<a href=#353 id=353 data-nosnippet>353</a>    <span class="kw">if </span>encoding == gimli::DW_EH_PE_omit {
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(());
+<a href=#355 id=355 data-nosnippet>355</a>    }
+<a href=#356 id=356 data-nosnippet>356</a>
+<a href=#357 id=357 data-nosnippet>357</a>    <span class="macro">log!</span>(<span class="string">"(pers) About to read encoded pointer at {:?}"</span>, reader.ptr);
 <a href=#358 id=358 data-nosnippet>358</a>
-<a href=#359 id=359 data-nosnippet>359</a>            (<span class="kw-2">*</span>context.get_data_start)()
-<a href=#360 id=360 data-nosnippet>360</a>        }
-<a href=#361 id=361 data-nosnippet>361</a>        <span class="comment">// aligned means the value is aligned to the size of a pointer
-<a href=#362 id=362 data-nosnippet>362</a>        </span>gimli::DW_EH_PE_aligned =&gt; {
-<a href=#363 id=363 data-nosnippet>363</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_aligned"</span>);
-<a href=#364 id=364 data-nosnippet>364</a>            reader.ptr = {
-<a href=#365 id=365 data-nosnippet>365</a>                <span class="kw">let </span>this = reader.ptr;
-<a href=#366 id=366 data-nosnippet>366</a>                <span class="kw">let </span>addr = round_up(
-<a href=#367 id=367 data-nosnippet>367</a>                    {
-<a href=#368 id=368 data-nosnippet>368</a>                        <span class="kw">let </span>this = reader.ptr;
-<a href=#369 id=369 data-nosnippet>369</a>                        <span class="kw">unsafe </span>{ mem::transmute::&lt;<span class="kw-2">*const </span>(), usize&gt;(this.cast::&lt;()&gt;()) }
-<a href=#370 id=370 data-nosnippet>370</a>                    },
-<a href=#371 id=371 data-nosnippet>371</a>                    mem::size_of::&lt;<span class="kw-2">*const </span>u8&gt;(),
-<a href=#372 id=372 data-nosnippet>372</a>                )<span class="question-mark">?</span>;
-<a href=#373 id=373 data-nosnippet>373</a>                <span class="comment">// In the mean-time, this operation is defined to be "as if" it was
-<a href=#374 id=374 data-nosnippet>374</a>                // a wrapping_offset, so we can emulate it as such. This should properly
-<a href=#375 id=375 data-nosnippet>375</a>                // restore pointer provenance even under today's compiler.
-<a href=#376 id=376 data-nosnippet>376</a>                </span><span class="kw">let </span>self_addr = <span class="kw">unsafe </span>{ mem::transmute::&lt;<span class="kw-2">*const </span>(), isize&gt;(this.cast::&lt;()&gt;()) };
-<a href=#377 id=377 data-nosnippet>377</a>                <span class="kw">let </span>dest_addr = addr <span class="kw">as </span>isize;
-<a href=#378 id=378 data-nosnippet>378</a>                <span class="kw">let </span>offset = dest_addr.wrapping_sub(self_addr);
-<a href=#379 id=379 data-nosnippet>379</a>
-<a href=#380 id=380 data-nosnippet>380</a>                <span class="comment">// This is the canonical desugaring of this operation
-<a href=#381 id=381 data-nosnippet>381</a>                </span>this.wrapping_byte_offset(offset)
-<a href=#382 id=382 data-nosnippet>382</a>            };
-<a href=#383 id=383 data-nosnippet>383</a>            core::ptr::null()
+<a href=#359 id=359 data-nosnippet>359</a>    <span class="kw">let </span>base_ptr = <span class="kw">match </span>DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x70</span>) {
+<a href=#360 id=360 data-nosnippet>360</a>        gimli::DW_EH_PE_absptr =&gt; {
+<a href=#361 id=361 data-nosnippet>361</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_absptr"</span>);
+<a href=#362 id=362 data-nosnippet>362</a>            core::ptr::null()
+<a href=#363 id=363 data-nosnippet>363</a>        }
+<a href=#364 id=364 data-nosnippet>364</a>        <span class="comment">// relative to address of the encoded value, despite the name
+<a href=#365 id=365 data-nosnippet>365</a>        </span>gimli::DW_EH_PE_pcrel =&gt; {
+<a href=#366 id=366 data-nosnippet>366</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_pcrel"</span>);
+<a href=#367 id=367 data-nosnippet>367</a>            reader.ptr
+<a href=#368 id=368 data-nosnippet>368</a>        }
+<a href=#369 id=369 data-nosnippet>369</a>        gimli::DW_EH_PE_funcrel =&gt; {
+<a href=#370 id=370 data-nosnippet>370</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_funcrel"</span>);
+<a href=#371 id=371 data-nosnippet>371</a>            <span class="kw">if </span>context.func_start.is_null() {
+<a href=#372 id=372 data-nosnippet>372</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(());
+<a href=#373 id=373 data-nosnippet>373</a>            }
+<a href=#374 id=374 data-nosnippet>374</a>            context.func_start
+<a href=#375 id=375 data-nosnippet>375</a>        }
+<a href=#376 id=376 data-nosnippet>376</a>        gimli::DW_EH_PE_textrel =&gt; {
+<a href=#377 id=377 data-nosnippet>377</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_textrel"</span>);
+<a href=#378 id=378 data-nosnippet>378</a>            (<span class="kw-2">*</span>context.get_text_start)()
+<a href=#379 id=379 data-nosnippet>379</a>        }
+<a href=#380 id=380 data-nosnippet>380</a>        gimli::DW_EH_PE_datarel =&gt; {
+<a href=#381 id=381 data-nosnippet>381</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_datarel"</span>);
+<a href=#382 id=382 data-nosnippet>382</a>
+<a href=#383 id=383 data-nosnippet>383</a>            (<span class="kw-2">*</span>context.get_data_start)()
 <a href=#384 id=384 data-nosnippet>384</a>        }
-<a href=#385 id=385 data-nosnippet>385</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(()),
-<a href=#386 id=386 data-nosnippet>386</a>    };
-<a href=#387 id=387 data-nosnippet>387</a>
-<a href=#388 id=388 data-nosnippet>388</a>    <span class="kw">let </span><span class="kw-2">mut </span>ptr = <span class="kw">if </span>base_ptr.is_null() {
-<a href=#389 id=389 data-nosnippet>389</a>        <span class="comment">// any value encoding other than absptr would be nonsensical here;
-<a href=#390 id=390 data-nosnippet>390</a>        // there would be no source of pointer provenance
-<a href=#391 id=391 data-nosnippet>391</a>        </span><span class="kw">if </span>DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x0f</span>) != gimli::DW_EH_PE_absptr {
-<a href=#392 id=392 data-nosnippet>392</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(());
-<a href=#393 id=393 data-nosnippet>393</a>        }
-<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw">unsafe </span>{ reader.read::&lt;<span class="kw-2">*const </span>u8&gt;() }
-<a href=#395 id=395 data-nosnippet>395</a>    } <span class="kw">else </span>{
-<a href=#396 id=396 data-nosnippet>396</a>        <span class="macro">log!</span>(<span class="string">"(pers) since base_ptr is not null, we must an offset"</span>);
-<a href=#397 id=397 data-nosnippet>397</a>        <span class="kw">let </span>offset = <span class="kw">unsafe </span>{ read_encoded_offset(reader, DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x0f</span>))<span class="question-mark">? </span>};
-<a href=#398 id=398 data-nosnippet>398</a>        <span class="macro">log!</span>(<span class="string">"(pers) read offset is {offset:x?}"</span>);
-<a href=#399 id=399 data-nosnippet>399</a>        base_ptr.wrapping_add(offset)
-<a href=#400 id=400 data-nosnippet>400</a>    };
-<a href=#401 id=401 data-nosnippet>401</a>
-<a href=#402 id=402 data-nosnippet>402</a>    <span class="macro">log!</span>(<span class="string">"(pers) about to read from {ptr:?}"</span>);
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="comment">// aligned means the value is aligned to the size of a pointer
+<a href=#386 id=386 data-nosnippet>386</a>        </span>gimli::DW_EH_PE_aligned =&gt; {
+<a href=#387 id=387 data-nosnippet>387</a>            <span class="macro">log!</span>(<span class="string">"(pers) encoding is: DW_EH_PE_aligned"</span>);
+<a href=#388 id=388 data-nosnippet>388</a>            reader.ptr = {
+<a href=#389 id=389 data-nosnippet>389</a>                <span class="kw">let </span>this = reader.ptr;
+<a href=#390 id=390 data-nosnippet>390</a>                <span class="kw">let </span>addr = round_up(
+<a href=#391 id=391 data-nosnippet>391</a>                    {
+<a href=#392 id=392 data-nosnippet>392</a>                        <span class="kw">let </span>this = reader.ptr;
+<a href=#393 id=393 data-nosnippet>393</a>                        <span class="kw">unsafe </span>{ mem::transmute::&lt;<span class="kw-2">*const </span>(), usize&gt;(this.cast::&lt;()&gt;()) }
+<a href=#394 id=394 data-nosnippet>394</a>                    },
+<a href=#395 id=395 data-nosnippet>395</a>                    mem::size_of::&lt;<span class="kw-2">*const </span>u8&gt;(),
+<a href=#396 id=396 data-nosnippet>396</a>                )<span class="question-mark">?</span>;
+<a href=#397 id=397 data-nosnippet>397</a>                <span class="comment">// In the mean-time, this operation is defined to be "as if" it was
+<a href=#398 id=398 data-nosnippet>398</a>                // a wrapping_offset, so we can emulate it as such. This should properly
+<a href=#399 id=399 data-nosnippet>399</a>                // restore pointer provenance even under today's compiler.
+<a href=#400 id=400 data-nosnippet>400</a>                </span><span class="kw">let </span>self_addr = <span class="kw">unsafe </span>{ mem::transmute::&lt;<span class="kw-2">*const </span>(), isize&gt;(this.cast::&lt;()&gt;()) };
+<a href=#401 id=401 data-nosnippet>401</a>                <span class="kw">let </span>dest_addr = addr <span class="kw">as </span>isize;
+<a href=#402 id=402 data-nosnippet>402</a>                <span class="kw">let </span>offset = dest_addr.wrapping_sub(self_addr);
 <a href=#403 id=403 data-nosnippet>403</a>
-<a href=#404 id=404 data-nosnippet>404</a>    <span class="kw">if </span>encoding.<span class="number">0 </span>&amp; gimli::DW_EH_PE_indirect.<span class="number">0 </span>!= <span class="number">0 </span>{
-<a href=#405 id=405 data-nosnippet>405</a>        ptr = <span class="kw">unsafe </span>{ ptr.cast::&lt;<span class="kw-2">*const </span>u8&gt;().read_unaligned() };
-<a href=#406 id=406 data-nosnippet>406</a>    }
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a>    <span class="macro">log!</span>(<span class="string">"(pers) returning ptr value {ptr:?}"</span>);
-<a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a>    <span class="prelude-val">Ok</span>(ptr)
-<a href=#411 id=411 data-nosnippet>411</a>}</code></pre></div></section></main></body></html>
+<a href=#404 id=404 data-nosnippet>404</a>                <span class="comment">// This is the canonical desugaring of this operation
+<a href=#405 id=405 data-nosnippet>405</a>                </span>this.wrapping_byte_offset(offset)
+<a href=#406 id=406 data-nosnippet>406</a>            };
+<a href=#407 id=407 data-nosnippet>407</a>            core::ptr::null()
+<a href=#408 id=408 data-nosnippet>408</a>        }
+<a href=#409 id=409 data-nosnippet>409</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(()),
+<a href=#410 id=410 data-nosnippet>410</a>    };
+<a href=#411 id=411 data-nosnippet>411</a>
+<a href=#412 id=412 data-nosnippet>412</a>    <span class="kw">let </span><span class="kw-2">mut </span>ptr = <span class="kw">if </span>base_ptr.is_null() {
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="comment">// any value encoding other than absptr would be nonsensical here;
+<a href=#414 id=414 data-nosnippet>414</a>        // there would be no source of pointer provenance
+<a href=#415 id=415 data-nosnippet>415</a>        </span><span class="kw">if </span>DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x0f</span>) != gimli::DW_EH_PE_absptr {
+<a href=#416 id=416 data-nosnippet>416</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(());
+<a href=#417 id=417 data-nosnippet>417</a>        }
+<a href=#418 id=418 data-nosnippet>418</a>        <span class="kw">unsafe </span>{ reader.read::&lt;<span class="kw-2">*const </span>u8&gt;() }
+<a href=#419 id=419 data-nosnippet>419</a>    } <span class="kw">else </span>{
+<a href=#420 id=420 data-nosnippet>420</a>        <span class="macro">log!</span>(<span class="string">"(pers) since base_ptr is not null, we must an offset"</span>);
+<a href=#421 id=421 data-nosnippet>421</a>        <span class="kw">let </span>offset = <span class="kw">unsafe </span>{ read_encoded_offset(reader, DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x0f</span>))<span class="question-mark">? </span>};
+<a href=#422 id=422 data-nosnippet>422</a>        <span class="macro">log!</span>(<span class="string">"(pers) read offset is {offset:x?}"</span>);
+<a href=#423 id=423 data-nosnippet>423</a>        base_ptr.wrapping_add(offset)
+<a href=#424 id=424 data-nosnippet>424</a>    };
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>    <span class="macro">log!</span>(<span class="string">"(pers) about to read from {ptr:?}"</span>);
+<a href=#427 id=427 data-nosnippet>427</a>
+<a href=#428 id=428 data-nosnippet>428</a>    <span class="kw">if </span>encoding.<span class="number">0 </span>&amp; gimli::DW_EH_PE_indirect.<span class="number">0 </span>!= <span class="number">0 </span>{
+<a href=#429 id=429 data-nosnippet>429</a>        ptr = <span class="kw">unsafe </span>{ ptr.cast::&lt;<span class="kw-2">*const </span>u8&gt;().read_unaligned() };
+<a href=#430 id=430 data-nosnippet>430</a>    }
+<a href=#431 id=431 data-nosnippet>431</a>
+<a href=#432 id=432 data-nosnippet>432</a>    <span class="macro">log!</span>(<span class="string">"(pers) returning ptr value {ptr:?}"</span>);
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a>    <span class="prelude-val">Ok</span>(ptr)
+<a href=#435 id=435 data-nosnippet>435</a>}</code></pre></div></section></main></body></html>
