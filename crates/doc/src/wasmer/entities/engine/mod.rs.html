@@ -255,4 +255,14 @@
 <a href=#255 id=255 data-nosnippet>255</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
 <a href=#256 id=256 data-nosnippet>256</a>        }
 <a href=#257 id=257 data-nosnippet>257</a>    }
-<a href=#258 id=258 data-nosnippet>258</a>}</code></pre></div></section></main></body></html>
+<a href=#258 id=258 data-nosnippet>258</a>
+<a href=#259 id=259 data-nosnippet>259</a>    <span class="attr">#[cfg(feature = <span class="string">"experimental-async"</span>)]
+<a href=#260 id=260 data-nosnippet>260</a>    </span><span class="doccomment">/// Returns true if the engine supports async operations.
+<a href=#261 id=261 data-nosnippet>261</a>    </span><span class="kw">pub fn </span>supports_async(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#262 id=262 data-nosnippet>262</a>        <span class="kw">match </span><span class="self">self</span>.be {
+<a href=#263 id=263 data-nosnippet>263</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<a href=#264 id=264 data-nosnippet>264</a>            </span>BackendEngine::Sys(<span class="kw-2">ref </span>e) =&gt; <span class="bool-val">true</span>,
+<a href=#265 id=265 data-nosnippet>265</a>            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+<a href=#266 id=266 data-nosnippet>266</a>        }
+<a href=#267 id=267 data-nosnippet>267</a>    }
+<a href=#268 id=268 data-nosnippet>268</a>}</code></pre></div></section></main></body></html>

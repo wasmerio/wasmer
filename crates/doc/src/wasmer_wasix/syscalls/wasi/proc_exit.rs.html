@@ -34,9 +34,9 @@
 <a href=#34 id=34 data-nosnippet>34</a>        );
 <a href=#35 id=35 data-nosnippet>35</a>
 <a href=#36 id=36 data-nosnippet>36</a>        <span class="comment">// Restore the WasiEnv to the point when we vforked
-<a href=#37 id=37 data-nosnippet>37</a>        </span>vfork.env.swap_inner(ctx.data_mut());
-<a href=#38 id=38 data-nosnippet>38</a>        std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
-<a href=#39 id=39 data-nosnippet>39</a>        <span class="kw">let </span><span class="kw-2">mut </span>child_env = <span class="kw-2">*</span>vfork.env;
+<a href=#37 id=37 data-nosnippet>37</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>parent_env = vfork.env;
+<a href=#38 id=38 data-nosnippet>38</a>        ctx.data_mut().swap_inner(parent_env.as_mut());
+<a href=#39 id=39 data-nosnippet>39</a>        <span class="kw">let </span><span class="kw-2">mut </span>child_env = std::mem::replace(ctx.data_mut(), <span class="kw-2">*</span>parent_env);
 <a href=#40 id=40 data-nosnippet>40</a>        child_env.owned_handles.push(vfork.handle);
 <a href=#41 id=41 data-nosnippet>41</a>
 <a href=#42 id=42 data-nosnippet>42</a>        <span class="comment">// Terminate the child process

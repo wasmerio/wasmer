@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAIN_CONTEXT_ID"],"enum":["ContextSwitchError"],"struct":["ContextCanceled","ContextEntrypointReturned","ContextSwitchingEnvironment","ContextSwitchingEnvironmentInner"]};
