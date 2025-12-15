@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use clap::Parser;
 use wasmer_wasix::journal::{
-    copy_journal, FilteredJournalBuilder, LogFileJournal, PrintingJournal,
+    FilteredJournalBuilder, LogFileJournal, PrintingJournal, copy_journal,
 };
 
 use crate::commands::CliCommand;

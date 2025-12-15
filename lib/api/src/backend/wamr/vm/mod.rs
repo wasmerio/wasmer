@@ -11,6 +11,7 @@ use super::{
     table::Table,
 };
 use crate::{AsStoreMut, BackendFunction, BackendGlobal, BackendMemory, BackendTable, Extern};
+use std::ptr::NonNull;
 use wasmer_types::RawValue;
 
 pub use super::error::Trap;
@@ -45,11 +46,14 @@ pub(crate) type VMConfig = ();
 
 impl crate::VMExternToExtern for VMExtern {
     fn to_extern(self, store: &mut impl AsStoreMut) -> Extern {
-        let kind = unsafe { wasm_extern_kind(&mut *self) };
+        let ptr =
+            NonNull::new(self).expect("The wasm-c-api returned a null pointer for wasm_extern_t");
+        let raw = ptr.as_ptr();
+        let kind = unsafe { wasm_extern_kind(raw as *const _) };
 
         match kind as u32 {
             0 => {
-                let func = unsafe { wasm_extern_as_func(&mut *self) };
+                let func = unsafe { wasm_extern_as_func(raw) };
                 if func.is_null() {
                     panic!("The wasm-c-api reported extern as function, but is not");
                 }
@@ -59,7 +63,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             1 => {
-                let global = unsafe { wasm_extern_as_global(&mut *self) };
+                let global = unsafe { wasm_extern_as_global(raw) };
                 if global.is_null() {
                     panic!("The wasm-c-api reported extern as a global, but is not");
                 }
@@ -69,7 +73,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             2 => {
-                let table = unsafe { wasm_extern_as_table(&mut *self) };
+                let table = unsafe { wasm_extern_as_table(raw) };
                 if table.is_null() {
                     panic!("The wasm-c-api reported extern as a table, but is not");
                 }
@@ -79,7 +83,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             3 => {
-                let memory = unsafe { wasm_extern_as_memory(&mut *self) };
+                let memory = unsafe { wasm_extern_as_memory(raw) };
                 if memory.is_null() {
                     panic!("The wasm-c-api reported extern as a table, but is not");
                 }

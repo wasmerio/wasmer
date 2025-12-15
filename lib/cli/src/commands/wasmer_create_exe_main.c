@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
       }
     }
     
-    // select the --command only if if was given before a "--", such 
+    // select the --command only if it was given before a "--", such 
     for (int i = 1; i < argc; i++) {
       if ((strcmp(argv[i], "--command") == 0 || strcmp(argv[i], "-c") == 0) && dash_dash_position > i) {
         // next arg is a command

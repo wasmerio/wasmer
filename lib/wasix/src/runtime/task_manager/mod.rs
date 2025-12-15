@@ -16,7 +16,7 @@ use wasmer::{
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::syscalls::AsyncifyFuture;
-use crate::{capture_store_snapshot, StoreSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+use crate::{StoreSnapshot, WasiEnv, WasiFunctionEnv, WasiThread, capture_store_snapshot};
 use crate::{os::task::thread::WasiThreadError, state::Linker};
 
 pub use virtual_mio::waker::*;
@@ -42,7 +42,7 @@ pub enum SpawnType<'a> {
 /// # Note
 ///
 /// This type is necessary for now because we can't pass a [`wasmer::StoreRef`] between threads, so this
-/// conceptually is a Send-able [`SpawnMemoryType`].
+/// conceptually is a Send-able [`SpawnMemoryTypeOrStore`].
 pub enum SpawnMemoryTypeOrStore {
     New,
     Type(wasmer::MemoryType),

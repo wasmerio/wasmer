@@ -10,13 +10,22 @@ pub use host::*;
 pub(crate) mod env;
 pub use env::*;
 
+#[cfg(feature = "experimental-async")]
+pub(crate) mod async_host;
+#[cfg(feature = "experimental-async")]
+pub use async_host::{AsyncFunctionEnv, AsyncHostFunction};
+
+use std::{future::Future, pin::Pin};
+
 use wasmer_types::{FunctionType, RawValue};
 
+#[cfg(feature = "experimental-async")]
+use crate::AsStoreAsync;
 use crate::{
-    error::RuntimeError,
-    vm::{VMExtern, VMExternFunction, VMFuncRef},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, TypedFunction,
     Value, WasmTypeList,
+    error::RuntimeError,
+    vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
 /// A WebAssembly `function` instance.
@@ -147,6 +156,78 @@ impl Function {
         Self(BackendFunction::new_typed_with_env(store, env, func))
     }
 
+    /// Creates a new async host `Function` (dynamic) with the provided
+    /// signature.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Self::new_typed_async`] for less runtime overhead.
+    ///
+    /// The provided closure returns a future that resolves to the function results.
+    /// When invoked synchronously (via [`Function::call`]) the future will run to
+    /// completion immediately, provided it doesn't suspend. When invoked through
+    /// [`Function::call_async`], the future may suspend and resume as needed.
+    #[cfg(feature = "experimental-async")]
+    pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    {
+        Self(BackendFunction::new_async(store, ty, func))
+    }
+
+    /// Creates a new async host `Function` (dynamic) with the provided
+    /// signature and environment.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Self::new_typed_with_env_async`] for less runtime overhead.
+    ///
+    /// Takes an [`AsyncFunctionEnvMut`] that is passed into func. If
+    /// that is not required, [`Self::new_async`] might be an option as well.
+    #[cfg(feature = "experimental-async")]
+    pub fn new_with_env_async<FT, F, Fut, T: 'static>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    {
+        Self(BackendFunction::new_with_env_async(store, env, ty, func))
+    }
+
+    /// Creates a new async host `Function` from a native typed function.
+    ///
+    /// The future can return either the raw result tuple or any type that implements
+    /// [`IntoResult`](crate::IntoResult) for the result tuple (e.g. `Result<Rets, E>`).
+    #[cfg(feature = "experimental-async")]
+    pub fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        Rets: WasmTypeList + 'static,
+        Args: WasmTypeList + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
+    {
+        Self(BackendFunction::new_typed_async(store, func))
+    }
+
+    /// Creates a new async host `Function` with an environment from a typed function.
+    #[cfg(feature = "experimental-async")]
+    pub fn new_typed_with_env_async<T: 'static, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        Rets: WasmTypeList + 'static,
+        Args: WasmTypeList + 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + 'static,
+    {
+        Self(BackendFunction::new_typed_with_env_async(store, env, func))
+    }
+
     /// Returns the [`FunctionType`] of the `Function`.
     ///
     /// # Example
@@ -250,6 +331,22 @@ impl Function {
         self.0.call(store, params)
     }
 
+    /// Calls the function asynchronously.
+    ///
+    /// The returned future drives execution of the WebAssembly function on a
+    /// coroutine stack. Host functions created with [`Function::new_async`] may
+    /// suspend execution by awaiting futures, and their completion will resume
+    /// the Wasm instance according to the JSPI proposal.
+    #[must_use = "This function spawns a future that must be awaited to produce results"]
+    #[cfg(feature = "experimental-async")]
+    pub fn call_async(
+        &self,
+        store: &impl AsStoreAsync,
+        params: Vec<Value>,
+    ) -> impl Future<Output = Result<Box<[Value]>, RuntimeError>> + 'static {
+        self.0.call_async(store, params)
+    }
+
     #[doc(hidden)]
     #[allow(missing_docs)]
     pub fn call_raw(
@@ -265,7 +362,7 @@ impl Function {
     }
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        Self(BackendFunction::from_vm_funcref(store, funcref))
+        unsafe { Self(BackendFunction::from_vm_funcref(store, funcref)) }
     }
 
     /// Transform this WebAssembly function into a typed function.

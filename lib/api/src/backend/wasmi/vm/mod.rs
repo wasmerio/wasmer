@@ -44,12 +44,13 @@ pub(crate) type VMExternObj = ();
 pub(crate) type VMConfig = ();
 
 impl crate::VMExternToExtern for VMExtern {
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn to_extern(self, store: &mut impl AsStoreMut) -> Extern {
-        let kind = unsafe { wasm_extern_kind(&mut *self) };
+        let kind = unsafe { wasm_extern_kind(self) };
 
         match kind as u32 {
             0 => {
-                let func = unsafe { wasm_extern_as_func(&mut *self) };
+                let func = unsafe { wasm_extern_as_func(self) };
                 if func.is_null() {
                     panic!("The wasm-c-api reported extern as function, but is not");
                 }
@@ -59,7 +60,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             1 => {
-                let global = unsafe { wasm_extern_as_global(&mut *self) };
+                let global = unsafe { wasm_extern_as_global(self) };
                 if global.is_null() {
                     panic!("The wasm-c-api reported extern as a global, but is not");
                 }
@@ -69,7 +70,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             2 => {
-                let table = unsafe { wasm_extern_as_table(&mut *self) };
+                let table = unsafe { wasm_extern_as_table(self) };
                 if table.is_null() {
                     panic!("The wasm-c-api reported extern as a table, but is not");
                 }
@@ -79,7 +80,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             3 => {
-                let memory = unsafe { wasm_extern_as_memory(&mut *self) };
+                let memory = unsafe { wasm_extern_as_memory(self) };
                 if memory.is_null() {
                     panic!("The wasm-c-api reported extern as a table, but is not");
                 }
@@ -127,7 +128,7 @@ impl VMFuncRef {
     }
 }
 
-pub(crate) struct VMExceptionRef(*mut wasm_ref_t);
+pub struct VMExceptionRef(*mut wasm_ref_t);
 impl VMExceptionRef {
     /// Converts the `VMExceptionRef` into a `RawValue`.
     pub fn into_raw(self) -> RawValue {

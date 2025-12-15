@@ -95,8 +95,7 @@ impl JournalEffector {
             .with_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, inode, fd);
         ret.map_err(|err| {
             anyhow::format_err!(
-                "journal restore error: failed to create remote accepted socket - {}",
-                err
+                "journal restore error: failed to create remote accepted socket - {err}"
             )
         })?;
 

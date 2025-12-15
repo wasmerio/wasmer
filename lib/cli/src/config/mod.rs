@@ -81,6 +81,7 @@ impl Default for MultiRegistry {
     }
 }
 
+#[allow(unused)]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct Registry {
     pub url: String,
@@ -181,8 +182,8 @@ impl MultiRegistry {
         let registry_formatted = format_graphql(registry);
         self.tokens
             .iter()
-            .filter(|login| login.registry == registry || login.registry == registry_formatted)
-            .last()
+            .rev()
+            .find(|login| login.registry == registry || login.registry == registry_formatted)
             .map(|login| login.token.clone())
     }
 

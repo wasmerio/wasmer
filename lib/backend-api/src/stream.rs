@@ -1,8 +1,8 @@
 use std::{collections::VecDeque, task::Poll};
 
 use futures::{
-    future::{BoxFuture, OptionFuture},
     Future,
+    future::{BoxFuture, OptionFuture},
 };
 
 use super::WasmerClient;
@@ -106,10 +106,9 @@ impl<Q: PaginatedQuery> futures::Stream for QueryStream<Q> {
                 this.items.extend(items);
                 this.fut.set(None.into());
 
-                if let Some(item) = this.items.pop_front() {
-                    Poll::Ready(Some(Ok(item)))
-                } else {
-                    Poll::Ready(None)
+                match this.items.pop_front() {
+                    Some(item) => Poll::Ready(Some(Ok(item))),
+                    _ => Poll::Ready(None),
                 }
             }
             Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(err))),

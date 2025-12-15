@@ -18,7 +18,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, sys::EngineBuilder, wat2wasm, Instance, Module, Store, Value};
+use wasmer::{Instance, Module, Store, Value, imports, sys::EngineBuilder, wat2wasm};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sum = instance.exports.get_function("sum")?;
     let results = sum.call(&mut store, &[Value::I32(1), Value::I32(2)])?;
 
-    println!("Results: {:?}", results);
+    println!("Results: {results:?}");
     assert_eq!(results.to_vec(), vec![Value::I32(3)]);
 
     Ok(())

@@ -8,6 +8,7 @@ use wasm_bindgen::{JsCast, JsError, JsValue};
 use wasmer_types::ExternType;
 
 use crate::{
+    Extern, Function, Global, Memory, Table, Tag, Type,
     imports::Imports,
     instance::Instance,
     js::{
@@ -16,7 +17,6 @@ use crate::{
     },
     store::{AsStoreMut, AsStoreRef},
     value::Value,
-    Extern, Function, Global, Memory, Table, Tag, Type,
 };
 
 /// Convert the given type to a [`JsValue`].
@@ -236,8 +236,8 @@ impl AsJs for Instance {
     ) -> Result<Self, JsError> {
         let js_instance: js_sys::WebAssembly::Instance = value.clone().into();
         let (instance, exports) = JsInstance::from_module_and_instance(store, module, js_instance)
-            .map_err(|e| JsError::new(&format!("Can't get the instance: {:?}", e)))?;
-        Ok(Instance {
+            .map_err(|e| JsError::new(&format!("Can't get the instance: {e:?}")))?;
+        Ok(Self {
             _inner: crate::BackendInstance::Js(instance),
             module: module.clone(),
             exports,
@@ -258,14 +258,13 @@ impl AsJs for Memory {
         value: &JsValue,
     ) -> Result<Self, JsError> {
         if let Some(memory) = value.dyn_ref::<JsMemory>() {
-            Ok(Memory::from_vm_extern(
+            Ok(Self::from_vm_extern(
                 store,
-                crate::vm::VMExternMemory::Js(VMMemory::new(memory.clone(), memory_type.clone())),
+                crate::vm::VMExternMemory::Js(VMMemory::new(memory.clone(), *memory_type)),
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Memory, but received {:?}",
-                value
+                "Extern expect to be of type Memory, but received {value:?}",
             )))
         }
     }
@@ -284,7 +283,7 @@ impl AsJs for Function {
         value: &JsValue,
     ) -> Result<Self, JsError> {
         if value.is_instance_of::<JsFunction>() {
-            Ok(Function::from_vm_extern(
+            Ok(Self::from_vm_extern(
                 store,
                 crate::vm::VMExternFunction::Js(VMFunction::new(
                     value.clone().unchecked_into::<JsFunction>(),
@@ -293,8 +292,7 @@ impl AsJs for Function {
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Function, but received {:?}",
-                value
+                "Extern expect to be of type Function, but received {value:?}",
             )))
         }
     }
@@ -312,7 +310,7 @@ impl AsJs for Tag {
         value: &JsValue,
     ) -> Result<Self, JsError> {
         if value.is_instance_of::<JsTag>() {
-            Ok(Tag::from_vm_extern(
+            Ok(Self::from_vm_extern(
                 store,
                 crate::vm::VMExternTag::Js(VMTag::new(
                     value.clone().unchecked_into::<JsTag>(),
@@ -321,8 +319,7 @@ impl AsJs for Tag {
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Tag, but received {:?}",
-                value
+                "Extern expect to be of type Tag, but received {value:?}",
             )))
         }
     }
@@ -341,17 +338,16 @@ impl AsJs for Global {
         value: &JsValue,
     ) -> Result<Self, JsError> {
         if value.is_instance_of::<JsGlobal>() {
-            Ok(Global::from_vm_extern(
+            Ok(Self::from_vm_extern(
                 store,
                 crate::vm::VMExternGlobal::Js(VMGlobal::new(
                     value.clone().unchecked_into::<JsGlobal>(),
-                    global_type.clone(),
+                    *global_type,
                 )),
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Global, but received {:?}",
-                value
+                "Extern expect to be of type Global, but received {value:?}",
             )))
         }
     }
@@ -370,17 +366,16 @@ impl AsJs for Table {
         value: &JsValue,
     ) -> Result<Self, JsError> {
         if value.is_instance_of::<JsTable>() {
-            Ok(Table::from_vm_extern(
+            Ok(Self::from_vm_extern(
                 store,
                 crate::vm::VMExternTable::Js(VMTable::new(
                     value.clone().unchecked_into::<JsTable>(),
-                    table_type.clone(),
+                    *table_type,
                 )),
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Table, but received {:?}",
-                value
+                "Extern expect to be of type Table, but received {value:?}",
             )))
         }
     }

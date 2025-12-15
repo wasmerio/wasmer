@@ -4,8 +4,8 @@ use std::any::Any;
 use wasmer_types::{TagType, Type};
 
 use crate::{
-    wasmi::vm::{VMException, VMExceptionRef},
     AsStoreMut, AsStoreRef, Tag, Value,
+    wasmi::vm::{VMException, VMExceptionRef},
 };
 
 use super::store::StoreHandle;
@@ -22,42 +22,6 @@ unsafe impl Sync for Exception {}
 impl Exception {
     /// Create a new [`Exception`].
     pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(transparent)]
-/// A WebAssembly `extern ref` in `wasmi`.
-pub(crate) struct ExceptionRef;
-
-impl ExceptionRef {
-    pub fn new<T>(_store: &mut impl AsStoreMut, _value: T) -> Self
-    where
-        T: Any + Send + Sync + 'static + Sized,
-    {
-        unimplemented!("ExceptionRef is not yet supported in wasmi");
-    }
-
-    pub fn downcast<'a, T>(&self, _store: &'a impl AsStoreRef) -> Option<&'a T>
-    where
-        T: Any + Send + Sync + 'static + Sized,
-    {
-        unimplemented!("ExceptionRef is not yet supported in wasmi");
-    }
-
-    pub(crate) fn vm_exceptionref(&self) -> VMExceptionRef {
-        unimplemented!("ExceptionRef is not yet supported in wasmi");
-    }
-
-    pub(crate) unsafe fn from_vm_exceptionref(
-        _store: &mut impl AsStoreMut,
-        _vm_exceptionref: VMExceptionRef,
-    ) -> Self {
-        unimplemented!("ExceptionRef is not yet supported in wasmi");
-    }
-
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        true
+        unimplemented!("Exception handling is not yet supported in wasmi");
     }
 }

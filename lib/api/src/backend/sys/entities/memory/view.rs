@@ -1,5 +1,5 @@
-use crate::store::AsStoreRef;
 use crate::MemoryAccessError;
+use crate::store::AsStoreRef;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
@@ -67,7 +67,7 @@ impl<'a> MemoryView<'a> {
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        self.data_unchecked_mut()
+        unsafe { self.data_unchecked_mut() }
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -82,7 +82,7 @@ impl<'a> MemoryView<'a> {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        slice::from_raw_parts_mut(self.buffer.base, self.buffer.len)
+        unsafe { slice::from_raw_parts_mut(self.buffer.base, self.buffer.len) }
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.

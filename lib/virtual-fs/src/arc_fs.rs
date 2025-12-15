@@ -50,7 +50,7 @@ impl FileSystem for ArcFileSystem {
         self.fs.remove_file(path)
     }
 
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         self.fs.new_open_options()
     }
 

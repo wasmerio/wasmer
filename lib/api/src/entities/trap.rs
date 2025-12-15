@@ -1,6 +1,8 @@
 use std::{any::Any, error::Error, fmt::Debug};
 
-use crate::{macros::backend::match_rt, RuntimeError};
+#[cfg(feature = "sys")]
+use crate::BackendException;
+use crate::{Exception, RuntimeError, macros::backend::match_rt};
 
 /// An enumeration of all the trap kinds supported by the runtimes.
 #[derive(Debug, derive_more::From)]
@@ -86,6 +88,45 @@ impl BackendTrap {
         match_rt!(on self => s {
             s.is::<T>()
         })
+    }
+
+    /// Returns true if the trap is an exception
+    #[inline]
+    pub fn is_exception(&self) -> bool {
+        match_rt!(on self => s {
+            s.is_exception()
+        })
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    #[inline]
+    pub fn to_exception(&self) -> Option<Exception> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s
+                .to_exception_ref()
+                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Sys(e))),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => s
+                .to_exception_ref()
+                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Wamr(e))),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(s) => s
+                .to_exception_ref()
+                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Wasmi(e))),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => s
+                .to_exception_ref()
+                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::V8(e))),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s
+                .to_exception_ref()
+                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Js(e))),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(s) => s
+                .to_exception_ref()
+                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Jsc(e))),
+        }
     }
 }
 

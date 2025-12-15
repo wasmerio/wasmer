@@ -1,14 +1,18 @@
 //! Helper functions and structures for the translation.
 
+use crate::translator::EXN_REF_TYPE;
+
 use super::func_environ::TargetEnvironment;
-use crate::std::string::ToString;
 use cranelift_codegen::{
     binemit::Reloc,
     ir::{self, AbiParam},
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
-use wasmer_compiler::{types::relocation::RelocationKind, wasm_unsupported, wasmparser};
+use wasmer_compiler::{
+    types::relocation::RelocationKind,
+    wasmparser::{self, RefType},
+};
 use wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
 /// Helper function translate a Function signature into Cranelift Ir
@@ -37,13 +41,7 @@ pub fn signature_to_cranelift_ir(
 
 /// Helper function translating wasmparser types to Cranelift types when possible.
 pub fn reference_type(target_config: TargetFrontendConfig) -> WasmResult<ir::Type> {
-    match target_config.pointer_type() {
-        ir::types::I32 => Ok(ir::types::R32),
-        ir::types::I64 => Ok(ir::types::R64),
-        _ => Err(WasmError::Unsupported(
-            "unsupported pointer type".to_string(),
-        )),
-    }
+    Ok(target_config.pointer_type())
 }
 
 /// Helper function translating wasmparser types to Cranelift types when possible.
@@ -55,9 +53,7 @@ pub fn type_to_irtype(ty: Type, target_config: TargetFrontendConfig) -> WasmResu
         Type::F64 => Ok(ir::types::F64),
         Type::V128 => Ok(ir::types::I8X16),
         Type::ExternRef | Type::FuncRef => reference_type(target_config),
-        Type::ExceptionRef => Err(wasm_unsupported!(
-            "exnrefs are not supported yet in cranelift"
-        )),
+        Type::ExceptionRef => Ok(EXN_REF_TYPE),
         // ty => Err(wasm_unsupported!("type_to_type: wasm type {:?}", ty)),
     }
 }
@@ -117,6 +113,8 @@ pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
             wasmparser::ValType::Ref(ty) => {
                 if ty.is_extern_ref() || ty.is_func_ref() {
                     builder.append_block_param(block, environ.reference_type());
+                } else if ty == &RefType::EXNREF {
+                    builder.append_block_param(block, EXN_REF_TYPE);
                 } else {
                     return Err(WasmError::Unsupported(format!(
                         "unsupported reference type: {ty:?}"

@@ -1,7 +1,7 @@
 pub(super) mod rotate_secrets;
 
 use crate::{
-    commands::{app::util::AppIdentOpts, AsyncCliCommand},
+    commands::{AsyncCliCommand, app::util::AppIdentOpts},
     config::WasmerEnv,
 };
 

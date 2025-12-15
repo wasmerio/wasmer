@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use super::{
     NamedPackageId, NamedPackageIdent, PackageHash, PackageId, PackageIdent, PackageParseError,
@@ -7,7 +7,7 @@ use super::{
 /// Source location of a package.
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum PackageSource {
-    /// An identifier in the format prescribed by [`WebcIdent`].
+    /// An identifier in the format prescribed by the `WebcIdent` type.
     Ident(PackageIdent),
     /// An absolute or relative (dot-leading) path.
     Path(String),
@@ -146,12 +146,20 @@ impl<'de> serde::Deserialize<'de> for PackageSource {
 }
 
 impl schemars::JsonSchema for PackageSource {
-    fn schema_name() -> String {
-        "PackageSource".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("PackageSource")
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        String::json_schema(generator)
+    }
+
+    fn inline_schema() -> bool {
+        false
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        Self::schema_name()
     }
 }
 

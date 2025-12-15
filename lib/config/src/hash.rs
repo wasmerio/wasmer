@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 /// Sha256 hash, represented as bytes.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sha256Hash(pub [u8; 32]);
@@ -46,12 +48,20 @@ impl std::fmt::Display for Sha256Hash {
 }
 
 impl schemars::JsonSchema for Sha256Hash {
-    fn schema_name() -> String {
-        "Sha256Hash".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("Sha256Hash")
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        String::json_schema(generator)
+    }
+
+    fn inline_schema() -> bool {
+        false
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        Self::schema_name()
     }
 }
 

@@ -1,9 +1,9 @@
 use crate::{
     commands::AsyncCliCommand,
-    config::{WasmerConfig, WasmerEnv, DEFAULT_PROD_REGISTRY},
+    config::{DEFAULT_PROD_REGISTRY, WasmerConfig, WasmerEnv},
 };
 use colored::Colorize;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 
 /// Log out from Wasmer
 #[derive(Debug, Clone, clap::Parser)]

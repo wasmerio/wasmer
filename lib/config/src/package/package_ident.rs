@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use super::{NamedPackageIdent, PackageHash, PackageId, PackageParseError};
 
@@ -55,13 +55,14 @@ impl std::str::FromStr for PackageIdent {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(hash) = PackageHash::from_str(s) {
             Ok(Self::Hash(hash))
-        } else if let Ok(named) = NamedPackageIdent::from_str(s) {
-            Ok(Self::Named(named))
         } else {
-            Err(PackageParseError::new(
-                s,
-                "invalid package ident: expected a hash or a valid named package identifier",
-            ))
+            match NamedPackageIdent::from_str(s) {
+                Ok(named) => Ok(Self::Named(named)),
+                _ => Err(PackageParseError::new(
+                    s,
+                    "invalid package ident: expected a hash or a valid named package identifier",
+                )),
+            }
         }
     }
 }
@@ -95,12 +96,20 @@ impl<'de> serde::Deserialize<'de> for PackageIdent {
 }
 
 impl schemars::JsonSchema for PackageIdent {
-    fn schema_name() -> String {
-        "PackageIdent".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("PackageIdent")
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        String::json_schema(generator)
+    }
+
+    fn inline_schema() -> bool {
+        false
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        Self::schema_name()
     }
 }
 
@@ -110,16 +119,22 @@ mod tests {
 
     #[test]
     fn test_package_ident_matches_id() {
-        assert!(PackageIdent::from_str("ns/pkg")
-            .unwrap()
-            .matches_id(&PackageId::new_named("ns/pkg", "1.0.0".parse().unwrap())));
+        assert!(
+            PackageIdent::from_str("ns/pkg")
+                .unwrap()
+                .matches_id(&PackageId::new_named("ns/pkg", "1.0.0".parse().unwrap()))
+        );
 
-        assert!(PackageIdent::from_str("ns/pkg@2")
-            .unwrap()
-            .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap())));
+        assert!(
+            PackageIdent::from_str("ns/pkg@2")
+                .unwrap()
+                .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap()))
+        );
 
-        assert!(!PackageIdent::from_str("ns/pkg@3")
-            .unwrap()
-            .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap())));
+        assert!(
+            !PackageIdent::from_str("ns/pkg@3")
+                .unwrap()
+                .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap()))
+        );
     }
 }

@@ -1,26 +1,26 @@
 //! Linking for Universal-compiled code.
 
 use crate::{
-    get_libcall_trampoline,
+    FunctionExtent, get_libcall_trampoline,
     types::{
         relocation::{RelocationKind, RelocationLike, RelocationTarget},
         section::SectionIndex,
     },
-    FunctionExtent,
 };
 use std::{
     collections::{HashMap, HashSet},
     ptr::{read_unaligned, write_unaligned},
 };
 
-use wasmer_types::{entity::PrimaryMap, LocalFunctionIndex, ModuleInfo};
-use wasmer_vm::{libcalls::function_pointer, SectionBodyPtr};
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, ModuleInfo, entity::PrimaryMap};
+use wasmer_vm::{FunctionBodyPtr, SectionBodyPtr, libcalls::function_pointer};
 
 #[allow(clippy::too_many_arguments)]
 fn apply_relocation(
     body: usize,
     r: &impl RelocationLike,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
+    allocated_dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBodyPtr>,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
     libcall_trampolines_sec_idx: SectionIndex,
     libcall_trampoline_len: usize,
@@ -42,6 +42,9 @@ fn apply_relocation(
     } else {
         match reloc_target {
             RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
+            RelocationTarget::DynamicTrampoline(index) => {
+                *allocated_dynamic_function_trampolines[index] as usize
+            }
             RelocationTarget::LibCall(libcall) => {
                 // Use the direct target of the libcall if the relocation supports
                 // a full 64-bit address. Otherwise use a trampoline.
@@ -342,7 +345,8 @@ fn apply_relocation(
                 let raw_instr = read_unaligned(fixup_ptr as *mut u32);
 
                 assert_eq!(
-                    raw_instr & 0xfffffc00, 0xf9400000,
+                    raw_instr & 0xfffffc00,
+                    0xf9400000,
                     "raw_instr isn't a 64-bit LDR immediate (bits: {raw_instr:032b}, hex: {raw_instr:x})"
                 );
 
@@ -408,6 +412,7 @@ fn apply_relocation(
 pub fn link_module<'a>(
     _module: &ModuleInfo,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
+    allocated_dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBodyPtr>,
     function_relocations: impl Iterator<
         Item = (
             LocalFunctionIndex,
@@ -434,6 +439,7 @@ pub fn link_module<'a>(
                 body,
                 r,
                 allocated_functions,
+                allocated_dynamic_function_trampolines,
                 allocated_sections,
                 libcall_trampolines,
                 trampoline_len,
@@ -449,6 +455,7 @@ pub fn link_module<'a>(
                 body,
                 r,
                 allocated_functions,
+                allocated_dynamic_function_trampolines,
                 allocated_sections,
                 libcall_trampolines,
                 trampoline_len,

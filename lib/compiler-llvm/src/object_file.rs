@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
 
-use wasmer_types::{entity::PrimaryMap, CompileError, SourceLoc};
+use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
 
 use wasmer_compiler::types::{
     address_map::{FunctionAddressMap, InstructionAddressMap},
@@ -30,6 +30,7 @@ pub struct CompiledFunction {
     pub custom_sections: CustomSections,
     pub eh_frame_section_indices: Vec<SectionIndex>,
     pub compact_unwind_section_indices: Vec<SectionIndex>,
+    pub gcc_except_table_section_indices: Vec<SectionIndex>,
 }
 
 static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
@@ -78,12 +79,12 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
     "wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
     "wasmer_vm_throw" => LibCall::Throw,
-    "wasmer_vm_rethrow" => LibCall::Rethrow,
     "wasmer_vm_alloc_exception" => LibCall::AllocException,
-    "wasmer_vm_delete_exception" => LibCall::DeleteException,
-    "wasmer_vm_read_exception" => LibCall::ReadException,
-    "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "wasmer_vm_read_exnref" => LibCall::ReadExnRef,
+    "wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
     "wasmer_eh_personality" => LibCall::EHPersonality,
+    "wasmer_eh_personality2" => LibCall::EHPersonality2,
+    "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
@@ -132,17 +133,18 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_imported_memory32_atomic_wait64" => LibCall::ImportedMemory32AtomicWait64,
     "_wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
     "_wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
+
     "_wasmer_vm_throw" => LibCall::Throw,
-    "_wasmer_vm_rethrow" => LibCall::Rethrow,
     "_wasmer_vm_alloc_exception" => LibCall::AllocException,
-    "_wasmer_vm_delete_exception" => LibCall::DeleteException,
-    "_wasmer_vm_read_exception" => LibCall::ReadException,
-    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "_wasmer_vm_read_exnref" => LibCall::ReadExnRef,
+    "_wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
     // will generate things differently than "normal", wreaking havoc.
     //
     // todo: find out if it is a bug in LLVM or it is expected.
     "___gxx_personality_v0" => LibCall::EHPersonality,
+    "_wasmer_eh_personality2" => LibCall::EHPersonality2,
+    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
@@ -164,7 +166,7 @@ where
         _ => {
             return Err(CompileError::UnsupportedTarget(format!(
                 "Unsupported binary format {binary_fmt:?}"
-            )))
+            )));
         }
     };
 
@@ -219,6 +221,12 @@ where
     // Add macos-specific unwind sections.
     let mut compact_unwind_section_indices = vec![];
 
+    // .gcc_except_table sections, which contain the actual LSDA data.
+    // We don't need the actual sections for anything (yet), but trampoline
+    // codegen checks custom section counts to verify there aren't any
+    // unexpected custom sections, so we do a bit of book-keeping here.
+    let mut gcc_except_table_section_indices = vec![];
+
     for section in obj.sections() {
         let index = section.index();
         if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
@@ -232,6 +240,11 @@ where
         } else if section.name().unwrap_or_default() == "__compact_unwind" {
             worklist.push(index);
             compact_unwind_section_indices.push(index);
+
+            elf_section_to_target(index);
+        } else if section.name().unwrap_or_default() == ".gcc_except_table" {
+            worklist.push(index);
+            gcc_except_table_section_indices.push(index);
 
             elf_section_to_target(index);
         }
@@ -275,22 +288,27 @@ where
                         reloc_target
                     } else if let object::SymbolSection::Section(section_index) = symbol.section() {
                         if matches!(
-                            reloc.kind(),
-                            object::RelocationKind::MachO {
-                                value: object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
-                                relative: false
-                            } | object::RelocationKind::MachO {
-                                value: object::macho::ARM64_RELOC_POINTER_TO_GOT,
-                                relative: true
-                            } | object::RelocationKind::MachO {
-                                value: object::macho::ARM64_RELOC_GOT_LOAD_PAGE21,
-                                relative: true
-                            } | object::RelocationKind::MachO {
-                                value: object::macho::ARM64_RELOC_PAGE21,
-                                relative: true
-                            } | object::RelocationKind::MachO {
-                                value: object::macho::ARM64_RELOC_PAGEOFF12,
-                                relative: false
+                            reloc.flags(),
+                            object::RelocationFlags::MachO {
+                                r_type: object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
+                                r_pcrel: false,
+                                ..
+                            } | object::RelocationFlags::MachO {
+                                r_type: object::macho::ARM64_RELOC_POINTER_TO_GOT,
+                                r_pcrel: true,
+                                ..
+                            } | object::RelocationFlags::MachO {
+                                r_type: object::macho::ARM64_RELOC_GOT_LOAD_PAGE21,
+                                r_pcrel: true,
+                                ..
+                            } | object::RelocationFlags::MachO {
+                                r_type: object::macho::ARM64_RELOC_PAGE21,
+                                r_pcrel: true,
+                                ..
+                            } | object::RelocationFlags::MachO {
+                                r_type: object::macho::ARM64_RELOC_PAGEOFF12,
+                                r_pcrel: false,
+                                ..
                             }
                         ) {
                             // (caveat: this comment comes from a point in time after the `addend`
@@ -371,198 +389,243 @@ where
                     )));
                 }
             };
-            let kind = match (obj.architecture(), reloc.kind(), reloc.size()) {
-                (_, object::RelocationKind::Absolute, 64) => RelocationKind::Abs8,
-                (_, object::RelocationKind::Absolute, 32) => RelocationKind::Abs4,
+            let kind = match (obj.architecture(), reloc.flags(), reloc.size()) {
+                (
+                    _,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_X86_64_64,
+                    },
+                    64,
+                ) => RelocationKind::Abs8,
+                (
+                    _,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_386_32,
+                    },
+                    32,
+                ) => RelocationKind::Abs4,
                 (
                     object::Architecture::X86_64,
-                    object::RelocationKind::Elf(object::elf::R_X86_64_PC64),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_X86_64_PC64,
+                    },
                     0,
                 ) => RelocationKind::X86PCRel8,
-                (object::Architecture::Aarch64, object::RelocationKind::PltRelative, 26) => {
-                    RelocationKind::Arm64Call
-                }
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G0_NC),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_CALL26,
+                    },
+                    26,
+                ) => RelocationKind::Arm64Call,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_MOVW_UABS_G0_NC,
+                    },
                     0,
                 ) => RelocationKind::Arm64Movw0,
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G1_NC),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_MOVW_UABS_G1_NC,
+                    },
                     0,
                 ) => RelocationKind::Arm64Movw1,
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G2_NC),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_MOVW_UABS_G2_NC,
+                    },
                     0,
                 ) => RelocationKind::Arm64Movw2,
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G3),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_MOVW_UABS_G3,
+                    },
                     0,
                 ) => RelocationKind::Arm64Movw3,
                 (
                     object::Architecture::Riscv64,
-                    object::RelocationKind::Elf(object::elf::R_RISCV_CALL_PLT),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_CALL_PLT,
+                    },
                     0,
                 ) => RelocationKind::RiscvCall,
                 (
                     object::Architecture::Riscv64,
-                    object::RelocationKind::Elf(object::elf::R_RISCV_PCREL_HI20),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_PCREL_HI20,
+                    },
                     0,
                 ) => RelocationKind::RiscvPCRelHi20,
                 (
                     object::Architecture::Riscv64,
-                    object::RelocationKind::Elf(object::elf::R_RISCV_PCREL_LO12_I),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_PCREL_LO12_I,
+                    },
                     0,
                 ) => RelocationKind::RiscvPCRelLo12I,
                 (
                     object::Architecture::LoongArch64,
-                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS_HI20),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_ABS_HI20,
+                    },
                     0,
                 ) => RelocationKind::LArchAbsHi20,
                 (
                     object::Architecture::LoongArch64,
-                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS_LO12),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_ABS_LO12,
+                    },
                     0,
                 ) => RelocationKind::LArchAbsLo12,
                 (
                     object::Architecture::LoongArch64,
-                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_HI12),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_ABS64_HI12,
+                    },
                     0,
                 ) => RelocationKind::LArchAbs64Hi12,
                 (
                     object::Architecture::LoongArch64,
-                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_LO20),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_ABS64_LO20,
+                    },
                     0,
                 ) => RelocationKind::LArchAbs64Lo20,
                 (
                     object::Architecture::LoongArch64,
-                    // FIXME: Replace with R_LARCH_CALL36 while object is updated
-                    // to 0.32.2.
-                    // https://github.com/gimli-rs/object/commit/16b6d902f6c9b39ec7aaea141460f8981e57dd79
-                    object::RelocationKind::Elf(110),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_CALL36,
+                    },
                     0,
                 ) => RelocationKind::LArchCall36,
                 (
                     object::Architecture::LoongArch64,
-                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA_HI20),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_PCALA_HI20,
+                    },
                     0,
                 ) => RelocationKind::LArchPCAlaHi20,
                 (
                     object::Architecture::LoongArch64,
-                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA_LO12),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_PCALA_LO12,
+                    },
                     0,
                 ) => RelocationKind::LArchPCAlaLo12,
                 (
                     object::Architecture::LoongArch64,
-                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA64_HI12),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_PCALA64_HI12,
+                    },
                     0,
                 ) => RelocationKind::LArchPCAla64Hi12,
                 (
                     object::Architecture::LoongArch64,
-                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA64_LO20),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_PCALA64_LO20,
+                    },
                     0,
                 ) => RelocationKind::LArchPCAla64Lo20,
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADR_PREL_LO21),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_ADR_PREL_LO21,
+                    },
                     0,
                 ) => RelocationKind::Aarch64AdrPrelLo21,
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADR_PREL_PG_HI21),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_ADR_PREL_PG_HI21,
+                    },
                     0,
                 ) => RelocationKind::Aarch64AdrPrelPgHi21,
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_LDST128_ABS_LO12_NC),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_LDST128_ABS_LO12_NC,
+                    },
                     0,
                 ) => RelocationKind::Aarch64Ldst128AbsLo12Nc,
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADD_ABS_LO12_NC),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_ADD_ABS_LO12_NC,
+                    },
                     0,
                 ) => RelocationKind::Aarch64AddAbsLo12Nc,
                 (
                     object::Architecture::Aarch64,
-                    object::RelocationKind::Elf(object::elf::R_AARCH64_LDST64_ABS_LO12_NC),
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_LDST64_ABS_LO12_NC,
+                    },
                     0,
                 ) => RelocationKind::Aarch64Ldst64AbsLo12Nc,
-                (object::Architecture::Aarch64, object::RelocationKind::MachO { value, .. }, _) => {
-                    match value {
-                        object::macho::ARM64_RELOC_UNSIGNED => {
-                            RelocationKind::MachoArm64RelocUnsigned
-                        }
-                        object::macho::ARM64_RELOC_SUBTRACTOR => {
-                            RelocationKind::MachoArm64RelocSubtractor
-                        }
-                        object::macho::ARM64_RELOC_BRANCH26 => {
-                            RelocationKind::MachoArm64RelocBranch26
-                        }
-                        object::macho::ARM64_RELOC_PAGE21 => RelocationKind::MachoArm64RelocPage21,
-                        object::macho::ARM64_RELOC_PAGEOFF12 => {
-                            RelocationKind::MachoArm64RelocPageoff12
-                        }
-                        object::macho::ARM64_RELOC_GOT_LOAD_PAGE21 => {
-                            RelocationKind::MachoArm64RelocGotLoadPage21
-                        }
-                        object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12 => {
-                            RelocationKind::MachoArm64RelocGotLoadPageoff12
-                        }
-                        object::macho::ARM64_RELOC_POINTER_TO_GOT => {
-                            RelocationKind::MachoArm64RelocPointerToGot
-                        }
-                        object::macho::ARM64_RELOC_TLVP_LOAD_PAGE21 => {
-                            RelocationKind::MachoArm64RelocTlvpLoadPage21
-                        }
-                        object::macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12 => {
-                            RelocationKind::MachoArm64RelocTlvpLoadPageoff12
-                        }
-                        object::macho::ARM64_RELOC_ADDEND => RelocationKind::MachoArm64RelocAddend,
-                        _ => {
-                            return Err(CompileError::Codegen(format!(
-                                "unknown relocation {reloc:?}",
-                            )))
-                        }
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationFlags::MachO { r_type: value, .. },
+                    _,
+                ) => match value {
+                    object::macho::ARM64_RELOC_UNSIGNED => RelocationKind::MachoArm64RelocUnsigned,
+                    object::macho::ARM64_RELOC_SUBTRACTOR => {
+                        RelocationKind::MachoArm64RelocSubtractor
                     }
-                }
-                (object::Architecture::X86_64, object::RelocationKind::MachO { value, .. }, _) => {
-                    match value {
-                        object::macho::X86_64_RELOC_UNSIGNED => {
-                            RelocationKind::MachoX86_64RelocUnsigned
-                        }
-                        object::macho::X86_64_RELOC_SIGNED => {
-                            RelocationKind::MachoX86_64RelocSigned
-                        }
-                        object::macho::X86_64_RELOC_BRANCH => {
-                            RelocationKind::MachoX86_64RelocBranch
-                        }
-                        object::macho::X86_64_RELOC_GOT_LOAD => {
-                            RelocationKind::MachoX86_64RelocGotLoad
-                        }
-                        object::macho::X86_64_RELOC_GOT => RelocationKind::MachoX86_64RelocGot,
-                        object::macho::X86_64_RELOC_SUBTRACTOR => {
-                            RelocationKind::MachoX86_64RelocSubtractor
-                        }
-                        object::macho::X86_64_RELOC_SIGNED_1 => {
-                            RelocationKind::MachoX86_64RelocSigned1
-                        }
-                        object::macho::X86_64_RELOC_SIGNED_2 => {
-                            RelocationKind::MachoX86_64RelocSigned2
-                        }
-                        object::macho::X86_64_RELOC_SIGNED_4 => {
-                            RelocationKind::MachoX86_64RelocSigned4
-                        }
-                        object::macho::X86_64_RELOC_TLV => RelocationKind::MachoX86_64RelocTlv,
-                        _ => {
-                            return Err(CompileError::Codegen(format!(
-                                "unknown relocation {reloc:?}"
-                            )))
-                        }
+                    object::macho::ARM64_RELOC_BRANCH26 => RelocationKind::MachoArm64RelocBranch26,
+                    object::macho::ARM64_RELOC_PAGE21 => RelocationKind::MachoArm64RelocPage21,
+                    object::macho::ARM64_RELOC_PAGEOFF12 => {
+                        RelocationKind::MachoArm64RelocPageoff12
                     }
-                }
+                    object::macho::ARM64_RELOC_GOT_LOAD_PAGE21 => {
+                        RelocationKind::MachoArm64RelocGotLoadPage21
+                    }
+                    object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12 => {
+                        RelocationKind::MachoArm64RelocGotLoadPageoff12
+                    }
+                    object::macho::ARM64_RELOC_POINTER_TO_GOT => {
+                        RelocationKind::MachoArm64RelocPointerToGot
+                    }
+                    object::macho::ARM64_RELOC_TLVP_LOAD_PAGE21 => {
+                        RelocationKind::MachoArm64RelocTlvpLoadPage21
+                    }
+                    object::macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12 => {
+                        RelocationKind::MachoArm64RelocTlvpLoadPageoff12
+                    }
+                    object::macho::ARM64_RELOC_ADDEND => RelocationKind::MachoArm64RelocAddend,
+                    _ => {
+                        return Err(CompileError::Codegen(format!(
+                            "unknown relocation {reloc:?}",
+                        )));
+                    }
+                },
+                (
+                    object::Architecture::X86_64,
+                    object::RelocationFlags::MachO { r_type: value, .. },
+                    _,
+                ) => match value {
+                    object::macho::X86_64_RELOC_UNSIGNED => {
+                        RelocationKind::MachoX86_64RelocUnsigned
+                    }
+                    object::macho::X86_64_RELOC_SIGNED => RelocationKind::MachoX86_64RelocSigned,
+                    object::macho::X86_64_RELOC_BRANCH => RelocationKind::MachoX86_64RelocBranch,
+                    object::macho::X86_64_RELOC_GOT_LOAD => RelocationKind::MachoX86_64RelocGotLoad,
+                    object::macho::X86_64_RELOC_GOT => RelocationKind::MachoX86_64RelocGot,
+                    object::macho::X86_64_RELOC_SUBTRACTOR => {
+                        RelocationKind::MachoX86_64RelocSubtractor
+                    }
+                    object::macho::X86_64_RELOC_SIGNED_1 => RelocationKind::MachoX86_64RelocSigned1,
+                    object::macho::X86_64_RELOC_SIGNED_2 => RelocationKind::MachoX86_64RelocSigned2,
+                    object::macho::X86_64_RELOC_SIGNED_4 => RelocationKind::MachoX86_64RelocSigned4,
+                    object::macho::X86_64_RELOC_TLV => RelocationKind::MachoX86_64RelocTlv,
+                    _ => {
+                        return Err(CompileError::Codegen(format!(
+                            "unknown relocation {reloc:?}"
+                        )));
+                    }
+                },
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {reloc:?}",
@@ -603,6 +666,20 @@ where
                 || {
                     Err(CompileError::Codegen(format!(
                         "_compact_unwind section with index={index:?} was never loaded",
+                    )))
+                },
+                |idx| Ok(*idx),
+            )
+        })
+        .collect::<Result<Vec<SectionIndex>, _>>()?;
+
+    let gcc_except_table_section_indices = gcc_except_table_section_indices
+        .iter()
+        .map(|index| {
+            section_to_custom_section.get(index).map_or_else(
+                || {
+                    Err(CompileError::Codegen(format!(
+                        ".gcc_except_table section with index={index:?} was never loaded",
                     )))
                 },
                 |idx| Ok(*idx),
@@ -669,5 +746,6 @@ where
         custom_sections,
         eh_frame_section_indices,
         compact_unwind_section_indices,
+        gcc_except_table_section_indices,
     })
 }

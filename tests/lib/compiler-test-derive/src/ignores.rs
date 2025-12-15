@@ -1,11 +1,9 @@
+use std::env;
 use std::fs::File;
 use std::path::PathBuf;
 
 use std::io::{BufRead, BufReader};
-
-pub const CFG_TARGET_OS: &str = env!("CFG_TARGET_OS");
-pub const CFG_TARGET_ARCH: &str = env!("CFG_TARGET_ARCH");
-pub const CFG_TARGET_ENV: &str = env!("CFG_TARGET_ENV");
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone)]
 struct IgnorePattern {
@@ -27,14 +25,11 @@ impl IgnorePattern {
         compiler: &str,
         canonical_path: &str,
     ) -> bool {
-        self.os.as_ref().map_or(true, |val| val == os)
-            && self.arch.as_ref().map_or(true, |val| val == arch)
-            && self
-                .target_env
-                .as_ref()
-                .map_or(true, |val| val == target_env)
-            && self.engine.as_ref().map_or(true, |val| val == engine)
-            && self.compiler.as_ref().map_or(true, |val| val == compiler)
+        self.os.as_ref().is_none_or(|val| val == os)
+            && self.arch.as_ref().is_none_or(|val| val == arch)
+            && self.target_env.as_ref().is_none_or(|val| val == target_env)
+            && self.engine.as_ref().is_none_or(|val| val == engine)
+            && self.compiler.as_ref().is_none_or(|val| val == compiler)
             && (self.pattern_to_ignore == "*" || canonical_path.contains(&*self.pattern_to_ignore))
     }
 }
@@ -63,10 +58,29 @@ impl Ignores {
     }
 
     pub fn should_ignore_host(&self, engine: &str, compiler: &str, canonical_path: &str) -> bool {
+        static CFG_TARGET_OS: OnceLock<String> = OnceLock::new();
+        let target_os = CFG_TARGET_OS.get_or_init(|| {
+            env::var("CFG_TARGET_OS")
+                .expect("CFG_TARGET_OS variable expected from build.rs")
+                .to_string()
+        });
+        static CFG_TARGET_ARCH: OnceLock<String> = OnceLock::new();
+        let target_arch = CFG_TARGET_ARCH.get_or_init(|| {
+            env::var("CFG_TARGET_ARCH")
+                .expect("CFG_TARGET_ARCH variable expected from build.rs")
+                .to_string()
+        });
+        static CFG_TARGET_ENV: OnceLock<String> = OnceLock::new();
+        let target_env = CFG_TARGET_ENV.get_or_init(|| {
+            env::var("CFG_TARGET_ENV")
+                .expect("CFG_TARGET_ENV variable expected from build.rs")
+                .to_string()
+        });
+
         self.should_ignore(
-            CFG_TARGET_OS,
-            CFG_TARGET_ARCH,
-            CFG_TARGET_ENV,
+            target_os,
+            target_arch,
+            target_env,
             engine,
             compiler,
             canonical_path,
@@ -123,7 +137,11 @@ impl Ignores {
                             compiler = Some(alias.to_string());
                         }
                         other => {
-                            panic!("Alias {:?} not currently supported (defined in ignores.txt in line {})", other, i+1);
+                            panic!(
+                                "Alias {:?} not currently supported (defined in ignores.txt in line {})",
+                                other,
+                                i + 1
+                            );
                         }
                     }
                 }
@@ -160,70 +178,78 @@ mod tests {
 
     #[test]
     fn features_match() -> Result<(), ()> {
-        assert!(IgnorePattern {
-            os: None,
-            arch: None,
-            target_env: None,
-            engine: None,
-            compiler: None,
-            pattern_to_ignore: "*".to_string()
-        }
-        .should_ignore(
-            "unknown",
-            "unknown",
-            "",
-            "engine",
-            "compiler",
-            "some::random::text"
-        ));
-        assert!(IgnorePattern {
-            os: None,
-            arch: None,
-            target_env: None,
-            engine: None,
-            compiler: None,
-            pattern_to_ignore: "some::random".to_string()
-        }
-        .should_ignore(
-            "unknown",
-            "unknown",
-            "",
-            "engine",
-            "compiler",
-            "some::random::text"
-        ));
-        assert!(!IgnorePattern {
-            os: Some("macos".to_string()),
-            arch: None,
-            target_env: None,
-            engine: None,
-            compiler: None,
-            pattern_to_ignore: "other".to_string()
-        }
-        .should_ignore(
-            "unknown",
-            "unknown",
-            "",
-            "engine",
-            "compiler",
-            "some::random::text"
-        ));
-        assert!(!IgnorePattern {
-            os: Some("macos".to_string()),
-            arch: None,
-            target_env: None,
-            engine: Some("universal".to_string()),
-            compiler: None,
-            pattern_to_ignore: "other".to_string()
-        }
-        .should_ignore(
-            "macos",
-            "unknown",
-            "",
-            "universal",
-            "compiler",
-            "some::random::text"
-        ));
+        assert!(
+            IgnorePattern {
+                os: None,
+                arch: None,
+                target_env: None,
+                engine: None,
+                compiler: None,
+                pattern_to_ignore: "*".to_string()
+            }
+            .should_ignore(
+                "unknown",
+                "unknown",
+                "",
+                "engine",
+                "compiler",
+                "some::random::text"
+            )
+        );
+        assert!(
+            IgnorePattern {
+                os: None,
+                arch: None,
+                target_env: None,
+                engine: None,
+                compiler: None,
+                pattern_to_ignore: "some::random".to_string()
+            }
+            .should_ignore(
+                "unknown",
+                "unknown",
+                "",
+                "engine",
+                "compiler",
+                "some::random::text"
+            )
+        );
+        assert!(
+            !IgnorePattern {
+                os: Some("macos".to_string()),
+                arch: None,
+                target_env: None,
+                engine: None,
+                compiler: None,
+                pattern_to_ignore: "other".to_string()
+            }
+            .should_ignore(
+                "unknown",
+                "unknown",
+                "",
+                "engine",
+                "compiler",
+                "some::random::text"
+            )
+        );
+        assert!(
+            !IgnorePattern {
+                os: Some("macos".to_string()),
+                arch: None,
+                target_env: None,
+                engine: Some("universal".to_string()),
+                compiler: None,
+                pattern_to_ignore: "other".to_string()
+            }
+            .should_ignore(
+                "macos",
+                "unknown",
+                "",
+                "universal",
+                "compiler",
+                "some::random::text"
+            )
+        );
         Ok(())
     }
 }

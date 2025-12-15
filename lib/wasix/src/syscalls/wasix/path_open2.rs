@@ -217,10 +217,7 @@ pub(crate) fn path_open_internal(
 
         match deref_mut {
             Kind::File {
-                ref mut handle,
-                path,
-                fd,
-                ..
+                handle, path, fd, ..
             } => {
                 if let Some(special_fd) = fd {
                     // short circuit if we're dealing with a special file
@@ -381,17 +378,16 @@ pub(crate) fn path_open_internal(
                     path: new_file_host_path,
                     fd: None,
                 };
-                wasi_try_ok_ok!(state
-                    .fs
-                    .create_inode(inodes, kind, false, new_entity_name.clone()))
+                wasi_try_ok_ok!(
+                    state
+                        .fs
+                        .create_inode(inodes, kind, false, new_entity_name.clone())
+                )
             };
 
             {
                 let mut guard = parent_inode.write();
-                if let Kind::Dir {
-                    ref mut entries, ..
-                } = guard.deref_mut()
-                {
+                if let Kind::Dir { entries, .. } = guard.deref_mut() {
                     entries.insert(new_entity_name, new_inode.clone());
                 }
             }

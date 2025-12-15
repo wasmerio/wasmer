@@ -31,7 +31,8 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-use std::env::args;
+use std::ffi::OsString;
+use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
 
 #[cfg(target_os = "linux")]
@@ -44,6 +45,7 @@ pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
 #[cfg(feature = "static-artifact-create")]
+#[allow(unused_imports)]
 pub use {create_obj::*, gen_c_header::*};
 
 #[cfg(feature = "journal")]
@@ -53,6 +55,7 @@ pub use self::{
     publish::*, run::Run, self_update::*, validate::*,
 };
 use crate::error::PrettyError;
+use git_version::git_version;
 
 /// An executable CLI command.
 pub(crate) trait CliCommand {
@@ -75,7 +78,7 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
         &self,
         done: tokio::sync::oneshot::Receiver<()>,
     ) -> Option<JoinHandle<anyhow::Result<()>>> {
-        if is_terminal::IsTerminal::is_terminal(&std::io::stdin()) {
+        if std::io::stdin().is_terminal() {
             return Some(tokio::task::spawn(async move {
                 tokio::select! {
                     _ = done => {}
@@ -177,10 +180,11 @@ impl WasmerCmd {
             Some(Cmd::Validate(validate)) => validate.execute(),
             #[cfg(feature = "compiler")]
             Some(Cmd::Compile(compile)) => compile.execute(),
-            #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-            Some(Cmd::CreateExe(create_exe)) => create_exe.run(),
-            #[cfg(feature = "static-artifact-create")]
-            Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
+            // CreateExe and CreateObj commands are temporarily disabled
+            // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
+            // Some(Cmd::CreateExe(create_exe)) => create_exe.run(),
+            // #[cfg(feature = "static-artifact-create")]
+            // Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
             Some(Cmd::Config(config)) => config.run(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.run(),
@@ -233,14 +237,61 @@ impl WasmerCmd {
     }
 
     fn run_inner() -> Result<(), anyhow::Error> {
-        if is_binfmt_interpreter() {
-            Run::from_binfmt_args().execute(crate::logging::Output::default());
-        }
+        let mut args_os = std::env::args_os();
 
-        match WasmerCmd::try_parse() {
+        let args = args_os.next().into_iter();
+
+        let mut binfmt_args: Vec<OsString> = Vec::new();
+        if is_binfmt_interpreter() {
+            // In case of binfmt misc the first argument is wasmer-binfmt-interpreter, the second is the full path to the executable
+            // and the third is the original string for the executable as originally called by the user.
+
+            // For now we are only using the real path and ignoring the original executable name.
+            // Ideally we would use the real path to load the file and the original name to pass it as argv[0] to the wasm module.
+
+            let current_dir = std::env::current_dir()
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+            let mut mount_paths = vec!["/home", "/etc", "/tmp", "/var", "/nix", "/opt", "/root"]
+                .into_iter()
+                .filter(|path| {
+                    let path = std::path::Path::new(path);
+                    if !path.is_dir() {
+                        // Not a directory
+                        return false;
+                    }
+                    if std::fs::read_dir(path).is_err() {
+                        // No permissions
+                        return false;
+                    }
+                    true
+                })
+                .collect::<Vec<_>>();
+            if !current_dir.starts_with("/home") {
+                mount_paths.push(current_dir.as_str());
+            }
+
+            binfmt_args.push("run".into());
+            binfmt_args.push("--net".into());
+            // TODO: This does not seem to work, needs further investigation.
+            binfmt_args.push("--forward-host-env".into());
+            for mount_path in mount_paths {
+                binfmt_args.push(format!("--mapdir={mount_path}:{mount_path}").into());
+            }
+            binfmt_args.push(format!("--cwd={current_dir}").into());
+            binfmt_args.push("--quiet".into());
+            binfmt_args.push("--".into());
+            binfmt_args.push(args_os.next().unwrap());
+            args_os.next().unwrap();
+        };
+        let args_vec = args.chain(binfmt_args).chain(args_os).collect::<Vec<_>>();
+
+        match WasmerCmd::try_parse_from(args_vec.iter()) {
             Ok(args) => args.execute(),
             Err(e) => {
-                let first_arg_is_subcommand = if let Some(first_arg) = args().nth(1) {
+                let first_arg_is_subcommand = if let Some(first_arg) = args_vec.get(1) {
                     let mut ret = false;
                     let cmd = WasmerCmd::command();
 
@@ -262,16 +313,14 @@ impl WasmerCmd {
                         | clap::error::ErrorKind::UnknownArgument
                 ) && !first_arg_is_subcommand;
 
-                if might_be_wasmer_run {
-                    if let Ok(run) = Run::try_parse() {
-                        // Try to parse the command using the `wasmer some/package`
-                        // shorthand. Note that this has discoverability issues
-                        // because it's not shown as part of the main argument
-                        // parser's help, but that's fine.
-                        let output = crate::logging::Output::default();
-                        output.initialize_logging();
-                        run.execute(output);
-                    }
+                if might_be_wasmer_run && let Ok(run) = Run::try_parse_from(args_vec.iter()) {
+                    // Try to parse the command using the `wasmer some/package`
+                    // shorthand. Note that this has discoverability issues
+                    // because it's not shown as part of the main argument
+                    // parser's help, but that's fine.
+                    let output = crate::logging::Output::default();
+                    output.initialize_logging();
+                    run.execute(output);
                 }
 
                 e.exit();
@@ -304,40 +353,39 @@ enum Cmd {
     #[cfg(feature = "compiler")]
     Compile(Compile),
 
-    /// Compile a WebAssembly binary into a native executable
-    ///
-    /// To use, you need to set the `WASMER_DIR` environment variable
-    /// to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
-    /// should include a `lib`, `include` and `bin` subdirectories. To create an executable
-    /// you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
-    /// header files and libraries.
-    ///
-    /// Example usage:
-    ///
-    /// ```text
-    /// $ # in two lines:
-    /// $ export WASMER_DIR=/home/user/.wasmer/
-    /// $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
-    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
-    /// $ file qjs.exe
-    /// qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
-    /// ```
-    ///
-    /// ## Cross-compilation
-    ///
-    /// Accepted target triple values must follow the
-    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
-    ///
-    /// The recommended targets we try to support are:
-    ///
-    /// - "x86_64-linux-gnu"
-    /// - "aarch64-linux-gnu"
-    /// - "x86_64-apple-darwin"
-    /// - "arm64-apple-darwin"
-    #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-    #[clap(name = "create-exe", verbatim_doc_comment)]
-    CreateExe(CreateExe),
-
+    // Compile a WebAssembly binary into a native executable
+    //
+    // To use, you need to set the `WASMER_DIR` environment variable
+    // to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
+    // should include a `lib`, `include` and `bin` subdirectories. To create an executable
+    // you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
+    // header files and libraries.
+    //
+    // Example usage:
+    //
+    // ```text
+    // $ # in two lines:
+    // $ export WASMER_DIR=/home/user/.wasmer/
+    // $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
+    // $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
+    // $ file qjs.exe
+    // qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
+    // ```
+    //
+    // ## Cross-compilation
+    //
+    // Accepted target triple values must follow the
+    // ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
+    //
+    // The recommended targets we try to support are:
+    //
+    // - "x86_64-linux-gnu"
+    // - "aarch64-linux-gnu"
+    // - "x86_64-apple-darwin"
+    // - "arm64-apple-darwin"
+    // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
+    // #[clap(name = "create-exe", verbatim_doc_comment)]
+    // CreateExe(CreateExe),
     /// Compile a WebAssembly binary into an object file
     ///
     /// To use, you need to set the `WASMER_DIR` environment variable to the location of your
@@ -367,11 +415,13 @@ enum Cmd {
     /// - "aarch64-linux-gnu"
     /// - "x86_64-apple-darwin"
     /// - "arm64-apple-darwin"
-    #[cfg(feature = "static-artifact-create")]
-    #[structopt(name = "create-obj", verbatim_doc_comment)]
-    CreateObj(CreateObj),
+    // #[cfg(feature = "static-artifact-create")]
+    // #[structopt(name = "create-obj", verbatim_doc_comment)]
+    // CreateObj(CreateObj),
 
+    ///
     /// Generate the C static_defs.h header file for the input .wasm module
+    ///
     #[cfg(feature = "static-artifact-create")]
     GenCHeader(GenCHeader),
 
@@ -471,13 +521,40 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     println!(
         "wasmer {} ({} {})",
         env!("CARGO_PKG_VERSION"),
-        env!("WASMER_BUILD_GIT_HASH_SHORT"),
+        git_version!(
+            args = ["--abbrev=8", "--always", "--dirty=-modified", "--exclude=*"],
+            fallback = ""
+        ),
         env!("WASMER_BUILD_DATE")
     );
     println!("binary: {}", env!("CARGO_PKG_NAME"));
-    println!("commit-hash: {}", env!("WASMER_BUILD_GIT_HASH"));
+    println!(
+        "commit-hash: {}",
+        git_version!(
+            args = [
+                "--abbrev=40",
+                "--always",
+                "--dirty=-modified",
+                "--exclude=*"
+            ],
+            fallback = "",
+        ),
+    );
     println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
     println!("host: {}", target_lexicon::HOST);
+
+    let cpu_features = {
+        let feats = wasmer_types::target::CpuFeature::for_host();
+        let all = wasmer_types::target::CpuFeature::all();
+        all.iter()
+            .map(|f| {
+                let available = feats.contains(f);
+                format!("{}={}", f, if available { "true" } else { "false" })
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    println!("cpu: {cpu_features}");
 
     let mut runtimes = Vec::<&'static str>::new();
     if cfg!(feature = "singlepass") {

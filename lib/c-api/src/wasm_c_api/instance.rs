@@ -1,6 +1,6 @@
 use super::externals::{wasm_extern_t, wasm_extern_vec_t};
 use super::module::wasm_module_t;
-use super::store::{wasm_store_t, StoreRef};
+use super::store::{StoreRef, wasm_store_t};
 use super::trap::wasm_trap_t;
 use wasmer_api::{Extern, Instance, InstantiationError};
 
@@ -34,7 +34,7 @@ pub struct wasm_instance_t {
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_instance_new(
     store: Option<&mut wasm_store_t>,
     module: Option<&wasm_module_t>,
@@ -42,7 +42,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     trap: Option<&mut *mut wasm_trap_t>,
 ) -> Option<Box<wasm_instance_t>> {
     let store = store?;
-    let mut store_mut = store.inner.store_mut();
+    let mut store_mut = unsafe { store.inner.store_mut() };
     let module = module?;
     let imports = imports?;
 
@@ -104,7 +104,7 @@ pub unsafe extern "C" fn wasm_instance_new(
 /// # Example
 ///
 /// See [`wasm_instance_new`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instance_t>>) {}
 
 /// Gets the exports of the instance.
@@ -190,7 +190,7 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 /// * [`wasm_extern_as_global`][super::externals::wasm_extern_as_global],
 /// * [`wasm_extern_as_table`][super::externals::wasm_extern_as_table],
 /// * [`wasm_extern_as_memory`][super::externals::wasm_extern_as_memory].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_instance_exports(
     instance: &wasm_instance_t,
     // own
@@ -218,7 +218,11 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
-    #[cfg_attr(coverage, ignore)]
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_instance_new() {
         (assert_c! {

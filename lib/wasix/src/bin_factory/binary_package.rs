@@ -3,18 +3,18 @@ use std::{path::Path, sync::Arc};
 use anyhow::Context;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
-use virtual_fs::FileSystem;
+use virtual_fs::UnionFileSystem;
 use wasmer_config::package::{
     PackageHash, PackageId, PackageSource, SuggestedCompilerOptimizations,
 };
 use wasmer_package::package::Package;
-use webc::compat::SharedBytes;
 use webc::Container;
+use webc::compat::SharedBytes;
 
 use crate::{
+    Runtime,
     runners::MappedDirectory,
     runtime::resolver::{PackageInfo, ResolveError},
-    Runtime,
 };
 use wasmer_types::ModuleHash;
 
@@ -90,7 +90,10 @@ pub struct BinaryPackage {
     /// entrypoint.
     pub entrypoint_cmd: Option<String>,
     pub hash: OnceCell<ModuleHash>,
-    pub webc_fs: Arc<dyn FileSystem + Send + Sync>,
+    // TODO: using a UnionFileSystem here directly is suboptimal, since cloning
+    // it is expensive. Should instead store an immutable map that can easily
+    // be converted into a dashmap.
+    pub webc_fs: Option<Arc<UnionFileSystem>>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub file_system_memory_footprint: u64,
@@ -253,8 +256,7 @@ impl BinaryPackage {
                 let mut commands: Vec<_> = self.commands.iter().map(|cmd| cmd.name()).collect();
                 commands.sort();
                 anyhow::bail!(
-                    "Unable to determine the package's entrypoint. Please choose one of {:?}",
-                    commands,
+                    "Unable to determine the package's entrypoint. Please choose one of {commands:?}"
                 );
             }
         }
@@ -265,12 +267,12 @@ impl BinaryPackage {
 mod tests {
     use sha2::Digest;
     use tempfile::TempDir;
-    use virtual_fs::AsyncReadExt;
+    use virtual_fs::{AsyncReadExt, FileSystem as _};
     use wasmer_package::utils::from_disk;
 
     use crate::{
-        runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
         PluggableRuntime,
+        runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
     };
 
     use super::*;
@@ -327,6 +329,8 @@ mod tests {
         // "/public/file.txt" on the guest.
         let mut f = pkg
             .webc_fs
+            .as_ref()
+            .expect("no webc fs")
             .new_open_options()
             .read(true)
             .open("/public/file.txt")
@@ -353,10 +357,10 @@ mod tests {
             name = "foo"
             source = "foo.wasm"
             abi = "wasi"
-            
+
             [[command]]
             name = "cmd"
-            module = "foo"     
+            module = "foo"
         "#;
         let manifest = temp.path().join("wasmer.toml");
         std::fs::write(&manifest, wasmer_toml).unwrap();

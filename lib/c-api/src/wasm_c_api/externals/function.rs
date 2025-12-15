@@ -42,7 +42,7 @@ pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
 #[allow(non_camel_case_types)]
 pub type wasm_env_finalizer_t = unsafe extern "C" fn(*mut c_void);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_new(
     store: Option<&mut wasm_store_t>,
     function_type: Option<&wasm_functype_t>,
@@ -51,7 +51,7 @@ pub unsafe extern "C" fn wasm_func_new(
     let function_type = function_type?;
     let callback = callback?;
     let store = store?;
-    let mut store_mut = store.inner.store_mut();
+    let mut store_mut = unsafe { store.inner.store_mut() };
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
@@ -74,7 +74,7 @@ pub unsafe extern "C" fn wasm_func_new(
         ]
         .into();
 
-        let trap = callback(&processed_args, &mut results);
+        let trap = unsafe { callback(&processed_args, &mut results) };
 
         if let Some(trap) = trap {
             return Err(trap.inner);
@@ -96,7 +96,7 @@ pub unsafe extern "C" fn wasm_func_new(
     }))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_new_with_env(
     store: Option<&mut wasm_store_t>,
     function_type: Option<&wasm_functype_t>,
@@ -107,7 +107,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let function_type = function_type?;
     let callback = callback?;
     let store = store?;
-    let mut store_mut = store.inner.store_mut();
+    let mut store_mut = unsafe { store.inner.store_mut() };
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
@@ -126,12 +126,11 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
     impl Drop for WrapperEnv {
         fn drop(&mut self) {
-            if let Ok(mut guard) = self.env_finalizer.lock() {
-                if Arc::strong_count(&self.env_finalizer) == 1 {
-                    if let Some(env_finalizer) = guard.take() {
-                        unsafe { (env_finalizer)(self.env.as_ptr()) };
-                    }
-                }
+            if let Ok(mut guard) = self.env_finalizer.lock()
+                && Arc::strong_count(&self.env_finalizer) == 1
+                && let Some(env_finalizer) = guard.take()
+            {
+                unsafe { (env_finalizer)(self.env.as_ptr()) };
             }
         }
     }
@@ -154,7 +153,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
         ]
         .into();
 
-        let trap = callback(env.data().env.as_ptr(), &processed_args, &mut results);
+        let trap = unsafe { callback(env.data().env.as_ptr(), &processed_args, &mut results) };
 
         if let Some(trap) = trap {
             return Err(trap.inner);
@@ -185,15 +184,15 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     }))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_func_copy(func: &wasm_func_t) -> Box<wasm_func_t> {
     Box::new(func.clone())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_delete(_func: Option<Box<wasm_func_t>>) {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_call(
     func: Option<&mut wasm_func_t>,
     args: Option<&wasm_val_vec_t>,
@@ -202,7 +201,7 @@ pub unsafe extern "C" fn wasm_func_call(
     let func = func?;
     let args = args?;
     let mut store = func.extern_.store.clone();
-    let mut store_mut = store.store_mut();
+    let mut store_mut = unsafe { store.store_mut() };
     let params = args
         .as_slice()
         .iter()
@@ -227,30 +226,25 @@ pub unsafe extern "C" fn wasm_func_call(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_param_arity(func: &wasm_func_t) -> usize {
-    func.extern_
-        .function()
-        .ty(&func.extern_.store.store())
-        .params()
-        .len()
+    let store_ref = unsafe { func.extern_.store.store() };
+    func.extern_.function().ty(&store_ref).params().len()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
-    func.extern_
-        .function()
-        .ty(&func.extern_.store.store())
-        .results()
-        .len()
+    let store_ref = unsafe { func.extern_.store.store() };
+    func.extern_.function().ty(&store_ref).results().len()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_type(
     func: Option<&wasm_func_t>,
 ) -> Option<Box<wasm_functype_t>> {
     let func = func?;
+    let store_ref = unsafe { func.extern_.store.store() };
     Some(Box::new(wasm_functype_t::new(
-        func.extern_.function().ty(&func.extern_.store.store()),
+        func.extern_.function().ty(&store_ref),
     )))
 }

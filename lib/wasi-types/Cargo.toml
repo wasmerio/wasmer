@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix-types"
-version = "0.601.0-rc.3"
+version = "0.601.0"
 description = "WASI and WASIX types for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -15,27 +15,27 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmer = { default-features = false, path = "../api", version = "=6.1.0-rc.3" }
-wasmer-types = { path = "../types", version = "=6.1.0-rc.3" }
-wasmer-derive = { path = "../derive", version = "=6.1.0-rc.3" }
-wai-bindgen-gen-rust = "0.2.1"
-wai-bindgen-rust = { version = "0.2.1", default-features = false, features = [
+wasmer = { default-features = false, path = "../api", version = "=6.1.0" }
+wasmer-types = { path = "../types", version = "=6.1.0" }
+wasmer-derive = { path = "../derive", version = "=6.1.0" }
+wai-bindgen-gen-rust.workspace = true
+wai-bindgen-rust = { workspace = true, default-features = false, features = [
 	"macros",
 ] }
-wai-bindgen-gen-rust-wasm = "0.2.1"
-wai-bindgen-gen-core = "0.2.1"
-wai-parser = "0.2.1"
+wai-bindgen-gen-rust-wasm.workspace = true
+wai-bindgen-gen-core.workspace = true
+wai-parser.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 num_enum.workspace = true
-bitflags = "1.3.0"
+bitflags.workspace = true
 cfg-if.workspace = true
 anyhow.workspace = true
 byteorder.workspace = true
 time = { workspace = true, features = ["formatting"] }
 tracing.workspace = true
 
-[dev-dependencies.pretty_assertions]
-version = "1.3.0"
+[dev-dependencies]
+pretty_assertions.workspace = true
 
 [features]
 enable-serde = ["serde", "wasmer-types/serde"]

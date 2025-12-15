@@ -7,10 +7,13 @@
 //! let add_one = instance.exports.get_function("function_name")?;
 //! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
+#[cfg(feature = "experimental-async")]
+use crate::AsStoreAsync;
 use crate::{
-    store::AsStoreRef, AsStoreMut, BackendStore, FromToNativeWasmType, Function,
-    NativeWasmTypeInto, RuntimeError, WasmTypeList,
+    AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError,
+    WasmTypeList, store::AsStoreRef,
 };
+use std::future::Future;
 use std::marker::PhantomData;
 use wasmer_types::RawValue;
 
@@ -78,6 +81,45 @@ macro_rules! impl_native_traits {
                 }
             }
 
+            /// Call the typed func asynchronously.
+            #[cfg(feature = "experimental-async")]
+            #[allow(unused_mut)]
+            #[allow(clippy::too_many_arguments)]
+            pub fn call_async(
+                &self,
+                store: &impl AsStoreAsync,
+                $( $x: $x, )*
+            ) -> impl Future<Output = Result<Rets, RuntimeError>> + Sized + 'static
+            where
+                $( $x: FromToNativeWasmType + 'static, )*
+            {
+                $(
+                    let [<p_ $x>] = $x;
+                )*
+                let store = store.store();
+                let func = self.func.clone();
+                async move {
+                    let read_lock = store.read_lock().await;
+                    match read_lock.as_store_ref().inner.store {
+                        #[cfg(feature = "sys")]
+                        BackendStore::Sys(_) => {
+                            drop(read_lock);
+                            Self::call_async_sys(func, store, $([<p_ $x>]),*).await
+                        }
+                        #[cfg(feature = "wamr")]
+                        BackendStore::Wamr(_) => async_backend_error(),
+                        #[cfg(feature = "wasmi")]
+                        BackendStore::Wasmi(_) => async_backend_error(),
+                        #[cfg(feature = "v8")]
+                        BackendStore::V8(_) => async_backend_error(),
+                        #[cfg(feature = "js")]
+                        BackendStore::Js(_) => async_backend_error(),
+                        #[cfg(feature = "jsc")]
+                        BackendStore::Jsc(_) => async_backend_error(),
+                    }
+                }
+            }
+
             #[doc(hidden)]
             #[allow(missing_docs)]
             #[allow(unused_mut)]
@@ -118,9 +160,15 @@ impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15
+);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16
+);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
+);
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18
 );
@@ -130,3 +178,9 @@ impl_native_traits!(
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
 );
+
+fn async_backend_error<Rets>() -> Result<Rets, RuntimeError> {
+    Err(RuntimeError::new(
+        "async calls are only supported with the `sys` backend",
+    ))
+}

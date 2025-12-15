@@ -5,15 +5,11 @@ use lz4_flex::block::uncompressed_size;
 use wasmer_wasix_types::wasi;
 
 /// Type of printing mode to use
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum JournalPrintingMode {
+    #[default]
     Text,
     Json,
-}
-impl Default for JournalPrintingMode {
-    fn default() -> Self {
-        Self::Text
-    }
 }
 
 /// The printing journal writes all the journal entries to the console
@@ -111,10 +107,14 @@ impl fmt::Display for JournalEntry<'_> {
             }
             JournalEntry::FileDescriptorSeekV1 { fd, offset, whence } => {
                 write!(f, "fd-seek (fd={fd}, offset={offset}, whence={whence:?})")
-            },
+            }
             JournalEntry::FileDescriptorWriteV1 {
                 fd, offset, data, ..
-            } => write!(f, "fd-write (fd={fd}, offset={offset}, data.len={})", data.len()),
+            } => write!(
+                f,
+                "fd-write (fd={fd}, offset={offset}, data.len={})",
+                data.len()
+            ),
             JournalEntry::SetClockTimeV1 { clock_id, time } => {
                 write!(f, "set-clock-time (id={clock_id:?}, time={time})")
             }
@@ -124,7 +124,7 @@ impl fmt::Display for JournalEntry<'_> {
             }
             | JournalEntry::OpenFileDescriptorV2 {
                 fd, path, o_flags, ..
-            }=> {
+            } => {
                 if o_flags.contains(wasi::Oflags::CREATE) {
                     if o_flags.contains(wasi::Oflags::TRUNC) {
                         write!(f, "fd-create-new (fd={fd}, path={path})")
@@ -145,12 +145,18 @@ impl fmt::Display for JournalEntry<'_> {
             JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
-            } => write!(f, "fd-duplicate (original={original_fd}, copied={copied_fd})"),
+            } => write!(
+                f,
+                "fd-duplicate (original={original_fd}, copied={copied_fd})"
+            ),
             JournalEntry::DuplicateFileDescriptorV2 {
                 original_fd,
                 copied_fd,
-                cloexec
-            } => write!(f, "fd-duplicate (original={original_fd}, copied={copied_fd}, cloexec={cloexec})"),
+                cloexec,
+            } => write!(
+                f,
+                "fd-duplicate (original={original_fd}, copied={copied_fd}, cloexec={cloexec})"
+            ),
             JournalEntry::CreateDirectoryV1 { fd, path } => {
                 write!(f, "path-create-dir (fd={fd}, path={path})")
             }
@@ -162,13 +168,19 @@ impl fmt::Display for JournalEntry<'_> {
                 st_atim,
                 st_mtim,
                 ..
-            } => write!(f, "path-set-times (path={path}, atime={st_atim}, mtime={st_mtim}))"),
+            } => write!(
+                f,
+                "path-set-times (path={path}, atime={st_atim}, mtime={st_mtim}))"
+            ),
             JournalEntry::FileDescriptorSetTimesV1 {
                 fd,
                 st_atim,
                 st_mtim,
                 ..
-            } => write!(f, "fd-set-times (fd={fd}, atime={st_atim}, mtime={st_mtim})"),
+            } => write!(
+                f,
+                "fd-set-times (fd={fd}, atime={st_atim}, mtime={st_mtim})"
+            ),
             JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags } => {
                 write!(f, "fd-set-fd-flags (fd={fd}, flags={flags:?})")
             }
@@ -179,7 +191,10 @@ impl fmt::Display for JournalEntry<'_> {
                 fd,
                 fs_rights_base,
                 fs_rights_inheriting,
-            } => write!(f, "fd-set-rights (fd={fd}, base={fs_rights_base:?}, inherited={fs_rights_inheriting:?})"),
+            } => write!(
+                f,
+                "fd-set-rights (fd={fd}, base={fs_rights_base:?}, inherited={fs_rights_inheriting:?})"
+            ),
             JournalEntry::FileDescriptorSetSizeV1 { fd, st_size } => {
                 write!(f, "fd-set-size (fd={fd}, size={st_size})")
             }
@@ -204,7 +219,11 @@ impl fmt::Display for JournalEntry<'_> {
             JournalEntry::EpollCtlV1 { epfd, op, fd, .. } => {
                 write!(f, "epoll-ctl (epfd={epfd}, op={op:?}, fd={fd})")
             }
-            JournalEntry::TtySetV1 { tty, line_feeds } => write!(f, "tty-set (echo={}, buffering={}, feeds={})", tty.echo, tty.line_buffered, line_feeds),
+            JournalEntry::TtySetV1 { tty, line_feeds } => write!(
+                f,
+                "tty-set (echo={}, buffering={}, feeds={})",
+                tty.echo, tty.line_buffered, line_feeds
+            ),
             JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
                 write!(f, "fd-pipe (read_fd={read_fd}, write_fd={write_fd})")
             }
@@ -248,7 +267,10 @@ impl fmt::Display for JournalEntry<'_> {
                 local_addr,
                 peer_addr,
             } => {
-                write!(f, "sock-connect (fd={fd}, addr={local_addr}, peer={peer_addr})")
+                write!(
+                    f,
+                    "sock-connect (fd={fd}, addr={local_addr}, peer={peer_addr})"
+                )
             }
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
@@ -256,35 +278,59 @@ impl fmt::Display for JournalEntry<'_> {
                 local_addr,
                 peer_addr,
                 ..
-            } => write!(f, "sock-accept (listen-fd={listen_fd}, sock_fd={fd}, addr={local_addr}, peer={peer_addr})"),
+            } => write!(
+                f,
+                "sock-accept (listen-fd={listen_fd}, sock_fd={fd}, addr={local_addr}, peer={peer_addr})"
+            ),
             JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,
                 multiaddr,
                 iface,
-            } => write!(f, "sock-join-mcast-ipv4 (fd={fd}, addr={multiaddr}, iface={iface})"),
+            } => write!(
+                f,
+                "sock-join-mcast-ipv4 (fd={fd}, addr={multiaddr}, iface={iface})"
+            ),
             JournalEntry::SocketJoinIpv6MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } => write!(f, "sock-join-mcast-ipv6 (fd={fd}, addr={multiaddr}, iface={iface})"),
+            } => write!(
+                f,
+                "sock-join-mcast-ipv6 (fd={fd}, addr={multiaddr}, iface={iface})"
+            ),
             JournalEntry::SocketLeaveIpv4MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } => write!(f, "sock-leave-mcast-ipv4 (fd={fd}, addr={multiaddr}, iface={iface})"),
+            } => write!(
+                f,
+                "sock-leave-mcast-ipv4 (fd={fd}, addr={multiaddr}, iface={iface})"
+            ),
             JournalEntry::SocketLeaveIpv6MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } => write!(f, "sock-leave-mcast-ipv6 (fd={fd}, addr={multiaddr}, iface={iface})"),
+            } => write!(
+                f,
+                "sock-leave-mcast-ipv6 (fd={fd}, addr={multiaddr}, iface={iface})"
+            ),
             JournalEntry::SocketSendFileV1 {
                 socket_fd,
                 file_fd,
                 offset,
                 count,
-            } => write!(f, "sock-send-file (sock-fd={socket_fd}, file-fd={file_fd}, offset={offset}, count={count})"),
+            } => write!(
+                f,
+                "sock-send-file (sock-fd={socket_fd}, file-fd={file_fd}, offset={offset}, count={count})"
+            ),
             JournalEntry::SocketSendToV1 { fd, data, addr, .. } => {
-                write!(f, "sock-send-to (fd={}, data.len={}, addr={})", fd, data.len(), addr)
+                write!(
+                    f,
+                    "sock-send-to (fd={}, data.len={}, addr={})",
+                    fd,
+                    data.len(),
+                    addr
+                )
             }
             JournalEntry::SocketSendV1 { fd, data, .. } => {
                 write!(f, "sock-send (fd={}, data.len={})", fd, data.len())

@@ -24,9 +24,11 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
             // TODO: verify this: null termination, etc
             let path_len: u64 = path_len.into();
             if (name.len() as u64) < path_len {
-                wasi_try_mem!(path_chars
-                    .subslice(0..name.len() as u64)
-                    .write_slice(name.as_bytes()));
+                wasi_try_mem!(
+                    path_chars
+                        .subslice(0..name.len() as u64)
+                        .write_slice(name.as_bytes())
+                );
                 wasi_try_mem!(path_chars.index(name.len() as u64).write(0));
 
                 //trace!("=> result: \"{}\"", inode_val.name);

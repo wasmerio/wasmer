@@ -12,7 +12,7 @@ use super::types::wasm_byte_vec_t;
 /// # Safety
 /// This function is unsafe in order to be callable from C.
 #[cfg(feature = "wat")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {
     match wasmer_api::wat2wasm(wat.as_slice()) {
         Ok(val) => out.set_buffer(val.into_owned()),

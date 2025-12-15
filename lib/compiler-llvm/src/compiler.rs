@@ -1,27 +1,28 @@
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
-use crate::CompiledKind;
+use inkwell::DLLStorageClass;
 use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
-use inkwell::DLLStorageClass;
+use rayon::ThreadPoolBuilder;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use rayon::ThreadPoolBuilder;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use wasmer_compiler::misc::CompiledKind;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
 use wasmer_compiler::{
+    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
     types::{
         relocation::RelocationTarget,
         section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
         symbols::{Symbol, SymbolRegistry},
     },
-    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
@@ -91,6 +92,11 @@ struct ModuleBasedSymbolRegistry {
 }
 
 impl ModuleBasedSymbolRegistry {
+    const PROBLEMATIC_PREFIXES: &[&'static str] = &[
+        ".L",    // .L is used for local symbols
+        "llvm.", // llvm. is used for LLVM's own intrinsics
+    ];
+
     fn new(wasm_module: Arc<ModuleInfo>) -> Self {
         let local_func_names = HashMap::from_iter(
             wasm_module
@@ -106,6 +112,31 @@ impl ModuleBasedSymbolRegistry {
             short_names: ShortNames {},
         }
     }
+
+    // If the name starts with a problematic prefix, we prefix it with an underscore.
+    fn fixup_problematic_name(name: &str) -> Cow<'_, str> {
+        for prefix in Self::PROBLEMATIC_PREFIXES {
+            if name.starts_with(prefix) {
+                return format!("_{name}").into();
+            }
+        }
+        name.into()
+    }
+
+    // If the name starts with an underscore and the rest starts with a problematic prefix,
+    // remove the underscore to get back the original name. This is necessary to be able
+    // to match the name back to the original name in the wasm module.
+    fn unfixup_problematic_name(name: &str) -> &str {
+        if let Some(stripped_name) = name.strip_prefix('_') {
+            for prefix in Self::PROBLEMATIC_PREFIXES {
+                if stripped_name.starts_with(prefix) {
+                    return stripped_name;
+                }
+            }
+        }
+
+        name
+    }
 }
 
 impl SymbolRegistry for ModuleBasedSymbolRegistry {
@@ -115,13 +146,14 @@ impl SymbolRegistry for ModuleBasedSymbolRegistry {
                 .wasm_module
                 .function_names
                 .get(&self.wasm_module.func_index(index))
-                .map(|name| format!("{}_{}", name, index.as_u32()))
+                .map(|name| format!("{}_{}", Self::fixup_problematic_name(name), index.as_u32()))
                 .unwrap_or(self.short_names.symbol_to_name(symbol)),
             _ => self.short_names.symbol_to_name(symbol),
         }
     }
 
     fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
+        let name = Self::unfixup_problematic_name(name);
         if let Some(idx) = self.local_func_names.get(name) {
             Some(Symbol::LocalFunction(*idx))
         } else {
@@ -162,6 +194,7 @@ impl LLVMCompiler {
                     &compile_info.memory_styles,
                     &compile_info.table_styles,
                     symbol_registry,
+                    target.triple(),
                 )?;
 
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
@@ -378,6 +411,7 @@ impl Compiler for LLVMCompiler {
                                 memory_styles,
                                 table_styles,
                                 &symbol_registry,
+                                target.triple(),
                             )
                         },
                     )
@@ -404,6 +438,7 @@ impl Compiler for LLVMCompiler {
                         memory_styles,
                         table_styles,
                         &symbol_registry,
+                        target.triple(),
                     )
                 })
                 .collect::<Result<Vec<_>, CompileError>>()?
@@ -437,6 +472,8 @@ impl Compiler for LLVMCompiler {
                             reloc.offset += offset;
                         }
                         eh_frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
+                        // Terminate the eh_frame info with a zero-length CIE.
+                        eh_frame_section_bytes.extend_from_slice(&[0, 0, 0, 0]);
                         eh_frame_section_relocations.extend(custom_section.relocations);
                         // TODO: we do this to keep the count right, remove it.
                         module_custom_sections.push(CustomSection {
@@ -482,35 +519,6 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let mut unwind_info = UnwindInfo::default();
-
-        if !eh_frame_section_bytes.is_empty() {
-            let eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
-            // Terminate the eh_frame info with a zero-length CIE.
-            //
-            // There may be more info added later in lib/object/src/module.rs emit_compilation
-            // but that's okay, because an eh_frame can have multiple CIEs.
-            eh_frame_section_bytes.extend_from_slice(&[0, 0, 0, 0]);
-            module_custom_sections.push(CustomSection {
-                protection: CustomSectionProtection::Read,
-                alignment: None,
-                bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
-                relocations: eh_frame_section_relocations,
-            });
-            unwind_info.eh_frame = Some(eh_frame_idx);
-        }
-
-        if !compact_unwind_section_bytes.is_empty() {
-            let cu_index = SectionIndex::from_u32(module_custom_sections.len() as u32);
-            module_custom_sections.push(CustomSection {
-                protection: CustomSectionProtection::Read,
-                alignment: None,
-                bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
-                relocations: compact_unwind_section_relocations,
-            });
-            unwind_info.compact_unwind = Some(cu_index);
-        }
-
         let function_call_trampolines = if self.config.num_threads.get() > 1 {
             let pool = ThreadPoolBuilder::new()
                 .num_threads(self.config.num_threads.get())
@@ -549,41 +557,59 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
         };
 
-        let dynamic_function_trampolines = if self.config.num_threads.get() > 1 {
-            let pool = ThreadPoolBuilder::new()
-                .num_threads(self.config.num_threads.get())
-                .build()
-                .map_err(|e| CompileError::Resource(e.to_string()))?;
-            pool.install(|| {
-                module
-                    .imported_function_types()
-                    .collect::<Vec<_>>()
-                    .par_iter()
-                    .map_init(
-                        || {
-                            let target_machine = self.config().target_machine(target);
-                            FuncTrampoline::new(target_machine, binary_format).unwrap()
-                        },
-                        |func_trampoline, func_type| {
-                            func_trampoline.dynamic_trampoline(func_type, self.config(), "")
-                        },
-                    )
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .collect::<Result<PrimaryMap<_, _>, CompileError>>()
-            })?
-        } else {
+        // TODO: I removed the parallel processing of dynamic trampolines because we're passing
+        // the sections bytes and relocations directly into the trampoline generation function.
+        // We can move that logic out and re-enable parallel processing. Hopefully, there aren't
+        // enough dynamic trampolines to actually cause a noticeable performance degradation.
+        let dynamic_function_trampolines = {
             let target_machine = self.config().target_machine(target);
             let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
             module
                 .imported_function_types()
                 .collect::<Vec<_>>()
                 .into_iter()
-                .map(|func_type| func_trampoline.dynamic_trampoline(&func_type, self.config(), ""))
+                .enumerate()
+                .map(|(index, func_type)| {
+                    func_trampoline.dynamic_trampoline(
+                        &func_type,
+                        self.config(),
+                        "",
+                        index as u32,
+                        &mut module_custom_sections,
+                        &mut eh_frame_section_bytes,
+                        &mut eh_frame_section_relocations,
+                        &mut compact_unwind_section_bytes,
+                        &mut compact_unwind_section_relocations,
+                    )
+                })
                 .collect::<Vec<_>>()
                 .into_iter()
                 .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
         };
+
+        let mut unwind_info = UnwindInfo::default();
+
+        if !eh_frame_section_bytes.is_empty() {
+            let eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
+            module_custom_sections.push(CustomSection {
+                protection: CustomSectionProtection::Read,
+                alignment: None,
+                bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
+                relocations: eh_frame_section_relocations,
+            });
+            unwind_info.eh_frame = Some(eh_frame_idx);
+        }
+
+        if !compact_unwind_section_bytes.is_empty() {
+            let cu_index = SectionIndex::from_u32(module_custom_sections.len() as u32);
+            module_custom_sections.push(CustomSection {
+                protection: CustomSectionProtection::Read,
+                alignment: None,
+                bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
+                relocations: compact_unwind_section_relocations,
+            });
+            unwind_info.compact_unwind = Some(cu_index);
+        }
 
         let mut got = wasmer_compiler::types::function::GOT::empty();
 

@@ -26,12 +26,7 @@ impl JournalEffector {
         crate::syscalls::path_symlink_internal(ctx, old_path, fd, new_path)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to create symlink (old_path={}, fd={}, new_path={}) - {}",
-                    old_path,
-                    fd,
-                    new_path,
-                    err
-                )
+                    "journal restore error: failed to create symlink (old_path={old_path}, fd={fd}, new_path={new_path}) - {err}")
             })?;
         Ok(())
     }

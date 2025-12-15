@@ -5,9 +5,8 @@
 
 #![cfg_attr(not(feature = "compiler"), allow(dead_code))]
 
-use enum_iterator::IntoEnumIterator;
-use wasmer_types::target::{Architecture, Target};
 use wasmer_types::LibCall;
+use wasmer_types::target::{Architecture, Target};
 
 use crate::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
@@ -112,7 +111,7 @@ pub fn libcall_trampoline_len(target: &Target) -> usize {
 pub fn make_libcall_trampolines(target: &Target) -> CustomSection {
     let mut code = vec![];
     let mut relocations = vec![];
-    for libcall in LibCall::into_enum_iter() {
+    for libcall in enum_iterator::all::<LibCall>() {
         make_trampoline(target, libcall, &mut code, &mut relocations);
     }
     CustomSection {

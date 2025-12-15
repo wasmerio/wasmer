@@ -1,7 +1,7 @@
 use anyhow::Result;
 use wasmer::{
-    imports, wat2wasm, AsStoreRef, Function, FunctionEnv, FunctionEnvMut, Instance, Memory,
-    MemoryView, Module, Store, WasmPtr,
+    AsStoreRef, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
+    WasmPtr, imports, wat2wasm,
 };
 
 // Utils
@@ -38,16 +38,7 @@ fn http_get(mut ctx: FunctionEnvMut<ExampleEnv>, url: u32, url_len: u32) -> u32 
 
         // Get request
         let response = ureq::get(&address).call().unwrap();
-        let capacity = match response
-            .header("Content-Length")
-            .map(|it| it.parse::<usize>())
-        {
-            Some(Ok(len)) => len,
-            _ => 1024,
-        };
-        let mut buffer = Vec::with_capacity(capacity);
-        let mut reader = response.into_reader();
-        reader.read_to_end(&mut buffer).unwrap();
+        let buffer = response.into_body().read_to_vec().unwrap();
         (buffer, memory_size)
     };
 

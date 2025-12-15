@@ -18,7 +18,7 @@
     clippy::unicode_not_nfc,
     clippy::use_self
 )]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(all(feature = "std", feature = "core"))]
 compile_error!(
@@ -49,6 +49,7 @@ mod lib {
 mod engine;
 mod traits;
 
+pub mod misc;
 pub mod object;
 pub mod serialize;
 pub mod types;
@@ -70,10 +71,10 @@ pub use crate::compiler::{Compiler, CompilerConfig};
 mod translator;
 #[cfg(feature = "translator")]
 pub use crate::translator::{
-    from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type, wptype_to_type,
     FunctionBinaryReader, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
     MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain,
-    ModuleTranslationState,
+    ModuleTranslationState, from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type,
+    wptype_to_type,
 };
 
 pub use wasmer_types::{Addend, CodeOffset, Features};

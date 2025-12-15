@@ -32,11 +32,7 @@ impl JournalEffector {
         } else {
             crate::syscalls::path_create_directory_internal(ctx, fd, path).map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to create directory path (fd={}, path={}) - {}",
-                    fd,
-                    path,
-                    err
-                )
+                    "journal restore error: failed to create directory path (fd={fd}, path={path}) - {err}")
             })?;
         }
         Ok(())

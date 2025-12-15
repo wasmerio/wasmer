@@ -5,16 +5,18 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use futures::future::BoxFuture;
 use tokio::runtime::Handle;
-use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
+use virtual_fs::{
+    FileSystem, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem, UnionFileSystem,
+};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
+    WasiEnvBuilder,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
+    fs::{WasiFsRoot, relative_path_hack::RelativeOrAbsolutePathHack},
     journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
-    WasiEnvBuilder,
 };
 
 pub const MAPPED_CURRENT_DIR_DEFAULT_PATH: &str = "/home";
@@ -36,7 +38,6 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) mapped_host_commands: Vec<MappedCommand>,
     pub(crate) mounts: Vec<MountedDirectory>,
     pub(crate) is_home_mapped: bool,
-    pub(crate) is_tmp_mapped: bool,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
     pub(crate) read_only_journals: Vec<Arc<DynReadableJournal>>,
@@ -52,7 +53,7 @@ impl CommonWasiOptions {
     pub(crate) fn prepare_webc_env(
         &self,
         builder: &mut WasiEnvBuilder,
-        container_fs: Option<Arc<dyn FileSystem + Send + Sync>>,
+        container_fs: Option<UnionFileSystem>,
         wasi: &WasiAnnotation,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
@@ -61,9 +62,12 @@ impl CommonWasiOptions {
         }
 
         let root_fs = root_fs.unwrap_or_else(|| {
-            RootFileSystemBuilder::default()
-                .with_tmp(!self.is_tmp_mapped)
-                .build()
+            let mapped_dirs = self
+                .mounts
+                .iter()
+                .map(|d| d.guest.as_str())
+                .collect::<Vec<_>>();
+            RootFileSystemBuilder::default().build_ext(&mapped_dirs)
         });
         let fs = prepare_filesystem(root_fs, &self.mounts, container_fs)?;
 
@@ -76,7 +80,7 @@ impl CommonWasiOptions {
 
         builder.add_preopen_dir("/")?;
 
-        builder.set_fs(Box::new(fs));
+        builder.set_fs_root(fs);
 
         for pkg in &self.injected_packages {
             builder.add_webc(pkg.clone());
@@ -197,8 +201,8 @@ fn build_directory_mappings(
 fn prepare_filesystem(
     mut root_fs: TmpFileSystem,
     mounted_dirs: &[MountedDirectory],
-    container_fs: Option<Arc<dyn FileSystem + Send + Sync>>,
-) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+    container_fs: Option<UnionFileSystem>,
+) -> Result<WasiFsRoot, Error> {
     if !mounted_dirs.is_empty() {
         build_directory_mappings(&mut root_fs, mounted_dirs)?;
     }
@@ -215,10 +219,9 @@ fn prepare_filesystem(
     let fs = if let Some(container) = container_fs {
         let container = RelativeOrAbsolutePathHack(container);
         let fs = OverlayFileSystem::new(root_fs, [container]);
-        Box::new(fs) as Box<dyn FileSystem + Send + Sync>
+        WasiFsRoot::Overlay(Arc::new(fs))
     } else {
-        let fs = RelativeOrAbsolutePathHack(root_fs);
-        Box::new(fs) as Box<dyn FileSystem + Send + Sync>
+        WasiFsRoot::Sandbox(root_fs)
     };
 
     Ok(fs)
@@ -307,100 +310,12 @@ impl From<MappedDirectory> for MountedDirectory {
     }
 }
 
-#[derive(Debug)]
-struct RelativeOrAbsolutePathHack<F>(F);
-
-impl<F: FileSystem> RelativeOrAbsolutePathHack<F> {
-    fn execute<Func, Ret>(&self, path: &Path, operation: Func) -> Result<Ret, FsError>
-    where
-        Func: Fn(&F, &Path) -> Result<Ret, FsError>,
-    {
-        // First, try it with the path we were given
-        let result = operation(&self.0, path);
-
-        if result.is_err() && !path.is_absolute() {
-            // we were given a relative path, but maybe the operation will work
-            // using absolute paths instead.
-            let path = Path::new("/").join(path);
-            operation(&self.0, &path)
-        } else {
-            result
-        }
-    }
-}
-
-impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
-    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
-        self.execute(path, |fs, p| fs.readlink(p))
-    }
-
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        self.execute(path, |fs, p| fs.read_dir(p))
-    }
-
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.execute(path, |fs, p| fs.create_dir(p))
-    }
-
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.execute(path, |fs, p| fs.remove_dir(p))
-    }
-
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
-        Box::pin(async move { self.0.rename(&from, &to).await })
-    }
-
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        self.execute(path, |fs, p| fs.metadata(p))
-    }
-
-    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        self.execute(path, |fs, p| fs.symlink_metadata(p))
-    }
-
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.execute(path, |fs, p| fs.remove_file(p))
-    }
-
-    fn new_open_options(&self) -> virtual_fs::OpenOptions {
-        virtual_fs::OpenOptions::new(self)
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> virtual_fs::Result<()> {
-        let name_ref = &name;
-        let f_ref = &Arc::new(fs);
-        self.execute(path, move |f, p| {
-            f.mount(name_ref.clone(), p, Box::new(f_ref.clone()))
-        })
-    }
-}
-
-impl<F: FileSystem> virtual_fs::FileOpener for RelativeOrAbsolutePathHack<F> {
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
-        self.execute(path, |fs, p| {
-            fs.new_open_options().options(conf.clone()).open(p)
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::SystemTime;
 
     use tempfile::TempDir;
-    use virtual_fs::{DirEntry, FileType, Metadata, WebcVolumeFileSystem};
-    use wasmer_package::utils::from_bytes;
+    use virtual_fs::{DirEntry, FileType, Metadata};
 
     use super::*;
 
@@ -414,7 +329,6 @@ mod tests {
             ..Default::default()
         };
         let mut builder = WasiEnvBuilder::new("program-name");
-        let fs = Arc::new(virtual_fs::EmptyFileSystem::default());
         let mut annotations = WasiAnnotation::new("some-atom");
         annotations.main_args = Some(vec![
             "hard".to_string(),
@@ -422,7 +336,7 @@ mod tests {
             "args".to_string(),
         ]);
 
-        args.prepare_webc_env(&mut builder, Some(fs), &annotations, None)
+        args.prepare_webc_env(&mut builder, None, &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -450,11 +364,10 @@ mod tests {
             ..Default::default()
         };
         let mut builder = WasiEnvBuilder::new("python");
-        let fs = Arc::new(virtual_fs::EmptyFileSystem::default());
         let mut annotations = WasiAnnotation::new("python");
         annotations.env = Some(vec!["HARD_CODED=env-vars".to_string()]);
 
-        args.prepare_webc_env(&mut builder, Some(fs), &annotations, None)
+        args.prepare_webc_env(&mut builder, None, &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -464,6 +377,11 @@ mod tests {
                 ("EXTRA".to_string(), b"envs".to_vec()),
             ]
         );
+    }
+
+    fn unix_timestamp_nanos(instant: SystemTime) -> Option<u64> {
+        let duration = instant.duration_since(SystemTime::UNIX_EPOCH).ok()?;
+        Some(duration.as_nanos() as u64)
     }
 
     #[tokio::test]
@@ -477,27 +395,39 @@ mod tests {
             guest: "/home".to_string(),
             host: sub_dir,
         })];
-        let container = from_bytes(PYTHON).unwrap();
-        let webc_fs = WebcVolumeFileSystem::mount_all(&container);
+        let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+        let webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
+        let union_fs = UnionFileSystem::new();
+        union_fs
+            .mount("webc".to_string(), Path::new("/"), Box::new(webc_fs))
+            .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &mapping, Some(Arc::new(webc_fs))).unwrap();
+        let fs = prepare_filesystem(root_fs, &mapping, Some(union_fs)).unwrap();
 
-        assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
-        assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
-        assert!(fs
-            .metadata("lib/python3.6/collections/__init__.py".as_ref())
-            .unwrap()
-            .is_file());
-        assert!(fs
-            .metadata("lib/python3.6/encodings/__init__.py".as_ref())
-            .unwrap()
-            .is_file());
-    }
-
-    fn unix_timestamp_nanos(instant: SystemTime) -> Option<u64> {
-        let duration = instant.duration_since(SystemTime::UNIX_EPOCH).ok()?;
-        Some(duration.as_nanos() as u64)
+        assert!(matches!(fs, WasiFsRoot::Overlay(_)));
+        if let WasiFsRoot::Overlay(overlay_fs) = &fs {
+            use virtual_fs::FileSystem;
+            assert!(
+                overlay_fs
+                    .metadata("/home/file.txt".as_ref())
+                    .unwrap()
+                    .is_file()
+            );
+            assert!(overlay_fs.metadata("lib".as_ref()).unwrap().is_dir());
+            assert!(
+                overlay_fs
+                    .metadata("lib/python3.6/collections/__init__.py".as_ref())
+                    .unwrap()
+                    .is_file()
+            );
+            assert!(
+                overlay_fs
+                    .metadata("lib/python3.6/encodings/__init__.py".as_ref())
+                    .unwrap()
+                    .is_file()
+            );
+        }
     }
 
     #[tokio::test]

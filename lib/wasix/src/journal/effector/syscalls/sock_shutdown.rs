@@ -27,10 +27,7 @@ impl JournalEffector {
             .unwrap_or_else(|err| Err(err.to_string()))
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to shutdown socket (fd={}, how={:?}) - {}",
-                    fd,
-                    shutdown,
-                    err
+                    "journal restore error: failed to shutdown socket (fd={fd}, how={shutdown:?}) - {err}"
                 )
             })?;
         Ok(())

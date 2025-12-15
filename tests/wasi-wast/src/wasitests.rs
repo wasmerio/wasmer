@@ -252,10 +252,10 @@ pub fn build(wasi_versions: &[WasiVersion], specific_tests: &[&str]) {
             Ok(path) => {
                 let test = path.to_str().unwrap();
                 if !specific_tests.is_empty() {
-                    if let Some(filename) = path.file_stem().and_then(|f| f.to_str()) {
-                        if specific_tests.contains(&filename) {
-                            compile(temp_dir.path(), test, wasi_versions);
-                        }
+                    if let Some(filename) = path.file_stem().and_then(|f| f.to_str())
+                        && specific_tests.contains(&filename)
+                    {
+                        compile(temp_dir.path(), test, wasi_versions);
                     }
                 } else {
                     compile(temp_dir.path(), test, wasi_versions);
@@ -427,7 +427,10 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
                     args.tempdir.push(value.to_string());
                 }
                 "stdin" => {
-                    assert!(args.stdin.is_none(), "Only the first `stdin` directive is used! Please correct this or update this code");
+                    assert!(
+                        args.stdin.is_none(),
+                        "Only the first `stdin` directive is used! Please correct this or update this code"
+                    );
                     let s = value;
                     let s = s.strip_prefix('"').expect("expected leading '\"' in stdin");
                     let s = s

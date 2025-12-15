@@ -4,11 +4,12 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
+use crate::LLVM;
 use crate::abi::Abi;
 use crate::error::err;
-use crate::LLVM;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
+    AddressSpace,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
@@ -22,9 +23,8 @@ use inkwell::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
         PointerValue, VectorValue,
     },
-    AddressSpace,
 };
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
@@ -50,9 +50,8 @@ pub fn type_to_llvm<'ctx>(
         Type::F32 => Ok(intrinsics.f32_ty.as_basic_type_enum()),
         Type::F64 => Ok(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 => Ok(intrinsics.i128_ty.as_basic_type_enum()),
-        Type::FuncRef | Type::ExceptionRef | Type::ExternRef => {
-            Ok(intrinsics.ptr_ty.as_basic_type_enum())
-        }
+        Type::ExceptionRef => Ok(intrinsics.i32_ty.as_basic_type_enum()),
+        Type::FuncRef | Type::ExternRef => Ok(intrinsics.ptr_ty.as_basic_type_enum()),
     }
 }
 
@@ -105,6 +104,16 @@ pub struct Intrinsics<'ctx> {
     pub cmp_f32x4: FunctionValue<'ctx>,
     pub cmp_f64x2: FunctionValue<'ctx>,
 
+    pub minimum_f32: FunctionValue<'ctx>,
+    pub minimum_f64: FunctionValue<'ctx>,
+    pub minimum_f32x4: FunctionValue<'ctx>,
+    pub minimum_f64x2: FunctionValue<'ctx>,
+
+    pub maximum_f32: FunctionValue<'ctx>,
+    pub maximum_f64: FunctionValue<'ctx>,
+    pub maximum_f32x4: FunctionValue<'ctx>,
+    pub maximum_f64x2: FunctionValue<'ctx>,
+
     pub ceil_f32: FunctionValue<'ctx>,
     pub ceil_f64: FunctionValue<'ctx>,
     pub ceil_f32x4: FunctionValue<'ctx>,
@@ -153,10 +162,13 @@ pub struct Intrinsics<'ctx> {
     pub debug_trap: FunctionValue<'ctx>,
 
     pub personality: FunctionValue<'ctx>,
+    pub personality2: FunctionValue<'ctx>,
     pub readonly: Attribute,
     pub stack_probe: Attribute,
     pub uwtable: Attribute,
     pub frame_pointer: Attribute,
+    // Stack probe function used on Windows MSVC
+    pub chkstk: FunctionValue<'ctx>,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -183,7 +195,6 @@ pub struct Intrinsics<'ctx> {
     pub ptr_ty: PointerType<'ctx>,
 
     pub anyfunc_ty: StructType<'ctx>,
-    pub exc_ty: StructType<'ctx>,
 
     pub i1_zero: IntValue<'ctx>,
     pub i8_zero: IntValue<'ctx>,
@@ -245,10 +256,10 @@ pub struct Intrinsics<'ctx> {
 
     // EH
     pub throw: FunctionValue<'ctx>,
-    pub rethrow: FunctionValue<'ctx>,
     pub alloc_exception: FunctionValue<'ctx>,
-    pub delete_exception: FunctionValue<'ctx>,
-    pub read_exception: FunctionValue<'ctx>,
+    pub read_exnref: FunctionValue<'ctx>,
+    pub exception_into_exnref: FunctionValue<'ctx>,
+    pub lpad_exception_ty: StructType<'ctx>,
 
     // Debug
     pub debug_ptr: FunctionValue<'ctx>,
@@ -625,6 +636,32 @@ impl<'ctx> Intrinsics<'ctx> {
                 None,
             ),
 
+            minimum_f32: module.add_function("llvm.minimum.f32", ret_f32_take_f32_f32, None),
+            minimum_f64: module.add_function("llvm.minimum.f64", ret_f64_take_f64_f64, None),
+            minimum_f32x4: module.add_function(
+                "llvm.minimum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            minimum_f64x2: module.add_function(
+                "llvm.minimum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
+
+            maximum_f32: module.add_function("llvm.maximum.f32", ret_f32_take_f32_f32, None),
+            maximum_f64: module.add_function("llvm.maximum.f64", ret_f64_take_f64_f64, None),
+            maximum_f32x4: module.add_function(
+                "llvm.maximum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            maximum_f64x2: module.add_function(
+                "llvm.maximum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
+
             fpext_f32: module.add_function(
                 "llvm.experimental.constrained.fpext.f64.f32",
                 ret_f64_take_f32_md,
@@ -719,11 +756,17 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
+            personality2: module.add_function(
+                "wasmer_eh_personality2",
+                i32_ty.fn_type(&[ptr_ty.into(), ptr_ty.into()], false),
+                None,
+            ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
             uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id("uwtable"), 1),
             frame_pointer: context.create_string_attribute("frame-pointer", "non-leaf"),
+            chkstk: module.add_function("__chkstk", void_ty.fn_type(&[], false), None),
             void_ty,
             i1_ty,
             i2_ty,
@@ -747,7 +790,6 @@ impl<'ctx> Intrinsics<'ctx> {
             i32x8_ty,
 
             anyfunc_ty,
-            exc_ty: context.struct_type(&[i32_ty.into(), ptr_ty.into(), i64_ty.into()], false),
             i1_zero,
             i8_zero,
             i32_zero,
@@ -1022,29 +1064,25 @@ impl<'ctx> Intrinsics<'ctx> {
 
             throw: module.add_function(
                 "wasmer_vm_throw",
-                void_ty.fn_type(&[i64_ty.into(), ptr_ty.into(), i64_ty.into()], false),
-                None,
-            ),
-            rethrow: module.add_function(
-                "wasmer_vm_rethrow",
-                void_ty.fn_type(&[ptr_ty.into()], false),
+                void_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
                 None,
             ),
             alloc_exception: module.add_function(
                 "wasmer_vm_alloc_exception",
-                ptr_ty.fn_type(&[i64_ty.into()], false),
+                i32_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
                 None,
             ),
-            delete_exception: module.add_function(
-                "wasmer_vm_delete_exception",
-                void_ty.fn_type(&[ptr_ty.into()], false),
+            read_exnref: module.add_function(
+                "wasmer_vm_read_exnref",
+                ptr_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
                 None,
             ),
-            read_exception: module.add_function(
-                "wasmer_vm_read_exception",
-                ptr_ty.fn_type(&[ptr_ty.into()], false),
+            exception_into_exnref: module.add_function(
+                "wasmer_vm_exception_into_exnref",
+                i32_ty.fn_type(&[ptr_ty.into()], false),
                 None,
             ),
+            lpad_exception_ty: context.struct_type(&[ptr_ty.into(), i32_ty.into()], false),
 
             debug_ptr: module.add_function(
                 "wasmer_vm_dbg_usize",

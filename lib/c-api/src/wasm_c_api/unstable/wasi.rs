@@ -66,7 +66,7 @@ mod __cbindgen_hack__ {
         pub data: *mut *mut wasmer_named_extern_t,
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn wasmer_named_extern_vec_new(
         out: *mut wasmer_named_extern_vec_t,
         length: usize,
@@ -75,7 +75,7 @@ mod __cbindgen_hack__ {
         unimplemented!()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn wasmer_named_extern_vec_new_uninitialized(
         out: *mut wasmer_named_extern_vec_t,
         length: usize,
@@ -83,7 +83,7 @@ mod __cbindgen_hack__ {
         unimplemented!()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn wasmer_named_extern_vec_copy(
         out_ptr: &mut wasmer_named_extern_vec_t,
         in_ptr: &wasmer_named_extern_vec_t,
@@ -91,14 +91,14 @@ mod __cbindgen_hack__ {
         unimplemented!()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn wasmer_named_extern_vec_delete(
         ptr: Option<&mut wasmer_named_extern_vec_t>,
     ) {
         unimplemented!()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn wasmer_named_extern_vec_new_empty(
         out: *mut wasmer_named_extern_vec_t,
     ) {
@@ -110,7 +110,7 @@ mod __cbindgen_hack__ {
 /// `wasmer_named_extern_t`.
 ///
 /// The returned value isn't owned by the caller.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_named_extern_module(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_name_t> {
@@ -120,7 +120,7 @@ pub extern "C" fn wasmer_named_extern_module(
 /// Non-standard function to get the name of a `wasmer_named_extern_t`.
 ///
 /// The returned value isn't owned by the caller.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_named_extern_name(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_name_t> {
@@ -131,7 +131,7 @@ pub extern "C" fn wasmer_named_extern_name(
 /// `wasmer_named_extern_t`.
 ///
 /// The returned value isn't owned by the caller.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_named_extern_unwrap(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_extern_t> {
@@ -142,13 +142,13 @@ pub extern "C" fn wasmer_named_extern_unwrap(
 /// implementation with no particular order. Each import has its
 /// associated module name and name, so that it can be re-order later
 /// based on the `wasm_module_t` requirements.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasi_get_unordered_imports(
     wasi_env: Option<&mut wasi_env_t>,
     module: Option<&wasm_module_t>,
     imports: &mut wasmer_named_extern_vec_t,
 ) -> bool {
-    wasi_get_unordered_imports_inner(wasi_env, module, imports).is_some()
+    unsafe { wasi_get_unordered_imports_inner(wasi_env, module, imports) }.is_some()
 }
 
 unsafe fn wasi_get_unordered_imports_inner(
@@ -158,10 +158,12 @@ unsafe fn wasi_get_unordered_imports_inner(
 ) -> Option<()> {
     let wasi_env = wasi_env?;
     let store = &mut wasi_env.store;
-    let mut store_mut = store.store_mut();
     let module = module?;
 
-    let import_object = c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner));
+    let import_object = {
+        let mut store_mut = unsafe { store.store_mut() };
+        c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner))
+    };
 
     imports.set_buffer(
         import_object

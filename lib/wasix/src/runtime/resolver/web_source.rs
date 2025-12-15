@@ -137,19 +137,18 @@ impl WebSource {
                 )
             })?;
 
-        if let Some(etag) = etag {
-            if let Err(e) = self
+        if let Some(etag) = etag
+            && let Err(e) = self
                 .atomically_save_file(path.with_extension("etag"), etag.as_bytes())
                 .await
-            {
-                tracing::warn!(
-                    error=&*e,
-                    %etag,
-                    %url,
-                    path=%path.display(),
-                    "Unable to save the etag file",
-                )
-            }
+        {
+            tracing::warn!(
+                error=&*e,
+                %etag,
+                %url,
+                path=%path.display(),
+                "Unable to save the etag file",
+            )
         }
 
         Ok(path)
@@ -263,7 +262,7 @@ impl Source for WebSource {
             _ => {
                 return Err(QueryError::Unsupported {
                     query: package.clone(),
-                })
+                });
             }
         };
 
@@ -341,13 +340,13 @@ fn classify_cache_using_mtime(
         } => {
             return Err(CacheState::UnableToVerify { path });
         }
-        CacheInfo::Miss { .. } => return Err(CacheState::Miss),
+        CacheInfo::Miss => return Err(CacheState::Miss),
     };
 
-    if let Ok(time_since_last_modified) = last_modified.elapsed() {
-        if time_since_last_modified <= invalidation_threshold {
-            return Ok(path);
-        }
+    if let Ok(time_since_last_modified) = last_modified.elapsed()
+        && time_since_last_modified <= invalidation_threshold
+    {
+        return Ok(path);
     }
 
     match etag {
@@ -386,7 +385,7 @@ mod tests {
     use std::{collections::VecDeque, sync::Mutex};
 
     use futures::future::BoxFuture;
-    use http::{header::IntoHeaderName, HeaderMap, StatusCode};
+    use http::{HeaderMap, StatusCode, header::IntoHeaderName};
     use tempfile::TempDir;
 
     use crate::http::HttpResponse;
@@ -394,7 +393,9 @@ mod tests {
     use super::*;
 
     const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
-    const COREUTILS: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
+    const COREUTILS: &[u8] = include_bytes!(
+        "../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+    );
     const DUMMY_URL: &str = "http://my-registry.io/some/package";
     const DUMMY_URL_HASH: &str = "4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D";
 

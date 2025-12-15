@@ -1,12 +1,12 @@
 use super::utils::Secret;
 use crate::{
-    commands::{app::util::AppIdentFlag, AsyncCliCommand},
+    commands::{AsyncCliCommand, app::util::AppIdentFlag},
     config::WasmerEnv,
 };
 use anyhow::Context;
 use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -102,7 +102,10 @@ impl CmdAppSecretsCreate {
         for secret in secrets {
             if sset.contains(&secret.name) {
                 if self.non_interactive {
-                    anyhow::bail!("Cannot create secret '{}' as it already exists. Use the `update` command instead.", secret.name.bold());
+                    anyhow::bail!(
+                        "Cannot create secret '{}' as it already exists. Use the `update` command instead.",
+                        secret.name.bold()
+                    );
                 } else {
                     if ret.contains_key(&secret.name) {
                         eprintln!(
@@ -121,7 +124,10 @@ impl CmdAppSecretsCreate {
                         .interact()?;
 
                     if !res {
-                        eprintln!("Cannot create secret '{}' as it already exists. Use the `update` command instead.", secret.name.bold());
+                        eprintln!(
+                            "Cannot create secret '{}' as it already exists. Use the `update` command instead.",
+                            secret.name.bold()
+                        );
                     }
                 }
             }

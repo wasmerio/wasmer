@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-package"
-version = "0.601.0-rc.3"
+version = "0.601.0"
 description = "Packaging related types and functions for Wasmer"
 
 authors.workspace = true
@@ -14,8 +14,8 @@ rust-version.workspace = true
 
 [dependencies]
 webc.workspace = true
-wasmer-config = { version = "0.601.0-rc.3", path = "../config" }
-wasmer-types = { version = "6.1.0-rc.3", path = "../types", features = ["detect-wasm-features"] }
+wasmer-config = { version = "0.601.0", path = "../config" }
+wasmer-types = { version = "6.1.0", path = "../types", features = ["detect-wasm-features"] }
 toml.workspace = true
 bytes.workspace = true
 sha2.workspace = true
@@ -28,11 +28,11 @@ cfg-if.workspace = true
 ciborium.workspace = true
 semver.workspace = true
 url.workspace = true
-insta = { version = "1", features = ["filters", "yaml"] }
+insta = { workspace = true, features = ["filters", "yaml"] }
 flate2.workspace = true
 tar.workspace = true
 tempfile.workspace = true
-ignore = "0.4"
+ignore.workspace = true
 
 [target.'cfg(all(target_family = "wasm", target_os = "wasi"))'.dependencies]
 libc.workspace = true
@@ -40,6 +40,6 @@ libc.workspace = true
 [dev-dependencies]
 pretty_assertions.workspace = true
 tempfile.workspace = true
-regex = "1.11.0"
-ureq = "2.10.1"
-hexdump = "0.1.2"
+regex.workspace = true
+ureq.workspace = true
+hexdump.workspace = true

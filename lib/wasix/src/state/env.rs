@@ -10,6 +10,7 @@ use std::{
 use futures::future::BoxFuture;
 use rand::Rng;
 use virtual_fs::{FileSystem, FsError, VirtualFile};
+use virtual_mio::block_on;
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
@@ -26,6 +27,8 @@ use webc::metadata::annotations::Wasi;
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
+    Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
+    WasiResult, WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
     bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand},
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
@@ -35,15 +38,12 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::task_manager::InlineWaker,
     syscalls::platform_clock_time_get,
-    Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiResult, WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
 };
 use wasmer_types::ModuleHash;
 
 pub use super::handles::*;
-use super::{conv_env_vars, Linker, WasiState};
+use super::{Linker, WasiState, conv_env_vars};
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -93,7 +93,7 @@ impl WasiEnvInit {
 
         Self {
             state: WasiState {
-                secret: rand::thread_rng().gen::<[u8; 32]>(),
+                secret: rand::thread_rng().r#gen::<[u8; 32]>(),
                 inodes,
                 fs,
                 futexs: Default::default(),
@@ -421,6 +421,7 @@ impl WasiEnv {
         let pid = self.process.pid();
 
         let mut store = store.as_store_mut();
+        let engine = self.runtime().engine();
         let mut func_env = WasiFunctionEnv::new(&mut store, self);
 
         let is_dl = super::linker::is_dynamically_linked(&module);
@@ -451,6 +452,7 @@ impl WasiEnv {
 
                     // TODO: make stack size configurable
                     Linker::new(
+                        engine,
                         &module,
                         &mut store,
                         memory,
@@ -557,17 +559,16 @@ impl WasiEnv {
         }
 
         // If this module exports an _initialize function, run that first.
-        if call_initialize {
-            if let Ok(initialize) = instance.exports.get_function("_initialize") {
-                if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
-                    func_env
-                        .data(&store)
-                        .blocking_on_exit(Some(Errno::Noexec.into()));
-                    return Err(WasiThreadError::InitFailed(Arc::new(anyhow::Error::from(
-                        err,
-                    ))));
-                }
-            }
+        if call_initialize
+            && let Ok(initialize) = instance.exports.get_function("_initialize")
+            && let Err(err) = crate::run_wasi_func_start(initialize, &mut store)
+        {
+            func_env
+                .data(&store)
+                .blocking_on_exit(Some(Errno::Noexec.into()));
+            return Err(WasiThreadError::InitFailed(Arc::new(anyhow::Error::from(
+                err,
+            ))));
         }
 
         Ok((instance, func_env))
@@ -612,11 +613,11 @@ impl WasiEnv {
         ctx: &mut FunctionEnvMut<'_, Self>,
         fast: bool,
     ) -> Result<(), WasiError> {
-        if let Some(linker) = ctx.data().inner().linker().cloned() {
-            if let Err(e) = linker.do_pending_link_operations(ctx, fast) {
-                tracing::warn!(err = ?e, "Failed to process pending link operations");
-                return Err(WasiError::Exit(Errno::Noexec.into()));
-            }
+        if let Some(linker) = ctx.data().inner().linker().cloned()
+            && let Err(e) = linker.do_pending_link_operations(ctx, fast)
+        {
+            tracing::warn!(err = ?e, "Failed to process pending link operations");
+            return Err(WasiError::Exit(Errno::Noexec.into()));
         }
         Ok(())
     }
@@ -984,7 +985,7 @@ impl WasiEnv {
         store: &'a impl AsStoreRef,
         _mem_index: u32,
     ) -> (MemoryView<'a>, &'a WasiState) {
-        let memory = self.memory_view(store);
+        let memory = unsafe { self.memory_view(store) };
         let state = self.state.deref();
         (memory, state)
     }
@@ -999,7 +1000,7 @@ impl WasiEnv {
         store: &'a impl AsStoreRef,
         _mem_index: u32,
     ) -> (MemoryView<'a>, &'a WasiState, &'a WasiInodes) {
-        let memory = self.memory_view(store);
+        let memory = unsafe { self.memory_view(store) };
         let state = self.state.deref();
         let inodes = &state.inodes;
         (memory, state, inodes)
@@ -1012,7 +1013,7 @@ impl WasiEnv {
     }
 
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
-        InlineWaker::block_on(self.use_package_async(pkg))
+        block_on(self.use_package_async(pkg))
     }
 
     /// Make all the commands in a [`BinaryPackage`] available to the WASI
@@ -1082,6 +1083,32 @@ impl WasiEnv {
                             continue;
                         }
                     }
+                    WasiFsRoot::Overlay(ofs) => {
+                        let root_fs = ofs.primary();
+
+                        if let Err(err) = root_fs
+                            .new_open_options_ext()
+                            .insert_ro_file(path, atom.clone())
+                        {
+                            tracing::debug!(
+                                "failed to add package [{}] command [{}] - {}",
+                                pkg.id,
+                                command.name(),
+                                err
+                            );
+                            continue;
+                        }
+                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
+                        {
+                            tracing::debug!(
+                                "failed to add package [{}] command [{}] - {}",
+                                pkg.id,
+                                command.name(),
+                                err
+                            );
+                            continue;
+                        }
+                    }
                     WasiFsRoot::Backing(fs) => {
                         // FIXME: we're counting on the fs being a mem_fs here. Otherwise, memory
                         // usage will be very high.
@@ -1104,8 +1131,11 @@ impl WasiEnv {
 
                 let mut package = pkg.clone();
                 package.entrypoint_cmd = Some(command.name().to_string());
+                let package_arc = Arc::new(package);
                 self.bin_factory
-                    .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
+                    .set_binary(path.to_string_lossy().as_ref(), &package_arc);
+                self.bin_factory
+                    .set_binary(path2.to_string_lossy().as_ref(), &package_arc);
 
                 tracing::debug!(
                     package=%pkg.id,
@@ -1133,13 +1163,11 @@ impl WasiEnv {
                     "package_name={package_name}, {e}",
                 ))
             })?;
-            let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(
-                |e| {
-                    WasiStateCreationError::WasiIncludePackageError(format!(
-                        "package_name={package_name}, {e}",
-                    ))
-                },
-            )?;
+            let pkg = block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(|e| {
+                WasiStateCreationError::WasiIncludePackageError(format!(
+                    "package_name={package_name}, {e}",
+                ))
+            })?;
             self.use_package(&pkg)?;
         }
 
@@ -1192,7 +1220,10 @@ impl WasiEnv {
                     continue;
                 }
             } else {
-                tracing::debug!("failed to add atom command [{}] to the root file system as it is not sandboxed", command);
+                tracing::debug!(
+                    "failed to add atom command [{}] to the root file system as it is not sandboxed",
+                    command
+                );
                 continue;
             }
         }
@@ -1203,7 +1234,7 @@ impl WasiEnv {
     #[allow(clippy::await_holding_lock)]
     pub fn blocking_on_exit(&self, process_exit_code: Option<ExitCode>) {
         let cleanup = self.on_exit(process_exit_code);
-        InlineWaker::block_on(cleanup);
+        block_on(cleanup);
     }
 
     /// Cleans up all the open files (if this is the main thread)
@@ -1219,10 +1250,10 @@ impl WasiEnv {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
             }
 
-            if self.thread.is_main() {
-                if let Err(err) = JournalEffector::save_process_exit(self, process_exit_code) {
-                    tracing::warn!("failed to save snapshot event for process exit - {}", err);
-                }
+            if self.thread.is_main()
+                && let Err(err) = JournalEffector::save_process_exit(self, process_exit_code)
+            {
+                tracing::warn!("failed to save snapshot event for process exit - {}", err);
             }
         }
 
@@ -1287,12 +1318,11 @@ impl WasiEnv {
                     .extend_from_slice(env_vars.as_slice());
             }
 
-            if let Some(args) = main_args {
-                self.state
-                    .args
-                    .lock()
-                    .unwrap()
-                    .extend_from_slice(args.as_slice());
+            if let Some(main_args) = main_args {
+                let mut args: std::sync::MutexGuard<'_, Vec<String>> =
+                    self.state.args.lock().unwrap();
+                // Insert main-args before user args
+                args.splice(1..1, main_args);
             }
 
             if let Some(exec_name) = exec_name {

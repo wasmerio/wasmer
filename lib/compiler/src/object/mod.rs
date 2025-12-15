@@ -15,13 +15,13 @@
     clippy::unicode_not_nfc,
     clippy::use_self
 )]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod error;
 mod module;
 
 pub use self::error::ObjectError;
 pub use self::module::{
-    emit_compilation, emit_data, emit_serialized, get_object_for_target, ObjectMetadataBuilder,
+    ObjectMetadataBuilder, emit_compilation, emit_data, emit_serialized, get_object_for_target,
 };
 pub use object::{self, write::Object};

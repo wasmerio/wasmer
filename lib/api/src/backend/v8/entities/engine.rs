@@ -1,10 +1,10 @@
 //! Data types, functions and traits for `sys` runtime's `Engine` implementation.
 use crate::{
-    backend::v8::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
     BackendEngine,
+    backend::v8::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
 };
 use std::sync::Arc;
-use wasmer_types::{target::Target, Features};
+use wasmer_types::{Features, target::Target};
 
 // A handle to an engine, which we want to unsafely mark as Sync.
 struct EngineCapsule(*mut wasm_engine_t);
@@ -114,9 +114,9 @@ impl crate::Engine {
 
 impl From<Engine> for crate::Engine {
     fn from(value: Engine) -> Self {
-        crate::Engine {
+        Self {
             be: BackendEngine::V8(value),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }

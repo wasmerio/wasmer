@@ -1,5 +1,7 @@
 //! This file is mainly to assure specific issues are working well
-use anyhow::Result;
+
+use anyhow::{Context, Result};
+use itertools::Itertools;
 use wasmer::FunctionEnv;
 use wasmer::*;
 
@@ -88,6 +90,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         memory: Option<Memory>,
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn banana(
         mut ctx: FunctionEnvMut<Env>,
         a: u64,
@@ -449,7 +452,6 @@ fn large_number_local(mut config: crate::Config) -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_arch = "aarch64")]
 #[compiler_test(issues)]
 /// Singlepass panics on aarch64 for long relocations.
 ///
@@ -466,38 +468,43 @@ fn issue_4519(mut config: crate::Config) -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_arch = "aarch64")]
 #[compiler_test(issues)]
 /// Singlepass panics on aarch64 for long relocations.
-/// This test specifically targets the emission of the sdiv64 binop.
+/// This test specifically targets the emission of sdiv64, srem64, urem64 binops.
 ///
 /// Note: this one is specific to Singlepass, but we want to test in all
 /// available compilers.
 ///
 /// https://github.com/wasmerio/wasmer/issues/4519
-fn issue_4519_sdiv64(mut config: crate::Config) -> Result<()> {
-    const REPEATS_TO_REPRODUCE: usize = 16_000;
+fn issue_4519_sdiv64_srem64_urem64(mut config: crate::Config) -> Result<()> {
+    const REPEATS_TO_REPRODUCE: usize = 30_000;
 
-    let sdiv64 = r#"
-        i64.const 3155225962131072202
-        i64.const -6717269760755396770
-        i64.div_s
-        drop
-    "#;
+    let ops = ["i64.div_s", "i64.rem_s", "i64.rem_u"];
 
-    let wat = format!(
-        r#"
-      (module
-        (func (;0;)
-            {}
+    for op in ops {
+        let sdiv64 = format!(
+            r#"
+            i64.const 3155225962131072202
+            i64.const -6717269760755396770
+            {op}
+            drop
+        "#
+        );
+
+        let wat = format!(
+            r#"
+        (module
+            (func (;0;)
+                {}
+            )
         )
-      )
-    "#,
-        sdiv64.repeat(REPEATS_TO_REPRODUCE)
-    );
+        "#,
+            sdiv64.repeat(REPEATS_TO_REPRODUCE)
+        );
 
-    let mut store = config.store();
-    let module = Module::new(&store, wat)?;
+        let mut store = config.store();
+        let module = Module::new(&store, wat)?;
+    }
 
     Ok(())
 }
@@ -525,4 +532,80 @@ fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
     let _ = Module::new(&store, wat);
 
     Ok(())
+}
+
+fn gen_wat_sum_function(arguments: usize) -> String {
+    assert!(arguments > 0);
+    let arg_types = std::iter::repeat_n("i64", arguments).collect_vec();
+    let params = (0..arguments)
+        .map(|idx| format!("(param $p{} i64)", idx + 1))
+        .collect_vec();
+    let fn_body = (2..=arguments)
+        .map(|idx| format!("local.get $p{idx}\ni64.add"))
+        .collect_vec();
+
+    format!(
+        r#"
+    (module
+    (type $sum_t (func (param {}) (result i64)))
+    (func $sum_f (type $sum_t)
+    {}
+    (result i64)
+    local.get $p1
+    {}
+    )
+    (export "sum" (func $sum_f)))
+    "#,
+        arg_types.join(" "),
+        params.join(" "),
+        fn_body.join("\n")
+    )
+}
+
+#[compiler_test(issues)]
+fn huge_number_of_arguments_fn(
+    mut config: crate::Config,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for params in [1, 10, 100, 500, 1000] {
+        println!("Testing sum fn with {params} parameters");
+        let mut store = config.store();
+        let wat_body = gen_wat_sum_function(params as usize);
+        let wat = wat2wasm(wat_body.as_bytes())
+            .with_context(|| format!("Cannot build sum function with {params} parameters"))?;
+
+        let mut env = FunctionEnv::new(&mut store, ());
+        let module = Module::new(&store, wat).unwrap();
+        let imports: Imports = imports! {};
+        let instance = Instance::new(&mut store, &module, &imports)?;
+        let args = (1..=params).map(Value::I64).collect_vec();
+        let result = instance
+            .exports
+            .get_function("sum")?
+            .call(&mut store, &args)
+            .unwrap();
+        assert_eq!(&Value::I64((1..=params).sum()), result.first().unwrap());
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn compiler_debug_dir_test(mut config: crate::Config) {
+    use tempfile::TempDir;
+    use wasmer_compiler::EngineBuilder;
+    use wasmer_compiler_llvm::LLVMCallbacks;
+
+    let mut compiler_config = wasmer_compiler_llvm::LLVM::default();
+    let temp = TempDir::new().expect("temp folder creation failed");
+    compiler_config.callbacks(Some(LLVMCallbacks::new(temp.path().to_path_buf()).unwrap()));
+    let mut store = Store::new(EngineBuilder::new(compiler_config));
+
+    let mut wat = include_str!("../wast/spec/fac.wast").to_string();
+    wat.truncate(
+        wat.find("(assert_return")
+            .expect("assert expected in the test"),
+    );
+
+    assert!(Module::new(&store, wat).is_ok());
 }

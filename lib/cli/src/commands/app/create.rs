@@ -10,13 +10,14 @@ use std::{
 
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::{theme::ColorfulTheme, Confirm, Select};
+use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use futures::stream::TryStreamExt;
 use indexmap::IndexMap;
-use is_terminal::IsTerminal;
+use path_clean::PathClean;
+use std::io::IsTerminal as _;
 use wasmer_backend_api::{
-    types::{AppTemplate, TemplateLanguage},
     WasmerClient,
+    types::{AppTemplate, TemplateLanguage},
 };
 use wasmer_config::{app::AppConfigV1, package::PackageSource};
 
@@ -28,7 +29,10 @@ use crate::{
     utils::{load_package_manifest, prompts::PackageCheckMode},
 };
 
-async fn write_app_config(app_config: &AppConfigV1, dir: Option<PathBuf>) -> anyhow::Result<()> {
+pub(crate) async fn write_app_config(
+    app_config: &AppConfigV1,
+    dir: Option<PathBuf>,
+) -> anyhow::Result<()> {
     let raw_app_config = app_config.clone().to_yaml()?;
 
     let app_dir = match dir {
@@ -47,6 +51,28 @@ async fn write_app_config(app_config: &AppConfigV1, dir: Option<PathBuf>) -> any
                 app_config_path.display()
             )
         })
+}
+
+pub(crate) fn minimal_app_config(owner: &str, name: &str) -> AppConfigV1 {
+    AppConfigV1 {
+        name: Some(String::from(name)),
+        owner: Some(String::from(owner)),
+        package: PackageSource::Path(String::from(".")),
+        app_id: None,
+        domains: None,
+        env: IndexMap::new(),
+        cli_args: None,
+        capabilities: None,
+        scheduled_tasks: None,
+        volumes: None,
+        health_checks: None,
+        debug: None,
+        scaling: None,
+        locality: None,
+        redirect: None,
+        extra: IndexMap::new(),
+        jobs: None,
+    }
 }
 
 /// Create a new Edge app.
@@ -209,7 +235,9 @@ impl CmdAppCreate {
             if self.non_interactive {
                 if !self.quiet {
                     eprintln!("The current directory is not empty.");
-                    eprintln!("Use the `--dir` flag to specify another directory, or remove files from the currently selected one.")
+                    eprintln!(
+                        "Use the `--dir` flag to specify another directory, or remove files from the currently selected one."
+                    )
                 }
                 anyhow::bail!("Stopping as the directory is not empty")
             } else {
@@ -246,7 +274,10 @@ impl CmdAppCreate {
         let (manifest_path, _) = if let Some(res) = load_package_manifest(&app_dir)? {
             res
         } else if self.use_local_manifest {
-            anyhow::bail!("The --use_local_manifest flag was passed, but path {} does not contain a valid package manifest.", app_dir.display())
+            anyhow::bail!(
+                "The --use_local_manifest flag was passed, but path {} does not contain a valid package manifest.",
+                app_dir.display()
+            )
         } else {
             return Ok(false);
         };
@@ -265,7 +296,7 @@ impl CmdAppCreate {
         if self.use_local_manifest || ask_confirmation()? {
             let app_config = self.get_app_config(owner, app_name, ".");
             write_app_config(&app_config, self.app_dir_path.clone()).await?;
-            self.try_deploy(owner, app_name, None).await?;
+            self.try_deploy(owner, app_name, None, false, false).await?;
             return Ok(true);
         }
 
@@ -287,7 +318,8 @@ impl CmdAppCreate {
         if let Some(pkg) = &self.package {
             let app_config = self.get_app_config(owner, app_name, pkg);
             write_app_config(&app_config, Some(output_path.clone())).await?;
-            self.try_deploy(owner, app_name, Some(&output_path)).await?;
+            self.try_deploy(owner, app_name, Some(&output_path), false, false)
+                .await?;
             return Ok(true);
         } else if !self.non_interactive {
             let (package_id, _) = crate::utils::prompts::prompt_for_package(
@@ -304,7 +336,8 @@ impl CmdAppCreate {
 
             let app_config = self.get_app_config(owner, app_name, &package_id.to_string());
             write_app_config(&app_config, Some(output_path.clone())).await?;
-            self.try_deploy(owner, app_name, Some(&output_path)).await?;
+            self.try_deploy(owner, app_name, Some(&output_path), false, false)
+                .await?;
             return Ok(true);
         } else {
             eprintln!(
@@ -374,11 +407,11 @@ impl CmdAppCreate {
             None => return Ok(Vec::new()),
         };
 
-        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first()) {
-            if a == b {
-                // Cached items are up to date, no need to query more.
-                return Ok(cached_items);
-            }
+        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first())
+            && a == b
+        {
+            // Cached items are up to date, no need to query more.
+            return Ok(cached_items);
         }
 
         let mut items = first_page;
@@ -456,11 +489,11 @@ impl CmdAppCreate {
             None => return Ok(Vec::new()),
         };
 
-        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first()) {
-            if a == b {
-                // Cached items are up to date, no need to query more.
-                return Ok(cached_items);
-            }
+        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first())
+            && a == b
+        {
+            // Cached items are up to date, no need to query more.
+            return Ok(cached_items);
         }
 
         let mut items = first_page;
@@ -485,17 +518,22 @@ impl CmdAppCreate {
     }
 
     // A utility function used to fetch the URL of the template to use.
-    async fn get_template_url(&self, client: &WasmerClient) -> anyhow::Result<url::Url> {
-        let mut url = if let Some(template) = &self.template {
+    async fn get_template_url(
+        &self,
+        client: &WasmerClient,
+    ) -> anyhow::Result<(url::Url, Option<PathBuf>)> {
+        let (mut url, selected_template): (url::Url, Option<AppTemplate>) = if let Some(template) =
+            &self.template
+        {
             if let Ok(url) = url::Url::parse(template) {
-                url
+                (url, None)
             } else if let Some(template) =
                 wasmer_backend_api::query::fetch_app_template_from_slug(client, template.clone())
                     .await?
             {
-                url::Url::parse(&template.repo_url)?
+                (url::Url::parse(&template.repo_url)?, Some(template))
             } else {
-                anyhow::bail!("Template '{}' not found in the registry", template)
+                anyhow::bail!("Template '{template}' not found in the registry")
             }
         } else {
             if self.non_interactive {
@@ -572,18 +610,36 @@ impl CmdAppCreate {
                 )
             }
 
-            url::Url::parse(&selected_template.repo_url)?
+            (
+                url::Url::parse(&selected_template.repo_url)?,
+                Some(selected_template.clone()),
+            )
         };
 
         let url = if url.path().contains("archive/refs/heads") || url.path().contains("/zipball/") {
             url
         } else {
             let old_path = url.path();
-            url.set_path(&format!("{old_path}/zipball/main"));
+            let branch = if let Some(ref template) = selected_template {
+                template.branch.clone().unwrap_or("main".to_string())
+            } else {
+                "main".to_string()
+            };
+            url.set_path(&format!("{old_path}/zipball/{branch}"));
             url
         };
 
-        Ok(url)
+        if let Some(ref template) = selected_template
+            && let Some(root_dir) = &template.root_dir
+        {
+            let mut path_root_dir = PathBuf::from(root_dir);
+            if path_root_dir.is_absolute() {
+                path_root_dir = path_root_dir.strip_prefix("/")?.to_path_buf();
+            }
+            return Ok((url, Some(path_root_dir)));
+        }
+
+        Ok((url, None))
     }
 
     async fn create_from_template(
@@ -594,12 +650,17 @@ impl CmdAppCreate {
     ) -> anyhow::Result<bool> {
         let client = match client {
             Some(client) => client,
-            None => anyhow::bail!("Cannot"),
+            None => anyhow::bail!("Cannot create app from template in offline mode"),
         };
 
-        let url = self.get_template_url(client).await?;
-
-        tracing::info!("Downloading template from url {url}");
+        let (url, mut root_dir) = self.get_template_url(client).await?;
+        root_dir = root_dir.map(|v| v.clean());
+        let root_dir_str = if let Some(ref root_dir) = root_dir {
+            root_dir.display().to_string()
+        } else {
+            "./".to_string()
+        };
+        tracing::info!("Downloading template from url {url}, using root dir {root_dir_str}");
 
         let output_path = self.get_output_dir(app_name).await?;
         let pb = indicatif::ProgressBar::new_spinner();
@@ -611,16 +672,17 @@ impl CmdAppCreate {
                 .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]),
         );
 
-        pb.set_message("Downloading package..");
+        pb.set_message("Downloading template...");
 
         let response = reqwest::get(url).await?;
         let bytes = response.bytes().await?;
-        pb.set_message("Unpacking the template..");
+        pb.set_message("Unpacking the template...");
 
         let cursor = Cursor::new(bytes);
         let mut archive = zip::ZipArchive::new(cursor)?;
 
         // Extract the files to the output path
+        // If root dir is specified, extract only the files inside of the root dir
         for entry in 0..archive.len() {
             let mut entry = archive
                 .by_index(entry)
@@ -628,22 +690,30 @@ impl CmdAppCreate {
 
             let path = entry.mangled_name();
 
-            let path: PathBuf = {
+            // We skip the top-level directory, as Github archives always contain a top-level directory
+            // named after the repository name and latest commit hash.
+            let mut path: PathBuf = {
                 let mut components = path.components();
                 components.next();
                 components.collect()
             };
 
-            if path.to_str().unwrap_or_default().contains(".github") {
-                continue;
+            tracing::info!("Extracting file {path:?}");
+
+            if let Some(ref root_dir) = root_dir {
+                if !path.clean().starts_with(root_dir) {
+                    continue;
+                } else {
+                    path = path.strip_prefix(root_dir)?.to_path_buf();
+                }
             }
 
             let path = output_path.join(path);
 
-            if let Some(parent) = path.parent() {
-                if !parent.exists() {
-                    std::fs::create_dir_all(parent)?;
-                }
+            if let Some(parent) = path.parent()
+                && !parent.exists()
+            {
+                std::fs::create_dir_all(parent)?;
             }
 
             if !path.exists() {
@@ -687,6 +757,9 @@ impl CmdAppCreate {
             AppConfigV1::parse_yaml(&raw_app)?;
 
             tokio::fs::write(&app_yaml_path, raw_app).await?;
+        } else {
+            let app_config = minimal_app_config(owner, app_name);
+            write_app_config(&app_config, Some(output_path.clone())).await?;
         }
 
         let build_md_path = output_path.join("BUILD.md");
@@ -712,7 +785,8 @@ the app:\n"
                 format!("{bin_name} deploy").bold()
             )
         } else {
-            self.try_deploy(owner, app_name, Some(&output_path)).await?;
+            self.try_deploy(owner, app_name, Some(&output_path), false, false)
+                .await?;
         }
 
         Ok(true)
@@ -723,16 +797,23 @@ the app:\n"
         owner: &str,
         app_name: &str,
         path: Option<&Path>,
+        build_remote: bool,
+        skip_prompt: bool,
     ) -> anyhow::Result<()> {
         let interactive = !self.non_interactive;
         let theme = dialoguer::theme::ColorfulTheme::default();
 
-        if self.deploy_app
-            || (interactive
-                && Confirm::with_theme(&theme)
-                    .with_prompt("Do you want to deploy the app now?")
-                    .interact()?)
-        {
+        let mut should_deploy = self.deploy_app;
+
+        if skip_prompt {
+            should_deploy = true;
+        } else if !should_deploy && interactive {
+            should_deploy = Confirm::with_theme(&theme)
+                .with_prompt("Do you want to deploy the app now?")
+                .interact()?;
+        }
+
+        if should_deploy {
             let cmd_deploy = CmdAppDeploy {
                 quiet: false,
                 env: self.env.clone(),
@@ -741,7 +822,7 @@ the app:\n"
                 },
                 no_validate: false,
                 non_interactive: self.non_interactive,
-                publish_package: true,
+                publish_package: !build_remote,
                 dir: self.app_dir_path.clone(),
                 path: path.map(|v| v.to_path_buf()),
                 no_wait: self.no_wait,
@@ -750,9 +831,11 @@ the app:\n"
                 owner: Some(String::from(owner)),
                 app_name: Some(app_name.into()),
                 bump: false,
+                build_remote,
                 template: None,
                 package: None,
                 use_local_manifest: self.use_local_manifest,
+                ensure_app_config: true,
             };
             cmd_deploy.run_async().await?;
         }
@@ -799,21 +882,56 @@ impl AsyncCliCommand for CmdAppCreate {
                         .await?;
                 } else {
                     let theme = ColorfulTheme::default();
+                    let working_dir = if let Some(dir) = &self.app_dir_path {
+                        dir.clone()
+                    } else {
+                        std::env::current_dir()?
+                    };
+
+                    let remote_option_available = working_dir.is_dir()
+                        && std::fs::read_dir(&working_dir)?.next().is_some()
+                        && !working_dir.join(AppConfigV1::CANONICAL_FILE_NAME).exists()
+                        && load_package_manifest(&working_dir)?.is_none();
+
+                    let mut items = Vec::new();
+                    let mut remote_idx = None;
+                    if remote_option_available {
+                        remote_idx = Some(items.len());
+                        items.push(String::from(
+                            "Deploy the current directory with a remote build",
+                        ));
+                    }
+                    let template_idx = items.len();
+                    items.push(String::from("Start with a template"));
+                    let package_idx = items.len();
+                    items.push(String::from("Choose an existing package"));
+
                     let choice = Select::with_theme(&theme)
                         .with_prompt("What would you like to deploy?")
-                        .items(&["Start with a template", "Choose an existing package"])
+                        .items(&items)
                         .default(0)
                         .interact()?;
-                    match choice {
-                        0 => {
-                            self.create_from_template(client.as_ref(), &owner, &app_name)
-                                .await?
-                        }
-                        1 => {
-                            self.create_from_package(client.as_ref(), &owner, &app_name)
-                                .await?
-                        }
-                        x => panic!("unhandled selection {x}"),
+
+                    if remote_idx.is_some() && Some(choice) == remote_idx {
+                        let app_config = minimal_app_config(owner.as_str(), app_name.as_str());
+                        write_app_config(&app_config, Some(working_dir.clone())).await?;
+                        self.try_deploy(
+                            owner.as_str(),
+                            app_name.as_str(),
+                            Some(&working_dir),
+                            true,
+                            true,
+                        )
+                        .await?;
+                        return Ok(());
+                    } else if choice == template_idx {
+                        self.create_from_template(client.as_ref(), &owner, &app_name)
+                            .await?
+                    } else if choice == package_idx {
+                        self.create_from_package(client.as_ref(), &owner, &app_name)
+                            .await?
+                    } else {
+                        panic!("unhandled selection {choice}");
                     };
                 }
             } else {

@@ -5,8 +5,8 @@
 //! signature checking.
 
 use crate::vmcontext::VMSharedSignatureIndex;
-use more_asserts::{assert_lt, debug_assert_lt};
-use std::collections::{hash_map, HashMap};
+use more_asserts::debug_assert_lt;
+use std::collections::{HashMap, hash_map};
 use std::convert::TryFrom;
 use std::sync::RwLock;
 use wasmer_types::FunctionType;

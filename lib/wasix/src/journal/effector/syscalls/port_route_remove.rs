@@ -19,9 +19,7 @@ impl JournalEffector {
             .unwrap_or_else(|err| Err(err.to_string()))
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to remove route (ip={}) - {}",
-                    ip,
-                    err
+                    "journal restore error: failed to remove route (ip={ip}) - {err}"
                 )
             })?;
         Ok(())

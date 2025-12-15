@@ -42,8 +42,8 @@ pub enum ModuleHash {
 impl loupe::MemoryUsage for ModuleHash {
     fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
         match self {
-            ModuleHash::XXHash(_) => 8 * 8,
-            ModuleHash::Sha256(_) => 8 * 32,
+            Self::XXHash(_) => 8 * 8,
+            Self::Sha256(_) => 8 * 32,
         }
     }
 }

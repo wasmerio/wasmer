@@ -1,13 +1,13 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use anyhow::anyhow;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 
 use indexmap::IndexMap;
 
 use crate::package::PackageSource;
 
-use super::{pretty_duration::PrettyDuration, AppConfigCapabilityMemoryV1, AppVolume, HttpRequest};
+use super::{AppConfigCapabilityMemoryV1, AppVolume, HttpRequest, pretty_duration::PrettyDuration};
 
 /// Job configuration.
 #[derive(
@@ -182,15 +182,20 @@ impl FromStr for JobTrigger {
             Ok(Self::PreDeployment)
         } else if s == "post-deployment" {
             Ok(Self::PostDeployment)
-        } else if let Ok(expr) = s.parse::<CronExpression>() {
-            Ok(Self::Cron(expr))
-        } else if let Ok(duration) = s.parse::<PrettyDuration>() {
-            Ok(Self::Duration(duration))
         } else {
-            Err(anyhow!(
-                "Invalid job trigger '{s}'. Must be 'pre-deployment', 'post-deployment', \
+            match s.parse::<CronExpression>() {
+                Ok(expr) => Ok(Self::Cron(expr)),
+                _ => {
+                    if let Ok(duration) = s.parse::<PrettyDuration>() {
+                        Ok(Self::Duration(duration))
+                    } else {
+                        Err(anyhow!(
+                            "Invalid job trigger '{s}'. Must be 'pre-deployment', 'post-deployment', \
                 a valid cron expression such as '0 */5 * * *' or a duration such as '15m'.",
-            ))
+                        ))
+                    }
+                }
+            }
         }
     }
 }
@@ -237,12 +242,16 @@ impl FromStr for CronExpression {
 }
 
 impl schemars::JsonSchema for JobTrigger {
-    fn schema_name() -> String {
-        "JobTrigger".to_owned()
+    fn schema_id() -> Cow<'static, str> {
+        Cow::Borrowed("JobTrigger")
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        String::json_schema(generator)
+    }
+
+    fn schema_name() -> Cow<'static, str> {
+        Self::schema_id()
     }
 }
 
@@ -343,7 +352,7 @@ mod tests {
                     env: Some([("VAR1".to_owned(), "Value".to_owned())].into()),
                     capabilities: Some(super::ExecutableJobCompatibilityMapV1 {
                         memory: Some(crate::app::AppConfigCapabilityMemoryV1 {
-                            limit: Some(bytesize::ByteSize::gb(1)),
+                            limit: Some(bytesize::ByteSize::gib(1)),
                         }),
                         other: Default::default(),
                     }),
@@ -358,9 +367,9 @@ mod tests {
 
         let serialized = r#"
 name: my-job
-trigger: '0/2 12 * JAN-APR 2'
-timeout: '1m'
-max_schedule_drift: '2h'
+trigger: 0/2 12 * JAN-APR 2
+timeout: 1m
+max_schedule_drift: 2h
 action:
   execute:
     package: ns/pkg
@@ -372,7 +381,7 @@ action:
       VAR1: Value
     capabilities:
       memory:
-        limit: '1000.0 MB'
+        limit: 1.0 GiB
     volumes:
     - name: vol
       mount: /path/to/volume"#;

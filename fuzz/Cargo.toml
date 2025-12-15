@@ -3,22 +3,22 @@ name = "wasmer-bin-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
-edition = "2018"
+edition.workspace = true
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-anyhow = "1"
-wasm-smith = "0.4.4"
-libfuzzer-sys = "0.4.0"
+anyhow.workspace = true
+wasm-smith.workspace = true
+libfuzzer-sys.workspace = true
 wasmer = { path = "../lib/api" }
 wasmer-compiler-cranelift = { path = "../lib/compiler-cranelift", optional = true }
 wasmer-compiler-llvm = { path = "../lib/compiler-llvm", optional = true }
 wasmer-compiler-singlepass = { path = "../lib/compiler-singlepass", optional = true }
 wasmer-compiler = { path = "../lib/compiler", optional = true }
 wasmer-middlewares = { path = "../lib/middlewares" }
-wasmprinter = "0.2"
+wasmprinter.workspace = true
 
 [features]
 cranelift = [ "wasmer-compiler-cranelift" ]

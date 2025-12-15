@@ -15,13 +15,13 @@ use wasmer_config::package::PackageId;
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, DynReadableJournal, SnapshotTrigger};
 use crate::{
+    Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
 };
 use wasmer_types::ModuleHash;
 use wasmer_wasix_types::wasi::SignalDisposition;
@@ -698,20 +698,24 @@ impl WasiEnvBuilder {
     /// Sets the FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-    pub fn fs(mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) -> Self {
+    pub fn fs(mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) -> Self {
         self.set_fs(fs);
         self
     }
 
-    pub fn set_fs(&mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) {
-        self.fs = Some(WasiFsRoot::Backing(Arc::new(fs)));
+    pub fn set_fs(&mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) {
+        self.fs = Some(WasiFsRoot::Backing(fs.into()));
+    }
+
+    pub(crate) fn set_fs_root(&mut self, fs: WasiFsRoot) {
+        self.fs = Some(fs);
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
     pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
-        self.fs = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
+        self.fs = Some(WasiFsRoot::Sandbox(fs));
         self
     }
 
@@ -783,7 +787,7 @@ impl WasiEnvBuilder {
     /// Returns the error from `WasiFs::new` if there's an error
     ///
     /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
-    /// Use [`WasiEnvBuilder::run`] or [`WasiEnvBuilder::run_with_store`] instead
+    /// Use [`WasiEnvBuilder::build`] or [`WasiEnvBuilder::instantiate`] instead
     /// to ensure proper invokation of WASI modules.
     pub fn build_init(mut self) -> Result<WasiEnvInit, WasiStateCreationError> {
         for arg in self.args.iter() {
@@ -812,19 +816,19 @@ impl WasiEnvBuilder {
                 Some(InvalidCharacter::Nul) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                         format!("found nul byte in env var key \"{env_key}\" (key=value)"),
-                    ))
+                    ));
                 }
 
                 Some(InvalidCharacter::Equal) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                         format!("found equal sign in env var key \"{env_key}\" (key=value)"),
-                    ))
+                    ));
                 }
 
                 None => (),
             }
 
-            if env_value.iter().any(|&ch| ch == 0) {
+            if env_value.contains(&0) {
                 return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                     format!(
                         "found nul byte in env var value \"{}\" (key=value)",
@@ -843,7 +847,7 @@ impl WasiEnvBuilder {
         let fs_backing = self
             .fs
             .take()
-            .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
+            .unwrap_or_else(|| WasiFsRoot::Sandbox(TmpFileSystem::new()));
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {
@@ -914,7 +918,7 @@ impl WasiEnvBuilder {
 
         let state = WasiState {
             fs: wasi_fs,
-            secret: rand::thread_rng().gen::<[u8; 32]>(),
+            secret: rand::thread_rng().r#gen::<[u8; 32]>(),
             inodes,
             args: std::sync::Mutex::new(self.args.clone()),
             preopen: self.vfs_preopens.clone(),

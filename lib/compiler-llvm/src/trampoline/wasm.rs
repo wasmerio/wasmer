@@ -1,11 +1,15 @@
+// TODO: Remove
+#![allow(unused)]
+
 use crate::{
-    abi::{get_abi, Abi, G0M0FunctionKind},
-    config::{CompiledKind, LLVM},
+    abi::{Abi, G0M0FunctionKind, get_abi},
+    config::LLVM,
     error::{err, err_nt},
-    object_file::{load_object_file, CompiledFunction},
-    translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics},
+    object_file::{CompiledFunction, load_object_file},
+    translator::intrinsics::{Intrinsics, type_to_llvm, type_to_llvm_ptr},
 };
 use inkwell::{
+    AddressSpace, DLLStorageClass,
     attributes::{Attribute, AttributeLoc},
     context::Context,
     module::{Linkage, Module},
@@ -13,14 +17,21 @@ use inkwell::{
     targets::{FileType, TargetMachine},
     types::FunctionType,
     values::{BasicMetadataValueEnum, FunctionValue},
-    AddressSpace, DLLStorageClass,
 };
 use std::{cmp, convert::TryInto};
 use target_lexicon::BinaryFormat;
-use wasmer_compiler::types::{
-    function::FunctionBody, module::CompileModuleInfo, relocation::RelocationTarget,
+use wasmer_compiler::{
+    misc::CompiledKind,
+    types::{
+        function::FunctionBody,
+        module::CompileModuleInfo,
+        relocation::{Relocation, RelocationTarget},
+        section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
+    },
 };
-use wasmer_types::{CompileError, FunctionType as FuncType, LocalFunctionIndex};
+use wasmer_types::{
+    CompileError, FunctionIndex, FunctionType as FuncType, LocalFunctionIndex, entity::PrimaryMap,
+};
 use wasmer_vm::MemoryStyle;
 
 pub struct FuncTrampoline {
@@ -50,7 +61,7 @@ impl FuncTrampoline {
                 _ => {
                     return Err(CompileError::UnsupportedTarget(format!(
                         "Unsupported binary format: {binary_fmt:?}",
-                    )))
+                    )));
                 }
             },
             binary_fmt,
@@ -63,7 +74,7 @@ impl FuncTrampoline {
         config: &LLVM,
         name: &str,
         compile_info: &CompileModuleInfo,
-    ) -> Result<Module, CompileError> {
+    ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledKind::FunctionCallTrampoline(ty.clone());
         let module = self.ctx.create_module("");
@@ -172,6 +183,19 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
+
+        // Use a dummy function index to detect relocations against the trampoline
+        // function's address, which shouldn't exist and are not supported.
+        // Note, we just drop all custom sections, and verify that the function
+        // body itself has no relocations at all. This value should never be
+        // touched at all. However, it is set up so that if we do touch it (maybe
+        // due to someone changing the code later on), it'll explode, which is desirable!
+        let dummy_reloc_target =
+            RelocationTarget::DynamicTrampoline(FunctionIndex::from_u32(u32::MAX - 1));
+
+        // Note: we don't count .gcc_except_table here because native-to-wasm
+        // trampolines are not supposed to generate any LSDA sections. We *want* them
+        // to terminate libunwind's stack searches.
         let CompiledFunction {
             compiled_function,
             custom_sections,
@@ -181,7 +205,7 @@ impl FuncTrampoline {
         } = load_object_file(
             mem_buf_slice,
             &self.func_section,
-            RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(0)),
+            dummy_reloc_target,
             |name: &str| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {name}",
@@ -226,7 +250,7 @@ impl FuncTrampoline {
         ty: &FuncType,
         config: &LLVM,
         name: &str,
-    ) -> Result<Module, CompileError> {
+    ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let module = self.ctx.create_module("");
@@ -241,6 +265,8 @@ impl FuncTrampoline {
             self.abi
                 .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, None)?;
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
+        trampoline_func.set_personality_function(intrinsics.personality);
+        trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
@@ -280,11 +306,19 @@ impl FuncTrampoline {
 
         Ok(module)
     }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn dynamic_trampoline(
         &self,
         ty: &FuncType,
         config: &LLVM,
         name: &str,
+        dynamic_trampoline_index: u32,
+        final_module_custom_sections: &mut PrimaryMap<SectionIndex, CustomSection>,
+        eh_frame_section_bytes: &mut Vec<u8>,
+        eh_frame_section_relocations: &mut Vec<Relocation>,
+        compact_unwind_section_bytes: &mut Vec<u8>,
+        compact_unwind_section_relocations: &mut Vec<Relocation>,
     ) -> Result<FunctionBody, CompileError> {
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let target_machine = &self.target_machine;
@@ -308,12 +342,12 @@ impl FuncTrampoline {
             compiled_function,
             custom_sections,
             eh_frame_section_indices,
-            mut compact_unwind_section_indices,
-            ..
+            compact_unwind_section_indices,
+            gcc_except_table_section_indices,
         } = load_object_file(
             mem_buf_slice,
             &self.func_section,
-            RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(0)),
+            RelocationTarget::DynamicTrampoline(FunctionIndex::from_u32(dynamic_trampoline_index)),
             |name: &str| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {name}",
@@ -321,32 +355,72 @@ impl FuncTrampoline {
             },
             self.binary_fmt,
         )?;
-        let mut all_sections_are_eh_sections = true;
-        let mut unwind_section_indices = eh_frame_section_indices;
-        unwind_section_indices.append(&mut compact_unwind_section_indices);
 
-        if unwind_section_indices.len() != custom_sections.len() {
-            all_sections_are_eh_sections = false;
-        } else {
-            unwind_section_indices.sort_unstable();
-            for (idx, section_idx) in unwind_section_indices.iter().enumerate() {
-                if idx as u32 != section_idx.as_u32() {
-                    all_sections_are_eh_sections = false;
-                    break;
-                }
-            }
-        }
-        if !all_sections_are_eh_sections {
-            return Err(CompileError::Codegen(
-                "trampoline generation produced non-eh custom sections".into(),
-            ));
-        }
         if !compiled_function.relocations.is_empty() {
             return Err(CompileError::Codegen(
                 "trampoline generation produced relocations".into(),
             ));
         }
         // Ignore CompiledFunctionFrameInfo. Extra frame info isn't a problem.
+
+        // Also append EH-related sections to the final module, since we expect
+        // dynamic trampolines to participate in unwinding
+        {
+            let first_section = final_module_custom_sections.len() as u32;
+            for (section_index, mut custom_section) in custom_sections.into_iter() {
+                for reloc in &mut custom_section.relocations {
+                    if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
+                        reloc.reloc_target = RelocationTarget::CustomSection(
+                            SectionIndex::from_u32(first_section + index.as_u32()),
+                        )
+                    }
+
+                    if reloc.kind.needs_got() {
+                        return Err(CompileError::Codegen(
+                            "trampoline generation produced GOT relocation".into(),
+                        ));
+                    }
+                }
+
+                if eh_frame_section_indices.contains(&section_index) {
+                    let offset = eh_frame_section_bytes.len() as u32;
+                    for reloc in &mut custom_section.relocations {
+                        reloc.offset += offset;
+                    }
+                    eh_frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
+                    // Terminate the eh_frame info with a zero-length CIE.
+                    eh_frame_section_bytes.extend_from_slice(&[0, 0, 0, 0]);
+                    eh_frame_section_relocations.extend(custom_section.relocations);
+                    // TODO: we do this to keep the count right, remove it.
+                    final_module_custom_sections.push(CustomSection {
+                        protection: CustomSectionProtection::Read,
+                        alignment: None,
+                        bytes: SectionBody::new_with_vec(vec![]),
+                        relocations: vec![],
+                    });
+                } else if compact_unwind_section_indices.contains(&section_index) {
+                    let offset = compact_unwind_section_bytes.len() as u32;
+                    for reloc in &mut custom_section.relocations {
+                        reloc.offset += offset;
+                    }
+                    compact_unwind_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
+                    compact_unwind_section_relocations.extend(custom_section.relocations);
+                    // TODO: we do this to keep the count right, remove it.
+                    final_module_custom_sections.push(CustomSection {
+                        protection: CustomSectionProtection::Read,
+                        alignment: None,
+                        bytes: SectionBody::new_with_vec(vec![]),
+                        relocations: vec![],
+                    });
+                } else if gcc_except_table_section_indices.contains(&section_index) {
+                    final_module_custom_sections.push(custom_section);
+                } else {
+                    return Err(CompileError::Codegen(
+                        "trampoline generation produced non-eh custom sections".into(),
+                    ));
+                }
+            }
+        }
 
         Ok(FunctionBody {
             body: compiled_function.body.body,
@@ -380,7 +454,7 @@ impl FuncTrampoline {
                 _ => {
                     return Err(CompileError::Codegen(
                         "trampoline function unimplemented".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -431,10 +505,8 @@ impl FuncTrampoline {
                 let global_ptr_ptr =
                     err!(builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
-                let global_ptr = err!(builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
-                    .into_pointer_value();
 
-                global_ptr
+                err!(builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, "")).into_pointer_value()
             };
 
             let global_ptr = err!(builder.build_bit_cast(
@@ -483,11 +555,9 @@ impl FuncTrampoline {
                 let memory_definition_ptr_ptr =
                     err!(builder.build_bit_cast(memory_definition_ptr_ptr, intrinsics.ptr_ty, "",))
                         .into_pointer_value();
-                let memory_definition_ptr =
-                    err!(builder.build_load(intrinsics.ptr_ty, memory_definition_ptr_ptr, ""))
-                        .into_pointer_value();
 
-                memory_definition_ptr
+                err!(builder.build_load(intrinsics.ptr_ty, memory_definition_ptr_ptr, ""))
+                    .into_pointer_value()
             };
             let memory_definition_ptr =
                 err!(builder.build_bit_cast(memory_definition_ptr, intrinsics.ptr_ty, "",))
@@ -503,10 +573,7 @@ impl FuncTrampoline {
             let base_ptr = if let MemoryStyle::Dynamic { .. } = memory_style {
                 base_ptr
             } else {
-                let base_ptr =
-                    err!(builder.build_load(intrinsics.ptr_ty, base_ptr, "")).into_pointer_value();
-
-                base_ptr
+                err!(builder.build_load(intrinsics.ptr_ty, base_ptr, "")).into_pointer_value()
             };
 
             base_ptr.set_name("trmpl_m0_base_ptr");
@@ -609,12 +676,14 @@ impl FuncTrampoline {
                 ""
             ))
             .into_pointer_value();
-            err!(builder.build_store(
-                ptr,
-                trampoline_func
-                    .get_nth_param(i as u32 + first_user_param)
-                    .unwrap(),
-            ));
+            err!(
+                builder.build_store(
+                    ptr,
+                    trampoline_func
+                        .get_nth_param(i as u32 + first_user_param)
+                        .unwrap(),
+                )
+            );
         }
 
         let callee_ptr_ty = intrinsics.void_ty.fn_type(

@@ -4,7 +4,7 @@ pub(crate) use view::*;
 pub(crate) mod buffer;
 pub(crate) use buffer::*;
 
-use crate::{jsc::vm::VMMemory, vm::VMExtern, AsStoreMut, AsStoreRef, BackendMemory};
+use crate::{AsStoreMut, AsStoreRef, BackendMemory, jsc::vm::VMMemory, vm::VMExtern};
 use rusty_jsc::{JSObject, JSValue};
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
@@ -42,30 +42,30 @@ impl Memory {
         let engine = store_ref.engine();
         let context = engine.as_jsc().context();
 
-        let mut descriptor = JSObject::new(&context);
+        let mut descriptor = JSObject::new(context);
         descriptor.set_property(
-            &context,
+            context,
             "initial".to_string(),
-            JSValue::number(&context, ty.minimum.0.into()),
+            JSValue::number(context, ty.minimum.0.into()),
         );
         if let Some(max) = ty.maximum {
             descriptor.set_property(
-                &context,
+                context,
                 "maximum".to_string(),
-                JSValue::number(&context, max.0.into()),
+                JSValue::number(context, max.0.into()),
             );
         }
         descriptor.set_property(
-            &context,
+            context,
             "shared".to_string(),
-            JSValue::boolean(&context, ty.shared),
+            JSValue::boolean(context, ty.shared),
         );
 
         engine
             .as_jsc()
             .wasm_memory_type()
-            .construct(&context, &[descriptor.to_jsvalue()])
-            .map_err(|e| MemoryError::Generic(format!("{:?}", e)))
+            .construct(context, &[descriptor.to_jsvalue()])
+            .map_err(|e| MemoryError::Generic(format!("{e:?}")))
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
@@ -121,15 +121,15 @@ impl Memory {
         let func = self
             .handle
             .memory
-            .get_property(&context, "grow".to_string())
-            .to_object(&context)
+            .get_property(context, "grow".to_string())
+            .to_object(context)
             .unwrap();
         match func.call(
-            &context,
+            context,
             Some(&self.handle.memory),
-            &[JSValue::number(&context, pages.0 as _)],
+            &[JSValue::number(context, pages.0 as _)],
         ) {
-            Ok(val) => Ok(Pages(val.to_number(&context).unwrap() as _)),
+            Ok(val) => Ok(Pages(val.to_number(context).unwrap() as _)),
             Err(e) => {
                 let old_pages = pages;
                 Err(MemoryError::CouldNotGrow {

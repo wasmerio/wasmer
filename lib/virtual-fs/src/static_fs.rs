@@ -209,12 +209,11 @@ impl AsyncSeek for WebCFile {
 
 fn get_volume_name_opt<P: AsRef<Path>>(path: P) -> Option<String> {
     use std::path::Component::Normal;
-    if let Some(Normal(n)) = path.as_ref().components().next() {
-        if let Some(s) = n.to_str() {
-            if s.ends_with(':') {
-                return Some(s.replace(':', ""));
-            }
-        }
+    if let Some(Normal(n)) = path.as_ref().components().next()
+        && let Some(s) = n.to_str()
+        && s.ends_with(':')
+    {
+        return Some(s.replace(':', ""));
     }
     None
 }
@@ -274,8 +273,7 @@ impl FileSystem for StaticFileSystem {
     }
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        let result = self.memory.create_dir(Path::new(&path));
-        result
+        self.memory.create_dir(Path::new(&path))
     }
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
@@ -348,7 +346,7 @@ impl FileSystem for StaticFileSystem {
             result
         }
     }
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {

@@ -2,16 +2,19 @@
 
 use crate::LinkError;
 use more_asserts::assert_ge;
-use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
     TagType,
 };
+use wasmer_types::{
+    TagIndex, TagKind,
+    entity::{BoxedSlice, EntityRef, PrimaryMap},
+};
 
 use wasmer_vm::{
-    FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
-    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
-    VMTableImport, VMTagImport,
+    FunctionBodyPtr, Imports, InternalStoreHandle, LinearMemory, MemoryStyle, StoreObjects,
+    TableStyle, VMExtern, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport,
+    VMMemoryImport, VMTableImport, VMTag,
 };
 
 /// Get an `ExternType` given a import index.
@@ -69,7 +72,7 @@ fn get_runtime_size(context: &StoreObjects, extern_: &VMExtern) -> Option<u32> {
 }
 
 /// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by
-/// a `Resolver`.
+/// a `Resolver`, except for tags which are resolved separately through `resolve_tags`.
 ///
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 #[allow(clippy::result_large_err)]
@@ -83,38 +86,19 @@ pub fn resolve_imports(
 ) -> Result<Imports, LinkError> {
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
-    let mut tag_imports = PrimaryMap::with_capacity(module.num_imported_tags);
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
 
-    for (
-        wasmer_types::ImportKey {
-            module: module_name,
-            field,
-            import_idx,
-        },
-        import_index,
-    ) in module.imports.iter()
+    for (import_key, import_index) in module
+        .imports
+        .iter()
+        .filter(|(_, import_index)| !matches!(import_index, ImportIndex::Tag(_)))
     {
-        let import_extern = get_extern_from_import(module, import_index);
-        let resolved = if let Some(r) = imports.get(*import_idx as usize) {
-            r
-        } else {
-            return Err(LinkError::Import(
-                module_name.to_string(),
-                field.to_string(),
-                ImportError::UnknownImport(import_extern),
-            ));
-        };
-        let extern_type = get_extern_type(context, resolved);
-        let runtime_size = get_runtime_size(context, resolved);
-        if !extern_type.is_compatible_with(&import_extern, runtime_size) {
-            return Err(LinkError::Import(
-                module_name.to_string(),
-                field.to_string(),
-                ImportError::IncompatibleType(import_extern, extern_type),
-            ));
-        }
+        let ResolvedImport {
+            resolved,
+            import_extern,
+            extern_type,
+        } = resolve_import(module, imports, context, import_key, import_index)?;
         match *resolved {
             VMExtern::Function(handle) => {
                 let f = handle.get_mut(context);
@@ -151,8 +135,8 @@ pub fn resolve_imports(
                         let expected_table_ty = &module.tables[*index];
                         if import_table_ty.ty != expected_table_ty.ty {
                             return Err(LinkError::Import(
-                                module_name.to_string(),
-                                field.to_string(),
+                                import_key.module.to_string(),
+                                import_key.field.to_string(),
                                 ImportError::IncompatibleType(import_extern, extern_type),
                             ));
                         }
@@ -210,9 +194,8 @@ pub fn resolve_imports(
                     handle,
                 });
             }
-            VMExtern::Tag(handle) => {
-                tag_imports.push(VMTagImport { handle });
-            }
+
+            VMExtern::Tag(_) => unreachable!("We already filtered tags out"),
         }
     }
 
@@ -220,7 +203,128 @@ pub fn resolve_imports(
         function_imports,
         table_imports,
         memory_imports,
-        tag_imports,
         global_imports,
     ))
+}
+
+/// This function resolves all tags of a `ModuleInfo`. Imported tags are resolved from
+/// the `StoreObjects`, whereas local tags are created and pushed to it. This is because
+/// we need every tag to have a unique `VMSharedTagIndex` in the `StoreObjects`, regardless
+/// of whether it's local or imported, so that exception handling can correctly resolve
+/// cross-module exceptions.
+// TODO: I feel this code can be cleaned up. Maybe we can handle tag indices better, so we don't have to search through the imports again?
+// TODO: don't we create store handles for everything else as well? Should tags get special handling here?
+#[allow(clippy::result_large_err)]
+pub fn resolve_tags(
+    module: &ModuleInfo,
+    imports: &[VMExtern],
+    context: &mut StoreObjects,
+) -> Result<BoxedSlice<TagIndex, InternalStoreHandle<VMTag>>, LinkError> {
+    let mut tags = PrimaryMap::with_capacity(module.tags.len());
+
+    for (import_key, import_index) in module
+        .imports
+        .iter()
+        .filter(|(_, import_index)| matches!(import_index, ImportIndex::Tag(_)))
+    {
+        let ResolvedImport {
+            resolved,
+            import_extern,
+            extern_type,
+        } = resolve_import(module, imports, context, import_key, import_index)?;
+        match *resolved {
+            VMExtern::Tag(handle) => {
+                let t = handle.get(context);
+                match import_index {
+                    ImportIndex::Tag(index) => {
+                        let import_tag_ty = &t.signature;
+                        let expected_tag_ty = if let Some(expected_tag_ty) =
+                            module.signatures.get(module.tags[*index])
+                        {
+                            expected_tag_ty
+                        } else {
+                            return Err(LinkError::Resource(format!(
+                                "Could not find matching signature for tag index {index:?}"
+                            )));
+                        };
+                        if *import_tag_ty != *expected_tag_ty {
+                            return Err(LinkError::Import(
+                                import_key.module.to_string(),
+                                import_key.field.to_string(),
+                                ImportError::IncompatibleType(import_extern, extern_type),
+                            ));
+                        }
+
+                        tags.push(handle);
+                    }
+                    _ => {
+                        unreachable!("Tag resolution did not match");
+                    }
+                }
+            }
+            _ => unreachable!("We already filtered everything else out"),
+        }
+    }
+
+    // Now, create local tags.
+    // Local tags are created in the StoreObjects once per instance, so that
+    // when two instances of the same module are executing, they don't end
+    // up catching each other's exceptions.
+    for (tag_index, signature_index) in module.tags.iter() {
+        if module.is_imported_tag(tag_index) {
+            continue;
+        }
+        let sig_ty = if let Some(sig_ty) = module.signatures.get(*signature_index) {
+            sig_ty
+        } else {
+            return Err(LinkError::Resource(format!(
+                "Could not find matching signature for tag index {tag_index:?}"
+            )));
+        };
+        let handle =
+            InternalStoreHandle::new(context, VMTag::new(TagKind::Exception, sig_ty.clone()));
+        tags.push(handle);
+    }
+
+    Ok(tags.into_boxed_slice())
+}
+
+struct ResolvedImport<'a> {
+    resolved: &'a VMExtern,
+    import_extern: ExternType,
+    extern_type: ExternType,
+}
+
+#[allow(clippy::result_large_err)]
+fn resolve_import<'a>(
+    module: &ModuleInfo,
+    imports: &'a [VMExtern],
+    context: &mut StoreObjects,
+    import: &wasmer_types::ImportKey,
+    import_index: &ImportIndex,
+) -> Result<ResolvedImport<'a>, LinkError> {
+    let import_extern = get_extern_from_import(module, import_index);
+    let resolved = if let Some(r) = imports.get(import.import_idx as usize) {
+        r
+    } else {
+        return Err(LinkError::Import(
+            import.module.to_string(),
+            import.field.to_string(),
+            ImportError::UnknownImport(import_extern),
+        ));
+    };
+    let extern_type = get_extern_type(context, resolved);
+    let runtime_size = get_runtime_size(context, resolved);
+    if !extern_type.is_compatible_with(&import_extern, runtime_size) {
+        return Err(LinkError::Import(
+            import.module.to_string(),
+            import.field.to_string(),
+            ImportError::IncompatibleType(import_extern, extern_type),
+        ));
+    }
+    Ok(ResolvedImport {
+        resolved,
+        import_extern,
+        extern_type,
+    })
 }

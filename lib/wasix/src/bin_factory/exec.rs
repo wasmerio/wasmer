@@ -1,21 +1,23 @@
+#![allow(clippy::result_large_err)]
 use std::sync::Arc;
 
 use crate::{
+    RewindState, SpawnError, WasiError, WasiRuntimeError,
     os::task::{
-        thread::{RewindResultType, WasiThreadRunGuard},
         TaskJoinHandle,
+        thread::{RewindResultType, WasiThreadRunGuard},
     },
     runtime::{
+        TaintReason,
+        module_cache::HashedModuleData,
         task_manager::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
-        TaintReason,
     },
     syscalls::rewind_ext,
-    RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
 use tracing::*;
-use virtual_mio::InlineWaker;
+use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
 
@@ -43,7 +45,7 @@ pub async fn spawn_exec(
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name))]
 pub async fn spawn_exec_wasm(
-    wasm: &[u8],
+    wasm: HashedModuleData,
     name: &str,
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
@@ -85,10 +87,10 @@ pub fn package_command_by_name<'a>(
 
 pub async fn spawn_load_module(
     name: &str,
-    wasm: &[u8],
+    wasm: HashedModuleData,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<Module, SpawnError> {
-    match runtime.load_module(wasm).await {
+    match runtime.load_hashed_module(wasm, None).await {
         Ok(module) => Ok(module),
         Err(err) => {
             tracing::error!(
@@ -163,7 +165,7 @@ unsafe fn run_recycle(
 ) {
     if let Some(callback) = callback {
         let env = ctx.data_mut(&mut store);
-        let memory = env.memory().clone();
+        let memory = unsafe { env.memory() }.clone();
 
         let props = TaskWasmRecycleProperties {
             env: env.clone(),
@@ -372,8 +374,9 @@ fn call_module(
         match err.as_exit_code() {
             Some(s) => s,
             None => {
-                error!("{err}");
-                eprintln!("{err}");
+                let err_display = err.display(&mut store);
+                error!("{err_display}");
+                eprintln!("{err_display}");
                 Errno::Noexec.into()
             }
         }
@@ -419,7 +422,7 @@ fn resume_vfork(
             eprintln!("{err}");
         }
 
-        InlineWaker::block_on(
+        block_on(
             unsafe { ctx.data(store).get_memory_and_wasi_state(store, 0) }
                 .1
                 .fs

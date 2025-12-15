@@ -86,7 +86,7 @@ pub struct wasm_engine_t {
     pub(crate) inner: Engine,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[allow(unreachable_code)]
 pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
     Box::new(wasm_engine_t::default())
@@ -128,7 +128,7 @@ pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
 /// ```
 ///
 /// cbindgen:ignore
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_engine_delete(_engine: Option<Box<wasm_engine_t>>) {}
 
 /// Creates an engine with a particular configuration.
@@ -138,7 +138,7 @@ pub unsafe extern "C" fn wasm_engine_delete(_engine: Option<Box<wasm_engine_t>>)
 /// See [`wasm_config_new`].
 ///
 /// cbindgen:ignore
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_engine_new_with_config(
     config: Option<Box<wasm_config_t>>,
 ) -> Option<Box<wasm_engine_t>> {
@@ -162,6 +162,7 @@ pub extern "C" fn wasm_engine_new_with_config(
         wasmer_backend_t::WAMR => config::wamr::wasm_wamr_engine_new_with_config(config),
         #[cfg(feature = "jsc")]
         wasmer_backend_t::JSC => config::jsc::wasm_jsc_engine_new_with_config(config),
+        #[allow(unreachable_patterns)]
         _ => unreachable!(),
     }
 }
@@ -208,7 +209,7 @@ pub struct wasm_config_t {
 /// ```
 ///
 /// cbindgen:ignore
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
     Box::<wasm_config_t>::default()
 }
@@ -240,7 +241,7 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
 /// # }
 /// ```
 /// cbindgen:ignore
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 
 /// Updates the configuration to specify a particular engine to use.
@@ -274,7 +275,7 @@ pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_config_set_backend(config: &mut wasm_config_t, engine: wasmer_backend_t) {
     config.backend = engine;
 }
@@ -286,7 +287,11 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
-    #[cfg_attr(coverage, ignore)]
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_engine_new() {
         (assert_c! {

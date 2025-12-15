@@ -15,8 +15,8 @@ use std::io::{Read, Write};
 
 use wasmer::Module;
 use wasmer_wasix::{
-    runners::wasi::{RuntimeOrEngine, WasiRunner},
     Pipe,
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,12 +35,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let module = Module::new(&engine, &wasm_bytes[..])?;
 
     let msg = "racecar go zoom";
-    println!("Writing \"{}\" to the WASI stdin...", msg);
+    println!("Writing \"{msg}\" to the WASI stdin...");
     let (mut stdin_sender, stdin_reader) = Pipe::channel();
     let (stdout_sender, mut stdout_reader) = Pipe::channel();
 
     // To write to the stdin
-    writeln!(stdin_sender, "{}", msg)?;
+    writeln!(stdin_sender, "{msg}")?;
 
     {
         // Create a WASI runner. We use a scope to make sure the runner is dropped

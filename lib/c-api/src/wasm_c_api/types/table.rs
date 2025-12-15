@@ -1,5 +1,5 @@
 use super::{
-    wasm_externtype_t, wasm_limits_t, wasm_valtype_delete, wasm_valtype_t, WasmExternType,
+    WasmExternType, wasm_externtype_t, wasm_limits_t, wasm_valtype_delete, wasm_valtype_t,
 };
 use wasmer_api::{ExternType, TableType};
 
@@ -55,7 +55,7 @@ impl wasm_tabletype_t {
 
 wasm_declare_boxed_vec!(tabletype);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_tabletype_new(
     valtype: Option<Box<wasm_valtype_t>>,
     limits: &wasm_limits_t,
@@ -72,20 +72,22 @@ pub unsafe extern "C" fn wasm_tabletype_new(
         max_elements,
     )));
 
-    wasm_valtype_delete(Some(valtype));
+    unsafe {
+        wasm_valtype_delete(Some(valtype));
+    }
 
     Some(table_type)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_tabletype_limits(table_type: &wasm_tabletype_t) -> &wasm_limits_t {
     &table_type.inner().limits
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_tabletype_element(table_type: &wasm_tabletype_t) -> &wasm_valtype_t {
     &table_type.inner().content
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_tabletype_delete(_table_type: Option<Box<wasm_tabletype_t>>) {}

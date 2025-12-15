@@ -1,4 +1,4 @@
-use crate::{lib::std::mem, DeserializeError};
+use crate::{DeserializeError, lib::std::mem};
 
 /// Metadata header which holds an ABI version and the length of the remaining
 /// metadata.
@@ -13,8 +13,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    // TODO: Enable the commented out code in `systemv.rs:191` when updating this to 11
-    pub const CURRENT_VERSION: u32 = 10;
+    pub const CURRENT_VERSION: u32 = 12;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";
@@ -41,7 +40,7 @@ impl MetadataHeader {
 
     /// Parses the header and returns the length of the metadata following it.
     pub fn parse(bytes: &[u8]) -> Result<usize, DeserializeError> {
-        if bytes.as_ptr() as usize % 8 != 0 {
+        if !(bytes.as_ptr() as usize).is_multiple_of(8) {
             return Err(DeserializeError::CorruptedBinary(
                 "misaligned metadata".to_string(),
             ));

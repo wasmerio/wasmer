@@ -3,7 +3,7 @@ use std::path::Path;
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use tracing::{debug, warn};
-use wasm_bindgen::{prelude::*, JsValue};
+use wasm_bindgen::{JsValue, prelude::*};
 use wasmer_types::{
     CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
     GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
@@ -11,12 +11,12 @@ use wasmer_types::{
 };
 
 use crate::{
+    AsEngineRef, AsStoreMut, BackendModule, Extern, Imports, InstantiationError, IntoBytes,
+    RuntimeError,
     js::{
         utils::{convert::AsJs as _, js_handle::JsHandle},
         vm::VMInstance,
     },
-    AsEngineRef, AsStoreMut, BackendModule, Extern, Imports, InstantiationError, IntoBytes,
-    RuntimeError,
 };
 
 /// WebAssembly in the browser doesn't yet output the descriptor/types
@@ -71,15 +71,15 @@ impl Module {
         _engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let js_bytes = Uint8Array::view(binary);
+        let js_bytes = unsafe { Uint8Array::view(binary) };
         let module = WebAssembly::Module::new(&js_bytes.into()).map_err(|e| {
-            CompileError::Validate(format!(
-                "{}",
+            CompileError::Validate(
                 e.as_string()
                     .unwrap_or("Unknown validation error".to_string())
-            ))
+                    .to_string(),
+            )
         })?;
-        Ok(Self::from_js_module(module, binary))
+        Ok(unsafe { Self::from_js_module(module, binary) })
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
@@ -205,8 +205,8 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        Ok(WebAssembly::Instance::new(&self.module, &imports_object)
-            .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
+        WebAssembly::Instance::new(&self.module, &imports_object)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -257,7 +257,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub unsafe fn deserialize_from_file(
@@ -265,7 +265,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {
@@ -372,7 +372,12 @@ impl Module {
                 ExternType::Tag(_) => "tag",
             };
             if expected_kind != kind.as_str() {
-                return Err(format!("The provided type hint for the export {} is {} which doesn't match the expected kind: {}", i, kind.as_str(), expected_kind));
+                return Err(format!(
+                    "The provided type hint for the export {} is {} which doesn't match the expected kind: {}",
+                    i,
+                    kind.as_str(),
+                    expected_kind
+                ));
             }
         }
         self.type_hints = Some(type_hints);
@@ -459,8 +464,8 @@ impl Module {
 
 impl From<WebAssembly::Module> for Module {
     #[track_caller]
-    fn from(module: WebAssembly::Module) -> Module {
-        Module {
+    fn from(module: WebAssembly::Module) -> Self {
+        Self {
             module: JsHandle::new(module),
             name: None,
             type_hints: None,
@@ -471,9 +476,9 @@ impl From<WebAssembly::Module> for Module {
 }
 
 impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
-    fn from((module, binary): (WebAssembly::Module, T)) -> crate::module::Module {
+    fn from((module, binary): (WebAssembly::Module, T)) -> Self {
         unsafe {
-            crate::module::Module(BackendModule::Js(Module::from_js_module(
+            Self(BackendModule::Js(Module::from_js_module(
                 module,
                 binary.into_bytes(),
             )))
@@ -482,8 +487,8 @@ impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
 }
 
 impl From<WebAssembly::Module> for crate::module::Module {
-    fn from(module: WebAssembly::Module) -> crate::module::Module {
-        crate::module::Module(BackendModule::Js(module.into()))
+    fn from(module: WebAssembly::Module) -> Self {
+        Self(BackendModule::Js(module.into()))
     }
 }
 impl From<crate::module::Module> for WebAssembly::Module {
@@ -503,16 +508,16 @@ impl crate::Module {
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::js::module::Module`].
     pub fn as_js(&self) -> &crate::backend::js::module::Module {
-        match self.0 {
-            BackendModule::Js(ref s) => s,
+        match &self.0 {
+            BackendModule::Js(s) => s,
             _ => panic!("Not a `js` module!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::js::module::Module`].
     pub fn as_js_mut(&mut self) -> &mut crate::backend::js::module::Module {
-        match self.0 {
-            BackendModule::Js(ref mut s) => s,
+        match &mut self.0 {
+            BackendModule::Js(s) => s,
             _ => panic!("Not a `js` module!"),
         }
     }

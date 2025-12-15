@@ -1,19 +1,24 @@
 use gimli::write::{Address, EndianVec, Result, Writer};
-use gimli::{RunTimeEndian, SectionId};
+use gimli::{RunTimeEndian, SectionId, constants};
+use std::collections::HashMap;
 use wasmer_compiler::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
     section::{CustomSection, CustomSectionProtection, SectionBody},
 };
-use wasmer_types::{entity::EntityRef, target::Endianness, LocalFunctionIndex};
+use wasmer_types::{LibCall, LocalFunctionIndex, entity::EntityRef, target::Endianness};
 
 #[derive(Clone, Debug)]
 pub struct WriterRelocate {
     pub relocs: Vec<Relocation>,
     writer: EndianVec<RunTimeEndian>,
+    lsda_symbols: HashMap<usize, (RelocationTarget, u32)>,
 }
 
 impl WriterRelocate {
     pub const FUNCTION_SYMBOL: usize = 0;
+    pub const PERSONALITY_SYMBOL: usize = 1;
+    pub const LSDA_SYMBOL_BASE: usize = 2;
+
     pub fn new(endianness: Option<Endianness>) -> Self {
         let endianness = match endianness {
             Some(Endianness::Little) => RunTimeEndian::Little,
@@ -24,7 +29,16 @@ impl WriterRelocate {
         Self {
             relocs: Vec::new(),
             writer: EndianVec::new(endianness),
+            lsda_symbols: HashMap::new(),
         }
+    }
+
+    pub fn register_lsda_symbol(&mut self, symbol: usize, target: RelocationTarget, offset: u32) {
+        self.lsda_symbols.insert(symbol, (target, offset));
+    }
+
+    pub fn lsda_symbol(func_index: LocalFunctionIndex) -> usize {
+        Self::LSDA_SYMBOL_BASE + func_index.index()
     }
 
     pub fn into_section(mut self) -> CustomSection {
@@ -81,8 +95,60 @@ impl Writer for WriterRelocate {
                         addend,
                     });
                     self.write_udata(addend as _, size)
+                } else if symbol == Self::PERSONALITY_SYMBOL {
+                    let offset = self.len() as u32;
+                    let kind = match size {
+                        4 => RelocationKind::Abs4,
+                        8 => RelocationKind::Abs8,
+                        other => unimplemented!(
+                            "dwarf relocation size for personality not supported: {}",
+                            other
+                        ),
+                    };
+                    self.relocs.push(Relocation {
+                        kind,
+                        reloc_target: RelocationTarget::LibCall(LibCall::EHPersonality),
+                        offset,
+                        addend,
+                    });
+                    self.write_udata(0, size)
+                } else if let Some((target, base)) = self.lsda_symbols.get(&symbol) {
+                    let offset = self.len() as u32;
+                    let kind = match size {
+                        4 => RelocationKind::Abs4,
+                        8 => RelocationKind::Abs8,
+                        other => unimplemented!(
+                            "dwarf relocation size for LSDA not supported: {}",
+                            other
+                        ),
+                    };
+                    self.relocs.push(Relocation {
+                        kind,
+                        reloc_target: *target,
+                        offset,
+                        addend: *base as i64 + addend,
+                    });
+                    self.write_udata(0, size)
                 } else {
                     unreachable!("Symbol {} in DWARF not recognized", symbol);
+                }
+            }
+        }
+    }
+
+    fn write_eh_pointer(
+        &mut self,
+        address: Address,
+        eh_pe: constants::DwEhPe,
+        size: u8,
+    ) -> Result<()> {
+        if eh_pe == constants::DW_EH_PE_absptr {
+            self.write_address(address, size)
+        } else {
+            match address {
+                Address::Constant(_) => self.writer.write_eh_pointer(address, eh_pe, size),
+                Address::Symbol { .. } => {
+                    unimplemented!("eh pointer encoding {eh_pe:?} not supported for symbol targets")
                 }
             }
         }

@@ -1,36 +1,38 @@
 //! Universal compilation.
 
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+use std::sync::{Arc, Mutex};
+
 use crate::engine::builder::EngineBuilder;
+#[cfg(feature = "compiler")]
+use crate::{Compiler, CompilerConfig};
+
+#[cfg(feature = "compiler")]
+use wasmer_types::Features;
+use wasmer_types::{CompileError, HashAlgorithm, target::Target};
+
+#[cfg(not(target_arch = "wasm32"))]
+use shared_buffer::OwnedBuffer;
+#[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
+use std::io::Write;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
+#[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
+use wasmer_types::ModuleInfo;
+#[cfg(not(target_arch = "wasm32"))]
+use wasmer_types::{
+    DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex,
+    entity::PrimaryMap,
+};
+
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
+    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
     types::{
         function::FunctionBodyLike,
         section::{CustomSectionLike, CustomSectionProtection, SectionIndex},
     },
-    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
 };
-#[cfg(feature = "compiler")]
-use crate::{Compiler, CompilerConfig};
-
-#[cfg(not(target_arch = "wasm32"))]
-use shared_buffer::OwnedBuffer;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::{
-    io::Write,
-    sync::atomic::{AtomicUsize, Ordering::SeqCst},
-};
-
-#[cfg(feature = "compiler")]
-use wasmer_types::Features;
-#[cfg(not(target_arch = "wasm32"))]
-use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
-    SignatureIndex,
-};
-use wasmer_types::{target::Target, CompileError, HashAlgorithm, ModuleInfo};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
@@ -98,9 +100,9 @@ impl Engine {
 
     /// Returns the deterministic id of this engine
     pub fn deterministic_id(&self) -> String {
-        let i = self.inner();
         #[cfg(feature = "compiler")]
         {
+            let i = self.inner();
             if let Some(ref c) = i.compiler {
                 return c.deterministic_id();
             } else {
@@ -213,7 +215,7 @@ impl Engine {
 
     #[cfg(not(target_arch = "wasm32"))]
     /// Deserializes a WebAssembly module which was previously serialized with
-    /// [`Module::serialize`].
+    /// [`wasmer::Module::serialize`].
     ///
     /// # Safety
     ///
@@ -222,11 +224,11 @@ impl Engine {
         &self,
         bytes: OwnedBuffer,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        Ok(Arc::new(Artifact::deserialize_unchecked(self, bytes)?))
+        unsafe { Ok(Arc::new(Artifact::deserialize_unchecked(self, bytes)?)) }
     }
 
     /// Deserializes a WebAssembly module which was previously serialized with
-    /// [`Module::serialize`].
+    /// [`wasmer::Module::serialize`].
     ///
     /// # Safety
     ///
@@ -236,7 +238,7 @@ impl Engine {
         &self,
         bytes: OwnedBuffer,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        Ok(Arc::new(Artifact::deserialize(self, bytes)?))
+        unsafe { Ok(Arc::new(Artifact::deserialize(self, bytes)?)) }
     }
 
     /// Deserializes a WebAssembly module from a path.
@@ -248,10 +250,13 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        self.deserialize(
-            OwnedBuffer::from_file(&file).map_err(|e| DeserializeError::Generic(e.to_string()))?,
-        )
+        unsafe {
+            let file = std::fs::File::open(file_ref)?;
+            self.deserialize(
+                OwnedBuffer::from_file(&file)
+                    .map_err(|e| DeserializeError::Generic(e.to_string()))?,
+            )
+        }
     }
 
     /// Deserialize from a file path.
@@ -264,10 +269,13 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        self.deserialize_unchecked(
-            OwnedBuffer::from_file(&file).map_err(|e| DeserializeError::Generic(e.to_string()))?,
-        )
+        unsafe {
+            let file = std::fs::File::open(file_ref)?;
+            self.deserialize_unchecked(
+                OwnedBuffer::from_file(&file)
+                    .map_err(|e| DeserializeError::Generic(e.to_string()))?,
+            )
+        }
     }
 
     /// A unique identifier for this object.
@@ -305,13 +313,13 @@ impl Engine {
     /// more optimizations.
     pub fn with_opts(
         &mut self,
-        suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
+        _suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
         #[cfg(feature = "compiler")]
         {
             let mut i = self.inner_mut();
             if let Some(ref mut c) = i.compiler {
-                c.with_opts(suggested_opts)?;
+                c.with_opts(_suggested_opts)?;
             }
         }
 
@@ -536,7 +544,7 @@ impl EngineInner {
             .register_frame_info(frame_info);
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
     pub(crate) fn register_perfmap(
         &self,
         finished_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,

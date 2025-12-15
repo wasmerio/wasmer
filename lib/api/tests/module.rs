@@ -195,11 +195,11 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
         "host" => {
             "host_func1" => Function::new_typed(&mut store, |p: u64| {
                 println!("host_func1: Found number {p}");
-                assert_eq!(p, u64::max_value());
+                assert_eq!(p, u64::MAX);
             }),
             "host_func2" => Function::new_typed(&mut store, |p: u32| {
                 println!("host_func2: Found number {p}");
-                assert_eq!(p, u32::max_value());
+                assert_eq!(p, u32::MAX);
             }),
             "host_func3" => Function::new_typed(&mut store, |p: i64| {
                 println!("host_func3: Found number {p}");
@@ -215,7 +215,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
             }),
             "host_func6" => Function::new_typed(&mut store, |p: u16| {
                 println!("host_func6: Found number {p}");
-                assert_eq!(p, u16::max_value());
+                assert_eq!(p, u16::MAX);
             }),
             "host_func7" => Function::new_typed(&mut store, |p: i8| {
                 println!("host_func7: Found number {p}");
@@ -223,7 +223,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
             }),
             "host_func8" => Function::new_typed(&mut store, |p: u8| {
                 println!("host_func8: Found number {p}");
-                assert_eq!(p, u8::max_value());
+                assert_eq!(p, u8::MAX);
             }),
         }
     };
@@ -275,6 +275,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 }
 
 #[universal_test]
+#[allow(unused_attributes)]
 #[cfg_attr(feature = "wamr", ignore = "wamr does not support custom sections")]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support custom sections")]
 #[cfg_attr(feature = "v8", ignore = "v8 does not support custom sections")]

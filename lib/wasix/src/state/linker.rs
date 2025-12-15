@@ -265,27 +265,29 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Barrier, Mutex, MutexGuard, RwLock, RwLockWriteGuard, TryLockError,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
 use bus::Bus;
 use derive_more::Debug;
+use shared_buffer::OwnedBuffer;
 use tracing::trace;
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
-use virtual_mio::InlineWaker;
+use virtual_mio::block_on;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, ExternType, Function, FunctionEnv,
-    FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
+    AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
+    FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
     InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag, Type,
-    Value, WasmTypeList, WASM_PAGE_SIZE,
+    Value, WASM_PAGE_SIZE, WasmTypeList,
 };
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{
-    fs::WasiFsRoot, import_object_for_all_wasi_versions, Runtime, SpawnError, WasiEnv, WasiError,
-    WasiFs, WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId,
+    Runtime, SpawnError, WasiEnv, WasiError, WasiFs, WasiFunctionEnv, WasiModuleTreeHandles,
+    WasiProcess, WasiThreadId, fs::WasiFsRoot, import_object_for_all_wasi_versions,
+    runtime::module_cache::HashedModuleData,
 };
 
 use super::{WasiModuleInstanceHandles, WasiState};
@@ -294,7 +296,6 @@ use super::{WasiModuleInstanceHandles, WasiState};
 pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(1);
 static INVALID_MODULE_HANDLE: ModuleHandle = ModuleHandle(u32::MAX);
 
-static MAIN_MODULE_MEMORY_BASE: u64 = 0;
 // Need to keep the zeroth index null to catch null function pointers at runtime
 static MAIN_MODULE_TABLE_BASE: u64 = 1;
 
@@ -443,9 +444,7 @@ impl MemoryAllocator {
 
         trace!(
             page_count = to_grow,
-            size,
-            base_ptr,
-            "Allocated new memory page(s) to accommodate requested memory"
+            size, base_ptr, "Allocated new memory page(s) to accommodate requested memory"
         );
 
         Ok(base_ptr)
@@ -516,8 +515,8 @@ pub enum LinkError {
     #[error("Failed to initialize WASI(X) module handles: {0}")]
     MainModuleHandleInitFailed(ExportError),
 
-    #[error("Dynamic function index {0} was not allocated via `allocate_function`")]
-    DynamicFunctionIndexNotAllocated(u32),
+    #[error("Bad __tls_base export, expected a global of type I32 or I64")]
+    BadTlsBaseExport,
 }
 
 #[derive(Debug)]
@@ -795,7 +794,7 @@ struct DlInstance {
 
 struct InstanceGroupState {
     main_instance: Option<Instance>,
-    main_instance_tls_base: u64,
+    main_instance_tls_base: Option<u64>,
 
     side_instances: HashMap<ModuleHandle, DlInstance>,
 
@@ -815,8 +814,11 @@ struct InstanceGroupState {
 
 // There is only one LinkerState for all instance groups
 struct LinkerState {
+    engine: Engine,
+
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
+    main_module_memory_base: u64,
 
     // We used to have an issue where spawning instances out-of-order in new threads
     // would break globals. That has since been fixed. However, spawning in the same
@@ -945,6 +947,7 @@ impl Linker {
     /// running, and a Linker instance is returned which can then be used for the
     /// loading/linking of further side modules.
     pub fn new(
+        engine: Engine,
         main_module: &Module,
         store: &mut StoreMut<'_>,
         memory: Option<Memory>,
@@ -1003,6 +1006,10 @@ impl Linker {
             "Indirect function table initial size"
         );
 
+        // Give modules a non-zero memory base, since we don't want
+        // any valid pointers to point to the zero address
+        let memory_base = 2u64.pow(dylink_section.mem_info.memory_alignment);
+
         let memory_type = main_module
             .imports()
             .memories()
@@ -1022,15 +1029,15 @@ impl Linker {
         };
 
         let stack_low = {
-            let data_end = dylink_section.mem_info.memory_size as u64;
-            if data_end % 1024 != 0 {
+            let data_end = memory_base + dylink_section.mem_info.memory_size as u64;
+            if !data_end.is_multiple_of(1024) {
                 data_end + 1024 - (data_end % 1024)
             } else {
                 data_end
             }
         };
 
-        if stack_size % 1024 != 0 {
+        if !stack_size.is_multiple_of(1024) {
             panic!("Stack size must be 1024-bit aligned");
         }
 
@@ -1042,6 +1049,7 @@ impl Linker {
 
         trace!(
             memory_pages = ?memory.grow(store, 0).unwrap(),
+            memory_base,
             stack_low,
             stack_high,
             "Memory layout"
@@ -1066,9 +1074,9 @@ impl Linker {
 
         let mut instance_group = InstanceGroupState {
             main_instance: None,
-            // Every main instance's TLS area is at the start of its memory,
-            // which is 0 for the main module's main instance
-            main_instance_tls_base: MAIN_MODULE_MEMORY_BASE,
+            // The TLS base for the main instance is determined by reading the
+            // `__tls_base` global export from the instance after instantiation.
+            main_instance_tls_base: None,
             side_instances: HashMap::new(),
             stack_pointer,
             memory: memory.clone(),
@@ -1080,8 +1088,10 @@ impl Linker {
         };
 
         let mut linker_state = LinkerState {
+            engine,
             main_module: main_module.clone(),
             main_module_dylink_info: dylink_section,
+            main_module_memory_base: memory_base,
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
             next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
@@ -1097,7 +1107,7 @@ impl Linker {
         let mut link_state = InProgressLinkState::default();
 
         let well_known_imports = [
-            ("env", "__memory_base", MAIN_MODULE_MEMORY_BASE),
+            ("env", "__memory_base", memory_base),
             ("env", "__table_base", MAIN_MODULE_TABLE_BASE),
             ("GOT.mem", "__stack_high", stack_high),
             ("GOT.mem", "__stack_low", stack_low),
@@ -1132,6 +1142,9 @@ impl Linker {
         // stubs to main will be faster, but we need numbers before we decide this.
         let main_instance = Instance::new(store, main_module, &imports)?;
         instance_group.main_instance = Some(main_instance.clone());
+
+        let tls_base = get_tls_base_export(&main_instance, store)?;
+        instance_group.main_instance_tls_base = tls_base;
 
         let runtime_path = linker_state.main_module_dylink_info.runtime_path.clone();
         for needed in linker_state.main_module_dylink_info.needed.clone() {
@@ -1186,7 +1199,7 @@ impl Linker {
             stack_upper: stack_high,
             stack_size: stack_high - stack_low,
             guard_size: 0,
-            tls_base: Some(MAIN_MODULE_MEMORY_BASE),
+            tls_base,
         };
         let module_handles = WasiModuleTreeHandles::Dynamic {
             linker: linker.clone(),
@@ -1208,17 +1221,26 @@ impl Linker {
             )
             .map_err(LinkError::MainModuleHandleInitFailed)?;
 
-        // The main module isn't added to the link state's list of new modules, so we need to
-        // call its initialization functions separately
-        trace!("Calling data relocator function for main module");
-        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
-        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
-
         {
-            let group_guard = linker.instance_group_state.lock().unwrap();
+            trace!(?link_state, "Finalizing linking of main module");
+
+            let mut group_guard = linker.instance_group_state.lock().unwrap();
             let mut linker_state = linker.linker_state.write().unwrap();
-            trace!("Finalizing linking of main module");
-            linker.finalize_link_operation(group_guard, &mut linker_state, store, link_state)?;
+
+            let group_state = group_guard.as_mut().unwrap();
+            group_state.finalize_pending_globals(
+                &mut linker_state,
+                store,
+                &link_state.unresolved_globals,
+            )?;
+
+            // The main module isn't added to the link state's list of new modules, so we need to
+            // call its initialization functions separately
+            trace!("Calling data relocator function for main module");
+            call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
+            call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
+
+            linker.initialize_new_modules(group_guard, store, link_state)?;
         }
 
         trace!("Calling main module's _initialize function");
@@ -1330,7 +1352,7 @@ impl Linker {
 
         let mut instance_group = InstanceGroupState {
             main_instance: None,
-            main_instance_tls_base: tls_base,
+            main_instance_tls_base: Some(tls_base),
             side_instances: HashMap::new(),
             stack_pointer,
             memory: memory.clone(),
@@ -1344,7 +1366,7 @@ impl Linker {
         let mut pending_resolutions = PendingResolutionsFromLinker::default();
 
         let well_known_imports = [
-            ("env", "__memory_base", MAIN_MODULE_MEMORY_BASE),
+            ("env", "__memory_base", linker_state.main_module_memory_base),
             ("env", "__table_base", MAIN_MODULE_TABLE_BASE),
             ("GOT.mem", "__stack_high", stack_high),
             ("GOT.mem", "__stack_low", stack_low),
@@ -1668,6 +1690,18 @@ impl Linker {
             &link_state.unresolved_globals,
         )?;
 
+        self.initialize_new_modules(group_state_guard, store, link_state)
+    }
+
+    fn initialize_new_modules(
+        &self,
+        // Take ownership of the guard and drop it ourselves to ensure no deadlock can happen
+        mut group_state_guard: MutexGuard<'_, Option<InstanceGroupState>>,
+        store: &mut impl AsStoreMut,
+        link_state: InProgressLinkState,
+    ) -> Result<(), LinkError> {
+        let group_state = group_state_guard.as_mut().unwrap();
+
         let new_instances = link_state
             .new_modules
             .iter()
@@ -1719,37 +1753,37 @@ impl Linker {
 
         lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
 
-        if let Ok(linker_state) = self.linker_state.try_read() {
-            if let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key) {
-                trace!(?resolution, "Already have a resolution for this symbol");
-                match resolution {
-                    SymbolResolutionResult::FunctionPointer {
-                        function_table_index: addr,
-                        ..
-                    } => {
-                        return Ok(ResolvedExport::Function {
-                            func_ptr: *addr as u64,
-                        })
-                    }
-                    SymbolResolutionResult::Memory(addr) => {
-                        return Ok(ResolvedExport::Global { data_ptr: *addr })
-                    }
-                    SymbolResolutionResult::Tls {
-                        resolved_from,
-                        offset,
-                    } => {
-                        let Some(tls_base) = group_state.tls_base(*resolved_from) else {
-                            return Err(ResolveError::TlsSymbolWithoutTls);
-                        };
-                        return Ok(ResolvedExport::Global {
-                            data_ptr: tls_base + offset,
-                        });
-                    }
-                    r => panic!(
-                        "Internal error: unexpected symbol resolution \
-                        {r:?} for requested symbol {symbol}"
-                    ),
+        if let Ok(linker_state) = self.linker_state.try_read()
+            && let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key)
+        {
+            trace!(?resolution, "Already have a resolution for this symbol");
+            match resolution {
+                SymbolResolutionResult::FunctionPointer {
+                    function_table_index: addr,
+                    ..
+                } => {
+                    return Ok(ResolvedExport::Function {
+                        func_ptr: *addr as u64,
+                    });
                 }
+                SymbolResolutionResult::Memory(addr) => {
+                    return Ok(ResolvedExport::Global { data_ptr: *addr });
+                }
+                SymbolResolutionResult::Tls {
+                    resolved_from,
+                    offset,
+                } => {
+                    let Some(tls_base) = group_state.tls_base(*resolved_from) else {
+                        return Err(ResolveError::TlsSymbolWithoutTls);
+                    };
+                    return Ok(ResolvedExport::Global {
+                        data_ptr: tls_base + offset,
+                    });
+                }
+                r => panic!(
+                    "Internal error: unexpected symbol resolution \
+                        {r:?} for requested symbol {symbol}"
+                ),
             }
         }
 
@@ -2021,7 +2055,7 @@ impl LinkerState {
 
     fn memory_base(&self, module_handle: ModuleHandle) -> u64 {
         if module_handle == MAIN_MODULE_HANDLE {
-            MAIN_MODULE_MEMORY_BASE
+            self.main_module_memory_base
         } else {
             self.side_modules
                 .get(&module_handle)
@@ -2284,12 +2318,12 @@ impl LinkerState {
         }
 
         // Locate and load the module bytes
-        let (module_bytes, paths) = match module_spec {
+        let (module_data, paths) = match module_spec {
             DlModuleSpec::FileSystem {
                 module_spec,
                 ld_library_path,
             } => {
-                let (full_path, bytes) = InlineWaker::block_on(locate_module(
+                let (full_path, bytes) = block_on(locate_module(
                     module_spec,
                     ld_library_path,
                     runtime_path,
@@ -2307,12 +2341,15 @@ impl LinkerState {
                     return Ok(INVALID_MODULE_HANDLE);
                 }
 
-                (Cow::Owned(bytes), Some((full_path, ld_library_path)))
+                (
+                    HashedModuleData::new(bytes),
+                    Some((full_path, ld_library_path)),
+                )
             }
-            DlModuleSpec::Memory { bytes, .. } => (Cow::Borrowed(bytes), None),
+            DlModuleSpec::Memory { bytes, .. } => (HashedModuleData::new(bytes), None),
         };
 
-        let module = runtime.load_module_sync(module_bytes.as_ref())?;
+        let module = runtime.load_hashed_module_sync(module_data, Some(&self.engine))?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
@@ -2391,7 +2428,7 @@ impl InstanceGroupState {
     fn tls_base(&self, module_handle: ModuleHandle) -> Option<u64> {
         if module_handle == MAIN_MODULE_HANDLE {
             // Main's TLS area is at the beginning of its memory
-            Some(self.main_instance_tls_base)
+            self.main_instance_tls_base
         } else {
             self.side_instances
                 .get(&module_handle)
@@ -2430,7 +2467,7 @@ impl InstanceGroupState {
             let current_size = self.indirect_function_table.size(store);
             let alignment = 2_u32.pow(table_alignment);
 
-            let offset = if current_size % alignment != 0 {
+            let offset = if !current_size.is_multiple_of(alignment) {
                 alignment - (current_size % alignment)
             } else {
                 0
@@ -2543,8 +2580,7 @@ impl InstanceGroupState {
 
         trace!(
             memory_base,
-            table_base,
-            "Allocated memory and table for module"
+            table_base, "Allocated memory and table for module"
         );
 
         let mut imports = import_object_for_all_wasi_versions(&pending_module.module, store, env);
@@ -2595,12 +2631,15 @@ impl InstanceGroupState {
             table_base,
         };
 
+        let tls_base = get_tls_base_export(&instance, store)?;
+
         let dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
-            // The TLS area of a side module's main instance is at the beginning
-            // of its memory
-            tls_base: Some(memory_base),
+            // The TLS base of a side module's main instance is read from the module's
+            // `__tls_base` export via `get_tls_base_export`, and is not necessarily at the
+            // beginning of its memory.
+            tls_base,
         };
 
         linker_state.side_modules.insert(module_handle, dl_module);
@@ -2778,13 +2817,9 @@ impl InstanceGroupState {
             "Applying resolved function"
         );
 
-        let instance = &self
-            .side_instances
-            .get(&resolved_from)
-            .unwrap_or_else(|| {
-                panic!("Internal error: module {resolved_from:?} not loaded by this group")
-            })
-            .instance;
+        let instance = &self.try_instance(resolved_from).unwrap_or_else(|| {
+            panic!("Internal error: module {resolved_from:?} not loaded by this group")
+        });
 
         let func = instance.exports.get_function(name).unwrap_or_else(|e| {
             panic!("Internal error: failed to resolve exported function {name}: {e:?}")
@@ -2807,7 +2842,9 @@ impl InstanceGroupState {
             .allocate_function_table(store, size, 0)
             .map_err(LinkError::TableAllocationError)? as u32;
         if allocated_index != index {
-            panic!("Internal error: allocated index {allocated_index} does not match expected index {index}");
+            panic!(
+                "Internal error: allocated index {allocated_index} does not match expected index {index}"
+            );
         }
         Ok(())
     }
@@ -2859,19 +2896,13 @@ impl InstanceGroupState {
         linker_state: &LinkerState,
     ) -> Result<(), LinkError> {
         for (key, val) in &linker_state.symbol_resolution_records {
-            if let SymbolResolutionKey::Requested { name, .. } = key {
-                if let SymbolResolutionResult::FunctionPointer {
+            if let SymbolResolutionKey::Requested { name, .. } = key
+                && let SymbolResolutionResult::FunctionPointer {
                     resolved_from,
                     function_table_index,
                 } = val
-                {
-                    self.apply_resolved_function(
-                        store,
-                        name,
-                        *resolved_from,
-                        *function_table_index,
-                    )?;
-                }
+            {
+                self.apply_resolved_function(store, name, *resolved_from, *function_table_index)?;
             }
         }
         Ok(())
@@ -3500,7 +3531,7 @@ impl InstanceGroupState {
                         instance,
                         &linker_state.main_module_dylink_info,
                         linker_state.memory_base(MAIN_MODULE_HANDLE),
-                        Some(self.main_instance_tls_base),
+                        self.main_instance_tls_base,
                         allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, MAIN_MODULE_HANDLE)),
@@ -3631,6 +3662,7 @@ impl InstanceGroupState {
 
         let ty = ty.clone();
         let resolved: Mutex<Option<Option<Function>>> = Mutex::new(None);
+
         Function::new_with_env(
             store,
             env,
@@ -3664,8 +3696,7 @@ impl InstanceGroupState {
                             Ok(guard) => {
                                 trace!(
                                     ?requesting_module,
-                                    name,
-                                    "Locked linker state successfully"
+                                    name, "Locked linker state successfully"
                                 );
                                 Some(guard)
                             }
@@ -3703,8 +3734,7 @@ impl InstanceGroupState {
                             }) => {
                                 trace!(
                                     ?requesting_module,
-                                    name,
-                                    "Function was already resolved in the linker"
+                                    name, "Function was already resolved in the linker"
                                 );
 
                                 if ty != *resolved_ty {
@@ -3793,7 +3823,9 @@ impl InstanceGroupState {
                 drop(resolved_guard);
 
                 let mut store = env.as_store_mut();
-                func.call(&mut store, params).map(|ret| ret.into())
+                func.call(&mut store, params)
+                    .map(|ret| ret.into())
+                    .map_err(crate::flatten_runtime_error)
             },
         )
     }
@@ -3889,7 +3921,7 @@ impl InstanceGroupState {
                         unresolved.import_module().to_string(),
                         key.import_name.clone(),
                         Box::new(ResolveError::MissingExport),
-                    ))
+                    ));
                 }
 
                 // Missing weak symbols get resolved to a null address
@@ -3907,7 +3939,7 @@ impl InstanceGroupState {
                         "GOT.mem".to_string(),
                         key.import_name.clone(),
                         Box::new(e),
-                    ))
+                    ));
                 }
             }
         }
@@ -3922,11 +3954,11 @@ async fn locate_module(
     runtime_path: &[impl AsRef<str>],
     calling_module_path: Option<impl AsRef<Path>>,
     fs: &WasiFs,
-) -> Result<(PathBuf, Vec<u8>), LinkError> {
+) -> Result<(PathBuf, OwnedBuffer), LinkError> {
     async fn try_load(
         fs: &WasiFsRoot,
         path: impl AsRef<Path>,
-    ) -> Result<(PathBuf, Vec<u8>), FsError> {
+    ) -> Result<(PathBuf, OwnedBuffer), FsError> {
         let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
             Ok(f) => f,
             // Fallback for cases where the module thinks it's running on unix,
@@ -3938,8 +3970,14 @@ async fn locate_module(
             Err(e) => return Err(e),
         };
 
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).await?;
+        let buf = if let Some(buf) = file.as_owned_buffer() {
+            buf
+        } else {
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).await?;
+            OwnedBuffer::from(buf)
+        };
+
         Ok((path.as_ref().to_owned(), buf))
     }
 
@@ -4221,6 +4259,21 @@ fn call_initialization_function<Ret: WasmTypeList>(
         Err(ExportError::IncompatibleType) => {
             Err(LinkError::InitFuncWithInvalidSignature(name.to_string()))
         }
+    }
+}
+
+fn get_tls_base_export(
+    instance: &Instance,
+    store: &mut impl AsStoreMut,
+) -> Result<Option<u64>, LinkError> {
+    match instance.exports.get_global("__tls_base") {
+        Ok(global) => match global.get(store) {
+            Value::I32(x) => Ok(Some(x as u64)),
+            Value::I64(x) => Ok(Some(x as u64)),
+            _ => Err(LinkError::BadTlsBaseExport),
+        },
+        Err(ExportError::Missing(_)) => Ok(None),
+        Err(ExportError::IncompatibleType) => Err(LinkError::BadTlsBaseExport),
     }
 }
 

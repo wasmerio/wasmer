@@ -11,9 +11,9 @@
 use std::iter::FromIterator;
 
 use crate::{
-    backend::v8::{bindings::*, error::Trap, function::Function, utils::convert::*},
     AsStoreMut, FromToNativeWasmType, NativeWasmType, NativeWasmTypeInto, RuntimeError,
     TypedFunction, Value, WasmTypeList,
+    backend::v8::{bindings::*, error::Trap, function::Function, utils::convert::*},
 };
 use wasmer_types::RawValue;
 
@@ -133,9 +133,15 @@ impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15
+);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16
+);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
+);
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18
 );

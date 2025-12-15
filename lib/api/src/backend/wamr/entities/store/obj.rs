@@ -1,8 +1,8 @@
 use std::{fmt, marker::PhantomData, num::NonZeroUsize};
 
 use crate::{
-    backend::wamr::vm::{VMFunctionEnvironment, VMGlobal},
     AsStoreMut,
+    backend::wamr::vm::{VMFunctionEnvironment, VMGlobal},
 };
 
 pub use wasmer_types::StoreId;
@@ -11,7 +11,7 @@ impl crate::StoreObjects {
     /// Consume [`self`] into [`crate::backend::wamr::store::StoreObjects`].
     pub fn into_wamr(self) -> crate::backend::wamr::store::StoreObjects {
         match self {
-            crate::StoreObjects::Wamr(s) => s,
+            Self::Wamr(s) => s,
             _ => panic!("Not a `wamr` store!"),
         }
     }
@@ -19,7 +19,7 @@ impl crate::StoreObjects {
     /// Convert a reference to [`self`] into a reference [`crate::backend::wamr::store::StoreObjects`].
     pub fn as_wamr(&self) -> &crate::backend::wamr::store::StoreObjects {
         match self {
-            crate::StoreObjects::Wamr(s) => s,
+            Self::Wamr(s) => s,
             _ => panic!("Not a `wamr` store!"),
         }
     }
@@ -27,7 +27,7 @@ impl crate::StoreObjects {
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wamr::store::StoreObjects`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::backend::wamr::store::StoreObjects {
         match self {
-            crate::StoreObjects::Wamr(s) => s,
+            Self::Wamr(s) => s,
             _ => panic!("Not a `wamr` store!"),
         }
     }
@@ -107,7 +107,7 @@ impl StoreObjects {
     }
 
     /// Return an immutable iterator over all globals
-    pub fn iter_globals(&self) -> core::slice::Iter<VMGlobal> {
+    pub fn iter_globals(&self) -> core::slice::Iter<'_, VMGlobal> {
         self.globals.iter()
     }
 

@@ -708,11 +708,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 is_64bit: *is_64bit,
             },
             ArchivedJournalEntry::FileDescriptorSeekV1(
-                ArchivedJournalEntryFileDescriptorSeekV1 {
-                    fd,
-                    offset,
-                    ref whence,
-                },
+                ArchivedJournalEntryFileDescriptorSeekV1 { fd, offset, whence },
             ) => Self::FileDescriptorSeekV1 {
                 fd: fd.to_native(),
                 offset: offset.to_native(),
@@ -795,7 +791,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             },
             ArchivedJournalEntry::SnapshotV1(ArchivedJournalEntrySnapshotV1 {
                 since_epoch,
-                ref trigger,
+                trigger,
             }) => Self::SnapshotV1 {
                 when: SystemTime::UNIX_EPOCH
                     .checked_add((*since_epoch).into())
@@ -803,7 +799,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 trigger: trigger.into(),
             },
             ArchivedJournalEntry::SetClockTimeV1(ArchivedJournalEntrySetClockTimeV1 {
-                ref clock_id,
+                clock_id,
                 time,
             }) => Self::SetClockTimeV1 {
                 clock_id: clock_id.into(),
@@ -906,7 +902,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                     fd,
                     offset,
                     len,
-                    ref advice,
+                    advice,
                 },
             ) => Self::FileDescriptorAdviseV1 {
                 fd: fd.to_native(),
@@ -955,9 +951,9 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             }
             ArchivedJournalEntry::EpollCtlV1(ArchivedJournalEntryEpollCtlV1 {
                 epfd,
-                ref op,
+                op,
                 fd,
-                ref event,
+                event,
             }) => Self::EpollCtlV1 {
                 epfd: epfd.to_native(),
                 op: op.into(),
@@ -1014,7 +1010,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             ArchivedJournalEntry::PortBridgeV1(ArchivedJournalEntryPortBridgeV1 {
                 network,
                 token,
-                ref security,
+                security,
             }) => Self::PortBridgeV1 {
                 network: String::from_utf8_lossy(network.as_ref()),
                 token: String::from_utf8_lossy(token.as_ref()),
@@ -1045,8 +1041,8 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 Self::PortRouteDelV1 { ip: ip.as_ipaddr() }
             }
             ArchivedJournalEntry::SocketOpenV1(ArchivedJournalEntrySocketOpenV1 {
-                ref af,
-                ref ty,
+                af,
+                ty,
                 pt,
                 fd,
             }) => Self::SocketOpenV1 {
@@ -1179,7 +1175,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             },
             ArchivedJournalEntry::SocketSetOptFlagV1(ArchivedJournalEntrySocketSetOptFlagV1 {
                 fd,
-                ref opt,
+                opt,
                 flag,
             }) => Self::SocketSetOptFlagV1 {
                 fd: fd.to_native(),
@@ -1188,7 +1184,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             },
             ArchivedJournalEntry::SocketSetOptSizeV1(ArchivedJournalEntrySocketSetOptSizeV1 {
                 fd,
-                ref opt,
+                opt,
                 size,
             }) => Self::SocketSetOptSizeV1 {
                 fd: fd.to_native(),
@@ -1197,7 +1193,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             },
             ArchivedJournalEntry::SocketSetOptTimeV1(ArchivedJournalEntrySocketSetOptTimeV1 {
                 fd,
-                ref ty,
+                ty,
                 time,
             }) => Self::SocketSetOptTimeV1 {
                 fd: fd.to_native(),
@@ -1206,7 +1202,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             },
             ArchivedJournalEntry::SocketShutdownV1(ArchivedJournalEntrySocketShutdownV1 {
                 fd,
-                ref how,
+                how,
             }) => Self::SocketShutdownV1 {
                 fd: fd.to_native(),
                 how: how.into(),

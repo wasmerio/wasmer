@@ -1,9 +1,9 @@
 use wasmer_types::{TagType, Type};
 
 use crate::{
+    AsStoreMut, AsStoreRef,
     jsc::vm::VMTag,
     vm::{VMExtern, VMExternTag},
-    AsStoreMut, AsStoreRef,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

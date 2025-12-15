@@ -1,12 +1,12 @@
 use super::utils;
 use crate::{
-    commands::{app::util::AppIdentFlag, AsyncCliCommand},
+    commands::{AsyncCliCommand, app::util::AppIdentFlag},
     config::WasmerEnv,
     opts::ListFormatOpts,
     utils::render::{ItemFormat, ListFormat},
 };
 use dialoguer::theme::ColorfulTheme;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
 /// Reveal the value of an existing app secret.

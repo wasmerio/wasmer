@@ -79,7 +79,7 @@ pub struct wasmer_target_t {
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_target_new(
     triple: Option<Box<wasmer_triple_t>>,
     cpu_features: Option<Box<wasmer_cpu_features_t>>,
@@ -97,7 +97,7 @@ pub extern "C" fn wasmer_target_new(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_target_delete(_target: Option<Box<wasmer_target_t>>) {}
 
 /// Unstable non-standard Wasmer-specific API to represent a target
@@ -142,15 +142,14 @@ pub struct wasmer_triple_t {
 /// # Example
 ///
 /// See [`wasmer_triple_t`] or [`wasmer_triple_new_from_host`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_triple_new(
     triple: Option<&wasm_name_t>,
 ) -> Option<Box<wasmer_triple_t>> {
     let triple = triple?;
-    let triple = c_try!(str::from_utf8(slice::from_raw_parts(
-        triple.data,
-        triple.size
-    )));
+    let triple = c_try!(str::from_utf8(unsafe {
+        slice::from_raw_parts(triple.data, triple.size)
+    }));
 
     Some(Box::new(wasmer_triple_t {
         inner: c_try!(Triple::from_str(triple)),
@@ -181,7 +180,7 @@ pub unsafe extern "C" fn wasmer_triple_new(
 /// ```
 ///
 /// See also [`wasmer_triple_new`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_triple_new_from_host() -> Box<wasmer_triple_t> {
     Box::new(wasmer_triple_t {
         inner: Triple::host(),
@@ -193,7 +192,7 @@ pub extern "C" fn wasmer_triple_new_from_host() -> Box<wasmer_triple_t> {
 /// # Example
 ///
 /// See [`wasmer_triple_t`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_triple_delete(_triple: Option<Box<wasmer_triple_t>>) {}
 
 /// Unstable non-standard Wasmer-specific API to represent a set of
@@ -263,7 +262,7 @@ pub struct wasmer_cpu_features_t {
 /// # Example
 ///
 /// See [`wasmer_cpu_features_t`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_cpu_features_new() -> Box<wasmer_cpu_features_t> {
     Box::new(wasmer_cpu_features_t {
         inner: CpuFeature::set(),
@@ -275,7 +274,7 @@ pub extern "C" fn wasmer_cpu_features_new() -> Box<wasmer_cpu_features_t> {
 /// # Example
 ///
 /// See [`wasmer_cpu_features_t`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_cpu_features_delete(_cpu_features: Option<Box<wasmer_cpu_features_t>>) {}
 
 /// Add a new CPU feature into the set represented by
@@ -284,7 +283,7 @@ pub extern "C" fn wasmer_cpu_features_delete(_cpu_features: Option<Box<wasmer_cp
 /// # Example
 ///
 /// See [`wasmer_cpu_features_t`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_cpu_features_add(
     cpu_features: Option<&mut wasmer_cpu_features_t>,
     feature: Option<&wasm_name_t>,
@@ -298,10 +297,12 @@ pub unsafe extern "C" fn wasmer_cpu_features_add(
         _ => return false,
     };
     let feature = c_try!(
-        str::from_utf8(slice::from_raw_parts(
-            feature.data,
-            feature.size,
-        ));
+        str::from_utf8(unsafe {
+            slice::from_raw_parts(
+                feature.data,
+                feature.size,
+            )
+        });
         otherwise false
     );
 

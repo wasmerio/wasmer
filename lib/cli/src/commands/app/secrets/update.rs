@@ -1,12 +1,12 @@
 use super::utils::Secret;
 use crate::{
-    commands::{app::util::AppIdentFlag, AsyncCliCommand},
+    commands::{AsyncCliCommand, app::util::AppIdentFlag},
     config::WasmerEnv,
 };
 use anyhow::Context;
 use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -108,7 +108,10 @@ impl CmdAppSecretsUpdate {
         for secret in secrets {
             if !sset.contains(secret.name.as_str()) {
                 if self.non_interactive {
-                    anyhow::bail!("Cannot update secret '{}' in app {app_id} as it does not exist yet. Use the `create` command instead.", secret.name.bold());
+                    anyhow::bail!(
+                        "Cannot update secret '{}' in app {app_id} as it does not exist yet. Use the `create` command instead.",
+                        secret.name.bold()
+                    );
                 } else {
                     eprintln!(
                         "Secret '{}' does not exist for the selected app.",
@@ -120,7 +123,10 @@ impl CmdAppSecretsUpdate {
                         .interact()?;
 
                     if !res {
-                        eprintln!("Cannot update secret '{}' as it does not exist yet. Use the `create` command instead.", secret.name.bold());
+                        eprintln!(
+                            "Cannot update secret '{}' as it does not exist yet. Use the `create` command instead.",
+                            secret.name.bold()
+                        );
                     }
                 }
             }

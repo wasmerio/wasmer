@@ -1,7 +1,7 @@
-use std::{fmt::Display, str::FromStr};
+use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use schemars::JsonSchema;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SnapshotTrigger {
@@ -107,11 +107,19 @@ impl<'de> Deserialize<'de> for SnapshotTrigger {
 }
 
 impl JsonSchema for SnapshotTrigger {
-    fn schema_name() -> String {
-        "SnapshotTrigger".to_owned()
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("SnapshotTrigger")
     }
 
-    fn json_schema(generator: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
         <String as JsonSchema>::json_schema(generator)
+    }
+
+    fn inline_schema() -> bool {
+        false
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        Self::schema_name()
     }
 }

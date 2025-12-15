@@ -4,15 +4,16 @@
 //! This file declares `VMContext` and several related structs which contain
 //! fields that compiled wasm code accesses directly.
 
+use crate::VMFunctionBody;
+use crate::VMTable;
 use crate::global::VMGlobal;
 use crate::instance::Instance;
 use crate::memory::VMMemory;
 use crate::store::InternalStoreHandle;
 use crate::trap::{Trap, TrapCode};
-use crate::VMTable;
 use crate::{VMBuiltinFunctionIndex, VMFunction};
-use crate::{VMFunctionBody, VMTag};
 use std::convert::TryFrom;
+use std::hash::{Hash, Hasher};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, Ordering};
 use wasmer_types::RawValue;
@@ -47,7 +48,7 @@ impl std::fmt::Debug for VMFunctionContext {
 
 impl std::cmp::PartialEq for VMFunctionContext {
     fn eq(&self, rhs: &Self) -> bool {
-        unsafe { self.host_env as usize == rhs.host_env as usize }
+        unsafe { std::ptr::eq(self.host_env, rhs.host_env) }
     }
 }
 
@@ -257,50 +258,6 @@ mod test_vmmemory_import {
     }
 }
 
-/// The fields compiled code needs to access to utilize a WebAssembly tag
-/// variable imported from another instance.
-#[derive(Clone)]
-#[repr(C)]
-pub struct VMTagImport {
-    /// A handle to the `Tag` that owns the tag description.
-    pub handle: InternalStoreHandle<VMTag>,
-}
-
-/// # Safety
-/// This data is safe to share between threads because it's plain data that
-/// is the user's responsibility to synchronize. Additionally, all operations
-/// on `from` are thread-safe through the use of a mutex in [`VMTag`].
-unsafe impl Send for VMTagImport {}
-/// # Safety
-/// This data is safe to share between threads because it's plain data that
-/// is the user's responsibility to synchronize. And because it's `Clone`, there's
-/// really no difference between passing it by reference or by value as far as
-/// correctness in a multi-threaded context is concerned.
-unsafe impl Sync for VMTagImport {}
-
-//#[cfg(test)]
-//mod test_vmtag_import {
-//    use super::VMTagImport;
-//    use crate::VMOffsets;
-//    use memoffset::offset_of;
-//    use std::mem::size_of;
-//    use wasmer_types::ModuleInfo;
-//
-//    #[test]
-//    fn check_vmtag_import_offsets() {
-//        let module = ModuleInfo::new();
-//        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
-//        assert_eq!(
-//            size_of::<VMTagImport>(),
-//            usize::from(offsets.size_of_vmtag_import())
-//        );
-//        assert_eq!(
-//            offset_of!(VMTagImport, handle),
-//            usize::from(offsets.vmtag_import_definition())
-//        );
-//    }
-//}
-
 /// The fields compiled code needs to access to utilize a WebAssembly global
 /// variable imported from another instance.
 #[derive(Clone)]
@@ -364,27 +321,29 @@ pub(crate) unsafe fn memory_copy(
     src: u32,
     len: u32,
 ) -> Result<(), Trap> {
-    // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
-    if src
-        .checked_add(len)
-        .map_or(true, |n| usize::try_from(n).unwrap() > mem.current_length)
-        || dst
+    unsafe {
+        // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
+        if src
             .checked_add(len)
-            .map_or(true, |m| usize::try_from(m).unwrap() > mem.current_length)
-    {
-        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+            .is_none_or(|n| usize::try_from(n).unwrap() > mem.current_length)
+            || dst
+                .checked_add(len)
+                .is_none_or(|m| usize::try_from(m).unwrap() > mem.current_length)
+        {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        }
+
+        let dst = usize::try_from(dst).unwrap();
+        let src = usize::try_from(src).unwrap();
+
+        // Bounds and casts are checked above, by this point we know that
+        // everything is safe.
+        let dst = mem.base.add(dst);
+        let src = mem.base.add(src);
+        ptr::copy(src, dst, len as usize);
+
+        Ok(())
     }
-
-    let dst = usize::try_from(dst).unwrap();
-    let src = usize::try_from(src).unwrap();
-
-    // Bounds and casts are checked above, by this point we know that
-    // everything is safe.
-    let dst = mem.base.add(dst);
-    let src = mem.base.add(src);
-    ptr::copy(src, dst, len as usize);
-
-    Ok(())
 }
 
 /// Perform the `memory.fill` operation for the memory in an unsynchronized,
@@ -403,22 +362,24 @@ pub(crate) unsafe fn memory_fill(
     val: u32,
     len: u32,
 ) -> Result<(), Trap> {
-    if dst
-        .checked_add(len)
-        .map_or(true, |m| usize::try_from(m).unwrap() > mem.current_length)
-    {
-        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+    unsafe {
+        if dst
+            .checked_add(len)
+            .is_none_or(|m| usize::try_from(m).unwrap() > mem.current_length)
+        {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        }
+
+        let dst = isize::try_from(dst).unwrap();
+        let val = val as u8;
+
+        // Bounds and casts are checked above, by this point we know that
+        // everything is safe.
+        let dst = mem.base.offset(dst);
+        ptr::write_bytes(dst, val, len as usize);
+
+        Ok(())
     }
-
-    let dst = isize::try_from(dst).unwrap();
-    let val = val as u8;
-
-    // Bounds and casts are checked above, by this point we know that
-    // everything is safe.
-    let dst = mem.base.offset(dst);
-    ptr::write_bytes(dst, val, len as usize);
-
-    Ok(())
 }
 
 /// Perform the `memory32.atomic.check32` operation for the memory. Return 0 if same, 1 if different
@@ -434,22 +395,24 @@ pub(crate) unsafe fn memory32_atomic_check32(
     dst: u32,
     val: u32,
 ) -> Result<u32, Trap> {
-    if usize::try_from(dst).unwrap() > mem.current_length {
-        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-    }
+    unsafe {
+        if usize::try_from(dst).unwrap() > mem.current_length {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        }
 
-    let dst = isize::try_from(dst).unwrap();
-    if dst & 0b11 != 0 {
-        return Err(Trap::lib(TrapCode::UnalignedAtomic));
-    }
+        let dst = isize::try_from(dst).unwrap();
+        if dst & 0b11 != 0 {
+            return Err(Trap::lib(TrapCode::UnalignedAtomic));
+        }
 
-    // Bounds and casts are checked above, by this point we know that
-    // everything is safe.
-    let dst = mem.base.offset(dst) as *mut u32;
-    let atomic_dst = AtomicPtr::new(dst);
-    let read_val = *atomic_dst.load(Ordering::Acquire);
-    let ret = if read_val == val { 0 } else { 1 };
-    Ok(ret)
+        // Bounds and casts are checked above, by this point we know that
+        // everything is safe.
+        let dst = mem.base.offset(dst) as *mut u32;
+        let atomic_dst = AtomicPtr::new(dst);
+        let read_val = *atomic_dst.load(Ordering::Acquire);
+        let ret = if read_val == val { 0 } else { 1 };
+        Ok(ret)
+    }
 }
 
 /// Perform the `memory32.atomic.check64` operation for the memory. Return 0 if same, 1 if different
@@ -465,22 +428,24 @@ pub(crate) unsafe fn memory32_atomic_check64(
     dst: u32,
     val: u64,
 ) -> Result<u32, Trap> {
-    if usize::try_from(dst).unwrap() > mem.current_length {
-        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-    }
+    unsafe {
+        if usize::try_from(dst).unwrap() > mem.current_length {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        }
 
-    let dst = isize::try_from(dst).unwrap();
-    if dst & 0b111 != 0 {
-        return Err(Trap::lib(TrapCode::UnalignedAtomic));
-    }
+        let dst = isize::try_from(dst).unwrap();
+        if dst & 0b111 != 0 {
+            return Err(Trap::lib(TrapCode::UnalignedAtomic));
+        }
 
-    // Bounds and casts are checked above, by this point we know that
-    // everything is safe.
-    let dst = mem.base.offset(dst) as *mut u64;
-    let atomic_dst = AtomicPtr::new(dst);
-    let read_val = *atomic_dst.load(Ordering::Acquire);
-    let ret = if read_val == val { 0 } else { 1 };
-    Ok(ret)
+        // Bounds and casts are checked above, by this point we know that
+        // everything is safe.
+        let dst = mem.base.offset(dst) as *mut u64;
+        let atomic_dst = AtomicPtr::new(dst);
+        let read_val = *atomic_dst.load(Ordering::Acquire);
+        let ret = if read_val == val { 0 } else { 1 };
+        Ok(ret)
+    }
 }
 
 /// The fields compiled code needs to access to utilize a WebAssembly table
@@ -578,6 +543,24 @@ impl VMGlobalDefinition {
     }
 }
 
+/// A tag index, unique within the Store in which the instance was created.
+/// Usable for translating module-local tag indices to store-unique ones.
+#[repr(C)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+pub struct VMSharedTagIndex(u32);
+
+impl VMSharedTagIndex {
+    /// Create a new `VMSharedTagIndex`.
+    pub fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    /// Get the inner value.
+    pub fn index(&self) -> u32 {
+        self.0
+    }
+}
+
 /// An index into the shared signature registry, usable for checking signatures
 /// at indirect calls.
 #[repr(C)]
@@ -626,7 +609,7 @@ impl Default for VMSharedSignatureIndex {
 /// The VM caller-checked "anyfunc" record, for caller-side signature checking.
 /// It consists of the actual function pointer and a signature id to be checked
 /// by the caller.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
     /// Function body.
@@ -639,6 +622,26 @@ pub struct VMCallerCheckedAnyfunc {
     /// a dynamic argument list.
     pub call_trampoline: VMTrampoline,
     // If more elements are added here, remember to add offset_of tests below!
+}
+
+impl PartialEq for VMCallerCheckedAnyfunc {
+    fn eq(&self, other: &Self) -> bool {
+        self.func_ptr == other.func_ptr
+            && self.type_index == other.type_index
+            && self.vmctx == other.vmctx
+            && ptr::fn_addr_eq(self.call_trampoline, other.call_trampoline)
+    }
+}
+
+impl Eq for VMCallerCheckedAnyfunc {}
+
+impl Hash for VMCallerCheckedAnyfunc {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.func_ptr.hash(state);
+        self.type_index.hash(state);
+        self.vmctx.hash(state);
+        ptr::hash(self.call_trampoline as *const (), state);
+    }
 }
 
 #[cfg(test)]
@@ -689,87 +692,80 @@ impl VMBuiltinFunctionsArray {
 
         let mut ptrs = [0; Self::len()];
 
-        ptrs[VMBuiltinFunctionIndex::get_memory32_grow_index().index() as usize] =
-            wasmer_vm_memory32_grow as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_grow_index().index() as usize] =
-            wasmer_vm_imported_memory32_grow as usize;
-
-        ptrs[VMBuiltinFunctionIndex::get_memory32_size_index().index() as usize] =
-            wasmer_vm_memory32_size as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_size_index().index() as usize] =
-            wasmer_vm_imported_memory32_size as usize;
-
-        ptrs[VMBuiltinFunctionIndex::get_table_copy_index().index() as usize] =
-            wasmer_vm_table_copy as usize;
-
-        ptrs[VMBuiltinFunctionIndex::get_table_init_index().index() as usize] =
-            wasmer_vm_table_init as usize;
-        ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as usize] =
-            wasmer_vm_elem_drop as usize;
-
-        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as usize] =
-            wasmer_vm_memory32_copy as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() as usize] =
-            wasmer_vm_imported_memory32_copy as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as usize] =
-            wasmer_vm_memory32_fill as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as usize] =
-            wasmer_vm_imported_memory32_fill as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() as usize] =
-            wasmer_vm_memory32_init as usize;
-        ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as usize] =
-            wasmer_vm_data_drop as usize;
-        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as usize] =
-            wasmer_vm_raise_trap as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() as usize] =
-            wasmer_vm_table_size as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() as usize] =
-            wasmer_vm_imported_table_size as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() as usize] =
-            wasmer_vm_table_grow as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() as usize] =
-            wasmer_vm_imported_table_grow as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_get_index().index() as usize] =
-            wasmer_vm_table_get as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_get_index().index() as usize] =
-            wasmer_vm_imported_table_get as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory32_grow_index().index() as *const () as usize] =
+            wasmer_vm_memory32_grow as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_grow_index().index() as *const ()
+            as usize] = wasmer_vm_imported_memory32_grow as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory32_size_index().index() as *const () as usize] =
+            wasmer_vm_memory32_size as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_size_index().index() as *const ()
+            as usize] = wasmer_vm_imported_memory32_size as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_copy_index().index() as *const () as usize] =
+            wasmer_vm_table_copy as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_init_index().index() as *const () as usize] =
+            wasmer_vm_table_init as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as *const () as usize] =
+            wasmer_vm_elem_drop as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as *const () as usize] =
+            wasmer_vm_memory32_copy as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() as *const ()
+            as usize] = wasmer_vm_imported_memory32_copy as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as *const () as usize] =
+            wasmer_vm_memory32_fill as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as *const ()
+            as usize] = wasmer_vm_imported_memory32_fill as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() as *const () as usize] =
+            wasmer_vm_memory32_init as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as *const () as usize] =
+            wasmer_vm_data_drop as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as *const () as usize] =
+            wasmer_vm_raise_trap as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() as *const () as usize] =
+            wasmer_vm_table_size as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() as *const ()
+            as usize] = wasmer_vm_imported_table_size as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() as *const () as usize] =
+            wasmer_vm_table_grow as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() as *const ()
+            as usize] = wasmer_vm_imported_table_grow as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_get_index().index() as *const () as usize] =
+            wasmer_vm_table_get as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_get_index().index() as *const ()
+            as usize] = wasmer_vm_imported_table_get as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_table_set_index().index() as usize] =
-            wasmer_vm_table_set as usize;
+            wasmer_vm_table_set as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_table_set_index().index() as usize] =
-            wasmer_vm_imported_table_set as usize;
+            wasmer_vm_imported_table_set as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_func_ref_index().index() as usize] =
-            wasmer_vm_func_ref as usize;
+            wasmer_vm_func_ref as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_table_fill_index().index() as usize] =
-            wasmer_vm_table_fill as usize;
-
+            wasmer_vm_table_fill as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_atomic_wait32_index().index() as usize] =
-            wasmer_vm_memory32_atomic_wait32 as usize;
+            wasmer_vm_memory32_atomic_wait32 as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index().index() as usize] =
-            wasmer_vm_imported_memory32_atomic_wait32 as usize;
+            wasmer_vm_imported_memory32_atomic_wait32 as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_atomic_wait64_index().index() as usize] =
-            wasmer_vm_memory32_atomic_wait64 as usize;
+            wasmer_vm_memory32_atomic_wait64 as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index().index() as usize] =
-            wasmer_vm_imported_memory32_atomic_wait64 as usize;
+            wasmer_vm_imported_memory32_atomic_wait64 as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_atomic_notify_index().index() as usize] =
-            wasmer_vm_memory32_atomic_notify as usize;
+            wasmer_vm_memory32_atomic_notify as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index().index() as usize] =
-            wasmer_vm_imported_memory32_atomic_notify as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_throw_index().index() as usize] =
-            wasmer_vm_throw as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_rethrow_index().index() as usize] =
-            wasmer_vm_rethrow as usize;
-
-        ptrs[VMBuiltinFunctionIndex::get_imported_alloc_exception_index().index() as usize] =
-            wasmer_vm_alloc_exception as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_delete_exception_index().index() as usize] =
-            wasmer_vm_delete_exception as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_read_exception_index().index() as usize] =
-            wasmer_vm_read_exception as usize;
-
+            wasmer_vm_imported_memory32_atomic_notify as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() as usize] =
-            wasmer_vm_dbg_usize as usize;
+            wasmer_vm_dbg_usize as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_debug_str_index().index() as usize] =
-            wasmer_vm_dbg_str as usize;
+            wasmer_vm_dbg_str as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_personality2_index().index() as usize] =
+            wasmer_eh_personality2 as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_alloc_exception_index().index() as usize] =
+            wasmer_vm_alloc_exception as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_throw_index().index() as usize] =
+            wasmer_vm_throw as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_read_exnref_index().index() as usize] =
+            wasmer_vm_read_exnref as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_exception_into_exnref_index().index() as usize] =
+            wasmer_vm_exception_into_exnref as *const () as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 
@@ -799,12 +795,18 @@ impl VMContext {
     #[allow(clippy::cast_ptr_alignment)]
     #[inline]
     pub(crate) unsafe fn instance(&self) -> &Instance {
-        &*((self as *const Self as *mut u8).offset(-Instance::vmctx_offset()) as *const Instance)
+        unsafe {
+            &*((self as *const Self as *mut u8).offset(-Instance::vmctx_offset())
+                as *const Instance)
+        }
     }
 
     #[inline]
     pub(crate) unsafe fn instance_mut(&mut self) -> &mut Instance {
-        &mut *((self as *const Self as *mut u8).offset(-Instance::vmctx_offset()) as *mut Instance)
+        unsafe {
+            &mut *((self as *const Self as *mut u8).offset(-Instance::vmctx_offset())
+                as *mut Instance)
+        }
     }
 }
 

@@ -2,9 +2,8 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 use crate::vmcontext::{VMFunctionImport, VMGlobalImport, VMMemoryImport, VMTableImport};
-use crate::VMTagImport;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
-use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex, TagIndex};
+use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 
 /// Resolved import pointers.
 #[derive(Clone)]
@@ -18,9 +17,6 @@ pub struct Imports {
     /// Resolved addresses for imported memories.
     pub memories: BoxedSlice<MemoryIndex, VMMemoryImport>,
 
-    /// Resolved addresses for imported tags.
-    pub tags: BoxedSlice<TagIndex, VMTagImport>,
-
     /// Resolved addresses for imported globals.
     pub globals: BoxedSlice<GlobalIndex, VMGlobalImport>,
 }
@@ -31,14 +27,12 @@ impl Imports {
         function_imports: PrimaryMap<FunctionIndex, VMFunctionImport>,
         table_imports: PrimaryMap<TableIndex, VMTableImport>,
         memory_imports: PrimaryMap<MemoryIndex, VMMemoryImport>,
-        tag_imports: PrimaryMap<TagIndex, VMTagImport>,
         global_imports: PrimaryMap<GlobalIndex, VMGlobalImport>,
     ) -> Self {
         Self {
             functions: function_imports.into_boxed_slice(),
             tables: table_imports.into_boxed_slice(),
             memories: memory_imports.into_boxed_slice(),
-            tags: tag_imports.into_boxed_slice(),
             globals: global_imports.into_boxed_slice(),
         }
     }
@@ -50,7 +44,6 @@ impl Imports {
             tables: PrimaryMap::new().into_boxed_slice(),
             memories: PrimaryMap::new().into_boxed_slice(),
             globals: PrimaryMap::new().into_boxed_slice(),
-            tags: PrimaryMap::new().into_boxed_slice(),
         }
     }
 }

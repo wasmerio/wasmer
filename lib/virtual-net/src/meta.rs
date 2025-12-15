@@ -33,14 +33,14 @@ pub enum FrameSerializationFormat {
     Cbor,
 }
 
-/// Possible values which can be passed to the [`TcpStream::shutdown`] method.
+/// Possible values which can be passed to the `TcpStream::shutdown` method.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Shutdown {
-    /// The reading portion of the [`TcpStream`] should be shut down.
+    /// Shut down the reading portion of the stream.
     Read,
-    /// The writing portion of the [`TcpStream`] should be shut down.
+    /// Shut down the writing portion of the stream.
     Write,
-    /// Both the reading and the writing portions of the [`TcpStream`] should be shut down.
+    /// Shut down both the reading and writing portions of the stream.
     Both,
 }
 

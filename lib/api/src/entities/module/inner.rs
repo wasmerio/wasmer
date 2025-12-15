@@ -13,9 +13,9 @@ use wasmer_types::{
 };
 
 use crate::{
+    AsEngineRef,
     macros::backend::{gen_rt_ty, match_rt},
     utils::IntoBytes,
-    AsEngineRef,
 };
 
 /// A WebAssembly Module contains stateless WebAssembly
@@ -115,44 +115,62 @@ impl BackendModule {
     ) -> Result<Self, CompileError> {
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
-                crate::backend::sys::entities::module::Module::from_binary_unchecked(
-                    engine, binary,
-                )?,
-            )),
+            crate::BackendEngine::Sys(_) => {
+                let module = unsafe {
+                    crate::backend::sys::entities::module::Module::from_binary_unchecked(
+                        engine, binary,
+                    )?
+                };
+                Ok(Self::Sys(module))
+            }
 
             #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::backend::wamr::entities::module::Module::from_binary_unchecked(
-                    engine, binary,
-                )?,
-            )),
+            crate::BackendEngine::Wamr(_) => {
+                let module = unsafe {
+                    crate::backend::wamr::entities::module::Module::from_binary_unchecked(
+                        engine, binary,
+                    )?
+                };
+                Ok(Self::Wamr(module))
+            }
 
             #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::backend::wasmi::entities::module::Module::from_binary_unchecked(
-                    engine, binary,
-                )?,
-            )),
+            crate::BackendEngine::Wasmi(_) => {
+                let module = unsafe {
+                    crate::backend::wasmi::entities::module::Module::from_binary_unchecked(
+                        engine, binary,
+                    )?
+                };
+                Ok(Self::Wasmi(module))
+            }
 
             #[cfg(feature = "v8")]
-            crate::BackendEngine::V8(_) => Ok(Self::V8(
-                crate::backend::v8::entities::module::Module::from_binary_unchecked(
-                    engine, binary,
-                )?,
-            )),
+            crate::BackendEngine::V8(_) => {
+                let module = unsafe {
+                    crate::backend::v8::entities::module::Module::from_binary_unchecked(
+                        engine, binary,
+                    )?
+                };
+                Ok(Self::V8(module))
+            }
             #[cfg(feature = "js")]
-            crate::BackendEngine::Js(_) => Ok(Self::Js(
-                crate::backend::js::entities::module::Module::from_binary_unchecked(
-                    engine, binary,
-                )?,
-            )),
+            crate::BackendEngine::Js(_) => {
+                let module = unsafe {
+                    crate::backend::js::entities::module::Module::from_binary_unchecked(
+                        engine, binary,
+                    )?
+                };
+                Ok(Self::Js(module))
+            }
             #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::module::Module::from_binary_unchecked(
-                    engine, binary,
-                )?,
-            )),
+            crate::BackendEngine::Jsc(_) => {
+                let module = unsafe {
+                    crate::backend::jsc::entities::module::Module::from_binary_unchecked(
+                        engine, binary,
+                    )?
+                };
+                Ok(Self::Jsc(module))
+            }
         }
     }
 
@@ -279,38 +297,60 @@ impl BackendModule {
     ) -> Result<Self, DeserializeError> {
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
-                crate::backend::sys::entities::module::Module::deserialize_unchecked(
-                    engine, bytes,
-                )?,
-            )),
+            crate::BackendEngine::Sys(_) => {
+                let module = unsafe {
+                    crate::backend::sys::entities::module::Module::deserialize_unchecked(
+                        engine, bytes,
+                    )?
+                };
+                Ok(Self::Sys(module))
+            }
             #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::backend::wamr::entities::module::Module::deserialize_unchecked(
-                    engine, bytes,
-                )?,
-            )),
+            crate::BackendEngine::Wamr(_) => {
+                let module = unsafe {
+                    crate::backend::wamr::entities::module::Module::deserialize_unchecked(
+                        engine, bytes,
+                    )?
+                };
+                Ok(Self::Wamr(module))
+            }
 
             #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::backend::wasmi::entities::module::Module::deserialize_unchecked(
-                    engine, bytes,
-                )?,
-            )),
+            crate::BackendEngine::Wasmi(_) => {
+                let module = unsafe {
+                    crate::backend::wasmi::entities::module::Module::deserialize_unchecked(
+                        engine, bytes,
+                    )?
+                };
+                Ok(Self::Wasmi(module))
+            }
             #[cfg(feature = "v8")]
-            crate::BackendEngine::V8(_) => Ok(Self::V8(
-                crate::backend::v8::entities::module::Module::deserialize_unchecked(engine, bytes)?,
-            )),
+            crate::BackendEngine::V8(_) => {
+                let module = unsafe {
+                    crate::backend::v8::entities::module::Module::deserialize_unchecked(
+                        engine, bytes,
+                    )?
+                };
+                Ok(Self::V8(module))
+            }
             #[cfg(feature = "js")]
-            crate::BackendEngine::Js(_) => Ok(Self::Js(
-                crate::backend::js::entities::module::Module::deserialize_unchecked(engine, bytes)?,
-            )),
+            crate::BackendEngine::Js(_) => {
+                let module = unsafe {
+                    crate::backend::js::entities::module::Module::deserialize_unchecked(
+                        engine, bytes,
+                    )?
+                };
+                Ok(Self::Js(module))
+            }
             #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::module::Module::deserialize_unchecked(
-                    engine, bytes,
-                )?,
-            )),
+            crate::BackendEngine::Jsc(_) => {
+                let module = unsafe {
+                    crate::backend::jsc::entities::module::Module::deserialize_unchecked(
+                        engine, bytes,
+                    )?
+                };
+                Ok(Self::Jsc(module))
+            }
         }
     }
 
@@ -346,30 +386,48 @@ impl BackendModule {
     ) -> Result<Self, DeserializeError> {
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
-                crate::backend::sys::entities::module::Module::deserialize(engine, bytes)?,
-            )),
+            crate::BackendEngine::Sys(_) => {
+                let module = unsafe {
+                    crate::backend::sys::entities::module::Module::deserialize(engine, bytes)?
+                };
+                Ok(Self::Sys(module))
+            }
             #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::backend::wamr::entities::module::Module::deserialize(engine, bytes)?,
-            )),
+            crate::BackendEngine::Wamr(_) => {
+                let module = unsafe {
+                    crate::backend::wamr::entities::module::Module::deserialize(engine, bytes)?
+                };
+                Ok(Self::Wamr(module))
+            }
 
             #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::backend::wasmi::entities::module::Module::deserialize(engine, bytes)?,
-            )),
+            crate::BackendEngine::Wasmi(_) => {
+                let module = unsafe {
+                    crate::backend::wasmi::entities::module::Module::deserialize(engine, bytes)?
+                };
+                Ok(Self::Wasmi(module))
+            }
             #[cfg(feature = "v8")]
-            crate::BackendEngine::V8(_) => Ok(Self::V8(
-                crate::backend::v8::entities::module::Module::deserialize(engine, bytes)?,
-            )),
+            crate::BackendEngine::V8(_) => {
+                let module = unsafe {
+                    crate::backend::v8::entities::module::Module::deserialize(engine, bytes)?
+                };
+                Ok(Self::V8(module))
+            }
             #[cfg(feature = "js")]
-            crate::BackendEngine::Js(_) => Ok(Self::Js(
-                crate::backend::js::entities::module::Module::deserialize(engine, bytes)?,
-            )),
+            crate::BackendEngine::Js(_) => {
+                let module = unsafe {
+                    crate::backend::js::entities::module::Module::deserialize(engine, bytes)?
+                };
+                Ok(Self::Js(module))
+            }
             #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::module::Module::deserialize(engine, bytes)?,
-            )),
+            crate::BackendEngine::Jsc(_) => {
+                let module = unsafe {
+                    crate::backend::jsc::entities::module::Module::deserialize(engine, bytes)?
+                };
+                Ok(Self::Jsc(module))
+            }
         }
     }
 
@@ -380,8 +438,8 @@ impl BackendModule {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
     /// let module = Module::deserialize_from_file(&store, path)?;
     /// # Ok(())
     /// # }
@@ -397,34 +455,60 @@ impl BackendModule {
     ) -> Result<Self, DeserializeError> {
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
-                crate::backend::sys::entities::module::Module::deserialize_from_file(engine, path)?,
-            )),
+            crate::BackendEngine::Sys(_) => {
+                let module = unsafe {
+                    crate::backend::sys::entities::module::Module::deserialize_from_file(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Sys(module))
+            }
             #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::backend::wamr::entities::module::Module::deserialize_from_file(
-                    engine, path,
-                )?,
-            )),
+            crate::BackendEngine::Wamr(_) => {
+                let module = unsafe {
+                    crate::backend::wamr::entities::module::Module::deserialize_from_file(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Wamr(module))
+            }
 
             #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::backend::wasmi::entities::module::Module::deserialize_from_file(
-                    engine, path,
-                )?,
-            )),
+            crate::BackendEngine::Wasmi(_) => {
+                let module = unsafe {
+                    crate::backend::wasmi::entities::module::Module::deserialize_from_file(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Wasmi(module))
+            }
             #[cfg(feature = "v8")]
-            crate::BackendEngine::V8(_) => Ok(Self::V8(
-                crate::backend::v8::entities::module::Module::deserialize_from_file(engine, path)?,
-            )),
+            crate::BackendEngine::V8(_) => {
+                let module = unsafe {
+                    crate::backend::v8::entities::module::Module::deserialize_from_file(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::V8(module))
+            }
             #[cfg(feature = "js")]
-            crate::BackendEngine::Js(_) => Ok(Self::Js(
-                crate::backend::js::entities::module::Module::deserialize_from_file(engine, path)?,
-            )),
+            crate::BackendEngine::Js(_) => {
+                let module = unsafe {
+                    crate::backend::js::entities::module::Module::deserialize_from_file(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Js(module))
+            }
             #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::module::Module::deserialize_from_file(engine, path)?,
-            )),
+            crate::BackendEngine::Jsc(_) => {
+                let module = unsafe {
+                    crate::backend::jsc::entities::module::Module::deserialize_from_file(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Jsc(module))
+            }
         }
     }
 
@@ -441,8 +525,8 @@ impl BackendModule {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
     /// let module = Module::deserialize_from_file_unchecked(&store, path)?;
     /// # Ok(())
     /// # }
@@ -454,42 +538,60 @@ impl BackendModule {
     ) -> Result<Self, DeserializeError> {
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
-                crate::backend::sys::entities::module::Module::deserialize_from_file_unchecked(
-                    engine, path,
-                )?,
-            )),
+            crate::BackendEngine::Sys(_) => {
+                let module = unsafe {
+                    crate::backend::sys::entities::module::Module::deserialize_from_file_unchecked(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Sys(module))
+            }
             #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::backend::wamr::entities::module::Module::deserialize_from_file_unchecked(
-                    engine, path,
-                )?,
-            )),
+            crate::BackendEngine::Wamr(_) => {
+                let module = unsafe {
+                    crate::backend::wamr::entities::module::Module::deserialize_from_file_unchecked(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Wamr(module))
+            }
 
             #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::backend::wasmi::entities::module::Module::deserialize_from_file_unchecked(
-                    engine, path,
-                )?,
-            )),
+            crate::BackendEngine::Wasmi(_) => {
+                let module = unsafe {
+                    crate::backend::wasmi::entities::module::Module::deserialize_from_file_unchecked(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Wasmi(module))
+            }
             #[cfg(feature = "v8")]
-            crate::BackendEngine::V8(_) => Ok(Self::V8(
-                crate::backend::v8::entities::module::Module::deserialize_from_file_unchecked(
-                    engine, path,
-                )?,
-            )),
+            crate::BackendEngine::V8(_) => {
+                let module = unsafe {
+                    crate::backend::v8::entities::module::Module::deserialize_from_file_unchecked(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::V8(module))
+            }
             #[cfg(feature = "js")]
-            crate::BackendEngine::Js(_) => Ok(Self::Js(
-                crate::backend::js::entities::module::Module::deserialize_from_file_unchecked(
-                    engine, path,
-                )?,
-            )),
+            crate::BackendEngine::Js(_) => {
+                let module = unsafe {
+                    crate::backend::js::entities::module::Module::deserialize_from_file_unchecked(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Js(module))
+            }
             #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::module::Module::deserialize_from_file_unchecked(
-                    engine, path,
-                )?,
-            )),
+            crate::BackendEngine::Jsc(_) => {
+                let module = unsafe {
+                    crate::backend::jsc::entities::module::Module::deserialize_from_file_unchecked(
+                        engine, path,
+                    )?
+                };
+                Ok(Self::Jsc(module))
+            }
         }
     }
 

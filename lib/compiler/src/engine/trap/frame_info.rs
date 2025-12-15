@@ -12,19 +12,19 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 
+use crate::ArtifactBuildFromArchive;
 use crate::types::address_map::{
     ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
     InstructionAddressMap,
 };
 use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
-use crate::ArtifactBuildFromArchive;
 use rkyv::vec::ArchivedVec;
 use std::collections::BTreeMap;
 use std::sync::{Arc, LazyLock, RwLock};
 use wasmer_types::lib::std::{cmp, ops::Deref};
 use wasmer_types::{
-    entity::{BoxedSlice, EntityRef, PrimaryMap},
     FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
+    entity::{BoxedSlice, EntityRef, PrimaryMap},
 };
 use wasmer_vm::FunctionBodyPtr;
 
@@ -70,7 +70,7 @@ impl ModuleInfoFrameInfo {
     fn function_debug_info(
         &self,
         local_index: LocalFunctionIndex,
-    ) -> CompiledFunctionFrameInfoVariant {
+    ) -> CompiledFunctionFrameInfoVariant<'_> {
         self.frame_infos.get(local_index).unwrap()
     }
 
@@ -202,7 +202,7 @@ pub enum FrameInfosVariant {
 
 impl FrameInfosVariant {
     /// Gets the frame info for a given local function index
-    pub fn get(&self, index: LocalFunctionIndex) -> Option<CompiledFunctionFrameInfoVariant> {
+    pub fn get(&self, index: LocalFunctionIndex) -> Option<CompiledFunctionFrameInfoVariant<'_>> {
         match self {
             Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
             Self::Archived(archive) => archive
@@ -236,7 +236,7 @@ impl CompiledFunctionFrameInfoVariant<'_> {
     }
 
     /// Gets the traps for the frame info
-    pub fn traps(&self) -> VecTrapInformationVariant {
+    pub fn traps(&self) -> VecTrapInformationVariant<'_> {
         match self {
             CompiledFunctionFrameInfoVariant::Ref(info) => {
                 VecTrapInformationVariant::Ref(&info.traps)
@@ -275,7 +275,7 @@ pub enum FunctionAddressMapVariant<'a> {
 }
 
 impl FunctionAddressMapVariant<'_> {
-    pub fn instructions(&self) -> FunctionAddressMapInstructionVariant {
+    pub fn instructions(&self) -> FunctionAddressMapInstructionVariant<'_> {
         match self {
             FunctionAddressMapVariant::Ref(map) => {
                 FunctionAddressMapInstructionVariant::Owned(&map.instructions)

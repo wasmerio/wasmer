@@ -21,30 +21,30 @@ impl From<FrameInfo> for wasm_frame_t {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_frame_copy(frame: &wasm_frame_t) -> Box<wasm_frame_t> {
     Box::new(frame.clone())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_frame_delete(_frame: Option<Box<wasm_frame_t>>) {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_frame_instance(_frame: &wasm_frame_t) -> *const wasm_instance_t {
     std::ptr::null()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_frame_func_index(frame: &wasm_frame_t) -> u32 {
     frame.info.func_index()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_frame_func_offset(frame: &wasm_frame_t) -> usize {
     frame.info.func_offset()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_frame_module_offset(frame: &wasm_frame_t) -> usize {
     frame.info.module_offset()
 }
@@ -56,7 +56,7 @@ pub struct wasm_name_t {
     pub name: *mut c_char,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_frame_module_name(frame: &wasm_frame_t) -> wasm_name_t {
     let module_name =
         Some(frame.info.module_name()).and_then(|f| Some(CString::new(f).ok()?.into_raw()));
@@ -69,7 +69,7 @@ pub unsafe extern "C" fn wasm_frame_module_name(frame: &wasm_frame_t) -> wasm_na
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_frame_func_name(frame: &wasm_frame_t) -> wasm_name_t {
     let func_name = frame
         .info
@@ -84,12 +84,12 @@ pub unsafe extern "C" fn wasm_frame_func_name(frame: &wasm_frame_t) -> wasm_name
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_name_delete(name: Option<&mut wasm_name_t>) {
-    if let Some(s) = name {
-        if !s.name.is_null() {
-            let _ = CString::from_raw(s.name);
-        }
+    if let Some(s) = name
+        && !s.name.is_null()
+    {
+        let _ = unsafe { CString::from_raw(s.name) };
     }
 }
 

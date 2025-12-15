@@ -9,7 +9,7 @@ mod ssh;
 
 pub use self::{healthcheck::*, http::*, job::*, pretty_duration::*, snapshot_trigger::*, ssh::*};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use bytesize::ByteSize;
 use indexmap::IndexMap;
 
@@ -25,8 +25,8 @@ pub const HEADER_APP_VERSION_ID: &str = "x-edge-app-version-id";
 
 /// User-facing app.yaml config file for apps.
 ///
-/// NOTE: only used by the backend, Edge itself does not use this format, and
-/// uses [`super::AppVersionV1Spec`] instead.
+/// NOTE: only used by the backend; Edge itself does not use this format and
+/// relies on the internal `AppVersionV1Spec` representation instead.
 #[derive(
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
@@ -177,8 +177,7 @@ impl AppConfigV1 {
             Self::KIND => {}
             other => {
                 bail!(
-                    "invalid app config: unspported kind '{}', expected {}",
-                    other,
+                    "invalid app config: unspported kind '{other}', expected {}",
                     Self::KIND
                 );
             }
@@ -189,8 +188,8 @@ impl AppConfigV1 {
     }
 }
 
-/// Restricted version of [`super::CapabilityMapV1`], with only a select subset
-/// of settings.
+/// Restricted version of the internal `CapabilityMapV1`, with only a select
+/// subset of settings.
 #[derive(
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
@@ -220,9 +219,8 @@ pub struct AppConfigCapabilityMapV1 {
 
 /// Memory capability settings.
 ///
-/// NOTE: this is kept separate from the [`super::CapabilityMemoryV1`] struct
-/// to have separation between the high-level app.yaml and the more internal
-/// App entity.
+/// NOTE: this is kept separate from the internal `CapabilityMemoryV1` struct
+/// to keep the high-level app.yaml distinct from the internal App entity.
 #[derive(
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
@@ -300,8 +298,8 @@ pub struct AppConfigCapabilityInstaBootV1 {
 #[serde(rename_all = "snake_case")]
 pub enum InstabootSnapshotModeV1 {
     /// Start the instance without any snapshot triggers. Once the requests are done,
-    /// use [`snapshot_and_stop`](wasmer_wasix::WasiProcess::snapshot_and_stop) to
-    /// capture a snapshot and shut the instance down.
+    /// use `wasmer_wasix::WasiProcess::snapshot_and_stop` to capture a snapshot
+    /// and shut the instance down.
     #[default]
     Bootstrap,
 

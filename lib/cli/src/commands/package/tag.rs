@@ -1,14 +1,14 @@
 use crate::{
     commands::{
-        package::common::{macros::*, wait::wait_package, *},
         AsyncCliCommand,
+        package::common::{macros::*, wait::wait_package, *},
     },
     config::WasmerEnv,
 };
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::{theme::ColorfulTheme, Confirm};
-use is_terminal::IsTerminal;
+use dialoguer::{Confirm, theme::ColorfulTheme};
+use std::io::IsTerminal as _;
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
@@ -268,7 +268,9 @@ impl PackageTag {
             None => {
                 spinner_err!(pb, "The package is not in the registry!");
                 if !self.quiet {
-                    eprintln!("\n\nThe package with the required hash does not exist in the selected registry.");
+                    eprintln!(
+                        "\n\nThe package with the required hash does not exist in the selected registry."
+                    );
                     let bin_name = bin_name!();
                     let cli = std::env::args()
                         .filter(|s| !s.starts_with('-'))
@@ -326,12 +328,11 @@ impl PackageTag {
             return Ok(Some(name.clone()));
         }
 
-        if let Some(pkg) = &manifest.and_then(|m| m.package.as_ref()) {
-            if let Some(ns) = &pkg.name {
-                if let Some(name) = ns.split('/').nth(1) {
-                    return Ok(Some(name.to_string()));
-                }
-            }
+        if let Some(pkg) = &manifest.and_then(|m| m.package.as_ref())
+            && let Some(ns) = &pkg.name
+            && let Some(name) = ns.split('/').nth(1)
+        {
+            return Ok(Some(name.to_string()));
         }
 
         if allow_unnamed {
@@ -367,12 +368,11 @@ impl PackageTag {
             return Ok(namespace.clone());
         }
 
-        if let Some(pkg) = manifest.and_then(|m| m.package.clone()) {
-            if let Some(name) = &pkg.name {
-                if let Some(ns) = name.split('/').next() {
-                    return Ok(ns.to_string());
-                }
-            }
+        if let Some(pkg) = manifest.and_then(|m| m.package.clone())
+            && let Some(name) = &pkg.name
+            && let Some(ns) = name.split('/').next()
+        {
+            return Ok(ns.to_string());
         }
 
         if self.non_interactive {
@@ -466,7 +466,10 @@ impl PackageTag {
                     let mut new_version = registry_version.clone();
                     new_version.patch += 1;
                     if must_bump {
-                        eprintln!("{}: Registry already has version {user_version} of {full_pkg_name}, but with different contents.", "Warn".bold().yellow());
+                        eprintln!(
+                            "{}: Registry already has version {user_version} of {full_pkg_name}, but with different contents.",
+                            "Warn".bold().yellow()
+                        );
                         eprintln!(
                             "{}: Not bumping the version will make this action fail.",
                             "Warn".bold().yellow()

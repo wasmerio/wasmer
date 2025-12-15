@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{imports, CompilerConfig, Instance, Module, Store};
+use wasmer::{CompilerConfig, Instance, Module, Store, imports};
 use wasmer_compiler_llvm::LLVM;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]

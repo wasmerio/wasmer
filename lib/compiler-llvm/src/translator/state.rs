@@ -4,7 +4,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::VecDeque,
     ops::{BitAnd, BitOr, BitOrAssign},
 };
 use wasmer_types::CompileError;
@@ -35,9 +35,7 @@ pub enum ControlFrame<'ctx> {
         if_else_state: IfElseState,
     },
     Landingpad {
-        can_throw: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
     },
@@ -52,38 +50,35 @@ pub enum IfElseState {
 impl<'ctx> ControlFrame<'ctx> {
     pub fn code_after(&self) -> &BasicBlock<'ctx> {
         match self {
-            ControlFrame::Block { ref next, .. }
-            | ControlFrame::Loop { ref next, .. }
-            | ControlFrame::Landingpad { ref next, .. }
-            | ControlFrame::IfElse { ref next, .. } => next,
+            ControlFrame::Block { next, .. }
+            | ControlFrame::Loop { next, .. }
+            | ControlFrame::Landingpad { next, .. }
+            | ControlFrame::IfElse { next, .. } => next,
         }
     }
 
     pub fn br_dest(&self) -> &BasicBlock<'ctx> {
         match self {
-            ControlFrame::Block { ref next, .. }
-            | ControlFrame::IfElse { ref next, .. }
-            | ControlFrame::Landingpad { ref next, .. } => next,
-            ControlFrame::Loop { ref body, .. } => body,
+            ControlFrame::Block { next, .. }
+            | ControlFrame::IfElse { next, .. }
+            | ControlFrame::Landingpad { next, .. } => next,
+            ControlFrame::Loop { body, .. } => body,
         }
     }
 
     pub fn phis(&self) -> &[PhiValue<'ctx>] {
         match self {
-            ControlFrame::Block { ref phis, .. } | ControlFrame::Loop { ref phis, .. } => {
-                phis.as_slice()
+            ControlFrame::Block { phis, .. } | ControlFrame::Loop { phis, .. } => phis.as_slice(),
+            ControlFrame::IfElse { next_phis, .. } | ControlFrame::Landingpad { next_phis, .. } => {
+                next_phis.as_slice()
             }
-            ControlFrame::IfElse { ref next_phis, .. }
-            | ControlFrame::Landingpad { ref next_phis, .. } => next_phis.as_slice(),
         }
     }
 
     /// PHI nodes for stack values in the loop body.
     pub fn loop_body_phis(&self) -> &[PhiValue<'ctx>] {
         match self {
-            ControlFrame::Loop {
-                ref loop_body_phis, ..
-            } => loop_body_phis.as_slice(),
+            ControlFrame::Loop { loop_body_phis, .. } => loop_body_phis.as_slice(),
             _ => &[],
         }
     }
@@ -220,20 +215,31 @@ impl BitAnd for ExtraInfo {
     }
 }
 
-#[derive(Debug)]
-struct Landingpad<'ctx> {
-    // The catch block tied to this landingpad.
+#[derive(Debug, Clone, Copy)]
+pub struct TagCatchInfo<'ctx> {
+    pub tag: u32,
+    // The catch block
     pub catch_block: BasicBlock<'ctx>,
-    // The tags that this landingpad can catch.
-    pub tags: Vec<u32>,
+    // The PHI node to receive the exnref, if needed; catch_all
+    // blocks don't need the exnref.
+    pub exnref_phi: Option<PhiValue<'ctx>>,
+}
+
+#[derive(Debug)]
+pub struct Landingpad<'ctx> {
+    // The block that has the landingpad instruction.
+    // Will be None for catch-less try_table instructions
+    // with no outer landingpads.
+    pub lpad_block: Option<BasicBlock<'ctx>>,
+    // The tags that this landingpad can catch
+    pub tags: Vec<TagCatchInfo<'ctx>>,
 }
 
 #[derive(Debug)]
 pub struct State<'ctx> {
     pub stack: Vec<(BasicValueEnum<'ctx>, ExtraInfo)>,
-    control_stack: Vec<ControlFrame<'ctx>>,
-    landingpads: VecDeque<Landingpad<'ctx>>,
-    landingpads_scope: HashMap<u32, VecDeque<BasicBlock<'ctx>>>,
+    pub control_stack: Vec<ControlFrame<'ctx>>,
+    pub landingpads: VecDeque<Landingpad<'ctx>>,
     pub reachable: bool,
 }
 
@@ -244,7 +250,6 @@ impl<'ctx> State<'ctx> {
             control_stack: vec![],
             reachable: true,
             landingpads: VecDeque::new(),
-            landingpads_scope: HashMap::new(),
         }
     }
 
@@ -426,11 +431,20 @@ impl<'ctx> State<'ctx> {
         Ok(())
     }
 
-    pub fn push_block(&mut self, next: BasicBlock<'ctx>, phis: SmallVec<[PhiValue<'ctx>; 1]>) {
+    pub fn push_block(
+        &mut self,
+        next: BasicBlock<'ctx>,
+        phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        num_inputs: usize,
+    ) {
         self.control_stack.push(ControlFrame::Block {
             next,
             phis,
-            stack_size_snapshot: self.stack.len(),
+            stack_size_snapshot: self
+                .stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect("Internal codegen error: not enough inputs on stack"),
         });
     }
 
@@ -440,16 +454,22 @@ impl<'ctx> State<'ctx> {
         next: BasicBlock<'ctx>,
         loop_body_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        num_inputs: usize,
     ) {
         self.control_stack.push(ControlFrame::Loop {
             body,
             next,
             loop_body_phis,
             phis,
-            stack_size_snapshot: self.stack.len(),
+            stack_size_snapshot: self
+                .stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect("Internal codegen error: not enough inputs on stack"),
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn push_if(
         &mut self,
         if_then: BasicBlock<'ctx>,
@@ -458,6 +478,7 @@ impl<'ctx> State<'ctx> {
         then_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         else_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        num_inputs: usize,
     ) {
         self.control_stack.push(ControlFrame::IfElse {
             if_then,
@@ -466,66 +487,53 @@ impl<'ctx> State<'ctx> {
             then_phis,
             else_phis,
             next_phis,
-            stack_size_snapshot: self.stack.len(),
             if_else_state: IfElseState::If,
+            stack_size_snapshot: self
+                .stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect("Internal codegen error: not enough inputs on stack"),
         });
     }
 
     pub fn push_landingpad(
         &mut self,
-        catch_block: BasicBlock<'ctx>,
-        can_throw: BasicBlock<'ctx>,
-        can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        lpad_block: Option<BasicBlock<'ctx>>,
         next: BasicBlock<'ctx>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
-        tags: &[u32],
+        tags: &[TagCatchInfo<'ctx>],
+        num_inputs: usize,
     ) {
-        for tag in tags {
-            if let Some(ref mut v) = self.landingpads_scope.get_mut(tag) {
-                v.push_back(catch_block);
-            } else {
-                self.landingpads_scope
-                    .insert(*tag, VecDeque::from(vec![catch_block]));
-            }
-        }
-
         self.control_stack.push(ControlFrame::Landingpad {
-            can_throw,
-            can_throw_phis,
             next,
             next_phis,
-            stack_size_snapshot: self.stack.len(),
+            stack_size_snapshot: self
+                .stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect("Internal codegen error: not enough inputs on stack"),
         });
 
         self.landingpads.push_back(Landingpad {
-            catch_block,
+            lpad_block,
             tags: tags.to_vec(),
         })
     }
 
-    pub(crate) fn get_landingpad(&mut self) -> Option<BasicBlock<'ctx>> {
-        self.landingpads.back().map(|v| v.catch_block)
-    }
-
-    pub(crate) fn get_landingpad_for_tag(&mut self, tag: u32) -> Option<BasicBlock<'ctx>> {
-        // Check if we have a matching landingpad in scope.
-        if let Some(v) = self.landingpads_scope.get(&tag) {
-            v.back().cloned()
-        } else {
-            self.landingpads.back().map(|v| v.catch_block)
-        }
+    // Throws and function calls need to be turned into invokes targeting this
+    // landingpad if it exists; otherwise, there is no landingpad within this
+    // frame. Note that the innermost landing pad has catch clauses for *all*
+    // the tags that are active in this frame, including the ones from outer
+    // landingpads, so there's never a reason to target any other landingpad.
+    pub(crate) fn get_innermost_landingpad(&mut self) -> Option<BasicBlock<'ctx>> {
+        self.landingpads
+            .iter()
+            .rev()
+            .filter_map(|v| v.lpad_block)
+            .next()
     }
 
     pub(crate) fn pop_landingpad(&mut self) -> bool {
-        if let Some(lpad) = self.landingpads.pop_back() {
-            for tag in lpad.tags {
-                if let Some(ref mut v) = self.landingpads_scope.get_mut(&tag) {
-                    v.pop_back();
-                }
-            }
-            true
-        } else {
-            false
-        }
+        self.landingpads.pop_back().is_some()
     }
 }

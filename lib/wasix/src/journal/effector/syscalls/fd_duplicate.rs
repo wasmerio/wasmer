@@ -26,11 +26,7 @@ impl JournalEffector {
         let ret_fd = crate::syscalls::fd_dup_internal(ctx, original_fd, 0, cloexec)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to duplicate file descriptor (original={}, copied={}) - {}",
-                    original_fd,
-                    copied_fd,
-                    err
-                )
+                    "journal restore error: failed to duplicate file descriptor (original={original_fd}, copied={copied_fd}) - {err}")
             })?;
 
         if ret_fd != copied_fd {

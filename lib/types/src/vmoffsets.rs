@@ -8,7 +8,7 @@
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, TagIndex,
+    ModuleInfo, SignatureIndex, TableIndex,
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -142,38 +142,38 @@ impl VMBuiltinFunctionIndex {
         Self(29)
     }
 
-    /// Returns an index for wasm's imported `throw` builtin function.
-    pub const fn get_imported_throw_index() -> Self {
-        Self(30)
-    }
-
-    /// Returns an index for wasm's imported `rethrow` builtin function.
-    pub const fn get_imported_rethrow_index() -> Self {
-        Self(31)
-    }
-
-    /// Returns an index for wasm's imported `alloc_exception` builtin function.
-    pub const fn get_imported_alloc_exception_index() -> Self {
-        Self(32)
-    }
-
-    /// Returns an index for wasm's imported `delete_exception` builtin function.
-    pub const fn get_imported_delete_exception_index() -> Self {
-        Self(33)
-    }
-
-    /// Returns an index for wasm's imported `read_exception` builtin function.
-    pub const fn get_imported_read_exception_index() -> Self {
-        Self(34)
-    }
-
     /// Returns an index for wasm's imported `debug_usize` builtin function.
     pub const fn get_imported_debug_usize_index() -> Self {
-        Self(35)
+        Self(30)
     }
 
     /// Returns an index for wasm's imported `debug_str` builtin function.
     pub const fn get_imported_debug_str_index() -> Self {
+        Self(31)
+    }
+
+    /// Returns an index for wasm's imported `wasmer_eh_personality2` builtin function.
+    pub const fn get_imported_personality2_index() -> Self {
+        Self(32)
+    }
+
+    /// Returns an index for wasm's imported `alloc_exception` builtin function.
+    pub const fn get_imported_alloc_exception_index() -> Self {
+        Self(33)
+    }
+
+    /// Returns an index for wasm's imported `throw` builtin function.
+    pub const fn get_imported_throw_index() -> Self {
+        Self(34)
+    }
+
+    /// Returns an index for wasm's imported `read_exnref` builtin function.
+    pub const fn get_imported_read_exnref_index() -> Self {
+        Self(35)
+    }
+
+    /// Returns an index for wasm's imported `exception_into_exnref` builtin function.
+    pub const fn get_imported_exception_into_exnref_index() -> Self {
         Self(36)
     }
 
@@ -217,8 +217,8 @@ pub struct VMOffsets {
     num_imported_tables: u32,
     /// The number of imported memories in the module.
     num_imported_memories: u32,
-    /// The number of imported tags in the module.
-    num_imported_tags: u32,
+    /// The number of tags in the module.
+    num_tag_ids: u32,
     /// The number of imported globals in the module.
     num_imported_globals: u32,
     /// The number of defined tables in the module.
@@ -232,7 +232,7 @@ pub struct VMOffsets {
     vmctx_imported_functions_begin: u32,
     vmctx_imported_tables_begin: u32,
     vmctx_imported_memories_begin: u32,
-    vmctx_imported_tags_begin: u32,
+    vmctx_tag_ids_begin: u32,
     vmctx_imported_globals_begin: u32,
     vmctx_tables_begin: u32,
     vmctx_memories_begin: u32,
@@ -254,7 +254,7 @@ impl VMOffsets {
             num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
-            num_imported_tags: cast_to_u32(module.num_imported_tags),
+            num_tag_ids: cast_to_u32(module.tags.len()),
             num_imported_globals: cast_to_u32(module.num_imported_globals),
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
@@ -263,7 +263,7 @@ impl VMOffsets {
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
-            vmctx_imported_tags_begin: 0,
+            vmctx_tag_ids_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
             vmctx_memories_begin: 0,
@@ -290,7 +290,7 @@ impl VMOffsets {
             num_imported_functions: 0,
             num_imported_tables: 0,
             num_imported_memories: 0,
-            num_imported_tags: 0,
+            num_tag_ids: 0,
             num_imported_globals: 0,
             num_local_tables: 0,
             num_local_memories: 0,
@@ -299,7 +299,7 @@ impl VMOffsets {
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
-            vmctx_imported_tags_begin: 0,
+            vmctx_tag_ids_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
             vmctx_memories_begin: 0,
@@ -357,16 +357,16 @@ impl VMOffsets {
             u32::from(self.size_of_vmtable_import()),
         );
 
-        self.vmctx_imported_tags_begin = offset_by_aligned(
+        self.vmctx_tag_ids_begin = offset_by_aligned(
             self.vmctx_imported_memories_begin,
             self.num_imported_memories,
             u32::from(self.size_of_vmmemory_import()),
         );
 
         self.vmctx_imported_globals_begin = offset_by_aligned(
-            self.vmctx_imported_tags_begin,
-            self.num_imported_tags,
-            u32::from(self.size_of_vmtag_import()),
+            self.vmctx_tag_ids_begin,
+            self.num_tag_ids,
+            u32::from(self.size_of_vmshared_tag_index()),
         );
 
         self.vmctx_tables_begin = offset_by_aligned(
@@ -641,12 +641,11 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for `VMTag` imports.
+/// Offsets for `VMSharedTagIndex`.
 impl VMOffsets {
-    /// Return the size of `VMTagImport`.
-    #[allow(clippy::identity_op)]
-    pub const fn size_of_vmtag_import(&self) -> u8 {
-        1 * self.pointer_size
+    /// Return the size of `VMSharedTagIndex`.
+    pub const fn size_of_vmshared_tag_index(&self) -> u8 {
+        4
     }
 }
 
@@ -679,9 +678,9 @@ impl VMOffsets {
         self.vmctx_imported_globals_begin
     }
 
-    /// The offset of the `globals` array.
-    pub fn vmctx_imported_tags_begin(&self) -> u32 {
-        self.vmctx_imported_tags_begin
+    /// The offset of the `tags` array.
+    pub fn vmctx_tag_ids_begin(&self) -> u32 {
+        self.vmctx_tag_ids_begin
     }
 
     /// The offset of the `tables` array.
@@ -734,12 +733,6 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_imported_memories);
         self.vmctx_imported_memories_begin
             + index.as_u32() * u32::from(self.size_of_vmmemory_import())
-    }
-
-    /// Return the offset to `VMTagImport` index `index`.
-    pub fn vmctx_vmtag_import(&self, index: TagIndex) -> u32 {
-        assert_lt!(index.as_u32(), self.num_imported_tags);
-        self.vmctx_imported_tags_begin + index.as_u32() * u32::from(self.size_of_vmtag_import())
     }
 
     /// Return the offset to `VMGlobalImport` index `index`.
@@ -857,7 +850,7 @@ mod tests {
     #[test]
     fn alignment() {
         fn is_aligned(x: u32) -> bool {
-            x % 16 == 0
+            x.is_multiple_of(16)
         }
         assert!(is_aligned(align(0, 16)));
         assert!(is_aligned(align(32, 16)));

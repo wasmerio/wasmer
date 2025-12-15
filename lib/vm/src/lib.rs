@@ -12,9 +12,9 @@
     clippy::unicode_not_nfc,
     clippy::use_self
 )]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
-mod exception_ref;
+mod exception;
 mod export;
 mod extern_ref;
 mod function_env;
@@ -35,7 +35,7 @@ pub mod libcalls;
 
 use std::ptr::NonNull;
 
-pub use crate::exception_ref::{VMExceptionObj, VMExceptionRef};
+pub use crate::exception::{VMExceptionObj, VMExceptionRef};
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};
 pub use crate::function_env::VMFunctionEnvironment;
@@ -43,8 +43,8 @@ pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{InstanceAllocator, VMInstance};
 pub use crate::memory::{
-    initialize_memory_with_data, LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory,
-    VMSharedMemory,
+    LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory, VMSharedMemory,
+    initialize_memory_with_data,
 };
 pub use crate::mmap::{Mmap, MmapType};
 pub use crate::probestack::PROBESTACK;
@@ -52,12 +52,14 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 pub use crate::table::{TableElement, VMTable};
 #[doc(hidden)]
-pub use crate::threadconditions::{ThreadConditions, ThreadConditionsHandle, WaiterError};
+pub use crate::threadconditions::{
+    ExpectedValue, ThreadConditions, ThreadConditionsHandle, WaiterError,
+};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTagImport,
+    VMMemoryImport, VMSharedSignatureIndex, VMSharedTagIndex, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
 pub use store::StoreObject;
@@ -132,7 +134,7 @@ impl VMFuncRef {
     /// # Safety
     /// `raw.funcref` must be a valid pointer.
     pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
-        NonNull::new(raw.funcref as *mut VMCallerCheckedAnyfunc).map(Self)
+        unsafe { NonNull::new(raw.funcref as *mut VMCallerCheckedAnyfunc).map(Self) }
     }
 }
 

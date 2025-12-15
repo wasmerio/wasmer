@@ -2,9 +2,9 @@ use wasmer::FromToNativeWasmType;
 
 use super::*;
 use crate::{
+    VIRTUAL_ROOT_FD, WasiFs,
     os::task::{OwnedTaskStatus, TaskStatus},
     syscalls::*,
-    WasiFs, VIRTUAL_ROOT_FD,
 };
 
 /// Replaces the current process with a new process
@@ -257,7 +257,7 @@ pub fn proc_exec3<M: MemorySize>(
                 let env = builder.take().unwrap();
 
                 // Spawn a new process with this current execution environment
-                InlineWaker::block_on(bin_factory.spawn(name, env))
+                block_on(bin_factory.spawn(name, env))
             }
         };
 

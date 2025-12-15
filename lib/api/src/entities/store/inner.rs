@@ -1,10 +1,10 @@
 use crate::{
+    AsStoreMut, AsStoreRef, StoreRef,
     entities::{
         engine::{AsEngineRef, Engine},
         store::{StoreMut, StoreObjects},
     },
     macros::backend::{gen_rt_ty, match_rt},
-    AsStoreMut,
 };
 
 #[cfg(feature = "sys")]
@@ -26,6 +26,21 @@ impl std::fmt::Debug for StoreInner {
             .field("store", &self.store)
             .field("on_called", &"<...>")
             .finish()
+    }
+}
+
+impl AsStoreRef for StoreInner {
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        StoreRef { inner: self }
+    }
+}
+impl AsStoreMut for StoreInner {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        StoreMut { inner: self }
+    }
+
+    fn objects_mut(&mut self) -> &mut StoreObjects {
+        &mut self.objects
     }
 }
 

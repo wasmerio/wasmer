@@ -1,16 +1,16 @@
 [package]
 name = "wasi-test-generator"
-version = "6.1.0-rc.3"
+version.workspace = true
 description = "Tests for our WASI implementation"
-license = "MIT"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-edition = "2018"
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
 publish = false
 
 [dependencies]
-glob = "0.3"
-gumdrop = "0.8"
+glob.workspace = true
+gumdrop.workspace = true
 tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-wast = "216.0.0"
+wast.workspace = true

@@ -25,6 +25,7 @@ pub struct Mmap {
     ptr: usize,
     total_size: usize,
     accessible_size: usize,
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     sync_on_drop: bool,
 }
 
@@ -193,7 +194,7 @@ impl Mmap {
         _memory_type: MmapType,
     ) -> Result<Self, String> {
         use windows_sys::Win32::System::Memory::{
-            VirtualAlloc, MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE,
+            MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE, VirtualAlloc,
         };
 
         let page_size = region::page::size();
@@ -274,7 +275,7 @@ impl Mmap {
     #[cfg(target_os = "windows")]
     pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
         use std::ffi::c_void;
-        use windows_sys::Win32::System::Memory::{VirtualAlloc, MEM_COMMIT, PAGE_READWRITE};
+        use windows_sys::Win32::System::Memory::{MEM_COMMIT, PAGE_READWRITE, VirtualAlloc};
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
@@ -395,9 +396,9 @@ impl Drop for Mmap {
 
     #[cfg(target_os = "windows")]
     fn drop(&mut self) {
-        if self.len() != 0 {
+        if !self.is_empty() {
             use std::ffi::c_void;
-            use windows_sys::Win32::System::Memory::{VirtualFree, MEM_RELEASE};
+            use windows_sys::Win32::System::Memory::{MEM_RELEASE, VirtualFree};
             let r = unsafe { VirtualFree(self.ptr as *mut c_void, 0, MEM_RELEASE) };
             assert_ne!(r, 0);
         }

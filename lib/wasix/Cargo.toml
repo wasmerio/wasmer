@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.601.0-rc.3"
+version = "0.601.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -14,20 +14,20 @@ rust-version.workspace = true
 
 [dependencies]
 wasmer-package.workspace = true
-wasmer-wasix-types = { path = "../wasi-types", version = "0.601.0-rc.3", features = [
+wasmer-wasix-types = { path = "../wasi-types", version = "0.601.0", features = [
 	"enable-serde",
 ] }
-wasmer-types = { path = "../types", version = "=6.1.0-rc.3", default-features = false }
-wasmer = { path = "../api", version = "=6.1.0-rc.3", default-features = false }
-virtual-mio = { path = "../virtual-io", version = "0.601.0-rc.3", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.601.0-rc.3", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=6.1.0", default-features = false }
+wasmer = { path = "../api", version = "=6.1.0", default-features = false }
+virtual-mio = { path = "../virtual-io", version = "0.601.0", default-features = false }
+virtual-fs = { path = "../virtual-fs", version = "0.601.0", default-features = false, features = [
 	"webc-fs",
 ] }
-virtual-net = { path = "../virtual-net", version = "0.601.0-rc.3", default-features = false, features = [
+virtual-net = { path = "../virtual-net", version = "0.601.0", default-features = false, features = [
 	"rkyv",
 ] }
-wasmer-journal = { path = "../journal", version = "0.601.0-rc.3", default-features = false }
-wasmer-config = { version = "0.601.0-rc.3", path = "../config" }
+wasmer-journal = { path = "../journal", version = "0.601.0", default-features = false }
+wasmer-config = { version = "0.601.0", path = "../config" }
 
 http.workspace = true
 dashmap.workspace = true
@@ -40,16 +40,16 @@ hyper = { workspace = true, features = ["server"], optional = true }
 derive_more.workspace = true
 wasm-encoder.workspace = true
 
-xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
-rusty_pool = { version = "0.7.0", optional = true }
+xxhash-rust = { workspace = true, features = ["xxh64"] }
+rusty_pool = { workspace = true, optional = true }
 cfg-if.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 getrandom.workspace = true
-typetag = { version = "0.1", optional = true }
+typetag = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
-bincode = { version = "1.3" }
-chrono = { version = "^0.4.38", default-features = false, features = [
+bincode = { workspace = true }
+chrono = { workspace = true, default-features = false, features = [
 	"wasmbind",
 	"std",
 	"clock",
@@ -57,8 +57,9 @@ chrono = { version = "^0.4.38", default-features = false, features = [
 bytes.workspace = true
 anyhow.workspace = true
 sha2.workspace = true
-waker-fn = { version = "1.1" }
-cooked-waker = "^5"
+waker-fn.workspace = true
+cooked-waker.workspace = true
+# TODO: port to newer version
 rand = "0.8"
 tokio = { workspace = true, features = [
 	"sync",
@@ -66,42 +67,42 @@ tokio = { workspace = true, features = [
 	"time",
 	"rt",
 ], default-features = false }
-tokio-stream = { version = "0.1", features = ["sync"] }
-futures = { version = "0.3" }
+tokio-stream = { workspace = true, features = ["sync"] }
+futures.workspace = true
 # used by feature='os'
-async-trait = { version = "^0.1" }
-urlencoding = { version = "^2" }
-serde_derive = { version = "^1" }
+async-trait.workspace = true
+urlencoding.workspace = true
+serde_derive.workspace = true
 serde_json.workspace = true
-weezl = { version = "^0.1" }
+weezl.workspace = true
 hex.workspace = true
-linked_hash_set = { version = "0.1" }
-heapless = "0.8"
+linked_hash_set.workspace = true
+heapless.workspace = true
 once_cell.workspace = true
-pin-project = "1.0.12"
+pin-project.workspace = true
 semver.workspace = true
 tempfile.workspace = true
 num_enum.workspace = true
 # Used by the WCGI runner
-wcgi = { version = "0.3.0", optional = true }
-wcgi-host = { version = "0.3.0", optional = true }
-tower-http = { version = "0.5.0", features = [
+wcgi = { workspace = true, optional = true }
+wcgi-host = { workspace = true, optional = true }
+tower-http = { workspace = true, features = [
 	"trace",
 	"util",
 	"catch-panic",
 	"cors",
 ], optional = true }
-tower = { version = "0.4.13", features = ["make", "util"], optional = true }
+tower = { workspace = true, features = ["make", "util"], optional = true }
 url.workspace = true
 bytecheck.workspace = true
 blake3.workspace = true
-petgraph = "0.7.0"
-lz4_flex = { version = "0.11" }
+petgraph.workspace = true
+lz4_flex.workspace = true
 rayon = { workspace = true, optional = true }
-wasm-bindgen = { version = "0.2.87", optional = true }
-js-sys = { version = "0.3.64", optional = true }
-wasm-bindgen-futures = { version = "0.4.37", optional = true }
-web-sys = { version = "0.3.64", features = [
+wasm-bindgen = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+web-sys = { workspace = true, features = [
 	"Request",
 	"RequestInit",
 	"Window",
@@ -119,10 +120,10 @@ hyper-util = { workspace = true, features = [
 ], optional = true }
 http-body-util = { workspace = true, optional = true }
 toml.workspace = true
-pin-utils = "0.1.0"
+pin-utils.workspace = true
 wasmparser = { workspace = true }
-crossbeam-channel = "0.5.15"
-bus = "2.4.1"
+crossbeam-channel.workspace = true
+bus.workspace = true
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true
@@ -140,18 +141,18 @@ optional = true
 libc.workspace = true
 
 [target.'cfg(all(unix, not(target_os="ios")))'.dependencies]
-termios = { version = "0.3" }
+termios.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = [
+windows-sys = { workspace = true, features = [
 	"Win32_System_SystemInformation",
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-terminal_size = { version = "0.3.0" }
+terminal_size.workspace = true
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=6.1.0-rc.3", default-features = false, features = [
+wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 ] }
@@ -162,18 +163,18 @@ tokio = { workspace = true, features = [
 ], default-features = false }
 pretty_assertions.workspace = true
 tracing-test.workspace = true
-wasm-bindgen-test = "0.3.0"
-env_logger = { version = "0.11.5", default-features = false }
+wasm-bindgen-test.workspace = true
+env_logger = { workspace = true, default-features = false }
 log.workspace = true
-assert-panic = "1.0.1"
+assert-panic.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-wasm-bindgen-test = "0.3.0"
-tracing-wasm = "0.2"
+wasm-bindgen-test.workspace = true
+tracing-wasm.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tracing-subscriber = { workspace = true}
-wasmer = { path = "../api", version = "=6.1.0-rc.3", default-features = false, features = [
+tracing-subscriber = { workspace = true }
+wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 	"cranelift",
@@ -220,6 +221,7 @@ sys = [
 	"ctrlc",
 	"wasmer/wat",
 	"wasmer/js-serializable-module",
+	"wasmer/experimental-async",
 ]
 sys-default = ["sys", "wasmer/sys"]
 sys-poll = []

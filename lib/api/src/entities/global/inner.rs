@@ -1,10 +1,10 @@
 use crate::{
+    ExportError, Exportable, Extern,
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
     store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef},
     value::Value,
     vm::{VMExtern, VMExternGlobal},
-    ExportError, Exportable, Extern,
 };
 use wasmer_types::{GlobalType, Mutability};
 

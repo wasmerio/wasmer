@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -35,10 +35,7 @@ impl EdgeConfig {
             .context("invalid client config: no 'version' key found")?;
 
         if version != Self::VERSION as i64 {
-            bail!(
-                "Invalid client config: unknown config version '{}'",
-                version
-            );
+            bail!("Invalid client config: unknown config version '{version}'");
         }
 
         let config = toml::from_str(data_str)?;
@@ -137,19 +134,19 @@ pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedEdgeConfig, any
         None
     };
 
-    if let Some(path) = path {
-        if path.is_file() {
-            match try_load_config(&path) {
-                Ok(config) => {
-                    return Ok(LoadedEdgeConfig { config, path });
-                }
-                Err(err) => {
-                    eprintln!(
-                        "WARNING: failed to load config file at '{}': {}",
-                        path.display(),
-                        err
-                    );
-                }
+    if let Some(path) = path
+        && path.is_file()
+    {
+        match try_load_config(&path) {
+            Ok(config) => {
+                return Ok(LoadedEdgeConfig { config, path });
+            }
+            Err(err) => {
+                eprintln!(
+                    "WARNING: failed to load config file at '{}': {}",
+                    path.display(),
+                    err
+                );
             }
         }
     }

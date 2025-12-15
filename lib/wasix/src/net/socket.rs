@@ -13,13 +13,13 @@ use std::{
 use serde_derive::{Deserialize, Serialize};
 use virtual_mio::InterestHandler;
 use virtual_net::{
-    net_error_into_io_err, NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
-    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
+    VirtualTcpSocket, VirtualUdpSocket, net_error_into_io_err,
 };
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
 
-use crate::{net::net_error_into_wasi_err, VirtualTaskManager};
+use crate::{VirtualTaskManager, net::net_error_into_wasi_err};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -1145,13 +1145,13 @@ impl InodeSocket {
                             }
                         }
                         InodeSocketKind::PreSocket { .. } => {
-                            return Poll::Ready(Err(Errno::Notconn))
+                            return Poll::Ready(Err(Errno::Notconn));
                         }
                         InodeSocketKind::RemoteSocket { is_dead, .. } => {
                             return match is_dead {
                                 true => Poll::Ready(Err(Errno::Connreset)),
                                 false => Poll::Ready(Ok(self.data.len())),
-                            }
+                            };
                         }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
@@ -1228,7 +1228,7 @@ impl InodeSocket {
                             socket.try_send_to(self.data, self.addr)
                         }
                         InodeSocketKind::PreSocket { .. } => {
-                            return Poll::Ready(Err(Errno::Notconn))
+                            return Poll::Ready(Err(Errno::Notconn));
                         }
                         InodeSocketKind::RemoteSocket { is_dead, .. } => {
                             return match is_dead {
@@ -1333,7 +1333,7 @@ impl InodeSocket {
                             };
                         }
                         InodeSocketKind::PreSocket { .. } => {
-                            return Poll::Ready(Err(Errno::Notconn))
+                            return Poll::Ready(Err(Errno::Notconn));
                         }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
@@ -1421,7 +1421,7 @@ impl InodeSocket {
                             };
                         }
                         InodeSocketKind::PreSocket { .. } => {
-                            return Poll::Ready(Err(Errno::Notconn))
+                            return Poll::Ready(Err(Errno::Notconn));
                         }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
@@ -1555,19 +1555,6 @@ impl InodeSocketProtected {
                 Ok(())
             }
         }
-    }
-}
-
-#[derive(Default)]
-struct IndefinitePoll {}
-
-impl Future for IndefinitePoll {
-    type Output = ();
-    fn poll(
-        self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        std::task::Poll::Pending
     }
 }
 

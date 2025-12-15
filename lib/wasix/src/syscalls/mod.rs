@@ -1,4 +1,9 @@
-#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
+#![allow(
+    unused,
+    clippy::too_many_arguments,
+    clippy::cognitive_complexity,
+    clippy::result_large_err
+)]
 
 pub mod types {
     pub use wasmer_wasix_types::{types::*, wasi};
@@ -20,12 +25,14 @@ pub mod journal;
 pub mod wasi;
 pub mod wasix;
 
+use bincode::config;
 use bytes::{Buf, BufMut};
 use futures::{
-    future::{BoxFuture, LocalBoxFuture},
     Future,
+    future::{BoxFuture, LocalBoxFuture},
 };
 use tracing::instrument;
+use virtual_mio::block_on;
 pub use wasi::*;
 pub use wasix::*;
 use wasmer_journal::SnapshotTrigger;
@@ -36,7 +43,7 @@ pub mod legacy;
 pub(crate) use std::{
     borrow::{Borrow, Cow},
     cell::RefCell,
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{HashMap, HashSet, hash_map::Entry},
     convert::{Infallible, TryInto},
     io::{self, Read, Seek, Write},
     mem::transmute,
@@ -46,8 +53,9 @@ pub(crate) use std::{
     path::Path,
     pin::Pin,
     sync::{
+        Arc, Condvar, Mutex,
         atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
-        mpsc, Arc, Condvar, Mutex,
+        mpsc,
     },
     task::{Context, Poll},
     thread::LocalKey,
@@ -95,14 +103,30 @@ pub(crate) use self::types::{
     *,
 };
 use self::{
-    state::{conv_env_vars, WasiInstanceGuardMemory},
+    state::{WasiInstanceGuardMemory, conv_env_vars},
     utils::WasiDummyWaker,
 };
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
 };
+use crate::{
+    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
+    WasiResult, WasiRuntimeError,
+    fs::{
+        Fd, FdInner, InodeVal, Kind, MAX_SYMLINKS, fs_error_into_wasi_err,
+        virtual_file_type_to_wasi_file_type,
+    },
+    journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
+    os::task::{
+        process::{MaybeCheckpointResult, WasiProcessCheckpoint},
+        thread::{RewindResult, RewindResultType},
+    },
+    utils::store::StoreSnapshot,
+};
 pub(crate) use crate::{
+    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiModuleTreeHandles,
+    WasiVFork,
     bin_factory::spawn_exec_module,
     import_object_for_all_wasi_versions, mem_error_to_wasi,
     net::{
@@ -112,27 +136,10 @@ pub(crate) use crate::{
     },
     runtime::SpawnType,
     state::{
-        self, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
-        WasiFutex, WasiState,
+        self, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder, WasiFutex, WasiState,
+        iterate_poll_events,
     },
     utils::{self, map_io_err},
-    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiModuleTreeHandles,
-    WasiVFork,
-};
-use crate::{
-    fs::{
-        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, FdInner, InodeVal, Kind,
-        MAX_SYMLINKS,
-    },
-    journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
-    os::task::{
-        process::{MaybeCheckpointResult, WasiProcessCheckpoint},
-        thread::{RewindResult, RewindResultType},
-    },
-    runtime::task_manager::InlineWaker,
-    utils::store::StoreSnapshot,
-    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
-    WasiResult, WasiRuntimeError,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -241,7 +248,7 @@ pub unsafe fn stderr_write<'a>(
     buf: &[u8],
 ) -> LocalBoxFuture<'a, Result<(), Errno>> {
     let env = ctx.data();
-    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, 0);
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(ctx, 0) };
 
     let buf = buf.to_vec();
     let mut stderr = WasiInodes::stderr_mut(&state.fs.fd_map).map_err(fs_error_into_wasi_err);
@@ -293,7 +300,7 @@ where
     }
 
     // Slow path, block on the work and process process
-    InlineWaker::block_on(work)
+    block_on(work)
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -541,7 +548,7 @@ where
                     let result = trigger.await;
                     tracing::trace!(%pid, %tid, "thread leaving deep sleep");
                     thread.set_deep_sleeping(false);
-                    bincode::serialize(&result).unwrap().into()
+                    bincode::serde::encode_to_vec(&result, config::legacy()).unwrap().into()
                 }))?;
                 AsyncifyAction::Unwind
             },
@@ -550,7 +557,7 @@ where
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
-    InlineWaker::block_on(work)
+    block_on(work)
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -570,7 +577,7 @@ where
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
-    Ok(InlineWaker::block_on(work))
+    Ok(block_on(work))
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -623,7 +630,7 @@ where
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
-    InlineWaker::block_on(work)
+    block_on(work)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -659,7 +666,7 @@ where
 
             // Otherwise we block on the work and process it
             // using an asynchronou context
-            InlineWaker::block_on(work)
+            block_on(work)
         }
         _ => Err(Errno::Notsock),
     }
@@ -776,7 +783,7 @@ where
                 let work = actor(socket, fd_entry.inner.flags);
 
                 // Block on the work and process it
-                let res = InlineWaker::block_on(work);
+                let res = block_on(work);
                 let new_socket = res?;
 
                 if let Some(mut new_socket) = new_socket {
@@ -833,10 +840,10 @@ pub(crate) fn write_buffer_array<M: MemorySize>(
         let data =
             wasi_try_mem!(new_ptr.slice(memory, wasi_try!(to_offset::<M>(sub_buffer.len()))));
         wasi_try_mem!(data.write_slice(sub_buffer));
-        wasi_try_mem!(wasi_try_mem!(
-            new_ptr.add_offset(wasi_try!(to_offset::<M>(sub_buffer.len())))
-        )
-        .write(memory, 0));
+        wasi_try_mem!(
+            wasi_try_mem!(new_ptr.add_offset(wasi_try!(to_offset::<M>(sub_buffer.len()))))
+                .write(memory, 0)
+        );
 
         current_buffer_offset += sub_buffer.len() + 1;
     }
@@ -885,7 +892,7 @@ pub(crate) unsafe fn get_memory_stack_offset(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
 ) -> Result<u64, String> {
     let stack_upper = get_stack_upper(ctx.data());
-    let stack_pointer = get_memory_stack_pointer(ctx)?;
+    let stack_pointer = unsafe { get_memory_stack_pointer(ctx) }?;
     Ok(stack_upper - stack_pointer)
 }
 
@@ -1135,14 +1142,15 @@ where
         unwind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
     let unwind_data = __wasi_asyncify_t::<M::Offset> {
         start: wasi_try_ok!(unwind_data_start.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try_ok!((env.layout.stack_upper - memory_stack.len() as u64)
-            .try_into()
-            .map_err(|_| Errno::Overflow)),
+        end: wasi_try_ok!(
+            (env.layout.stack_upper - memory_stack.len() as u64)
+                .try_into()
+                .map_err(|_| Errno::Overflow)
+        ),
     };
-    let unwind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> =
-        WasmPtr::new(wasi_try_ok!(unwind_pointer
-            .try_into()
-            .map_err(|_| Errno::Overflow)));
+    let unwind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> = WasmPtr::new(wasi_try_ok!(
+        unwind_pointer.try_into().map_err(|_| Errno::Overflow)
+    ));
     wasi_try_mem_ok!(unwind_data_ptr.write(&memory, unwind_data));
 
     // Invoke the callback that will prepare to unwind
@@ -1244,7 +1252,9 @@ pub fn rewind<M: MemorySize, T>(
 where
     T: serde::Serialize,
 {
-    let rewind_result = bincode::serialize(&result).unwrap().into();
+    let rewind_result = bincode::serde::encode_to_vec(&result, config::legacy())
+        .unwrap()
+        .into();
     rewind_ext::<M>(
         &mut ctx,
         memory_stack,
@@ -1301,28 +1311,30 @@ pub fn rewind_ext<M: MemorySize>(
     }
     let rewind_data = __wasi_asyncify_t::<M::Offset> {
         start: wasi_try!(rewind_data_end.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try!(env
-            .layout
-            .stack_upper
-            .try_into()
-            .map_err(|_| Errno::Overflow)),
+        end: wasi_try!(
+            env.layout
+                .stack_upper
+                .try_into()
+                .map_err(|_| Errno::Overflow)
+        ),
     };
-    let rewind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> =
-        WasmPtr::new(wasi_try!(rewind_pointer
-            .try_into()
-            .map_err(|_| Errno::Overflow)));
+    let rewind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> = WasmPtr::new(wasi_try!(
+        rewind_pointer.try_into().map_err(|_| Errno::Overflow)
+    ));
     wasi_try_mem!(rewind_data_ptr.write(&memory, rewind_data));
 
     // Copy the data to the address
-    let rewind_stack_ptr = WasmPtr::<u8, M>::new(wasi_try!(rewind_data_start
-        .try_into()
-        .map_err(|_| Errno::Overflow)));
-    wasi_try_mem!(rewind_stack_ptr
-        .slice(
-            &memory,
-            wasi_try!(rewind_stack.len().try_into().map_err(|_| Errno::Overflow))
-        )
-        .and_then(|stack| { stack.write_slice(&rewind_stack[..]) }));
+    let rewind_stack_ptr = WasmPtr::<u8, M>::new(wasi_try!(
+        rewind_data_start.try_into().map_err(|_| Errno::Overflow)
+    ));
+    wasi_try_mem!(
+        rewind_stack_ptr
+            .slice(
+                &memory,
+                wasi_try!(rewind_stack.len().try_into().map_err(|_| Errno::Overflow))
+            )
+            .and_then(|stack| { stack.write_slice(&rewind_stack[..]) })
+    );
 
     // Invoke the callback that will prepare to rewind
     let asyncify_data = wasi_try!(rewind_pointer.try_into().map_err(|_| Errno::Overflow));
@@ -1333,7 +1345,9 @@ pub fn rewind_ext<M: MemorySize>(
     {
         asyncify_start_rewind.call(ctx, asyncify_data);
     } else {
-        warn!("failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible");
+        warn!(
+            "failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible"
+        );
         return Errno::Noexec;
     }
 
@@ -1384,7 +1398,7 @@ pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(
 where
     T: serde::de::DeserializeOwned,
 {
-    handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven).flatten()
+    unsafe { handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven) }.flatten()
 }
 
 pub(crate) enum HandleRewindType {
@@ -1402,7 +1416,7 @@ pub(crate) unsafe fn handle_rewind_ext_with_default<M: MemorySize, T>(
 where
     T: serde::de::DeserializeOwned + Default,
 {
-    let ret = handle_rewind_ext::<M, T>(ctx, type_);
+    let ret = unsafe { handle_rewind_ext::<M, T>(ctx, type_) };
     ret.unwrap_or_default()
 }
 
@@ -1434,7 +1448,9 @@ where
         {
             asyncify_stop_rewind.call(ctx);
         } else {
-            warn!("failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible");
+            warn!(
+                "failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible"
+            );
             return Some(None);
         }
 
@@ -1455,7 +1471,7 @@ where
             }
             RewindResultType::RewindWithResult(rewind_result) => {
                 tracing::trace!(%pid, %tid, "rewind with result (data={})", rewind_result.len());
-                let ret = bincode::deserialize(&rewind_result)
+                let (ret, _) = bincode::serde::decode_from_slice(&rewind_result, config::legacy())
                     .expect("failed to deserialize the rewind result");
                 Some(Some(ret))
             }

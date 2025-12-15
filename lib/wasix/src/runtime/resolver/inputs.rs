@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use url::Url;
 use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageSource};
 use wasmer_package::utils::from_disk;
-use webc::metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest};
+use webc::metadata::{Manifest, UrlOrManifest, annotations::Wapm as WapmAnnotations};
 
 /// A dependency constraint.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -294,10 +294,10 @@ impl WebcHash {
         path_hash.set_extension("webc.sha256");
         if let Ok(mut file) = File::open(&path_hash) {
             let mut hash = Vec::new();
-            if let Ok(amt) = file.read_to_end(&mut hash) {
-                if amt == 32 {
-                    return Ok(WebcHash::from_bytes(hash[0..32].try_into().unwrap()));
-                }
+            if let Ok(amt) = file.read_to_end(&mut hash)
+                && amt == 32
+            {
+                return Ok(WebcHash::from_bytes(hash[0..32].try_into().unwrap()));
             }
         }
 

@@ -1,8 +1,9 @@
 // FIXME: merge with ./lib.rs_upstream
 
+#![allow(clippy::result_large_err)]
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Wasmer's WASI implementation
 //!
@@ -70,14 +71,13 @@ use std::sync::Arc;
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
-use tracing::error;
 // re-exports needed for OS
 pub use wasmer;
 pub use wasmer_wasix_types;
 
 use wasmer::{
-    imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
-    MemorySize, RuntimeError,
+    AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError, MemorySize,
+    RuntimeError, imports, namespace,
 };
 
 pub use virtual_fs;
@@ -93,27 +93,26 @@ pub use virtual_net::{
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 pub use crate::{
-    fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD},
+    fs::{Fd, VIRTUAL_ROOT_FD, WasiFs, WasiInodes, default_fs_backing},
     os::{
+        WasiTtyState,
         task::{
             control_plane::WasiControlPlane,
             process::{WasiProcess, WasiProcessId},
             thread::{WasiThread, WasiThreadError, WasiThreadHandle, WasiThreadId},
         },
-        WasiTtyState,
     },
     rewind::*,
-    runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
+    runtime::{PluggableRuntime, Runtime, task_manager::VirtualTaskManager},
     state::{
-        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiModuleInstanceHandles,
-        WasiModuleTreeHandles, WasiStateCreationError, ALL_RIGHTS,
+        ALL_RIGHTS, WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv,
+        WasiModuleInstanceHandles, WasiModuleTreeHandles, WasiStateCreationError,
     },
     syscalls::{journal::wait_for_snapshot, rewind, rewind_ext, types, unwind},
     utils::is_wasix_module,
     utils::{
-        get_wasi_version, get_wasi_versions, is_wasi_module,
-        store::{capture_store_snapshot, restore_store_snapshot, StoreSnapshot},
-        WasiVersion,
+        WasiVersion, get_wasi_version, get_wasi_versions, is_wasi_module,
+        store::{StoreSnapshot, capture_store_snapshot, restore_store_snapshot},
     },
 };
 
@@ -283,7 +282,7 @@ pub enum WasiRuntimeError {
 impl WasiRuntimeError {
     /// Retrieve the concrete exit code returned by an instance.
     ///
-    /// Returns [`None`] if a general execution error ocurred.
+    /// Returns [`None`] if a general execution error occurred.
     pub fn as_exit_code(&self) -> Option<ExitCode> {
         if let WasiRuntimeError::Wasi(WasiError::Exit(code)) = self {
             Some(*code)
@@ -295,6 +294,28 @@ impl WasiRuntimeError {
             }
         } else {
             None
+        }
+    }
+
+    pub fn display<'a>(&'a self, store: &'a mut impl AsStoreMut) -> WasiRuntimeErrorDisplay<'a> {
+        if let WasiRuntimeError::Runtime(err) = self {
+            WasiRuntimeErrorDisplay::Runtime(err.display(store))
+        } else {
+            WasiRuntimeErrorDisplay::Other(self)
+        }
+    }
+}
+
+pub enum WasiRuntimeErrorDisplay<'a> {
+    Runtime(wasmer::RuntimeErrorDisplay<'a>),
+    Other(&'a WasiRuntimeError),
+}
+
+impl std::fmt::Display for WasiRuntimeErrorDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WasiRuntimeErrorDisplay::Runtime(display) => write!(f, "{display}"),
+            WasiRuntimeErrorDisplay::Other(err) => write!(f, "{err}"),
         }
     }
 }
@@ -358,9 +379,8 @@ impl Clone for WasiVFork {
     }
 }
 
-/// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`
-/// needs a [`WasiState`], that can be constructed from a
-/// [`WasiEnvBuilder`](state::WasiEnvBuilder).
+/// Create an [`Imports`] with an existing [`WasiEnv`]. [`WasiEnv`] values are
+/// typically constructed with [`WasiEnvBuilder`].
 pub fn generate_import_object_from_env(
     store: &mut impl AsStoreMut,
     ctx: &FunctionEnv<WasiEnv>,
@@ -892,5 +912,24 @@ where
         } else {
             tokio::task::spawn_blocking(f).await
         }
+    }
+}
+
+pub(crate) fn flatten_runtime_error(err: RuntimeError) -> RuntimeError {
+    let e_ref = err.downcast_ref::<WasiRuntimeError>();
+    match e_ref {
+        Some(WasiRuntimeError::Wasi(_)) => {
+            let Ok(WasiRuntimeError::Wasi(err)) = err.downcast::<WasiRuntimeError>() else {
+                unreachable!()
+            };
+            RuntimeError::user(Box::new(err))
+        }
+        Some(WasiRuntimeError::Runtime(_)) => {
+            let Ok(WasiRuntimeError::Runtime(err)) = err.downcast::<WasiRuntimeError>() else {
+                unreachable!()
+            };
+            flatten_runtime_error(err)
+        }
+        _ => err,
     }
 }

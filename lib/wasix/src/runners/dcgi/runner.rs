@@ -6,16 +6,16 @@ use wcgi_host::CgiDialect;
 use webc::metadata::Command;
 
 use crate::{
+    Runtime,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     journal::DynJournal,
     runners::{
+        MappedDirectory,
         dcgi::handler::Handler,
         wcgi::{self, NoOpWcgiCallbacks, WcgiRunner},
-        MappedDirectory,
     },
     runtime::{DynRuntime, OverriddenRuntime},
-    Runtime,
 };
 
 use super::{DcgiCallbacks, DcgiInstanceFactory};

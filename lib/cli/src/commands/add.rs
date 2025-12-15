@@ -4,8 +4,8 @@ use anyhow::{Context, Error};
 use clap::Parser;
 use std::process::{Command, Stdio};
 use wasmer_backend_api::{
-    types::{Bindings, ProgrammingLanguage},
     WasmerClient,
+    types::{Bindings, ProgrammingLanguage},
 };
 use wasmer_config::package::NamedPackageIdent;
 
@@ -58,7 +58,7 @@ impl AsyncCliCommand for CmdAdd {
             )
         })?;
 
-        anyhow::ensure!(status.success(), "Command failed: {:?}", cmd);
+        anyhow::ensure!(status.success(), "Command failed: {cmd:?}");
 
         Ok(())
     }
@@ -173,11 +173,7 @@ impl Target {
                 if Command::new("yarn").arg("--version").output().is_err() {
                     return Err(anyhow::anyhow!("yarn not installed"));
                 }
-                if dev {
-                    "yarn add --dev"
-                } else {
-                    "yarn add"
-                }
+                if dev { "yarn add --dev" } else { "yarn add" }
             }
             Target::Npm { dev } => {
                 if Command::new("npm").arg("--version").output().is_err() {
@@ -193,11 +189,7 @@ impl Target {
                 if Command::new("pnpm").arg("--version").output().is_err() {
                     return Err(anyhow::anyhow!("pnpm not installed"));
                 }
-                if dev {
-                    "pnpm add --dev"
-                } else {
-                    "pnpm add"
-                }
+                if dev { "pnpm add --dev" } else { "pnpm add" }
             }
         };
         let mut command_line = command_line.to_string();

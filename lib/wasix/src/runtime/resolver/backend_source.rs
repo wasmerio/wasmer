@@ -257,7 +257,7 @@ impl Source for BackendSource {
             _ => {
                 return Err(QueryError::Unsupported {
                     query: package.clone(),
-                })
+                });
             }
         };
 
@@ -290,14 +290,14 @@ impl Source for BackendSource {
             .await
             .map_err(|error| QueryError::new_other(error, package))?;
 
-        if let Some(cache) = &self.cache {
-            if let Err(e) = cache.update(&package_name, &response) {
-                tracing::warn!(
-                    package_name,
-                    error = &*e,
-                    "An error occurred while caching the GraphQL response",
-                );
-            }
+        if let Some(cache) = &self.cache
+            && let Err(e) = cache.update(&package_name, &response)
+        {
+            tracing::warn!(
+                package_name,
+                error = &*e,
+                "An error occurred while caching the GraphQL response",
+            );
         }
 
         matching_package_summaries(
@@ -565,14 +565,6 @@ struct CacheEntry {
     response: WebQuery,
 }
 
-/// Cache entry for a webc lookup by hash.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct HashCacheEntry {
-    unix_timestamp: u64,
-    hash: String,
-    response: WebQuery,
-}
-
 impl CacheEntry {
     fn is_still_valid(&self, timeout: Duration) -> bool {
         let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(self.unix_timestamp);
@@ -705,16 +697,11 @@ pub struct WebQueryGetPackageVersion {
     pub v3: WebQueryGetPackageVersionDistribution,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Default)]
 pub enum WebCVersion {
+    #[default]
     V2,
     V3,
-}
-
-impl Default for WebCVersion {
-    fn default() -> Self {
-        Self::V2
-    }
 }
 
 impl From<WebCVersion> for webc::Version {

@@ -1,14 +1,14 @@
 use crate::error::{DirectiveError, DirectiveErrors};
 use crate::spectest::spectest_importobject;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::str;
 use wasmer::*;
 use wast::core::{AbstractHeapType, HeapType, WastArgCore, WastRetCore};
 use wast::token::{F32, F64};
-use wast::{lexer::Lexer, parser};
 use wast::{QuoteWat, Wast as WWast, WastArg};
+use wast::{lexer::Lexer, parser};
 
 /// The wast test script language allows modules to be defined and actions
 /// to be performed on them.
@@ -93,7 +93,7 @@ impl Wast {
                 .instances
                 .get(name)
                 .cloned()
-                .ok_or_else(|| anyhow!("failed to find instance named `{}`", name)),
+                .ok_or_else(|| anyhow!("failed to find instance named `{name}`")),
             None => self
                 .current
                 .clone()
@@ -146,34 +146,34 @@ impl Wast {
                 _ => todo!(),
             }
 
-            if let Value::V128(bits) = v {
-                if let wast::WastRet::Core(WastRetCore::V128(pattern)) = e {
-                    bail!(
-                        "expected {:?}, got {:?} (v128 bits: {})",
-                        e,
-                        v128_format(*bits, pattern),
-                        bits
-                    );
-                }
+            if let Value::V128(bits) = v
+                && let wast::WastRet::Core(WastRetCore::V128(pattern)) = e
+            {
+                let formatted = v128_format(*bits, pattern);
+                bail!("expected {e:?}, got {formatted:?} (v128 bits: {bits})");
             }
             if let Some(f) = v.f64() {
                 if let wast::WastRet::Core(WastRetCore::F64(wast::core::NanPattern::Value(f1))) = e
                 {
                     let f = f64::from_bits(f1.bits);
-                    bail!("expected {f:?} ({:?}), got {v:?} ({})", e, f.to_bits())
+                    let f_bits = f.to_bits();
+                    bail!("expected {f:?} ({e:?}), got {v:?} ({f_bits})")
                 } else {
-                    bail!("expected {:?}, got {:?} ({})", e, v, f.to_bits())
+                    let f_bits = f.to_bits();
+                    bail!("expected {e:?}, got {v:?} ({f_bits})")
                 }
             } else if let Some(f) = v.f32() {
                 if let wast::WastRet::Core(WastRetCore::F32(wast::core::NanPattern::Value(f1))) = e
                 {
                     let f = f32::from_bits(f1.bits);
-                    bail!("expected {f:?} ({:?}), got {v:?} ({})", e, f.to_bits())
+                    let f_bits = f.to_bits();
+                    bail!("expected {f:?} ({e:?}), got {v:?} ({f_bits})")
                 } else {
-                    bail!("expected {:?}, got {:?} ({})", e, v, f.to_bits())
+                    let f_bits = f.to_bits();
+                    bail!("expected {e:?}, got {v:?} ({f_bits})")
                 }
             } else {
-                bail!("expected {:?}, got {:?}", e, v)
+                bail!("expected {e:?}, got {v:?}")
             }
         }
         Ok(())
@@ -197,13 +197,13 @@ impl Wast {
 
     fn assert_trap(&self, result: Result<Vec<Value>>, expected: &str) -> Result<()> {
         let actual = match result {
-            Ok(values) => bail!("expected trap, got {:?}", values),
+            Ok(values) => bail!("expected trap, got {values:?}"),
             Err(t) => format!("{t}"),
         };
         if self.matches_message_assert_trap(expected, &actual) {
             return Ok(());
         }
-        bail!("expected '{}', got '{}'", expected, actual)
+        bail!("expected '{expected}', got '{actual}'")
     }
 
     fn run_directive(&mut self, _test: &Path, directive: wast::WastDirective) -> Result<()> {
@@ -261,11 +261,7 @@ impl Wast {
                 };
                 let error_message = format!("{err:?}");
                 if !Self::matches_message_assert_invalid(message, &error_message) {
-                    bail!(
-                        "assert_invalid: expected \"{}\", got \"{}\"",
-                        message,
-                        error_message
-                    )
+                    bail!("assert_invalid: expected \"{message}\", got \"{error_message}\"")
                 }
             }
             AssertException { span: _, exec } => {
@@ -305,11 +301,7 @@ impl Wast {
                 };
                 let error_message = format!("{err:?}");
                 if !Self::matches_message_assert_unlinkable(message, &error_message) {
-                    bail!(
-                        "assert_unlinkable: expected {}, got {}",
-                        message,
-                        error_message
-                    )
+                    bail!("assert_unlinkable: expected {message}, got {error_message}")
                 }
             }
             Thread(_) => anyhow::bail!("`thread` directives not implemented yet!"),
@@ -423,7 +415,7 @@ impl Wast {
                         break;
                     }
                 }
-                bail!("instantiation failed with: {}", e)
+                bail!("instantiation failed with: {e}")
             }
         };
         if let Some(name) = instance_name {
@@ -502,7 +494,7 @@ impl Wast {
                 ..
             }) => Value::null(),
             RefExtern(number) => Value::ExternRef(Some(ExternRef::new(&mut self.store, *number))),
-            other => bail!("couldn't convert {:?} to a runtime value", other),
+            other => bail!("couldn't convert {other:?} to a runtime value"),
         })
     }
 
@@ -589,11 +581,7 @@ impl Wast {
                 let x = extern_ref.downcast::<u32>(&self.store).cloned();
                 x == *num
             }
-            _ => bail!(
-                "don't know how to compare {:?} and {:?} yet",
-                actual,
-                expected
-            ),
+            _ => bail!("don't know how to compare {actual:?} and {expected:?} yet"),
         })
     }
 }

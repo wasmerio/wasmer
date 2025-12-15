@@ -23,21 +23,11 @@ impl JournalEffector {
         crate::syscalls::sock_open_internal(ctx, af, ty, pt, Some(fd))
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to open socket (af={:?}, ty={:?}, pt={:?}) - {}",
-                    af,
-                    ty,
-                    pt,
-                    err
-                )
+                    "journal restore error: failed to open socket (af={af:?}, ty={ty:?}, pt={pt:?}) - {err}")
             })?
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to open socket (af={:?}, ty={:?}, pt={:?}) - {}",
-                    af,
-                    ty,
-                    pt,
-                    err
-                )
+                    "journal restore error: failed to open socket (af={af:?}, ty={ty:?}, pt={pt:?}) - {err}")
             })?;
         Ok(())
     }

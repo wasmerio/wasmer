@@ -69,25 +69,6 @@ fn read_value(
     }
 }
 
-fn flatten_runtime_error(err: RuntimeError) -> RuntimeError {
-    let e_ref = err.downcast_ref::<WasiRuntimeError>();
-    match e_ref {
-        Some(WasiRuntimeError::Wasi(_)) => {
-            let Ok(WasiRuntimeError::Wasi(err)) = err.downcast::<WasiRuntimeError>() else {
-                unreachable!()
-            };
-            RuntimeError::user(Box::new(err))
-        }
-        Some(WasiRuntimeError::Runtime(_)) => {
-            let Ok(WasiRuntimeError::Runtime(err)) = err.downcast::<WasiRuntimeError>() else {
-                unreachable!()
-            };
-            flatten_runtime_error(err)
-        }
-        _ => err,
-    }
-}
-
 /// Call a function from the `__indirect_function_table` with parameters and results from memory.
 ///
 /// This function can be used to call functions whose types are not known at
@@ -136,10 +117,11 @@ pub fn call_dynamic<M: MemorySize>(
 
     let strict = matches!(strict, Bool::True);
 
-    let function = wasi_try_ok!(env
-        .inner()
-        .indirect_function_table_lookup(&mut store, function_id)
-        .map_err(Errno::from));
+    let function = wasi_try_ok!(
+        env.inner()
+            .indirect_function_table_lookup(&mut store, function_id)
+            .map_err(Errno::from)
+    );
 
     let function_type = function.ty(&store);
 
@@ -167,7 +149,7 @@ pub fn call_dynamic<M: MemorySize>(
 
     let result_values = function
         .call(&mut store, values_buffer.as_slice())
-        .map_err(flatten_runtime_error)?;
+        .map_err(crate::flatten_runtime_error)?;
 
     let memory = unsafe { env.memory_view(&store) };
     let mut current_results_offset: u64 = results.offset().into();

@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
+use criterion::{Criterion, criterion_group, criterion_main};
+use rand::distr::Alphanumeric;
+use rand::{Rng, rng};
 use tempfile::TempDir;
 use wasmer::{Module, Store};
 use wasmer_cache::Cache;
@@ -9,7 +9,7 @@ use wasmer_cache::{FileSystemCache, Hash};
 use wasmer_compiler_singlepass::Singlepass;
 
 fn random_key() -> Hash {
-    Hash::new(rand::thread_rng().gen::<[u8; 32]>())
+    Hash::new(rand::rng().random::<[u8; 32]>())
 }
 
 pub fn store_cache_universal(c: &mut Criterion) {

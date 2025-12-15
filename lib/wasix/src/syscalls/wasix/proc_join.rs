@@ -5,7 +5,7 @@ use wasmer::FromToNativeWasmType;
 use wasmer_wasix_types::wasi::{JoinFlags, JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid};
 
 use super::*;
-use crate::{syscalls::*, WasiProcess};
+use crate::{WasiProcess, syscalls::*};
 
 #[derive(Serialize, Deserialize)]
 enum JoinStatusResult {

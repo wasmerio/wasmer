@@ -29,21 +29,11 @@ impl JournalEffector {
         crate::syscalls::epoll_ctl_internal(ctx, pfd, op, fd, event.as_ref())
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to epoll ctl (pfd={}, op={:?}, fd={}) - {}",
-                    pfd,
-                    op,
-                    fd,
-                    err
-                )
+                    "journal restore error: failed to epoll ctl (pfd={pfd}, op={op:?}, fd={fd}) - {err}")
             })?
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to epoll ctl (pfd={}, op={:?}, fd={}) - {}",
-                    pfd,
-                    op,
-                    fd,
-                    err
-                )
+                    "journal restore error: failed to epoll ctl (pfd={pfd}, op={op:?}, fd={fd}) - {err}")
             })?;
 
         Ok(())

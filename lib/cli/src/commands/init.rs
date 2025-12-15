@@ -556,7 +556,7 @@ fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, any
 
     Ok(MiniCargoTomlPackage {
         cargo_toml_path: manifest_path.clone(),
-        name: package.name.clone(),
+        name: package.name.as_str().to_owned(),
         version: package.version.clone(),
         description: package.description.clone(),
         homepage: package.homepage.clone(),

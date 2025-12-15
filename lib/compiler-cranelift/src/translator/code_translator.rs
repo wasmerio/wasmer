@@ -21,7 +21,7 @@
 //! - the `get_global` and `set_global` instructions depend on how the globals are implemented;
 //! - `memory.size` and `memory.grow` are runtime functions;
 //! - `call_indirect` has to translate the function index into the address of where this
-//!    is;
+//!   is;
 //!
 //! That is why `translate_function_body` takes an object having the `WasmRuntime` trait as
 //! argument.
@@ -76,16 +76,20 @@
 
 mod bounds_checks;
 
+pub(crate) const TAG_TYPE: ir::Type = I32;
+pub(crate) const EXN_REF_TYPE: ir::Type = I32;
+
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
-use crate::{hash_map, HashMap};
+use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
-    self, AtomicRmwOp, ConstantData, InstBuilder, JumpTableData, MemFlags, Value, ValueLabel,
+    self, AtomicRmwOp, BlockArg, ConstantData, InstBuilder, JumpTableData, MemFlags, Value,
+    ValueLabel,
 };
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
@@ -93,10 +97,11 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use std::vec::Vec;
 
-use wasmer_compiler::wasmparser::{MemArg, Operator};
-use wasmer_compiler::{from_binaryreadererror_wasmerror, wasm_unsupported, ModuleTranslationState};
+use wasmer_compiler::wasmparser::{self, Catch, MemArg, Operator};
+use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
+    CATCH_ALL_TAG_VALUE, FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
+    TagIndex, WasmResult,
 };
 
 /// Given a `Reachability<T>`, unwrap the inner `T` or, when unreachable, set
@@ -106,7 +111,7 @@ use wasmer_types::{
 /// when we can statically determine that a Wasm access will unconditionally
 /// trap.
 macro_rules! unwrap_or_return_unreachable_state {
-    ($state:ident, $value:expr) => {
+    ($state:ident, $value:expr_2021) => {
         match $value {
             Reachability::Reachable(x) => x,
             Reachability::Unreachable => {
@@ -252,7 +257,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             // We do nothing
         }
         Operator::Unreachable => {
-            builder.ins().trap(ir::TrapCode::UnreachableCodeReached);
+            builder.ins().trap(crate::TRAP_UNREACHABLE);
             state.reachable = false;
         }
         /***************************** Control flow blocks **********************************
@@ -431,6 +436,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::End => {
             let frame = state.control_stack.pop().unwrap();
+            frame.restore_catch_handlers(&mut state.handlers, builder);
             let next_block = frame.following_code();
             let return_count = frame.num_return_values();
             let return_args = state.peekn_mut(return_count);
@@ -600,7 +606,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         /********************************** Exception handing **********************************/
         Operator::Try { .. }
         | Operator::Catch { .. }
-        | Operator::Throw { .. }
         | Operator::Rethrow { .. }
         | Operator::Delegate { .. }
         | Operator::CatchAll => {
@@ -608,6 +613,67 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 "proposed exception handling operator {:?}",
                 op
             ));
+        }
+        Operator::TryTable { try_table } => {
+            let body = builder.create_block();
+            let (params, results) =
+                module_translation_state.blocktype_params_results(&try_table.ty)?;
+            let next = block_with_params(builder, results.iter(), environ)?;
+            builder.ins().jump(body, &[]);
+            builder.seal_block(body);
+
+            let checkpoint = state.handlers.take_checkpoint();
+            let mut clauses = Vec::with_capacity(try_table.catches.len());
+            let outer_clauses = state.handlers.unique_clauses().into_iter().collect_vec();
+            let mut catch_blocks = Vec::with_capacity(try_table.catches.len() + 1);
+
+            let catches = try_table
+                .catches
+                .iter()
+                .unique_by(|v| match v {
+                    Catch::One { tag, .. } | Catch::OneRef { tag, .. } => *tag as i32,
+                    Catch::All { .. } | Catch::AllRef { .. } => CATCH_ALL_TAG_VALUE,
+                })
+                .collect_vec();
+
+            for catch in catches.iter().rev() {
+                let clause = create_catch_block(builder, state, catch, environ)?;
+                catch_blocks.push(clause.block);
+                state.handlers.add_clause(clause.clone());
+                clauses.push(clause);
+            }
+
+            let outer_clauses = outer_clauses
+                .into_iter()
+                .filter(|clause| clauses.iter().all(|c| c.tag_value != clause.tag_value))
+                .collect_vec();
+
+            if !clauses.is_empty() {
+                let dispatch_block = create_dispatch_block(
+                    builder,
+                    environ,
+                    clauses.iter().chain(outer_clauses.iter()).cloned(),
+                )?;
+                catch_blocks.push(dispatch_block);
+                state.handlers.add_handler(dispatch_block);
+            }
+
+            state.push_try_table_block(next, catch_blocks, params.len(), results.len(), checkpoint);
+
+            builder.switch_to_block(body);
+        }
+        Operator::Throw { tag_index } => {
+            let tag_index = TagIndex::from_u32(*tag_index);
+            let arity = environ.tag_param_arity(tag_index);
+            let args = state.peekn(arity);
+            environ.translate_exn_throw(builder, tag_index, args, state.handlers.landing_pad())?;
+            state.popn(arity);
+            state.reachable = false;
+        }
+        Operator::ThrowRef => {
+            let exnref = state.pop1();
+            environ.translate_exn_throw_ref(builder, exnref, state.handlers.landing_pad())?;
+            state.reachable = false;
         }
         /************************************ Calls ****************************************
          * The call instructions pop off their arguments from the stack and append their
@@ -618,30 +684,31 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (fref, num_args) = state.get_direct_func(builder.func, *function_index, environ)?;
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
-            let args = state.peekn_mut(num_args);
-            bitcast_wasm_params(
-                environ,
-                builder.func.dfg.ext_funcs[fref].signature,
-                args,
-                builder,
-            );
-
-            let call = environ.translate_call(
+            {
+                let args_mut = state.peekn_mut(num_args);
+                bitcast_wasm_params(
+                    environ,
+                    builder.func.dfg.ext_funcs[fref].signature,
+                    args_mut,
+                    builder,
+                );
+            }
+            let args = state.peekn(num_args);
+            let results = environ.translate_call(
                 builder,
                 FunctionIndex::from_u32(*function_index),
                 fref,
                 args,
+                state.handlers.landing_pad(),
             )?;
-            let inst_results = builder.inst_results(call);
+            let sig_ref = builder.func.dfg.ext_funcs[fref].signature;
             debug_assert_eq!(
-                inst_results.len(),
-                builder.func.dfg.signatures[builder.func.dfg.ext_funcs[fref].signature]
-                    .returns
-                    .len(),
+                results.len(),
+                builder.func.dfg.signatures[sig_ref].returns.len(),
                 "translate_call results should match the call signature"
             );
             state.popn(num_args);
-            state.pushn(inst_results);
+            state.pushn(results.as_slice());
         }
         Operator::CallIndirect {
             type_index,
@@ -655,25 +722,27 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let callee = state.pop1();
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
-            let args = state.peekn_mut(num_args);
-            bitcast_wasm_params(environ, sigref, args, builder);
-
-            let call = environ.translate_call_indirect(
+            {
+                let args_mut = state.peekn_mut(num_args);
+                bitcast_wasm_params(environ, sigref, args_mut, builder);
+            }
+            let args = state.peekn(num_args);
+            let results = environ.translate_call_indirect(
                 builder,
                 TableIndex::from_u32(*table_index),
                 SignatureIndex::from_u32(*type_index),
                 sigref,
                 callee,
-                state.peekn(num_args),
+                args,
+                state.handlers.landing_pad(),
             )?;
-            let inst_results = builder.inst_results(call);
             debug_assert_eq!(
-                inst_results.len(),
+                results.len(),
                 builder.func.dfg.signatures[sigref].returns.len(),
                 "translate_call_indirect results should match the call signature"
             );
             state.popn(num_args);
-            state.pushn(inst_results);
+            state.pushn(results.as_slice());
         }
         /******************************* Memory management ***********************************
          * Memory management is handled by environment. It is usually translated into calls to
@@ -1196,7 +1265,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 }
                 Err(wasmer_types::WasmError::Unsupported(_err)) => {
                     // If multiple threads hit a mutex then the function will fail
-                    builder.ins().trap(ir::TrapCode::UnreachableCodeReached);
+                    builder.ins().trap(crate::TRAP_UNREACHABLE);
                     state.reachable = false;
                 }
                 Err(err) => {
@@ -2188,11 +2257,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I16x8RelaxedQ15mulrS => {
             return Err(wasm_unsupported!("proposed relaxed-simd operator {:?}", op));
         }
-        Operator::TryTable { .. } | Operator::ThrowRef => {
-            return Err(wasm_unsupported!(
-                "exceptions are not supported (operator: {op:?})"
-            ));
-        }
         Operator::RefEq
         | Operator::StructNew { .. }
         | Operator::StructNewDefault { .. }
@@ -2243,13 +2307,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::GlobalAtomicRmwXor { .. }
         | Operator::GlobalAtomicRmwXchg { .. }
         | Operator::GlobalAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Global atomics not supported yet!"))
+            return Err(wasm_unsupported!("Global atomics not supported yet!"));
         }
         Operator::TableAtomicGet { .. }
         | Operator::TableAtomicSet { .. }
         | Operator::TableAtomicRmwXchg { .. }
         | Operator::TableAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Table atomics not supported yet!"))
+            return Err(wasm_unsupported!("Table atomics not supported yet!"));
         }
         Operator::StructAtomicGet { .. }
         | Operator::StructAtomicGetS { .. }
@@ -2262,7 +2326,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::StructAtomicRmwXor { .. }
         | Operator::StructAtomicRmwXchg { .. }
         | Operator::StructAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Table atomics not supported yet!"))
+            return Err(wasm_unsupported!("Table atomics not supported yet!"));
         }
         Operator::ArrayAtomicGet { .. }
         | Operator::ArrayAtomicGetS { .. }
@@ -2275,7 +2339,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::ArrayAtomicRmwXor { .. }
         | Operator::ArrayAtomicRmwXchg { .. }
         | Operator::ArrayAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Array atomics not supported yet!"))
+            return Err(wasm_unsupported!("Array atomics not supported yet!"));
         }
         Operator::ContNew { .. } => todo!(),
         Operator::ContBind { .. } => todo!(),
@@ -2320,7 +2384,9 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
                 blockty,
             );
         }
-        Operator::Loop { blockty: _ } | Operator::Block { blockty: _ } => {
+        Operator::Loop { blockty: _ }
+        | Operator::Block { blockty: _ }
+        | Operator::TryTable { try_table: _ } => {
             state.push_block(ir::Block::reserved_value(), 0, 0);
         }
         Operator::Else => {
@@ -2383,6 +2449,7 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
             let stack = &mut state.stack;
             let control_stack = &mut state.control_stack;
             let frame = control_stack.pop().unwrap();
+            frame.restore_catch_handlers(&mut state.handlers, builder);
 
             // Pop unused parameters from stack.
             frame.truncate_value_stack_to_original_size(stack);
@@ -2573,7 +2640,7 @@ where
             let adjusted_index =
                 builder
                     .ins()
-                    .uadd_overflow_trap(index, offset, ir::TrapCode::HeapOutOfBounds);
+                    .uadd_overflow_trap(index, offset, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
             bounds_checks::bounds_check_and_compute_addr(
                 builder,
                 environ,
@@ -2641,7 +2708,7 @@ fn align_atomic_addr(
             .ins()
             .band_imm(effective_addr, i64::from(loaded_bytes - 1));
         let f = builder.ins().icmp_imm(IntCC::NotEqual, misalignment, 0);
-        builder.ins().trapnz(f, ir::TrapCode::HeapMisaligned);
+        builder.ins().trapnz(f, crate::TRAP_HEAP_MISALIGNED);
     }
 }
 
@@ -2759,7 +2826,7 @@ fn fold_atomic_mem_addr(
         let r = builder
             .ins()
             .icmp_imm(IntCC::UnsignedGreaterThanOrEqual, a, 0x1_0000_0000i64);
-        builder.ins().trapnz(r, ir::TrapCode::HeapOutOfBounds);
+        builder.ins().trapnz(r, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
         builder.ins().ireduce(I32, a)
     } else {
         linear_mem_addr
@@ -2771,7 +2838,7 @@ fn fold_atomic_mem_addr(
     let f = builder
         .ins()
         .icmp_imm(IntCC::Equal, final_lma_misalignment, i64::from(0));
-    builder.ins().trapz(f, ir::TrapCode::HeapMisaligned);
+    builder.ins().trapz(f, crate::TRAP_HEAP_MISALIGNED);
     final_lma
 }
 
@@ -2795,7 +2862,7 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_rmw: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2844,7 +2911,7 @@ fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_cas: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2893,7 +2960,7 @@ fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_load: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2935,7 +3002,7 @@ fn translate_atomic_store<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_store: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let d_ty_ok = matches!(data_ty, I32 | I64);
@@ -3259,22 +3326,13 @@ fn is_non_canonical_v128(ty: ir::Type) -> bool {
 /// actually necessary, and if not, the original slice is returned.  Otherwise the cast values
 /// are returned in a slice that belongs to the caller-supplied `SmallVec`.
 fn canonicalise_v128_values<'a>(
-    tmp_canonicalised: &'a mut SmallVec<[ir::Value; 16]>,
+    tmp_canonicalised: &'a mut SmallVec<[ir::BlockArg; 16]>,
     builder: &mut FunctionBuilder,
     values: &'a [ir::Value],
-) -> &'a [ir::Value] {
+) -> &'a [ir::BlockArg] {
     debug_assert!(tmp_canonicalised.is_empty());
-    // First figure out if any of the parameters need to be cast.  Mostly they don't need to be.
-    let any_non_canonical = values
-        .iter()
-        .any(|v| is_non_canonical_v128(builder.func.dfg.value_type(*v)));
-    // Hopefully we take this exit most of the time, hence doing no heap allocation.
-    if !any_non_canonical {
-        return values;
-    }
-    // Otherwise we'll have to cast, and push the resulting `Value`s into `canonicalised`.
     for v in values {
-        tmp_canonicalised.push(if is_non_canonical_v128(builder.func.dfg.value_type(*v)) {
+        let value = if is_non_canonical_v128(builder.func.dfg.value_type(*v)) {
             builder.ins().bitcast(
                 I8X16,
                 MemFlags::new().with_endianness(ir::Endianness::Little),
@@ -3282,7 +3340,8 @@ fn canonicalise_v128_values<'a>(
             )
         } else {
             *v
-        });
+        };
+        tmp_canonicalised.push(BlockArg::from(value));
     }
     tmp_canonicalised.as_slice()
 }
@@ -3295,7 +3354,7 @@ fn canonicalise_then_jump(
     destination: ir::Block,
     params: &[ir::Value],
 ) -> ir::Inst {
-    let mut tmp_canonicalised = SmallVec::<[ir::Value; 16]>::new();
+    let mut tmp_canonicalised = SmallVec::<[_; 16]>::new();
     let canonicalised = canonicalise_v128_values(&mut tmp_canonicalised, builder, params);
     builder.ins().jump(destination, canonicalised)
 }
@@ -3309,10 +3368,10 @@ fn canonicalise_brif(
     block_else: ir::Block,
     params_else: &[ir::Value],
 ) -> ir::Inst {
-    let mut tmp_canonicalised_then = SmallVec::<[ir::Value; 16]>::new();
+    let mut tmp_canonicalised_then = SmallVec::<[_; 16]>::new();
     let canonicalised_then =
         canonicalise_v128_values(&mut tmp_canonicalised_then, builder, params_then);
-    let mut tmp_canonicalised_else = SmallVec::<[ir::Value; 16]>::new();
+    let mut tmp_canonicalised_else = SmallVec::<[_; 16]>::new();
     let canonicalised_else =
         canonicalise_v128_values(&mut tmp_canonicalised_else, builder, params_else);
     builder.ins().brif(
@@ -3424,4 +3483,142 @@ pub fn bitcast_wasm_params<FE: FuncEnvironment + ?Sized>(
         flags.set_endianness(ir::Endianness::Little);
         *arg = builder.ins().bitcast(t, flags, *arg);
     }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CatchClause {
+    pub(crate) wasm_tag: Option<u32>,
+    pub(crate) tag_value: i32,
+    pub(crate) block: ir::Block,
+}
+
+fn create_catch_block<FE: FuncEnvironment + ?Sized>(
+    builder: &mut FunctionBuilder,
+    state: &mut FuncTranslationState,
+    catch: &wasmparser::Catch,
+    environ: &mut FE,
+) -> WasmResult<CatchClause> {
+    let (is_ref, wasm_tag, label) = match catch {
+        wasmparser::Catch::One { tag, label } => (false, Some(*tag), *label),
+        wasmparser::Catch::OneRef { tag, label } => (true, Some(*tag), *label),
+        wasmparser::Catch::All { label } => (false, None, *label),
+        wasmparser::Catch::AllRef { label } => (true, None, *label),
+    };
+
+    let tag_value = wasm_tag.map_or(CATCH_ALL_TAG_VALUE, |t| t as i32);
+
+    let block = builder.create_block();
+    let exnref = builder.append_block_param(block, EXN_REF_TYPE);
+
+    builder.switch_to_block(block);
+
+    let mut params = SmallVec::<[Value; 4]>::new();
+    if let Some(tag) = wasm_tag {
+        let tag_index = TagIndex::from_u32(tag);
+        params.extend(environ.translate_exn_unbox(builder, tag_index, exnref)?);
+    }
+    if is_ref {
+        params.push(exnref);
+    }
+
+    let depth = label as usize;
+    let idx = state.control_stack.len() - 1 - depth;
+    let frame = &mut state.control_stack[idx];
+    frame.set_branched_to_exit();
+    canonicalise_then_jump(builder, frame.br_destination(), params.as_slice());
+
+    Ok(CatchClause {
+        wasm_tag,
+        tag_value,
+        block,
+    })
+}
+
+fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
+    builder: &mut FunctionBuilder,
+    environ: &mut FE,
+    clauses: impl Iterator<Item = CatchClause>,
+) -> WasmResult<ir::Block> {
+    let clauses = clauses.collect_vec();
+
+    let catch_block = builder.create_block();
+    let exn_ptr = builder.append_block_param(catch_block, environ.reference_type());
+    let pre_selector = builder.append_block_param(catch_block, I64);
+    let catch_all_block = builder.create_block();
+    let catch_one_block = builder.create_block();
+    let dispatch_block = builder.create_block();
+
+    builder.switch_to_block(catch_block);
+    let catch_all_tag = builder.ins().iconst(I64, 0);
+    let matches = builder
+        .ins()
+        .icmp(IntCC::Equal, pre_selector, catch_all_tag);
+    canonicalise_brif(builder, matches, catch_all_block, &[], catch_one_block, &[]);
+
+    builder.switch_to_block(catch_all_block);
+    let catch_all_tag = builder
+        .ins()
+        .iconst(TAG_TYPE, i64::from(CATCH_ALL_TAG_VALUE));
+    canonicalise_then_jump(builder, dispatch_block, &[catch_all_tag]);
+    builder.seal_block(catch_all_block);
+
+    builder.switch_to_block(catch_one_block);
+    let selector = environ.translate_exn_personality_selector(builder, exn_ptr)?;
+    canonicalise_then_jump(builder, dispatch_block, &[selector]);
+    builder.seal_block(catch_one_block);
+
+    builder.switch_to_block(dispatch_block);
+    let selector = builder.append_block_param(dispatch_block, TAG_TYPE);
+    let exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr);
+
+    let rethrow_block = builder.create_block();
+    builder.append_block_param(rethrow_block, EXN_REF_TYPE);
+
+    let mut current_selector = selector;
+    let mut current_exn = exnref;
+
+    for (idx, clause) in clauses.iter().enumerate() {
+        let tag_value = builder.ins().iconst(TAG_TYPE, i64::from(clause.tag_value));
+        let matches = builder
+            .ins()
+            .icmp(IntCC::Equal, current_selector, tag_value);
+
+        if idx + 1 == clauses.len() {
+            canonicalise_brif(
+                builder,
+                matches,
+                clause.block,
+                &[current_exn],
+                rethrow_block,
+                &[exnref],
+            );
+        } else {
+            let continue_block = builder.create_block();
+            builder.append_block_param(continue_block, TAG_TYPE);
+            builder.append_block_param(continue_block, EXN_REF_TYPE);
+
+            canonicalise_brif(
+                builder,
+                matches,
+                clause.block,
+                &[current_exn],
+                continue_block,
+                &[current_selector, current_exn],
+            );
+
+            builder.seal_block(continue_block);
+            builder.switch_to_block(continue_block);
+            let params = builder.func.dfg.block_params(continue_block);
+            current_selector = params[0];
+            current_exn = params[1];
+        }
+    }
+    builder.seal_block(dispatch_block);
+
+    builder.switch_to_block(rethrow_block);
+    let rethrow_exn = builder.func.dfg.block_params(rethrow_block)[0];
+    environ.translate_exn_reraise_unmatched(builder, rethrow_exn)?;
+    builder.seal_block(rethrow_block);
+
+    Ok(catch_block)
 }

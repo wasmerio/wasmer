@@ -71,8 +71,7 @@ impl OffloadBackingStoreState {
                     return Err(io::ErrorKind::UnexpectedEof.into());
                 }
             };
-            self.mmap_offload = OwnedBuffer::from_file(mmap_file)
-                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+            self.mmap_offload = OwnedBuffer::from_file(mmap_file).map_err(io::Error::other)?;
             if end > self.mmap_offload.len() as u64 {
                 tracing::trace!(
                     "mmap buffer out of bounds {} vs {} for {:?}",
@@ -401,25 +400,22 @@ mod tests {
     #[test]
     #[tracing_test::traced_test]
     pub fn test_offload_file() -> anyhow::Result<()> {
-        let buffer = OwnedBuffer::from_bytes(std::iter::repeat(12u8).take(100).collect::<Vec<_>>());
+        let buffer = OwnedBuffer::from_bytes(std::iter::repeat_n(12u8, 100).collect::<Vec<_>>());
         let test_data2 = buffer.clone();
 
         let backing = OffloadBackingStore::new(buffer, None);
         let mut file = OffloadedFile::new(None, backing);
 
         let mut cursor = 0u64;
-        let test_data = std::iter::repeat(56u8).take(100).collect::<Vec<_>>();
+        let test_data = std::iter::repeat_n(56u8, 100).collect::<Vec<_>>();
         file.write(OffloadWrite::Buffer(&test_data), &mut cursor)?;
 
         assert_eq!(file.len(), 100);
 
         cursor = 0;
-        let mut result = std::iter::repeat(0u8).take(100).collect::<Vec<_>>();
+        let mut result = std::iter::repeat_n(0u8, 100).collect::<Vec<_>>();
         file.read(&mut result, &mut cursor)?;
-        assert_eq!(
-            &result,
-            &std::iter::repeat(56u8).take(100).collect::<Vec<_>>()
-        );
+        assert_eq!(&result, &std::iter::repeat_n(56u8, 100).collect::<Vec<_>>());
 
         cursor = 50;
         file.write(OffloadWrite::Buffer(&test_data2), &mut cursor)?;
@@ -427,13 +423,12 @@ mod tests {
         assert_eq!(file.len(), 150);
 
         cursor = 0;
-        let mut result = std::iter::repeat(0u8).take(150).collect::<Vec<_>>();
+        let mut result = std::iter::repeat_n(0u8, 150).collect::<Vec<_>>();
         file.read(&mut result, &mut cursor)?;
         assert_eq!(
             &result,
-            &std::iter::repeat(56u8)
-                .take(50)
-                .chain(std::iter::repeat(12u8).take(100))
+            &std::iter::repeat_n(56u8, 50)
+                .chain(std::iter::repeat_n(12u8, 100))
                 .collect::<Vec<_>>()
         );
 
@@ -441,42 +436,37 @@ mod tests {
         assert_eq!(file.len(), 200);
 
         cursor = 0;
-        let mut result = std::iter::repeat(0u8).take(200).collect::<Vec<_>>();
+        let mut result = std::iter::repeat_n(0u8, 200).collect::<Vec<_>>();
         file.read(&mut result, &mut cursor)?;
         assert_eq!(
             &result,
-            &std::iter::repeat(56u8)
-                .take(50)
-                .chain(std::iter::repeat(12u8).take(100))
-                .chain(std::iter::repeat(99u8).take(50))
+            &std::iter::repeat_n(56u8, 50)
+                .chain(std::iter::repeat_n(12u8, 100))
+                .chain(std::iter::repeat_n(99u8, 50))
                 .collect::<Vec<_>>()
         );
 
         file.resize(33, 1u8);
 
         cursor = 0;
-        let mut result = std::iter::repeat(0u8).take(33).collect::<Vec<_>>();
+        let mut result = std::iter::repeat_n(0u8, 33).collect::<Vec<_>>();
         file.read(&mut result, &mut cursor)?;
-        assert_eq!(
-            &result,
-            &std::iter::repeat(56u8).take(33).collect::<Vec<_>>()
-        );
+        assert_eq!(&result, &std::iter::repeat_n(56u8, 33).collect::<Vec<_>>());
 
         let mut cursor = 10u64;
-        let test_data = std::iter::repeat(74u8).take(10).collect::<Vec<_>>();
+        let test_data = std::iter::repeat_n(74u8, 10).collect::<Vec<_>>();
         file.write(OffloadWrite::Buffer(&test_data), &mut cursor)?;
 
         assert_eq!(file.len(), 33);
 
         cursor = 0;
-        let mut result = std::iter::repeat(0u8).take(33).collect::<Vec<_>>();
+        let mut result = std::iter::repeat_n(0u8, 33).collect::<Vec<_>>();
         file.read(&mut result, &mut cursor)?;
         assert_eq!(
             &result,
-            &std::iter::repeat(56u8)
-                .take(10)
-                .chain(std::iter::repeat(74u8).take(10))
-                .chain(std::iter::repeat(56u8).take(13))
+            &std::iter::repeat_n(56u8, 10)
+                .chain(std::iter::repeat_n(74u8, 10))
+                .chain(std::iter::repeat_n(56u8, 13))
                 .collect::<Vec<_>>()
         );
 

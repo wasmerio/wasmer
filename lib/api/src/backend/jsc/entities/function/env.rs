@@ -1,9 +1,9 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
+    StoreMut,
     jsc::{store::StoreHandle, vm::VMFunctionEnvironment},
     store::{AsStoreMut, AsStoreRef, StoreRef},
-    StoreMut,
 };
 
 #[derive(Debug)]
@@ -62,7 +62,7 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<T>
+    pub fn into_mut<'a>(self, store: &'a mut impl AsStoreMut) -> FunctionEnvMut<'a, T>
     where
         T: Any + Send + 'static + Sized,
     {
@@ -137,7 +137,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut) {
+    pub fn data_and_store_mut<'a>(&'a mut self) -> (&'a mut T, StoreMut<'a>) {
         let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
         // telling the borrow check to close his eyes here
         // this is still relatively safe to do as func_env are
@@ -196,12 +196,12 @@ impl<T> crate::FunctionEnv<T> {
 
 impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
     fn from(value: FunctionEnvMut<'a, T>) -> Self {
-        crate::FunctionEnvMut(crate::BackendFunctionEnvMut::Jsc(value))
+        Self(crate::BackendFunctionEnvMut::Jsc(value))
     }
 }
 
 impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
     fn from(value: FunctionEnv<T>) -> Self {
-        crate::FunctionEnv(crate::BackendFunctionEnv::Jsc(value))
+        Self(crate::BackendFunctionEnv::Jsc(value))
     }
 }

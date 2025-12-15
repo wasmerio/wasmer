@@ -13,8 +13,8 @@ use replace_with::replace_with_or_abort;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use crate::{
-    ops, FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, VirtualFile,
+    FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
+    ReadDir, VirtualFile, ops,
 };
 
 /// A primary filesystem and chain of secondary filesystems that are overlayed
@@ -210,10 +210,10 @@ where
         // Make sure the parent tree is in place on the primary, this is to cover the
         // scenario where the secondaries has a parent structure that is not yet in the
         // primary and the primary needs it to create a sub-directory
-        if let Some(parent) = path.parent() {
-            if self.read_dir(parent).is_ok() {
-                ops::create_dir_all(&self.primary, parent).ok();
-            }
+        if let Some(parent) = path.parent()
+            && self.read_dir(parent).is_ok()
+        {
+            ops::create_dir_all(&self.primary, parent).ok();
         }
 
         // Create the directory in the primary
@@ -526,10 +526,10 @@ where
         // If we are creating the file then do so
         if conf.create {
             // Create the parent structure and remove any whiteouts
-            if let Some(parent) = path.parent() {
-                if ops::exists(self, parent) {
-                    ops::create_dir_all(&self.primary, parent)?;
-                }
+            if let Some(parent) = path.parent()
+                && ops::exists(self, parent)
+            {
+                ops::create_dir_all(&self.primary, parent)?;
             }
             ops::remove_white_out(&self.primary, path);
 

@@ -59,10 +59,7 @@ impl JournalEffector {
             Ok(fd) => fd,
             Err(err) => {
                 bail!(
-                    "journal restore error: failed to open descriptor (fd={}, path={}) - {}",
-                    fd,
-                    path,
-                    err
+                    "journal restore error: failed to open descriptor (fd={fd}, path={path}) - {err}"
                 );
             }
         };

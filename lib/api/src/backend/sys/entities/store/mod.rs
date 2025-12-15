@@ -1,8 +1,8 @@
 //! Data types, functions and traits for `sys` runtime's `Store` implementation.
-use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 use crate::BackendStore;
-use wasmer_vm::init_traps;
+use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 use wasmer_vm::TrapHandlerFn;
+use wasmer_vm::init_traps;
 pub use wasmer_vm::{StoreHandle, StoreObjects};
 
 mod obj;
@@ -70,18 +70,6 @@ impl NativeStoreExt for Store {
     }
 }
 
-impl NativeStoreExt for crate::Store {
-    fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
-        self.inner.store.as_sys_mut().set_trap_handler(handler)
-    }
-
-    /// The signal handler
-    #[inline]
-    fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
-        self.inner.store.as_sys().signal_handler()
-    }
-}
-
 impl crate::BackendStore {
     /// Consume [`self`] into [`crate::backend::sys::store::Store`].
     pub fn into_sys(self) -> crate::backend::sys::store::Store {
@@ -109,27 +97,5 @@ impl crate::BackendStore {
     /// Return true if [`self`] is a store from the `sys` runtime.
     pub fn is_sys(&self) -> bool {
         matches!(self, Self::Sys(_))
-    }
-}
-
-impl crate::Store {
-    /// Consume [`self`] into [`crate::backend::sys::store::Store`].
-    pub(crate) fn into_sys(self) -> crate::backend::sys::store::Store {
-        self.inner.store.into_sys()
-    }
-
-    /// Convert a reference to [`self`] into a reference [`crate::backend::sys::store::Store`].
-    pub(crate) fn as_sys(&self) -> &crate::backend::sys::store::Store {
-        self.inner.store.as_sys()
-    }
-
-    /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::sys::store::Store`].
-    pub(crate) fn as_sys_mut(&mut self) -> &mut crate::backend::sys::store::Store {
-        self.inner.store.as_sys_mut()
-    }
-
-    /// Return true if [`self`] is a store from the `sys` runtime.
-    pub fn is_sys(&self) -> bool {
-        self.inner.store.is_sys()
     }
 }
