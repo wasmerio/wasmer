@@ -109,10 +109,10 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
         log!("(pers) read class_info offset {types_table_base_offset:?}");
         reader.ptr.wrapping_add(types_table_base_offset as _)
     };
-    log!("(pers) read class_info sits at offset {types_table_base:?}");
+    log!("(pers) read types_table_base sits at offset {types_table_base:?}");
 
     let call_site_table_encoding = unsafe { DwEhPe(reader.read::<u8>()) };
-    log!("(pers) read call_site_encoding is {call_site_table_encoding:?}");
+    log!("(pers) read call_site_table_encoding is {call_site_table_encoding:?}");
 
     let call_site_table_size = unsafe { reader.read_uleb128() };
     let action_table = unsafe {
@@ -133,7 +133,7 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                     read_encoded_offset(call_site_record_reader, call_site_table_encoding)?;
                 let call_site_length =
                     read_encoded_offset(call_site_record_reader, call_site_table_encoding)?;
-                // Offset of the landing pad, counted in 16-byte bundles relative to the LPStart address.
+                // Offset of the landing pad, typically a byte offset relative to the LPStart address.
                 let call_site_lpad =
                     read_encoded_offset(call_site_record_reader, call_site_table_encoding)?;
                 // Offset of the first associated action record, relative to the start of the actions table.
@@ -186,11 +186,11 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                             // and exception specifications have strictly negative switch values. Value 0 indicates a catch-all clause.
                             let type_filter = action_record_reader.read_sleb128();
                             log!(
-                                "(pers) ttype_index for action #{call_site_action_entry}: {type_filter:?}"
+                                "(pers) type_filter for action #{call_site_action_entry}: {type_filter:?}"
                             );
 
                             if type_filter > 0 {
-                                // This is a catch clause so the type_filter is a index into the types table.
+                                // This is a catch clause so the type_filter is an index into the types table.
                                 //
                                 // Positive value, starting at 1.
                                 // Index in the types table of the __typeinfo for the catch-clause type.
@@ -220,7 +220,7 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                                         };
 
                                     log!(
-                                        "(pers) new_ttype_index for action #{call_site_action_entry}: {new_types_table_index:?}"
+                                        "(pers) new_types_table_index for action #{call_site_action_entry}: {new_types_table_index:?}"
                                     );
 
                                     let typeinfo = types_table_base
