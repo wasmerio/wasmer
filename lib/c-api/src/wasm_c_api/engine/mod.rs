@@ -162,6 +162,7 @@ pub extern "C" fn wasm_engine_new_with_config(
         wasmer_backend_t::WAMR => config::wamr::wasm_wamr_engine_new_with_config(config),
         #[cfg(feature = "jsc")]
         wasmer_backend_t::JSC => config::jsc::wasm_jsc_engine_new_with_config(config),
+        #[allow(unreachable_patterns)]
         _ => unreachable!(),
     }
 }
