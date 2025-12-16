@@ -88,7 +88,7 @@ pub struct WasmFeatures {
 pub struct RuntimeOptions {
     /// Use Singlepass compiler.
     #[cfg(feature = "singlepass")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+    #[clap(short, long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "llvm")]
         "llvm", 
         #[cfg(feature = "v8")]
@@ -104,7 +104,7 @@ pub struct RuntimeOptions {
 
     /// Use Cranelift compiler.
     #[cfg(feature = "cranelift")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+    #[clap(short, long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "llvm")]
         "llvm", 
         #[cfg(feature = "v8")]
@@ -120,7 +120,7 @@ pub struct RuntimeOptions {
 
     /// Use LLVM compiler.
     #[cfg(feature = "llvm")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+    #[clap(short, long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "cranelift")]
         "cranelift", 
         #[cfg(feature = "v8")]

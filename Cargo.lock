@@ -393,6 +393,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36eaf5d7b090263e8150820482d5d93cd964a81e4019913c972f4edcc6edb740"
+dependencies = [
+ "bincode_derive",
+ "serde",
+ "unty",
+]
+
+[[package]]
+name = "bincode_derive"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf95709a440f45e986983918d0e8a1f30a9b1df04918fc828670606804ac3c09"
+dependencies = [
+ "virtue",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.72.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1987,21 +2007,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
-name = "fuser"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e697f6f62c20b6fad1ba0f84ae909f25971cf16e735273524e3977c94604cf8"
-dependencies = [
- "libc",
- "log",
- "memchr",
- "page_size",
- "pkg-config",
- "smallvec",
- "zerocopy 0.7.35",
-]
-
-[[package]]
 name = "futures"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2137,7 +2142,7 @@ dependencies = [
  "cfg-if",
  "js-sys",
  "libc",
- "wasi 0.11.1+wasi-snapshot-preview1",
+ "wasi",
  "wasm-bindgen",
 ]
 
@@ -2288,7 +2293,7 @@ checksum = "6ea2d84b969582b4b1864a92dc5d27cd2b77b622a8d79306834f1be5ba20d84b"
 dependencies = [
  "cfg-if",
  "crunchy",
- "zerocopy 0.8.27",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3269,8 +3274,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb4bdc8b0ce69932332cf76d24af69c3a155242af95c226b2ab6c2e371ed1149"
 dependencies = [
  "thiserror 2.0.17",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy",
+ "zerocopy-derive",
 ]
 
 [[package]]
@@ -3411,7 +3416,7 @@ checksum = "69d83b0086dc8ecf3ce9ae2874b2d1290252e2a30720bea58a5c6639b0092873"
 dependencies = [
  "libc",
  "log",
- "wasi 0.11.1+wasi-snapshot-preview1",
+ "wasi",
  "windows-sys 0.61.2",
 ]
 
@@ -3711,16 +3716,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "page_size"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30d5b2194ed13191c1999ae0704b7839fb18384fa22e49b57eeaa97d79ce40da"
-dependencies = [
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3958,7 +3953,7 @@ version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
- "zerocopy 0.8.27",
+ "zerocopy",
 ]
 
 [[package]]
@@ -5466,17 +5461,6 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
-dependencies = [
- "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
- "winapi",
-]
-
-[[package]]
-name = "time"
 version = "0.3.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91e7d9e3bb61134e77bde20dd4825b97c010155709965fedf0f49bb138e52a9d"
@@ -5596,7 +5580,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caf600e7036b17782571dd44fa0a5cea3c82f60db5137f774a325a76a0d6852b"
 dependencies = [
- "bincode",
+ "bincode 1.3.3",
  "bytes",
  "educe",
  "futures-core",
@@ -6214,6 +6198,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
+name = "unty"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
+
+[[package]]
 name = "ureq"
 version = "3.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6363,7 +6353,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
- "bincode",
+ "bincode 2.0.1",
  "bytecheck",
  "bytes",
  "derive_more",
@@ -6390,6 +6380,12 @@ dependencies = [
  "tracing-test",
  "virtual-mio",
 ]
+
+[[package]]
+name = "virtue"
+version = "0.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
 
 [[package]]
 name = "wai-bindgen-gen-core"
@@ -6530,12 +6526,6 @@ dependencies = [
 
 [[package]]
 name = "wasi"
-version = "0.10.0+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
-
-[[package]]
-name = "wasi"
 version = "0.11.1+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
@@ -6645,9 +6635,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-coredump-builder"
-version = "0.1.24"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e67c1c448581871272b2fb7b1a2ee373a4bd295b4d214c92b9938047e7bb867a"
+checksum = "f1ece55555d4aab72d06f5ea7c871d46ac13b5fe6bcce0b4be8eec16728ddab0"
 dependencies = [
  "wasm-coredump-encoder",
  "wasm-coredump-types",
@@ -6656,9 +6646,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-coredump-encoder"
-version = "0.1.24"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45c2fc6340ab2c342bbe706c321e46af41ebef4a0253d134e551abb4780b6d53"
+checksum = "03b53a32667c9a1384e4046c005dc8f3ea93f3319ca558fca85b00ce7d43d871"
 dependencies = [
  "leb128",
  "wasm-coredump-types",
@@ -6666,9 +6656,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-coredump-types"
-version = "0.1.24"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce6930c202f9dabb7effcb8105a425ee68be0c2ab1d2a0d12fef107b17b92f7c"
+checksum = "67579a25309b5b9a805ec24fd6a8f5414293ae4adcda16970fa20b2f7c81fb79"
 
 [[package]]
 name = "wasm-encoder"
@@ -6815,7 +6805,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_path_to_error",
- "time 0.3.44",
+ "time",
  "tokio",
  "tokio-tungstenite 0.24.0",
  "tracing",
@@ -6933,7 +6923,6 @@ dependencies = [
  "dirs",
  "dotenvy",
  "flate2",
- "fuser",
  "futures",
  "futures-util",
  "git-version",
@@ -6973,8 +6962,7 @@ dependencies = [
  "target-lexicon 0.13.3",
  "tempfile",
  "thiserror 2.0.17",
- "time 0.1.45",
- "time 0.3.44",
+ "time",
  "tokio",
  "tokio-tungstenite 0.24.0",
  "toml",
@@ -7205,7 +7193,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
- "bincode",
+ "bincode 2.0.1",
  "bytecheck",
  "bytes",
  "derive_more",
@@ -7384,7 +7372,7 @@ dependencies = [
  "assert-panic",
  "async-trait",
  "base64 0.22.1",
- "bincode",
+ "bincode 2.0.1",
  "blake3",
  "bus",
  "bytecheck",
@@ -7478,7 +7466,7 @@ dependencies = [
  "num_enum",
  "pretty_assertions",
  "serde",
- "time 0.3.44",
+ "time",
  "tracing",
  "wai-bindgen-gen-core",
  "wai-bindgen-gen-rust",
@@ -8138,32 +8126,11 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.7.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
-dependencies = [
- "byteorder",
- "zerocopy-derive 0.7.35",
-]
-
-[[package]]
-name = "zerocopy"
 version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0894878a5fa3edfd6da3f88c4805f4c8558e2b996227a3d864f47fe11e38282c"
 dependencies = [
- "zerocopy-derive 0.8.27",
-]
-
-[[package]]
-name = "zerocopy-derive"
-version = "0.7.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.111",
+ "zerocopy-derive",
 ]
 
 [[package]]
@@ -8272,7 +8239,7 @@ dependencies = [
  "pbkdf2",
  "ppmd-rust",
  "sha1",
- "time 0.3.44",
+ "time",
  "zeroize",
  "zopfli",
  "zstd",

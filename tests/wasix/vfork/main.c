@@ -86,6 +86,41 @@ int failing_exec()
     }
 }
 
+int nested_vfork()
+{
+    int pid = vfork();
+
+    if (pid == 0)
+    {
+        int pid2 = vfork();
+        if (pid2 != -1)
+        {
+            // A nested vfork should always fail
+            exit(13);
+        }
+        int err = errno;
+        if (err != ENOTSUP)
+        {
+            // errno should be set to EAGAIN
+            printf("Expected errno to be ENOTSUP (%d), got %d\n", ENOTSUP, err);
+            exit(14);
+        }
+        exit(30);
+    }
+    else
+    {
+        int status;
+        waitpid(pid, &status, 0);
+        if (WEXITSTATUS(status) != 30)
+        {
+            printf("Expected exit code 30 from subprocess, got %d\n", WEXITSTATUS(status));
+            return 1;
+        }
+
+        return 0;
+    }
+}
+
 int cloexec()
 {
     int fd = open("/bin/file", O_RDONLY | O_CREAT | O_CLOEXEC);
@@ -426,6 +461,10 @@ int main(int argc, char **argv)
     else if (!strcmp(argv[1], "cloexec"))
     {
         return cloexec();
+    }
+    else if (!strcmp(argv[1], "nested_vfork"))
+    {
+        return nested_vfork();
     }
     else if (!strcmp(argv[1], "exiting_child"))
     {

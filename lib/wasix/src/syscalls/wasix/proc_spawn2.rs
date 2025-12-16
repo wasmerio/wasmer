@@ -293,5 +293,6 @@ fn apply_fd_op<M: MemorySize>(
                 _ => Err(Errno::Notdir),
             }
         }
+        _ => Err(Errno::Inval),
     }
 }
