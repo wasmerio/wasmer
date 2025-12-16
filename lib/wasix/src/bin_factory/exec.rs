@@ -449,7 +449,8 @@ fn resume_vfork(
         child_env.process.terminate(code);
 
         // If the vfork contained a context-switching environment, exit now
-        if ctx.data(&store).context_switching_environment.is_some() {
+        if ctx.data(&store).context_switching_environment.is_some() || vfork.rewind_stack.is_none()
+        {
             tracing::error!(
                 "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent parent process will be terminated."
             );
@@ -458,7 +459,8 @@ fn resume_vfork(
 
         // Jump back to the vfork point and current on execution
         let child_pid = child_env.process.pid();
-        let rewind_stack = vfork.rewind_stack.freeze();
+        // TODO: Write this in a more elegant fashion to prevent the unwrap here
+        let rewind_stack = vfork.rewind_stack.unwrap().freeze();
         let store_data = vfork.store_data;
 
         let ctx_cloned = ctx.env.clone().into_mut(&mut store);

@@ -199,6 +199,7 @@ pub fn proc_exec3<M: MemorySize>(
                 child_env.swap_inner(ctx.data_mut());
                 std::mem::swap(child_env.as_mut(), ctx.data_mut());
 
+                // Put back the vfork we previously took from here
                 ctx.data_mut().vfork = Some(vfork);
                 return Ok(e);
             }
@@ -209,9 +210,20 @@ pub fn proc_exec3<M: MemorySize>(
 
                 assert!(vfork.env.context_switching_environment.is_none());
                 assert!(ctx.data().context_switching_environment.is_some());
+
+                let Some(rewind_stack) = vfork.rewind_stack else {
+                    // If we are not using asyncify, we are actually done here :)
+                    // See proc_vfork for information about this path
+
+                    // TODO: Restore store data (globals)
+                    // Or figure out if we really need to do that
+
+                    return Ok(Errno::Success);
+                };
+
                 // Jump back to the vfork point and current on execution
                 // note: fork does not return any values hence passing `()`
-                let rewind_stack = vfork.rewind_stack.freeze();
+                let rewind_stack = rewind_stack.freeze();
                 let store_data = vfork.store_data;
                 unwind::<M, _>(ctx, move |mut ctx, _, _| {
                     // Rewind the stack

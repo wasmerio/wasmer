@@ -323,7 +323,8 @@ impl std::fmt::Display for WasiRuntimeErrorDisplay<'_> {
 #[derive(Debug)]
 pub struct WasiVFork {
     /// The unwound stack before the vfork occured
-    pub rewind_stack: BytesMut,
+    /// If the vfork does not use asyncify, then this is set to None
+    pub rewind_stack: Option<BytesMut>,
     /// The mutable parts of the store
     pub store_data: Bytes,
     /// The environment before the vfork occured
@@ -554,6 +555,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff::<Memory32>),
         "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory32>),
         "proc_fork" => Function::new_typed_with_env(&mut store, env, proc_fork::<Memory32>),
+        "proc_vfork" => Function::new_typed_with_env(&mut store, env, proc_vfork::<Memory32>),
         "proc_join" => Function::new_typed_with_env(&mut store, env, proc_join::<Memory32>),
         "proc_signal" => Function::new_typed_with_env(&mut store, env, proc_signal),
         "proc_signals_get" => Function::new_typed_with_env(&mut store, env, proc_signals_get::<Memory32>),
@@ -699,6 +701,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff::<Memory64>),
         "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory64>),
         "proc_fork" => Function::new_typed_with_env(&mut store, env, proc_fork::<Memory64>),
+        "proc_vfork" => Function::new_typed_with_env(&mut store, env, proc_vfork::<Memory64>),
         "proc_join" => Function::new_typed_with_env(&mut store, env, proc_join::<Memory64>),
         "proc_signal" => Function::new_typed_with_env(&mut store, env, proc_signal),
         "proc_signals_get" => Function::new_typed_with_env(&mut store, env, proc_signals_get::<Memory64>),

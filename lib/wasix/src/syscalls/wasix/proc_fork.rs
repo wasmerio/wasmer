@@ -114,7 +114,7 @@ pub fn proc_fork<M: MemorySize>(
             child_env.swap_inner(ctx.data_mut());
             std::mem::swap(ctx.data_mut(), &mut child_env);
             let previous_vfork = ctx.data_mut().vfork.replace(WasiVFork {
-                rewind_stack: rewind_stack.clone(),
+                rewind_stack: Some(rewind_stack.clone()),
                 store_data: store_data.clone(),
                 env: Box::new(child_env),
                 handle: child_handle,

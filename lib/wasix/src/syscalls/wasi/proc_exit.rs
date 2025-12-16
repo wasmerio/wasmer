@@ -37,14 +37,24 @@ pub fn proc_exit<M: MemorySize>(
         let mut parent_env = vfork.env;
         ctx.data_mut().swap_inner(parent_env.as_mut());
         let mut child_env = std::mem::replace(ctx.data_mut(), *parent_env);
-        child_env.owned_handles.push(vfork.handle);
 
         // Terminate the child process
+        child_env.owned_handles.push(vfork.handle);
         child_env.process.terminate(code);
+
+        if vfork.rewind_stack.is_none() {
+            // If we are not using asyncify, we are actually done here :)
+            // See proc_vfork for information about this path
+
+            // TODO: Restore store data (globals)
+            // Or figure out if we really need to do that
+
+            return Ok(());
+        }
 
         // Jump back to the vfork point and current on execution
         let child_pid = child_env.process.pid();
-        let rewind_stack = vfork.rewind_stack.freeze();
+        let rewind_stack = vfork.rewind_stack.unwrap().freeze();
         let store_data = vfork.store_data;
         unwind::<M, _>(ctx, move |mut ctx, _, _| {
             // Now rewind the previous stack and carry on from where we did the vfork
