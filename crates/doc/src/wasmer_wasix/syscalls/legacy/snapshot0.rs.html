@@ -53,7 +53,7 @@
 <a href=#53 id=53 data-nosnippet>53</a>        Snapshot0Whence::Cur =&gt; Whence::Cur,
 <a href=#54 id=54 data-nosnippet>54</a>        Snapshot0Whence::End =&gt; Whence::End,
 <a href=#55 id=55 data-nosnippet>55</a>        Snapshot0Whence::Set =&gt; Whence::Set,
-<a href=#56 id=56 data-nosnippet>56</a>        Snapshot0Whence::Unknown =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval),
+<a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval),
 <a href=#57 id=57 data-nosnippet>57</a>    };
 <a href=#58 id=58 data-nosnippet>58</a>    syscalls::fd_seek::&lt;Memory32&gt;(ctx, fd, offset, new_whence, newoffset)
 <a href=#59 id=59 data-nosnippet>59</a>}
@@ -104,7 +104,7 @@
 <a href=#104 id=104 data-nosnippet>104</a>                        nbytes: <span class="number">0</span>,
 <a href=#105 id=105 data-nosnippet>105</a>                        flags: Eventrwflags::empty(),
 <a href=#106 id=106 data-nosnippet>106</a>                    },
-<a href=#107 id=107 data-nosnippet>107</a>                    Eventtype::Unknown =&gt; <span class="kw">return </span>Errno::Inval,
+<a href=#107 id=107 data-nosnippet>107</a>                    <span class="kw">_ </span>=&gt; <span class="kw">return </span>Errno::Inval,
 <a href=#108 id=108 data-nosnippet>108</a>                },
 <a href=#109 id=109 data-nosnippet>109</a>            };
 <a href=#110 id=110 data-nosnippet>110</a>            <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));

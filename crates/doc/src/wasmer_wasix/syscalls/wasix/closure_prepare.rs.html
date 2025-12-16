@@ -37,355 +37,356 @@
 <a href=#37 id=37 data-nosnippet>37</a>            WasmValueType::F32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F32),
 <a href=#38 id=38 data-nosnippet>38</a>            WasmValueType::F64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F64),
 <a href=#39 id=39 data-nosnippet>39</a>            WasmValueType::V128 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::V128),
-<a href=#40 id=40 data-nosnippet>40</a>        }
-<a href=#41 id=41 data-nosnippet>41</a>    }
-<a href=#42 id=42 data-nosnippet>42</a>    <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-<a href=#43 id=43 data-nosnippet>43</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#44 id=44 data-nosnippet>44</a>            <span class="self">Self</span>::I32 =&gt; <span class="number">4</span>,
-<a href=#45 id=45 data-nosnippet>45</a>            <span class="self">Self</span>::I64 =&gt; <span class="number">8</span>,
-<a href=#46 id=46 data-nosnippet>46</a>            <span class="self">Self</span>::F32 =&gt; <span class="number">4</span>,
-<a href=#47 id=47 data-nosnippet>47</a>            <span class="self">Self</span>::F64 =&gt; <span class="number">8</span>,
-<a href=#48 id=48 data-nosnippet>48</a>            <span class="self">Self</span>::V128 =&gt; <span class="number">16</span>,
-<a href=#49 id=49 data-nosnippet>49</a>            <span class="comment">// Not supported in closures.
-<a href=#50 id=50 data-nosnippet>50</a>            </span><span class="self">Self</span>::Ref(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Cannot get size of reference type"</span>),
-<a href=#51 id=51 data-nosnippet>51</a>        }
-<a href=#52 id=52 data-nosnippet>52</a>    }
-<a href=#53 id=53 data-nosnippet>53</a>    <span class="kw">fn </span>store(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: <span class="kw-2">&amp;mut </span>InstructionSink&lt;<span class="lifetime">'_</span>&gt;, offset: u64, memory_index: u32) {
-<a href=#54 id=54 data-nosnippet>54</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#55 id=55 data-nosnippet>55</a>            <span class="self">Self</span>::I32 =&gt; sink.i32_store(MemArg {
-<a href=#56 id=56 data-nosnippet>56</a>                offset,
-<a href=#57 id=57 data-nosnippet>57</a>                align: <span class="number">0</span>,
-<a href=#58 id=58 data-nosnippet>58</a>                memory_index,
-<a href=#59 id=59 data-nosnippet>59</a>            }),
-<a href=#60 id=60 data-nosnippet>60</a>            <span class="self">Self</span>::I64 =&gt; sink.i64_store(MemArg {
-<a href=#61 id=61 data-nosnippet>61</a>                offset,
-<a href=#62 id=62 data-nosnippet>62</a>                align: <span class="number">0</span>,
-<a href=#63 id=63 data-nosnippet>63</a>                memory_index,
-<a href=#64 id=64 data-nosnippet>64</a>            }),
-<a href=#65 id=65 data-nosnippet>65</a>            <span class="self">Self</span>::F32 =&gt; sink.f32_store(MemArg {
-<a href=#66 id=66 data-nosnippet>66</a>                offset,
-<a href=#67 id=67 data-nosnippet>67</a>                align: <span class="number">0</span>,
-<a href=#68 id=68 data-nosnippet>68</a>                memory_index,
-<a href=#69 id=69 data-nosnippet>69</a>            }),
-<a href=#70 id=70 data-nosnippet>70</a>            <span class="self">Self</span>::F64 =&gt; sink.f64_store(MemArg {
-<a href=#71 id=71 data-nosnippet>71</a>                offset,
-<a href=#72 id=72 data-nosnippet>72</a>                align: <span class="number">0</span>,
-<a href=#73 id=73 data-nosnippet>73</a>                memory_index,
-<a href=#74 id=74 data-nosnippet>74</a>            }),
-<a href=#75 id=75 data-nosnippet>75</a>            <span class="self">Self</span>::V128 =&gt; sink.v128_store(MemArg {
-<a href=#76 id=76 data-nosnippet>76</a>                offset,
-<a href=#77 id=77 data-nosnippet>77</a>                align: <span class="number">0</span>,
-<a href=#78 id=78 data-nosnippet>78</a>                memory_index,
-<a href=#79 id=79 data-nosnippet>79</a>            }),
-<a href=#80 id=80 data-nosnippet>80</a>            <span class="comment">// Not supported in closures
-<a href=#81 id=81 data-nosnippet>81</a>            </span><span class="self">Self</span>::Ref(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Cannot store reference type"</span>),
-<a href=#82 id=82 data-nosnippet>82</a>        };
-<a href=#83 id=83 data-nosnippet>83</a>    }
-<a href=#84 id=84 data-nosnippet>84</a>    <span class="kw">fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: <span class="kw-2">&amp;mut </span>InstructionSink&lt;<span class="lifetime">'_</span>&gt;, offset: u64, memory_index: u32) {
-<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#86 id=86 data-nosnippet>86</a>            <span class="self">Self</span>::I32 =&gt; sink.i32_load(MemArg {
-<a href=#87 id=87 data-nosnippet>87</a>                offset,
-<a href=#88 id=88 data-nosnippet>88</a>                align: <span class="number">0</span>,
-<a href=#89 id=89 data-nosnippet>89</a>                memory_index,
-<a href=#90 id=90 data-nosnippet>90</a>            }),
-<a href=#91 id=91 data-nosnippet>91</a>            <span class="self">Self</span>::I64 =&gt; sink.i64_load(MemArg {
-<a href=#92 id=92 data-nosnippet>92</a>                offset,
-<a href=#93 id=93 data-nosnippet>93</a>                align: <span class="number">0</span>,
-<a href=#94 id=94 data-nosnippet>94</a>                memory_index,
-<a href=#95 id=95 data-nosnippet>95</a>            }),
-<a href=#96 id=96 data-nosnippet>96</a>            <span class="self">Self</span>::F32 =&gt; sink.f32_load(MemArg {
-<a href=#97 id=97 data-nosnippet>97</a>                offset,
-<a href=#98 id=98 data-nosnippet>98</a>                align: <span class="number">0</span>,
-<a href=#99 id=99 data-nosnippet>99</a>                memory_index,
-<a href=#100 id=100 data-nosnippet>100</a>            }),
-<a href=#101 id=101 data-nosnippet>101</a>            <span class="self">Self</span>::F64 =&gt; sink.f64_load(MemArg {
-<a href=#102 id=102 data-nosnippet>102</a>                offset,
-<a href=#103 id=103 data-nosnippet>103</a>                align: <span class="number">0</span>,
-<a href=#104 id=104 data-nosnippet>104</a>                memory_index,
-<a href=#105 id=105 data-nosnippet>105</a>            }),
-<a href=#106 id=106 data-nosnippet>106</a>            <span class="self">Self</span>::V128 =&gt; sink.v128_load(MemArg {
-<a href=#107 id=107 data-nosnippet>107</a>                offset,
-<a href=#108 id=108 data-nosnippet>108</a>                align: <span class="number">0</span>,
-<a href=#109 id=109 data-nosnippet>109</a>                memory_index,
-<a href=#110 id=110 data-nosnippet>110</a>            }),
-<a href=#111 id=111 data-nosnippet>111</a>            <span class="comment">// Not supported in closures
-<a href=#112 id=112 data-nosnippet>112</a>            </span><span class="self">Self</span>::Ref(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Cannot load reference type"</span>),
-<a href=#113 id=113 data-nosnippet>113</a>        };
-<a href=#114 id=114 data-nosnippet>114</a>    }
-<a href=#115 id=115 data-nosnippet>115</a>}
-<a href=#116 id=116 data-nosnippet>116</a>
-<a href=#117 id=117 data-nosnippet>117</a><span class="doccomment">/// Build a dynamically linkable WASM module for the given closure.
-<a href=#118 id=118 data-nosnippet>118</a></span><span class="kw">fn </span>build_closure_wasm_bytes(
-<a href=#119 id=119 data-nosnippet>119</a>    module_name: <span class="kw-2">&amp;</span>str,
-<a href=#120 id=120 data-nosnippet>120</a>    closure: u32,
-<a href=#121 id=121 data-nosnippet>121</a>    backing_function: u32,
-<a href=#122 id=122 data-nosnippet>122</a>    environment_offset: u64,
-<a href=#123 id=123 data-nosnippet>123</a>    argument_types: <span class="kw-2">&amp;</span>[ValType],
-<a href=#124 id=124 data-nosnippet>124</a>    result_types: <span class="kw-2">&amp;</span>[ValType],
-<a href=#125 id=125 data-nosnippet>125</a>) -&gt; Vec&lt;u8&gt; {
-<a href=#126 id=126 data-nosnippet>126</a>    <span class="kw">let </span><span class="kw-2">mut </span>wasm_module = wasm_encoder::Module::new();
-<a href=#127 id=127 data-nosnippet>127</a>
-<a href=#128 id=128 data-nosnippet>128</a>    <span class="comment">// Add dylink section
-<a href=#129 id=129 data-nosnippet>129</a>    </span><span class="kw">let </span>dylink = CustomSection {
-<a href=#130 id=130 data-nosnippet>130</a>        name: Cow::Borrowed(<span class="string">"dylink.0"</span>),
-<a href=#131 id=131 data-nosnippet>131</a>        data: Cow::Borrowed(<span class="kw-2">&amp;</span>[]),
-<a href=#132 id=132 data-nosnippet>132</a>    };
-<a href=#133 id=133 data-nosnippet>133</a>    wasm_module.section(<span class="kw-2">&amp;</span>dylink);
-<a href=#134 id=134 data-nosnippet>134</a>
-<a href=#135 id=135 data-nosnippet>135</a>    <span class="comment">// Add types section
-<a href=#136 id=136 data-nosnippet>136</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>types = TypeSection::new();
-<a href=#137 id=137 data-nosnippet>137</a>    types.ty().function(<span class="macro">vec!</span>[], <span class="macro">vec!</span>[]);
-<a href=#138 id=138 data-nosnippet>138</a>    <span class="kw">let </span>on_load_function_type_index = <span class="number">0</span>;
-<a href=#139 id=139 data-nosnippet>139</a>    <span class="kw">let </span><span class="kw-2">mut </span>trampoline_function_params = argument_types.to_vec();
-<a href=#140 id=140 data-nosnippet>140</a>    <span class="kw">let </span><span class="kw-2">mut </span>trampoline_function_results = result_types.to_vec();
-<a href=#141 id=141 data-nosnippet>141</a>    types
-<a href=#142 id=142 data-nosnippet>142</a>        .ty()
-<a href=#143 id=143 data-nosnippet>143</a>        .function(trampoline_function_params, trampoline_function_results);
-<a href=#144 id=144 data-nosnippet>144</a>    <span class="kw">let </span>trampoline_function_type_index = <span class="number">1</span>;
-<a href=#145 id=145 data-nosnippet>145</a>    types
-<a href=#146 id=146 data-nosnippet>146</a>        .ty()
-<a href=#147 id=147 data-nosnippet>147</a>        .function(<span class="macro">vec!</span>[ValType::I32, ValType::I32, ValType::I32], <span class="macro">vec!</span>[]);
-<a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">let </span>backing_function_type_index = <span class="number">2</span>;
-<a href=#149 id=149 data-nosnippet>149</a>    wasm_module.section(<span class="kw-2">&amp;</span>types);
-<a href=#150 id=150 data-nosnippet>150</a>
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="comment">// Add a imports section
-<a href=#152 id=152 data-nosnippet>152</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>imports = ImportSection::new();
-<a href=#153 id=153 data-nosnippet>153</a>    imports.import(
-<a href=#154 id=154 data-nosnippet>154</a>        <span class="string">"env"</span>,
-<a href=#155 id=155 data-nosnippet>155</a>        <span class="string">"memory"</span>,
-<a href=#156 id=156 data-nosnippet>156</a>        MemoryType {
-<a href=#157 id=157 data-nosnippet>157</a>            minimum: <span class="number">1</span>,
-<a href=#158 id=158 data-nosnippet>158</a>            maximum: <span class="prelude-val">Some</span>(<span class="number">65536</span>),
-<a href=#159 id=159 data-nosnippet>159</a>            shared: <span class="bool-val">true</span>,
-<a href=#160 id=160 data-nosnippet>160</a>            memory64: <span class="bool-val">false</span>,
-<a href=#161 id=161 data-nosnippet>161</a>            page_size_log2: <span class="prelude-val">None</span>,
-<a href=#162 id=162 data-nosnippet>162</a>        },
-<a href=#163 id=163 data-nosnippet>163</a>    );
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="kw">let </span>main_memory_index = <span class="number">0</span>;
-<a href=#165 id=165 data-nosnippet>165</a>    imports.import(
-<a href=#166 id=166 data-nosnippet>166</a>        <span class="string">"env"</span>,
-<a href=#167 id=167 data-nosnippet>167</a>        <span class="string">"__indirect_function_table"</span>,
-<a href=#168 id=168 data-nosnippet>168</a>        TableType {
-<a href=#169 id=169 data-nosnippet>169</a>            element_type: RefType::FUNCREF,
-<a href=#170 id=170 data-nosnippet>170</a>            minimum: <span class="number">1</span>,
-<a href=#171 id=171 data-nosnippet>171</a>            maximum: <span class="prelude-val">None</span>,
-<a href=#172 id=172 data-nosnippet>172</a>            shared: <span class="bool-val">false</span>,
-<a href=#173 id=173 data-nosnippet>173</a>            table64: <span class="bool-val">false</span>,
-<a href=#174 id=174 data-nosnippet>174</a>        },
-<a href=#175 id=175 data-nosnippet>175</a>    );
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="kw">let </span>indirect_function_table_index = <span class="number">0</span>;
-<a href=#177 id=177 data-nosnippet>177</a>    imports.import(
-<a href=#178 id=178 data-nosnippet>178</a>        <span class="string">"env"</span>,
-<a href=#179 id=179 data-nosnippet>179</a>        <span class="string">"__stack_pointer"</span>,
-<a href=#180 id=180 data-nosnippet>180</a>        GlobalType {
-<a href=#181 id=181 data-nosnippet>181</a>            val_type: ValType::I32,
-<a href=#182 id=182 data-nosnippet>182</a>            mutable: <span class="bool-val">true</span>,
-<a href=#183 id=183 data-nosnippet>183</a>            shared: <span class="bool-val">false</span>,
-<a href=#184 id=184 data-nosnippet>184</a>        },
-<a href=#185 id=185 data-nosnippet>185</a>    );
-<a href=#186 id=186 data-nosnippet>186</a>    <span class="kw">let </span>stack_pointer_index = <span class="number">0</span>;
-<a href=#187 id=187 data-nosnippet>187</a>    imports.import(
-<a href=#188 id=188 data-nosnippet>188</a>        <span class="string">"GOT.func"</span>,
-<a href=#189 id=189 data-nosnippet>189</a>        module_name,
-<a href=#190 id=190 data-nosnippet>190</a>        GlobalType {
-<a href=#191 id=191 data-nosnippet>191</a>            val_type: ValType::I32,
-<a href=#192 id=192 data-nosnippet>192</a>            mutable: <span class="bool-val">true</span>,
-<a href=#193 id=193 data-nosnippet>193</a>            shared: <span class="bool-val">false</span>,
-<a href=#194 id=194 data-nosnippet>194</a>        },
-<a href=#195 id=195 data-nosnippet>195</a>    );
-<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">let </span>trampoline_function_pointer_index = <span class="number">1</span>;
-<a href=#197 id=197 data-nosnippet>197</a>    wasm_module.section(<span class="kw-2">&amp;</span>imports);
-<a href=#198 id=198 data-nosnippet>198</a>
-<a href=#199 id=199 data-nosnippet>199</a>    <span class="kw">let </span><span class="kw-2">mut </span>functions = FunctionSection::new();
-<a href=#200 id=200 data-nosnippet>200</a>    functions.function(on_load_function_type_index);
-<a href=#201 id=201 data-nosnippet>201</a>    <span class="kw">let </span>on_load_function_index = <span class="number">0</span>;
-<a href=#202 id=202 data-nosnippet>202</a>    functions.function(trampoline_function_type_index);
-<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">let </span>trampoline_function_index = <span class="number">1</span>;
-<a href=#204 id=204 data-nosnippet>204</a>    wasm_module.section(<span class="kw-2">&amp;</span>functions);
-<a href=#205 id=205 data-nosnippet>205</a>
-<a href=#206 id=206 data-nosnippet>206</a>    <span class="comment">// Add an export section
-<a href=#207 id=207 data-nosnippet>207</a>    // FIXME: Look into replacing this with the wasm start function
-<a href=#208 id=208 data-nosnippet>208</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>exports = ExportSection::new();
-<a href=#209 id=209 data-nosnippet>209</a>    exports.export(
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="string">"__wasm_call_ctors"</span>,
-<a href=#211 id=211 data-nosnippet>211</a>        ExportKind::Func,
-<a href=#212 id=212 data-nosnippet>212</a>        on_load_function_index,
-<a href=#213 id=213 data-nosnippet>213</a>    );
-<a href=#214 id=214 data-nosnippet>214</a>    exports.export(module_name, ExportKind::Func, trampoline_function_index);
-<a href=#215 id=215 data-nosnippet>215</a>    wasm_module.section(<span class="kw-2">&amp;</span>exports);
-<a href=#216 id=216 data-nosnippet>216</a>
-<a href=#217 id=217 data-nosnippet>217</a>    <span class="kw">let </span><span class="kw-2">mut </span>code = CodeSection::new();
-<a href=#218 id=218 data-nosnippet>218</a>    <span class="kw">let </span><span class="kw-2">mut </span>on_load_function = wasm_encoder::Function::new(<span class="macro">vec!</span>[]);
-<a href=#219 id=219 data-nosnippet>219</a>    on_load_function
-<a href=#220 id=220 data-nosnippet>220</a>        .instructions()
-<a href=#221 id=221 data-nosnippet>221</a>        .i32_const(closure <span class="kw">as </span>i32)
-<a href=#222 id=222 data-nosnippet>222</a>        .global_get(trampoline_function_pointer_index)
-<a href=#223 id=223 data-nosnippet>223</a>        .table_get(indirect_function_table_index)
-<a href=#224 id=224 data-nosnippet>224</a>        .table_set(indirect_function_table_index)
-<a href=#225 id=225 data-nosnippet>225</a>        .end();
-<a href=#226 id=226 data-nosnippet>226</a>    code.function(<span class="kw-2">&amp;</span>on_load_function);
-<a href=#227 id=227 data-nosnippet>227</a>
-<a href=#228 id=228 data-nosnippet>228</a>    <span class="kw">let </span><span class="kw-2">mut </span>trampoline_function = wasm_encoder::Function::new(<span class="macro">vec!</span>[(<span class="number">3</span>, ValType::I32)]);
-<a href=#229 id=229 data-nosnippet>229</a>    <span class="kw">let </span>original_stackpointer_local: u32 = argument_types.len() <span class="kw">as </span>u32;
-<a href=#230 id=230 data-nosnippet>230</a>    <span class="kw">let </span>arguments_base_local: u32 = argument_types.len() <span class="kw">as </span>u32 + <span class="number">1</span>;
-<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">let </span>results_base_local: u32 = argument_types.len() <span class="kw">as </span>u32 + <span class="number">2</span>;
-<a href=#232 id=232 data-nosnippet>232</a>    <span class="kw">let </span><span class="kw-2">mut </span>trampoline_function_instructions = trampoline_function.instructions();
-<a href=#233 id=233 data-nosnippet>233</a>    <span class="kw">let </span>values_size = argument_types
-<a href=#234 id=234 data-nosnippet>234</a>        .iter()
-<a href=#235 id=235 data-nosnippet>235</a>        .map(ValType::size)
-<a href=#236 id=236 data-nosnippet>236</a>        .sum::&lt;u64&gt;()
-<a href=#237 id=237 data-nosnippet>237</a>        .next_multiple_of(<span class="number">16</span>);
-<a href=#238 id=238 data-nosnippet>238</a>    <span class="kw">let </span>results_size = result_types
-<a href=#239 id=239 data-nosnippet>239</a>        .iter()
-<a href=#240 id=240 data-nosnippet>240</a>        .map(ValType::size)
-<a href=#241 id=241 data-nosnippet>241</a>        .sum::&lt;u64&gt;()
-<a href=#242 id=242 data-nosnippet>242</a>        .next_multiple_of(<span class="number">16</span>);
-<a href=#243 id=243 data-nosnippet>243</a>    trampoline_function_instructions
-<a href=#244 id=244 data-nosnippet>244</a>        .global_get(stack_pointer_index)
-<a href=#245 id=245 data-nosnippet>245</a>        .local_tee(original_stackpointer_local)
-<a href=#246 id=246 data-nosnippet>246</a>        .i32_const(results_size <span class="kw">as </span>i32)
-<a href=#247 id=247 data-nosnippet>247</a>        .i32_sub()
-<a href=#248 id=248 data-nosnippet>248</a>        .local_tee(results_base_local)
-<a href=#249 id=249 data-nosnippet>249</a>        .i32_const(values_size <span class="kw">as </span>i32)
-<a href=#250 id=250 data-nosnippet>250</a>        .i32_sub()
-<a href=#251 id=251 data-nosnippet>251</a>        .local_tee(arguments_base_local)
-<a href=#252 id=252 data-nosnippet>252</a>        .global_set(stack_pointer_index);
-<a href=#253 id=253 data-nosnippet>253</a>    argument_types.iter().enumerate().fold(
-<a href=#254 id=254 data-nosnippet>254</a>        (<span class="number">0</span>, <span class="kw-2">&amp;mut </span>trampoline_function_instructions),
-<a href=#255 id=255 data-nosnippet>255</a>        |<span class="kw-2">mut </span>acc, (index, ty)| {
-<a href=#256 id=256 data-nosnippet>256</a>            <span class="kw">let </span>size = ty.size();
-<a href=#257 id=257 data-nosnippet>257</a>            acc.<span class="number">1
-<a href=#258 id=258 data-nosnippet>258</a>                </span>.local_get(arguments_base_local)
-<a href=#259 id=259 data-nosnippet>259</a>                .local_get(index <span class="kw">as </span>u32);
-<a href=#260 id=260 data-nosnippet>260</a>            ty.store(acc.<span class="number">1</span>, acc.<span class="number">0</span>, main_memory_index);
-<a href=#261 id=261 data-nosnippet>261</a>            acc.<span class="number">0 </span>+= size;
-<a href=#262 id=262 data-nosnippet>262</a>            acc
-<a href=#263 id=263 data-nosnippet>263</a>        },
-<a href=#264 id=264 data-nosnippet>264</a>    );
-<a href=#265 id=265 data-nosnippet>265</a>    trampoline_function_instructions
-<a href=#266 id=266 data-nosnippet>266</a>        .local_get(arguments_base_local)
-<a href=#267 id=267 data-nosnippet>267</a>        .local_get(results_base_local)
-<a href=#268 id=268 data-nosnippet>268</a>        .i32_const(environment_offset <span class="kw">as </span>i32)
-<a href=#269 id=269 data-nosnippet>269</a>        .i32_const(backing_function <span class="kw">as </span>i32)
-<a href=#270 id=270 data-nosnippet>270</a>        .call_indirect(indirect_function_table_index, backing_function_type_index);
-<a href=#271 id=271 data-nosnippet>271</a>    result_types.iter().enumerate().fold(
-<a href=#272 id=272 data-nosnippet>272</a>        (<span class="number">0</span>, <span class="kw-2">&amp;mut </span>trampoline_function_instructions),
-<a href=#273 id=273 data-nosnippet>273</a>        |<span class="kw-2">mut </span>acc, (index, ty)| {
-<a href=#274 id=274 data-nosnippet>274</a>            <span class="kw">let </span>size = ty.size();
-<a href=#275 id=275 data-nosnippet>275</a>            acc.<span class="number">1</span>.local_get(results_base_local);
-<a href=#276 id=276 data-nosnippet>276</a>            ty.load(acc.<span class="number">1</span>, acc.<span class="number">0</span>, main_memory_index);
-<a href=#277 id=277 data-nosnippet>277</a>            acc.<span class="number">0 </span>+= size;
-<a href=#278 id=278 data-nosnippet>278</a>            acc
-<a href=#279 id=279 data-nosnippet>279</a>        },
-<a href=#280 id=280 data-nosnippet>280</a>    );
-<a href=#281 id=281 data-nosnippet>281</a>    trampoline_function_instructions
-<a href=#282 id=282 data-nosnippet>282</a>        .local_get(original_stackpointer_local)
-<a href=#283 id=283 data-nosnippet>283</a>        .global_set(stack_pointer_index)
-<a href=#284 id=284 data-nosnippet>284</a>        .end();
-<a href=#285 id=285 data-nosnippet>285</a>    code.function(<span class="kw-2">&amp;</span>trampoline_function);
-<a href=#286 id=286 data-nosnippet>286</a>    wasm_module.section(<span class="kw-2">&amp;</span>code);
-<a href=#287 id=287 data-nosnippet>287</a>
-<a href=#288 id=288 data-nosnippet>288</a>    wasm_module.finish()
-<a href=#289 id=289 data-nosnippet>289</a>}
-<a href=#290 id=290 data-nosnippet>290</a>
-<a href=#291 id=291 data-nosnippet>291</a><span class="comment">// Monotonically incrementing id for closures
-<a href=#292 id=292 data-nosnippet>292</a></span><span class="kw">static </span>CLOSURE_ID: AtomicUsize = AtomicUsize::new(<span class="number">0</span>);
-<a href=#293 id=293 data-nosnippet>293</a>
-<a href=#294 id=294 data-nosnippet>294</a><span class="doccomment">/// Prepare a closure so that it can be called with a given signature.
-<a href=#295 id=295 data-nosnippet>295</a>///
-<a href=#296 id=296 data-nosnippet>296</a>/// When the closure is called after [`closure_prepare`], the arguments will be decoded and passed to the backing function together with a pointer to the environment.
-<a href=#297 id=297 data-nosnippet>297</a>///
-<a href=#298 id=298 data-nosnippet>298</a>/// The backing function needs to conform to the following signature:
-<a href=#299 id=299 data-nosnippet>299</a>///   uint8_t* values - a pointer to a buffer containing the arguments.
-<a href=#300 id=300 data-nosnippet>300</a>///   uint8_t* results - a pointer to a buffer where the results will be written.
-<a href=#301 id=301 data-nosnippet>301</a>///   void* environment - the environment that was passed to closure_prepare
-<a href=#302 id=302 data-nosnippet>302</a>///
-<a href=#303 id=303 data-nosnippet>303</a>/// `backing_function` is a pointer (index into `__indirect_function_table`) to the backing function
-<a href=#304 id=304 data-nosnippet>304</a>///
-<a href=#305 id=305 data-nosnippet>305</a>/// `closure` is a pointer (index into `__indirect_function_table`) to the closure that was obtained via [`closure_allocate`].
-<a href=#306 id=306 data-nosnippet>306</a>///
-<a href=#307 id=307 data-nosnippet>307</a>/// `argument_types_ptr` is a pointer to the argument types as a list of [`WasmValueType`]s
-<a href=#308 id=308 data-nosnippet>308</a>/// `argument_types_length` is the number of arguments
-<a href=#309 id=309 data-nosnippet>309</a>///
-<a href=#310 id=310 data-nosnippet>310</a>/// `result_types_ptr` is a pointer to the result types as a list of [`WasmValueType`]s
-<a href=#311 id=311 data-nosnippet>311</a>/// `result_types_length` is the number of results
-<a href=#312 id=312 data-nosnippet>312</a>///
-<a href=#313 id=313 data-nosnippet>313</a>/// `environment` is the closure environment that will be passed to the backing function alongside the decoded arguments and results
-<a href=#314 id=314 data-nosnippet>314</a></span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, fields(%backing_function, %closure), ret)]
-<a href=#315 id=315 data-nosnippet>315</a></span><span class="kw">pub fn </span>closure_prepare&lt;M: MemorySize&gt;(
-<a href=#316 id=316 data-nosnippet>316</a>    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-<a href=#317 id=317 data-nosnippet>317</a>    backing_function: u32,
-<a href=#318 id=318 data-nosnippet>318</a>    closure: u32,
-<a href=#319 id=319 data-nosnippet>319</a>    argument_types_ptr: WasmPtr&lt;u8, M&gt;,
-<a href=#320 id=320 data-nosnippet>320</a>    argument_types_length: u32,
-<a href=#321 id=321 data-nosnippet>321</a>    result_types_ptr: WasmPtr&lt;u8, M&gt;,
-<a href=#322 id=322 data-nosnippet>322</a>    result_types_length: u32,
-<a href=#323 id=323 data-nosnippet>323</a>    environment: WasmPtr&lt;u8, M&gt;,
-<a href=#324 id=324 data-nosnippet>324</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-<a href=#325 id=325 data-nosnippet>325</a>    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>    <span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
-<a href=#328 id=328 data-nosnippet>328</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
-<a href=#329 id=329 data-nosnippet>329</a>
-<a href=#330 id=330 data-nosnippet>330</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(linker) = env.inner().linker().cloned() <span class="kw">else </span>{
-<a href=#331 id=331 data-nosnippet>331</a>        <span class="macro">error!</span>(<span class="string">"Closures only work for dynamic modules."</span>);
-<a href=#332 id=332 data-nosnippet>332</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Notsup);
-<a href=#333 id=333 data-nosnippet>333</a>    };
-<a href=#334 id=334 data-nosnippet>334</a>
-<a href=#335 id=335 data-nosnippet>335</a>    <span class="kw">let </span>argument_types = {
-<a href=#336 id=336 data-nosnippet>336</a>        <span class="kw">let </span>arg_offset = argument_types_ptr.offset().into();
-<a href=#337 id=337 data-nosnippet>337</a>        <span class="kw">let </span>arguments_slice = <span class="macro">wasi_try_mem_ok!</span>(
-<a href=#338 id=338 data-nosnippet>338</a>            WasmSlice::new(<span class="kw-2">&amp;</span>memory, arg_offset, argument_types_length <span class="kw">as </span>u64)
-<a href=#339 id=339 data-nosnippet>339</a>                .and_then(WasmSlice::access)
-<a href=#340 id=340 data-nosnippet>340</a>        );
-<a href=#341 id=341 data-nosnippet>341</a>        <span class="macro">wasi_try_ok!</span>(
-<a href=#342 id=342 data-nosnippet>342</a>            arguments_slice
-<a href=#343 id=343 data-nosnippet>343</a>                .iter()
-<a href=#344 id=344 data-nosnippet>344</a>                .map(|t: <span class="kw-2">&amp;</span>u8| ValType::from_u8(<span class="kw-2">*</span>t))
-<a href=#345 id=345 data-nosnippet>345</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, Errno&gt;&gt;()
-<a href=#346 id=346 data-nosnippet>346</a>        )
-<a href=#347 id=347 data-nosnippet>347</a>    };
-<a href=#348 id=348 data-nosnippet>348</a>
-<a href=#349 id=349 data-nosnippet>349</a>    <span class="kw">let </span>result_types = {
-<a href=#350 id=350 data-nosnippet>350</a>        <span class="kw">let </span>res_offset = result_types_ptr.offset().into();
-<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">let </span>result_slice = <span class="macro">wasi_try_mem_ok!</span>(
-<a href=#352 id=352 data-nosnippet>352</a>            WasmSlice::new(<span class="kw-2">&amp;</span>memory, res_offset, result_types_length <span class="kw">as </span>u64)
-<a href=#353 id=353 data-nosnippet>353</a>                .and_then(WasmSlice::access)
-<a href=#354 id=354 data-nosnippet>354</a>        );
-<a href=#355 id=355 data-nosnippet>355</a>        <span class="macro">wasi_try_ok!</span>(
-<a href=#356 id=356 data-nosnippet>356</a>            result_slice
-<a href=#357 id=357 data-nosnippet>357</a>                .iter()
-<a href=#358 id=358 data-nosnippet>358</a>                .map(|t: <span class="kw-2">&amp;</span>u8| ValType::from_u8(<span class="kw-2">*</span>t))
-<a href=#359 id=359 data-nosnippet>359</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, Errno&gt;&gt;()
-<a href=#360 id=360 data-nosnippet>360</a>        )
-<a href=#361 id=361 data-nosnippet>361</a>    };
-<a href=#362 id=362 data-nosnippet>362</a>
-<a href=#363 id=363 data-nosnippet>363</a>    <span class="kw">let </span>module_name = <span class="macro">format!</span>(
-<a href=#364 id=364 data-nosnippet>364</a>        <span class="string">"__wasix_closure_{}"</span>,
-<a href=#365 id=365 data-nosnippet>365</a>        CLOSURE_ID.fetch_add(<span class="number">1</span>, Ordering::SeqCst),
-<a href=#366 id=366 data-nosnippet>366</a>    );
-<a href=#367 id=367 data-nosnippet>367</a>
-<a href=#368 id=368 data-nosnippet>368</a>    <span class="kw">let </span>wasm_bytes = build_closure_wasm_bytes(
-<a href=#369 id=369 data-nosnippet>369</a>        <span class="kw-2">&amp;</span>module_name,
-<a href=#370 id=370 data-nosnippet>370</a>        closure,
-<a href=#371 id=371 data-nosnippet>371</a>        backing_function,
-<a href=#372 id=372 data-nosnippet>372</a>        environment.offset().into(),
-<a href=#373 id=373 data-nosnippet>373</a>        <span class="kw-2">&amp;</span>argument_types,
-<a href=#374 id=374 data-nosnippet>374</a>        <span class="kw-2">&amp;</span>result_types,
-<a href=#375 id=375 data-nosnippet>375</a>    );
-<a href=#376 id=376 data-nosnippet>376</a>
-<a href=#377 id=377 data-nosnippet>377</a>    <span class="kw">let </span>ld_library_path: [<span class="kw-2">&amp;</span>Path; <span class="number">0</span>] = [];
-<a href=#378 id=378 data-nosnippet>378</a>    <span class="kw">let </span>wasm_loader = DlModuleSpec::Memory {
-<a href=#379 id=379 data-nosnippet>379</a>        module_name: <span class="kw-2">&amp;</span>module_name,
-<a href=#380 id=380 data-nosnippet>380</a>        bytes: <span class="kw-2">&amp;</span>wasm_bytes,
-<a href=#381 id=381 data-nosnippet>381</a>    };
-<a href=#382 id=382 data-nosnippet>382</a>    <span class="kw">let </span>module_handle = <span class="kw">match </span>linker.load_module(wasm_loader, <span class="kw-2">&amp;mut </span>ctx) {
-<a href=#383 id=383 data-nosnippet>383</a>        <span class="prelude-val">Ok</span>(m) =&gt; m,
-<a href=#384 id=384 data-nosnippet>384</a>        <span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#385 id=385 data-nosnippet>385</a>            <span class="comment">// Should never happen
-<a href=#386 id=386 data-nosnippet>386</a>            </span><span class="macro">panic!</span>(<span class="string">"Failed to load newly built in-memory module: {e}"</span>);
-<a href=#387 id=387 data-nosnippet>387</a>        }
-<a href=#388 id=388 data-nosnippet>388</a>    };
-<a href=#389 id=389 data-nosnippet>389</a>
-<a href=#390 id=390 data-nosnippet>390</a>    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
-<a href=#391 id=391 data-nosnippet>391</a>}</code></pre></div></section></main></body></html>
+<a href=#40 id=40 data-nosnippet>40</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Inval),
+<a href=#41 id=41 data-nosnippet>41</a>        }
+<a href=#42 id=42 data-nosnippet>42</a>    }
+<a href=#43 id=43 data-nosnippet>43</a>    <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+<a href=#44 id=44 data-nosnippet>44</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#45 id=45 data-nosnippet>45</a>            <span class="self">Self</span>::I32 =&gt; <span class="number">4</span>,
+<a href=#46 id=46 data-nosnippet>46</a>            <span class="self">Self</span>::I64 =&gt; <span class="number">8</span>,
+<a href=#47 id=47 data-nosnippet>47</a>            <span class="self">Self</span>::F32 =&gt; <span class="number">4</span>,
+<a href=#48 id=48 data-nosnippet>48</a>            <span class="self">Self</span>::F64 =&gt; <span class="number">8</span>,
+<a href=#49 id=49 data-nosnippet>49</a>            <span class="self">Self</span>::V128 =&gt; <span class="number">16</span>,
+<a href=#50 id=50 data-nosnippet>50</a>            <span class="comment">// Not supported in closures.
+<a href=#51 id=51 data-nosnippet>51</a>            </span><span class="self">Self</span>::Ref(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Cannot get size of reference type"</span>),
+<a href=#52 id=52 data-nosnippet>52</a>        }
+<a href=#53 id=53 data-nosnippet>53</a>    }
+<a href=#54 id=54 data-nosnippet>54</a>    <span class="kw">fn </span>store(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: <span class="kw-2">&amp;mut </span>InstructionSink&lt;<span class="lifetime">'_</span>&gt;, offset: u64, memory_index: u32) {
+<a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#56 id=56 data-nosnippet>56</a>            <span class="self">Self</span>::I32 =&gt; sink.i32_store(MemArg {
+<a href=#57 id=57 data-nosnippet>57</a>                offset,
+<a href=#58 id=58 data-nosnippet>58</a>                align: <span class="number">0</span>,
+<a href=#59 id=59 data-nosnippet>59</a>                memory_index,
+<a href=#60 id=60 data-nosnippet>60</a>            }),
+<a href=#61 id=61 data-nosnippet>61</a>            <span class="self">Self</span>::I64 =&gt; sink.i64_store(MemArg {
+<a href=#62 id=62 data-nosnippet>62</a>                offset,
+<a href=#63 id=63 data-nosnippet>63</a>                align: <span class="number">0</span>,
+<a href=#64 id=64 data-nosnippet>64</a>                memory_index,
+<a href=#65 id=65 data-nosnippet>65</a>            }),
+<a href=#66 id=66 data-nosnippet>66</a>            <span class="self">Self</span>::F32 =&gt; sink.f32_store(MemArg {
+<a href=#67 id=67 data-nosnippet>67</a>                offset,
+<a href=#68 id=68 data-nosnippet>68</a>                align: <span class="number">0</span>,
+<a href=#69 id=69 data-nosnippet>69</a>                memory_index,
+<a href=#70 id=70 data-nosnippet>70</a>            }),
+<a href=#71 id=71 data-nosnippet>71</a>            <span class="self">Self</span>::F64 =&gt; sink.f64_store(MemArg {
+<a href=#72 id=72 data-nosnippet>72</a>                offset,
+<a href=#73 id=73 data-nosnippet>73</a>                align: <span class="number">0</span>,
+<a href=#74 id=74 data-nosnippet>74</a>                memory_index,
+<a href=#75 id=75 data-nosnippet>75</a>            }),
+<a href=#76 id=76 data-nosnippet>76</a>            <span class="self">Self</span>::V128 =&gt; sink.v128_store(MemArg {
+<a href=#77 id=77 data-nosnippet>77</a>                offset,
+<a href=#78 id=78 data-nosnippet>78</a>                align: <span class="number">0</span>,
+<a href=#79 id=79 data-nosnippet>79</a>                memory_index,
+<a href=#80 id=80 data-nosnippet>80</a>            }),
+<a href=#81 id=81 data-nosnippet>81</a>            <span class="comment">// Not supported in closures
+<a href=#82 id=82 data-nosnippet>82</a>            </span><span class="self">Self</span>::Ref(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Cannot store reference type"</span>),
+<a href=#83 id=83 data-nosnippet>83</a>        };
+<a href=#84 id=84 data-nosnippet>84</a>    }
+<a href=#85 id=85 data-nosnippet>85</a>    <span class="kw">fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: <span class="kw-2">&amp;mut </span>InstructionSink&lt;<span class="lifetime">'_</span>&gt;, offset: u64, memory_index: u32) {
+<a href=#86 id=86 data-nosnippet>86</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#87 id=87 data-nosnippet>87</a>            <span class="self">Self</span>::I32 =&gt; sink.i32_load(MemArg {
+<a href=#88 id=88 data-nosnippet>88</a>                offset,
+<a href=#89 id=89 data-nosnippet>89</a>                align: <span class="number">0</span>,
+<a href=#90 id=90 data-nosnippet>90</a>                memory_index,
+<a href=#91 id=91 data-nosnippet>91</a>            }),
+<a href=#92 id=92 data-nosnippet>92</a>            <span class="self">Self</span>::I64 =&gt; sink.i64_load(MemArg {
+<a href=#93 id=93 data-nosnippet>93</a>                offset,
+<a href=#94 id=94 data-nosnippet>94</a>                align: <span class="number">0</span>,
+<a href=#95 id=95 data-nosnippet>95</a>                memory_index,
+<a href=#96 id=96 data-nosnippet>96</a>            }),
+<a href=#97 id=97 data-nosnippet>97</a>            <span class="self">Self</span>::F32 =&gt; sink.f32_load(MemArg {
+<a href=#98 id=98 data-nosnippet>98</a>                offset,
+<a href=#99 id=99 data-nosnippet>99</a>                align: <span class="number">0</span>,
+<a href=#100 id=100 data-nosnippet>100</a>                memory_index,
+<a href=#101 id=101 data-nosnippet>101</a>            }),
+<a href=#102 id=102 data-nosnippet>102</a>            <span class="self">Self</span>::F64 =&gt; sink.f64_load(MemArg {
+<a href=#103 id=103 data-nosnippet>103</a>                offset,
+<a href=#104 id=104 data-nosnippet>104</a>                align: <span class="number">0</span>,
+<a href=#105 id=105 data-nosnippet>105</a>                memory_index,
+<a href=#106 id=106 data-nosnippet>106</a>            }),
+<a href=#107 id=107 data-nosnippet>107</a>            <span class="self">Self</span>::V128 =&gt; sink.v128_load(MemArg {
+<a href=#108 id=108 data-nosnippet>108</a>                offset,
+<a href=#109 id=109 data-nosnippet>109</a>                align: <span class="number">0</span>,
+<a href=#110 id=110 data-nosnippet>110</a>                memory_index,
+<a href=#111 id=111 data-nosnippet>111</a>            }),
+<a href=#112 id=112 data-nosnippet>112</a>            <span class="comment">// Not supported in closures
+<a href=#113 id=113 data-nosnippet>113</a>            </span><span class="self">Self</span>::Ref(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Cannot load reference type"</span>),
+<a href=#114 id=114 data-nosnippet>114</a>        };
+<a href=#115 id=115 data-nosnippet>115</a>    }
+<a href=#116 id=116 data-nosnippet>116</a>}
+<a href=#117 id=117 data-nosnippet>117</a>
+<a href=#118 id=118 data-nosnippet>118</a><span class="doccomment">/// Build a dynamically linkable WASM module for the given closure.
+<a href=#119 id=119 data-nosnippet>119</a></span><span class="kw">fn </span>build_closure_wasm_bytes(
+<a href=#120 id=120 data-nosnippet>120</a>    module_name: <span class="kw-2">&amp;</span>str,
+<a href=#121 id=121 data-nosnippet>121</a>    closure: u32,
+<a href=#122 id=122 data-nosnippet>122</a>    backing_function: u32,
+<a href=#123 id=123 data-nosnippet>123</a>    environment_offset: u64,
+<a href=#124 id=124 data-nosnippet>124</a>    argument_types: <span class="kw-2">&amp;</span>[ValType],
+<a href=#125 id=125 data-nosnippet>125</a>    result_types: <span class="kw-2">&amp;</span>[ValType],
+<a href=#126 id=126 data-nosnippet>126</a>) -&gt; Vec&lt;u8&gt; {
+<a href=#127 id=127 data-nosnippet>127</a>    <span class="kw">let </span><span class="kw-2">mut </span>wasm_module = wasm_encoder::Module::new();
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="comment">// Add dylink section
+<a href=#130 id=130 data-nosnippet>130</a>    </span><span class="kw">let </span>dylink = CustomSection {
+<a href=#131 id=131 data-nosnippet>131</a>        name: Cow::Borrowed(<span class="string">"dylink.0"</span>),
+<a href=#132 id=132 data-nosnippet>132</a>        data: Cow::Borrowed(<span class="kw-2">&amp;</span>[]),
+<a href=#133 id=133 data-nosnippet>133</a>    };
+<a href=#134 id=134 data-nosnippet>134</a>    wasm_module.section(<span class="kw-2">&amp;</span>dylink);
+<a href=#135 id=135 data-nosnippet>135</a>
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="comment">// Add types section
+<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>types = TypeSection::new();
+<a href=#138 id=138 data-nosnippet>138</a>    types.ty().function(<span class="macro">vec!</span>[], <span class="macro">vec!</span>[]);
+<a href=#139 id=139 data-nosnippet>139</a>    <span class="kw">let </span>on_load_function_type_index = <span class="number">0</span>;
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="kw">let </span><span class="kw-2">mut </span>trampoline_function_params = argument_types.to_vec();
+<a href=#141 id=141 data-nosnippet>141</a>    <span class="kw">let </span><span class="kw-2">mut </span>trampoline_function_results = result_types.to_vec();
+<a href=#142 id=142 data-nosnippet>142</a>    types
+<a href=#143 id=143 data-nosnippet>143</a>        .ty()
+<a href=#144 id=144 data-nosnippet>144</a>        .function(trampoline_function_params, trampoline_function_results);
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">let </span>trampoline_function_type_index = <span class="number">1</span>;
+<a href=#146 id=146 data-nosnippet>146</a>    types
+<a href=#147 id=147 data-nosnippet>147</a>        .ty()
+<a href=#148 id=148 data-nosnippet>148</a>        .function(<span class="macro">vec!</span>[ValType::I32, ValType::I32, ValType::I32], <span class="macro">vec!</span>[]);
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">let </span>backing_function_type_index = <span class="number">2</span>;
+<a href=#150 id=150 data-nosnippet>150</a>    wasm_module.section(<span class="kw-2">&amp;</span>types);
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="comment">// Add a imports section
+<a href=#153 id=153 data-nosnippet>153</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>imports = ImportSection::new();
+<a href=#154 id=154 data-nosnippet>154</a>    imports.import(
+<a href=#155 id=155 data-nosnippet>155</a>        <span class="string">"env"</span>,
+<a href=#156 id=156 data-nosnippet>156</a>        <span class="string">"memory"</span>,
+<a href=#157 id=157 data-nosnippet>157</a>        MemoryType {
+<a href=#158 id=158 data-nosnippet>158</a>            minimum: <span class="number">1</span>,
+<a href=#159 id=159 data-nosnippet>159</a>            maximum: <span class="prelude-val">Some</span>(<span class="number">65536</span>),
+<a href=#160 id=160 data-nosnippet>160</a>            shared: <span class="bool-val">true</span>,
+<a href=#161 id=161 data-nosnippet>161</a>            memory64: <span class="bool-val">false</span>,
+<a href=#162 id=162 data-nosnippet>162</a>            page_size_log2: <span class="prelude-val">None</span>,
+<a href=#163 id=163 data-nosnippet>163</a>        },
+<a href=#164 id=164 data-nosnippet>164</a>    );
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="kw">let </span>main_memory_index = <span class="number">0</span>;
+<a href=#166 id=166 data-nosnippet>166</a>    imports.import(
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="string">"env"</span>,
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="string">"__indirect_function_table"</span>,
+<a href=#169 id=169 data-nosnippet>169</a>        TableType {
+<a href=#170 id=170 data-nosnippet>170</a>            element_type: RefType::FUNCREF,
+<a href=#171 id=171 data-nosnippet>171</a>            minimum: <span class="number">1</span>,
+<a href=#172 id=172 data-nosnippet>172</a>            maximum: <span class="prelude-val">None</span>,
+<a href=#173 id=173 data-nosnippet>173</a>            shared: <span class="bool-val">false</span>,
+<a href=#174 id=174 data-nosnippet>174</a>            table64: <span class="bool-val">false</span>,
+<a href=#175 id=175 data-nosnippet>175</a>        },
+<a href=#176 id=176 data-nosnippet>176</a>    );
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="kw">let </span>indirect_function_table_index = <span class="number">0</span>;
+<a href=#178 id=178 data-nosnippet>178</a>    imports.import(
+<a href=#179 id=179 data-nosnippet>179</a>        <span class="string">"env"</span>,
+<a href=#180 id=180 data-nosnippet>180</a>        <span class="string">"__stack_pointer"</span>,
+<a href=#181 id=181 data-nosnippet>181</a>        GlobalType {
+<a href=#182 id=182 data-nosnippet>182</a>            val_type: ValType::I32,
+<a href=#183 id=183 data-nosnippet>183</a>            mutable: <span class="bool-val">true</span>,
+<a href=#184 id=184 data-nosnippet>184</a>            shared: <span class="bool-val">false</span>,
+<a href=#185 id=185 data-nosnippet>185</a>        },
+<a href=#186 id=186 data-nosnippet>186</a>    );
+<a href=#187 id=187 data-nosnippet>187</a>    <span class="kw">let </span>stack_pointer_index = <span class="number">0</span>;
+<a href=#188 id=188 data-nosnippet>188</a>    imports.import(
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="string">"GOT.func"</span>,
+<a href=#190 id=190 data-nosnippet>190</a>        module_name,
+<a href=#191 id=191 data-nosnippet>191</a>        GlobalType {
+<a href=#192 id=192 data-nosnippet>192</a>            val_type: ValType::I32,
+<a href=#193 id=193 data-nosnippet>193</a>            mutable: <span class="bool-val">true</span>,
+<a href=#194 id=194 data-nosnippet>194</a>            shared: <span class="bool-val">false</span>,
+<a href=#195 id=195 data-nosnippet>195</a>        },
+<a href=#196 id=196 data-nosnippet>196</a>    );
+<a href=#197 id=197 data-nosnippet>197</a>    <span class="kw">let </span>trampoline_function_pointer_index = <span class="number">1</span>;
+<a href=#198 id=198 data-nosnippet>198</a>    wasm_module.section(<span class="kw-2">&amp;</span>imports);
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a>    <span class="kw">let </span><span class="kw-2">mut </span>functions = FunctionSection::new();
+<a href=#201 id=201 data-nosnippet>201</a>    functions.function(on_load_function_type_index);
+<a href=#202 id=202 data-nosnippet>202</a>    <span class="kw">let </span>on_load_function_index = <span class="number">0</span>;
+<a href=#203 id=203 data-nosnippet>203</a>    functions.function(trampoline_function_type_index);
+<a href=#204 id=204 data-nosnippet>204</a>    <span class="kw">let </span>trampoline_function_index = <span class="number">1</span>;
+<a href=#205 id=205 data-nosnippet>205</a>    wasm_module.section(<span class="kw-2">&amp;</span>functions);
+<a href=#206 id=206 data-nosnippet>206</a>
+<a href=#207 id=207 data-nosnippet>207</a>    <span class="comment">// Add an export section
+<a href=#208 id=208 data-nosnippet>208</a>    // FIXME: Look into replacing this with the wasm start function
+<a href=#209 id=209 data-nosnippet>209</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>exports = ExportSection::new();
+<a href=#210 id=210 data-nosnippet>210</a>    exports.export(
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="string">"__wasm_call_ctors"</span>,
+<a href=#212 id=212 data-nosnippet>212</a>        ExportKind::Func,
+<a href=#213 id=213 data-nosnippet>213</a>        on_load_function_index,
+<a href=#214 id=214 data-nosnippet>214</a>    );
+<a href=#215 id=215 data-nosnippet>215</a>    exports.export(module_name, ExportKind::Func, trampoline_function_index);
+<a href=#216 id=216 data-nosnippet>216</a>    wasm_module.section(<span class="kw-2">&amp;</span>exports);
+<a href=#217 id=217 data-nosnippet>217</a>
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="kw">let </span><span class="kw-2">mut </span>code = CodeSection::new();
+<a href=#219 id=219 data-nosnippet>219</a>    <span class="kw">let </span><span class="kw-2">mut </span>on_load_function = wasm_encoder::Function::new(<span class="macro">vec!</span>[]);
+<a href=#220 id=220 data-nosnippet>220</a>    on_load_function
+<a href=#221 id=221 data-nosnippet>221</a>        .instructions()
+<a href=#222 id=222 data-nosnippet>222</a>        .i32_const(closure <span class="kw">as </span>i32)
+<a href=#223 id=223 data-nosnippet>223</a>        .global_get(trampoline_function_pointer_index)
+<a href=#224 id=224 data-nosnippet>224</a>        .table_get(indirect_function_table_index)
+<a href=#225 id=225 data-nosnippet>225</a>        .table_set(indirect_function_table_index)
+<a href=#226 id=226 data-nosnippet>226</a>        .end();
+<a href=#227 id=227 data-nosnippet>227</a>    code.function(<span class="kw-2">&amp;</span>on_load_function);
+<a href=#228 id=228 data-nosnippet>228</a>
+<a href=#229 id=229 data-nosnippet>229</a>    <span class="kw">let </span><span class="kw-2">mut </span>trampoline_function = wasm_encoder::Function::new(<span class="macro">vec!</span>[(<span class="number">3</span>, ValType::I32)]);
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="kw">let </span>original_stackpointer_local: u32 = argument_types.len() <span class="kw">as </span>u32;
+<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">let </span>arguments_base_local: u32 = argument_types.len() <span class="kw">as </span>u32 + <span class="number">1</span>;
+<a href=#232 id=232 data-nosnippet>232</a>    <span class="kw">let </span>results_base_local: u32 = argument_types.len() <span class="kw">as </span>u32 + <span class="number">2</span>;
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="kw">let </span><span class="kw-2">mut </span>trampoline_function_instructions = trampoline_function.instructions();
+<a href=#234 id=234 data-nosnippet>234</a>    <span class="kw">let </span>values_size = argument_types
+<a href=#235 id=235 data-nosnippet>235</a>        .iter()
+<a href=#236 id=236 data-nosnippet>236</a>        .map(ValType::size)
+<a href=#237 id=237 data-nosnippet>237</a>        .sum::&lt;u64&gt;()
+<a href=#238 id=238 data-nosnippet>238</a>        .next_multiple_of(<span class="number">16</span>);
+<a href=#239 id=239 data-nosnippet>239</a>    <span class="kw">let </span>results_size = result_types
+<a href=#240 id=240 data-nosnippet>240</a>        .iter()
+<a href=#241 id=241 data-nosnippet>241</a>        .map(ValType::size)
+<a href=#242 id=242 data-nosnippet>242</a>        .sum::&lt;u64&gt;()
+<a href=#243 id=243 data-nosnippet>243</a>        .next_multiple_of(<span class="number">16</span>);
+<a href=#244 id=244 data-nosnippet>244</a>    trampoline_function_instructions
+<a href=#245 id=245 data-nosnippet>245</a>        .global_get(stack_pointer_index)
+<a href=#246 id=246 data-nosnippet>246</a>        .local_tee(original_stackpointer_local)
+<a href=#247 id=247 data-nosnippet>247</a>        .i32_const(results_size <span class="kw">as </span>i32)
+<a href=#248 id=248 data-nosnippet>248</a>        .i32_sub()
+<a href=#249 id=249 data-nosnippet>249</a>        .local_tee(results_base_local)
+<a href=#250 id=250 data-nosnippet>250</a>        .i32_const(values_size <span class="kw">as </span>i32)
+<a href=#251 id=251 data-nosnippet>251</a>        .i32_sub()
+<a href=#252 id=252 data-nosnippet>252</a>        .local_tee(arguments_base_local)
+<a href=#253 id=253 data-nosnippet>253</a>        .global_set(stack_pointer_index);
+<a href=#254 id=254 data-nosnippet>254</a>    argument_types.iter().enumerate().fold(
+<a href=#255 id=255 data-nosnippet>255</a>        (<span class="number">0</span>, <span class="kw-2">&amp;mut </span>trampoline_function_instructions),
+<a href=#256 id=256 data-nosnippet>256</a>        |<span class="kw-2">mut </span>acc, (index, ty)| {
+<a href=#257 id=257 data-nosnippet>257</a>            <span class="kw">let </span>size = ty.size();
+<a href=#258 id=258 data-nosnippet>258</a>            acc.<span class="number">1
+<a href=#259 id=259 data-nosnippet>259</a>                </span>.local_get(arguments_base_local)
+<a href=#260 id=260 data-nosnippet>260</a>                .local_get(index <span class="kw">as </span>u32);
+<a href=#261 id=261 data-nosnippet>261</a>            ty.store(acc.<span class="number">1</span>, acc.<span class="number">0</span>, main_memory_index);
+<a href=#262 id=262 data-nosnippet>262</a>            acc.<span class="number">0 </span>+= size;
+<a href=#263 id=263 data-nosnippet>263</a>            acc
+<a href=#264 id=264 data-nosnippet>264</a>        },
+<a href=#265 id=265 data-nosnippet>265</a>    );
+<a href=#266 id=266 data-nosnippet>266</a>    trampoline_function_instructions
+<a href=#267 id=267 data-nosnippet>267</a>        .local_get(arguments_base_local)
+<a href=#268 id=268 data-nosnippet>268</a>        .local_get(results_base_local)
+<a href=#269 id=269 data-nosnippet>269</a>        .i32_const(environment_offset <span class="kw">as </span>i32)
+<a href=#270 id=270 data-nosnippet>270</a>        .i32_const(backing_function <span class="kw">as </span>i32)
+<a href=#271 id=271 data-nosnippet>271</a>        .call_indirect(indirect_function_table_index, backing_function_type_index);
+<a href=#272 id=272 data-nosnippet>272</a>    result_types.iter().enumerate().fold(
+<a href=#273 id=273 data-nosnippet>273</a>        (<span class="number">0</span>, <span class="kw-2">&amp;mut </span>trampoline_function_instructions),
+<a href=#274 id=274 data-nosnippet>274</a>        |<span class="kw-2">mut </span>acc, (index, ty)| {
+<a href=#275 id=275 data-nosnippet>275</a>            <span class="kw">let </span>size = ty.size();
+<a href=#276 id=276 data-nosnippet>276</a>            acc.<span class="number">1</span>.local_get(results_base_local);
+<a href=#277 id=277 data-nosnippet>277</a>            ty.load(acc.<span class="number">1</span>, acc.<span class="number">0</span>, main_memory_index);
+<a href=#278 id=278 data-nosnippet>278</a>            acc.<span class="number">0 </span>+= size;
+<a href=#279 id=279 data-nosnippet>279</a>            acc
+<a href=#280 id=280 data-nosnippet>280</a>        },
+<a href=#281 id=281 data-nosnippet>281</a>    );
+<a href=#282 id=282 data-nosnippet>282</a>    trampoline_function_instructions
+<a href=#283 id=283 data-nosnippet>283</a>        .local_get(original_stackpointer_local)
+<a href=#284 id=284 data-nosnippet>284</a>        .global_set(stack_pointer_index)
+<a href=#285 id=285 data-nosnippet>285</a>        .end();
+<a href=#286 id=286 data-nosnippet>286</a>    code.function(<span class="kw-2">&amp;</span>trampoline_function);
+<a href=#287 id=287 data-nosnippet>287</a>    wasm_module.section(<span class="kw-2">&amp;</span>code);
+<a href=#288 id=288 data-nosnippet>288</a>
+<a href=#289 id=289 data-nosnippet>289</a>    wasm_module.finish()
+<a href=#290 id=290 data-nosnippet>290</a>}
+<a href=#291 id=291 data-nosnippet>291</a>
+<a href=#292 id=292 data-nosnippet>292</a><span class="comment">// Monotonically incrementing id for closures
+<a href=#293 id=293 data-nosnippet>293</a></span><span class="kw">static </span>CLOSURE_ID: AtomicUsize = AtomicUsize::new(<span class="number">0</span>);
+<a href=#294 id=294 data-nosnippet>294</a>
+<a href=#295 id=295 data-nosnippet>295</a><span class="doccomment">/// Prepare a closure so that it can be called with a given signature.
+<a href=#296 id=296 data-nosnippet>296</a>///
+<a href=#297 id=297 data-nosnippet>297</a>/// When the closure is called after [`closure_prepare`], the arguments will be decoded and passed to the backing function together with a pointer to the environment.
+<a href=#298 id=298 data-nosnippet>298</a>///
+<a href=#299 id=299 data-nosnippet>299</a>/// The backing function needs to conform to the following signature:
+<a href=#300 id=300 data-nosnippet>300</a>///   uint8_t* values - a pointer to a buffer containing the arguments.
+<a href=#301 id=301 data-nosnippet>301</a>///   uint8_t* results - a pointer to a buffer where the results will be written.
+<a href=#302 id=302 data-nosnippet>302</a>///   void* environment - the environment that was passed to closure_prepare
+<a href=#303 id=303 data-nosnippet>303</a>///
+<a href=#304 id=304 data-nosnippet>304</a>/// `backing_function` is a pointer (index into `__indirect_function_table`) to the backing function
+<a href=#305 id=305 data-nosnippet>305</a>///
+<a href=#306 id=306 data-nosnippet>306</a>/// `closure` is a pointer (index into `__indirect_function_table`) to the closure that was obtained via [`closure_allocate`].
+<a href=#307 id=307 data-nosnippet>307</a>///
+<a href=#308 id=308 data-nosnippet>308</a>/// `argument_types_ptr` is a pointer to the argument types as a list of [`WasmValueType`]s
+<a href=#309 id=309 data-nosnippet>309</a>/// `argument_types_length` is the number of arguments
+<a href=#310 id=310 data-nosnippet>310</a>///
+<a href=#311 id=311 data-nosnippet>311</a>/// `result_types_ptr` is a pointer to the result types as a list of [`WasmValueType`]s
+<a href=#312 id=312 data-nosnippet>312</a>/// `result_types_length` is the number of results
+<a href=#313 id=313 data-nosnippet>313</a>///
+<a href=#314 id=314 data-nosnippet>314</a>/// `environment` is the closure environment that will be passed to the backing function alongside the decoded arguments and results
+<a href=#315 id=315 data-nosnippet>315</a></span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, fields(%backing_function, %closure), ret)]
+<a href=#316 id=316 data-nosnippet>316</a></span><span class="kw">pub fn </span>closure_prepare&lt;M: MemorySize&gt;(
+<a href=#317 id=317 data-nosnippet>317</a>    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+<a href=#318 id=318 data-nosnippet>318</a>    backing_function: u32,
+<a href=#319 id=319 data-nosnippet>319</a>    closure: u32,
+<a href=#320 id=320 data-nosnippet>320</a>    argument_types_ptr: WasmPtr&lt;u8, M&gt;,
+<a href=#321 id=321 data-nosnippet>321</a>    argument_types_length: u32,
+<a href=#322 id=322 data-nosnippet>322</a>    result_types_ptr: WasmPtr&lt;u8, M&gt;,
+<a href=#323 id=323 data-nosnippet>323</a>    result_types_length: u32,
+<a href=#324 id=324 data-nosnippet>324</a>    environment: WasmPtr&lt;u8, M&gt;,
+<a href=#325 id=325 data-nosnippet>325</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+<a href=#326 id=326 data-nosnippet>326</a>    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a>    <span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
+<a href=#329 id=329 data-nosnippet>329</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
+<a href=#330 id=330 data-nosnippet>330</a>
+<a href=#331 id=331 data-nosnippet>331</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(linker) = env.inner().linker().cloned() <span class="kw">else </span>{
+<a href=#332 id=332 data-nosnippet>332</a>        <span class="macro">error!</span>(<span class="string">"Closures only work for dynamic modules."</span>);
+<a href=#333 id=333 data-nosnippet>333</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Notsup);
+<a href=#334 id=334 data-nosnippet>334</a>    };
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a>    <span class="kw">let </span>argument_types = {
+<a href=#337 id=337 data-nosnippet>337</a>        <span class="kw">let </span>arg_offset = argument_types_ptr.offset().into();
+<a href=#338 id=338 data-nosnippet>338</a>        <span class="kw">let </span>arguments_slice = <span class="macro">wasi_try_mem_ok!</span>(
+<a href=#339 id=339 data-nosnippet>339</a>            WasmSlice::new(<span class="kw-2">&amp;</span>memory, arg_offset, argument_types_length <span class="kw">as </span>u64)
+<a href=#340 id=340 data-nosnippet>340</a>                .and_then(WasmSlice::access)
+<a href=#341 id=341 data-nosnippet>341</a>        );
+<a href=#342 id=342 data-nosnippet>342</a>        <span class="macro">wasi_try_ok!</span>(
+<a href=#343 id=343 data-nosnippet>343</a>            arguments_slice
+<a href=#344 id=344 data-nosnippet>344</a>                .iter()
+<a href=#345 id=345 data-nosnippet>345</a>                .map(|t: <span class="kw-2">&amp;</span>u8| ValType::from_u8(<span class="kw-2">*</span>t))
+<a href=#346 id=346 data-nosnippet>346</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, Errno&gt;&gt;()
+<a href=#347 id=347 data-nosnippet>347</a>        )
+<a href=#348 id=348 data-nosnippet>348</a>    };
+<a href=#349 id=349 data-nosnippet>349</a>
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="kw">let </span>result_types = {
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">let </span>res_offset = result_types_ptr.offset().into();
+<a href=#352 id=352 data-nosnippet>352</a>        <span class="kw">let </span>result_slice = <span class="macro">wasi_try_mem_ok!</span>(
+<a href=#353 id=353 data-nosnippet>353</a>            WasmSlice::new(<span class="kw-2">&amp;</span>memory, res_offset, result_types_length <span class="kw">as </span>u64)
+<a href=#354 id=354 data-nosnippet>354</a>                .and_then(WasmSlice::access)
+<a href=#355 id=355 data-nosnippet>355</a>        );
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="macro">wasi_try_ok!</span>(
+<a href=#357 id=357 data-nosnippet>357</a>            result_slice
+<a href=#358 id=358 data-nosnippet>358</a>                .iter()
+<a href=#359 id=359 data-nosnippet>359</a>                .map(|t: <span class="kw-2">&amp;</span>u8| ValType::from_u8(<span class="kw-2">*</span>t))
+<a href=#360 id=360 data-nosnippet>360</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, Errno&gt;&gt;()
+<a href=#361 id=361 data-nosnippet>361</a>        )
+<a href=#362 id=362 data-nosnippet>362</a>    };
+<a href=#363 id=363 data-nosnippet>363</a>
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="kw">let </span>module_name = <span class="macro">format!</span>(
+<a href=#365 id=365 data-nosnippet>365</a>        <span class="string">"__wasix_closure_{}"</span>,
+<a href=#366 id=366 data-nosnippet>366</a>        CLOSURE_ID.fetch_add(<span class="number">1</span>, Ordering::SeqCst),
+<a href=#367 id=367 data-nosnippet>367</a>    );
+<a href=#368 id=368 data-nosnippet>368</a>
+<a href=#369 id=369 data-nosnippet>369</a>    <span class="kw">let </span>wasm_bytes = build_closure_wasm_bytes(
+<a href=#370 id=370 data-nosnippet>370</a>        <span class="kw-2">&amp;</span>module_name,
+<a href=#371 id=371 data-nosnippet>371</a>        closure,
+<a href=#372 id=372 data-nosnippet>372</a>        backing_function,
+<a href=#373 id=373 data-nosnippet>373</a>        environment.offset().into(),
+<a href=#374 id=374 data-nosnippet>374</a>        <span class="kw-2">&amp;</span>argument_types,
+<a href=#375 id=375 data-nosnippet>375</a>        <span class="kw-2">&amp;</span>result_types,
+<a href=#376 id=376 data-nosnippet>376</a>    );
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>    <span class="kw">let </span>ld_library_path: [<span class="kw-2">&amp;</span>Path; <span class="number">0</span>] = [];
+<a href=#379 id=379 data-nosnippet>379</a>    <span class="kw">let </span>wasm_loader = DlModuleSpec::Memory {
+<a href=#380 id=380 data-nosnippet>380</a>        module_name: <span class="kw-2">&amp;</span>module_name,
+<a href=#381 id=381 data-nosnippet>381</a>        bytes: <span class="kw-2">&amp;</span>wasm_bytes,
+<a href=#382 id=382 data-nosnippet>382</a>    };
+<a href=#383 id=383 data-nosnippet>383</a>    <span class="kw">let </span>module_handle = <span class="kw">match </span>linker.load_module(wasm_loader, <span class="kw-2">&amp;mut </span>ctx) {
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="prelude-val">Ok</span>(m) =&gt; m,
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#386 id=386 data-nosnippet>386</a>            <span class="comment">// Should never happen
+<a href=#387 id=387 data-nosnippet>387</a>            </span><span class="macro">panic!</span>(<span class="string">"Failed to load newly built in-memory module: {e}"</span>);
+<a href=#388 id=388 data-nosnippet>388</a>        }
+<a href=#389 id=389 data-nosnippet>389</a>    };
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a>    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
+<a href=#392 id=392 data-nosnippet>392</a>}</code></pre></div></section></main></body></html>

@@ -274,127 +274,129 @@
 <a href=#274 id=274 data-nosnippet>274</a>        preferred_until: <span class="kw">match </span>route.preferred_until.tag {
 <a href=#275 id=275 data-nosnippet>275</a>            OptionTag::None =&gt; <span class="prelude-val">None</span>,
 <a href=#276 id=276 data-nosnippet>276</a>            OptionTag::Some =&gt; <span class="prelude-val">Some</span>(Duration::from_nanos(route.preferred_until.u)),
-<a href=#277 id=277 data-nosnippet>277</a>        },
-<a href=#278 id=278 data-nosnippet>278</a>        expires_at: <span class="kw">match </span>route.expires_at.tag {
-<a href=#279 id=279 data-nosnippet>279</a>            OptionTag::None =&gt; <span class="prelude-val">None</span>,
-<a href=#280 id=280 data-nosnippet>280</a>            OptionTag::Some =&gt; <span class="prelude-val">Some</span>(Duration::from_nanos(route.expires_at.u)),
-<a href=#281 id=281 data-nosnippet>281</a>        },
-<a href=#282 id=282 data-nosnippet>282</a>    })
-<a href=#283 id=283 data-nosnippet>283</a>}
-<a href=#284 id=284 data-nosnippet>284</a>
-<a href=#285 id=285 data-nosnippet>285</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_route&lt;M: MemorySize&gt;(
-<a href=#286 id=286 data-nosnippet>286</a>    memory: <span class="kw-2">&amp;</span>MemoryView,
-<a href=#287 id=287 data-nosnippet>287</a>    ptr: WasmPtr&lt;Route, M&gt;,
-<a href=#288 id=288 data-nosnippet>288</a>    route: IpRoute,
-<a href=#289 id=289 data-nosnippet>289</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
-<a href=#290 id=290 data-nosnippet>290</a>    <span class="kw">let </span>cidr = {
-<a href=#291 id=291 data-nosnippet>291</a>        <span class="kw">let </span>p = route.cidr.prefix;
-<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">match </span>route.cidr.ip {
-<a href=#293 id=293 data-nosnippet>293</a>            IpAddr::V4(ip) =&gt; {
-<a href=#294 id=294 data-nosnippet>294</a>                <span class="kw">let </span>o = ip.octets();
-<a href=#295 id=295 data-nosnippet>295</a>                __wasi_cidr_t {
-<a href=#296 id=296 data-nosnippet>296</a>                    tag: Addressfamily::Inet4,
-<a href=#297 id=297 data-nosnippet>297</a>                    _padding: <span class="number">0</span>,
-<a href=#298 id=298 data-nosnippet>298</a>                    u: __wasi_cidr_u {
-<a href=#299 id=299 data-nosnippet>299</a>                        octs: [
-<a href=#300 id=300 data-nosnippet>300</a>                            o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], p, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
-<a href=#301 id=301 data-nosnippet>301</a>                        ],
-<a href=#302 id=302 data-nosnippet>302</a>                    },
-<a href=#303 id=303 data-nosnippet>303</a>                }
-<a href=#304 id=304 data-nosnippet>304</a>            }
-<a href=#305 id=305 data-nosnippet>305</a>            IpAddr::V6(ip) =&gt; {
-<a href=#306 id=306 data-nosnippet>306</a>                <span class="kw">let </span>o = ip.octets();
-<a href=#307 id=307 data-nosnippet>307</a>                __wasi_cidr_t {
-<a href=#308 id=308 data-nosnippet>308</a>                    tag: Addressfamily::Inet6,
-<a href=#309 id=309 data-nosnippet>309</a>                    _padding: <span class="number">0</span>,
-<a href=#310 id=310 data-nosnippet>310</a>                    u: __wasi_cidr_u {
-<a href=#311 id=311 data-nosnippet>311</a>                        octs: [
-<a href=#312 id=312 data-nosnippet>312</a>                            o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>], o[<span class="number">10</span>],
-<a href=#313 id=313 data-nosnippet>313</a>                            o[<span class="number">11</span>], o[<span class="number">12</span>], o[<span class="number">13</span>], o[<span class="number">14</span>], o[<span class="number">15</span>], p,
-<a href=#314 id=314 data-nosnippet>314</a>                        ],
-<a href=#315 id=315 data-nosnippet>315</a>                    },
-<a href=#316 id=316 data-nosnippet>316</a>                }
-<a href=#317 id=317 data-nosnippet>317</a>            }
-<a href=#318 id=318 data-nosnippet>318</a>        }
-<a href=#319 id=319 data-nosnippet>319</a>    };
-<a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">let </span>via_router = <span class="kw">match </span>route.via_router {
-<a href=#321 id=321 data-nosnippet>321</a>        IpAddr::V4(ip) =&gt; {
-<a href=#322 id=322 data-nosnippet>322</a>            <span class="kw">let </span>o = ip.octets();
-<a href=#323 id=323 data-nosnippet>323</a>            __wasi_addr_t {
-<a href=#324 id=324 data-nosnippet>324</a>                tag: Addressfamily::Inet4,
-<a href=#325 id=325 data-nosnippet>325</a>                _padding: <span class="number">0</span>,
-<a href=#326 id=326 data-nosnippet>326</a>                u: __wasi_addr_u {
-<a href=#327 id=327 data-nosnippet>327</a>                    octs: [o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
-<a href=#328 id=328 data-nosnippet>328</a>                },
-<a href=#329 id=329 data-nosnippet>329</a>            }
-<a href=#330 id=330 data-nosnippet>330</a>        }
-<a href=#331 id=331 data-nosnippet>331</a>        IpAddr::V6(ip) =&gt; {
-<a href=#332 id=332 data-nosnippet>332</a>            <span class="kw">let </span>o = ip.octets();
-<a href=#333 id=333 data-nosnippet>333</a>            __wasi_addr_t {
-<a href=#334 id=334 data-nosnippet>334</a>                tag: Addressfamily::Inet6,
-<a href=#335 id=335 data-nosnippet>335</a>                _padding: <span class="number">0</span>,
-<a href=#336 id=336 data-nosnippet>336</a>                u: __wasi_addr_u { octs: o },
-<a href=#337 id=337 data-nosnippet>337</a>            }
-<a href=#338 id=338 data-nosnippet>338</a>        }
-<a href=#339 id=339 data-nosnippet>339</a>    };
-<a href=#340 id=340 data-nosnippet>340</a>    <span class="kw">let </span>preferred_until = <span class="kw">match </span>route.preferred_until {
-<a href=#341 id=341 data-nosnippet>341</a>        <span class="prelude-val">None </span>=&gt; OptionTimestamp {
-<a href=#342 id=342 data-nosnippet>342</a>            tag: OptionTag::None,
-<a href=#343 id=343 data-nosnippet>343</a>            u: <span class="number">0</span>,
-<a href=#344 id=344 data-nosnippet>344</a>        },
-<a href=#345 id=345 data-nosnippet>345</a>        <span class="prelude-val">Some</span>(u) =&gt; OptionTimestamp {
-<a href=#346 id=346 data-nosnippet>346</a>            tag: OptionTag::Some,
-<a href=#347 id=347 data-nosnippet>347</a>            u: u.as_nanos() <span class="kw">as </span>u64,
-<a href=#348 id=348 data-nosnippet>348</a>        },
-<a href=#349 id=349 data-nosnippet>349</a>    };
-<a href=#350 id=350 data-nosnippet>350</a>    <span class="kw">let </span>expires_at = <span class="kw">match </span>route.expires_at {
-<a href=#351 id=351 data-nosnippet>351</a>        <span class="prelude-val">None </span>=&gt; OptionTimestamp {
-<a href=#352 id=352 data-nosnippet>352</a>            tag: OptionTag::None,
-<a href=#353 id=353 data-nosnippet>353</a>            u: <span class="number">0</span>,
-<a href=#354 id=354 data-nosnippet>354</a>        },
-<a href=#355 id=355 data-nosnippet>355</a>        <span class="prelude-val">Some</span>(u) =&gt; OptionTimestamp {
-<a href=#356 id=356 data-nosnippet>356</a>            tag: OptionTag::Some,
-<a href=#357 id=357 data-nosnippet>357</a>            u: u.as_nanos() <span class="kw">as </span>u64,
-<a href=#358 id=358 data-nosnippet>358</a>        },
-<a href=#359 id=359 data-nosnippet>359</a>    };
-<a href=#360 id=360 data-nosnippet>360</a>
-<a href=#361 id=361 data-nosnippet>361</a>    <span class="kw">let </span>route = Route {
-<a href=#362 id=362 data-nosnippet>362</a>        cidr,
-<a href=#363 id=363 data-nosnippet>363</a>        via_router,
-<a href=#364 id=364 data-nosnippet>364</a>        preferred_until,
-<a href=#365 id=365 data-nosnippet>365</a>        expires_at,
-<a href=#366 id=366 data-nosnippet>366</a>    };
-<a href=#367 id=367 data-nosnippet>367</a>
-<a href=#368 id=368 data-nosnippet>368</a>    <span class="kw">let </span>route_ptr = ptr.deref(memory);
-<a href=#369 id=369 data-nosnippet>369</a>    route_ptr.write(route).map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#370 id=370 data-nosnippet>370</a>    <span class="prelude-val">Ok</span>(())
-<a href=#371 id=371 data-nosnippet>371</a>}
-<a href=#372 id=372 data-nosnippet>372</a>
-<a href=#373 id=373 data-nosnippet>373</a><span class="kw">pub fn </span>net_error_into_wasi_err(net_error: NetworkError) -&gt; Errno {
-<a href=#374 id=374 data-nosnippet>374</a>    <span class="kw">match </span>net_error {
-<a href=#375 id=375 data-nosnippet>375</a>        NetworkError::InvalidFd =&gt; Errno::Badf,
-<a href=#376 id=376 data-nosnippet>376</a>        NetworkError::AlreadyExists =&gt; Errno::Exist,
-<a href=#377 id=377 data-nosnippet>377</a>        NetworkError::Lock =&gt; Errno::Io,
-<a href=#378 id=378 data-nosnippet>378</a>        NetworkError::IOError =&gt; Errno::Io,
-<a href=#379 id=379 data-nosnippet>379</a>        NetworkError::AddressInUse =&gt; Errno::Addrinuse,
-<a href=#380 id=380 data-nosnippet>380</a>        NetworkError::AddressNotAvailable =&gt; Errno::Addrnotavail,
-<a href=#381 id=381 data-nosnippet>381</a>        NetworkError::BrokenPipe =&gt; Errno::Pipe,
-<a href=#382 id=382 data-nosnippet>382</a>        NetworkError::ConnectionAborted =&gt; Errno::Connaborted,
-<a href=#383 id=383 data-nosnippet>383</a>        NetworkError::ConnectionRefused =&gt; Errno::Connrefused,
-<a href=#384 id=384 data-nosnippet>384</a>        NetworkError::ConnectionReset =&gt; Errno::Connreset,
-<a href=#385 id=385 data-nosnippet>385</a>        NetworkError::Interrupted =&gt; Errno::Intr,
-<a href=#386 id=386 data-nosnippet>386</a>        NetworkError::InvalidData =&gt; Errno::Io,
-<a href=#387 id=387 data-nosnippet>387</a>        NetworkError::InvalidInput =&gt; Errno::Inval,
-<a href=#388 id=388 data-nosnippet>388</a>        NetworkError::NotConnected =&gt; Errno::Notconn,
-<a href=#389 id=389 data-nosnippet>389</a>        NetworkError::NoDevice =&gt; Errno::Nodev,
-<a href=#390 id=390 data-nosnippet>390</a>        NetworkError::PermissionDenied =&gt; Errno::Perm,
-<a href=#391 id=391 data-nosnippet>391</a>        NetworkError::TimedOut =&gt; Errno::Timedout,
-<a href=#392 id=392 data-nosnippet>392</a>        NetworkError::UnexpectedEof =&gt; Errno::Proto,
-<a href=#393 id=393 data-nosnippet>393</a>        NetworkError::WouldBlock =&gt; Errno::Again,
-<a href=#394 id=394 data-nosnippet>394</a>        NetworkError::WriteZero =&gt; Errno::Nospc,
-<a href=#395 id=395 data-nosnippet>395</a>        NetworkError::TooManyOpenFiles =&gt; Errno::Mfile,
-<a href=#396 id=396 data-nosnippet>396</a>        NetworkError::InsufficientMemory =&gt; Errno::Nomem,
-<a href=#397 id=397 data-nosnippet>397</a>        NetworkError::Unsupported =&gt; Errno::Notsup,
-<a href=#398 id=398 data-nosnippet>398</a>        NetworkError::UnknownError =&gt; Errno::Io,
-<a href=#399 id=399 data-nosnippet>399</a>    }
-<a href=#400 id=400 data-nosnippet>400</a>}</code></pre></div></section></main></body></html>
+<a href=#277 id=277 data-nosnippet>277</a>            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
+<a href=#278 id=278 data-nosnippet>278</a>        },
+<a href=#279 id=279 data-nosnippet>279</a>        expires_at: <span class="kw">match </span>route.expires_at.tag {
+<a href=#280 id=280 data-nosnippet>280</a>            OptionTag::None =&gt; <span class="prelude-val">None</span>,
+<a href=#281 id=281 data-nosnippet>281</a>            OptionTag::Some =&gt; <span class="prelude-val">Some</span>(Duration::from_nanos(route.expires_at.u)),
+<a href=#282 id=282 data-nosnippet>282</a>            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
+<a href=#283 id=283 data-nosnippet>283</a>        },
+<a href=#284 id=284 data-nosnippet>284</a>    })
+<a href=#285 id=285 data-nosnippet>285</a>}
+<a href=#286 id=286 data-nosnippet>286</a>
+<a href=#287 id=287 data-nosnippet>287</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_route&lt;M: MemorySize&gt;(
+<a href=#288 id=288 data-nosnippet>288</a>    memory: <span class="kw-2">&amp;</span>MemoryView,
+<a href=#289 id=289 data-nosnippet>289</a>    ptr: WasmPtr&lt;Route, M&gt;,
+<a href=#290 id=290 data-nosnippet>290</a>    route: IpRoute,
+<a href=#291 id=291 data-nosnippet>291</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+<a href=#292 id=292 data-nosnippet>292</a>    <span class="kw">let </span>cidr = {
+<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">let </span>p = route.cidr.prefix;
+<a href=#294 id=294 data-nosnippet>294</a>        <span class="kw">match </span>route.cidr.ip {
+<a href=#295 id=295 data-nosnippet>295</a>            IpAddr::V4(ip) =&gt; {
+<a href=#296 id=296 data-nosnippet>296</a>                <span class="kw">let </span>o = ip.octets();
+<a href=#297 id=297 data-nosnippet>297</a>                __wasi_cidr_t {
+<a href=#298 id=298 data-nosnippet>298</a>                    tag: Addressfamily::Inet4,
+<a href=#299 id=299 data-nosnippet>299</a>                    _padding: <span class="number">0</span>,
+<a href=#300 id=300 data-nosnippet>300</a>                    u: __wasi_cidr_u {
+<a href=#301 id=301 data-nosnippet>301</a>                        octs: [
+<a href=#302 id=302 data-nosnippet>302</a>                            o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], p, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
+<a href=#303 id=303 data-nosnippet>303</a>                        ],
+<a href=#304 id=304 data-nosnippet>304</a>                    },
+<a href=#305 id=305 data-nosnippet>305</a>                }
+<a href=#306 id=306 data-nosnippet>306</a>            }
+<a href=#307 id=307 data-nosnippet>307</a>            IpAddr::V6(ip) =&gt; {
+<a href=#308 id=308 data-nosnippet>308</a>                <span class="kw">let </span>o = ip.octets();
+<a href=#309 id=309 data-nosnippet>309</a>                __wasi_cidr_t {
+<a href=#310 id=310 data-nosnippet>310</a>                    tag: Addressfamily::Inet6,
+<a href=#311 id=311 data-nosnippet>311</a>                    _padding: <span class="number">0</span>,
+<a href=#312 id=312 data-nosnippet>312</a>                    u: __wasi_cidr_u {
+<a href=#313 id=313 data-nosnippet>313</a>                        octs: [
+<a href=#314 id=314 data-nosnippet>314</a>                            o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>], o[<span class="number">10</span>],
+<a href=#315 id=315 data-nosnippet>315</a>                            o[<span class="number">11</span>], o[<span class="number">12</span>], o[<span class="number">13</span>], o[<span class="number">14</span>], o[<span class="number">15</span>], p,
+<a href=#316 id=316 data-nosnippet>316</a>                        ],
+<a href=#317 id=317 data-nosnippet>317</a>                    },
+<a href=#318 id=318 data-nosnippet>318</a>                }
+<a href=#319 id=319 data-nosnippet>319</a>            }
+<a href=#320 id=320 data-nosnippet>320</a>        }
+<a href=#321 id=321 data-nosnippet>321</a>    };
+<a href=#322 id=322 data-nosnippet>322</a>    <span class="kw">let </span>via_router = <span class="kw">match </span>route.via_router {
+<a href=#323 id=323 data-nosnippet>323</a>        IpAddr::V4(ip) =&gt; {
+<a href=#324 id=324 data-nosnippet>324</a>            <span class="kw">let </span>o = ip.octets();
+<a href=#325 id=325 data-nosnippet>325</a>            __wasi_addr_t {
+<a href=#326 id=326 data-nosnippet>326</a>                tag: Addressfamily::Inet4,
+<a href=#327 id=327 data-nosnippet>327</a>                _padding: <span class="number">0</span>,
+<a href=#328 id=328 data-nosnippet>328</a>                u: __wasi_addr_u {
+<a href=#329 id=329 data-nosnippet>329</a>                    octs: [o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
+<a href=#330 id=330 data-nosnippet>330</a>                },
+<a href=#331 id=331 data-nosnippet>331</a>            }
+<a href=#332 id=332 data-nosnippet>332</a>        }
+<a href=#333 id=333 data-nosnippet>333</a>        IpAddr::V6(ip) =&gt; {
+<a href=#334 id=334 data-nosnippet>334</a>            <span class="kw">let </span>o = ip.octets();
+<a href=#335 id=335 data-nosnippet>335</a>            __wasi_addr_t {
+<a href=#336 id=336 data-nosnippet>336</a>                tag: Addressfamily::Inet6,
+<a href=#337 id=337 data-nosnippet>337</a>                _padding: <span class="number">0</span>,
+<a href=#338 id=338 data-nosnippet>338</a>                u: __wasi_addr_u { octs: o },
+<a href=#339 id=339 data-nosnippet>339</a>            }
+<a href=#340 id=340 data-nosnippet>340</a>        }
+<a href=#341 id=341 data-nosnippet>341</a>    };
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="kw">let </span>preferred_until = <span class="kw">match </span>route.preferred_until {
+<a href=#343 id=343 data-nosnippet>343</a>        <span class="prelude-val">None </span>=&gt; OptionTimestamp {
+<a href=#344 id=344 data-nosnippet>344</a>            tag: OptionTag::None,
+<a href=#345 id=345 data-nosnippet>345</a>            u: <span class="number">0</span>,
+<a href=#346 id=346 data-nosnippet>346</a>        },
+<a href=#347 id=347 data-nosnippet>347</a>        <span class="prelude-val">Some</span>(u) =&gt; OptionTimestamp {
+<a href=#348 id=348 data-nosnippet>348</a>            tag: OptionTag::Some,
+<a href=#349 id=349 data-nosnippet>349</a>            u: u.as_nanos() <span class="kw">as </span>u64,
+<a href=#350 id=350 data-nosnippet>350</a>        },
+<a href=#351 id=351 data-nosnippet>351</a>    };
+<a href=#352 id=352 data-nosnippet>352</a>    <span class="kw">let </span>expires_at = <span class="kw">match </span>route.expires_at {
+<a href=#353 id=353 data-nosnippet>353</a>        <span class="prelude-val">None </span>=&gt; OptionTimestamp {
+<a href=#354 id=354 data-nosnippet>354</a>            tag: OptionTag::None,
+<a href=#355 id=355 data-nosnippet>355</a>            u: <span class="number">0</span>,
+<a href=#356 id=356 data-nosnippet>356</a>        },
+<a href=#357 id=357 data-nosnippet>357</a>        <span class="prelude-val">Some</span>(u) =&gt; OptionTimestamp {
+<a href=#358 id=358 data-nosnippet>358</a>            tag: OptionTag::Some,
+<a href=#359 id=359 data-nosnippet>359</a>            u: u.as_nanos() <span class="kw">as </span>u64,
+<a href=#360 id=360 data-nosnippet>360</a>        },
+<a href=#361 id=361 data-nosnippet>361</a>    };
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>    <span class="kw">let </span>route = Route {
+<a href=#364 id=364 data-nosnippet>364</a>        cidr,
+<a href=#365 id=365 data-nosnippet>365</a>        via_router,
+<a href=#366 id=366 data-nosnippet>366</a>        preferred_until,
+<a href=#367 id=367 data-nosnippet>367</a>        expires_at,
+<a href=#368 id=368 data-nosnippet>368</a>    };
+<a href=#369 id=369 data-nosnippet>369</a>
+<a href=#370 id=370 data-nosnippet>370</a>    <span class="kw">let </span>route_ptr = ptr.deref(memory);
+<a href=#371 id=371 data-nosnippet>371</a>    route_ptr.write(route).map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#372 id=372 data-nosnippet>372</a>    <span class="prelude-val">Ok</span>(())
+<a href=#373 id=373 data-nosnippet>373</a>}
+<a href=#374 id=374 data-nosnippet>374</a>
+<a href=#375 id=375 data-nosnippet>375</a><span class="kw">pub fn </span>net_error_into_wasi_err(net_error: NetworkError) -&gt; Errno {
+<a href=#376 id=376 data-nosnippet>376</a>    <span class="kw">match </span>net_error {
+<a href=#377 id=377 data-nosnippet>377</a>        NetworkError::InvalidFd =&gt; Errno::Badf,
+<a href=#378 id=378 data-nosnippet>378</a>        NetworkError::AlreadyExists =&gt; Errno::Exist,
+<a href=#379 id=379 data-nosnippet>379</a>        NetworkError::Lock =&gt; Errno::Io,
+<a href=#380 id=380 data-nosnippet>380</a>        NetworkError::IOError =&gt; Errno::Io,
+<a href=#381 id=381 data-nosnippet>381</a>        NetworkError::AddressInUse =&gt; Errno::Addrinuse,
+<a href=#382 id=382 data-nosnippet>382</a>        NetworkError::AddressNotAvailable =&gt; Errno::Addrnotavail,
+<a href=#383 id=383 data-nosnippet>383</a>        NetworkError::BrokenPipe =&gt; Errno::Pipe,
+<a href=#384 id=384 data-nosnippet>384</a>        NetworkError::ConnectionAborted =&gt; Errno::Connaborted,
+<a href=#385 id=385 data-nosnippet>385</a>        NetworkError::ConnectionRefused =&gt; Errno::Connrefused,
+<a href=#386 id=386 data-nosnippet>386</a>        NetworkError::ConnectionReset =&gt; Errno::Connreset,
+<a href=#387 id=387 data-nosnippet>387</a>        NetworkError::Interrupted =&gt; Errno::Intr,
+<a href=#388 id=388 data-nosnippet>388</a>        NetworkError::InvalidData =&gt; Errno::Io,
+<a href=#389 id=389 data-nosnippet>389</a>        NetworkError::InvalidInput =&gt; Errno::Inval,
+<a href=#390 id=390 data-nosnippet>390</a>        NetworkError::NotConnected =&gt; Errno::Notconn,
+<a href=#391 id=391 data-nosnippet>391</a>        NetworkError::NoDevice =&gt; Errno::Nodev,
+<a href=#392 id=392 data-nosnippet>392</a>        NetworkError::PermissionDenied =&gt; Errno::Perm,
+<a href=#393 id=393 data-nosnippet>393</a>        NetworkError::TimedOut =&gt; Errno::Timedout,
+<a href=#394 id=394 data-nosnippet>394</a>        NetworkError::UnexpectedEof =&gt; Errno::Proto,
+<a href=#395 id=395 data-nosnippet>395</a>        NetworkError::WouldBlock =&gt; Errno::Again,
+<a href=#396 id=396 data-nosnippet>396</a>        NetworkError::WriteZero =&gt; Errno::Nospc,
+<a href=#397 id=397 data-nosnippet>397</a>        NetworkError::TooManyOpenFiles =&gt; Errno::Mfile,
+<a href=#398 id=398 data-nosnippet>398</a>        NetworkError::InsufficientMemory =&gt; Errno::Nomem,
+<a href=#399 id=399 data-nosnippet>399</a>        NetworkError::Unsupported =&gt; Errno::Notsup,
+<a href=#400 id=400 data-nosnippet>400</a>        NetworkError::UnknownError =&gt; Errno::Io,
+<a href=#401 id=401 data-nosnippet>401</a>    }
+<a href=#402 id=402 data-nosnippet>402</a>}</code></pre></div></section></main></body></html>
