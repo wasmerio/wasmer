@@ -114,37 +114,40 @@ pub enum WasiSocketOption {
     Proto,
 }
 
-impl From<Sockoption> for WasiSocketOption {
-    fn from(opt: Sockoption) -> Self {
+impl TryFrom<Sockoption> for WasiSocketOption {
+    type Error = Errno;
+
+    fn try_from(opt: Sockoption) -> Result<Self, Self::Error> {
         use WasiSocketOption::*;
         match opt {
-            Sockoption::Noop => Noop,
-            Sockoption::ReusePort => ReusePort,
-            Sockoption::ReuseAddr => ReuseAddr,
-            Sockoption::NoDelay => NoDelay,
-            Sockoption::DontRoute => DontRoute,
-            Sockoption::OnlyV6 => OnlyV6,
-            Sockoption::Broadcast => Broadcast,
-            Sockoption::MulticastLoopV4 => MulticastLoopV4,
-            Sockoption::MulticastLoopV6 => MulticastLoopV6,
-            Sockoption::Promiscuous => Promiscuous,
-            Sockoption::Listening => Listening,
-            Sockoption::LastError => LastError,
-            Sockoption::KeepAlive => KeepAlive,
-            Sockoption::Linger => Linger,
-            Sockoption::OobInline => OobInline,
-            Sockoption::RecvBufSize => RecvBufSize,
-            Sockoption::SendBufSize => SendBufSize,
-            Sockoption::RecvLowat => RecvLowat,
-            Sockoption::SendLowat => SendLowat,
-            Sockoption::RecvTimeout => RecvTimeout,
-            Sockoption::SendTimeout => SendTimeout,
-            Sockoption::ConnectTimeout => ConnectTimeout,
-            Sockoption::AcceptTimeout => AcceptTimeout,
-            Sockoption::Ttl => Ttl,
-            Sockoption::MulticastTtlV4 => MulticastTtlV4,
-            Sockoption::Type => Type,
-            Sockoption::Proto => Proto,
+            Sockoption::Noop => Ok(Noop),
+            Sockoption::ReusePort => Ok(ReusePort),
+            Sockoption::ReuseAddr => Ok(ReuseAddr),
+            Sockoption::NoDelay => Ok(NoDelay),
+            Sockoption::DontRoute => Ok(DontRoute),
+            Sockoption::OnlyV6 => Ok(OnlyV6),
+            Sockoption::Broadcast => Ok(Broadcast),
+            Sockoption::MulticastLoopV4 => Ok(MulticastLoopV4),
+            Sockoption::MulticastLoopV6 => Ok(MulticastLoopV6),
+            Sockoption::Promiscuous => Ok(Promiscuous),
+            Sockoption::Listening => Ok(Listening),
+            Sockoption::LastError => Ok(LastError),
+            Sockoption::KeepAlive => Ok(KeepAlive),
+            Sockoption::Linger => Ok(Linger),
+            Sockoption::OobInline => Ok(OobInline),
+            Sockoption::RecvBufSize => Ok(RecvBufSize),
+            Sockoption::SendBufSize => Ok(SendBufSize),
+            Sockoption::RecvLowat => Ok(RecvLowat),
+            Sockoption::SendLowat => Ok(SendLowat),
+            Sockoption::RecvTimeout => Ok(RecvTimeout),
+            Sockoption::SendTimeout => Ok(SendTimeout),
+            Sockoption::ConnectTimeout => Ok(ConnectTimeout),
+            Sockoption::AcceptTimeout => Ok(AcceptTimeout),
+            Sockoption::Ttl => Ok(Ttl),
+            Sockoption::MulticastTtlV4 => Ok(MulticastTtlV4),
+            Sockoption::Type => Ok(Type),
+            Sockoption::Proto => Ok(Proto),
+            _ => Err(Errno::Inval),
         }
     }
 }

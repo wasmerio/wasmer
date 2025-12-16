@@ -16,7 +16,10 @@ pub fn sock_get_opt_flag<M: MemorySize>(
     opt: Sockoption,
     ret_flag: WasmPtr<Bool, M>,
 ) -> Errno {
-    let option: crate::net::socket::WasiSocketOption = opt.into();
+    let option: crate::net::socket::WasiSocketOption = match opt.try_into() {
+        Ok(o) => o,
+        Err(_) => return Errno::Inval,
+    };
     let flag = wasi_try!(__sock_actor(
         &mut ctx,
         sock,
