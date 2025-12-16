@@ -216,10 +216,8 @@ fn apply_fd_op<M: MemorySize>(
             }
 
             // We don't want to close the stdin, stdout, or stderr file descriptors
-            if op.src_fd != op.fd && op.fd < 3 {
-                if env.state.fs.get_fd(op.fd).is_ok() {
-                    env.state.fs.close_fd(op.fd)?;
-                }
+            if !(op.src_fd == op.fd && op.fd < 3) && env.state.fs.get_fd(op.fd).is_ok() {
+                env.state.fs.close_fd(op.fd)?;
             }
 
             let mut fd_map = env.state.fs.fd_map.write().unwrap();
