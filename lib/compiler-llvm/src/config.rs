@@ -94,7 +94,7 @@ impl LLVM {
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
-            is_pic: false,
+            is_pic: true,
             callbacks: None,
             middlewares: vec![],
             enable_g0m0_opt: false,

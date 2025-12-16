@@ -1512,7 +1512,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 .as_basic_value_enum(),
         );
 
-        tag_glbl.set_linkage(Linkage::External);
+        tag_glbl.set_linkage(Linkage::Internal);
         tag_glbl.set_constant(true);
         // Why set this to a specific section? On macOS it would land on a specifc read only data
         // section. GOT-based relocations will probably be generated with a non-zero addend, making

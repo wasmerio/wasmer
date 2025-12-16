@@ -291,6 +291,7 @@ impl Artifact {
     }
 
     /// Construct a `ArtifactBuild` from component parts.
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn from_parts(
         engine_inner: &mut EngineInner,
         artifact: ArtifactBuildVariant,

@@ -72,7 +72,7 @@ impl FuncTrampoline {
         &self,
         ty: &FuncType,
         config: &LLVM,
-        name: &str,
+        name: String,
         compile_info: &CompileModuleInfo,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
@@ -103,7 +103,8 @@ impl FuncTrampoline {
             false,
         );
 
-        let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
+        let trampoline_func =
+            module.add_function(name.as_str(), trampoline_ty, Some(Linkage::External));
         trampoline_func
             .as_global_value()
             .set_section(Some(&self.func_section));
@@ -163,7 +164,7 @@ impl FuncTrampoline {
         &self,
         ty: &FuncType,
         config: &LLVM,
-        name: &str,
+        name: String,
         compile_info: &CompileModuleInfo,
     ) -> Result<FunctionBody, CompileError> {
         let module = self.trampoline_to_module(ty, config, name, compile_info)?;
@@ -249,7 +250,7 @@ impl FuncTrampoline {
         &self,
         ty: &FuncType,
         config: &LLVM,
-        name: &str,
+        name: String,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
@@ -264,7 +265,8 @@ impl FuncTrampoline {
         let (trampoline_ty, trampoline_attrs) =
             self.abi
                 .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, None)?;
-        let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
+        let trampoline_func =
+            module.add_function(name.as_str(), trampoline_ty, Some(Linkage::External));
         trampoline_func.set_personality_function(intrinsics.personality);
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
         for (attr, attr_loc) in trampoline_attrs {
@@ -312,7 +314,7 @@ impl FuncTrampoline {
         &self,
         ty: &FuncType,
         config: &LLVM,
-        name: &str,
+        name: String,
         dynamic_trampoline_index: u32,
         final_module_custom_sections: &mut PrimaryMap<SectionIndex, CustomSection>,
         eh_frame_section_bytes: &mut Vec<u8>,

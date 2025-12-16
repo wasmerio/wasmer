@@ -159,6 +159,7 @@ impl CodeMemory {
 
     /// Apply the page permissions.
     pub fn publish(&mut self) {
+        tracing::debug!(self.start_of_nonexecutable_pages);
         if self.mmap.is_empty() || self.start_of_nonexecutable_pages == 0 {
             return;
         }

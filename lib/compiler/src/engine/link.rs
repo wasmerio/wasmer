@@ -432,7 +432,9 @@ pub fn link_module<'a>(
 ) {
     let mut riscv_pcrel_hi20s: HashMap<usize, u32> = HashMap::new();
 
+    let mut count = 0;
     for (i, section_relocs) in section_relocations {
+        count += 1;
         let body = *allocated_sections[i] as usize;
         for r in section_relocs {
             apply_relocation(
@@ -449,6 +451,7 @@ pub fn link_module<'a>(
         }
     }
     for (i, function_relocs) in function_relocations {
+        count += 1;
         let body = *allocated_functions[i].ptr as usize;
         for r in function_relocs {
             apply_relocation(
@@ -464,4 +467,6 @@ pub fn link_module<'a>(
             );
         }
     }
+
+    tracing::debug!(relocations = count);
 }

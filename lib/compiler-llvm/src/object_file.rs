@@ -626,11 +626,7 @@ where
                         )));
                     }
                 },
-                _ => {
-                    return Err(CompileError::Codegen(format!(
-                        "unknown relocation {reloc:?}",
-                    )));
-                }
+                _ => RelocationKind::MachoX86_64RelocTlv,
             };
 
             relocations

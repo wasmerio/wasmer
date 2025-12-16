@@ -208,12 +208,8 @@ impl LLVMCompiler {
             },
             |func_trampoline, (i, sig)| {
                 let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
-                let module = func_trampoline.trampoline_to_module(
-                    sig,
-                    self.config(),
-                    &name,
-                    compile_info,
-                )?;
+                let module =
+                    func_trampoline.trampoline_to_module(sig, self.config(), name, compile_info)?;
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
             },
         );
@@ -231,7 +227,7 @@ impl LLVMCompiler {
                     let sig = &signatures[*sig];
                     let name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(i));
                     let module =
-                        func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
+                        func_trampoline.dynamic_trampoline_to_module(sig, self.config(), name)?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
             );
@@ -528,6 +524,7 @@ impl Compiler for LLVMCompiler {
                 module
                     .signatures
                     .values()
+                    .enumerate()
                     .collect::<Vec<_>>()
                     .par_iter()
                     .map_init(
@@ -535,8 +532,13 @@ impl Compiler for LLVMCompiler {
                             let target_machine = self.config().target_machine(target);
                             FuncTrampoline::new(target_machine, binary_format).unwrap()
                         },
-                        |func_trampoline, sig| {
-                            func_trampoline.trampoline(sig, self.config(), "", compile_info)
+                        |func_trampoline, &(index, sig)| {
+                            func_trampoline.trampoline(
+                                sig,
+                                self.config(),
+                                format!("trampoline_{index}"),
+                                compile_info,
+                            )
                         },
                     )
                     .collect::<Vec<_>>()
@@ -549,9 +551,17 @@ impl Compiler for LLVMCompiler {
             module
                 .signatures
                 .values()
+                .enumerate()
                 .collect::<Vec<_>>()
                 .into_iter()
-                .map(|sig| func_trampoline.trampoline(sig, self.config(), "", compile_info))
+                .map(|(index, sig)| {
+                    func_trampoline.trampoline(
+                        sig,
+                        self.config(),
+                        format!("trampoline_{index}"),
+                        compile_info,
+                    )
+                })
                 .collect::<Vec<_>>()
                 .into_iter()
                 .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
@@ -573,7 +583,7 @@ impl Compiler for LLVMCompiler {
                     func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
-                        "",
+                        format!("dynamic_trampoline_{index}"),
                         index as u32,
                         &mut module_custom_sections,
                         &mut eh_frame_section_bytes,
