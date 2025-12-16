@@ -15,6 +15,8 @@ use wasmer::Memory;
 /// This function only returns **once**. It does no weird things to the controlflow. After calling this function most syscalls will behave like if you were in a new process.
 /// However it's undefined to call any other syscall than proc_exit and proc_exec. Although most of them should work fine. Also some other restrictions may apply.
 ///
+/// The child pid will not be modified if this call fails
+///
 /// When calling proc_exit instead of terminating the current process, it will terminate the new process and switch back to the parent environment. proc_exit will return Errno::Success in that case
 /// When calling proc_exec, the new process will be finalized and the new process will be created. Like with `proc_exit`, it will switch back to the parent environment. proc_exec will return Errno::Success in that case
 #[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
