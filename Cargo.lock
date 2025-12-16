@@ -7021,6 +7021,7 @@ dependencies = [
  "target-lexicon 0.13.3",
  "tempfile",
  "thiserror 2.0.17",
+ "tracing",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.224.1",

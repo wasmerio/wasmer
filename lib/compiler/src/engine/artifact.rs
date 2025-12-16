@@ -302,6 +302,7 @@ impl Artifact {
         }
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     fn read_shared_library(
         module_info: &ModuleInfo,
     ) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
@@ -313,20 +314,19 @@ impl Artifact {
             .unwrap();
 
         let wasmer_function_section = sections
-            .section_by_name(Endianness::Little, b".text")
+            .section_by_name(Endianness::Little, b"__TEXT,wasmer_function")
             .unwrap();
         let wasmer_function_section_offset = wasmer_function_section.1.sh_addr(Endianness::Little);
 
         let mut symbol_map = HashMap::new();
         for symbol in symbols.iter() {
-            let name = symbol.name(Endianness::Little, symbols.strings()).unwrap();
+            let name = String::from_utf8_lossy(
+                symbol.name(Endianness::Little, symbols.strings()).unwrap(),
+            )
+            .to_string();
             let offset = symbol.st_value(Endianness::Little);
-            symbol_map.insert(
-                String::from_utf8_lossy(name).to_string(),
-                offset as i64 - wasmer_function_section_offset as i64,
-            );
+            symbol_map.insert(name, offset as i64 - wasmer_function_section_offset as i64);
         }
-        dbg!(&symbol_map);
 
         let text_functions = wasmer_function_section
             .1
@@ -346,16 +346,15 @@ impl Artifact {
         }
         .expect("unable to make memory readonly and executable");
 
+        dbg!(module_info.functions.len());
         module_info
-            .function_names
-            .iter()
-            .sorted_by_key(|kv| kv.0)
-            .map(|(index, name)| {
-                let name = format!("{name}_{}", index.as_u32());
+            .functions
+            .keys()
+            .sorted()
+            .map(|index| {
+                let name = format!("f{}", index.as_u32());
                 let offset = *symbol_map.get(&name).unwrap();
-
                 let ptr = unsafe { code_mapping.as_mut_slice().as_ptr().add(offset as usize) } as _;
-                dbg!((&name, &offset, ptr));
                 FunctionExtent {
                     ptr: FunctionBodyPtr(ptr),
                     length: 0,
@@ -387,12 +386,13 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
-        dbg!(&module_info.functions);
-        dbg!(&module_info.function_names);
-        dbg!(&module_info.signatures);
-        dbg!(&module_info.start_function);
+        // dbg!(&module_info.functions);
+        // dbg!(&module_info.function_names);
+        // dbg!(&module_info.signatures);
+        // dbg!(&module_info.start_function);
 
         let my_finished_functions = Self::read_shared_library(module_info);
+        dbg!(my_finished_functions.len());
 
         let (
             finished_functions,
