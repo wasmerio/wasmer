@@ -1,8 +1,7 @@
-use crate::vm::VMContinuationRef;
 use crate::{
     AsStoreMut, AsStoreRef, BackendTag, ExportError, Exportable, Extern, Tag, Value,
     macros::backend::{gen_rt_ty, match_rt},
-    vm::{VMExtern, VMExternTag},
+    vm::{VMExtern, VMExternTag, VMContinuationRef},
 };
 
 /// A WebAssembly `global` instance.

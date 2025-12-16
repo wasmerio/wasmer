@@ -7,7 +7,9 @@
 //! signalhandling mechanisms.
 
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{Trap, VMContext, VMFunctionBody};
+use crate::{
+    InternalStoreHandle, StoreObjects, Trap, VMContext, VMContinuation, VMContinuationRef, VMFunctionBody
+};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
@@ -22,7 +24,7 @@ use std::io;
 use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
-use std::ptr::{self, NonNull};
+use std::ptr::{self, NonNull, null_mut};
 use std::sync::atomic::{AtomicPtr, AtomicU64, AtomicUsize, Ordering, compiler_fence};
 use std::sync::{LazyLock, Once, RwLock};
 use wasmer_types::TrapCode;
@@ -703,8 +705,10 @@ pub unsafe fn wasmer_call_trampoline(
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
+    let context = unsafe { vmctx.vmctx };
+    let store = unsafe { (*context).instance_mut().context_mut() };
     unsafe {
-        catch_traps(trap_handler, config, move || {
+        catch_traps(trap_handler, store, config, move || {
             mem::transmute::<
                 unsafe extern "C" fn(
                     *mut VMContext,
@@ -732,11 +736,66 @@ pub unsafe fn wasmer_call_trampoline(
 ///
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
+pub unsafe fn host_call_trampoline<F: FnOnce() -> T + 'static, T: 'static>(
+    // trap_handler: Option<*const TrapHandlerFn<'static>>,
+    // config: &VMConfig,
+    store: &mut StoreObjects,
+    target: F,
+) -> Result<T, Trap> {
+    let config = VMConfig { wasm_stack_size: Some(99999) };
+    let result = unsafe {
+        catch_traps(None, store, &config, move || {
+            target()
+        })
+    };
+    result
+}
+
+/// Call the wasm function pointed to by `callee`.
+///
+/// * `vmctx` - the callee vmctx argument
+/// * `caller_vmctx` - the caller vmctx argument
+/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
+///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
+///   `values_vec` argument.
+/// * `callee` - the third argument to the `trampoline` function
+/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
+///   which the outgoing return values will be written.
+///
+/// # Safety
+///
+/// Wildly unsafe because it calls raw function pointers and reads/writes raw
+/// function pointers.
+pub unsafe fn host_call_trampoline_resume<T: 'static>(
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    store: &mut StoreObjects,
+    continuation: VMContinuationRef,
+) -> Result<T, Trap> {
+    unsafe { catch_traps_resume(trap_handler, store, continuation) }
+}
+
+
+/// Call the wasm function pointed to by `callee`.
+///
+/// * `vmctx` - the callee vmctx argument
+/// * `caller_vmctx` - the caller vmctx argument
+/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
+///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
+///   `values_vec` argument.
+/// * `callee` - the third argument to the `trampoline` function
+/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
+///   which the outgoing return values will be written.
+///
+/// # Safety
+///
+/// Wildly unsafe because it calls raw function pointers and reads/writes raw
+/// function pointers.
 pub unsafe fn wasmer_call_trampoline_resume(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
-    continuation: u64,
+    store: &mut StoreObjects,
+    continuation: VMContinuationRef,
 ) -> Result<(), Trap> {
-    unsafe { catch_traps_resume(trap_handler, continuation) }
+    unsafe { catch_traps_resume(trap_handler, store, continuation) }
 }
 
 /// Catches any wasm traps that happen within the execution of `closure`,
@@ -747,6 +806,7 @@ pub unsafe fn wasmer_call_trampoline_resume(
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps<F, R: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
+    store: &mut StoreObjects,
     config: &VMConfig,
     closure: F,
 ) -> Result<R, Trap>
@@ -758,7 +818,7 @@ where
     let stack_size = config
         .wasm_stack_size
         .unwrap_or_else(|| DEFAULT_STACK_SIZE.load(Ordering::Relaxed));
-    on_wasm_stack(stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
+    on_wasm_stack(stack_size, store, trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
 /// Catches any wasm traps that happen within the execution of `closure`,
@@ -769,12 +829,13 @@ where
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps_resume<R: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
-    continuation: u64,
+    store: &mut StoreObjects,
+    continuation: VMContinuationRef,
 ) -> Result<R, Trap> {
     // Ensure that per-thread initialization is done.
     // TODO: We don't need this
     lazy_per_thread_init()?;
-    on_wasm_stack_resume::<R>(continuation, trap_handler).map_err(UnwindReason::into_trap)
+    on_wasm_stack_resume::<R>(trap_handler, store, continuation).map_err(UnwindReason::into_trap)
 }
 
 // We need two separate thread-local variables here:
@@ -1036,16 +1097,18 @@ unsafe fn unwind_with(reason: UnwindReason) {
 /// A reference to a continuation in ACTIVE_STACKS
 struct ContinuationRef {
     id: u64,
+    inner: Option<VMContinuationRef>,
 }
 impl ContinuationRef {
     fn new<T: 'static, F: FnOnce() -> T + 'static>(f: F, stack_size: usize) -> Self {
         let id = NEXT_STACK_ID.with(|cell| cell.fetch_add(1, Ordering::Relaxed));
         let boxed_coro = Continuation::new(f, stack_size);
         ACTIVE_STACKS.with_borrow_mut(|stacks| stacks.insert(id, boxed_coro.into()));
-        Self { id }
+        Self { id, inner: None }
     }
     fn resume<T: 'static>(
         &self,
+        store: &mut StoreObjects,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
     ) -> Result<T, UnwindReason> {
         let id = self.id;
@@ -1057,12 +1120,54 @@ impl ContinuationRef {
         let continuation: Continuation<T> = erased_continuation.into();
         let (mut maybe_continuation, mut result) = continuation.resume(trap_handler);
         if let Err(e) = &mut result {
-            if let UnwindReason::LibTrap(Trap::Continuation {
-                continuation_ref, ..
-            }) = e
-            {
-                // TODO: Assert that all resumable traps end up here
-                continuation_ref.replace(id);
+            if let UnwindReason::LibTrap(Trap::Continuation { continuation, .. }) = e {
+                // let source_continuation = self.inner.map(|c| {
+                //     let store = unsafe { (*vmctx).instance_mut().context_mut() };
+                //     VMContinuation {
+                //         0: c.get_ref(store),
+                //     }
+                // });
+
+                // let store_id = continuation.0.store_id();
+                // let internal_handle = continuation.0.internal_handle();
+                // let idx = continuation.to_u32_exnref();
+                // let handle = InternalStoreHandle::from_index(idx as usize).unwrap();
+                // let store = unsafe { (*vmctx).instance_mut().context_mut() };
+                match &self.inner {
+                    Some(source) => {
+                        let source_continuation = source.0.get_mut(store);
+                        let result_types = source_continuation.result_types.take();
+                        let result_values = source_continuation.params_vec.take();
+                        // Link the source continuation to the target continuation
+                        let continuation = continuation.0.get_mut(store);
+                        
+                        dbg!(&continuation.underlying);
+                        dbg!(&continuation.params_vec);
+                        if let Some(previous_underlying) = &continuation.underlying {
+                            eprintln!("Previous underlying continuation: {:?}", previous_underlying);
+                            eprintln!("     New underlying continuation: {:?}", id);
+                        }
+                        // assert!(continuation.underlying.is_none());
+                        // assert!(continuation.result_types.is_none());
+                        // assert!(continuation.params_vec.is_none());
+                        // TODO: Assert that all resumable traps end up here
+                        continuation.result_types = result_types;
+                        continuation.params_vec = result_values;
+                        continuation.underlying.replace(id);
+                    }
+                    None => {
+                        let continuation = continuation.0.get_mut(store);
+
+                        dbg!(&continuation.underlying);
+                        if let Some(previous_underlying) = &continuation.underlying {
+                            eprintln!("Previous underlying continuation: {:?}", previous_underlying);
+                            eprintln!("     New underlying continuation: {:?}", id);
+                        }
+                        // assert!(continuation.underlying.is_none());
+                        // TODO: Assert that all resumable traps end up here
+                        continuation.underlying.replace(id);
+                    }
+                }
             }
         }
         if let Some(cont) = maybe_continuation.take() {
@@ -1240,20 +1345,33 @@ impl<T: 'static> From<ErasedContinuation> for Continuation<T> {
 /// returned to the root of the stack.
 fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     stack_size: usize,
+    store: &mut StoreObjects,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
     // TODO: Think about an optimization where we dont store and restore the continuation
-    let continuation = ContinuationRef::new(f, stack_size);
-    continuation.resume(trap_handler)
+    let continuation: ContinuationRef = ContinuationRef::new(f, stack_size);
+    continuation.resume(store, trap_handler)
 }
 
 fn on_wasm_stack_resume<T: 'static>(
-    continuation: u64,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
+    store: &mut StoreObjects,
+    continuation: VMContinuationRef,
 ) -> Result<T, UnwindReason> {
-    let continuation_ref = ContinuationRef { id: continuation };
-    continuation_ref.resume(trap_handler)
+    let continuation_mut = continuation.0.get_mut(store);
+    eprintln!("Resuming continuation: {:?}", continuation_mut.underlying);
+    // TODO: Handle the error properly instead of panicking
+    let next_continuation_id = continuation_mut
+        .underlying
+        .take()
+        .expect("Cannot resume a continuation that is not suspended");
+
+    let continuation_ref = ContinuationRef {
+        id: next_continuation_id,
+        inner: Some(continuation),
+    };
+    continuation_ref.resume(store, trap_handler)
 }
 
 /// When executing on the Wasm stack, temporarily switch back to the host stack
@@ -1289,6 +1407,13 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
         let wrapped = wrapped;
         (wrapped.0)()
     })
+}
+
+/// TODO: write docs
+pub fn on_separate_host_stack<F: FnOnce() -> T + 'static, T: 'static>(store: &mut StoreObjects, f: F) -> Result<T, UnwindReason> {
+    // TODO: Think about an optimization where we dont store and restore the continuation
+    let continuation = ContinuationRef::new(f, 99999);
+    continuation.resume(store, None)
 }
 
 #[cfg(windows)]

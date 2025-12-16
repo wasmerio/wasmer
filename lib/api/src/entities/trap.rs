@@ -1,7 +1,7 @@
 use std::{any::Any, error::Error, fmt::Debug};
 
 #[cfg(feature = "sys")]
-use crate::BackendException;
+use crate::{BackendException, Continuation};
 use crate::{
     Exception, RuntimeError,
     macros::backend::{match_rt, match_rt_sys_lol},
@@ -134,10 +134,10 @@ impl BackendTrap {
 
     /// If the `Trap` is an uncaught exception, returns it.
     #[inline]
-    pub fn to_continuation(&self) -> Option<(Option<u64>, u64)> {
+    pub fn to_continuation(&self) -> Option<Continuation> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.to_continuation(),
+            Self::Sys(s) => s.to_continuation_ref().map(|continuation_ref| Continuation::from_vm_continuationref(crate::vm::VMContinuationRef::Sys(continuation_ref))),
             _ => None,
         }
     }

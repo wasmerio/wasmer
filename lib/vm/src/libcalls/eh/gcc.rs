@@ -39,7 +39,9 @@ use std::ffi::c_void;
 use libunwind::{self as uw};
 use wasmer_types::TagIndex;
 
-use crate::{InternalStoreHandle, StoreHandle, StoreObjects, VMContext, VMExceptionRef};
+use crate::{
+    InternalStoreHandle, StoreHandle, StoreObjects, VMContext, VMContinuationRef, VMExceptionRef,
+};
 
 use super::dwarf::eh::{self, EHAction, EHContext};
 
@@ -267,6 +269,28 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
                 unreachable!()
             }
         }
+    }
+}
+
+/// # Safety
+///
+/// Performs libunwind unwinding magic. Highly unsafe.
+pub unsafe fn suspend(ctx: &StoreObjects, continuation_ref: u32) -> () {
+    unsafe {
+        if continuation_ref == 0 {
+            panic!("Cannot suspend with uninitialized continuation reference");
+            // // TODO: Unwind with better error
+            // crate::raise_lib_trap(crate::Trap::lib(
+            //     wasmer_types::TrapCode::UninitializedExnRef,
+            // ))
+        }
+
+        let continuation_ref = VMContinuationRef(StoreHandle::from_internal(
+            ctx.id(),
+            InternalStoreHandle::from_index(continuation_ref as usize).unwrap(),
+        ));
+        eprintln!("suspending to continuation {:?}", continuation_ref);
+        crate::raise_lib_trap(crate::Trap::continuation(continuation_ref));
     }
 }
 

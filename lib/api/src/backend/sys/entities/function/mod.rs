@@ -4,20 +4,16 @@ pub(crate) mod env;
 pub(crate) mod typed;
 
 use crate::{
-    BackendFunction, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
-    StoreInner, Value, WithEnv, WithoutEnv,
-    backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
-    entities::store::{AsStoreMut, AsStoreRef, StoreMut},
-    utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
-    vm::{VMExtern, VMExternFunction},
+    BackendFunction, Continuation, Exception, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError, StoreInner, Tag, Value, WithEnv, WithoutEnv, backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback}, entities::store::{AsStoreMut, AsStoreRef, StoreMut}, utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList}, vm::{VMExtern, VMExternFunction}
 };
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, error::Error, ffi::c_void};
-use wasmer_types::{NativeWasmType, RawValue};
+use wasmer_types::{NativeWasmType, RawValue, Type};
 use wasmer_vm::{
-    MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
-    on_host_stack, raise_lib_trap, raise_user_trap, resume_panic, wasmer_call_trampoline,
+    MaybeInstanceOwned, StoreHandle, Trap, VMCallerCheckedAnyfunc, VMContext, VMContinuationRef,
+    VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext,
+    VMFunctionKind, VMTrampoline, host_call_trampoline, host_call_trampoline_resume, on_host_stack,
+    on_separate_host_stack, raise_lib_trap, raise_user_trap, resume_panic, wasmer_call_trampoline,
     wasmer_call_trampoline_resume,
 };
 
@@ -282,7 +278,8 @@ impl Function {
     fn call_wasm_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u64,
+        // TODO: Figure out if this should be a crate::vm::VMContinuationRef or a wasmer_vm::VMContinuationRef
+        continuation: wasmer_vm::VMContinuationRef,
         results: &mut [Value],
     ) -> Result<(), RuntimeError> {
         // let format_types_for_error_message = |items: &[Value]| {
@@ -379,7 +376,27 @@ impl Function {
             }
             r
         };
+
         if let Err(error) = result {
+            eprintln!("Function call resulted in error: {:?}", error);
+            if let Trap::Continuation { continuation } = &error {
+                eprintln!("The error is a continuation");
+                // If the error is a continuation
+                // 1. Transfer ownership of the params to the continuation
+                // 2. Store the result types in the continuation for later use
+                let signature = self.ty(store);
+                let result_types = signature.results().to_vec();
+
+                // Store the results pointer and types in the continuation
+                let mut continuation_mut = continuation
+                    .0
+                    .get_mut(store.as_store_mut().inner.objects.as_sys_mut());
+                assert!(continuation_mut.params_vec.is_none());
+                assert!(continuation_mut.result_types.is_none());
+                continuation_mut.params_vec = Some(params);
+                continuation_mut.result_types = Some(result_types);
+            }
+
             return Err(error.into());
         }
 
@@ -398,7 +415,7 @@ impl Function {
     fn call_wasm_raw_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u64,
+        continuation: wasmer_vm::VMContinuationRef,
         results: &mut [Value],
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
@@ -409,10 +426,15 @@ impl Function {
                 // let storeref = store.as_store_ref();
                 // let vm_function = self.handle.get(storeref.objects().as_sys());
                 // let config = storeref.engine().tunables().vmconfig();
+                // let storeref = store.as_store_ref();
+                // let vm_function = self.handle.get(storeref.objects().as_sys());
+                // let store_objects = store.objects_mut().as_sys_mut();
                 r = unsafe {
                     wasmer_call_trampoline_resume(
                         store.as_store_ref().signal_handler(),
-                        continuation,
+                        // TODO: Passs store directly here
+                        store.objects_mut().as_sys_mut(),
+                        continuation.clone(),
                     )
                 };
 
@@ -443,12 +465,20 @@ impl Function {
             return Err(error.into());
         }
 
-        // TODO: Figure out how to provide proper results here without passing the parameters in
-        todo!("Continuations are not allowed to return for now");
-        for result in results.iter_mut() {
-            *result = Value::I32(0);
+        let mut continuation_mut = continuation
+            .0
+            .get(store.as_store_mut().inner.objects.as_sys());
+        // Vector with results
+        // cloned so we can use the store reference
+        let result_values = continuation_mut.params_vec.as_ref().unwrap().clone();
+        let result_types = continuation_mut.result_types.as_ref().unwrap().clone();
+
+        for (index, &value_type) in result_types.iter().enumerate() {
+            unsafe {
+                results[index] = Value::from_raw(store, value_type, result_values[index]);
+            }
         }
-        Ok(())
+        eprintln!("This would have paniced without return value support");
         // // Load the return values out of `values_vec`.
         // let signature = self.ty(store);
 
@@ -458,7 +488,7 @@ impl Function {
         //     }
         // }
 
-        // Ok(())
+        Ok(())
     }
 
     pub(crate) fn result_arity(&self, store: &impl AsStoreRef) -> usize {
@@ -486,7 +516,8 @@ impl Function {
     pub(crate) fn call_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u64,
+        // TODO: Figure out if this should be a crate::vm::VMContinuationRef or a wasmer_vm::VMContinuationRef
+        continuation: crate::vm::VMContinuationRef,
     ) -> Result<Box<[Value]>, RuntimeError> {
         // let trampoline = unsafe {
         //     self.handle
@@ -497,7 +528,7 @@ impl Function {
         //         .call_trampoline
         // };
         let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm_resume(store, continuation, &mut results)?;
+        self.call_wasm_resume(store, continuation.into_sys(), &mut results)?;
         Ok(results.into_boxed_slice())
     }
 
@@ -526,7 +557,7 @@ impl Function {
     pub(crate) fn call_raw_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u64,
+        continuation: wasmer_vm::VMContinuationRef,
     ) -> Result<Box<[Value]>, RuntimeError> {
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm_raw_resume(store, continuation, &mut results)?;
@@ -594,8 +625,53 @@ impl Function {
 enum InvocationResult<T, E> {
     Success(T),
     Exception(crate::Exception),
-    Continuation(crate::backend::sys::vm::Trap),
+    Continuation(crate::Continuation),
     Trap(Box<E>),
+}
+
+// fn to_invocation_result_beta<T, E>(result: Result<T, Trap>) -> InvocationResult<T, Trap>
+// where
+//     E: Error + 'static,
+// {
+//     match result {
+//         Ok(value) => InvocationResult::Success(value),
+//         Err(trap) => {
+//             let dyn_err_ref = &trap as &dyn Error;
+//             if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>() {
+//                 if let Some(exception) = runtime_error.to_exception() {
+//                     return InvocationResult::Exception(exception);
+//                 }
+//                 // TODO: let to_continuation return something meaningful
+//                 if let Some(continuation) = runtime_error.to_continuation() {
+//                     return InvocationResult::Continuation(
+//                         continuation,
+//                     );
+//                 }
+//             }
+//             InvocationResult::Trap(Box::new(trap))
+//         }
+//     }
+// }
+
+fn trap_to_invocation_result<T, E>(result: Result<T, Trap>) -> InvocationResult<T, RuntimeError>
+where
+    E: Error + 'static,
+{
+    match result {
+        Ok(value) => InvocationResult::Success(value),
+        Err(trap) => {
+                if let Some(exception) = trap.to_exception_ref() {
+                    let e = Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Sys(exception));
+                    return InvocationResult::Exception(e);
+                }
+                // TODO: let to_continuation return something meaningful
+                if let Some(continuation) = trap.to_continuation_ref() {
+                    let c = Continuation::from_vm_continuationref(crate::vm::VMContinuationRef::Sys(continuation));
+                    return InvocationResult::Continuation(c);
+                }
+            InvocationResult::Trap(todo!())
+        }
+    }
 }
 
 fn to_invocation_result<T, E>(result: Result<T, E>) -> InvocationResult<T, E>
@@ -611,13 +687,8 @@ where
                     return InvocationResult::Exception(exception);
                 }
                 // TODO: let to_continuation return something meaningful
-                if let Some((continuation_ref, next)) = runtime_error.to_continuation() {
-                    return InvocationResult::Continuation(
-                        crate::backend::sys::vm::Trap::Continuation {
-                            continuation_ref: continuation_ref,
-                            next: next,
-                        },
-                    );
+                if let Some(continuation) = runtime_error.to_continuation() {
+                    return InvocationResult::Continuation(continuation);
                 }
             }
             InvocationResult::Trap(Box::new(trap))
@@ -641,11 +712,60 @@ where
         this: &mut VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
-        let result = on_host_stack(|| {
-            panic::catch_unwind(AssertUnwindSafe(|| {
-                to_invocation_result((this.ctx.func)(values_vec))
-            }))
-        });
+        let store = unsafe {
+            StoreMut::from_raw(this.ctx.raw_store as *mut _)
+                .as_store_mut()
+                .objects_mut()
+                .as_sys_mut()
+        };
+        let result: Result<Result<InvocationResult<(), RuntimeError>, _>, Trap> = unsafe {
+            host_call_trampoline(store, || {
+                let mut result = panic::catch_unwind(AssertUnwindSafe(|| {
+                    to_invocation_result((this.ctx.func)(values_vec))
+                }));
+                let result2 = loop {
+                    match result {
+                        Ok(InvocationResult::Success(())) => {
+                            break result;
+                        }
+                        Ok(InvocationResult::Exception(_)) => unsafe {
+                            break result;
+                        },
+                        Ok(InvocationResult::Trap(_)) => unsafe {
+                            break result;
+                        },
+                        Ok(InvocationResult::Continuation(continuation)) => unsafe {
+                            let store = StoreMut::from_raw(this.ctx.raw_store as *mut _);
+                            let other_payload = continuation.payload(&mut store.as_store_mut());
+                            let tag = Tag::new(&mut store.as_store_mut(), [Type::I64]);
+                            let new_continuation =
+                                Continuation::new(&mut store.as_store_mut(), &tag, &other_payload);
+
+                            wasmer_vm::libcalls::suspend(
+                                store.as_store_ref().objects().as_sys(),
+                                new_continuation
+                                    .vm_continuation_ref()
+                                    .as_sys()
+                                    .to_u32_contref(),
+                            );
+
+                            let store_objects = store.as_store_mut().objects_mut().as_sys_mut();
+
+                            result = panic::catch_unwind(AssertUnwindSafe(|| {
+                                trap_to_invocation_result(host_call_trampoline_resume(
+                                    None,
+                                    store_objects,
+                                    new_continuation.vm_continuation_ref().into_sys(),
+                                ))
+                            }));
+                            ()
+                        },
+                        Err(panic) => unsafe { resume_panic(panic); unreachable!() },
+                    }
+                };
+                result
+            })
+        };
 
         // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
         // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
@@ -660,7 +780,13 @@ where
                 )
             },
             Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
-            Ok(InvocationResult::Continuation(trap)) => unsafe { raise_lib_trap(trap) },
+            Ok(InvocationResult::Continuation(continuation)) => unsafe {
+                let store = StoreMut::from_raw(this.ctx.raw_store as *mut _);
+                wasmer_vm::libcalls::suspend(
+                    store.as_store_ref().objects().as_sys(),
+                    continuation.vm_continuation_ref().as_sys().to_u32_contref(),
+                );
+            },
             Err(panic) => unsafe { resume_panic(panic) },
         }
     }
@@ -766,8 +892,11 @@ macro_rules! impl_host_function {
                             exception.vm_exceptionref().as_sys().to_u32_exnref()
                         )
                     },
-                    Ok(InvocationResult::Continuation(trap)) => unsafe {
-                        raise_lib_trap(trap);
+                    Ok(InvocationResult::Continuation(continuation)) => unsafe {
+                        wasmer_vm::libcalls::suspend(
+                            store.as_store_ref().objects().as_sys(),
+                            continuation.vm_continuation_ref().as_sys().to_u32_contref(),
+                        );
                         // TODO: When switching functions return a RuntimeError, so no success value is present
                         // Decide if we can do something better then returning a zeroed C-struct
                         return std::mem::zeroed::<Rets::CStruct>();
@@ -857,8 +986,11 @@ macro_rules! impl_host_function {
                             exception.vm_exceptionref().as_sys().to_u32_exnref()
                         )
                     },
-                    Ok(InvocationResult::Continuation(trap)) => unsafe {
-                        raise_lib_trap(trap);
+                    Ok(InvocationResult::Continuation(continuation)) => unsafe {
+                        wasmer_vm::libcalls::suspend(
+                            store.as_store_ref().objects().as_sys(),
+                            continuation.vm_continuation_ref().as_sys().to_u32_contref(),
+                        );
                         // TODO: When switching functions return a RuntimeError, so no success value is present
                         // Decide if we can do something better then returning a zeroed C-struct
                         return std::mem::zeroed::<Rets::CStruct>();

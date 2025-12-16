@@ -1,15 +1,24 @@
 use backtrace::Backtrace;
 use std::{cell::UnsafeCell, ptr::NonNull};
-use wasmer_types::{RawValue, StoreId};
+use wasmer_types::{RawValue, StoreId, Type};
 
 use crate::{StoreHandle, StoreObjects, VMTag, store::InternalStoreHandle};
 
 /// Underlying object referenced by a `VMExceptionRef`.
 #[derive(Debug)]
 pub struct VMContinuation {
-    tag: u32,
-    payload: Box<UnsafeCell<[RawValue]>>,
-    backtrace: Backtrace,
+    /// TODO: Make not public
+    pub(crate) underlying: Option<u64>,
+    /// The results pointer
+    pub params_vec: Option<Vec<RawValue>>,
+    /// The function signature
+    pub result_types: Option<Vec<Type>>,
+    /// TODO: Make not public
+    pub tag: u32,
+    /// TODO: Make not public
+    pub payload: Box<UnsafeCell<[RawValue]>>,
+    /// TODO: Make not public
+    pub backtrace: Backtrace,
 }
 
 impl VMContinuation {
@@ -24,6 +33,9 @@ impl VMContinuation {
             tag: tag.index() as u32,
             payload: unsafe { Box::from_raw(payload as *mut UnsafeCell<[RawValue]>) },
             backtrace,
+            underlying: None,
+            params_vec: None,
+            result_types: None,
         }
     }
 
@@ -39,6 +51,9 @@ impl VMContinuation {
             tag: tag.index() as u32,
             payload: unsafe { Box::from_raw(values as *mut UnsafeCell<[RawValue]>) },
             backtrace,
+            underlying: None,
+            params_vec: None,
+            result_types: None,
         }
     }
 
@@ -80,12 +95,13 @@ impl VMContinuationRef {
     /// Converts the [`VMExceptionRef`] into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
         RawValue {
-            exnref: self.to_u32_exnref(),
+            u32: self.to_u32_contref(),
         }
     }
 
     /// Gets the raw u32 exnref value.
-    pub fn to_u32_exnref(&self) -> u32 {
+    // TODO: Dont do this
+    pub fn to_u32_contref(&self) -> u32 {
         self.0.internal_handle().index() as u32
     }
 
@@ -93,9 +109,10 @@ impl VMContinuationRef {
     ///
     /// # Safety
     /// `raw` must be a valid `VMExceptionRef` instance.
+    // TODO: Dont do this
     pub unsafe fn from_raw(store_id: StoreId, raw: RawValue) -> Option<Self> {
         unsafe {
-            InternalStoreHandle::from_index(raw.exnref as usize)
+            InternalStoreHandle::from_index(raw.u64 as usize)
                 .map(|handle| Self(StoreHandle::from_internal(store_id, handle)))
         }
     }

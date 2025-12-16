@@ -13,10 +13,7 @@ pub use env::*;
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, TypedFunction,
-    Value, WasmTypeList,
-    error::RuntimeError,
-    vm::{VMExtern, VMExternFunction, VMFuncRef},
+    AsStoreMut, AsStoreRef, Continuation, ExportError, Exportable, Extern, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, error::RuntimeError, vm::{VMExtern, VMExternFunction, VMFuncRef}
 };
 
 /// A WebAssembly `function` instance.
@@ -255,7 +252,7 @@ impl Function {
     pub fn call_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u64,
+        continuation: Continuation,
     ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call_resume(store, continuation)
     }
@@ -275,7 +272,7 @@ impl Function {
     pub fn call_raw_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u64,
+        continuation: crate::vm::VMContinuationRef,
     ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call_raw_resume(store, continuation)
     }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_types::{FrameInfo, ImportError, TrapCode};
 
-use crate::{AsStoreMut, AsStoreRef, BackendTrap as Trap, Exception, Value};
+use crate::{AsStoreMut, AsStoreRef, BackendTrap as Trap, Continuation, Exception, Value};
 
 /// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).
@@ -178,15 +178,14 @@ impl RuntimeError {
     ///
     /// If this error is returned from an imported function, the exception
     /// will be thrown in the WebAssembly code instead of the usual trapping.
-    pub fn continuation(ctx: &impl AsStoreRef, continuation_id: u64) -> Self {
+    pub fn continuation(ctx: &impl AsStoreRef, continuation: Continuation) -> Self {
         let store = ctx.as_store_ref();
         match store.inner.objects {
             #[cfg(feature = "sys")]
             crate::StoreObjects::Sys(ref store_objects) => {
-                crate::backend::sys::vm::Trap::Continuation {
-                    continuation_ref: None,
-                    next: continuation_id,
-                }
+                crate::backend::sys::vm::Trap::continuation(
+                    continuation.vm_continuation_ref().as_sys().clone(),
+                )
                 .into()
             }
             _ => panic!("exceptions are only supported in the `sys` backend"),
@@ -239,17 +238,6 @@ impl RuntimeError {
         self.inner.source.is::<T>()
     }
 
-    /// Get the continuation_ref (.0) and next (.1) coroutine ids if this is a continuation trap
-    pub fn to_continuation_ref(&self) -> Option<(u64, u64)> {
-        match self.inner.source {
-            crate::BackendTrap::Sys(crate::backend::sys::vm::Trap::Continuation {
-                continuation_ref,
-                next,
-            }) => Some((continuation_ref.unwrap(), next)),
-            _ => None,
-        }
-    }
-
     /// Returns true if the `RuntimeError` is an uncaught exception.
     pub fn is_exception(&self) -> bool {
         self.inner.source.is_exception()
@@ -262,7 +250,7 @@ impl RuntimeError {
 
     // TODO: Proper continuation, proper docs
     /// TODO: Proper continuation, proper docs
-    pub fn to_continuation(&self) -> Option<(Option<u64>, u64)> {
+    pub fn to_continuation(&self) -> Option<Continuation> {
         self.inner.source.to_continuation()
     }
 

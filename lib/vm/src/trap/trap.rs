@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fmt;
 use wasmer_types::TrapCode;
 
-use crate::{StoreObjects, VMExceptionRef};
+use crate::{StoreObjects, VMContinuationRef, VMExceptionRef};
 
 /// Stores trace message with backtrace.
 #[derive(Debug)]
@@ -51,11 +51,10 @@ pub enum Trap {
     /// A trap raised to indicate a resumable yield
     // TODO: Replace the entire content with a Continuation reference type
     Continuation {
-        /// Stuff
-        continuation_ref: Option<u64>,
         // TODO: Replace with real values as the return value of a continuation
         /// Stuff
-        next: u64,
+        continuation: VMContinuationRef,
+        // TODO: Maybe add a backtrace
     },
 }
 
@@ -114,6 +113,15 @@ impl Trap {
         }
     }
 
+    /// Construct a new Continuation trap with the given continuation reference.
+    pub fn continuation(
+        continuation: VMContinuationRef,
+    ) -> Self {
+        Self::Continuation {
+            continuation,
+        }
+    }
+
     /// Attempts to downcast the `Trap` to a concrete type.
     pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
         match self {
@@ -156,21 +164,20 @@ impl Trap {
         }
     }
 
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_continuation_ref(&self) -> Option<VMContinuationRef> {
+        match self {
+            // Self::UncaughtException { exnref, .. } => Some(Exception::from_vm_exceptionref(
+            //     crate::vm::VMExceptionRef::Sys(exnref.clone()),
+            // )),
+            Self::Continuation { continuation, .. } => Some(continuation.clone()),
+            _ => None,
+        }
+    }
+
     /// Returns true if the `Trap` is resumable
     pub fn is_resumable(&self) -> bool {
         matches!(self, Self::Continuation { .. })
-    }
-
-    /// If the `Trap` is an uncaught exception, returns it.
-    pub fn to_continuation(&self) -> Option<(Option<u64>, u64)> {
-        match self {
-            Self::Continuation {
-                continuation_ref,
-                next,
-                ..
-            } => Some((*continuation_ref, *next)),
-            _ => None,
-        }
     }
 }
 

@@ -304,7 +304,7 @@ fn call_module(
             let mut ctx2 = ctx.env.clone().into_mut(&mut store);
             let (env2, store) = ctx2.data_and_store_mut();
 
-            call_in_context(env2, store, &start, &[]).map(|_| [].into())
+            call_in_context(env2, store, &start, &[])
         };
 
         loop {

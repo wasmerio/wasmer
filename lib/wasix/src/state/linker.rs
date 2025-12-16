@@ -3794,6 +3794,7 @@ impl InstanceGroupState {
                     Some(Some(ref func)) => func.clone(),
                 };
                 drop(resolved_guard);
+                eprintln!("Calling resolved stub function {}", name);
 
                 let mut store = env.as_store_mut();
                 func.call(&mut store, params)

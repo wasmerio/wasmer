@@ -40,7 +40,7 @@ impl Continuation {
     }
 
     /// Get the `VMContinuationRef` corresponding to this `Continuation`.
-    pub fn vm_continuationref(&self) -> VMContinuationRef {
+    pub fn vm_continuation_ref(&self) -> VMContinuationRef {
         self.0.vm_continuationref()
     }
 

@@ -126,7 +126,7 @@ artifact-size = [
 
 # Features for `sys`.
 sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
-sys-default = ["sys", "wat", "cranelift"]
+sys-default = ["sys", "wat"]
 
 # - Compilers.
 compiler = [
