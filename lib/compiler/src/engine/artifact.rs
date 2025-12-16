@@ -1,17 +1,22 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering::SeqCst},
+use std::{
+    collections::HashMap,
+    fs,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering::SeqCst},
+    },
 };
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
 use crate::{
-    ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
-    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
-    engine::{link::link_module, resolver::resolve_tags},
+    ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, CodeMemory, Engine, EngineInner,
+    Features, FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError,
+    Tunables,
+    engine::{code_memory, link::link_module, resolver::resolve_tags},
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
@@ -23,6 +28,13 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::C
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 
 use enumset::EnumSet;
+use itertools::Itertools;
+use libc::key_t;
+use object::{
+    Endianness, LittleEndian,
+    elf::SHT_SYMTAB,
+    read::elf::{self, FileHeader, SectionHeader, Sym},
+};
 use shared_buffer::OwnedBuffer;
 
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
@@ -45,7 +57,7 @@ use wasmer_types::{
 };
 
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
+    FunctionBodyPtr, InstanceAllocator, MemoryStyle, Mmap, StoreObjects, TableStyle, TrapHandlerFn,
     VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
 };
 
@@ -290,6 +302,68 @@ impl Artifact {
         }
     }
 
+    fn read_shared_library(
+        module_info: &ModuleInfo,
+    ) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
+        let data = fs::read("/home/marxin/Programming/testcases/libx.so").unwrap();
+        let elf = object::elf::FileHeader64::<object::Endianness>::parse(&*data).unwrap();
+        let sections = elf.sections(Endianness::Little, &*data).unwrap();
+        let symbols = sections
+            .symbols(Endianness::Little, &*data, SHT_SYMTAB)
+            .unwrap();
+
+        let wasmer_function_section = sections
+            .section_by_name(Endianness::Little, b".text")
+            .unwrap();
+        let wasmer_function_section_offset = wasmer_function_section.1.sh_addr(Endianness::Little);
+
+        let mut symbol_map = HashMap::new();
+        for symbol in symbols.iter() {
+            let name = symbol.name(Endianness::Little, symbols.strings()).unwrap();
+            let offset = symbol.st_value(Endianness::Little);
+            symbol_map.insert(
+                String::from_utf8_lossy(name).to_string(),
+                offset as i64 - wasmer_function_section_offset as i64,
+            );
+        }
+        dbg!(&symbol_map);
+
+        let text_functions = wasmer_function_section
+            .1
+            .data(Endianness::Little, &*data)
+            .unwrap();
+
+        let code_mapping = Box::leak(Box::new(Mmap::with_at_least(text_functions.len()).unwrap()));
+
+        dbg!(&code_mapping);
+        code_mapping.as_mut_slice()[..text_functions.len()].copy_from_slice(text_functions);
+        unsafe {
+            region::protect(
+                code_mapping.as_mut_ptr(),
+                code_mapping.len(),
+                region::Protection::READ_EXECUTE,
+            )
+        }
+        .expect("unable to make memory readonly and executable");
+
+        module_info
+            .function_names
+            .iter()
+            .sorted_by_key(|kv| kv.0)
+            .map(|(index, name)| {
+                let name = format!("{name}_{}", index.as_u32());
+                let offset = *symbol_map.get(&name).unwrap();
+
+                let ptr = unsafe { code_mapping.as_mut_slice().as_ptr().add(offset as usize) } as _;
+                dbg!((&name, &offset, ptr));
+                FunctionExtent {
+                    ptr: FunctionBodyPtr(ptr),
+                    length: 0,
+                }
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+    }
+
     /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
@@ -313,6 +387,13 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
+        dbg!(&module_info.functions);
+        dbg!(&module_info.function_names);
+        dbg!(&module_info.signatures);
+        dbg!(&module_info.start_function);
+
+        let my_finished_functions = Self::read_shared_library(module_info);
+
         let (
             finished_functions,
             finished_function_call_trampolines,
@@ -334,6 +415,8 @@ impl Artifact {
                 a.get_custom_sections_ref().values(),
             )?,
         };
+
+        let finished_functions = my_finished_functions;
 
         let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
             ArtifactBuildVariant::Plain(p) => {
@@ -373,38 +456,38 @@ impl Artifact {
             }
         };
 
-        match &artifact {
-            ArtifactBuildVariant::Plain(p) => link_module(
-                module_info,
-                &finished_functions,
-                &finished_dynamic_function_trampolines,
-                p.get_function_relocations()
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                &custom_sections,
-                p.get_custom_section_relocations_ref()
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                p.get_libcall_trampolines(),
-                p.get_libcall_trampoline_len(),
-                &get_got_address,
-            ),
-            ArtifactBuildVariant::Archived(a) => link_module(
-                module_info,
-                &finished_functions,
-                &finished_dynamic_function_trampolines,
-                a.get_function_relocations()
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                &custom_sections,
-                a.get_custom_section_relocations_ref()
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                a.get_libcall_trampolines(),
-                a.get_libcall_trampoline_len(),
-                &get_got_address,
-            ),
-        };
+        // match &artifact {
+        //     ArtifactBuildVariant::Plain(p) => link_module(
+        //         module_info,
+        //         &finished_functions,
+        //         &finished_dynamic_function_trampolines,
+        //         p.get_function_relocations()
+        //             .iter()
+        //             .map(|(k, v)| (k, v.iter())),
+        //         &custom_sections,
+        //         p.get_custom_section_relocations_ref()
+        //             .iter()
+        //             .map(|(k, v)| (k, v.iter())),
+        //         p.get_libcall_trampolines(),
+        //         p.get_libcall_trampoline_len(),
+        //         &get_got_address,
+        //     ),
+        //     ArtifactBuildVariant::Archived(a) => link_module(
+        //         module_info,
+        //         &finished_functions,
+        //         &finished_dynamic_function_trampolines,
+        //         a.get_function_relocations()
+        //             .iter()
+        //             .map(|(k, v)| (k, v.iter())),
+        //         &custom_sections,
+        //         a.get_custom_section_relocations_ref()
+        //             .iter()
+        //             .map(|(k, v)| (k, v.iter())),
+        //         a.get_libcall_trampolines(),
+        //         a.get_libcall_trampoline_len(),
+        //         &get_got_address,
+        //     ),
+        // };
 
         // Compute indices into the shared signature table.
         let signatures = {
@@ -462,7 +545,7 @@ impl Artifact {
         // Make all code compiled thus far executable.
         engine_inner.publish_compiled_code();
 
-        engine_inner.publish_eh_frame(eh_frame)?;
+        // engine_inner.publish_eh_frame(eh_frame)?;
 
         drop(get_got_address);
 

@@ -224,7 +224,7 @@ impl CodeMemory {
     }
 
     /// Convert mut a slice from u8 to VMFunctionBody.
-    fn view_as_mut_vmfunc_slice(slice: &mut [u8]) -> &mut [VMFunctionBody] {
+    pub(crate) fn view_as_mut_vmfunc_slice(slice: &mut [u8]) -> &mut [VMFunctionBody] {
         let byte_ptr: *mut [u8] = slice;
         let body_ptr = byte_ptr as *mut [VMFunctionBody];
         unsafe { &mut *body_ptr }
