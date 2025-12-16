@@ -53,7 +53,7 @@ pub fn fd_seek(
         Snapshot0Whence::Cur => Whence::Cur,
         Snapshot0Whence::End => Whence::End,
         Snapshot0Whence::Set => Whence::Set,
-        Snapshot0Whence::Unknown => return Ok(Errno::Inval),
+        _ => return Ok(Errno::Inval),
     };
     syscalls::fd_seek::<Memory32>(ctx, fd, offset, new_whence, newoffset)
 }
@@ -104,7 +104,7 @@ pub fn poll_oneoff<M: MemorySize>(
                         nbytes: 0,
                         flags: Eventrwflags::empty(),
                     },
-                    Eventtype::Unknown => return Errno::Inval,
+                    _ => return Errno::Inval,
                 },
             };
             wasi_try_mem!(event_array.index(events_seen as u64).write(event));

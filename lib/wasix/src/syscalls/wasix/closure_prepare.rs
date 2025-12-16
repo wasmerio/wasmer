@@ -37,6 +37,7 @@ impl ValTypeOps for ValType {
             WasmValueType::F32 => Ok(Self::F32),
             WasmValueType::F64 => Ok(Self::F64),
             WasmValueType::V128 => Ok(Self::V128),
+            _ => Err(Errno::Inval),
         }
     }
     fn size(&self) -> u64 {
