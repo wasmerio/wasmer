@@ -176,6 +176,8 @@ jobs:
 
       - name: Install wasixcc
         uses: wasix-org/wasixcc@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tool versions
         run: |
@@ -874,6 +876,8 @@ jobs:
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
         uses: wasix-org/wasixcc@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install LLVM
         shell: bash
