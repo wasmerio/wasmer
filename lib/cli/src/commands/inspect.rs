@@ -30,12 +30,7 @@ impl Inspect {
         let iswasm = is_wasm(&module_contents);
 
         if !iswasm {
-            if self
-                .path
-                .extension()
-                .and_then(|e| e.to_str())
-                == Some("wat")
-            {
+            if self.path.extension().and_then(|e| e.to_str()) == Some("wat") {
                 module_contents = wat2wasm(&module_contents)
                     .map_err(|e| anyhow::anyhow!("Cannot convert WAT to WASM: {e}"))?
                     .to_vec();
