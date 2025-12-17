@@ -306,7 +306,7 @@ impl Artifact {
     fn read_shared_library(
         module_info: &ModuleInfo,
     ) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
-        let data = fs::read("/tmp/hw/llvm/libhw.so").unwrap();
+        let data = fs::read("/tmp/cowsay/llvm/libcowsay.so").unwrap();
         let elf = object::elf::FileHeader64::<object::Endianness>::parse(&*data).unwrap();
         let sections = elf.sections(Endianness::Little, &*data).unwrap();
         let symbols = sections
@@ -358,7 +358,7 @@ impl Artifact {
                         module_info.get_function_name(index),
                         local_function_index.as_u32()
                     );
-                    if name != "dummy_141" {
+                    if !name.starts_with("dummy_") {
                         let offset = symbol_map.get(&name).unwrap();
                         let ptr =
                             unsafe { code_mapping.as_mut_slice().as_ptr().add(*offset as usize) }
