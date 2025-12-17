@@ -353,11 +353,14 @@ impl Artifact {
             .sorted()
             .filter_map(|index| {
                 if let Some(local_function_index) = module_info.local_func_index(index) {
-                    let name = format!(
+                    let mut name = format!(
                         "{}_{}",
                         module_info.get_function_name(index),
                         local_function_index.as_u32()
                     );
+                    if !module_info.function_names.contains_key(&index) {
+                        name = format!("f{}", local_function_index.as_u32());
+                    }
                     if !symbol_map.contains_key(&name) {
                         dbg!(&name);
                     }
