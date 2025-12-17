@@ -38,7 +38,7 @@ impl Inspect {
                     .map_err(|e| anyhow::anyhow!("Cannot convert WAT to WASM: {e}"))?
                     .to_vec();
             } else {
-                anyhow::bail!("The input file is not a WAT file");
+                anyhow::bail!("The input file is not a valid WebAssembly binary or WAT file");
             }
         }
 
