@@ -351,13 +351,22 @@ impl Artifact {
             .functions
             .keys()
             .sorted()
-            .map(|index| {
-                let name = format!("f{}", index.as_u32());
-                let offset = *symbol_map.get(dbg!(&name)).unwrap();
-                let ptr = unsafe { code_mapping.as_mut_slice().as_ptr().add(offset as usize) } as _;
-                FunctionExtent {
-                    ptr: FunctionBodyPtr(ptr),
-                    length: 0,
+            .filter_map(|index| {
+                let name = format!(
+                    "{}_{}",
+                    module_info.get_function_name(index),
+                    index.as_u32()
+                );
+                if let Some(offset) = symbol_map.get(&name) {
+                    let ptr =
+                        unsafe { code_mapping.as_mut_slice().as_ptr().add(*offset as usize) } as _;
+                    Some(FunctionExtent {
+                        ptr: FunctionBodyPtr(ptr),
+                        length: 0,
+                    })
+                } else {
+                    dbg!(&name);
+                    None
                 }
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
