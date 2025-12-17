@@ -9,7 +9,11 @@ fn test_with_wasixcc(name: &str) -> Result<(), anyhow::Error> {
     let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join(PathBuf::from(
-            file!().split('/').last().unwrap().trim_end_matches(".rs"),
+            file!()
+                .split('/')
+                .next_back()
+                .unwrap()
+                .trim_end_matches(".rs"),
         ));
     let main_c = test_dir.join(format!("{name}.c"));
     let main_wasm = test_dir.join(format!("{name}.test.wasm"));

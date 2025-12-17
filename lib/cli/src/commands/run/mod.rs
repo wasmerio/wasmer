@@ -30,7 +30,7 @@ use url::Url;
 use wasmer::sys::NativeEngineExt;
 use wasmer::{
     AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, RuntimeError, Store,
-    Type, TypedFunction, Value,
+    Type, TypedFunction, Value, wat2wasm,
 };
 
 use wasmer_types::{Features, target::Target};
@@ -65,8 +65,12 @@ use webc::Container;
 use webc::metadata::Manifest;
 
 use crate::{
-    backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
-    error::PrettyError, logging::Output,
+    backend::RuntimeOptions,
+    commands::run::{target::TargetOnDisk, wasi::Wasi},
+    common::HashAlgorithm,
+    config::WasmerEnv,
+    error::PrettyError,
+    logging::Output,
 };
 
 use self::{
@@ -149,34 +153,39 @@ impl Run {
             tracing::info!("Input file path: {}", path.display());
 
             // Try to read and detect any file that exists, regardless of extension
-            if path.exists() {
-                tracing::info!("Found file: {}", path.display());
-                match std::fs::read(path) {
-                    Ok(bytes) => {
-                        tracing::info!("Read {} bytes from file", bytes.len());
-
-                        // Check if it's a WebAssembly module by looking for magic bytes
-                        let magic = [0x00, 0x61, 0x73, 0x6D]; // "\0asm"
-                        if bytes.len() >= 4 && bytes[0..4] == magic {
-                            // Looks like a valid WebAssembly module, save the bytes for feature detection
-                            tracing::info!(
-                                "Valid WebAssembly module detected, magic header verified"
-                            );
-                            wasm_bytes = Some(bytes);
+            let target = TargetOnDisk::from_file(path);
+            if let Ok(target) = target {
+                match target {
+                    TargetOnDisk::WebAssemblyBinary => {
+                        if let Ok(data) = std::fs::read(path) {
+                            wasm_bytes = Some(data);
                         } else {
-                            tracing::info!(
-                                "File does not have valid WebAssembly magic number, will try to run it anyway"
-                            );
-                            // Still provide the bytes so the engine can attempt to run it
-                            wasm_bytes = Some(bytes);
+                            tracing::info!("Failed to read file: {}", path.display());
                         }
                     }
-                    Err(e) => {
-                        tracing::info!("Failed to read file for feature detection: {}", e);
-                    }
+                    TargetOnDisk::Wat => match std::fs::read(path) {
+                        Ok(data) => match wat2wasm(&data) {
+                            Ok(wasm) => {
+                                wasm_bytes = Some(wasm.to_vec());
+                            }
+                            Err(e) => {
+                                tracing::info!(
+                                    "Failed to convert WAT to Wasm for {}: {e}",
+                                    path.display()
+                                );
+                            }
+                        },
+                        Err(e) => {
+                            tracing::info!("Failed to read WAT file {}: {e}", path.display());
+                        }
+                    },
+                    _ => {}
                 }
             } else {
-                tracing::info!("File does not exist: {}", path.display());
+                tracing::info!(
+                    "Failed to read file for feature detection: {}",
+                    path.display()
+                );
             }
         } else {
             tracing::info!("Input is not a file, skipping WebAssembly feature detection");
