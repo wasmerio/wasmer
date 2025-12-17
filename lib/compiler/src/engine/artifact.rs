@@ -31,8 +31,8 @@ use enumset::EnumSet;
 use itertools::Itertools;
 use libc::key_t;
 use object::{
-    Endianness, LittleEndian,
-    elf::SHT_SYMTAB,
+    Endianness, LittleEndian, Object as _, ObjectSymbol, RelocationFlags, RelocationKind,
+    elf::{R_X86_64_COPY, R_X86_64_GLOB_DAT, SHT_SYMTAB},
     read::elf::{self, FileHeader, SectionHeader, Sym},
 };
 use shared_buffer::OwnedBuffer;
@@ -59,6 +59,7 @@ use wasmer_types::{
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, Mmap, StoreObjects, TableStyle, TrapHandlerFn,
     VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
+    libcalls::wasmer_vm_alloc_exception,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -306,45 +307,80 @@ impl Artifact {
     fn read_shared_library(
         module_info: &ModuleInfo,
     ) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
+        let e = Endianness::Little;
         let data = fs::read("/tmp/x.so").unwrap();
+        dbg!(data.len());
         let elf = object::elf::FileHeader64::<object::Endianness>::parse(&*data).unwrap();
-        let sections = elf.sections(Endianness::Little, &*data).unwrap();
-        let symbols = sections
-            .symbols(Endianness::Little, &*data, SHT_SYMTAB)
-            .unwrap();
+        let file = object::File::parse(&*data).unwrap();
+
+        let sections = elf.sections(e, &*data).unwrap();
+        let symbols = sections.symbols(e, &*data, SHT_SYMTAB).unwrap();
+
+        let plt_got_section = sections.section_by_name(e, b".plt.got").unwrap();
+        let plt_got_start = plt_got_section.1.sh_addr(e);
+        let got_section = sections.section_by_name(e, b".got").unwrap();
+        let got_start = got_section.1.sh_addr(e);
+        let got_end = got_section.1.sh_addr(e) + got_section.1.sh_size(e);
 
         let wasmer_function_section = sections
-            .section_by_name(Endianness::Little, b"__TEXT,wasmer_function")
+            .section_by_name(e, b"__TEXT,wasmer_function")
             .unwrap();
-        let wasmer_function_section_offset = wasmer_function_section.1.sh_addr(Endianness::Little);
+        let wasmer_function_section_offset = wasmer_function_section.1.sh_addr(e);
+        assert!(wasmer_function_section_offset > plt_got_start);
 
         let mut symbol_map = HashMap::new();
-        for symbol in symbols.iter() {
-            let name = String::from_utf8_lossy(
-                symbol.name(Endianness::Little, symbols.strings()).unwrap(),
-            )
-            .to_string();
-            let offset = symbol.st_value(Endianness::Little);
-            symbol_map.insert(name, offset as i64 - wasmer_function_section_offset as i64);
+        for (idx, symbol) in symbols.iter().enumerate() {
+            let name =
+                String::from_utf8_lossy(symbol.name(e, symbols.strings()).unwrap()).to_string();
+            let offset = symbol.st_value(e);
+            symbol_map.insert(name, offset as i64 - plt_got_start as i64);
         }
 
-        let text_functions = wasmer_function_section
-            .1
-            .data(Endianness::Little, &*data)
-            .unwrap();
+        let mapping_size = (got_end - plt_got_start) as usize;
 
-        let code_mapping = Box::leak(Box::new(Mmap::with_at_least(text_functions.len()).unwrap()));
+        let code_mapping = Box::leak(Box::new(Mmap::with_at_least(mapping_size).unwrap()));
 
         dbg!(&code_mapping);
-        code_mapping.as_mut_slice()[..text_functions.len()].copy_from_slice(text_functions);
+        code_mapping.as_mut_slice()[..plt_got_section.1.sh_size(e) as _]
+            .copy_from_slice(plt_got_section.1.data(e, &*data).unwrap());
+        let text_mapping_offset = (wasmer_function_section_offset - plt_got_start) as usize;
+        code_mapping.as_mut_slice()[text_mapping_offset
+            ..text_mapping_offset + wasmer_function_section.1.sh_size(e) as usize]
+            .copy_from_slice(wasmer_function_section.1.data(e, &*data).unwrap());
+        let got_mapping_offset = (got_start - plt_got_start) as usize;
+        code_mapping.as_mut_slice()
+            [got_mapping_offset..got_mapping_offset + got_section.1.sh_size(e) as usize]
+            .copy_from_slice(got_section.1.data(e, &*data).unwrap());
+
         unsafe {
             region::protect(
                 code_mapping.as_mut_ptr(),
                 code_mapping.len(),
-                region::Protection::READ_EXECUTE,
+                region::Protection::READ_WRITE_EXECUTE,
             )
         }
         .expect("unable to make memory readonly and executable");
+
+        // apply dynamic relocations for libcalls
+        for (offset, reloc) in file.dynamic_relocations().unwrap() {
+            let offset = (offset - plt_got_start) as usize;
+            if let object::read::RelocationTarget::Symbol(symbol_index) = reloc.target()
+                && let RelocationFlags::Elf { r_type } = reloc.flags()
+                && r_type == R_X86_64_GLOB_DAT
+            {
+                let name = file
+                    .dynamic_symbols()
+                    .find(|x| x.index() == symbol_index)
+                    .unwrap()
+                    .name()
+                    .unwrap();
+                if name == "wasmer_vm_alloc_exception" {
+                    let target = dbg!(wasmer_vm_alloc_exception as *const () as usize);
+                    code_mapping.as_mut_slice()[offset..offset + 8]
+                        .copy_from_slice(&target.to_le_bytes());
+                }
+            }
+        }
 
         dbg!(module_info.functions.len());
         module_info

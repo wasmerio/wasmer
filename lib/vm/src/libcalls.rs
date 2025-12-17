@@ -752,6 +752,7 @@ pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u
 /// The vmctx pointer must be dereferenceable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn wasmer_vm_alloc_exception(vmctx: *mut VMContext, tag: u32) -> u32 {
+    eprintln!("allocating exceptions ;)");
     let instance = unsafe { (*vmctx).instance_mut() };
     let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
     let exn = VMExceptionObj::new_zeroed(
