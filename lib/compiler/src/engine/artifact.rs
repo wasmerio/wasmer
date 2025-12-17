@@ -306,7 +306,7 @@ impl Artifact {
     fn read_shared_library(
         module_info: &ModuleInfo,
     ) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
-        let data = fs::read("/home/marxin/Programming/testcases/libx.so").unwrap();
+        let data = fs::read("/tmp/cowsay/llvm/libcowsay.so").unwrap();
         let elf = object::elf::FileHeader64::<object::Endianness>::parse(&*data).unwrap();
         let sections = elf.sections(Endianness::Little, &*data).unwrap();
         let symbols = sections
@@ -353,7 +353,7 @@ impl Artifact {
             .sorted()
             .map(|index| {
                 let name = format!("f{}", index.as_u32());
-                let offset = *symbol_map.get(&name).unwrap();
+                let offset = *symbol_map.get(dbg!(&name)).unwrap();
                 let ptr = unsafe { code_mapping.as_mut_slice().as_ptr().add(offset as usize) } as _;
                 FunctionExtent {
                     ptr: FunctionBodyPtr(ptr),
