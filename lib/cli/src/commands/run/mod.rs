@@ -164,12 +164,24 @@ impl Run {
                         }
                     }
                     TargetOnDisk::Wat => {
-                        if let Ok(data) = std::fs::read(path)
-                            && let Ok(wasm) = wat2wasm(&data)
-                        {
-                            wasm_bytes = Some(wasm.to_vec());
-                        } else {
-                            tracing::info!("Failed to process WAT file: {}", path.display());
+                        match std::fs::read(path) {
+                            Ok(data) => match wat2wasm(&data) {
+                                Ok(wasm) => {
+                                    wasm_bytes = Some(wasm.to_vec());
+                                }
+                                Err(e) => {
+                                    tracing::info!(
+                                        "Failed to convert WAT to Wasm for {}: {e}",
+                                        path.display()
+                                    );
+                                }
+                            },
+                            Err(e) => {
+                                tracing::info!(
+                                    "Failed to read WAT file {}: {e}",
+                                    path.display()
+                                );
+                            }
                         }
                     }
                     _ => {}
