@@ -306,7 +306,7 @@ impl Artifact {
     fn read_shared_library(
         module_info: &ModuleInfo,
     ) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
-        let data = fs::read("/tmp/cowsay/llvm/libcowsay.so").unwrap();
+        let data = fs::read("/tmp/hw/llvm/libhw.so").unwrap();
         let elf = object::elf::FileHeader64::<object::Endianness>::parse(&*data).unwrap();
         let sections = elf.sections(Endianness::Little, &*data).unwrap();
         let symbols = sections
@@ -352,20 +352,28 @@ impl Artifact {
             .keys()
             .sorted()
             .filter_map(|index| {
-                let name = format!(
-                    "{}_{}",
-                    module_info.get_function_name(index),
-                    index.as_u32()
-                );
-                if let Some(offset) = symbol_map.get(&name) {
-                    let ptr =
-                        unsafe { code_mapping.as_mut_slice().as_ptr().add(*offset as usize) } as _;
-                    Some(FunctionExtent {
-                        ptr: FunctionBodyPtr(ptr),
-                        length: 0,
-                    })
+                if let Some(local_function_index) = module_info.local_func_index(index) {
+                    let name = format!(
+                        "{}_{}",
+                        module_info.get_function_name(index),
+                        local_function_index.as_u32()
+                    );
+                    if name != "dummy_141" {
+                        let offset = symbol_map.get(&name).unwrap();
+                        let ptr =
+                            unsafe { code_mapping.as_mut_slice().as_ptr().add(*offset as usize) }
+                                as _;
+                        Some(FunctionExtent {
+                            ptr: FunctionBodyPtr(ptr),
+                            length: 0,
+                        })
+                    } else {
+                        Some(FunctionExtent {
+                            ptr: FunctionBodyPtr(code_mapping.as_mut_slice().as_ptr() as _),
+                            length: 0,
+                        })
+                    }
                 } else {
-                    dbg!(&name);
                     None
                 }
             })
@@ -424,6 +432,8 @@ impl Artifact {
                 a.get_custom_sections_ref().values(),
             )?,
         };
+
+        dbg!(finished_functions.len());
 
         let finished_functions = my_finished_functions;
 
@@ -588,12 +598,12 @@ impl Artifact {
             }),
         };
 
-        artifact
-            .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
-        if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
-            engine_inner.register_frame_info(frame_info);
-        }
+        // artifact
+        //     .internal_register_frame_info()
+        //     .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
+        // if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
+        //     engine_inner.register_frame_info(frame_info);
+        // }
 
         Ok(artifact)
     }

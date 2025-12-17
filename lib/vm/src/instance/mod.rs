@@ -1584,6 +1584,7 @@ fn build_funcrefs(
     }
 
     // do local functions
+    dbg!(finished_functions.len());
     for (local_index, func_ptr) in finished_functions.iter() {
         let index = module_info.func_index(local_index);
         let sig_index = module_info.functions[index];
