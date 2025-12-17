@@ -358,24 +358,16 @@ impl Artifact {
                         module_info.get_function_name(index),
                         local_function_index.as_u32()
                     );
-                    if !name.starts_with("dummy_") {
-                        if !symbol_map.contains_key(&name) {
-                            dbg!(&name);
-                        }
-                        let offset = symbol_map.get(&name).unwrap();
-                        let ptr =
-                            unsafe { code_mapping.as_mut_slice().as_ptr().add(*offset as usize) }
-                                as _;
-                        Some(FunctionExtent {
-                            ptr: FunctionBodyPtr(ptr),
-                            length: 0,
-                        })
-                    } else {
-                        Some(FunctionExtent {
-                            ptr: FunctionBodyPtr(code_mapping.as_mut_slice().as_ptr() as _),
-                            length: 0,
-                        })
+                    if !symbol_map.contains_key(&name) {
+                        dbg!(&name);
                     }
+                    let offset = symbol_map.get(&name).unwrap();
+                    let ptr =
+                        unsafe { code_mapping.as_mut_slice().as_ptr().add(*offset as usize) } as _;
+                    Some(FunctionExtent {
+                        ptr: FunctionBodyPtr(ptr),
+                        length: 0,
+                    })
                 } else {
                     None
                 }
