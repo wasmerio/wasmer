@@ -9,7 +9,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use wasmer::Memory;
 
-/// ### `proc_fork2()`
+/// ### `proc_fork_env()`
 /// Helper function for vforking.
 /// Creates a new environment for a new subprocess.
 /// This function only returns **once**. It does no weird things to the controlflow. After calling this function most syscalls will behave like if you were in a new process.
@@ -58,7 +58,7 @@ pub fn proc_fork_env<M: MemorySize>(
         .unwrap()
         .into();
 
-    // Swap the the current environment with the child environment
+    // Swap the current environment with the child environment
     child_env.swap_inner(ctx.data_mut());
     std::mem::swap(ctx.data_mut(), &mut child_env);
 
