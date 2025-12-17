@@ -59,7 +59,10 @@ use wasmer_types::{
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, Mmap, StoreObjects, TableStyle, TrapHandlerFn,
     VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
-    libcalls::wasmer_vm_alloc_exception,
+    libcalls::{
+        wasmer_vm_alloc_exception, wasmer_vm_memory32_copy, wasmer_vm_memory32_fill,
+        wasmer_vm_raise_trap,
+    },
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -374,10 +377,23 @@ impl Artifact {
                     .unwrap()
                     .name()
                     .unwrap();
-                if name == "wasmer_vm_alloc_exception" {
-                    let target = dbg!(wasmer_vm_alloc_exception as *const () as usize);
+
+                if let Some(address) = match name {
+                    "wasmer_vm_alloc_exception" => {
+                        Some(wasmer_vm_alloc_exception as *const () as usize)
+                    }
+                    "wasmer_vm_memory32_copy" => {
+                        Some(wasmer_vm_memory32_copy as *const () as usize)
+                    }
+                    "wasmer_vm_memory32_fill" => {
+                        Some(wasmer_vm_memory32_fill as *const () as usize)
+                    }
+                    "wasmer_vm_raise_trap" => Some(wasmer_vm_raise_trap as *const () as usize),
+                    _ => None,
+                } {
+                    eprintln!("... mapping: {name}");
                     code_mapping.as_mut_slice()[offset..offset + 8]
-                        .copy_from_slice(&target.to_le_bytes());
+                        .copy_from_slice(&address.to_le_bytes());
                 }
             }
         }
