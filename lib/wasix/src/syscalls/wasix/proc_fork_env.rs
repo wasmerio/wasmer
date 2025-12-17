@@ -20,7 +20,7 @@ use wasmer::Memory;
 /// When calling proc_exit instead of terminating the current process, it will terminate the new process and switch back to the parent environment. proc_exit will return Errno::Success in that case
 /// When calling proc_exec, the new process will be finalized and the new process will be created. Like with `proc_exit`, it will switch back to the parent environment. proc_exec will return Errno::Success in that case
 #[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
-pub fn proc_vfork<M: MemorySize>(
+pub fn proc_fork_env<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
