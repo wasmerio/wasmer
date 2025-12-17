@@ -26,12 +26,26 @@ impl Inspect {
     }
 
     fn inner_execute(&self) -> Result<()> {
-        let module_contents = std::fs::read(&self.path)?;
+        let mut module_contents = std::fs::read(&self.path)?;
+        let iswasm = is_wasm(&module_contents);
+
+        if !iswasm {
+            if let Some(extension) = self.path.extension()
+                && let Some(extension) = extension.to_str()
+                && extension == "wat"
+            {
+                module_contents = wat2wasm(&module_contents)
+                    .map_err(|e| anyhow::anyhow!("Cannot convert WAT to WASM: {e}"))?
+                    .to_vec();
+            } else {
+                anyhow::bail!("The input file is not a WAT file");
+            }
+        }
+
         let engine = self
             .rt
             .get_engine_for_module(&module_contents, &Target::default())?;
 
-        let iswasm = is_wasm(&module_contents);
         let module_len = module_contents.len();
         let module = Module::new(&engine, module_contents)?;
         println!(
