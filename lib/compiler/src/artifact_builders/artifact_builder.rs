@@ -65,6 +65,13 @@ impl ArtifactBuild {
         table_styles: PrimaryMap<TableIndex, TableStyle>,
         hash_algorithm: Option<HashAlgorithm>,
     ) -> Result<Self, CompileError> {
+        use std::{fs::File, io::Write};
+
+        File::create("/tmp/module.wasm")
+            .unwrap()
+            .write_all(data)
+            .unwrap();
+
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
 
