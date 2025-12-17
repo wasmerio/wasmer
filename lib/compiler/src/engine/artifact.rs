@@ -61,7 +61,7 @@ use wasmer_vm::{
     VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
     libcalls::{
         wasmer_vm_alloc_exception, wasmer_vm_memory32_copy, wasmer_vm_memory32_fill,
-        wasmer_vm_raise_trap,
+        wasmer_vm_raise_trap, wasmer_vm_read_exnref, wasmer_vm_throw,
     },
 };
 
@@ -389,6 +389,8 @@ impl Artifact {
                         Some(wasmer_vm_memory32_fill as *const () as usize)
                     }
                     "wasmer_vm_raise_trap" => Some(wasmer_vm_raise_trap as *const () as usize),
+                    "wasmer_vm_throw" => Some(wasmer_vm_throw as *const () as usize),
+                    "wasmer_vm_read_exnref" => Some(wasmer_vm_read_exnref as *const () as usize),
                     _ => None,
                 } {
                     eprintln!("... mapping: {name}");
