@@ -13,6 +13,7 @@ impl From<wasi::Snapshot0Clockid> for JournalSnapshot0ClockidV1 {
             wasi::Snapshot0Clockid::ProcessCputimeId => JournalSnapshot0ClockidV1::ProcessCputimeId,
             wasi::Snapshot0Clockid::ThreadCputimeId => JournalSnapshot0ClockidV1::ThreadCputimeId,
             wasi::Snapshot0Clockid::Unknown => JournalSnapshot0ClockidV1::Unknown,
+            _ => panic!("Unsupported Snapshot0Clockid variant"),
         }
     }
 }
@@ -52,6 +53,7 @@ impl From<wasi::Whence> for JournalWhenceV1 {
             wasi::Whence::Cur => JournalWhenceV1::Cur,
             wasi::Whence::End => JournalWhenceV1::End,
             wasi::Whence::Unknown => JournalWhenceV1::Unknown,
+            _ => panic!("Unsupported Whence variant"),
         }
     }
 }
@@ -88,6 +90,7 @@ impl From<wasi::Advice> for JournalAdviceV1 {
             wasi::Advice::Dontneed => JournalAdviceV1::Dontneed,
             wasi::Advice::Noreuse => JournalAdviceV1::Noreuse,
             wasi::Advice::Unknown => JournalAdviceV1::Unknown,
+            _ => panic!("Unsupported Advice variant"),
         }
     }
 }
@@ -339,6 +342,7 @@ impl From<wasi::Addressfamily> for JournalAddressfamilyV1 {
             wasi::Addressfamily::Inet4 => JournalAddressfamilyV1::Inet4,
             wasi::Addressfamily::Inet6 => JournalAddressfamilyV1::Inet6,
             wasi::Addressfamily::Unix => JournalAddressfamilyV1::Unix,
+            _ => panic!("Unsupported Addressfamily variant"),
         }
     }
 }
@@ -373,6 +377,7 @@ impl From<wasi::Socktype> for JournalSocktypeV1 {
             wasi::Socktype::Raw => JournalSocktypeV1::Raw,
             wasi::Socktype::Seqpacket => JournalSocktypeV1::Seqpacket,
             wasi::Socktype::Unknown => JournalSocktypeV1::Unknown,
+            _ => panic!("Unsupported Socktype variant"),
         }
     }
 }
@@ -431,6 +436,7 @@ impl From<wasi::Sockoption> for JournalSockoptionV1 {
             wasi::Sockoption::MulticastTtlV4 => JournalSockoptionV1::MulticastTtlV4,
             wasi::Sockoption::Type => JournalSockoptionV1::Type,
             wasi::Sockoption::Proto => JournalSockoptionV1::Proto,
+            _ => panic!("Unsupported Sockoption variant"),
         }
     }
 }

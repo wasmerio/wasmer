@@ -227,7 +227,7 @@ impl Future for InodeValFilePollGuardJoin {
                             }))
                         }
                         Eventtype::Clock => Some(EventResultType::Clock(0)),
-                        Eventtype::Unknown => None,
+                        _ => None,
                     };
                     if let Some(inner) = inner {
                         ret.push((
@@ -263,7 +263,7 @@ impl Future for InodeValFilePollGuardJoin {
                             }))
                         }
                         Eventtype::Clock => Some(EventResultType::Clock(0)),
-                        Eventtype::Unknown => None,
+                        _ => None,
                     };
                     if let Some(inner) = inner {
                         ret.push((
@@ -326,7 +326,7 @@ impl Future for InodeValFilePollGuardJoin {
                             }))
                         }
                         Eventtype::Clock => Some(EventResultType::Clock(0)),
-                        Eventtype::Unknown => None,
+                        _ => None,
                     };
                     if let Some(inner) = inner {
                         ret.push((
@@ -362,7 +362,7 @@ impl Future for InodeValFilePollGuardJoin {
                             }))
                         }
                         Eventtype::Clock => Some(EventResultType::Clock(0)),
-                        Eventtype::Unknown => None,
+                        _ => None,
                     };
                     if let Some(inner) = inner {
                         ret.push((
