@@ -165,7 +165,6 @@ impl Features {
     /// feature can be enabled through this method for appropriate WebAssembly
     /// modules.
     ///
-    ///
     /// This is `false` by default.
     ///
     /// [proposal]: https://github.com/WebAssembly/relaxed-simd
