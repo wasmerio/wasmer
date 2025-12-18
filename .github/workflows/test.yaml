@@ -129,7 +129,6 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-            $CARGO_ROOT_DIR/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-js
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -174,7 +173,6 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-            $CARGO_ROOT_DIR/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-wasi-fyi
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -233,7 +231,6 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-            $CARGO_ROOT_DIR/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-wasix
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -269,7 +266,6 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-            $CARGO_ROOT_DIR/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-jsc
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -718,15 +714,6 @@ jobs:
           target = "${{ matrix.metadata.target }}"
           EOF
         if: matrix.metadata.target
-      - name: which cargo
-        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
-        run: which cargo
-      - name: Set cargo env
-        run: echo "CARGO_ROOT_DIR=$(dirname $(dirname $( which cargo )))" >> $GITHUB_ENV
-      - name: List root dir
-        shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
-        run: ls -R $CARGO_ROOT_DIR
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
@@ -734,7 +721,6 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-            $CARGO_ROOT_DIR/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
