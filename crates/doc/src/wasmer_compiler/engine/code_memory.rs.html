@@ -117,12 +117,12 @@
 <a href=#117 id=117 data-nosnippet>117</a>            bytes += len;
 <a href=#118 id=118 data-nosnippet>118</a>
 <a href=#119 id=119 data-nosnippet>119</a>            <span class="kw">let </span>vmfunc = <span class="self">Self</span>::copy_function(<span class="kw-2">&amp;mut </span><span class="self">self</span>.unwind_registry, <span class="kw-2">*</span>func, func_buf);
-<a href=#120 id=120 data-nosnippet>120</a>            <span class="macro">assert_eq!</span>(vmfunc.as_ptr() <span class="kw">as </span>usize % ARCH_FUNCTION_ALIGNMENT, <span class="number">0</span>);
+<a href=#120 id=120 data-nosnippet>120</a>            <span class="macro">assert!</span>((vmfunc.as_ptr() <span class="kw">as </span>usize).is_multiple_of(ARCH_FUNCTION_ALIGNMENT));
 <a href=#121 id=121 data-nosnippet>121</a>            function_result.push(vmfunc);
 <a href=#122 id=122 data-nosnippet>122</a>        }
 <a href=#123 id=123 data-nosnippet>123</a>        <span class="kw">for </span>section <span class="kw">in </span>executable_sections {
 <a href=#124 id=124 data-nosnippet>124</a>            <span class="kw">let </span>section = section.bytes();
-<a href=#125 id=125 data-nosnippet>125</a>            <span class="macro">assert_eq!</span>(buf.as_mut_ptr() <span class="kw">as </span>usize % ARCH_FUNCTION_ALIGNMENT, <span class="number">0</span>);
+<a href=#125 id=125 data-nosnippet>125</a>            <span class="macro">assert!</span>((buf.as_mut_ptr() <span class="kw">as </span>usize).is_multiple_of(ARCH_FUNCTION_ALIGNMENT));
 <a href=#126 id=126 data-nosnippet>126</a>            <span class="kw">let </span>len = round_up(section.len(), ARCH_FUNCTION_ALIGNMENT);
 <a href=#127 id=127 data-nosnippet>127</a>            <span class="kw">let </span>(s, next_buf) = buf.split_at_mut(len);
 <a href=#128 id=128 data-nosnippet>128</a>            buf = next_buf;
@@ -141,7 +141,7 @@
 <a href=#141 id=141 data-nosnippet>141</a>
 <a href=#142 id=142 data-nosnippet>142</a>            <span class="kw">for </span>section <span class="kw">in </span>data_sections {
 <a href=#143 id=143 data-nosnippet>143</a>                <span class="kw">let </span>section = section.bytes();
-<a href=#144 id=144 data-nosnippet>144</a>                <span class="macro">assert_eq!</span>(buf.as_mut_ptr() <span class="kw">as </span>usize % DATA_SECTION_ALIGNMENT, <span class="number">0</span>);
+<a href=#144 id=144 data-nosnippet>144</a>                <span class="macro">assert!</span>((buf.as_mut_ptr() <span class="kw">as </span>usize).is_multiple_of(DATA_SECTION_ALIGNMENT));
 <a href=#145 id=145 data-nosnippet>145</a>                <span class="kw">let </span>len = round_up(section.len(), DATA_SECTION_ALIGNMENT);
 <a href=#146 id=146 data-nosnippet>146</a>                <span class="kw">let </span>(s, next_buf) = buf.split_at_mut(len);
 <a href=#147 id=147 data-nosnippet>147</a>                buf = next_buf;
@@ -180,7 +180,7 @@
 <a href=#180 id=180 data-nosnippet>180</a>                <span class="comment">// Windows unwind information is required to be emitted into code memory
 <a href=#181 id=181 data-nosnippet>181</a>                // This is because it must be a positive relative offset from the start of the memory
 <a href=#182 id=182 data-nosnippet>182</a>                // Account for necessary unwind information alignment padding (32-bit alignment)
-<a href=#183 id=183 data-nosnippet>183</a>                </span>((func.body().len() + <span class="number">3</span>) &amp; !<span class="number">3</span>) + info.len()
+<a href=#183 id=183 data-nosnippet>183</a>                </span>func.body().len().next_multiple_of(<span class="number">4</span>) + info.len()
 <a href=#184 id=184 data-nosnippet>184</a>            }
 <a href=#185 id=185 data-nosnippet>185</a>            <span class="kw">_ </span>=&gt; func.body().len(),
 <a href=#186 id=186 data-nosnippet>186</a>        }
@@ -194,7 +194,7 @@
 <a href=#194 id=194 data-nosnippet>194</a>        func: <span class="kw-2">&amp;</span><span class="lifetime">'module </span><span class="kw">impl </span>FunctionBodyLike&lt;<span class="lifetime">'module</span>&gt;,
 <a href=#195 id=195 data-nosnippet>195</a>        buf: <span class="kw-2">&amp;</span><span class="lifetime">'memory </span><span class="kw-2">mut </span>[u8],
 <a href=#196 id=196 data-nosnippet>196</a>    ) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'memory </span><span class="kw-2">mut </span>[VMFunctionBody] {
-<a href=#197 id=197 data-nosnippet>197</a>        <span class="macro">assert_eq!</span>(buf.as_ptr() <span class="kw">as </span>usize % ARCH_FUNCTION_ALIGNMENT, <span class="number">0</span>);
+<a href=#197 id=197 data-nosnippet>197</a>        <span class="macro">assert!</span>((buf.as_ptr() <span class="kw">as </span>usize).is_multiple_of(ARCH_FUNCTION_ALIGNMENT));
 <a href=#198 id=198 data-nosnippet>198</a>
 <a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">let </span>func_len = func.body().len();
 <a href=#200 id=200 data-nosnippet>200</a>
@@ -206,10 +206,10 @@
 <a href=#206 id=206 data-nosnippet>206</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(CompiledFunctionUnwindInfoReference::WindowsX64(info)) = unwind_info {
 <a href=#207 id=207 data-nosnippet>207</a>            <span class="comment">// Windows unwind information is written following the function body
 <a href=#208 id=208 data-nosnippet>208</a>            // Keep unwind information 32-bit aligned (round up to the nearest 4 byte boundary)
-<a href=#209 id=209 data-nosnippet>209</a>            </span><span class="kw">let </span>unwind_start = (func_len + <span class="number">3</span>) &amp; !<span class="number">3</span>;
+<a href=#209 id=209 data-nosnippet>209</a>            </span><span class="kw">let </span>unwind_start = func_len.next_multiple_of(<span class="number">4</span>);
 <a href=#210 id=210 data-nosnippet>210</a>            <span class="kw">let </span>unwind_size = info.len();
 <a href=#211 id=211 data-nosnippet>211</a>            <span class="kw">let </span>padding = unwind_start - func_len;
-<a href=#212 id=212 data-nosnippet>212</a>            <span class="macro">assert_eq!</span>((func_len + padding) % <span class="number">4</span>, <span class="number">0</span>);
+<a href=#212 id=212 data-nosnippet>212</a>            <span class="macro">assert!</span>((func_len + padding).is_multiple_of(<span class="number">4</span>));
 <a href=#213 id=213 data-nosnippet>213</a>            <span class="kw">let </span>slice = remainder.split_at_mut(padding + unwind_size).<span class="number">0</span>;
 <a href=#214 id=214 data-nosnippet>214</a>            slice[padding..].copy_from_slice(info);
 <a href=#215 id=215 data-nosnippet>215</a>        }
@@ -238,7 +238,7 @@
 <a href=#238 id=238 data-nosnippet>238</a>
 <a href=#239 id=239 data-nosnippet>239</a><span class="kw">fn </span>round_up(size: usize, multiple: usize) -&gt; usize {
 <a href=#240 id=240 data-nosnippet>240</a>    <span class="macro">debug_assert!</span>(multiple.is_power_of_two());
-<a href=#241 id=241 data-nosnippet>241</a>    (size + (multiple - <span class="number">1</span>)) &amp; !(multiple - <span class="number">1</span>)
+<a href=#241 id=241 data-nosnippet>241</a>    size.next_multiple_of(multiple)
 <a href=#242 id=242 data-nosnippet>242</a>}
 <a href=#243 id=243 data-nosnippet>243</a>
 <a href=#244 id=244 data-nosnippet>244</a><span class="attr">#[cfg(test)]

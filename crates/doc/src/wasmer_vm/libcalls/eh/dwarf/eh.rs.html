@@ -293,7 +293,7 @@
 <a href=#293 id=293 data-nosnippet>293</a><span class="attr">#[inline]
 <a href=#294 id=294 data-nosnippet>294</a></span><span class="kw">fn </span>round_up(unrounded: usize, align: usize) -&gt; <span class="prelude-ty">Result</span>&lt;usize, ()&gt; {
 <a href=#295 id=295 data-nosnippet>295</a>    <span class="kw">if </span>align.is_power_of_two() {
-<a href=#296 id=296 data-nosnippet>296</a>        <span class="prelude-val">Ok</span>((unrounded + align - <span class="number">1</span>) &amp; !(align - <span class="number">1</span>))
+<a href=#296 id=296 data-nosnippet>296</a>        <span class="prelude-val">Ok</span>(unrounded.next_multiple_of(align))
 <a href=#297 id=297 data-nosnippet>297</a>    } <span class="kw">else </span>{
 <a href=#298 id=298 data-nosnippet>298</a>        <span class="prelude-val">Err</span>(())
 <a href=#299 id=299 data-nosnippet>299</a>    }
