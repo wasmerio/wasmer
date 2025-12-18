@@ -1159,11 +1159,11 @@ mod test_filesystem {
     use crate::{DirEntry, FileSystem as FS, FileType, FsError, mem_fs::*, ops};
 
     macro_rules! path {
-        ($path:expr_2021) => {
+        ($path:expr) => {
             std::path::Path::new($path)
         };
 
-        (buf $path:expr_2021) => {
+        (buf $path:expr) => {
             std::path::PathBuf::from($path)
         };
     }
