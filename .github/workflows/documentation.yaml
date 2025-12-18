@@ -23,7 +23,7 @@ jobs:
       - name: Install LLVM
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ env.LLVM_URL }} -L -o llvm.tar.xz
+          curl -H "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf ${{ env.LLVM_URL }} -L -o llvm.tar.xz
           mkdir ${{ env.LLVM_DIR }}
           tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
           echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
