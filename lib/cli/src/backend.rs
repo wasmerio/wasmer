@@ -353,24 +353,28 @@ impl RuntimeOptions {
 
     #[cfg(feature = "compiler")]
     /// Get the enabled Wasm features.
-    pub fn get_features(&self, features: &Features) -> Result<Features> {
-        let mut result = features.clone();
-        if !self.features.disable_threads || self.features.all {
+    pub fn get_features(&self, default_features: &Features) -> Result<Features> {
+        if self.features.all {
+            return Ok(Features::all());
+        }
+
+        let mut result = default_features.clone();
+        if !self.features.disable_threads {
             result.threads(true);
         }
-        if self.features.disable_threads && !self.features.all {
+        if self.features.disable_threads {
             result.threads(false);
         }
-        if self.features.multi_value || self.features.all {
+        if self.features.multi_value {
             result.multi_value(true);
         }
-        if self.features.simd || self.features.all {
+        if self.features.simd {
             result.simd(true);
         }
-        if self.features.bulk_memory || self.features.all {
+        if self.features.bulk_memory {
             result.bulk_memory(true);
         }
-        if self.features.reference_types || self.features.all {
+        if self.features.reference_types {
             result.reference_types(true);
         }
         Ok(result)
@@ -389,9 +393,7 @@ impl RuntimeOptions {
         wasm_bytes: &[u8],
     ) -> Result<Features, wasmparser::BinaryReaderError> {
         if self.features.all {
-            let mut features = Features::all();
-            features.simd(false).relaxed_simd(false);
-            return Ok(features);
+            return Ok(Features::all());
         }
 
         let mut features = Features::detect_from_wasm(wasm_bytes)?;
