@@ -464,7 +464,7 @@ pub trait EmitterX64 {
 }
 
 macro_rules! unop_gpr {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $loc:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $loc:expr_2021, $otherwise:block) => {
         match ($sz, $loc) {
             (Size::S32, Location::GPR(loc)) => {
                 dynasm!($assembler ; $ins Rd(loc));

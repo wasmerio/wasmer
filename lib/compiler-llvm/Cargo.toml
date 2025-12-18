@@ -20,7 +20,7 @@ wasmer-compiler = { path = "../compiler", version = "=6.1.0", features = [
 ] }
 wasmer-vm = { path = "../vm", version = "=6.1.0" }
 wasmer-types = { path = "../types", version = "=6.1.0" }
-target-lexicon = { workspace = true }
+target-lexicon.workspace = true
 smallvec.workspace = true
 object = { workspace = true, features = ["read"] }
 libc.workspace = true

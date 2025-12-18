@@ -50,7 +50,7 @@ tracing.workspace = true
 getrandom.workspace = true
 typetag = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
-bincode = { workspace = true }
+bincode.workspace = true
 chrono = { workspace = true, default-features = false, features = [
 	"wasmbind",
 	"std",
@@ -123,7 +123,7 @@ hyper-util = { workspace = true, features = [
 http-body-util = { workspace = true, optional = true }
 toml.workspace = true
 pin-utils.workspace = true
-wasmparser = { workspace = true }
+wasmparser.workspace = true
 crossbeam-channel.workspace = true
 bus.workspace = true
 
@@ -175,7 +175,7 @@ wasm-bindgen-test.workspace = true
 tracing-wasm.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tracing-subscriber = { workspace = true }
+tracing-subscriber.workspace = true
 wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
