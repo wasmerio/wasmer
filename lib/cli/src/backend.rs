@@ -352,25 +352,29 @@ impl RuntimeOptions {
     }
 
     #[cfg(feature = "compiler")]
-    /// Get the enaled Wasm features.
-    pub fn get_features(&self, features: &Features) -> Result<Features> {
-        let mut result = features.clone();
-        if !self.features.disable_threads || self.features.all {
+    /// Get the enabled Wasm features.
+    pub fn get_features(&self, default_features: &Features) -> Result<Features> {
+        if self.features.all {
+            return Ok(Features::all());
+        }
+
+        let mut result = default_features.clone();
+        if !self.features.disable_threads {
             result.threads(true);
         }
-        if self.features.disable_threads && !self.features.all {
+        if self.features.disable_threads {
             result.threads(false);
         }
-        if self.features.multi_value || self.features.all {
+        if self.features.multi_value {
             result.multi_value(true);
         }
-        if self.features.simd || self.features.all {
+        if self.features.simd {
             result.simd(true);
         }
-        if self.features.bulk_memory || self.features.all {
+        if self.features.bulk_memory {
             result.bulk_memory(true);
         }
-        if self.features.reference_types || self.features.all {
+        if self.features.reference_types {
             result.reference_types(true);
         }
         Ok(result)
@@ -388,37 +392,41 @@ impl RuntimeOptions {
         &self,
         wasm_bytes: &[u8],
     ) -> Result<Features, wasmparser::BinaryReaderError> {
+        if self.features.all {
+            return Ok(Features::all());
+        }
+
         let mut features = Features::detect_from_wasm(wasm_bytes)?;
 
         // Merge with user-configured features
-        if !self.features.disable_threads || self.features.all {
+        if !self.features.disable_threads {
             features.threads(true);
         }
-        if self.features.reference_types || self.features.all {
+        if self.features.reference_types {
             features.reference_types(true);
         }
-        if self.features.simd || self.features.all {
+        if self.features.simd {
             features.simd(true);
         }
-        if self.features.bulk_memory || self.features.all {
+        if self.features.bulk_memory {
             features.bulk_memory(true);
         }
-        if self.features.multi_value || self.features.all {
+        if self.features.multi_value {
             features.multi_value(true);
         }
-        if self.features.tail_call || self.features.all {
+        if self.features.tail_call {
             features.tail_call(true);
         }
-        if self.features.module_linking || self.features.all {
+        if self.features.module_linking {
             features.module_linking(true);
         }
-        if self.features.multi_memory || self.features.all {
+        if self.features.multi_memory {
             features.multi_memory(true);
         }
-        if self.features.memory64 || self.features.all {
+        if self.features.memory64 {
             features.memory64(true);
         }
-        if self.features.exceptions || self.features.all {
+        if self.features.exceptions {
             features.exceptions(true);
         }
 
