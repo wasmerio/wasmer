@@ -274,10 +274,12 @@ pub(crate) fn read_route<M: MemorySize>(
         preferred_until: match route.preferred_until.tag {
             OptionTag::None => None,
             OptionTag::Some => Some(Duration::from_nanos(route.preferred_until.u)),
+            _ => return Err(Errno::Inval),
         },
         expires_at: match route.expires_at.tag {
             OptionTag::None => None,
             OptionTag::Some => Some(Duration::from_nanos(route.expires_at.u)),
+            _ => return Err(Errno::Inval),
         },
     })
 }

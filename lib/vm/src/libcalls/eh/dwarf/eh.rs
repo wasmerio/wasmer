@@ -79,13 +79,13 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
     let func_start = context.func_start;
     let mut reader = DwarfReader::new(lsda);
 
-    let lpad_base = unsafe {
-        let lp_start_encoding = DwEhPe(reader.read::<u8>());
+    let lpad_start_encoding = unsafe { DwEhPe(reader.read::<u8>()) };
+    log!("(pers) Read LP start encoding {lpad_start_encoding:?}");
 
-        log!("(pers) Read LP start encoding {lp_start_encoding:?}");
+    let lpad_base = unsafe {
         // base address for landing pad offsets
-        if lp_start_encoding != gimli::DW_EH_PE_omit {
-            read_encoded_pointer(&mut reader, context, lp_start_encoding)?
+        if lpad_start_encoding != gimli::DW_EH_PE_omit {
+            read_encoded_pointer(&mut reader, context, lpad_start_encoding)?
         } else {
             log!("(pers) (is omit)");
             func_start
@@ -93,30 +93,31 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
     };
     log!("(pers) read landingpad base: {lpad_base:?}");
 
-    let ttype_encoding = unsafe { DwEhPe(reader.read::<u8>()) };
-    log!("(pers) read ttype encoding: {ttype_encoding:?}");
+    let types_table_encoding = unsafe { DwEhPe(reader.read::<u8>()) };
+    log!("(pers) read ttype encoding: {types_table_encoding:?}");
 
-    // If no value for type_table_encoding was given it means that there's no
-    // type_table, therefore we can't possibly use this lpad.
-    if ttype_encoding == gimli::DW_EH_PE_omit {
+    // If no value for types_table_encoding was given it means that there's no
+    // types_table, therefore we can't possibly use this lpad.
+    if types_table_encoding == gimli::DW_EH_PE_omit {
         log!("(pers) ttype is omit, returning None");
         return Ok(EHAction::None);
     }
 
-    let class_info = unsafe {
-        let offset = reader.read_uleb128();
-        log!("(pers) read class_info offset {offset:?}");
-        reader.ptr.wrapping_add(offset as _)
+    let types_table_base_offset = unsafe { reader.read_uleb128() };
+
+    let types_table_base = unsafe {
+        log!("(pers) read class_info offset {types_table_base_offset:?}");
+        reader.ptr.wrapping_add(types_table_base_offset as _)
     };
-    log!("(pers) read class_info sits at offset {class_info:?}");
+    log!("(pers) read types_table_base sits at offset {types_table_base:?}");
 
-    let call_site_encoding = unsafe { DwEhPe(reader.read::<u8>()) };
-    log!("(pers) read call_site_encoding is {call_site_encoding:?}");
+    let call_site_table_encoding = unsafe { DwEhPe(reader.read::<u8>()) };
+    log!("(pers) read call_site_table_encoding is {call_site_table_encoding:?}");
 
+    let call_site_table_size = unsafe { reader.read_uleb128() };
     let action_table = unsafe {
-        let call_site_table_length = reader.read_uleb128();
-        log!("(pers) read call_site has length {call_site_table_length:?}");
-        reader.ptr.wrapping_add(call_site_table_length as usize)
+        log!("(pers) read call_site has length {call_site_table_size:?}");
+        reader.ptr.wrapping_add(call_site_table_size as usize)
     };
 
     log!("(pers) action table sits at offset {action_table:?}");
@@ -125,89 +126,111 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
     if !USING_SJLJ_EXCEPTIONS {
         // read the callsite table
         while reader.ptr < action_table {
+            let call_site_record_reader = &mut reader;
             unsafe {
-                // these are offsets rather than pointers;
-                let cs_start = read_encoded_offset(&mut reader, call_site_encoding)?;
-                let cs_len = read_encoded_offset(&mut reader, call_site_encoding)?;
-                let cs_lpad = read_encoded_offset(&mut reader, call_site_encoding)?;
-                let cs_action_entry = reader.read_uleb128();
+                // Offset of the call site relative to the previous call site, counted in number of 16-byte bundles
+                let call_site_start =
+                    read_encoded_offset(call_site_record_reader, call_site_table_encoding)?;
+                let call_site_length =
+                    read_encoded_offset(call_site_record_reader, call_site_table_encoding)?;
+                // Offset of the landing pad, typically a byte offset relative to the LPStart address.
+                let call_site_lpad =
+                    read_encoded_offset(call_site_record_reader, call_site_table_encoding)?;
+                // Offset of the first associated action record, relative to the start of the actions table.
+                // This value is biased by 1 (1 indicates the start of the actions table), and 0 indicates that there are no actions.
+                let call_site_action_entry = call_site_record_reader.read_uleb128();
 
-                log!("(pers) read cs_start is {cs_start:?}");
-                log!("(pers) read cs_len is {cs_len:?}");
-                log!("(pers) read cs_lpad is {cs_lpad:?}");
-                log!("(pers) read cs_ae is {cs_action_entry:?}");
+                log!("(pers) read cs_start is {call_site_start:?}");
+                log!("(pers) read cs_len is {call_site_length:?}");
+                log!("(pers) read cs_lpad is {call_site_lpad:?}");
+                log!("(pers) read cs_ae is {call_site_action_entry:?}");
                 // Callsite table is sorted by cs_start, so if we've passed the ip, we
                 // may stop searching.
-                if ip < func_start.wrapping_add(cs_start) {
+                if ip < func_start.wrapping_add(call_site_start) {
                     break;
                 }
 
-                if ip < func_start.wrapping_add(cs_start + cs_len) {
+                // Call site matches the current ip. It's a candidate.
+                if ip < func_start.wrapping_add(call_site_start + call_site_length) {
                     log!(
                         "(pers) found a matching call site: {func_start:?} <= {ip:?} <= {:?}",
-                        func_start.wrapping_add(cs_start + cs_len)
+                        func_start.wrapping_add(call_site_start + call_site_length)
                     );
-                    if cs_lpad == 0 {
+                    if call_site_lpad == 0 {
                         return Ok(EHAction::None);
                     } else {
-                        let lpad = lpad_base.wrapping_add(cs_lpad);
+                        let lpad = lpad_base.wrapping_add(call_site_lpad);
                         let mut catches = vec![];
 
                         log!("(pers) lpad sits at {lpad:?}");
 
-                        if cs_action_entry == 0 {
+                        if call_site_action_entry == 0 {
                             // We don't generate cleanup clauses, so this can't happen
                             return Ok(EHAction::Terminate);
                         }
 
-                        log!("(pers) read cs_action_entry: {cs_action_entry}");
+                        log!("(pers) read cs_action_entry: {call_site_action_entry}");
                         log!("(pers) action_table: {action_table:?}");
 
                         // Convert 1-based byte offset into
-                        let mut action: *const u8 =
-                            action_table.wrapping_add((cs_action_entry - 1) as usize);
+                        let mut action_record: *const u8 =
+                            action_table.wrapping_add((call_site_action_entry - 1) as usize);
 
-                        log!("(pers) first action at: {action:?}");
+                        log!("(pers) first action at: {action_record:?}");
 
                         loop {
-                            let mut reader = DwarfReader::new(action);
-                            let ttype_index = reader.read_sleb128();
+                            // Read the action record.
+                            let mut action_record_reader = DwarfReader::new(action_record);
+                            // The two record kinds have the same format, with only small differences.
+                            // They are distinguished by the "type_filter" field: Catch clauses have strictly positive switch values,
+                            // and exception specifications have strictly negative switch values. Value 0 indicates a catch-all clause.
+                            let type_filter = action_record_reader.read_sleb128();
                             log!(
-                                "(pers) ttype_index for action #{cs_action_entry}: {ttype_index:?}"
+                                "(pers) type_filter for action #{call_site_action_entry}: {type_filter:?}"
                             );
 
-                            if ttype_index > 0 {
-                                if class_info.is_null() {
+                            if type_filter > 0 {
+                                // This is a catch clause so the type_filter is an index into the types table.
+                                //
+                                // Positive value, starting at 1.
+                                // Index in the types table of the __typeinfo for the catch-clause type.
+                                // 1 is the first word preceding TTBase, 2 is the second word, and so on.
+                                // Used by the runtime to check if the thrown exception type matches the catch-clause type.
+                                let types_table_index = type_filter;
+                                if types_table_base.is_null() {
                                     panic!();
                                 }
 
                                 let tag_ptr = {
-                                    let new_ttype_index = match DwEhPe(ttype_encoding.0 & 0x0f) {
-                                        gimli::DW_EH_PE_absptr => {
-                                            ttype_index * (size_of::<*const u8>() as i64)
-                                        }
-                                        gimli::DW_EH_PE_sdata2 | gimli::DW_EH_PE_udata2 => {
-                                            ttype_index * 2
-                                        }
-                                        gimli::DW_EH_PE_sdata4 | gimli::DW_EH_PE_udata4 => {
-                                            ttype_index * 4
-                                        }
-                                        gimli::DW_EH_PE_sdata8 | gimli::DW_EH_PE_udata8 => {
-                                            ttype_index * 8
-                                        }
-                                        _ => panic!(),
-                                    };
+                                    let new_types_table_index =
+                                        match DwEhPe(types_table_encoding.0 & 0x0f) {
+                                            gimli::DW_EH_PE_absptr => {
+                                                type_filter * (size_of::<*const u8>() as i64)
+                                            }
+                                            gimli::DW_EH_PE_sdata2 | gimli::DW_EH_PE_udata2 => {
+                                                type_filter * 2
+                                            }
+                                            gimli::DW_EH_PE_sdata4 | gimli::DW_EH_PE_udata4 => {
+                                                type_filter * 4
+                                            }
+                                            gimli::DW_EH_PE_sdata8 | gimli::DW_EH_PE_udata8 => {
+                                                type_filter * 8
+                                            }
+                                            _ => panic!(),
+                                        };
 
                                     log!(
-                                        "(pers) new_ttype_index for action #{cs_action_entry}: {new_ttype_index:?}"
+                                        "(pers) new_types_table_index for action #{call_site_action_entry}: {new_types_table_index:?}"
                                     );
 
-                                    let i = class_info.wrapping_sub(new_ttype_index as usize);
-                                    log!("(pers) reading ttype info from {i:?}");
+                                    let typeinfo = types_table_base
+                                        .wrapping_sub(new_types_table_index as usize);
+                                    log!("(pers) reading ttype info from {typeinfo:?}");
                                     read_encoded_pointer(
-                                        &mut DwarfReader::new(i),
+                                        // Basically just reader.read() a SLEB128.
+                                        &mut DwarfReader::new(typeinfo),
                                         context,
-                                        ttype_encoding,
+                                        types_table_encoding,
                                     )
                                 };
                                 let tag_ptr = tag_ptr.unwrap();
@@ -229,19 +252,18 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
 
                                 let tag = std::mem::transmute::<*const u8, *const u32>(tag_ptr)
                                     .read_unaligned();
-
                                 log!("(pers) read tag {tag:?}");
 
                                 // Since we don't know what this tag corresponds to, we must defer
                                 // the decision to the second phase.
                                 catches.push(tag);
-                            } else if ttype_index == 0 {
+                            } else if type_filter == 0 {
                                 // We don't create cleanup clauses, so this can't happen
                                 return Ok(EHAction::Terminate);
                             }
 
-                            let action_offset = reader.clone().read_sleb128();
-                            if action_offset == 0 {
+                            let next_action_record = action_record_reader.clone().read_sleb128();
+                            if next_action_record == 0 {
                                 return Ok(if catches.is_empty() {
                                     EHAction::None
                                 } else {
@@ -252,7 +274,9 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                                 });
                             }
 
-                            action = reader.ptr.wrapping_add(action_offset as usize);
+                            action_record = action_record_reader
+                                .ptr
+                                .wrapping_add(next_action_record as usize);
                         }
                     }
                 }
@@ -269,7 +293,7 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
 #[inline]
 fn round_up(unrounded: usize, align: usize) -> Result<usize, ()> {
     if align.is_power_of_two() {
-        Ok((unrounded + align - 1) & !(align - 1))
+        Ok(unrounded.next_multiple_of(align))
     } else {
         Err(())
     }

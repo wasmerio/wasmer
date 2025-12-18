@@ -364,16 +364,6 @@ impl FuncTranslator {
         passes.push("simplifycfg");
         passes.push("mem2reg");
 
-        //let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
-        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
-        //    let path = std::path::Path::new(llvm_dump_path);
-        //    if !path.exists() {
-        //        std::fs::create_dir_all(path).unwrap()
-        //    }
-        //    let path = path.join(format!("{function_name}.ll"));
-        //    _ = module.print_to_file(path).unwrap();
-        //}
-
         module
             .run_passes(
                 passes.join(",").as_str(),
@@ -381,14 +371,6 @@ impl FuncTranslator {
                 PassBuilderOptions::create(),
             )
             .unwrap();
-
-        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
-        //    if !passes.is_empty() {
-        //        let path =
-        //            std::path::Path::new(llvm_dump_path).join(format!("{function_name}_opt.ll"));
-        //        _ = module.print_to_file(path).unwrap();
-        //    }
-        //}
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
