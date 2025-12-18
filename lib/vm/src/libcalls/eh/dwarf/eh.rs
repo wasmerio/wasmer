@@ -293,7 +293,7 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
 #[inline]
 fn round_up(unrounded: usize, align: usize) -> Result<usize, ()> {
     if align.is_power_of_two() {
-        Ok((unrounded + align - 1) & !(align - 1))
+        Ok(unrounded.next_multiple_of(align))
     } else {
         Err(())
     }
