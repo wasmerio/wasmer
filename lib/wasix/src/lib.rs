@@ -325,7 +325,7 @@ pub struct WasiVFork {
     /// The information needed to rewind the stack with asyncify
     pub asyncify: Option<WasiVForkAsyncify>,
 
-    /// The environment before the vfork occured
+    /// The environment before the vfork occurred
     pub env: Box<WasiEnv>,
 
     /// Handle of the thread we have forked (dropping this handle
@@ -335,12 +335,11 @@ pub struct WasiVFork {
 
 #[derive(Debug, Clone)]
 pub struct WasiVForkAsyncify {
-    /// The unwound stack before the vfork occured
-    /// If the vfork does not use asyncify, then this is set to None
+    /// The unwound stack before the vfork occurred
     pub rewind_stack: BytesMut,
     /// The mutable parts of the store
     pub store_data: Bytes,
-
+    /// Whether the store is 64-bit
     pub is_64bit: bool,
 }
 
