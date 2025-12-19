@@ -231,7 +231,6 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
         match self.state.inner.as_ref().expect("inner state must exist") {
             MiddlewareInnerReader::Binary { reader, .. } => reader.current_position(),
             MiddlewareInnerReader::Operator(operator_reader) => {
-                // TODO: do not convert to BinaryReader
                 operator_reader.get_binary_reader().current_position()
             }
         }
