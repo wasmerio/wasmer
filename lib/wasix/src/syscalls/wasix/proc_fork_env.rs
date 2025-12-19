@@ -43,7 +43,7 @@ pub fn proc_fork_env<M: MemorySize>(
     // and associate a new context but otherwise shares things like the
     // file system interface. The handle to the forked process is stored
     // in the parent process context
-    let (mut child_env, mut child_handle) = match env.fork() {
+    let (mut child_env, child_handle) = match env.fork() {
         Ok(p) => p,
         Err(err) => {
             tracing::error!("could not fork process: {err}");

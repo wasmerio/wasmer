@@ -450,14 +450,14 @@ fn resume_vfork(
 
         // If the vfork contained a context-switching environment, exit now
         if ctx.data(&store).context_switching_environment.is_some() {
-            // We can only recover from this situation if we are not using context switching
+            // We cannot recover from this situation when using context switching
             tracing::error!(
                 "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent process will be terminated."
             );
             return (store, Err(code.into()));
         }
         let Some(asyncify_info) = vfork.asyncify else {
-            // We can only recover from this situation if we are using asyncify based vforking
+            // We can only recover from this situation when using asyncify-based vforking; since asyncify is not in use here, we cannot recover and must terminate the parent process
             tracing::error!(
                 "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent process will be terminated."
             );
