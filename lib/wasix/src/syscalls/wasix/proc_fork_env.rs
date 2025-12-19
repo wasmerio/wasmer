@@ -75,5 +75,5 @@ pub fn proc_fork_env<M: MemorySize>(
     });
     assert!(previous_vfork.is_none()); // Already checked at the start of the function
 
-    return Ok(Errno::Success);
+    Ok(Errno::Success)
 }
