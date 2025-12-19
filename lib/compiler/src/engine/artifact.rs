@@ -332,7 +332,7 @@ impl Artifact {
         assert!(wasmer_function_section_offset > plt_got_start);
 
         let mut symbol_map = HashMap::new();
-        for (idx, symbol) in symbols.iter().enumerate() {
+        for symbol in symbols.iter() {
             let name =
                 String::from_utf8_lossy(symbol.name(e, symbols.strings()).unwrap()).to_string();
             let offset = symbol.st_value(e);
