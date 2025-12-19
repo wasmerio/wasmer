@@ -13,71 +13,25 @@ pub fn proc_exit<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     code: ExitCode,
 ) -> Result<(), WasiError> {
-    WasiEnv::do_pending_operations(&mut ctx)?;
+    let in_asyncify_based_vfork = ctx
+        .data()
+        .vfork
+        .as_ref()
+        .map(|v| v.rewind_stack.is_some())
+        .unwrap_or(false);
 
-    debug!(%code);
+    proc_exit2::<M>(ctx, code)?;
 
-    // If we are in a vfork we need to return to the point we left off
-    if let Some(mut vfork) = ctx.data_mut().vfork.take() {
-        tracing::debug!(
-            parent_pid = %vfork.env.process.pid(),
-            child_pid = %ctx.data().process.pid(),
-            "proc_exit from vfork, returning control to parent process"
-        );
+    // proc_exit2 returns in two cases:
+    // 1. We are in a asyncify-based vfork, in which case on_called is set and magic will happen after returning
+    // 2. We are in a setjmp/longjmp vfork, in which case we need to error out as returning from proc_exit is not allowed
 
-        // Prepare the child env for teardown by closing its FDs
-        block_on(
-            unsafe { ctx.data().get_memory_and_wasi_state(&ctx, 0) }
-                .1
-                .fs
-                .close_all(),
-        );
-
-        // Restore the WasiEnv to the point when we vforked
-        let mut parent_env = vfork.env;
-        ctx.data_mut().swap_inner(parent_env.as_mut());
-        let mut child_env = std::mem::replace(ctx.data_mut(), *parent_env);
-
-        // Terminate the child process
-        child_env.owned_handles.push(vfork.handle);
-        child_env.process.terminate(code);
-
-        if vfork.rewind_stack.is_none() {
-            // If we are not using asyncify, we are actually done here :)
-            // See proc_vfork for information about this path
-
-            // TODO: Restore store data (globals)
-            // Or figure out if we really need to do that
-
-            return Ok(());
-        }
-
-        // Jump back to the vfork point and current on execution
-        let child_pid = child_env.process.pid();
-        let rewind_stack = vfork.rewind_stack.unwrap().freeze();
-        let store_data = vfork.store_data;
-        unwind::<M, _>(ctx, move |mut ctx, _, _| {
-            // Now rewind the previous stack and carry on from where we did the vfork
-            match rewind::<M, _>(
-                ctx,
-                None,
-                rewind_stack,
-                store_data,
-                ForkResult {
-                    pid: child_pid.raw() as Pid,
-                    ret: Errno::Success,
-                },
-            ) {
-                Errno::Success => OnCalledAction::InvokeAgain,
-                err => {
-                    warn!("fork failed - could not rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
-                }
-            }
-        })?;
+    if in_asyncify_based_vfork {
         return Ok(());
     }
 
-    // Otherwise just exit
-    Err(WasiError::Exit(code))
+    tracing::error!(
+        "Calling proc_exit in a vfork is undefined behaviour. Call _exit or _proc_exit2 instead."
+    );
+    return Err(WasiError::Exit(ExitCode::from(129)));
 }
