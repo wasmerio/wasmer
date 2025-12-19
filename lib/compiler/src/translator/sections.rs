@@ -128,7 +128,11 @@ pub fn parse_import_section<'data>(
                     field_name,
                 )?;
             }
-            TypeRef::FuncExact(_) => unimplemented!("custom-descriptors not implemented yet"),
+            TypeRef::FuncExact(_) => {
+                return Err(WasmError::Generic(
+                    "custom-descriptors not implemented yet".to_string(),
+                ));
+            }
             TypeRef::Tag(t) => {
                 environ.declare_tag_import(t, module_name, field_name)?;
             }

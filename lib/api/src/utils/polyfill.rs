@@ -622,7 +622,9 @@ pub fn parse_export_section(
                 module_info.declare_global_export(GlobalIndex::new(index), name)?
             }
             ExternalKind::Tag => module_info.declare_tag_export(TagIndex::new(index), name)?,
-            ExternalKind::FuncExact => unimplemented!("custom-descriptors not implemented yet"),
+            ExternalKind::FuncExact => {
+                return Err("custom-descriptors not implemented yet".to_string());
+            }
         }
     }
     Ok(())
