@@ -2,15 +2,13 @@ use super::*;
 use crate::{WasiVForkAsyncify, syscalls::*};
 
 /// ### `proc_exit2()`
-/// Terminate the process normally. A code of 0 indicates successful
-/// termination of the program. The meanings of other values is dependent on
-/// the environment.
-/// Inputs:
-/// - `ExitCode`
-///   Exit code to return to the operating system
+/// Similar to `proc_exit()`
 ///
-/// This is similar to `proc_exit` but it will switch back into the parent process
-/// and return control there if we are in a `proc_fork_env` (vfork) context.
+/// If used in a `proc_fork_env` (vfork) context it will exit the
+/// child, switch the process back into the parent process and
+/// return. If used for vforking, restoring the control to the
+/// place where the vfork happened is the responsibility of the
+/// caller.
 #[instrument(level = "trace", skip_all)]
 pub fn proc_exit2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
