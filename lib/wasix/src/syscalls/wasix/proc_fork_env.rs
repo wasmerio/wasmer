@@ -3,14 +3,28 @@ use wasmer::{FunctionEnvMut, Memory, MemorySize, WasmPtr};
 use wasmer_wasix_types::wasi::{Errno, Pid};
 
 /// ### `proc_fork_env()`
-/// Creates a new environment for a new subprocess.
-/// This function only returns **once**. It does no weird things to the controlflow. After calling this function most syscalls will behave like if you were in a new process.
-/// However it's undefined to call any other syscall than proc_exit and proc_exec. Although most of them should work fine. Also some other restrictions may apply.
+/// Forks the environment of the current process into a new child process.
+/// The child process will start with the same memory and execution context
+/// as the parent process, similar to `fork()`.
 ///
-/// The child pid will not be modified if this call fails
+/// Most syscalls are undefined behavior in the child process, except for
+/// `proc_exit2()` and `proc_exec3()`. `proc_exit2()` will terminate the
+/// child process and set the environment back to the parent process.
+/// `proc_exec3()` will exec the module in the child process and promote
+/// the child process to a real process. Then it will return with the
+/// environment back to the parent process.
 ///
-/// When calling proc_exit instead of terminating the current process, it will terminate the new process and switch back to the parent environment. proc_exit will return Errno::Success in that case
-/// When calling proc_exec, the new process will be finalized and the new process will be created. Like with `proc_exit`, it will switch back to the parent environment. proc_exec will return Errno::Success in that case
+/// This function differs from a traditional `vfork` in that it does not
+/// modify the control flow of the program. Instead, it only forks the
+/// WasiEnv, but leaves everything else (memory, call stack, store etc.)
+/// untouched.
+///
+/// This function is intended to be used in conjunction with
+/// setjmp/longjmp to build a lightweight implementation of vforking.
+///
+/// The value at child_pid_ptr will only be modified by a successful
+/// call to this function. It will contain the process id of the
+/// child process.
 #[tracing::instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 pub fn proc_fork_env<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
