@@ -2341,7 +2341,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.special_labels.indirect_call_null,
                 )?;
                 self.machine.move_location(
-                    Size::S64,
+                    Size::S32,
                     Location::Memory(
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_vmshared_signature_id(index) as i32,
