@@ -1386,7 +1386,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             }
             HeapType::Exact(_) => {
                 return Err(WasmError::Unsupported(
-                    "custom-descriptors not support yet".into(),
+                    "custom-descriptors not supported yet".into(),
                 ));
             }
         })
