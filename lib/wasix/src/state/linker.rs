@@ -4150,6 +4150,9 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
             wasmparser::Dylink0Subsection::Unknown { ty, .. } => {
                 tracing::warn!("Skipping unknown dylink.0 subsection {ty}");
             }
+            wasmparser::Dylink0Subsection::RuntimePath(_) => {
+                tracing::warn!("Skipping unsupported RuntimePath");
+            }
         }
     }
 
