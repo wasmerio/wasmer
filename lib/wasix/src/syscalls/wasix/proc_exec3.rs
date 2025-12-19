@@ -212,8 +212,9 @@ pub fn proc_exec3<M: MemorySize>(
                 assert!(ctx.data().context_switching_environment.is_some());
 
                 let Some(asyncify_info) = vfork.asyncify else {
-                    // If we are not using asyncify, we are actually done here :)
-                    // See proc_vfork for information about this path
+                    // vfork without asyncify only forks the WasiEnv, which we have restored
+                    // above. Restoring the control flow is done on the guest side.
+                    // See `proc_fork_env()` for information about this.
 
                     return Ok(Errno::Success);
                 };

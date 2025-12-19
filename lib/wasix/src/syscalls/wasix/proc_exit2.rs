@@ -46,8 +46,11 @@ pub fn proc_exit2<M: MemorySize>(
         child_env.process.terminate(code);
 
         let Some(asyncify_info) = vfork.asyncify else {
-            // If we are not using asyncify, we are actually done here :)
-            // See proc_vfork for information about this path
+            // vfork without asyncify only forks the WasiEnv, which we have restored
+            // above. We now return to the guest side in the parent process. Restoring
+            // the control flow is done on the guest side.
+            // See `proc_fork_env()` for information about this.
+
             return Ok(());
         };
 
