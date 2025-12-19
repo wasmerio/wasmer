@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use wasmer::Memory;
 
 /// ### `proc_fork_env()`
-/// Helper function for vforking.
 /// Creates a new environment for a new subprocess.
 /// This function only returns **once**. It does no weird things to the controlflow. After calling this function most syscalls will behave like if you were in a new process.
 /// However it's undefined to call any other syscall than proc_exit and proc_exec. Although most of them should work fine. Also some other restrictions may apply.
@@ -22,11 +21,13 @@ use wasmer::Memory;
 #[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 pub fn proc_fork_env<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    pid_ptr: WasmPtr<Pid, M>,
+    child_pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    if let Some(vfork) = ctx.data().vfork.as_ref() {
+    let env = ctx.data();
+
+    if let Some(vfork) = env.vfork.as_ref() {
         warn!("nesting vforks is not supported");
         return Ok(Errno::Notsup);
     }
@@ -35,7 +36,7 @@ pub fn proc_fork_env<M: MemorySize>(
     // and associate a new context but otherwise shares things like the
     // file system interface. The handle to the forked process is stored
     // in the parent process context
-    let (mut child_env, mut child_handle) = match ctx.data().fork() {
+    let (mut child_env, mut child_handle) = match env.fork() {
         Ok(p) => p,
         Err(err) => {
             debug!("could not fork process: {err}");
@@ -43,27 +44,24 @@ pub fn proc_fork_env<M: MemorySize>(
             return Ok(Errno::Perm);
         }
     };
-    let env = ctx.data();
-
-    // Add the child to the parent's list of children
-    env.process.lock().children.push(child_env.process.clone());
 
     // Write the child's PID to the provided pointer
     let memory = unsafe { env.memory_view(&ctx) };
-    wasi_try_mem_ok!(pid_ptr.write(&memory, child_env.pid().raw()));
+    wasi_try_mem_ok!(child_pid_ptr.write(&memory, child_env.pid().raw()));
 
-    // Serialize the globals
-    let serialized_globals: Bytes = capture_store_snapshot(&mut ctx.as_store_mut())
-        .serialize()
-        .unwrap()
-        .into();
+    let parent_env = ctx.data_mut();
 
+    // Add the child to the parent's list of children
+    parent_env
+        .process
+        .lock()
+        .children
+        .push(child_env.process.clone());
     // Swap the current environment with the child environment
-    child_env.swap_inner(ctx.data_mut());
-    std::mem::swap(ctx.data_mut(), &mut child_env);
+    child_env.swap_inner(parent_env);
+    std::mem::swap(parent_env, &mut child_env);
 
-    let previous_vfork = ctx.data_mut().vfork.replace(WasiVFork {
-        // The rewind stack is not required as we will not be rewinding with asyncify
+    let previous_vfork = parent_env.vfork.replace(WasiVFork {
         asyncify: None,
         env: Box::new(child_env),
         handle: child_handle,
