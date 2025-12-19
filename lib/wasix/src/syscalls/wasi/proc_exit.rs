@@ -23,7 +23,7 @@ pub fn proc_exit<M: MemorySize>(
     proc_exit2::<M>(ctx, code)?;
 
     // proc_exit2 returns in two cases:
-    // 1. We are in a asyncify-based vfork, in which case on_called is set and magic will happen after returning
+    // 1. We are in an asyncify-based vfork, in which case on_called is set and magic will happen
     // 2. We are in a setjmp/longjmp vfork, in which case we need to error out as returning from proc_exit is not allowed
 
     if in_asyncify_based_vfork {
