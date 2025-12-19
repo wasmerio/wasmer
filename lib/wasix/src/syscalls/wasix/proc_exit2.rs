@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{WasiVForkAsyncify, syscalls::*};
 
 /// ### `proc_exit2()`
 /// Terminate the process normally. A code of 0 indicates successful
@@ -45,20 +45,16 @@ pub fn proc_exit2<M: MemorySize>(
         child_env.owned_handles.push(vfork.handle);
         child_env.process.terminate(code);
 
-        if vfork.rewind_stack.is_none() {
+        let Some(asyncify_info) = vfork.asyncify else {
             // If we are not using asyncify, we are actually done here :)
             // See proc_vfork for information about this path
-
-            // TODO: Restore store data (globals)
-            // Or figure out if we really need to do that
-
             return Ok(());
-        }
+        };
 
         // Jump back to the vfork point and current on execution
         let child_pid = child_env.process.pid();
-        let rewind_stack = vfork.rewind_stack.unwrap().freeze();
-        let store_data = vfork.store_data;
+        let rewind_stack = asyncify_info.rewind_stack.freeze();
+        let store_data = asyncify_info.store_data;
         unwind::<M, _>(ctx, move |mut ctx, _, _| {
             // Now rewind the previous stack and carry on from where we did the vfork
             match rewind::<M, _>(

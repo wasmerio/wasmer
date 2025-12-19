@@ -322,29 +322,34 @@ impl std::fmt::Display for WasiRuntimeErrorDisplay<'_> {
 
 #[derive(Debug)]
 pub struct WasiVFork {
-    /// The unwound stack before the vfork occured
-    /// If the vfork does not use asyncify, then this is set to None
-    pub rewind_stack: Option<BytesMut>,
-    /// The mutable parts of the store
-    pub store_data: Bytes,
+    /// The information needed to rewind the stack with asyncify
+    pub asyncify: Option<WasiVForkAsyncify>,
+
     /// The environment before the vfork occured
     pub env: Box<WasiEnv>,
 
     /// Handle of the thread we have forked (dropping this handle
     /// will signal that the thread is dead)
     pub handle: WasiThreadHandle,
+}
 
-    is_64bit: bool,
+#[derive(Debug, Clone)]
+pub struct WasiVForkAsyncify {
+    /// The unwound stack before the vfork occured
+    /// If the vfork does not use asyncify, then this is set to None
+    pub rewind_stack: BytesMut,
+    /// The mutable parts of the store
+    pub store_data: Bytes,
+
+    pub is_64bit: bool,
 }
 
 impl Clone for WasiVFork {
     fn clone(&self) -> Self {
         Self {
-            rewind_stack: self.rewind_stack.clone(),
-            store_data: self.store_data.clone(),
+            asyncify: self.asyncify.clone(),
             env: Box::new(self.env.as_ref().clone()),
             handle: self.handle.clone(),
-            is_64bit: self.is_64bit,
         }
     }
 }

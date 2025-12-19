@@ -64,11 +64,9 @@ pub fn proc_fork_env<M: MemorySize>(
 
     let previous_vfork = ctx.data_mut().vfork.replace(WasiVFork {
         // The rewind stack is not required as we will not be rewinding with asyncify
-        rewind_stack: None,
-        store_data: serialized_globals,
+        asyncify: None,
         env: Box::new(child_env),
         handle: child_handle,
-        is_64bit: M::is_64bit(),
     });
     assert!(previous_vfork.is_none()); // Already checked at the start of the function
 

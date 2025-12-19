@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    WasiThreadHandle, capture_store_snapshot,
+    WasiThreadHandle, WasiVForkAsyncify, capture_store_snapshot,
     os::task::OwnedTaskStatus,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     state::context_switching::ContextSwitchingEnvironment,
@@ -114,11 +114,13 @@ pub fn proc_fork<M: MemorySize>(
             child_env.swap_inner(ctx.data_mut());
             std::mem::swap(ctx.data_mut(), &mut child_env);
             let previous_vfork = ctx.data_mut().vfork.replace(WasiVFork {
-                rewind_stack: Some(rewind_stack.clone()),
-                store_data: store_data.clone(),
+                asyncify: Some(WasiVForkAsyncify {
+                    rewind_stack: rewind_stack.clone(),
+                    store_data: store_data.clone(),
+                    is_64bit: M::is_64bit(),
+                }),
                 env: Box::new(child_env),
                 handle: child_handle,
-                is_64bit: M::is_64bit(),
             });
             assert!(previous_vfork.is_none()); // Already checked above
 

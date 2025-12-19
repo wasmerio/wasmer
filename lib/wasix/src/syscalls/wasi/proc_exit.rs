@@ -17,7 +17,7 @@ pub fn proc_exit<M: MemorySize>(
         .data()
         .vfork
         .as_ref()
-        .map(|v| v.rewind_stack.is_some())
+        .map(|v| v.asyncify.is_some())
         .unwrap_or(false);
 
     proc_exit2::<M>(ctx, code)?;
@@ -33,5 +33,5 @@ pub fn proc_exit<M: MemorySize>(
     tracing::error!(
         "Calling proc_exit in a vfork is undefined behaviour. Call _exit or _proc_exit2 instead."
     );
-    return Err(WasiError::Exit(ExitCode::from(129)));
+    Err(WasiError::Exit(ExitCode::from(129)))
 }

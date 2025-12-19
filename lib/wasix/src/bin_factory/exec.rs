@@ -449,23 +449,31 @@ fn resume_vfork(
         child_env.process.terminate(code);
 
         // If the vfork contained a context-switching environment, exit now
-        if ctx.data(&store).context_switching_environment.is_some() || vfork.rewind_stack.is_none()
-        {
+        if ctx.data(&store).context_switching_environment.is_some() {
+            // We can only recover from this situation if we are not using context switching
             tracing::error!(
                 "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent process will be terminated."
             );
             return (store, Err(code.into()));
         }
+        let Some(asyncify_info) = vfork.asyncify else {
+            // We can only recover from this situation if we are using asyncify based vforking
+            tracing::error!(
+                "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent process will be terminated."
+            );
+            return (store, Err(code.into()));
+        };
+        // TODO: We can also only safely recover if we are not using nested calling
+        // TODO: Just delete this branch
 
         // Jump back to the vfork point and current on execution
         let child_pid = child_env.process.pid();
-        // TODO: Write this in a more elegant fashion to prevent the unwrap here
-        let rewind_stack = vfork.rewind_stack.unwrap().freeze();
-        let store_data = vfork.store_data;
+        let rewind_stack = asyncify_info.rewind_stack.freeze();
+        let store_data = asyncify_info.store_data;
 
         let ctx_cloned = ctx.env.clone().into_mut(&mut store);
         // Now rewind the previous stack and carry on from where we did the vfork
-        let rewind_result = if vfork.is_64bit {
+        let rewind_result = if asyncify_info.is_64bit {
             crate::syscalls::rewind::<Memory64, _>(
                 ctx_cloned,
                 None,
