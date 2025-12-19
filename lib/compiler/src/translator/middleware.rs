@@ -175,7 +175,9 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
     fn read_operator(&mut self) -> WasmResult<Operator<'a>> {
         if let Some(inner) = self.state.inner.take() {
             self.state.inner = Some(match inner {
-                MiddlewareInnerReader::Binary { original_reader, .. } => {
+                MiddlewareInnerReader::Binary {
+                    original_reader, ..
+                } => {
                     let operator_reader = FunctionBody::new(original_reader)
                         .get_operators_reader()
                         .map_err(from_binaryreadererror_wasmerror)?;
@@ -185,26 +187,24 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
             });
         }
 
-        if self.chain.is_empty() {
-            let Some(MiddlewareInnerReader::Operator(operator_reader)) = &mut self.state.inner
+        let read_operator = |state: &mut MiddlewareReaderState<'a>| {
+            let Some(MiddlewareInnerReader::Operator(operator_reader)) = state.inner.as_mut()
             else {
                 unreachable!();
             };
-            // We short-circuit in case no chain is used
-            return operator_reader
+            operator_reader
                 .read()
-                .map_err(from_binaryreadererror_wasmerror);
+                .map_err(from_binaryreadererror_wasmerror)
+        };
+
+        if self.chain.is_empty() {
+            // We short-circuit in case no chain is used
+            return read_operator(&mut self.state);
         }
 
         // Try to fill the `self.pending_operations` buffer, until it is non-empty.
         while self.state.pending_operations.is_empty() {
-            let Some(MiddlewareInnerReader::Operator(operator_reader)) = &mut self.state.inner
-            else {
-                unreachable!();
-            };
-            let raw_op = operator_reader
-                .read()
-                .map_err(from_binaryreadererror_wasmerror)?;
+            let raw_op = read_operator(&mut self.state)?;
 
             // Fill the initial raw operator into pending buffer.
             self.state.pending_operations.push_back(raw_op);
