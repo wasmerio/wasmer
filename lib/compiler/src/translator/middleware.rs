@@ -173,18 +173,16 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
     }
 
     fn read_operator(&mut self) -> WasmResult<Operator<'a>> {
-        if let Some(MiddlewareInnerReader::Binary {
-            original_reader, ..
-        }) = self
-            .state
-            .inner
-            .take_if(|state| matches!(state, MiddlewareInnerReader::Binary { .. }))
-        {
-            self.state.inner = Some(MiddlewareInnerReader::Operator(
-                FunctionBody::new(original_reader)
-                    .get_operators_reader()
-                    .map_err(from_binaryreadererror_wasmerror)?,
-            ))
+        if let Some(inner) = self.state.inner.take() {
+            self.state.inner = Some(match inner {
+                MiddlewareInnerReader::Binary { original_reader, .. } => {
+                    let operator_reader = FunctionBody::new(original_reader)
+                        .get_operators_reader()
+                        .map_err(from_binaryreadererror_wasmerror)?;
+                    MiddlewareInnerReader::Operator(operator_reader)
+                }
+                other => other,
+            });
         }
 
         if self.chain.is_empty() {
