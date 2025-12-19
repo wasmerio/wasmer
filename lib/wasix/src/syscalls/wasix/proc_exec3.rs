@@ -219,7 +219,7 @@ pub fn proc_exec3<M: MemorySize>(
                     return Ok(Errno::Success);
                 };
 
-                // Jump back to the vfork point and current on execution
+                // Jump back to the vfork point and continue execution
                 // note: fork does not return any values hence passing `()`
                 let rewind_stack = asyncify_info.rewind_stack.freeze();
                 let store_data = asyncify_info.store_data;

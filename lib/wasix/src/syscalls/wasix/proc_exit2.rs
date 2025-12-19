@@ -52,7 +52,7 @@ pub fn proc_exit2<M: MemorySize>(
             return Ok(());
         };
 
-        // Jump back to the vfork point and current on execution
+        // Jump back to the vfork point and continue execution
         let child_pid = child_env.process.pid();
         let rewind_stack = asyncify_info.rewind_stack.freeze();
         let store_data = asyncify_info.store_data;

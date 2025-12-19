@@ -466,7 +466,7 @@ fn resume_vfork(
         // TODO: We can also only safely recover if we are not using nested calling
         // TODO: Just delete this branch
 
-        // Jump back to the vfork point and current on execution
+        // Jump back to the vfork point and continue execution
         let child_pid = child_env.process.pid();
         let rewind_stack = asyncify_info.rewind_stack.freeze();
         let store_data = asyncify_info.store_data;
