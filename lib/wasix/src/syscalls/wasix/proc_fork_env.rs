@@ -1,13 +1,6 @@
-use super::*;
-use crate::{
-    WasiThreadHandle, capture_store_snapshot,
-    os::task::OwnedTaskStatus,
-    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
-    state::context_switching::ContextSwitchingEnvironment,
-    syscalls::*,
-};
-use serde::{Deserialize, Serialize};
-use wasmer::Memory;
+use crate::{WasiEnv, WasiError, WasiVFork};
+use wasmer::{FunctionEnvMut, Memory, MemorySize, WasmPtr};
+use wasmer_wasix_types::wasi::{Errno, Pid};
 
 /// ### `proc_fork_env()`
 /// Creates a new environment for a new subprocess.
@@ -18,7 +11,7 @@ use wasmer::Memory;
 ///
 /// When calling proc_exit instead of terminating the current process, it will terminate the new process and switch back to the parent environment. proc_exit will return Errno::Success in that case
 /// When calling proc_exec, the new process will be finalized and the new process will be created. Like with `proc_exit`, it will switch back to the parent environment. proc_exec will return Errno::Success in that case
-#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
+#[tracing::instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 pub fn proc_fork_env<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     child_pid_ptr: WasmPtr<Pid, M>,
@@ -28,7 +21,7 @@ pub fn proc_fork_env<M: MemorySize>(
     let env = ctx.data();
 
     if let Some(vfork) = env.vfork.as_ref() {
-        warn!("nesting vforks is not supported");
+        tracing::warn!("nesting vforks is not supported");
         return Ok(Errno::Notsup);
     }
 
@@ -39,7 +32,7 @@ pub fn proc_fork_env<M: MemorySize>(
     let (mut child_env, mut child_handle) = match env.fork() {
         Ok(p) => p,
         Err(err) => {
-            debug!("could not fork process: {err}");
+            tracing::error!("could not fork process: {err}");
             // TODO: evaluate the appropriate error code, document it in the spec.
             return Ok(Errno::Perm);
         }
