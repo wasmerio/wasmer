@@ -148,7 +148,7 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
                 .read_var_u32()
                 .map_err(from_binaryreadererror_wasmerror),
             MiddlewareInnerReader::Operator(..) => Err(WasmError::InvalidWebAssembly {
-                message: "function body already visited".to_string(),
+                message: "locals must be read before the function body".to_string(),
                 offset: self.current_position(),
             }),
         }
@@ -166,7 +166,7 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
                 Ok((count, ty))
             }
             MiddlewareInnerReader::Operator(..) => Err(WasmError::InvalidWebAssembly {
-                message: "function body already visited".to_string(),
+                message: "locals must be read before the function body".to_string(),
                 offset: self.current_position(),
             }),
         }
