@@ -166,7 +166,7 @@ jobs:
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir -p ${LLVM_DIR}
-          curl --proto '=https' --tlsv1.2 -sSf "${{ matrix.llvm_url }}" -L -o - | tar xJv -C ${LLVM_DIR}
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf "${{ matrix.llvm_url }}" -L -o - | tar xJv -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
         env:
           LLVM_DIR: .llvm
