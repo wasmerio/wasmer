@@ -19,13 +19,13 @@ thiserror.workspace = true
 blake3.workspace = true
 
 [dev-dependencies]
-criterion = { version = "0.5", default-features = false }
-clap.workspace = true
+criterion = { workspace = true, default-features = false }
+clap = { workspace = true, default-features = true }
 clap_builder.workspace = true
 clap_derive.workspace = true
 clap_lex.workspace = true
 tempfile.workspace = true
-rand = "0.8.3"
+rand.workspace = true
 wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = ["sys", "cranelift"] }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=6.1.0" }
 
@@ -35,5 +35,5 @@ filesystem = []
 blake3-pure = ["blake3/pure"]
 
 [package.metadata.docs.rs]
-features = ["wasmer/sys", "wasmer/compiler"]
+features = ["wasmer/sys", "wasmer/compiler", "wasmer/cranelift"]
 rustc-args = ["--cfg", "docsrs"]

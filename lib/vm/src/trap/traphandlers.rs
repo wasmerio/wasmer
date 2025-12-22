@@ -163,7 +163,7 @@ cfg_if::cfg_if! {
                 // crash while handling the signal, and fall through to the
                 // Breakpad handler by testing handlingSegFault.
                 handler.sa_flags = libc::SA_SIGINFO | libc::SA_NODEFER | libc::SA_ONSTACK;
-                handler.sa_sigaction = trap_handler as usize;
+                handler.sa_sigaction = trap_handler as *const () as usize;
                 libc::sigemptyset(&mut handler.sa_mask);
                 if libc::sigaction(signal, &handler, slot.as_mut_ptr()) != 0 {
                     panic!(
@@ -348,6 +348,9 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "linux", target_arch = "loongarch64"))] {
                     pc = context.uc_mcontext.__gregs[1] as usize;
                     sp = context.uc_mcontext.__gregs[3] as usize;
+                } else if #[cfg(all(target_os = "linux", target_arch = "powerpc64"))] {
+                    pc = (*context.uc_mcontext.regs).nip as usize;
+                    sp = (*context.uc_mcontext.regs).gpr[1] as usize;
                 } else {
                     compile_error!("Unsupported platform");
                 }
@@ -478,6 +481,14 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.__gregs[4] = a0;
                     context.uc_mcontext.__gregs[5] = a1;
                     context.uc_mcontext.__gregs[22] = fp;
+                } else if #[cfg(all(target_os = "linux", target_arch = "powerpc64"))] {
+                    let TrapHandlerRegs { pc, sp, r3, r4, r31, lr } = regs;
+                    (*context.uc_mcontext.regs).nip = pc;
+                    (*context.uc_mcontext.regs).gpr[1] = sp;
+                    (*context.uc_mcontext.regs).gpr[3] = r3;
+                    (*context.uc_mcontext.regs).gpr[4] = r4;
+                    (*context.uc_mcontext.regs).gpr[31] = r31;
+                    (*context.uc_mcontext.regs).link = lr;
                 } else {
                     compile_error!("Unsupported platform");
                 }

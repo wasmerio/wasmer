@@ -25,6 +25,7 @@ pub mod journal;
 pub mod wasi;
 pub mod wasix;
 
+use bincode::config;
 use bytes::{Buf, BufMut};
 use futures::{
     Future,
@@ -547,7 +548,7 @@ where
                     let result = trigger.await;
                     tracing::trace!(%pid, %tid, "thread leaving deep sleep");
                     thread.set_deep_sleeping(false);
-                    bincode::serialize(&result).unwrap().into()
+                    bincode::serde::encode_to_vec(&result, config::legacy()).unwrap().into()
                 }))?;
                 AsyncifyAction::Unwind
             },
@@ -1251,7 +1252,9 @@ pub fn rewind<M: MemorySize, T>(
 where
     T: serde::Serialize,
 {
-    let rewind_result = bincode::serialize(&result).unwrap().into();
+    let rewind_result = bincode::serde::encode_to_vec(&result, config::legacy())
+        .unwrap()
+        .into();
     rewind_ext::<M>(
         &mut ctx,
         memory_stack,
@@ -1468,7 +1471,7 @@ where
             }
             RewindResultType::RewindWithResult(rewind_result) => {
                 tracing::trace!(%pid, %tid, "rewind with result (data={})", rewind_result.len());
-                let ret = bincode::deserialize(&rewind_result)
+                let (ret, _) = bincode::serde::decode_from_slice(&rewind_result, config::legacy())
                     .expect("failed to deserialize the rewind result");
                 Some(Some(ret))
             }

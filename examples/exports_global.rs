@@ -89,10 +89,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let one_value = get_one.call(&mut store)?;
     let some_value = some.get(&mut store);
 
-    println!("`one` value: {:?}", one_value);
+    println!("`one` value: {one_value:?}");
     assert_eq!(one_value, 1.0);
 
-    println!("`some` value: {:?}", some_value);
+    println!("`some` value: {some_value:?}");
     assert_eq!(some_value, Value::F32(0.0));
 
     println!("Setting global values...");
@@ -107,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // );
 
     let one_result = one.get(&mut store);
-    println!("`one` value after `set`: {:?}", one_result);
+    println!("`one` value after `set`: {one_result:?}");
     assert_eq!(one_result, Value::F32(1.0));
 
     // Setting the values of globals can be done in two ways:
@@ -119,12 +119,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         instance.exports.get_function("set_some")?.typed(&store)?;
     set_some.call(&mut store, 21.0)?;
     let some_result = some.get(&mut store);
-    println!("`some` value after `set_some`: {:?}", some_result);
+    println!("`some` value after `set_some`: {some_result:?}");
     assert_eq!(some_result, Value::F32(21.0));
 
     some.set(&mut store, Value::F32(42.0))?;
     let some_result = some.get(&mut store);
-    println!("`some` value after `set`: {:?}", some_result);
+    println!("`some` value after `set`: {some_result:?}");
     assert_eq!(some_result, Value::F32(42.0));
 
     Ok(())

@@ -337,7 +337,7 @@ where
                     return Ok(Errno::Inval);
                 }
             }
-            Eventtype::Unknown => {
+            _ => {
                 continue;
             }
         };

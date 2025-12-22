@@ -3,7 +3,7 @@
 #![allow(clippy::result_large_err)]
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Wasmer's WASI implementation
 //!
@@ -320,37 +320,6 @@ impl std::fmt::Display for WasiRuntimeErrorDisplay<'_> {
     }
 }
 
-#[allow(clippy::result_large_err)]
-pub(crate) fn run_wasi_func(
-    func: &wasmer::Function,
-    store: &mut impl AsStoreMut,
-    params: &[wasmer::Value],
-) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
-    func.call(store, params).map_err(|err| {
-        if let Some(_werr) = err.downcast_ref::<WasiError>() {
-            let werr = err.downcast::<WasiError>().unwrap();
-            WasiRuntimeError::Wasi(werr)
-        } else {
-            WasiRuntimeError::Runtime(err)
-        }
-    })
-}
-
-/// Run a main function.
-///
-/// This is usually called "_start" in WASI modules.
-/// The function will not receive arguments or return values.
-///
-/// An exit code that is not 0 will be returned as a `WasiError::Exit`.
-#[allow(clippy::result_large_err)]
-pub(crate) fn run_wasi_func_start(
-    func: &wasmer::Function,
-    store: &mut impl AsStoreMut,
-) -> Result<(), WasiRuntimeError> {
-    run_wasi_func(func, store, &[])?;
-    Ok(())
-}
-
 #[derive(Debug)]
 pub struct WasiVFork {
     /// The unwound stack before the vfork occured
@@ -525,6 +494,8 @@ fn wasi_snapshot_preview1_exports(
 }
 
 fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
+    let engine_supports_async = store.as_store_ref().engine().supports_async();
+
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory32>),
@@ -617,6 +588,9 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield::<Memory32>),
         "stack_checkpoint" => Function::new_typed_with_env(&mut store, env, stack_checkpoint::<Memory32>),
         "stack_restore" => Function::new_typed_with_env(&mut store, env, stack_restore::<Memory32>),
+        "context_create" => Function::new_typed_with_env(&mut store, env, context_create::<Memory32>),
+        "context_switch" => if engine_supports_async { Function::new_typed_with_env_async(&mut store, env, context_switch) } else { Function::new_typed_with_env(&mut store, env, context_switch_not_supported) },
+        "context_destroy" => Function::new_typed_with_env(&mut store, env, context_destroy),
         "futex_wait" => Function::new_typed_with_env(&mut store, env, futex_wait::<Memory32>),
         "futex_wake" => Function::new_typed_with_env(&mut store, env, futex_wake::<Memory32>),
         "futex_wake_all" => Function::new_typed_with_env(&mut store, env, futex_wake_all::<Memory32>),
@@ -665,6 +639,8 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
 }
 
 fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
+    let engine_supports_async = store.as_store_ref().engine().supports_async();
+
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory64>),
@@ -757,6 +733,9 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield::<Memory64>),
         "stack_checkpoint" => Function::new_typed_with_env(&mut store, env, stack_checkpoint::<Memory64>),
         "stack_restore" => Function::new_typed_with_env(&mut store, env, stack_restore::<Memory64>),
+        "context_create" => Function::new_typed_with_env(&mut store, env, context_create::<Memory64>),
+        "context_switch" => if engine_supports_async { Function::new_typed_with_env_async(&mut store, env, context_switch) } else { Function::new_typed_with_env(&mut store, env, context_switch_not_supported) },
+        "context_destroy" => Function::new_typed_with_env(&mut store, env, context_destroy),
         "futex_wait" => Function::new_typed_with_env(&mut store, env, futex_wait::<Memory64>),
         "futex_wake" => Function::new_typed_with_env(&mut store, env, futex_wake::<Memory64>),
         "futex_wake_all" => Function::new_typed_with_env(&mut store, env, futex_wake_all::<Memory64>),

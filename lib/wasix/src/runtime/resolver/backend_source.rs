@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::{MAIN_SEPARATOR_STR, PathBuf},
     sync::Arc,
     time::{Duration, SystemTime},
 };
@@ -460,7 +460,8 @@ impl FileSystemCache {
     }
 
     fn path(&self, package_name: &str) -> PathBuf {
-        self.cache_dir.join(package_name)
+        self.cache_dir
+            .join(package_name.replace(MAIN_SEPARATOR_STR, "#"))
     }
 
     fn lookup_cached_query(&self, package_name: &str) -> Result<Option<WebQuery>, Error> {

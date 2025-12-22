@@ -294,7 +294,7 @@ impl std::fmt::Debug for Function {
 /// Represents a low-level Wasm static host function. See
 /// `super::Function::new` and `super::Function::new_env` to learn
 /// more.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash)]
 pub struct WasmFunction<Args = (), Rets = ()> {
     callback: JSObjectCallAsFunctionCallback,
     _phantom: PhantomData<(Args, Rets)>,

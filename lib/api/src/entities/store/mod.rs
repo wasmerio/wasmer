@@ -1,17 +1,39 @@
 //! Defines the [`Store`] data type and various useful traits and data types to interact with a
 //! store.
 
+/// Defines the [`AsStoreAsync`] trait and its supporting types.
+#[cfg(feature = "experimental-async")]
+mod async_;
+#[cfg(feature = "experimental-async")]
+pub use async_::*;
+
+/// Defines the [`StoreContext`] type.
+mod context;
+
 /// Defines the [`StoreInner`] data type.
 mod inner;
 
 /// Create temporary handles to engines.
 mod store_ref;
+
+/// Single-threaded async-aware RwLock.
+#[cfg(feature = "experimental-async")]
+mod local_rwlock;
+#[cfg(feature = "experimental-async")]
+pub(crate) use local_rwlock::*;
+
+use std::{
+    boxed::Box,
+    ops::{Deref, DerefMut},
+};
+
 pub use store_ref::*;
 
 mod obj;
 pub use obj::*;
 
 use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
+pub(crate) use context::*;
 pub(crate) use inner::*;
 use wasmer_types::StoreId;
 
@@ -107,6 +129,16 @@ impl Store {
     /// Returns the ID of this store
     pub fn id(&self) -> StoreId {
         self.inner.objects.id()
+    }
+
+    #[cfg(feature = "experimental-async")]
+    /// Transforms this store into a [`StoreAsync`] which can be used
+    /// to invoke [`Function::call_async`](crate::Function::call_async).
+    pub fn into_async(self) -> StoreAsync {
+        StoreAsync {
+            id: self.id(),
+            inner: LocalRwLock::new(self.inner),
+        }
     }
 }
 

@@ -3,7 +3,7 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.84"
+  MSRV: "1.90"
 
 on:
   push:
@@ -51,10 +51,8 @@ jobs:
           - build: linux-arm64
             os: ubuntu-22.04-arm
             artifact_name: "wasmer-linux-aarch64"
-            #llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz"
+            #llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
-            use_sccache: false
-            use_rustcache: false
             build_wasm: true
             enable_llvm: false
             enable_v8: false
@@ -63,32 +61,29 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             artifact_name: "wasmer-linux-amd64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
-            use_sccache: false
             build_wasm: true
             enable_llvm: true
             enable_v8: true
             enable_wasmi: true
             enable_wamr: true
           - build: macos-x64
-            os: macos-13
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz"
+            os: macos-15-intel
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz"
             artifact_name: "wasmer-darwin-amd64"
             cross_compilation_artifact_name: "cross_compiled_from_mac"
-            use_sccache: false
             build_wasm: false
             enable_llvm: true
             enable_v8: true
             enable_wasmi: true
             enable_wamr: true
           - build: macos-arm64
-            os: macos-14
+            os: depot-macos-14
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
-            use_sccache: false
             build_wasm: false
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz"
             enable_llvm: true
             enable_v8: true
             enable_wasmi: true
@@ -96,10 +91,9 @@ jobs:
           - build: windows-x64
             os: windows-2022
             artifact_name: "wasmer-windows-amd64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_win"
             build_wasm: false
-            use_sccache: false
             enable_llvm: true
             enable_v8: false
             enable_wasmi: true
@@ -115,18 +109,17 @@ jobs:
             #  enable_wasmi: true
             #  enable_wamr: false
 
-    container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
-          ln -s /usr/bin/clang-18 /usr/bin/clang
+          apk add bash mold make curl cmake ninja clang21 zstd-static llvm21-dev clang21-static llvm21-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
+          ln -s /usr/bin/clang-21 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
         run: |
@@ -162,11 +155,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
-          target: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
-        if: ${{ matrix.use_sccache != true && matrix.use_rustcache != false }}
-      - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-13' && !matrix.llvm_url
+          target: ${{ matrix.target }}      
+      - name: Install LLVM (macOS Intel)
+        if: matrix.os == 'macos-15-intel' && !matrix.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -175,7 +166,7 @@ jobs:
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir -p ${LLVM_DIR}
-          curl --proto '=https' --tlsv1.2 -sSf "${{ matrix.llvm_url }}" -L -o - | tar xJv -C ${LLVM_DIR}
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf "${{ matrix.llvm_url }}" -L -o - | tar xJv -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
         env:
           LLVM_DIR: .llvm
@@ -185,14 +176,14 @@ jobs:
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          echo LLVM_SYS_180_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          echo LLVM_SYS_211_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Add `brew` libraries (Apple Silicon)
         run: |
           echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-        if: matrix.os == 'macos-14'
+        if: matrix.os == 'macos-14' || matrix.os == 'depot-macos-14'
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -206,18 +197,6 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
-      - uses: actions/cache@v4
-        if: matrix.use_sccache
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
-      - name: Install sccache
-        if: matrix.use_sccache
-        run: |
-          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
-            cargo install sccache --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
-          fi
-        shell: bash
       - name: Setup Rust target
         run: |
           mkdir -p .cargo
@@ -226,42 +205,14 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
-        run: |
-          netstat -aln | awk '
-            $6 == "LISTEN" {
-              if ($4 ~ "[.:][0-9]+$") {
-                n = split($4, a, /[:.]/);
-                port = a[n];
-                p[port] = 1
-              }
-            }
-            END {
-              for (i = 3000; i < 65000 && p[i]; i++){};
-              if (i == 65000) {exit 1};
-              print "SCCACHE_SERVER_PORT=" i
-            }
-          ' >> $GITHUB_ENV
-          # echo "SCCACHE_SERVER_PORT=9000"
-          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
-        shell: bash
-      - name: Start sccache
-        if: matrix.use_sccache
-        run: |
-          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
-          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
-        shell: bash
       - name: Build C API headless
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make package-capi-headless
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make package-capi-headless
       - name: Build C API
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi
       - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
@@ -286,9 +237,9 @@ jobs:
         run: |
           echo "#!/bin/bash" >> /usr/bin/llvm-config
           echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
-          echo 'llvm-config-18 "$@" "--link-static"' >> /usr/bin/llvm-config
+          echo 'llvm-config-21 "$@" "--link-static"' >> /usr/bin/llvm-config
           echo "else" >> /usr/bin/llvm-config
-          echo 'llvm-config-18 "$@"' >> /usr/bin/llvm-config
+          echo 'llvm-config-21 "$@"' >> /usr/bin/llvm-config
           echo 'fi' >> /usr/bin/llvm-config
           cat /usr/bin/llvm-config
           chmod +x /usr/bin/llvm-config
@@ -341,7 +292,7 @@ jobs:
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Windows-GNU linker
         shell: bash
         run: |
@@ -408,9 +359,9 @@ jobs:
   darwin_aarch64_jsc:
     name: macOS aarch64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: macos-13
+    runs-on: depot-macos-14
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-apple-darwin
@@ -442,9 +393,9 @@ jobs:
   darwin_x86_64_jsc:
     name: macOS x86_64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: x86_64-apple-darwin
@@ -474,7 +425,7 @@ jobs:
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: riscv64gc-unknown-linux-gnu

@@ -1,4 +1,4 @@
-use std::{fmt::Write, str::FromStr};
+use std::{borrow::Cow, fmt::Write, str::FromStr};
 
 use semver::VersionReq;
 
@@ -300,12 +300,20 @@ impl<'de> serde::Deserialize<'de> for NamedPackageIdent {
 }
 
 impl schemars::JsonSchema for NamedPackageIdent {
-    fn schema_name() -> String {
-        "NamedPackageIdent".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("NamedPackageIdent")
     }
 
-    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(r#gen)
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        String::json_schema(generator)
+    }
+
+    fn inline_schema() -> bool {
+        false
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        Self::schema_name()
     }
 }
 

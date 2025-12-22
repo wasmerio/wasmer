@@ -3,7 +3,7 @@
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, get_abi},
-    config::{CompiledKind, LLVM},
+    config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
     translator::intrinsics::{Intrinsics, type_to_llvm, type_to_llvm_ptr},
@@ -20,11 +20,14 @@ use inkwell::{
 };
 use std::{cmp, convert::TryInto};
 use target_lexicon::BinaryFormat;
-use wasmer_compiler::types::{
-    function::FunctionBody,
-    module::CompileModuleInfo,
-    relocation::{Relocation, RelocationTarget},
-    section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
+use wasmer_compiler::{
+    misc::CompiledKind,
+    types::{
+        function::FunctionBody,
+        module::CompileModuleInfo,
+        relocation::{Relocation, RelocationTarget},
+        section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
+    },
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, LocalFunctionIndex, entity::PrimaryMap,
@@ -145,14 +148,6 @@ impl FuncTrampoline {
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
-
-        // -- Uncomment to enable dumping intermediate LLVM objects
-        //module
-        //    .print_to_file(format!(
-        //        "{}/obj_trmpl.ll",
-        //        std::env!("LLVM_EH_TESTS_DUMP_DIR")
-        //    ))
-        //    .unwrap();
         Ok(module)
     }
 

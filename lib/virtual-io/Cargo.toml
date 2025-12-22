@@ -12,14 +12,14 @@ rust-version.workspace = true
 [dependencies]
 thiserror.workspace = true
 bytes.workspace = true
-async-trait = { workspace = true }
+async-trait.workspace = true
 tracing.workspace = true
 
 mio = { workspace = true, features = ["os-poll"], optional = true }
 socket2 = { workspace = true, optional = true }
-futures = { version = "0.3" }
+futures.workspace = true
 serde = { workspace = true, default-features = false, features = ["derive"] }
-parking = "2.2"
+parking.workspace = true
 
 [dev-dependencies]
 mio = { workspace = true, features = ["os-poll", "os-ext"] }

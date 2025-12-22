@@ -3,21 +3,34 @@
 pub(crate) mod env;
 pub(crate) mod typed;
 
+#[cfg(feature = "experimental-async")]
+use crate::{
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync,
+    entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
+    sys::{
+        async_runtime::{AsyncRuntimeError, block_on_host_future, call_function_async},
+        function::env::AsyncFunctionEnvMutStore,
+    },
+};
 use crate::{
     BackendFunction, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
-    StoreInner, Value, WithEnv, WithoutEnv,
+    StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     vm::{VMExtern, VMExternFunction},
 };
 use std::panic::{self, AssertUnwindSafe};
-use std::{cell::UnsafeCell, cmp::max, error::Error, ffi::c_void};
-use wasmer_types::{NativeWasmType, RawValue};
+use std::{
+    cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, marker::PhantomData,
+    pin::Pin, sync::Arc,
+};
+use wasmer_types::{NativeWasmType, RawValue, StoreId};
 use wasmer_vm::{
-    MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
-    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline,
+    MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
+    VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext,
+    VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap, raise_user_trap, resume_panic,
+    wasmer_call_trampoline,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -50,48 +63,38 @@ impl Function {
         let function_type = ty.into();
         let func_ty = function_type.clone();
         let func_env = env.clone().into_sys();
-        let raw_store = store.as_store_mut().as_raw() as *mut u8;
-        let wrapper = move |values_vec: *mut RawValue| -> Result<(), RuntimeError> {
+        let store_id = store.objects_mut().id();
+        let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
-                let mut store = StoreMut::from_raw(raw_store as *mut StoreInner);
+                let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                let mut store_mut = store_wrapper.as_mut();
                 let mut args = Vec::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
-                        &mut store,
+                        &mut store_mut,
                         *ty,
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
-                let store_mut = StoreMut::from_raw(raw_store as *mut StoreInner);
                 let env = env::FunctionEnvMut {
                     store_mut,
                     func_env: func_env.clone(),
                 }
                 .into();
-                let returns = func(env, &args)?;
-
-                // We need to dynamically check that the returns
-                // match the expected types, as well as expected length.
-                let return_types = returns.iter().map(|ret| ret.ty());
-                if return_types.ne(func_ty.results().iter().copied()) {
-                    return Err(RuntimeError::new(format!(
-                        "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
-                        func_ty.results(),
-                        returns.iter().map(|ret| ret.ty())
-                    )));
-                }
-                for (i, ret) in returns.iter().enumerate() {
-                    values_vec.add(i).write_unaligned(ret.as_raw(&store));
+                let sig = func_ty.clone();
+                let result = func(env, &args);
+                HostCallOutcome::Ready {
+                    func_ty: sig,
+                    result,
                 }
             }
-            Ok(())
         };
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
             ctx: DynamicFunction {
                 func: wrapper,
-                raw_store,
+                store_id,
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -101,7 +104,7 @@ impl Function {
         // generated dynamic trampoline.
         let func_ptr = std::ptr::null() as VMFunctionCallback;
         let type_index = store
-            .as_store_mut()
+            .as_store_ref()
             .engine()
             .as_sys()
             .register_signature(&function_type);
@@ -123,7 +126,122 @@ impl Function {
             host_data,
         };
         Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), vm_function),
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+        }
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    {
+        let env = FunctionEnv::new(store, ());
+        let wrapped = move |_env: AsyncFunctionEnvMut<()>, values: &[Value]| func(values);
+        Self::new_with_env_async(store, &env, ty, wrapped)
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_with_env_async<FT, F, Fut, T: 'static>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    {
+        let function_type = ty.into();
+        let func_ty = function_type.clone();
+        let func_env = env.clone().into_sys();
+        let store_id = store.objects_mut().id();
+        let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
+            unsafe {
+                let mut context = StoreContext::try_get_current_async(store_id);
+                let mut store_mut = match &mut context {
+                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => StoreMut {
+                        inner: wrapper.guard.as_mut().unwrap(),
+                    },
+                    crate::GetStoreAsyncGuardResult::NotAsync(ptr) => ptr.as_mut(),
+                    crate::GetStoreAsyncGuardResult::NotInstalled => {
+                        panic!("No store context installed on this thread")
+                    }
+                };
+                let id = store_mut.as_store_ref().objects().id();
+                let mut args = Vec::with_capacity(func_ty.params().len());
+
+                for (i, ty) in func_ty.params().iter().enumerate() {
+                    args.push(Value::from_raw(
+                        &mut store_mut,
+                        *ty,
+                        values_vec.add(i).read_unaligned(),
+                    ));
+                }
+                let store_async = match context {
+                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
+                        AsyncFunctionEnvMutStore::Async(StoreAsync {
+                            id,
+                            inner: crate::LocalRwLockWriteGuard::lock_handle(
+                                wrapper.guard.as_mut().unwrap(),
+                            ),
+                        })
+                    }
+                    crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {
+                        AsyncFunctionEnvMutStore::Sync(ptr)
+                    }
+                    crate::GetStoreAsyncGuardResult::NotInstalled => unreachable!(),
+                };
+                let env = crate::AsyncFunctionEnvMut(crate::BackendAsyncFunctionEnvMut::Sys(
+                    env::AsyncFunctionEnvMut {
+                        store: store_async,
+                        func_env: func_env.clone(),
+                    },
+                ));
+                let sig = func_ty.clone();
+                let future = func(env, &args);
+                HostCallOutcome::Future {
+                    func_ty: sig,
+                    future: Box::pin(future),
+                }
+            }
+        };
+        let mut host_data = Box::new(VMDynamicFunctionContext {
+            address: std::ptr::null(),
+            ctx: DynamicFunction {
+                func: wrapper,
+                store_id,
+            },
+        });
+        host_data.address = host_data.ctx.func_body_ptr();
+
+        let func_ptr = std::ptr::null() as VMFunctionCallback;
+        let type_index = store
+            .as_store_ref()
+            .engine()
+            .as_sys()
+            .register_signature(&function_type);
+        let vmctx = VMFunctionContext {
+            host_env: host_data.as_ref() as *const _ as *mut c_void,
+        };
+        let call_trampoline = host_data.ctx.call_trampoline_address();
+        let anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr,
+            type_index,
+            vmctx,
+            call_trampoline,
+        };
+
+        let vm_function = VMFunction {
+            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+            kind: VMFunctionKind::Dynamic,
+            signature: function_type,
+            host_data,
+        };
+        Self {
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
         }
     }
 
@@ -137,14 +255,14 @@ impl Function {
         let env = FunctionEnv::new(store, ());
         let func_ptr = func.function_callback_sys().into_sys();
         let host_data = Box::new(StaticFunction {
-            raw_store: store.as_store_mut().as_raw() as *mut u8,
+            store_id: store.objects_mut().id(),
             env,
             func,
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
         let type_index = store
-            .as_store_mut()
+            .as_store_ref()
             .engine()
             .as_sys()
             .register_signature(&function_type);
@@ -167,8 +285,115 @@ impl Function {
             host_data,
         };
         Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), vm_function),
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
         }
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
+    {
+        let env = FunctionEnv::new(store, ());
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(
+            store,
+            &env,
+            signature,
+            move |mut env_mut,
+                  values|
+                  -> Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>> {
+                let sys_env = match env_mut.0 {
+                    BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
+                    _ => panic!("Not a sys backend"),
+                };
+                let mut store_mut_wrapper =
+                    unsafe { StoreContext::get_current(sys_env.store_id()) };
+                let mut store_mut = store_mut_wrapper.as_mut();
+                let args_sig = args_sig.clone();
+                let results_sig = results_sig.clone();
+                let func = func.clone();
+                let args =
+                    match typed_args_from_values::<Args>(&mut store_mut, args_sig.as_ref(), values)
+                    {
+                        Ok(args) => args,
+                        Err(err) => return Box::pin(async { Err(err) }),
+                    };
+                drop(store_mut_wrapper);
+                let future = func.as_ref().call_async(AsyncFunctionEnv::new(), args);
+                Box::pin(async move {
+                    let typed_result = future.await?;
+                    let mut store_mut = env_mut.write().await;
+                    typed_results_to_values::<Rets>(
+                        &mut store_mut.as_store_mut(),
+                        results_sig.as_ref(),
+                        typed_result,
+                    )
+                })
+            },
+        )
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_typed_with_env_async<T, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        T: 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + 'static,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+    {
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(
+            store,
+            env,
+            signature,
+            move |mut env_mut,
+                  values|
+                  -> Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>> {
+                let sys_env = match env_mut.0 {
+                    BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
+                    _ => panic!("Not a sys backend"),
+                };
+                let mut store_mut_wrapper =
+                    unsafe { StoreContext::get_current(sys_env.store_id()) };
+                let mut store_mut = store_mut_wrapper.as_mut();
+                let args_sig = args_sig.clone();
+                let results_sig = results_sig.clone();
+                let func = func.clone();
+                let args =
+                    match typed_args_from_values::<Args>(&mut store_mut, args_sig.as_ref(), values)
+                    {
+                        Ok(args) => args,
+                        Err(err) => return Box::pin(async { Err(err) }),
+                    };
+                drop(store_mut_wrapper);
+                let env_mut_clone = env_mut.as_mut();
+                let future = func
+                    .as_ref()
+                    .call_async(AsyncFunctionEnv::with_env(env_mut), args);
+                Box::pin(async move {
+                    let typed_result = future.await?;
+                    let mut store_mut = env_mut_clone.write().await;
+                    typed_results_to_values::<Rets>(
+                        &mut store_mut.as_store_mut(),
+                        results_sig.as_ref(),
+                        typed_result,
+                    )
+                })
+            },
+        )
     }
 
     pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
@@ -183,14 +408,14 @@ impl Function {
     {
         let func_ptr = func.function_callback_sys().into_sys();
         let host_data = Box::new(StaticFunction {
-            raw_store: store.as_store_mut().as_raw() as *mut u8,
+            store_id: store.objects_mut().id(),
             env: env.as_sys().clone().into(),
             func,
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
         let type_index = store
-            .as_store_mut()
+            .as_store_ref()
             .engine()
             .as_sys()
             .register_signature(&function_type);
@@ -213,7 +438,7 @@ impl Function {
             host_data,
         };
         Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), vm_function),
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
         }
     }
 
@@ -287,15 +512,25 @@ impl Function {
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
         let result = {
+            let store_id = store.objects_mut().id();
+            // Safety: the store context is uninstalled before we return, and the
+            // store mut is valid for the duration of the call.
+            let store_install_guard =
+                unsafe { StoreContext::ensure_installed(store.as_store_mut().inner as *mut _) };
+
             let mut r;
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
                 let storeref = store.as_store_ref();
                 let vm_function = self.handle.get(storeref.objects().as_sys());
                 let config = storeref.engine().tunables().vmconfig();
+                let signal_handler = storeref.signal_handler();
                 r = unsafe {
+                    // Safety: This is the intended use-case for StoreContext::pause, as
+                    // documented in the function's doc comments.
+                    let pause_guard = StoreContext::pause(store_id);
                     wasmer_call_trampoline(
-                        store.as_store_ref().signal_handler(),
+                        signal_handler,
                         config,
                         vm_function.anyfunc.as_ptr().as_ref().vmctx,
                         trampoline,
@@ -320,8 +555,12 @@ impl Function {
                 }
                 break;
             }
+
+            drop(store_install_guard);
+
             r
         };
+
         if let Err(error) = result {
             return Err(error.into());
         }
@@ -348,7 +587,7 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
-                .get(store.as_store_ref().objects().as_sys())
+                .get(store.objects_mut().as_sys())
                 .anyfunc
                 .as_ptr()
                 .as_ref()
@@ -357,6 +596,18 @@ impl Function {
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm(store, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
+    }
+
+    #[cfg(feature = "experimental-async")]
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn call_async(
+        &self,
+        store: &impl AsStoreAsync,
+        params: Vec<Value>,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'static>> {
+        let function = self.clone();
+        let store = store.store();
+        Box::pin(call_function_async(function, store, params))
     }
 
     #[doc(hidden)]
@@ -368,7 +619,7 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
-                .get(store.as_store_ref().objects().as_sys())
+                .get(store.objects_mut().as_sys())
                 .anyfunc
                 .as_ptr()
                 .as_ref()
@@ -391,7 +642,7 @@ impl Function {
         let signature = {
             let anyfunc = unsafe { funcref.0.as_ref() };
             store
-                .as_store_ref()
+                .as_store_mut()
                 .engine()
                 .as_sys()
                 .lookup_signature(anyfunc.type_index)
@@ -413,10 +664,7 @@ impl Function {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(
-                    store.as_store_ref().objects().id(),
-                    vm_extern.into_sys(),
-                )
+                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.into_sys())
             },
         }
     }
@@ -440,6 +688,7 @@ enum InvocationResult<T, E> {
     Success(T),
     Exception(crate::Exception),
     Trap(Box<E>),
+    YieldOutsideAsyncContext,
 }
 
 fn to_invocation_result<T, E>(result: Result<T, E>) -> InvocationResult<T, E>
@@ -460,15 +709,111 @@ where
     }
 }
 
+fn write_dynamic_results(
+    store_id: StoreId,
+    func_ty: &FunctionType,
+    returns: Vec<Value>,
+    values_vec: *mut RawValue,
+) -> Result<(), RuntimeError> {
+    let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+    let mut store = store_wrapper.as_mut();
+    let return_types = returns.iter().map(|ret| ret.ty());
+    if return_types.ne(func_ty.results().iter().copied()) {
+        return Err(RuntimeError::new(format!(
+            "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
+            func_ty.results(),
+            returns.iter().map(|ret| ret.ty())
+        )));
+    }
+    for (i, ret) in returns.iter().enumerate() {
+        unsafe {
+            values_vec.add(i).write_unaligned(ret.as_raw(&store));
+        }
+    }
+    Ok(())
+}
+
+fn finalize_dynamic_call(
+    store_id: StoreId,
+    func_ty: FunctionType,
+    values_vec: *mut RawValue,
+    result: Result<Vec<Value>, RuntimeError>,
+) -> Result<(), RuntimeError> {
+    match result {
+        Ok(values) => write_dynamic_results(store_id, &func_ty, values, values_vec),
+        Err(err) => Err(err),
+    }
+}
+
+fn typed_args_from_values<Args>(
+    store: &mut StoreMut,
+    func_ty: &FunctionType,
+    values: &[Value],
+) -> Result<Args, RuntimeError>
+where
+    Args: WasmTypeList,
+{
+    if values.len() != func_ty.params().len() {
+        return Err(RuntimeError::new(
+            "typed host function received wrong number of parameters",
+        ));
+    }
+    let mut raw_array = Args::empty_array();
+    for ((slot, value), expected_ty) in raw_array
+        .as_mut()
+        .iter_mut()
+        .zip(values.iter())
+        .zip(func_ty.params().iter())
+    {
+        debug_assert_eq!(
+            value.ty(),
+            *expected_ty,
+            "wasm should only call host functions with matching signatures"
+        );
+        *slot = value.as_raw(store);
+    }
+    unsafe { Ok(Args::from_array(store, raw_array)) }
+}
+
+fn typed_results_to_values<Rets>(
+    store: &mut StoreMut,
+    func_ty: &FunctionType,
+    rets: Rets,
+) -> Result<Vec<Value>, RuntimeError>
+where
+    Rets: WasmTypeList,
+{
+    let mut raw_array = unsafe { rets.into_array(store) };
+    let mut values = Vec::with_capacity(func_ty.results().len());
+    for (raw, ty) in raw_array.as_mut().iter().zip(func_ty.results().iter()) {
+        unsafe {
+            values.push(Value::from_raw(store, *ty, *raw));
+        }
+    }
+    Ok(values)
+}
+
+pub(crate) enum HostCallOutcome {
+    Ready {
+        func_ty: FunctionType,
+        result: Result<Vec<Value>, RuntimeError>,
+    },
+    #[cfg(feature = "experimental-async")]
+    Future {
+        func_ty: FunctionType,
+        future: Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>>,
+    },
+}
+
 /// Host state for a dynamic function.
 pub(crate) struct DynamicFunction<F> {
     func: F,
-    raw_store: *mut u8,
+    store_id: StoreId,
 }
 
 impl<F> DynamicFunction<F>
 where
-    F: Fn(*mut RawValue) -> Result<(), RuntimeError> + 'static,
+    F: Fn(*mut RawValue) -> HostCallOutcome + 'static,
 {
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
@@ -477,8 +822,27 @@ where
         values_vec: *mut RawValue,
     ) {
         let result = on_host_stack(|| {
-            panic::catch_unwind(AssertUnwindSafe(|| {
-                to_invocation_result((this.ctx.func)(values_vec))
+            panic::catch_unwind(AssertUnwindSafe(|| match (this.ctx.func)(values_vec) {
+                HostCallOutcome::Ready { func_ty, result } => to_invocation_result(
+                    finalize_dynamic_call(this.ctx.store_id, func_ty, values_vec, result),
+                ),
+                #[cfg(feature = "experimental-async")]
+                HostCallOutcome::Future { func_ty, future } => {
+                    let awaited = block_on_host_future(future);
+                    let result = match awaited {
+                        Ok(value) => Ok(value),
+                        Err(AsyncRuntimeError::RuntimeError(e)) => Err(e),
+                        Err(AsyncRuntimeError::YieldOutsideAsyncContext) => {
+                            return InvocationResult::YieldOutsideAsyncContext;
+                        }
+                    };
+                    to_invocation_result(finalize_dynamic_call(
+                        this.ctx.store_id,
+                        func_ty,
+                        values_vec,
+                        result,
+                    ))
+                }
             }))
         });
 
@@ -488,13 +852,20 @@ where
         match result {
             Ok(InvocationResult::Success(())) => {}
             Ok(InvocationResult::Exception(exception)) => unsafe {
-                let store = StoreMut::from_raw(this.ctx.raw_store as *mut _);
+                // Note: can't acquire a proper ref-counted context ref here, since we can switch
+                // away from the WASM stack at any time.
+                // Safety: The pointer is only used for the duration of the call to `throw`.
+                let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
+                let mut store = store_wrapper.as_mut().unwrap();
                 wasmer_vm::libcalls::throw(
-                    store.as_store_ref().objects().as_sys(),
+                    store.objects.as_sys(),
                     exception.vm_exceptionref().as_sys().to_u32_exnref(),
                 )
             },
             Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+            Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
+                raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
+            },
             Err(panic) => unsafe { resume_panic(panic) },
         }
     }
@@ -525,7 +896,7 @@ where
 /// [`crate::Function::new_typed`] and
 /// [`crate::Function::new_typed_with_env`] to learn more.
 pub(crate) struct StaticFunction<F, T> {
-    pub(crate) raw_store: *mut u8,
+    pub(crate) store_id: StoreId,
     pub(crate) env: FunctionEnv<T>,
     pub(crate) func: F,
 }
@@ -573,9 +944,10 @@ macro_rules! impl_host_function {
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
-                let mut store = unsafe { StoreMut::from_raw(env.raw_store as *mut _) };
                 let result = on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
+                        let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
+                        let mut store = store_wrapper.as_mut();
                         $(
                             let $x = unsafe {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
@@ -589,18 +961,29 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(InvocationResult::Success(result)) => {
-                        unsafe {
-                            return result.into_c_struct(&mut store);
-                        }
+                    Ok(InvocationResult::Success(result)) => unsafe {
+                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
+                        // away from the WASM stack at any time.
+                        // Safety: The pointer is only used for the duration of the call to `into_c_struct`.
+                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
+                        let mut store = store_wrapper.as_mut().unwrap();
+                        return result.into_c_struct(store);
                     },
                     Ok(InvocationResult::Exception(exception)) => unsafe {
+                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
+                        // away from the WASM stack at any time.
+                        // Safety: The pointer is only used for the duration of the call to `throw`.
+                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
+                        let mut store = store_wrapper.as_mut().unwrap();
                         wasmer_vm::libcalls::throw(
-                            store.as_store_ref().objects().as_sys(),
+                            store.objects.as_sys(),
                             exception.vm_exceptionref().as_sys().to_u32_exnref()
                         )
                     }
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+                    Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
+                        raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
+                    },
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
@@ -651,18 +1034,17 @@ macro_rules! impl_host_function {
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-
-                let mut store = unsafe { StoreMut::from_raw(env.raw_store as *mut _) };
                 let result = wasmer_vm::on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
+                        let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
+                        let mut store = store_wrapper.as_mut();
                         $(
                             let $x = unsafe {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
-                        let store_mut = unsafe { StoreMut::from_raw(env.raw_store as *mut _) };
                         let f_env = crate::backend::sys::function::env::FunctionEnvMut {
-                            store_mut,
+                            store_mut: store,
                             func_env: env.env.as_sys().clone(),
                         }.into();
                         to_invocation_result((env.func)(f_env, $($x),* ).into_result())
@@ -673,18 +1055,29 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(InvocationResult::Success(result)) => {
-                        unsafe {
-                            return result.into_c_struct(&mut store);
-                        }
+                    Ok(InvocationResult::Success(result)) => unsafe {
+                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
+                        // away from the WASM stack at any time.
+                        // Safety: The pointer is only used for the duration of the call to `into_c_struct`.
+                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
+                        let mut store = store_wrapper.as_mut().unwrap();
+                        return result.into_c_struct(store);
                     },
                     Ok(InvocationResult::Exception(exception)) => unsafe {
+                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
+                        // away from the WASM stack at any time.
+                        // Safety: The pointer is only used for the duration of the call to `throw`.
+                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
+                        let mut store = store_wrapper.as_mut().unwrap();
                         wasmer_vm::libcalls::throw(
-                            store.as_store_ref().objects().as_sys(),
+                            store.objects.as_sys(),
                             exception.vm_exceptionref().as_sys().to_u32_exnref()
                         )
                     }
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+                    Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
+                        raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
+                    },
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
             }

@@ -2,15 +2,19 @@ use crate::compiler::LLVMCompiler;
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
-    TargetTriple,
+    TargetMachineOptions, TargetTriple,
 };
 use itertools::Itertools;
+use std::fs::File;
+use std::io::{self, Write};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
+use wasmer_compiler::misc::{CompiledKind, function_kind_to_filename};
 use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 use wasmer_types::{
-    Features, FunctionType, LocalFunctionIndex,
+    Features,
     target::{Architecture, OperatingSystem, Target, Triple},
 };
 
@@ -20,25 +24,50 @@ pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 /// The InkWell MemoryBuffer type
 pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
 
-/// The compiled function kind, used for debugging in the `LLVMCallbacks`.
+/// Callbacks to the different LLVM compilation phases.
 #[derive(Debug, Clone)]
-pub enum CompiledKind {
-    // A locally-defined function in the Wasm file.
-    Local(LocalFunctionIndex),
-    // A function call trampoline for a given signature.
-    FunctionCallTrampoline(FunctionType),
-    // A dynamic function trampoline for a given signature.
-    DynamicFunctionTrampoline(FunctionType),
-    // An entire Wasm module.
-    Module,
+pub struct LLVMCallbacks {
+    debug_dir: PathBuf,
 }
 
-/// Callbacks to the different LLVM compilation phases.
-pub trait LLVMCallbacks: Debug + Send + Sync {
-    fn preopt_ir(&self, function: &CompiledKind, module: &InkwellModule);
-    fn postopt_ir(&self, function: &CompiledKind, module: &InkwellModule);
-    fn obj_memory_buffer(&self, function: &CompiledKind, memory_buffer: &InkwellMemoryBuffer);
-    fn asm_memory_buffer(&self, function: &CompiledKind, memory_buffer: &InkwellMemoryBuffer);
+impl LLVMCallbacks {
+    pub fn new(debug_dir: PathBuf) -> Result<Self, io::Error> {
+        // Create the debug dir in case it doesn't exist
+        std::fs::create_dir_all(&debug_dir)?;
+        Ok(Self { debug_dir })
+    }
+
+    pub fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".preopt.ll"));
+        module
+            .print_to_file(&path)
+            .expect("Error while dumping pre optimized LLVM IR");
+    }
+    pub fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".postopt.ll"));
+        module
+            .print_to_file(&path)
+            .expect("Error while dumping post optimized LLVM IR");
+    }
+    pub fn obj_memory_buffer(&self, kind: &CompiledKind, memory_buffer: &InkwellMemoryBuffer) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".o"));
+        let mem_buf_slice = memory_buffer.as_slice();
+        let mut file =
+            File::create(path).expect("Error while creating debug object file from LLVM IR");
+        file.write_all(mem_buf_slice).unwrap();
+    }
+
+    pub fn asm_memory_buffer(&self, kind: &CompiledKind, asm_memory_buffer: &InkwellMemoryBuffer) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".s"));
+        let mem_buf_slice = asm_memory_buffer.as_slice();
+        let mut file =
+            File::create(path).expect("Error while creating debug assembly file from LLVM IR");
+        file.write_all(mem_buf_slice).unwrap();
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +78,7 @@ pub struct LLVM {
     pub(crate) enable_perfmap: bool,
     pub(crate) opt_level: LLVMOptLevel,
     is_pic: bool,
-    pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
+    pub(crate) callbacks: Option<LLVMCallbacks>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     /// Number of threads to use when compiling a module.
@@ -94,7 +123,7 @@ impl LLVM {
 
     /// Callbacks that will triggered in the different compilation
     /// phases in LLVM.
-    pub fn callbacks(&mut self, callbacks: Option<Arc<dyn LLVMCallbacks>>) -> &mut Self {
+    pub fn callbacks(&mut self, callbacks: Option<LLVMCallbacks>) -> &mut Self {
         self.callbacks = callbacks;
         self
     }
@@ -246,66 +275,29 @@ impl LLVM {
 
         let target_triple = self.target_triple(target);
         let llvm_target = InkwellTarget::from_triple(&target_triple).unwrap();
-        let llvm_target_machine = llvm_target
-            .create_target_machine(
-                &target_triple,
-                match triple.architecture {
-                    Architecture::Riscv64(_) => "generic-rv64",
-                    Architecture::LoongArch64 => "generic-la64",
-                    _ => "generic",
-                },
-                match triple.architecture {
-                    Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
-                    Architecture::LoongArch64 => "+f,+d",
-                    _ => &llvm_cpu_features,
-                },
-                self.opt_level,
-                self.reloc_mode(self.target_binary_format(target)),
-                match triple.architecture {
-                    Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
-                    _ => self.code_model(self.target_binary_format(target)),
-                },
-            )
-            .unwrap();
-
+        let mut llvm_target_machine_options = TargetMachineOptions::new()
+            .set_cpu(match triple.architecture {
+                Architecture::Riscv64(_) => "generic-rv64",
+                Architecture::LoongArch64 => "generic-la64",
+                _ => "generic",
+            })
+            .set_features(match triple.architecture {
+                Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
+                Architecture::LoongArch64 => "+f,+d",
+                _ => &llvm_cpu_features,
+            })
+            .set_level(self.opt_level)
+            .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
+            .set_code_model(match triple.architecture {
+                Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
+                _ => self.code_model(self.target_binary_format(target)),
+            });
         if let Architecture::Riscv64(_) = triple.architecture {
-            // TODO: totally non-portable way to change ABI
-            unsafe {
-                // This structure mimic the internal structure from inkwell
-                // that is defined as
-                //  #[derive(Debug)]
-                //  pub struct TargetMachine {
-                //    pub(crate) target_machine: LLVMTargetMachineRef,
-                //  }
-                pub struct MyTargetMachine {
-                    pub target_machine: *const u8,
-                }
-                // It is use to live patch the create LLVMTargetMachine
-                // to hard change the ABI and force "-mabi=lp64d" ABI
-                // instead of the default that don't use float registers
-                // because there is no current way to do this change
-
-                let my_target_machine: MyTargetMachine = std::mem::transmute(llvm_target_machine);
-
-                #[cfg(target_arch = "riscv64")]
-                let target_machine_ptr = my_target_machine.target_machine as *mut u8;
-                #[cfg(not(target_arch = "riscv64"))]
-                let target_machine_ptr = my_target_machine.target_machine as *mut i8;
-
-                *(target_machine_ptr.offset(0x410) as *mut u64) = 5;
-                std::ptr::copy_nonoverlapping(
-                    c"lp64d".as_ptr(),
-                    target_machine_ptr.offset(0x418),
-                    6,
-                );
-
-                std::mem::transmute::<MyTargetMachine, inkwell::targets::TargetMachine>(
-                    my_target_machine,
-                )
-            }
-        } else {
-            llvm_target_machine
+            llvm_target_machine_options = llvm_target_machine_options.set_abi("lp64d");
         }
+        llvm_target
+            .create_target_machine_from_options(&target_triple, llvm_target_machine_options)
+            .unwrap()
     }
 }
 

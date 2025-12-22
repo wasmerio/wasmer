@@ -1,4 +1,5 @@
 //! This file is mainly to assure specific issues are working well
+
 use anyhow::{Context, Result};
 use itertools::Itertools;
 use wasmer::FunctionEnv;
@@ -586,4 +587,25 @@ fn huge_number_of_arguments_fn(
     }
 
     Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn compiler_debug_dir_test(mut config: crate::Config) {
+    use tempfile::TempDir;
+    use wasmer_compiler::EngineBuilder;
+    use wasmer_compiler_llvm::LLVMCallbacks;
+
+    let mut compiler_config = wasmer_compiler_llvm::LLVM::default();
+    let temp = TempDir::new().expect("temp folder creation failed");
+    compiler_config.callbacks(Some(LLVMCallbacks::new(temp.path().to_path_buf()).unwrap()));
+    let mut store = Store::new(EngineBuilder::new(compiler_config));
+
+    let mut wat = include_str!("../wast/spec/fac.wast").to_string();
+    wat.truncate(
+        wat.find("(assert_return")
+            .expect("assert expected in the test"),
+    );
+
+    assert!(Module::new(&store, wat).is_ok());
 }

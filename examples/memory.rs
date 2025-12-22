@@ -71,7 +71,9 @@ fn main() -> anyhow::Result<()> {
     // These function will be used later in this example.
     let mem_size: TypedFunction<(), i32> =
         instance.exports.get_typed_function(&store, "mem_size")?;
+    #[cfg(not(feature = "wamr"))]
     let get_at: TypedFunction<i32, i32> = instance.exports.get_typed_function(&store, "get_at")?;
+    #[cfg(not(feature = "wamr"))]
     let set_at: TypedFunction<(i32, i32), ()> =
         instance.exports.get_typed_function(&store, "set_at")?;
     let memory = instance.exports.get_memory("memory")?;
@@ -97,7 +99,7 @@ fn main() -> anyhow::Result<()> {
     let result = mem_size.call(&mut store)?;
 
     let memory_view = memory.view(&store);
-    println!("Memory size: {:?}", result);
+    println!("Memory size: {result:?}");
     assert_eq!(Pages::from(result as u32), memory_view.size());
 
     // Now that we know the size of our memory, it's time to see how wa

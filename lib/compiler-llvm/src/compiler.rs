@@ -1,4 +1,3 @@
-use crate::CompiledKind;
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
@@ -13,6 +12,7 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use wasmer_compiler::misc::CompiledKind;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
@@ -194,6 +194,7 @@ impl LLVMCompiler {
                     &compile_info.memory_styles,
                     &compile_info.table_styles,
                     symbol_registry,
+                    target.triple(),
                 )?;
 
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
@@ -410,6 +411,7 @@ impl Compiler for LLVMCompiler {
                                 memory_styles,
                                 table_styles,
                                 &symbol_registry,
+                                target.triple(),
                             )
                         },
                     )
@@ -436,6 +438,7 @@ impl Compiler for LLVMCompiler {
                         memory_styles,
                         table_styles,
                         &symbol_registry,
+                        target.triple(),
                     )
                 })
                 .collect::<Result<Vec<_>, CompileError>>()?

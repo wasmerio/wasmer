@@ -15,7 +15,7 @@ use wasmer_types::{CompileError, target::CpuFeature};
 /// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 /// is always equal to host, even when cross-compiling.
 macro_rules! dynasm {
-    ($a:expr_2021 ; $($tt:tt)*) => {
+    ($a:expr ; $($tt:tt)*) => {
         dynasm::dynasm!(
             $a.inner
             ; .arch x64
@@ -444,14 +444,6 @@ pub trait EmitterX64 {
         codegen_error!("singlepass arch_emit_tzcnt unimplemented")
     }
 
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        true
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        false
-    }
-
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
         _loc: Location,
@@ -472,7 +464,7 @@ pub trait EmitterX64 {
 }
 
 macro_rules! unop_gpr {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $loc:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
         match ($sz, $loc) {
             (Size::S32, Location::GPR(loc)) => {
                 dynasm!($assembler ; $ins Rd(loc));
@@ -486,7 +478,7 @@ macro_rules! unop_gpr {
 }
 
 macro_rules! unop_mem {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $loc:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
         match ($sz, $loc) {
             (Size::S32, Location::Memory(loc, disp)) => {
                 dynasm!($assembler ; $ins DWORD [Rq(loc) + disp] );
@@ -500,7 +492,7 @@ macro_rules! unop_mem {
 }
 
 macro_rules! unop_gpr_or_mem {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $loc:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
         unop_gpr!($ins, $assembler, $sz, $loc, {
             unop_mem!($ins, $assembler, $sz, $loc, $otherwise)
         })
@@ -508,7 +500,7 @@ macro_rules! unop_gpr_or_mem {
 }
 
 macro_rules! binop_imm32_gpr {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $src:expr_2021, $dst:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::Imm32(src), Location::GPR(dst)) => {
                 dynasm!($assembler ; $ins Rd(dst), src as i32); // IMM32_2GPR
@@ -522,7 +514,7 @@ macro_rules! binop_imm32_gpr {
 }
 
 macro_rules! binop_imm32_mem {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $src:expr_2021, $dst:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::Imm32(src), Location::Memory(dst, disp)) => {
                 dynasm!($assembler ; $ins DWORD [Rq(dst) + disp], src as i32);
@@ -536,7 +528,7 @@ macro_rules! binop_imm32_mem {
 }
 
 macro_rules! binop_imm64_gpr {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $src:expr_2021, $dst:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S64, Location::Imm64(src), Location::GPR(dst)) => {
                 dynasm!($assembler ; $ins Rq(dst), QWORD src as i64); // IMM32_2GPR
@@ -547,7 +539,7 @@ macro_rules! binop_imm64_gpr {
 }
 
 macro_rules! binop_gpr_gpr {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $src:expr_2021, $dst:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
                 dynasm!($assembler ; $ins Rd(dst), Rd(src)); // GPR2GPR
@@ -561,7 +553,7 @@ macro_rules! binop_gpr_gpr {
 }
 
 macro_rules! binop_gpr_mem {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $src:expr_2021, $dst:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) => {
                 dynasm!($assembler ; $ins [Rq(dst) + disp], Rd(src)); // GPR2MEM
@@ -575,7 +567,7 @@ macro_rules! binop_gpr_mem {
 }
 
 macro_rules! binop_mem_gpr {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $src:expr_2021, $dst:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!($assembler ; $ins Rd(dst), [Rq(src) + disp]); // MEM2GPR
@@ -589,7 +581,7 @@ macro_rules! binop_mem_gpr {
 }
 
 macro_rules! binop_all_nofp {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $src:expr_2021, $dst:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         binop_imm32_gpr!($ins, $assembler, $sz, $src, $dst, {
             binop_imm32_mem!($ins, $assembler, $sz, $src, $dst, {
                 binop_gpr_gpr!($ins, $assembler, $sz, $src, $dst, {
@@ -603,7 +595,7 @@ macro_rules! binop_all_nofp {
 }
 
 macro_rules! binop_shift {
-    ($ins:ident, $assembler:tt, $sz:expr_2021, $src:expr_2021, $dst:expr_2021, $otherwise:block) => {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::GPR(GPR::RCX), Location::GPR(dst)) => {
                 dynasm!($assembler ; $ins Rd(dst), cl);
@@ -735,7 +727,7 @@ macro_rules! avx_fn {
 }
 
 macro_rules! sse_fn {
-    ($ins:ident, $emitter:ident, $precision:expr_2021, $src1:ident, $src2:ident, $dst:ident) => {
+    ($ins:ident, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
             XMMOrMemory::XMM(x) => {
                 if x == $dst {
@@ -751,7 +743,7 @@ macro_rules! sse_fn {
             }
         }
     };
-    ($ins:ident, $mode:expr_2021, $emitter:ident, $precision:expr_2021, $src1:ident, $src2:ident, $dst:ident) => {
+    ($ins:ident, $mode:expr, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
             XMMOrMemory::XMM(x) => {
                 move_src_to_dst($emitter, $precision, $src1, $dst);
@@ -809,7 +801,7 @@ macro_rules! avx_i2f_64_fn {
 }
 
 macro_rules! sse_i2f_64_fn {
-    ($ins:ident, $emitter:ident, $precision:expr_2021, $src1:ident, $src2:ident, $dst:ident) => {
+    ($ins:ident, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
             GPROrMemory::GPR(x) => {
                 move_src_to_dst($emitter, $precision, $src1, $dst);
@@ -867,7 +859,7 @@ macro_rules! avx_i2f_32_fn {
 }
 
 macro_rules! sse_i2f_32_fn {
-    ($ins:ident, $emitter:ident, $precision:expr_2021, $src1:ident, $src2:ident, $dst:ident) => {
+    ($ins:ident, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
             GPROrMemory::GPR(x) => {
                 move_src_to_dst($emitter, $precision, $src1, $dst);
@@ -882,7 +874,7 @@ macro_rules! sse_i2f_32_fn {
 }
 
 macro_rules! avx_round_fn {
-    ($ins:ident, $mode:expr_2021, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
+    ($ins:ident, $mode:expr, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
             XMMOrMemory::XMM(x) => dynasm!($emitter ; $ins Rx($dst), Rx($src1), Rx(x), $mode),
             XMMOrMemory::Memory(base, disp) => dynasm!($emitter ; $ins Rx($dst), Rx($src1), [Rq(base) + disp], $mode),
@@ -891,7 +883,7 @@ macro_rules! avx_round_fn {
 }
 
 macro_rules! sse_round_fn {
-    ($ins:ident, $mode:expr_2021, $emitter:ident, $precision:expr_2021, $src1:ident, $src2:ident, $dst:ident) => {
+    ($ins:ident, $mode:expr, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
             XMMOrMemory::XMM(x) => {
                 if x != $dst {

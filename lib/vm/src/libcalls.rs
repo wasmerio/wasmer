@@ -48,7 +48,7 @@ use crate::{
 };
 use crate::{VMExceptionObj, probestack::PROBESTACK};
 use crate::{VMFuncRef, on_host_stack};
-pub use eh::{throw, wasmer_eh_personality};
+pub use eh::{throw, wasmer_eh_personality, wasmer_eh_personality2};
 pub use wasmer_types::LibCall;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, RawValue,
@@ -960,50 +960,58 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
 /// The function pointer to a libcall
 pub fn function_pointer(libcall: LibCall) -> usize {
     match libcall {
-        LibCall::CeilF32 => wasmer_vm_f32_ceil as usize,
-        LibCall::CeilF64 => wasmer_vm_f64_ceil as usize,
-        LibCall::FloorF32 => wasmer_vm_f32_floor as usize,
-        LibCall::FloorF64 => wasmer_vm_f64_floor as usize,
-        LibCall::NearestF32 => wasmer_vm_f32_nearest as usize,
-        LibCall::NearestF64 => wasmer_vm_f64_nearest as usize,
-        LibCall::TruncF32 => wasmer_vm_f32_trunc as usize,
-        LibCall::TruncF64 => wasmer_vm_f64_trunc as usize,
-        LibCall::Memory32Size => wasmer_vm_memory32_size as usize,
-        LibCall::ImportedMemory32Size => wasmer_vm_imported_memory32_size as usize,
-        LibCall::TableCopy => wasmer_vm_table_copy as usize,
-        LibCall::TableInit => wasmer_vm_table_init as usize,
-        LibCall::TableFill => wasmer_vm_table_fill as usize,
-        LibCall::TableSize => wasmer_vm_table_size as usize,
-        LibCall::ImportedTableSize => wasmer_vm_imported_table_size as usize,
-        LibCall::TableGet => wasmer_vm_table_get as usize,
-        LibCall::ImportedTableGet => wasmer_vm_imported_table_get as usize,
-        LibCall::TableSet => wasmer_vm_table_set as usize,
-        LibCall::ImportedTableSet => wasmer_vm_imported_table_set as usize,
-        LibCall::TableGrow => wasmer_vm_table_grow as usize,
-        LibCall::ImportedTableGrow => wasmer_vm_imported_table_grow as usize,
-        LibCall::FuncRef => wasmer_vm_func_ref as usize,
-        LibCall::ElemDrop => wasmer_vm_elem_drop as usize,
-        LibCall::Memory32Copy => wasmer_vm_memory32_copy as usize,
-        LibCall::ImportedMemory32Copy => wasmer_vm_imported_memory32_copy as usize,
-        LibCall::Memory32Fill => wasmer_vm_memory32_fill as usize,
-        LibCall::ImportedMemory32Fill => wasmer_vm_imported_memory32_fill as usize,
-        LibCall::Memory32Init => wasmer_vm_memory32_init as usize,
-        LibCall::DataDrop => wasmer_vm_data_drop as usize,
-        LibCall::Probestack => WASMER_VM_PROBESTACK as usize,
-        LibCall::RaiseTrap => wasmer_vm_raise_trap as usize,
-        LibCall::Memory32AtomicWait32 => wasmer_vm_memory32_atomic_wait32 as usize,
-        LibCall::ImportedMemory32AtomicWait32 => wasmer_vm_imported_memory32_atomic_wait32 as usize,
-        LibCall::Memory32AtomicWait64 => wasmer_vm_memory32_atomic_wait64 as usize,
-        LibCall::ImportedMemory32AtomicWait64 => wasmer_vm_imported_memory32_atomic_wait64 as usize,
-        LibCall::Memory32AtomicNotify => wasmer_vm_memory32_atomic_notify as usize,
-        LibCall::ImportedMemory32AtomicNotify => wasmer_vm_imported_memory32_atomic_notify as usize,
-        LibCall::Throw => wasmer_vm_throw as usize,
-        LibCall::EHPersonality => eh::wasmer_eh_personality as usize,
-        LibCall::EHPersonality2 => eh::wasmer_eh_personality2 as usize,
-        LibCall::AllocException => wasmer_vm_alloc_exception as usize,
-        LibCall::ReadExnRef => wasmer_vm_read_exnref as usize,
-        LibCall::LibunwindExceptionIntoExnRef => wasmer_vm_exception_into_exnref as usize,
-        LibCall::DebugUsize => wasmer_vm_dbg_usize as usize,
-        LibCall::DebugStr => wasmer_vm_dbg_str as usize,
+        LibCall::CeilF32 => wasmer_vm_f32_ceil as *const () as usize,
+        LibCall::CeilF64 => wasmer_vm_f64_ceil as *const () as usize,
+        LibCall::FloorF32 => wasmer_vm_f32_floor as *const () as usize,
+        LibCall::FloorF64 => wasmer_vm_f64_floor as *const () as usize,
+        LibCall::NearestF32 => wasmer_vm_f32_nearest as *const () as usize,
+        LibCall::NearestF64 => wasmer_vm_f64_nearest as *const () as usize,
+        LibCall::TruncF32 => wasmer_vm_f32_trunc as *const () as usize,
+        LibCall::TruncF64 => wasmer_vm_f64_trunc as *const () as usize,
+        LibCall::Memory32Size => wasmer_vm_memory32_size as *const () as usize,
+        LibCall::ImportedMemory32Size => wasmer_vm_imported_memory32_size as *const () as usize,
+        LibCall::TableCopy => wasmer_vm_table_copy as *const () as usize,
+        LibCall::TableInit => wasmer_vm_table_init as *const () as usize,
+        LibCall::TableFill => wasmer_vm_table_fill as *const () as usize,
+        LibCall::TableSize => wasmer_vm_table_size as *const () as usize,
+        LibCall::ImportedTableSize => wasmer_vm_imported_table_size as *const () as usize,
+        LibCall::TableGet => wasmer_vm_table_get as *const () as usize,
+        LibCall::ImportedTableGet => wasmer_vm_imported_table_get as *const () as usize,
+        LibCall::TableSet => wasmer_vm_table_set as *const () as usize,
+        LibCall::ImportedTableSet => wasmer_vm_imported_table_set as *const () as usize,
+        LibCall::TableGrow => wasmer_vm_table_grow as *const () as usize,
+        LibCall::ImportedTableGrow => wasmer_vm_imported_table_grow as *const () as usize,
+        LibCall::FuncRef => wasmer_vm_func_ref as *const () as usize,
+        LibCall::ElemDrop => wasmer_vm_elem_drop as *const () as usize,
+        LibCall::Memory32Copy => wasmer_vm_memory32_copy as *const () as usize,
+        LibCall::ImportedMemory32Copy => wasmer_vm_imported_memory32_copy as *const () as usize,
+        LibCall::Memory32Fill => wasmer_vm_memory32_fill as *const () as usize,
+        LibCall::ImportedMemory32Fill => wasmer_vm_imported_memory32_fill as *const () as usize,
+        LibCall::Memory32Init => wasmer_vm_memory32_init as *const () as usize,
+        LibCall::DataDrop => wasmer_vm_data_drop as *const () as usize,
+        LibCall::Probestack => WASMER_VM_PROBESTACK as *const () as usize,
+        LibCall::RaiseTrap => wasmer_vm_raise_trap as *const () as usize,
+        LibCall::Memory32AtomicWait32 => wasmer_vm_memory32_atomic_wait32 as *const () as usize,
+        LibCall::ImportedMemory32AtomicWait32 => {
+            wasmer_vm_imported_memory32_atomic_wait32 as *const () as usize
+        }
+        LibCall::Memory32AtomicWait64 => wasmer_vm_memory32_atomic_wait64 as *const () as usize,
+        LibCall::ImportedMemory32AtomicWait64 => {
+            wasmer_vm_imported_memory32_atomic_wait64 as *const () as usize
+        }
+        LibCall::Memory32AtomicNotify => wasmer_vm_memory32_atomic_notify as *const () as usize,
+        LibCall::ImportedMemory32AtomicNotify => {
+            wasmer_vm_imported_memory32_atomic_notify as *const () as usize
+        }
+        LibCall::Throw => wasmer_vm_throw as *const () as usize,
+        LibCall::EHPersonality => eh::wasmer_eh_personality as *const () as usize,
+        LibCall::EHPersonality2 => eh::wasmer_eh_personality2 as *const () as usize,
+        LibCall::AllocException => wasmer_vm_alloc_exception as *const () as usize,
+        LibCall::ReadExnRef => wasmer_vm_read_exnref as *const () as usize,
+        LibCall::LibunwindExceptionIntoExnRef => {
+            wasmer_vm_exception_into_exnref as *const () as usize
+        }
+        LibCall::DebugUsize => wasmer_vm_dbg_usize as *const () as usize,
+        LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
     }
 }

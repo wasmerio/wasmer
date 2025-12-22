@@ -275,6 +275,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 }
 
 #[universal_test]
+#[allow(unused_attributes)]
 #[cfg_attr(feature = "wamr", ignore = "wamr does not support custom sections")]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support custom sections")]
 #[cfg_attr(feature = "v8", ignore = "v8 does not support custom sections")]

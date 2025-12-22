@@ -296,7 +296,6 @@ use super::{WasiModuleInstanceHandles, WasiState};
 pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(1);
 static INVALID_MODULE_HANDLE: ModuleHandle = ModuleHandle(u32::MAX);
 
-static MAIN_MODULE_MEMORY_BASE: u64 = 0;
 // Need to keep the zeroth index null to catch null function pointers at runtime
 static MAIN_MODULE_TABLE_BASE: u64 = 1;
 
@@ -516,8 +515,8 @@ pub enum LinkError {
     #[error("Failed to initialize WASI(X) module handles: {0}")]
     MainModuleHandleInitFailed(ExportError),
 
-    #[error("Dynamic function index {0} was not allocated via `allocate_function`")]
-    DynamicFunctionIndexNotAllocated(u32),
+    #[error("Bad __tls_base export, expected a global of type I32 or I64")]
+    BadTlsBaseExport,
 }
 
 #[derive(Debug)]
@@ -795,7 +794,7 @@ struct DlInstance {
 
 struct InstanceGroupState {
     main_instance: Option<Instance>,
-    main_instance_tls_base: u64,
+    main_instance_tls_base: Option<u64>,
 
     side_instances: HashMap<ModuleHandle, DlInstance>,
 
@@ -819,6 +818,7 @@ struct LinkerState {
 
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
+    main_module_memory_base: u64,
 
     // We used to have an issue where spawning instances out-of-order in new threads
     // would break globals. That has since been fixed. However, spawning in the same
@@ -1006,6 +1006,10 @@ impl Linker {
             "Indirect function table initial size"
         );
 
+        // Give modules a non-zero memory base, since we don't want
+        // any valid pointers to point to the zero address
+        let memory_base = 2u64.pow(dylink_section.mem_info.memory_alignment);
+
         let memory_type = main_module
             .imports()
             .memories()
@@ -1025,7 +1029,7 @@ impl Linker {
         };
 
         let stack_low = {
-            let data_end = dylink_section.mem_info.memory_size as u64;
+            let data_end = memory_base + dylink_section.mem_info.memory_size as u64;
             if !data_end.is_multiple_of(1024) {
                 data_end + 1024 - (data_end % 1024)
             } else {
@@ -1045,6 +1049,7 @@ impl Linker {
 
         trace!(
             memory_pages = ?memory.grow(store, 0).unwrap(),
+            memory_base,
             stack_low,
             stack_high,
             "Memory layout"
@@ -1069,9 +1074,9 @@ impl Linker {
 
         let mut instance_group = InstanceGroupState {
             main_instance: None,
-            // Every main instance's TLS area is at the start of its memory,
-            // which is 0 for the main module's main instance
-            main_instance_tls_base: MAIN_MODULE_MEMORY_BASE,
+            // The TLS base for the main instance is determined by reading the
+            // `__tls_base` global export from the instance after instantiation.
+            main_instance_tls_base: None,
             side_instances: HashMap::new(),
             stack_pointer,
             memory: memory.clone(),
@@ -1086,6 +1091,7 @@ impl Linker {
             engine,
             main_module: main_module.clone(),
             main_module_dylink_info: dylink_section,
+            main_module_memory_base: memory_base,
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
             next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
@@ -1101,7 +1107,7 @@ impl Linker {
         let mut link_state = InProgressLinkState::default();
 
         let well_known_imports = [
-            ("env", "__memory_base", MAIN_MODULE_MEMORY_BASE),
+            ("env", "__memory_base", memory_base),
             ("env", "__table_base", MAIN_MODULE_TABLE_BASE),
             ("GOT.mem", "__stack_high", stack_high),
             ("GOT.mem", "__stack_low", stack_low),
@@ -1136,6 +1142,9 @@ impl Linker {
         // stubs to main will be faster, but we need numbers before we decide this.
         let main_instance = Instance::new(store, main_module, &imports)?;
         instance_group.main_instance = Some(main_instance.clone());
+
+        let tls_base = get_tls_base_export(&main_instance, store)?;
+        instance_group.main_instance_tls_base = tls_base;
 
         let runtime_path = linker_state.main_module_dylink_info.runtime_path.clone();
         for needed in linker_state.main_module_dylink_info.needed.clone() {
@@ -1190,7 +1199,7 @@ impl Linker {
             stack_upper: stack_high,
             stack_size: stack_high - stack_low,
             guard_size: 0,
-            tls_base: Some(MAIN_MODULE_MEMORY_BASE),
+            tls_base,
         };
         let module_handles = WasiModuleTreeHandles::Dynamic {
             linker: linker.clone(),
@@ -1343,7 +1352,7 @@ impl Linker {
 
         let mut instance_group = InstanceGroupState {
             main_instance: None,
-            main_instance_tls_base: tls_base,
+            main_instance_tls_base: Some(tls_base),
             side_instances: HashMap::new(),
             stack_pointer,
             memory: memory.clone(),
@@ -1357,7 +1366,7 @@ impl Linker {
         let mut pending_resolutions = PendingResolutionsFromLinker::default();
 
         let well_known_imports = [
-            ("env", "__memory_base", MAIN_MODULE_MEMORY_BASE),
+            ("env", "__memory_base", linker_state.main_module_memory_base),
             ("env", "__table_base", MAIN_MODULE_TABLE_BASE),
             ("GOT.mem", "__stack_high", stack_high),
             ("GOT.mem", "__stack_low", stack_low),
@@ -2046,7 +2055,7 @@ impl LinkerState {
 
     fn memory_base(&self, module_handle: ModuleHandle) -> u64 {
         if module_handle == MAIN_MODULE_HANDLE {
-            MAIN_MODULE_MEMORY_BASE
+            self.main_module_memory_base
         } else {
             self.side_modules
                 .get(&module_handle)
@@ -2419,7 +2428,7 @@ impl InstanceGroupState {
     fn tls_base(&self, module_handle: ModuleHandle) -> Option<u64> {
         if module_handle == MAIN_MODULE_HANDLE {
             // Main's TLS area is at the beginning of its memory
-            Some(self.main_instance_tls_base)
+            self.main_instance_tls_base
         } else {
             self.side_instances
                 .get(&module_handle)
@@ -2622,12 +2631,15 @@ impl InstanceGroupState {
             table_base,
         };
 
+        let tls_base = get_tls_base_export(&instance, store)?;
+
         let dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
-            // The TLS area of a side module's main instance is at the beginning
-            // of its memory
-            tls_base: Some(memory_base),
+            // The TLS base of a side module's main instance is read from the module's
+            // `__tls_base` export via `get_tls_base_export`, and is not necessarily at the
+            // beginning of its memory.
+            tls_base,
         };
 
         linker_state.side_modules.insert(module_handle, dl_module);
@@ -3519,7 +3531,7 @@ impl InstanceGroupState {
                         instance,
                         &linker_state.main_module_dylink_info,
                         linker_state.memory_base(MAIN_MODULE_HANDLE),
-                        Some(self.main_instance_tls_base),
+                        self.main_instance_tls_base,
                         allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, MAIN_MODULE_HANDLE)),
@@ -4075,9 +4087,6 @@ pub fn is_dynamically_linked(module: &Module) -> bool {
     module.custom_sections("dylink.0").next().is_some()
 }
 
-// Need to parse the RUNPATH subsection manually until wasmparser adds support
-const WASM_DYLINK_RUNTIME_PATH: u8 = 5;
-
 pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let mut sections = module.custom_sections("dylink.0");
 
@@ -4104,39 +4113,24 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
             wasmparser::Dylink0Subsection::MemInfo(m) => {
                 mem_info = Some(m);
             }
-
             wasmparser::Dylink0Subsection::Needed(n) => {
                 needed = Some(n.iter().map(|s| s.to_string()).collect::<Vec<_>>());
             }
-
             wasmparser::Dylink0Subsection::ImportInfo(i) => {
                 for i in i {
                     import_metadata.insert((i.module.to_owned(), i.field.to_owned()), i.flags);
                 }
             }
-
             wasmparser::Dylink0Subsection::ExportInfo(e) => {
                 for e in e {
                     export_metadata.insert(e.name.to_owned(), e.flags);
                 }
             }
-
-            wasmparser::Dylink0Subsection::Unknown {
-                ty: WASM_DYLINK_RUNTIME_PATH,
-                data,
-                range,
-            } => {
-                let mut reader = wasmparser::BinaryReader::new(data, range.start);
-                runtime_path.extend(
-                    (0..reader.read_var_u32()?)
-                        .map(|_| reader.read_string().map(ToOwned::to_owned))
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter(),
-                )
-            }
-
             wasmparser::Dylink0Subsection::Unknown { ty, .. } => {
                 tracing::warn!("Skipping unknown dylink.0 subsection {ty}");
+            }
+            wasmparser::Dylink0Subsection::RuntimePath(path) => {
+                runtime_path.extend(path.into_iter().map(|path| path.to_string()));
             }
         }
     }
@@ -4247,6 +4241,21 @@ fn call_initialization_function<Ret: WasmTypeList>(
         Err(ExportError::IncompatibleType) => {
             Err(LinkError::InitFuncWithInvalidSignature(name.to_string()))
         }
+    }
+}
+
+fn get_tls_base_export(
+    instance: &Instance,
+    store: &mut impl AsStoreMut,
+) -> Result<Option<u64>, LinkError> {
+    match instance.exports.get_global("__tls_base") {
+        Ok(global) => match global.get(store) {
+            Value::I32(x) => Ok(Some(x as u64)),
+            Value::I64(x) => Ok(Some(x as u64)),
+            _ => Err(LinkError::BadTlsBaseExport),
+        },
+        Err(ExportError::Missing(_)) => Ok(None),
+        Err(ExportError::IncompatibleType) => Err(LinkError::BadTlsBaseExport),
     }
 }
 
