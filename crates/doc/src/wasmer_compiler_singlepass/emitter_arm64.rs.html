@@ -27,7 +27,7 @@
 <a href=#27 id=27 data-nosnippet>27</a>/// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 <a href=#28 id=28 data-nosnippet>28</a>/// is always equal to host, even when cross-compiling.
 <a href=#29 id=29 data-nosnippet>29</a></span><span class="macro">macro_rules!</span> dynasm {
-<a href=#30 id=30 data-nosnippet>30</a>    (<span class="macro-nonterminal">$a</span>:expr_2021 ; $(<span class="macro-nonterminal">$tt</span>:tt)<span class="kw-2">*</span>) =&gt; {
+<a href=#30 id=30 data-nosnippet>30</a>    (<span class="macro-nonterminal">$a</span>:expr ; $(<span class="macro-nonterminal">$tt</span>:tt)<span class="kw-2">*</span>) =&gt; {
 <a href=#31 id=31 data-nosnippet>31</a>        <span class="macro">dynasm::dynasm!</span>(
 <a href=#32 id=32 data-nosnippet>32</a>            <span class="macro-nonterminal">$a
 <a href=#33 id=33 data-nosnippet>33</a>            </span>; .arch aarch64

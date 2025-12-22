@@ -111,7 +111,7 @@
 <a href=#111 id=111 data-nosnippet>111</a>/// when we can statically determine that a Wasm access will unconditionally
 <a href=#112 id=112 data-nosnippet>112</a>/// trap.
 <a href=#113 id=113 data-nosnippet>113</a></span><span class="macro">macro_rules!</span> unwrap_or_return_unreachable_state {
-<a href=#114 id=114 data-nosnippet>114</a>    (<span class="macro-nonterminal">$state</span>:ident, <span class="macro-nonterminal">$value</span>:expr_2021) =&gt; {
+<a href=#114 id=114 data-nosnippet>114</a>    (<span class="macro-nonterminal">$state</span>:ident, <span class="macro-nonterminal">$value</span>:expr) =&gt; {
 <a href=#115 id=115 data-nosnippet>115</a>        <span class="kw">match </span><span class="macro-nonterminal">$value </span>{
 <a href=#116 id=116 data-nosnippet>116</a>            Reachability::Reachable(x) =&gt; x,
 <a href=#117 id=117 data-nosnippet>117</a>            Reachability::Unreachable =&gt; {

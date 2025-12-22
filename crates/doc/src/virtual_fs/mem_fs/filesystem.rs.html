@@ -1159,11 +1159,11 @@
 <a href=#1159 id=1159 data-nosnippet>1159</a>    <span class="kw">use crate</span>::{DirEntry, FileSystem <span class="kw">as </span>FS, FileType, FsError, mem_fs::<span class="kw-2">*</span>, ops};
 <a href=#1160 id=1160 data-nosnippet>1160</a>
 <a href=#1161 id=1161 data-nosnippet>1161</a>    <span class="macro">macro_rules!</span> path {
-<a href=#1162 id=1162 data-nosnippet>1162</a>        (<span class="macro-nonterminal">$path</span>:expr_2021) =&gt; {
+<a href=#1162 id=1162 data-nosnippet>1162</a>        (<span class="macro-nonterminal">$path</span>:expr) =&gt; {
 <a href=#1163 id=1163 data-nosnippet>1163</a>            std::path::Path::new(<span class="macro-nonterminal">$path</span>)
 <a href=#1164 id=1164 data-nosnippet>1164</a>        };
 <a href=#1165 id=1165 data-nosnippet>1165</a>
-<a href=#1166 id=1166 data-nosnippet>1166</a>        (buf <span class="macro-nonterminal">$path</span>:expr_2021) =&gt; {
+<a href=#1166 id=1166 data-nosnippet>1166</a>        (buf <span class="macro-nonterminal">$path</span>:expr) =&gt; {
 <a href=#1167 id=1167 data-nosnippet>1167</a>            std::path::PathBuf::from(<span class="macro-nonterminal">$path</span>)
 <a href=#1168 id=1168 data-nosnippet>1168</a>        };
 <a href=#1169 id=1169 data-nosnippet>1169</a>    }
