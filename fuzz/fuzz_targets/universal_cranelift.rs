@@ -1,7 +1,5 @@
 #![no_main]
 
-use core::error;
-
 use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
 use wasmer::{Instance, Module, Store, imports};
 use wasmer_compiler::CompilerConfig;
