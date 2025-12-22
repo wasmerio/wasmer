@@ -472,8 +472,11 @@ where
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_ADD32,
                     },
-                    32,
-                ) => RelocationKind::Add4,
+                    s,
+                ) => {
+                    dbg!(s);
+                    RelocationKind::Add4
+                }
                 (
                     object::Architecture::LoongArch64,
                     object::RelocationFlags::Elf {
