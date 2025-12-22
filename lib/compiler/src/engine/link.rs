@@ -410,6 +410,7 @@ fn apply_relocation(
                 u32::try_from(reloc_abs).unwrap().wrapping_add(value),
             );
         },
+        kind => panic!("Relocation kind unsupported in the current architecture: {kind}"),
     }
 }
 
