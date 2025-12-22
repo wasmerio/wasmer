@@ -66,7 +66,7 @@ jobs:
           sudo apt install -y libtinfo5
       - name: Install LLVM (Linux)
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz
           mkdir -p /opt/llvm-21
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-21
           echo '/opt/llvm-21/bin' >> $GITHUB_PATH
@@ -141,7 +141,7 @@ jobs:
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Install LLVM 21
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
@@ -174,34 +174,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git make lld curl
 
-      - name: Download binaryen
-        uses: dsaltares/fetch-gh-release-asset@1.1.2
+      - name: Install wasixcc
+        uses: wasix-org/wasixcc@main
         with:
-          repo: WebAssembly/binaryen
-          version: tags/version_123
-          file: binaryen-version_123-x86_64-linux.tar.gz
-          target: binaryen/binaryen.tar.gz
-
-      - name: Unpack binaryen
-        run: |
-          tar -xf binaryen/binaryen.tar.gz -C binaryen --strip-components=1
-          chmod +x binaryen/bin/*
-          export BINARYEN_DIR=$(pwd)/binaryen
-          echo "$BINARYEN_DIR/bin" >> $GITHUB_PATH
-
-      - name: Install wasixcc, sysroot and LLVM
-        run: |
-          export RUST_LOG=wasixcc=trace
-          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          rustup toolchain install 1.90 --profile minimal --no-self-update
-          cargo +1.90 install wasixcc -F bin
-          mkdir wasixcc-install
-          wasixcc --install-executables ./wasixcc-install
-          echo "$(pwd)/wasixcc-install" >> $GITHUB_PATH
-          mkdir -p ~/.wasixcc/llvm
-          mkdir -p ~/.wasixcc/sysroot
-          wasixcc --download-sysroot v2025-11-06.1
-          wasixcc --download-llvm
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tool versions
         run: |
@@ -211,7 +187,7 @@ jobs:
 
       - name: Install LLVM 21 (for building Wasmer)
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
@@ -362,7 +338,7 @@ jobs:
 
       - name: Install LLVM 21
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
@@ -667,7 +643,7 @@ jobs:
         shell: bash
         if: matrix.metadata.llvm_url
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
@@ -901,11 +877,18 @@ jobs:
         run: |
           brew install llvm
           echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
+
+      - name: Install wasixcc
+        if: matrix.metadata.build != 'windows-x64'
+        uses: wasix-org/wasixcc@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}

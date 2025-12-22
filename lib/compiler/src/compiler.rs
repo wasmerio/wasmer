@@ -134,8 +134,8 @@ pub trait Compiler: Send + std::fmt::Debug {
         wasm_features.set(WasmFeatures::FUNCTION_REFERENCES, false);
         wasm_features.set(WasmFeatures::MEMORY_CONTROL, false);
         wasm_features.set(WasmFeatures::GC, false);
-        wasm_features.set(WasmFeatures::COMPONENT_MODEL_VALUES, false);
-        wasm_features.set(WasmFeatures::COMPONENT_MODEL_NESTED_NAMES, false);
+        wasm_features.set(WasmFeatures::CM_VALUES, false);
+        wasm_features.set(WasmFeatures::CM_NESTED_NAMES, false);
 
         let mut validator = Validator::new_with_features(wasm_features);
         validator

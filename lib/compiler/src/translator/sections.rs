@@ -128,6 +128,11 @@ pub fn parse_import_section<'data>(
                     field_name,
                 )?;
             }
+            TypeRef::FuncExact(_) => {
+                return Err(WasmError::Generic(
+                    "custom-descriptors not implemented yet".to_string(),
+                ));
+            }
             TypeRef::Tag(t) => {
                 environ.declare_tag_import(t, module_name, field_name)?;
             }
@@ -279,9 +284,9 @@ pub fn parse_global_section(
                 },
             init_expr,
         } = entry.map_err(from_binaryreadererror_wasmerror)?;
-        let mut init_expr_reader = init_expr.get_binary_reader();
+        let mut init_expr_reader = init_expr.get_operators_reader();
         let initializer = match init_expr_reader
-            .read_operator()
+            .read()
             .map_err(from_binaryreadererror_wasmerror)?
         {
             Operator::I32Const { value } => GlobalInit::I32Const(value),
@@ -344,6 +349,7 @@ pub fn parse_export_section<'data>(
                 environ.declare_global_export(GlobalIndex::new(index), field)?
             }
             ExternalKind::Tag => environ.declare_tag_export(TagIndex::new(index), field)?,
+            ExternalKind::FuncExact => unimplemented!("custom-descriptors not implemented yet"),
         }
     }
 
@@ -380,8 +386,8 @@ fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
                 let expr = res.map_err(from_binaryreadererror_wasmerror)?;
 
                 let op = expr
-                    .get_binary_reader()
-                    .read_operator()
+                    .get_operators_reader()
+                    .read()
                     .map_err(from_binaryreadererror_wasmerror)?;
                 match op {
                     Operator::RefNull { .. } => out.push(FunctionIndex::reserved_value()),
@@ -423,9 +429,9 @@ pub fn parse_element_section(
             } => {
                 let table_index = TableIndex::from_u32(table_index.unwrap_or(0));
 
-                let mut init_expr_reader = offset_expr.get_binary_reader();
+                let mut init_expr_reader = offset_expr.get_operators_reader();
                 let (base, offset) = match init_expr_reader
-                    .read_operator()
+                    .read()
                     .map_err(from_binaryreadererror_wasmerror)?
                 {
                     Operator::I32Const { value } => (None, value as u32 as usize),
@@ -469,9 +475,9 @@ pub fn parse_data_section<'data>(
                 memory_index,
                 offset_expr,
             } => {
-                let mut init_expr_reader = offset_expr.get_binary_reader();
+                let mut init_expr_reader = offset_expr.get_operators_reader();
                 let (base, offset) = match init_expr_reader
-                    .read_operator()
+                    .read()
                     .map_err(from_binaryreadererror_wasmerror)?
                 {
                     Operator::I32Const { value } => (None, value as u32 as usize),

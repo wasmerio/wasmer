@@ -47,7 +47,6 @@ default = [
 # 	"dep:interfaces",
 # ]
 journal = ["wasmer-wasix/journal"]
-fuse = ["dep:fuser", "dep:time01", "dep:shared-buffer", "dep:rkyv"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "dep:wasmer-vm"]
@@ -150,15 +149,8 @@ wasmer-backend-api = { version = "=0.601.0", path = "../backend-api" }
 wasmer-sdk = { path = "../sdk" }
 wasmer-config = { version = "0.601.0", path = "../config" }
 
-# Used by the mount command
-
 shared-buffer = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }
-
-# TODO: #5858
-fuser = { version = "0.14.0", optional = true }
-time01 = { package = "time", version = "0.1.45", optional = true }
-
 
 # Third-party dependencies.
 
@@ -321,3 +313,4 @@ bin-dir = "bin/{ bin }.exe"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
+features = ["wasmer/cranelift"]

@@ -148,14 +148,6 @@ impl FuncTrampoline {
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
-
-        // -- Uncomment to enable dumping intermediate LLVM objects
-        //module
-        //    .print_to_file(format!(
-        //        "{}/obj_trmpl.ll",
-        //        std::env!("LLVM_EH_TESTS_DUMP_DIR")
-        //    ))
-        //    .unwrap();
         Ok(module)
     }
 
