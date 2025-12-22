@@ -32,7 +32,7 @@ target-lexicon.workspace = true
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
-target-lexicon = { workspace = true }
+target-lexicon.workspace = true
 
 [badges]
 maintenance = { status = "actively-developed" }

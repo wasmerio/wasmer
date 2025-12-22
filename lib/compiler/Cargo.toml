@@ -48,7 +48,7 @@ tempfile.workspace = true
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-vm = { path = "../vm", version = "=6.1.0" }
 region.workspace = true
-which = { workspace = true }
+which.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true, features = [
