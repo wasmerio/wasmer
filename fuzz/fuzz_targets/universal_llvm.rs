@@ -57,9 +57,9 @@ fuzz_target!(|module: LLVMPassFuzzModule| {
             if error_message.starts_with("RuntimeError: ")
                 && error_message.contains("out of bounds")
             {
-                save_wasm_file(&wasm_bytes);
                 return;
             }
+            save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
     }

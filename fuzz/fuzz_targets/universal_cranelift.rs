@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
 use wasmer::{Instance, Module, Store, imports};
-use wasmer_compiler::CompilerConfig;
+use wasmer_compiler::{CompilerConfig, EngineBuilder};
 use wasmer_compiler_cranelift::Cranelift;
 
 struct CraneliftPassFuzzModule(wasm_smith::Module);
@@ -49,7 +49,7 @@ fuzz_target!(|module: CraneliftPassFuzzModule| {
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let mut store = Store::new(compiler);
+    let mut store = Store::new(EngineBuilder::new(compiler));
     let module = Module::new(&store, &wasm_bytes);
     let module = match module {
         Ok(m) => m,
