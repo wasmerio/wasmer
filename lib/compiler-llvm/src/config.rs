@@ -217,7 +217,11 @@ impl LLVM {
         self.target_machine_with_opt(target, true)
     }
 
-    pub(crate) fn target_machine_with_opt(&self, target: &Target, optimize: bool) -> TargetMachine {
+    pub(crate) fn target_machine_with_opt(
+        &self,
+        target: &Target,
+        enable_optimization: bool,
+    ) -> TargetMachine {
         let triple = target.triple();
         let cpu_features = &target.cpu_features();
 
@@ -290,7 +294,7 @@ impl LLVM {
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
-            .set_level(if optimize {
+            .set_level(if enable_optimization {
                 self.opt_level
             } else {
                 LLVMOptLevel::None
