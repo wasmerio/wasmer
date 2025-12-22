@@ -214,6 +214,10 @@ impl LLVM {
 
     /// Generates the target machine for the current target
     pub fn target_machine(&self, target: &Target) -> TargetMachine {
+        self.target_machine_with_opt(target, true)
+    }
+
+    pub(crate) fn target_machine_with_opt(&self, target: &Target, optimize: bool) -> TargetMachine {
         let triple = target.triple();
         let cpu_features = &target.cpu_features();
 
@@ -286,7 +290,11 @@ impl LLVM {
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
-            .set_level(self.opt_level)
+            .set_level(if optimize {
+                self.opt_level
+            } else {
+                LLVMOptLevel::None
+            })
             .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
             .set_code_model(match triple.architecture {
                 Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,

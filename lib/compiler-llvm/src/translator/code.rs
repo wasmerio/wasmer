@@ -64,6 +64,7 @@ const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 pub struct FuncTranslator {
     ctx: Context,
     target_machine: TargetMachine,
+    target_machine_no_opt: Option<TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
@@ -72,12 +73,14 @@ pub struct FuncTranslator {
 impl FuncTranslator {
     pub fn new(
         target_machine: TargetMachine,
+        target_machine_no_opt: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
             target_machine,
+            target_machine_no_opt,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -407,7 +410,15 @@ impl FuncTranslator {
             *local_func_index,
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
-        let target_machine = &self.target_machine;
+
+        // Use the lowest optimization level for very large function bodies to reduce compile time.
+        let target_machine = if function_body.data.len() > 100_000 {
+            self.target_machine_no_opt
+                .as_ref()
+                .unwrap_or(&self.target_machine)
+        } else {
+            &self.target_machine
+        };
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
