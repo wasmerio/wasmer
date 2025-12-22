@@ -407,7 +407,7 @@ fn apply_relocation(
             let value = read_unaligned(reloc_address as *mut u32);
             write_unaligned(
                 reloc_address as *mut u32,
-                u32::try_from(reloc_abs).unwrap().wrapping_add(value),
+                u32::try_from(dbg!(reloc_abs)).unwrap().wrapping_add(value),
             );
         },
         RelocationKind::Sub4 => unsafe {
@@ -415,7 +415,7 @@ fn apply_relocation(
             let value = read_unaligned(reloc_address as *mut u32);
             write_unaligned(
                 reloc_address as *mut u32,
-                u32::try_from(reloc_abs).unwrap().wrapping_sub(value),
+                u32::try_from(dbg!(reloc_abs)).unwrap().wrapping_sub(value),
             );
         },
         kind => panic!("Relocation kind unsupported in the current architecture: {kind}"),
