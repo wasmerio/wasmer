@@ -301,7 +301,7 @@ wasm-coredump-builder = "0.2.2"
 wasm-encoder = { version = "0.242.0", default-features = false, features = [
 	"std",
 ] }
-wasm-smith = "0.4.4"
+wasm-smith = "0.243.0"
 wasmi_c_api_impl = "1.0.4"
 wasmparser = { version = "0.243.0", default-features = false, features = [
 	"validate",

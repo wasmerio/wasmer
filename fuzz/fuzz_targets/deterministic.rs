@@ -1,27 +1,12 @@
 #![no_main]
 
-use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
-use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{CompilerConfig, EngineBuilder, Module, Store};
+use libfuzzer_sys::fuzz_target;
+use wasmer::{Module, Store};
 use wasmer_compiler::Engine;
+use wasmer_compiler::{CompilerConfig, EngineBuilder};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_llvm::LLVM;
 use wasmer_compiler_singlepass::Singlepass;
-
-#[derive(Arbitrary, Debug, Default, Copy, Clone)]
-struct NoImportsConfig;
-impl Config for NoImportsConfig {
-    fn max_imports(&self) -> usize {
-        0
-    }
-    fn max_memory_pages(&self) -> u32 {
-        // https://github.com/wasmerio/wasmer/issues/2187
-        65535
-    }
-    fn allow_start_export(&self) -> bool {
-        false
-    }
-}
 
 fn compile_and_compare(name: &str, engine: Engine, wasm: &[u8]) {
     let store = Store::new(engine);
@@ -39,7 +24,7 @@ fn compile_and_compare(name: &str, engine: Engine, wasm: &[u8]) {
     }
 }
 
-fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
+fuzz_target!(|module: wasm_smith::Module| {
     let wasm_bytes = module.to_bytes();
 
     let mut compiler = Cranelift::default();
