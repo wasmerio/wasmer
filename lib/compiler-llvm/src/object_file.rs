@@ -468,6 +468,13 @@ where
                     0,
                 ) => RelocationKind::RiscvPCRelLo12I,
                 (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_ADD32,
+                    },
+                    32,
+                ) => RelocationKind::Add4,
+                (
                     object::Architecture::LoongArch64,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_LARCH_ABS_HI20,
