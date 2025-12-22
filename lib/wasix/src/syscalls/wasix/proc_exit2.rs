@@ -9,14 +9,12 @@ use crate::{WasiVForkAsyncify, syscalls::*};
 /// return. If used for vforking, restoring the control to the
 /// place where the vfork happened is the responsibility of the
 /// caller.
-#[instrument(level = "trace", skip_all)]
+#[instrument(level = "trace", skip(ctx))]
 pub fn proc_exit2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     code: ExitCode,
 ) -> Result<(), WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
-
-    debug!(%code);
 
     let Some(mut vfork) = ctx.data_mut().vfork.take() else {
         // Not in a vfork, just exit normally
