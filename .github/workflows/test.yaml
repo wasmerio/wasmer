@@ -423,7 +423,7 @@ jobs:
             {
               key: wast-tests,
               build-cmd: "make test-stage-0-wast",
-              name: "Run WAST tests",
+              name: "WAST tests",
             },
             {
               key: capi,
