@@ -150,6 +150,8 @@ pub enum RelocationKind {
 
     /// addition at the place of the relocation (4-bytes)
     Add4,
+    /// subtraction at the place of the relocation (4-bytes)
+    Sub4,
 }
 
 impl RelocationKind {
@@ -173,6 +175,7 @@ impl fmt::Display for RelocationKind {
             Self::Abs4 => write!(f, "Abs4"),
             Self::Abs8 => write!(f, "Abs8"),
             Self::Add4 => write!(f, "Add4"),
+            Self::Sub4 => write!(f, "Sub4"),
             Self::X86PCRel4 => write!(f, "PCRel4"),
             Self::X86PCRel8 => write!(f, "PCRel8"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
