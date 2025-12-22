@@ -35,7 +35,7 @@ pub fn proc_fork_env<M: MemorySize>(
     let env = ctx.data();
 
     if let Some(vfork) = env.vfork.as_ref() {
-        tracing::warn!("nesting vforks is not supported");
+        tracing::warn!("Nested vforks are not supported");
         return Ok(Errno::Notsup);
     }
 
@@ -46,7 +46,7 @@ pub fn proc_fork_env<M: MemorySize>(
     let (mut child_env, child_handle) = match env.fork() {
         Ok(p) => p,
         Err(err) => {
-            tracing::error!("could not fork process: {err}");
+            tracing::error!("Could not fork process: {err}");
             // TODO: evaluate the appropriate error code, document it in the spec.
             return Ok(Errno::Perm);
         }
