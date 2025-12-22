@@ -626,7 +626,7 @@ fn issue_5795_memory_reset_size(mut config: crate::Config) {
     )
     .expect("wat2wasm must succeed");
 
-    let mut store = Store::default();
+    let mut store = config.store();
     let module = Module::new(&store, wasm_bytes).unwrap();
     let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
     let memory = instance.exports.get_memory("memory").unwrap();
