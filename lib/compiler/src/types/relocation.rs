@@ -147,6 +147,9 @@ pub enum RelocationKind {
     MachoX86_64RelocSigned4,
     // (MACHO_X86_64_RELOC_TLV) for thread local variables
     MachoX86_64RelocTlv,
+
+    /// addition at the place of the relocation (4-bytes)
+    Add4,
 }
 
 impl RelocationKind {
@@ -169,6 +172,7 @@ impl fmt::Display for RelocationKind {
         match *self {
             Self::Abs4 => write!(f, "Abs4"),
             Self::Abs8 => write!(f, "Abs8"),
+            Self::Add4 => write!(f, "Add4"),
             Self::X86PCRel4 => write!(f, "PCRel4"),
             Self::X86PCRel8 => write!(f, "PCRel8"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
@@ -277,7 +281,8 @@ pub trait RelocationLike {
             | RelocationKind::LArchAbsLo12
             | RelocationKind::LArchAbs64Lo20
             | RelocationKind::LArchAbs64Hi12
-            | RelocationKind::LArchPCAlaLo12 => {
+            | RelocationKind::LArchPCAlaLo12
+            | RelocationKind::Add4 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_abs = target_func_address

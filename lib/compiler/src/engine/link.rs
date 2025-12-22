@@ -402,7 +402,14 @@ fn apply_relocation(
 
             write_unaligned(fixup_ptr as *mut u32, fixed_instr);
         },
-        kind => panic!("Relocation kind unsupported in the current architecture: {kind}"),
+        RelocationKind::Add4 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u32);
+            write_unaligned(
+                reloc_address as *mut u32,
+                u32::try_from(reloc_abs).unwrap().wrapping_add(value),
+            );
+        },
     }
 }
 
