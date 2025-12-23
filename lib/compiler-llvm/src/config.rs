@@ -282,7 +282,7 @@ impl LLVM {
                 _ => "generic",
             })
             .set_features(match triple.architecture {
-                Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
+                Architecture::Riscv64(_) => "+m,+a,+c,+d,+f,-relax",
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
