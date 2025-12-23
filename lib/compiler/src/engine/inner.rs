@@ -493,6 +493,12 @@ impl EngineInner {
 
     #[cfg(not(target_arch = "wasm32"))]
     /// Make memory containing compiled code executable.
+    pub(crate) fn code_memory_start(&self) -> usize {
+        self.code_memory.first().unwrap().start_address()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Make memory containing compiled code executable.
     pub(crate) fn publish_compiled_code(&mut self) {
         self.code_memory.last_mut().unwrap().publish();
     }

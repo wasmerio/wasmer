@@ -373,9 +373,11 @@ impl Artifact {
             }
         };
 
+        let code_memory_start = engine_inner.code_memory_start();
         match &artifact {
             ArtifactBuildVariant::Plain(p) => link_module(
                 module_info,
+                code_memory_start,
                 &finished_functions,
                 &finished_dynamic_function_trampolines,
                 p.get_function_relocations()
@@ -391,6 +393,7 @@ impl Artifact {
             ),
             ArtifactBuildVariant::Archived(a) => link_module(
                 module_info,
+                code_memory_start,
                 &finished_functions,
                 &finished_dynamic_function_trampolines,
                 a.get_function_relocations()

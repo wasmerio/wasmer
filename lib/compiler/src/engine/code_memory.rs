@@ -44,6 +44,11 @@ impl CodeMemory {
         }
     }
 
+    /// TODO
+    pub fn start_address(&self) -> usize {
+        self.mmap.ptr
+    }
+
     /// Mutably get the UnwindRegistry.
     pub fn unwind_registry_mut(&mut self) -> &mut UnwindRegistry {
         &mut self.unwind_registry

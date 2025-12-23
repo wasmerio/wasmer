@@ -17,7 +17,8 @@ pub struct Mmap {
     // pointer to allow this structure to be natively `Send` and `Sync` without
     // `unsafe impl`. This type is sendable across threads and shareable since
     // the coordination all happens at the OS layer.
-    ptr: usize,
+    /// TODO
+    pub ptr: usize,
     total_size: usize,
     accessible_size: usize,
     #[cfg_attr(target_os = "windows", allow(dead_code))]

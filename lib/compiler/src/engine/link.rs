@@ -26,6 +26,7 @@ fn apply_relocation(
     libcall_trampoline_len: usize,
     riscv_pcrel_hi20s: &mut HashMap<usize, u32>,
     get_got_address: &dyn Fn(RelocationTarget) -> Option<usize>,
+    code_memory_start: usize,
 ) {
     let reloc_target = r.reloc_target();
 
@@ -404,6 +405,7 @@ fn apply_relocation(
         },
         RelocationKind::Add4 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let reloc_abs = reloc_abs.checked_sub(code_memory_start as u64).unwrap();
             let value = read_unaligned(reloc_address as *mut i32);
             write_unaligned(
                 reloc_address as *mut i32,
@@ -412,10 +414,11 @@ fn apply_relocation(
         },
         RelocationKind::Sub4 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let reloc_abs = reloc_abs.checked_sub(code_memory_start as u64).unwrap();
             let value = read_unaligned(reloc_address as *mut i32);
             write_unaligned(
                 reloc_address as *mut i32,
-                i32::try_from(reloc_abs).unwrap().wrapping_sub(value),
+                i32::try_from(dbg!(reloc_abs)).unwrap().wrapping_sub(value),
             );
         },
         kind => panic!("Relocation kind unsupported in the current architecture: {kind}"),
@@ -427,6 +430,7 @@ fn apply_relocation(
 #[allow(clippy::too_many_arguments)]
 pub fn link_module<'a>(
     _module: &ModuleInfo,
+    code_memory_start: usize,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
     allocated_dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBodyPtr>,
     function_relocations: impl Iterator<
@@ -461,6 +465,7 @@ pub fn link_module<'a>(
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
                 get_got_address,
+                code_memory_start,
             );
         }
     }
@@ -477,6 +482,7 @@ pub fn link_module<'a>(
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
                 get_got_address,
+                code_memory_start,
             );
         }
     }
