@@ -214,29 +214,29 @@
 <a href=#214 id=214 data-nosnippet>214</a>
 <a href=#215 id=215 data-nosnippet>215</a>    <span class="doccomment">/// Generates the target machine for the current target
 <a href=#216 id=216 data-nosnippet>216</a>    </span><span class="kw">pub fn </span>target_machine(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; TargetMachine {
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>triple = target.triple();
-<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>cpu_features = <span class="kw-2">&amp;</span>target.cpu_features();
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="self">self</span>.target_machine_with_opt(target, <span class="bool-val">true</span>)
+<a href=#218 id=218 data-nosnippet>218</a>    }
 <a href=#219 id=219 data-nosnippet>219</a>
-<a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">match </span>triple.architecture {
-<a href=#221 id=221 data-nosnippet>221</a>            Architecture::X86_64 | Architecture::X86_32(<span class="kw">_</span>) =&gt; {
-<a href=#222 id=222 data-nosnippet>222</a>                InkwellTarget::initialize_x86(<span class="kw-2">&amp;</span>InitializationConfig {
-<a href=#223 id=223 data-nosnippet>223</a>                    asm_parser: <span class="bool-val">true</span>,
-<a href=#224 id=224 data-nosnippet>224</a>                    asm_printer: <span class="bool-val">true</span>,
-<a href=#225 id=225 data-nosnippet>225</a>                    base: <span class="bool-val">true</span>,
-<a href=#226 id=226 data-nosnippet>226</a>                    disassembler: <span class="bool-val">true</span>,
-<a href=#227 id=227 data-nosnippet>227</a>                    info: <span class="bool-val">true</span>,
-<a href=#228 id=228 data-nosnippet>228</a>                    machine_code: <span class="bool-val">true</span>,
-<a href=#229 id=229 data-nosnippet>229</a>                })
-<a href=#230 id=230 data-nosnippet>230</a>            }
-<a href=#231 id=231 data-nosnippet>231</a>            Architecture::Aarch64(<span class="kw">_</span>) =&gt; InkwellTarget::initialize_aarch64(<span class="kw-2">&amp;</span>InitializationConfig {
-<a href=#232 id=232 data-nosnippet>232</a>                asm_parser: <span class="bool-val">true</span>,
-<a href=#233 id=233 data-nosnippet>233</a>                asm_printer: <span class="bool-val">true</span>,
-<a href=#234 id=234 data-nosnippet>234</a>                base: <span class="bool-val">true</span>,
-<a href=#235 id=235 data-nosnippet>235</a>                disassembler: <span class="bool-val">true</span>,
-<a href=#236 id=236 data-nosnippet>236</a>                info: <span class="bool-val">true</span>,
-<a href=#237 id=237 data-nosnippet>237</a>                machine_code: <span class="bool-val">true</span>,
-<a href=#238 id=238 data-nosnippet>238</a>            }),
-<a href=#239 id=239 data-nosnippet>239</a>            Architecture::Riscv64(<span class="kw">_</span>) =&gt; InkwellTarget::initialize_riscv(<span class="kw-2">&amp;</span>InitializationConfig {
+<a href=#220 id=220 data-nosnippet>220</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>target_machine_with_opt(
+<a href=#221 id=221 data-nosnippet>221</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#222 id=222 data-nosnippet>222</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#223 id=223 data-nosnippet>223</a>        enable_optimization: bool,
+<a href=#224 id=224 data-nosnippet>224</a>    ) -&gt; TargetMachine {
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="kw">let </span>triple = target.triple();
+<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">let </span>cpu_features = <span class="kw-2">&amp;</span>target.cpu_features();
+<a href=#227 id=227 data-nosnippet>227</a>
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="kw">match </span>triple.architecture {
+<a href=#229 id=229 data-nosnippet>229</a>            Architecture::X86_64 | Architecture::X86_32(<span class="kw">_</span>) =&gt; {
+<a href=#230 id=230 data-nosnippet>230</a>                InkwellTarget::initialize_x86(<span class="kw-2">&amp;</span>InitializationConfig {
+<a href=#231 id=231 data-nosnippet>231</a>                    asm_parser: <span class="bool-val">true</span>,
+<a href=#232 id=232 data-nosnippet>232</a>                    asm_printer: <span class="bool-val">true</span>,
+<a href=#233 id=233 data-nosnippet>233</a>                    base: <span class="bool-val">true</span>,
+<a href=#234 id=234 data-nosnippet>234</a>                    disassembler: <span class="bool-val">true</span>,
+<a href=#235 id=235 data-nosnippet>235</a>                    info: <span class="bool-val">true</span>,
+<a href=#236 id=236 data-nosnippet>236</a>                    machine_code: <span class="bool-val">true</span>,
+<a href=#237 id=237 data-nosnippet>237</a>                })
+<a href=#238 id=238 data-nosnippet>238</a>            }
+<a href=#239 id=239 data-nosnippet>239</a>            Architecture::Aarch64(<span class="kw">_</span>) =&gt; InkwellTarget::initialize_aarch64(<span class="kw-2">&amp;</span>InitializationConfig {
 <a href=#240 id=240 data-nosnippet>240</a>                asm_parser: <span class="bool-val">true</span>,
 <a href=#241 id=241 data-nosnippet>241</a>                asm_printer: <span class="bool-val">true</span>,
 <a href=#242 id=242 data-nosnippet>242</a>                base: <span class="bool-val">true</span>,
@@ -244,109 +244,121 @@
 <a href=#244 id=244 data-nosnippet>244</a>                info: <span class="bool-val">true</span>,
 <a href=#245 id=245 data-nosnippet>245</a>                machine_code: <span class="bool-val">true</span>,
 <a href=#246 id=246 data-nosnippet>246</a>            }),
-<a href=#247 id=247 data-nosnippet>247</a>            Architecture::LoongArch64 =&gt; {
-<a href=#248 id=248 data-nosnippet>248</a>                InkwellTarget::initialize_loongarch(<span class="kw-2">&amp;</span>InitializationConfig {
-<a href=#249 id=249 data-nosnippet>249</a>                    asm_parser: <span class="bool-val">true</span>,
-<a href=#250 id=250 data-nosnippet>250</a>                    asm_printer: <span class="bool-val">true</span>,
-<a href=#251 id=251 data-nosnippet>251</a>                    base: <span class="bool-val">true</span>,
-<a href=#252 id=252 data-nosnippet>252</a>                    disassembler: <span class="bool-val">true</span>,
-<a href=#253 id=253 data-nosnippet>253</a>                    info: <span class="bool-val">true</span>,
-<a href=#254 id=254 data-nosnippet>254</a>                    machine_code: <span class="bool-val">true</span>,
-<a href=#255 id=255 data-nosnippet>255</a>                })
-<a href=#256 id=256 data-nosnippet>256</a>            }
-<a href=#257 id=257 data-nosnippet>257</a>            <span class="comment">// Architecture::Arm(_) =&gt; InkwellTarget::initialize_arm(&amp;InitializationConfig {
-<a href=#258 id=258 data-nosnippet>258</a>            //     asm_parser: true,
-<a href=#259 id=259 data-nosnippet>259</a>            //     asm_printer: true,
-<a href=#260 id=260 data-nosnippet>260</a>            //     base: true,
-<a href=#261 id=261 data-nosnippet>261</a>            //     disassembler: true,
-<a href=#262 id=262 data-nosnippet>262</a>            //     info: true,
-<a href=#263 id=263 data-nosnippet>263</a>            //     machine_code: true,
-<a href=#264 id=264 data-nosnippet>264</a>            // }),
-<a href=#265 id=265 data-nosnippet>265</a>            </span><span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"target {} not yet supported in Wasmer"</span>, triple),
-<a href=#266 id=266 data-nosnippet>266</a>        }
-<a href=#267 id=267 data-nosnippet>267</a>
-<a href=#268 id=268 data-nosnippet>268</a>        <span class="comment">// The CPU features formatted as LLVM strings
-<a href=#269 id=269 data-nosnippet>269</a>        // We can safely map to gcc-like features as the CPUFeatures
-<a href=#270 id=270 data-nosnippet>270</a>        // are compliant with the same string representations as gcc.
-<a href=#271 id=271 data-nosnippet>271</a>        </span><span class="kw">let </span>llvm_cpu_features = cpu_features
-<a href=#272 id=272 data-nosnippet>272</a>            .iter()
-<a href=#273 id=273 data-nosnippet>273</a>            .map(|feature| <span class="macro">format!</span>(<span class="string">"+{feature}"</span>))
-<a href=#274 id=274 data-nosnippet>274</a>            .join(<span class="string">","</span>);
+<a href=#247 id=247 data-nosnippet>247</a>            Architecture::Riscv64(<span class="kw">_</span>) =&gt; InkwellTarget::initialize_riscv(<span class="kw-2">&amp;</span>InitializationConfig {
+<a href=#248 id=248 data-nosnippet>248</a>                asm_parser: <span class="bool-val">true</span>,
+<a href=#249 id=249 data-nosnippet>249</a>                asm_printer: <span class="bool-val">true</span>,
+<a href=#250 id=250 data-nosnippet>250</a>                base: <span class="bool-val">true</span>,
+<a href=#251 id=251 data-nosnippet>251</a>                disassembler: <span class="bool-val">true</span>,
+<a href=#252 id=252 data-nosnippet>252</a>                info: <span class="bool-val">true</span>,
+<a href=#253 id=253 data-nosnippet>253</a>                machine_code: <span class="bool-val">true</span>,
+<a href=#254 id=254 data-nosnippet>254</a>            }),
+<a href=#255 id=255 data-nosnippet>255</a>            Architecture::LoongArch64 =&gt; {
+<a href=#256 id=256 data-nosnippet>256</a>                InkwellTarget::initialize_loongarch(<span class="kw-2">&amp;</span>InitializationConfig {
+<a href=#257 id=257 data-nosnippet>257</a>                    asm_parser: <span class="bool-val">true</span>,
+<a href=#258 id=258 data-nosnippet>258</a>                    asm_printer: <span class="bool-val">true</span>,
+<a href=#259 id=259 data-nosnippet>259</a>                    base: <span class="bool-val">true</span>,
+<a href=#260 id=260 data-nosnippet>260</a>                    disassembler: <span class="bool-val">true</span>,
+<a href=#261 id=261 data-nosnippet>261</a>                    info: <span class="bool-val">true</span>,
+<a href=#262 id=262 data-nosnippet>262</a>                    machine_code: <span class="bool-val">true</span>,
+<a href=#263 id=263 data-nosnippet>263</a>                })
+<a href=#264 id=264 data-nosnippet>264</a>            }
+<a href=#265 id=265 data-nosnippet>265</a>            <span class="comment">// Architecture::Arm(_) =&gt; InkwellTarget::initialize_arm(&amp;InitializationConfig {
+<a href=#266 id=266 data-nosnippet>266</a>            //     asm_parser: true,
+<a href=#267 id=267 data-nosnippet>267</a>            //     asm_printer: true,
+<a href=#268 id=268 data-nosnippet>268</a>            //     base: true,
+<a href=#269 id=269 data-nosnippet>269</a>            //     disassembler: true,
+<a href=#270 id=270 data-nosnippet>270</a>            //     info: true,
+<a href=#271 id=271 data-nosnippet>271</a>            //     machine_code: true,
+<a href=#272 id=272 data-nosnippet>272</a>            // }),
+<a href=#273 id=273 data-nosnippet>273</a>            </span><span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"target {} not yet supported in Wasmer"</span>, triple),
+<a href=#274 id=274 data-nosnippet>274</a>        }
 <a href=#275 id=275 data-nosnippet>275</a>
-<a href=#276 id=276 data-nosnippet>276</a>        <span class="kw">let </span>target_triple = <span class="self">self</span>.target_triple(target);
-<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">let </span>llvm_target = InkwellTarget::from_triple(<span class="kw-2">&amp;</span>target_triple).unwrap();
-<a href=#278 id=278 data-nosnippet>278</a>        <span class="kw">let </span><span class="kw-2">mut </span>llvm_target_machine_options = TargetMachineOptions::new()
-<a href=#279 id=279 data-nosnippet>279</a>            .set_cpu(<span class="kw">match </span>triple.architecture {
-<a href=#280 id=280 data-nosnippet>280</a>                Architecture::Riscv64(<span class="kw">_</span>) =&gt; <span class="string">"generic-rv64"</span>,
-<a href=#281 id=281 data-nosnippet>281</a>                Architecture::LoongArch64 =&gt; <span class="string">"generic-la64"</span>,
-<a href=#282 id=282 data-nosnippet>282</a>                <span class="kw">_ </span>=&gt; <span class="string">"generic"</span>,
-<a href=#283 id=283 data-nosnippet>283</a>            })
-<a href=#284 id=284 data-nosnippet>284</a>            .set_features(<span class="kw">match </span>triple.architecture {
-<a href=#285 id=285 data-nosnippet>285</a>                Architecture::Riscv64(<span class="kw">_</span>) =&gt; <span class="string">"+m,+a,+c,+d,+f"</span>,
-<a href=#286 id=286 data-nosnippet>286</a>                Architecture::LoongArch64 =&gt; <span class="string">"+f,+d"</span>,
-<a href=#287 id=287 data-nosnippet>287</a>                <span class="kw">_ </span>=&gt; <span class="kw-2">&amp;</span>llvm_cpu_features,
-<a href=#288 id=288 data-nosnippet>288</a>            })
-<a href=#289 id=289 data-nosnippet>289</a>            .set_level(<span class="self">self</span>.opt_level)
-<a href=#290 id=290 data-nosnippet>290</a>            .set_reloc_mode(<span class="self">self</span>.reloc_mode(<span class="self">self</span>.target_binary_format(target)))
-<a href=#291 id=291 data-nosnippet>291</a>            .set_code_model(<span class="kw">match </span>triple.architecture {
-<a href=#292 id=292 data-nosnippet>292</a>                Architecture::LoongArch64 | Architecture::Riscv64(<span class="kw">_</span>) =&gt; CodeModel::Medium,
-<a href=#293 id=293 data-nosnippet>293</a>                <span class="kw">_ </span>=&gt; <span class="self">self</span>.code_model(<span class="self">self</span>.target_binary_format(target)),
-<a href=#294 id=294 data-nosnippet>294</a>            });
-<a href=#295 id=295 data-nosnippet>295</a>        <span class="kw">if let </span>Architecture::Riscv64(<span class="kw">_</span>) = triple.architecture {
-<a href=#296 id=296 data-nosnippet>296</a>            llvm_target_machine_options = llvm_target_machine_options.set_abi(<span class="string">"lp64d"</span>);
-<a href=#297 id=297 data-nosnippet>297</a>        }
-<a href=#298 id=298 data-nosnippet>298</a>        llvm_target
-<a href=#299 id=299 data-nosnippet>299</a>            .create_target_machine_from_options(<span class="kw-2">&amp;</span>target_triple, llvm_target_machine_options)
-<a href=#300 id=300 data-nosnippet>300</a>            .unwrap()
-<a href=#301 id=301 data-nosnippet>301</a>    }
-<a href=#302 id=302 data-nosnippet>302</a>}
-<a href=#303 id=303 data-nosnippet>303</a>
-<a href=#304 id=304 data-nosnippet>304</a><span class="kw">impl </span>CompilerConfig <span class="kw">for </span>LLVM {
-<a href=#305 id=305 data-nosnippet>305</a>    <span class="doccomment">/// Emit code suitable for dlopen.
-<a href=#306 id=306 data-nosnippet>306</a>    </span><span class="kw">fn </span>enable_pic(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#307 id=307 data-nosnippet>307</a>        <span class="comment">// TODO: although we can emit PIC, the object file parser does not yet
-<a href=#308 id=308 data-nosnippet>308</a>        // support all the relocations.
-<a href=#309 id=309 data-nosnippet>309</a>        </span><span class="self">self</span>.is_pic = <span class="bool-val">true</span>;
-<a href=#310 id=310 data-nosnippet>310</a>    }
-<a href=#311 id=311 data-nosnippet>311</a>
-<a href=#312 id=312 data-nosnippet>312</a>    <span class="kw">fn </span>enable_perfmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#313 id=313 data-nosnippet>313</a>        <span class="self">self</span>.enable_perfmap = <span class="bool-val">true
-<a href=#314 id=314 data-nosnippet>314</a>    </span>}
+<a href=#276 id=276 data-nosnippet>276</a>        <span class="comment">// The CPU features formatted as LLVM strings
+<a href=#277 id=277 data-nosnippet>277</a>        // We can safely map to gcc-like features as the CPUFeatures
+<a href=#278 id=278 data-nosnippet>278</a>        // are compliant with the same string representations as gcc.
+<a href=#279 id=279 data-nosnippet>279</a>        </span><span class="kw">let </span>llvm_cpu_features = cpu_features
+<a href=#280 id=280 data-nosnippet>280</a>            .iter()
+<a href=#281 id=281 data-nosnippet>281</a>            .map(|feature| <span class="macro">format!</span>(<span class="string">"+{feature}"</span>))
+<a href=#282 id=282 data-nosnippet>282</a>            .join(<span class="string">","</span>);
+<a href=#283 id=283 data-nosnippet>283</a>
+<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">let </span>target_triple = <span class="self">self</span>.target_triple(target);
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">let </span>llvm_target = InkwellTarget::from_triple(<span class="kw-2">&amp;</span>target_triple).unwrap();
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">let </span><span class="kw-2">mut </span>llvm_target_machine_options = TargetMachineOptions::new()
+<a href=#287 id=287 data-nosnippet>287</a>            .set_cpu(<span class="kw">match </span>triple.architecture {
+<a href=#288 id=288 data-nosnippet>288</a>                Architecture::Riscv64(<span class="kw">_</span>) =&gt; <span class="string">"generic-rv64"</span>,
+<a href=#289 id=289 data-nosnippet>289</a>                Architecture::LoongArch64 =&gt; <span class="string">"generic-la64"</span>,
+<a href=#290 id=290 data-nosnippet>290</a>                <span class="kw">_ </span>=&gt; <span class="string">"generic"</span>,
+<a href=#291 id=291 data-nosnippet>291</a>            })
+<a href=#292 id=292 data-nosnippet>292</a>            .set_features(<span class="kw">match </span>triple.architecture {
+<a href=#293 id=293 data-nosnippet>293</a>                Architecture::Riscv64(<span class="kw">_</span>) =&gt; <span class="string">"+m,+a,+c,+d,+f"</span>,
+<a href=#294 id=294 data-nosnippet>294</a>                Architecture::LoongArch64 =&gt; <span class="string">"+f,+d"</span>,
+<a href=#295 id=295 data-nosnippet>295</a>                <span class="kw">_ </span>=&gt; <span class="kw-2">&amp;</span>llvm_cpu_features,
+<a href=#296 id=296 data-nosnippet>296</a>            })
+<a href=#297 id=297 data-nosnippet>297</a>            .set_level(<span class="kw">if </span>enable_optimization {
+<a href=#298 id=298 data-nosnippet>298</a>                <span class="self">self</span>.opt_level
+<a href=#299 id=299 data-nosnippet>299</a>            } <span class="kw">else </span>{
+<a href=#300 id=300 data-nosnippet>300</a>                LLVMOptLevel::None
+<a href=#301 id=301 data-nosnippet>301</a>            })
+<a href=#302 id=302 data-nosnippet>302</a>            .set_reloc_mode(<span class="self">self</span>.reloc_mode(<span class="self">self</span>.target_binary_format(target)))
+<a href=#303 id=303 data-nosnippet>303</a>            .set_code_model(<span class="kw">match </span>triple.architecture {
+<a href=#304 id=304 data-nosnippet>304</a>                Architecture::LoongArch64 | Architecture::Riscv64(<span class="kw">_</span>) =&gt; CodeModel::Medium,
+<a href=#305 id=305 data-nosnippet>305</a>                <span class="kw">_ </span>=&gt; <span class="self">self</span>.code_model(<span class="self">self</span>.target_binary_format(target)),
+<a href=#306 id=306 data-nosnippet>306</a>            });
+<a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">if let </span>Architecture::Riscv64(<span class="kw">_</span>) = triple.architecture {
+<a href=#308 id=308 data-nosnippet>308</a>            llvm_target_machine_options = llvm_target_machine_options.set_abi(<span class="string">"lp64d"</span>);
+<a href=#309 id=309 data-nosnippet>309</a>        }
+<a href=#310 id=310 data-nosnippet>310</a>        llvm_target
+<a href=#311 id=311 data-nosnippet>311</a>            .create_target_machine_from_options(<span class="kw-2">&amp;</span>target_triple, llvm_target_machine_options)
+<a href=#312 id=312 data-nosnippet>312</a>            .unwrap()
+<a href=#313 id=313 data-nosnippet>313</a>    }
+<a href=#314 id=314 data-nosnippet>314</a>}
 <a href=#315 id=315 data-nosnippet>315</a>
-<a href=#316 id=316 data-nosnippet>316</a>    <span class="doccomment">/// Whether to verify compiler IR.
-<a href=#317 id=317 data-nosnippet>317</a>    </span><span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#318 id=318 data-nosnippet>318</a>        <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
-<a href=#319 id=319 data-nosnippet>319</a>    }
-<a href=#320 id=320 data-nosnippet>320</a>
-<a href=#321 id=321 data-nosnippet>321</a>    <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {
-<a href=#322 id=322 data-nosnippet>322</a>        <span class="self">self</span>.enable_nan_canonicalization = enable;
-<a href=#323 id=323 data-nosnippet>323</a>    }
-<a href=#324 id=324 data-nosnippet>324</a>
-<a href=#325 id=325 data-nosnippet>325</a>    <span class="doccomment">/// Transform it into the compiler.
-<a href=#326 id=326 data-nosnippet>326</a>    </span><span class="kw">fn </span>compiler(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Compiler&gt; {
-<a href=#327 id=327 data-nosnippet>327</a>        Box::new(LLVMCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
-<a href=#328 id=328 data-nosnippet>328</a>    }
-<a href=#329 id=329 data-nosnippet>329</a>
-<a href=#330 id=330 data-nosnippet>330</a>    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.
-<a href=#331 id=331 data-nosnippet>331</a>    </span><span class="kw">fn </span>push_middleware(<span class="kw-2">&amp;mut </span><span class="self">self</span>, middleware: Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;) {
-<a href=#332 id=332 data-nosnippet>332</a>        <span class="self">self</span>.middlewares.push(middleware);
-<a href=#333 id=333 data-nosnippet>333</a>    }
-<a href=#334 id=334 data-nosnippet>334</a>
-<a href=#335 id=335 data-nosnippet>335</a>    <span class="kw">fn </span>supported_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; wasmer_types::Features {
-<a href=#336 id=336 data-nosnippet>336</a>        <span class="kw">let </span><span class="kw-2">mut </span>feats = Features::default();
-<a href=#337 id=337 data-nosnippet>337</a>        feats.exceptions(<span class="bool-val">true</span>);
-<a href=#338 id=338 data-nosnippet>338</a>        feats
-<a href=#339 id=339 data-nosnippet>339</a>    }
-<a href=#340 id=340 data-nosnippet>340</a>}
+<a href=#316 id=316 data-nosnippet>316</a><span class="kw">impl </span>CompilerConfig <span class="kw">for </span>LLVM {
+<a href=#317 id=317 data-nosnippet>317</a>    <span class="doccomment">/// Emit code suitable for dlopen.
+<a href=#318 id=318 data-nosnippet>318</a>    </span><span class="kw">fn </span>enable_pic(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#319 id=319 data-nosnippet>319</a>        <span class="comment">// TODO: although we can emit PIC, the object file parser does not yet
+<a href=#320 id=320 data-nosnippet>320</a>        // support all the relocations.
+<a href=#321 id=321 data-nosnippet>321</a>        </span><span class="self">self</span>.is_pic = <span class="bool-val">true</span>;
+<a href=#322 id=322 data-nosnippet>322</a>    }
+<a href=#323 id=323 data-nosnippet>323</a>
+<a href=#324 id=324 data-nosnippet>324</a>    <span class="kw">fn </span>enable_perfmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#325 id=325 data-nosnippet>325</a>        <span class="self">self</span>.enable_perfmap = <span class="bool-val">true
+<a href=#326 id=326 data-nosnippet>326</a>    </span>}
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a>    <span class="doccomment">/// Whether to verify compiler IR.
+<a href=#329 id=329 data-nosnippet>329</a>    </span><span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#330 id=330 data-nosnippet>330</a>        <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
+<a href=#331 id=331 data-nosnippet>331</a>    }
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>    <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {
+<a href=#334 id=334 data-nosnippet>334</a>        <span class="self">self</span>.enable_nan_canonicalization = enable;
+<a href=#335 id=335 data-nosnippet>335</a>    }
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>    <span class="doccomment">/// Transform it into the compiler.
+<a href=#338 id=338 data-nosnippet>338</a>    </span><span class="kw">fn </span>compiler(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Compiler&gt; {
+<a href=#339 id=339 data-nosnippet>339</a>        Box::new(LLVMCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
+<a href=#340 id=340 data-nosnippet>340</a>    }
 <a href=#341 id=341 data-nosnippet>341</a>
-<a href=#342 id=342 data-nosnippet>342</a><span class="kw">impl </span>Default <span class="kw">for </span>LLVM {
-<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">fn </span>default() -&gt; LLVM {
-<a href=#344 id=344 data-nosnippet>344</a>        <span class="self">Self</span>::new()
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.
+<a href=#343 id=343 data-nosnippet>343</a>    </span><span class="kw">fn </span>push_middleware(<span class="kw-2">&amp;mut </span><span class="self">self</span>, middleware: Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;) {
+<a href=#344 id=344 data-nosnippet>344</a>        <span class="self">self</span>.middlewares.push(middleware);
 <a href=#345 id=345 data-nosnippet>345</a>    }
-<a href=#346 id=346 data-nosnippet>346</a>}
-<a href=#347 id=347 data-nosnippet>347</a>
-<a href=#348 id=348 data-nosnippet>348</a><span class="kw">impl </span>From&lt;LLVM&gt; <span class="kw">for </span>Engine {
-<a href=#349 id=349 data-nosnippet>349</a>    <span class="kw">fn </span>from(config: LLVM) -&gt; <span class="self">Self </span>{
-<a href=#350 id=350 data-nosnippet>350</a>        EngineBuilder::new(config).engine()
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a>    <span class="kw">fn </span>supported_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; wasmer_types::Features {
+<a href=#348 id=348 data-nosnippet>348</a>        <span class="kw">let </span><span class="kw-2">mut </span>feats = Features::default();
+<a href=#349 id=349 data-nosnippet>349</a>        feats.exceptions(<span class="bool-val">true</span>);
+<a href=#350 id=350 data-nosnippet>350</a>        feats
 <a href=#351 id=351 data-nosnippet>351</a>    }
-<a href=#352 id=352 data-nosnippet>352</a>}</code></pre></div></section></main></body></html>
+<a href=#352 id=352 data-nosnippet>352</a>}
+<a href=#353 id=353 data-nosnippet>353</a>
+<a href=#354 id=354 data-nosnippet>354</a><span class="kw">impl </span>Default <span class="kw">for </span>LLVM {
+<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">fn </span>default() -&gt; LLVM {
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="self">Self</span>::new()
+<a href=#357 id=357 data-nosnippet>357</a>    }
+<a href=#358 id=358 data-nosnippet>358</a>}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a><span class="kw">impl </span>From&lt;LLVM&gt; <span class="kw">for </span>Engine {
+<a href=#361 id=361 data-nosnippet>361</a>    <span class="kw">fn </span>from(config: LLVM) -&gt; <span class="self">Self </span>{
+<a href=#362 id=362 data-nosnippet>362</a>        EngineBuilder::new(config).engine()
+<a href=#363 id=363 data-nosnippet>363</a>    }
+<a href=#364 id=364 data-nosnippet>364</a>}</code></pre></div></section></main></body></html>
