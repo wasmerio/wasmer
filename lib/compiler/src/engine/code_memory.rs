@@ -25,6 +25,7 @@ const ARCH_FUNCTION_ALIGNMENT: usize = 16;
 const DATA_SECTION_ALIGNMENT: usize = 64;
 
 /// Memory manager for executable code.
+#[derive(Debug)]
 pub struct CodeMemory {
     // frame info is placed first, to ensure it's dropped before the mmap
     frame_info_registration: Option<GlobalFrameInfoRegistration>,

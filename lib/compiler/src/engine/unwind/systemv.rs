@@ -12,6 +12,7 @@ use std::sync::Once;
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 
 /// Represents a registry of function unwind information for System V ABI.
+#[derive(Debug)]
 pub struct UnwindRegistry {
     registrations: Vec<usize>,
     published: bool,

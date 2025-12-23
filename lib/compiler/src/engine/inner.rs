@@ -494,6 +494,7 @@ impl EngineInner {
     #[cfg(not(target_arch = "wasm32"))]
     /// Make memory containing compiled code executable.
     pub(crate) fn code_memory_start(&self) -> usize {
+        dbg!(&self.code_memory);
         self.code_memory.first().unwrap().start_address()
     }
 

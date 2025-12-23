@@ -29,6 +29,7 @@ fn apply_relocation(
     code_memory_start: usize,
 ) {
     let reloc_target = r.reloc_target();
+    dbg!((reloc_target, r.kind()));
 
     // Note: if the relocation needs GOT and its addend is not zero we will relax the
     // relocation and, instead of making it use the GOT entry, we will fixup the assembly to
@@ -77,6 +78,7 @@ fn apply_relocation(
     match r.kind() {
         RelocationKind::Abs8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            dbg!((code_memory_start, reloc_delta));
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
         RelocationKind::X86PCRel4 => unsafe {
