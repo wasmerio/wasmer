@@ -450,61 +450,71 @@
 <a href=#450 id=450 data-nosnippet>450</a>
 <a href=#451 id=451 data-nosnippet>451</a>        <span class="comment">// If the vfork contained a context-switching environment, exit now
 <a href=#452 id=452 data-nosnippet>452</a>        </span><span class="kw">if </span>ctx.data(<span class="kw-2">&amp;</span>store).context_switching_environment.is_some() {
-<a href=#453 id=453 data-nosnippet>453</a>            <span class="macro">tracing::error!</span>(
-<a href=#454 id=454 data-nosnippet>454</a>                <span class="string">"Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent parent process will be terminated."
-<a href=#455 id=455 data-nosnippet>455</a>            </span>);
-<a href=#456 id=456 data-nosnippet>456</a>            <span class="kw">return </span>(store, <span class="prelude-val">Err</span>(code.into()));
-<a href=#457 id=457 data-nosnippet>457</a>        }
-<a href=#458 id=458 data-nosnippet>458</a>
-<a href=#459 id=459 data-nosnippet>459</a>        <span class="comment">// Jump back to the vfork point and current on execution
-<a href=#460 id=460 data-nosnippet>460</a>        </span><span class="kw">let </span>child_pid = child_env.process.pid();
-<a href=#461 id=461 data-nosnippet>461</a>        <span class="kw">let </span>rewind_stack = vfork.rewind_stack.freeze();
-<a href=#462 id=462 data-nosnippet>462</a>        <span class="kw">let </span>store_data = vfork.store_data;
-<a href=#463 id=463 data-nosnippet>463</a>
-<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">let </span>ctx_cloned = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
-<a href=#465 id=465 data-nosnippet>465</a>        <span class="comment">// Now rewind the previous stack and carry on from where we did the vfork
-<a href=#466 id=466 data-nosnippet>466</a>        </span><span class="kw">let </span>rewind_result = <span class="kw">if </span>vfork.is_64bit {
-<a href=#467 id=467 data-nosnippet>467</a>            <span class="kw">crate</span>::syscalls::rewind::&lt;Memory64, <span class="kw">_</span>&gt;(
-<a href=#468 id=468 data-nosnippet>468</a>                ctx_cloned,
-<a href=#469 id=469 data-nosnippet>469</a>                <span class="prelude-val">None</span>,
-<a href=#470 id=470 data-nosnippet>470</a>                rewind_stack,
-<a href=#471 id=471 data-nosnippet>471</a>                store_data,
-<a href=#472 id=472 data-nosnippet>472</a>                <span class="kw">crate</span>::syscalls::ForkResult {
-<a href=#473 id=473 data-nosnippet>473</a>                    pid: child_pid.raw() <span class="kw">as </span>wasmer_wasix_types::wasi::Pid,
-<a href=#474 id=474 data-nosnippet>474</a>                    ret: Errno::Success,
-<a href=#475 id=475 data-nosnippet>475</a>                },
-<a href=#476 id=476 data-nosnippet>476</a>            )
-<a href=#477 id=477 data-nosnippet>477</a>        } <span class="kw">else </span>{
-<a href=#478 id=478 data-nosnippet>478</a>            <span class="kw">crate</span>::syscalls::rewind::&lt;Memory32, <span class="kw">_</span>&gt;(
-<a href=#479 id=479 data-nosnippet>479</a>                ctx_cloned,
-<a href=#480 id=480 data-nosnippet>480</a>                <span class="prelude-val">None</span>,
-<a href=#481 id=481 data-nosnippet>481</a>                rewind_stack,
-<a href=#482 id=482 data-nosnippet>482</a>                store_data,
-<a href=#483 id=483 data-nosnippet>483</a>                <span class="kw">crate</span>::syscalls::ForkResult {
-<a href=#484 id=484 data-nosnippet>484</a>                    pid: child_pid.raw() <span class="kw">as </span>wasmer_wasix_types::wasi::Pid,
-<a href=#485 id=485 data-nosnippet>485</a>                    ret: Errno::Success,
-<a href=#486 id=486 data-nosnippet>486</a>                },
-<a href=#487 id=487 data-nosnippet>487</a>            )
-<a href=#488 id=488 data-nosnippet>488</a>        };
-<a href=#489 id=489 data-nosnippet>489</a>
-<a href=#490 id=490 data-nosnippet>490</a>        <span class="kw">match </span>rewind_result {
-<a href=#491 id=491 data-nosnippet>491</a>            Errno::Success =&gt; {
-<a href=#492 id=492 data-nosnippet>492</a>                <span class="comment">// We should only get here, if the engine does not support context switching
-<a href=#493 id=493 data-nosnippet>493</a>                // If the engine supports it, we should exit in the check a few lines above
-<a href=#494 id=494 data-nosnippet>494</a>                </span><span class="kw">let </span>(store, result) = ContextSwitchingEnvironment::run_main_context(
-<a href=#495 id=495 data-nosnippet>495</a>                    ctx,
-<a href=#496 id=496 data-nosnippet>496</a>                    store,
-<a href=#497 id=497 data-nosnippet>497</a>                    start.clone(),
-<a href=#498 id=498 data-nosnippet>498</a>                    <span class="macro">vec!</span>[],
-<a href=#499 id=499 data-nosnippet>499</a>                );
-<a href=#500 id=500 data-nosnippet>500</a>                (store, <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(result)))
-<a href=#501 id=501 data-nosnippet>501</a>            }
-<a href=#502 id=502 data-nosnippet>502</a>            err =&gt; {
-<a href=#503 id=503 data-nosnippet>503</a>                <span class="macro">warn!</span>(<span class="string">"fork failed - could not rewind the stack - errno={}"</span>, err);
-<a href=#504 id=504 data-nosnippet>504</a>                (store, <span class="prelude-val">Err</span>(err))
-<a href=#505 id=505 data-nosnippet>505</a>            }
-<a href=#506 id=506 data-nosnippet>506</a>        }
-<a href=#507 id=507 data-nosnippet>507</a>    } <span class="kw">else </span>{
-<a href=#508 id=508 data-nosnippet>508</a>        (store, <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>))
-<a href=#509 id=509 data-nosnippet>509</a>    }
-<a href=#510 id=510 data-nosnippet>510</a>}</code></pre></div></section></main></body></html>
+<a href=#453 id=453 data-nosnippet>453</a>            <span class="comment">// We cannot recover from this situation when using context switching
+<a href=#454 id=454 data-nosnippet>454</a>            </span><span class="macro">tracing::error!</span>(
+<a href=#455 id=455 data-nosnippet>455</a>                <span class="string">"Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent process will be terminated."
+<a href=#456 id=456 data-nosnippet>456</a>            </span>);
+<a href=#457 id=457 data-nosnippet>457</a>            <span class="kw">return </span>(store, <span class="prelude-val">Err</span>(code.into()));
+<a href=#458 id=458 data-nosnippet>458</a>        }
+<a href=#459 id=459 data-nosnippet>459</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(asyncify_info) = vfork.asyncify <span class="kw">else </span>{
+<a href=#460 id=460 data-nosnippet>460</a>            <span class="comment">// We can only recover from this situation when using asyncify-based vforking; since asyncify is not in use here, we cannot recover and must terminate the parent process
+<a href=#461 id=461 data-nosnippet>461</a>            </span><span class="macro">tracing::error!</span>(
+<a href=#462 id=462 data-nosnippet>462</a>                <span class="string">"Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent process will be terminated."
+<a href=#463 id=463 data-nosnippet>463</a>            </span>);
+<a href=#464 id=464 data-nosnippet>464</a>            <span class="kw">return </span>(store, <span class="prelude-val">Err</span>(code.into()));
+<a href=#465 id=465 data-nosnippet>465</a>        };
+<a href=#466 id=466 data-nosnippet>466</a>        <span class="comment">// TODO: We can also only safely recover if we are not using nested calling
+<a href=#467 id=467 data-nosnippet>467</a>        // TODO: Just delete this branch
+<a href=#468 id=468 data-nosnippet>468</a>
+<a href=#469 id=469 data-nosnippet>469</a>        // Jump back to the vfork point and continue execution
+<a href=#470 id=470 data-nosnippet>470</a>        </span><span class="kw">let </span>child_pid = child_env.process.pid();
+<a href=#471 id=471 data-nosnippet>471</a>        <span class="kw">let </span>rewind_stack = asyncify_info.rewind_stack.freeze();
+<a href=#472 id=472 data-nosnippet>472</a>        <span class="kw">let </span>store_data = asyncify_info.store_data;
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a>        <span class="kw">let </span>ctx_cloned = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
+<a href=#475 id=475 data-nosnippet>475</a>        <span class="comment">// Now rewind the previous stack and carry on from where we did the vfork
+<a href=#476 id=476 data-nosnippet>476</a>        </span><span class="kw">let </span>rewind_result = <span class="kw">if </span>asyncify_info.is_64bit {
+<a href=#477 id=477 data-nosnippet>477</a>            <span class="kw">crate</span>::syscalls::rewind::&lt;Memory64, <span class="kw">_</span>&gt;(
+<a href=#478 id=478 data-nosnippet>478</a>                ctx_cloned,
+<a href=#479 id=479 data-nosnippet>479</a>                <span class="prelude-val">None</span>,
+<a href=#480 id=480 data-nosnippet>480</a>                rewind_stack,
+<a href=#481 id=481 data-nosnippet>481</a>                store_data,
+<a href=#482 id=482 data-nosnippet>482</a>                <span class="kw">crate</span>::syscalls::ForkResult {
+<a href=#483 id=483 data-nosnippet>483</a>                    pid: child_pid.raw() <span class="kw">as </span>wasmer_wasix_types::wasi::Pid,
+<a href=#484 id=484 data-nosnippet>484</a>                    ret: Errno::Success,
+<a href=#485 id=485 data-nosnippet>485</a>                },
+<a href=#486 id=486 data-nosnippet>486</a>            )
+<a href=#487 id=487 data-nosnippet>487</a>        } <span class="kw">else </span>{
+<a href=#488 id=488 data-nosnippet>488</a>            <span class="kw">crate</span>::syscalls::rewind::&lt;Memory32, <span class="kw">_</span>&gt;(
+<a href=#489 id=489 data-nosnippet>489</a>                ctx_cloned,
+<a href=#490 id=490 data-nosnippet>490</a>                <span class="prelude-val">None</span>,
+<a href=#491 id=491 data-nosnippet>491</a>                rewind_stack,
+<a href=#492 id=492 data-nosnippet>492</a>                store_data,
+<a href=#493 id=493 data-nosnippet>493</a>                <span class="kw">crate</span>::syscalls::ForkResult {
+<a href=#494 id=494 data-nosnippet>494</a>                    pid: child_pid.raw() <span class="kw">as </span>wasmer_wasix_types::wasi::Pid,
+<a href=#495 id=495 data-nosnippet>495</a>                    ret: Errno::Success,
+<a href=#496 id=496 data-nosnippet>496</a>                },
+<a href=#497 id=497 data-nosnippet>497</a>            )
+<a href=#498 id=498 data-nosnippet>498</a>        };
+<a href=#499 id=499 data-nosnippet>499</a>
+<a href=#500 id=500 data-nosnippet>500</a>        <span class="kw">match </span>rewind_result {
+<a href=#501 id=501 data-nosnippet>501</a>            Errno::Success =&gt; {
+<a href=#502 id=502 data-nosnippet>502</a>                <span class="comment">// We should only get here, if the engine does not support context switching
+<a href=#503 id=503 data-nosnippet>503</a>                // If the engine supports it, we should exit in the check a few lines above
+<a href=#504 id=504 data-nosnippet>504</a>                </span><span class="kw">let </span>(store, result) = ContextSwitchingEnvironment::run_main_context(
+<a href=#505 id=505 data-nosnippet>505</a>                    ctx,
+<a href=#506 id=506 data-nosnippet>506</a>                    store,
+<a href=#507 id=507 data-nosnippet>507</a>                    start.clone(),
+<a href=#508 id=508 data-nosnippet>508</a>                    <span class="macro">vec!</span>[],
+<a href=#509 id=509 data-nosnippet>509</a>                );
+<a href=#510 id=510 data-nosnippet>510</a>                (store, <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(result)))
+<a href=#511 id=511 data-nosnippet>511</a>            }
+<a href=#512 id=512 data-nosnippet>512</a>            err =&gt; {
+<a href=#513 id=513 data-nosnippet>513</a>                <span class="macro">warn!</span>(<span class="string">"fork failed - could not rewind the stack - errno={}"</span>, err);
+<a href=#514 id=514 data-nosnippet>514</a>                (store, <span class="prelude-val">Err</span>(err))
+<a href=#515 id=515 data-nosnippet>515</a>            }
+<a href=#516 id=516 data-nosnippet>516</a>        }
+<a href=#517 id=517 data-nosnippet>517</a>    } <span class="kw">else </span>{
+<a href=#518 id=518 data-nosnippet>518</a>        (store, <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>))
+<a href=#519 id=519 data-nosnippet>519</a>    }
+<a href=#520 id=520 data-nosnippet>520</a>}</code></pre></div></section></main></body></html>
