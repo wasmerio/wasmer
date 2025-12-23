@@ -1,9 +1,12 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering::SeqCst},
+use std::{
+    fs,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering::SeqCst},
+    },
 };
 
 #[cfg(feature = "compiler")]
@@ -458,6 +461,17 @@ impl Artifact {
         {
             engine_inner.register_perfmap(&finished_functions, module_info)?;
         }
+
+        let mut dump = String::new();
+        for (index, fnptr) in &finished_functions {
+            let fname = module_info.get_function_name(module_info.func_index(index));
+            let start = fnptr.ptr.0.addr();
+            let end = fnptr.ptr.0.addr() + fnptr.length;
+            dump.push_str(&format!("{fname}:{start}:{end}\n"));
+        }
+        const FNAME: &str = "memory-map.csv";
+        fs::write(FNAME, dump).unwrap();
+        eprintln!("Saving memory map to: {FNAME}");
 
         // Make all code compiled thus far executable.
         engine_inner.publish_compiled_code();
