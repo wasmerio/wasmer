@@ -5,6 +5,7 @@ use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
 use crate::wasmparser::{Operator, ValType};
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 use wasmer_types::FunctionType;
@@ -466,14 +467,11 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn declare_function_name(
+    pub(crate) fn declare_function_names(
         &mut self,
-        func_index: FunctionIndex,
-        name: &'data str,
+        functions: HashMap<FunctionIndex, String>,
     ) -> WasmResult<()> {
-        self.module
-            .function_names
-            .insert(func_index, name.to_string());
+        self.module.function_names = functions;
         Ok(())
     }
 
