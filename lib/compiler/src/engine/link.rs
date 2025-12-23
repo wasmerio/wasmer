@@ -405,6 +405,7 @@ fn apply_relocation(
         },
         RelocationKind::Add4 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            dbg!((code_memory_start, reloc_abs));
             let reloc_abs = reloc_abs.checked_sub(code_memory_start as u64).unwrap();
             let value = read_unaligned(reloc_address as *mut i32);
             write_unaligned(
