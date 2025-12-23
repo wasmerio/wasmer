@@ -27,7 +27,7 @@ type Assembler = VecAssembler<Aarch64Relocation>;
 /// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 /// is always equal to host, even when cross-compiling.
 macro_rules! dynasm {
-    ($a:expr_2021 ; $($tt:tt)*) => {
+    ($a:expr ; $($tt:tt)*) => {
         dynasm::dynasm!(
             $a
             ; .arch aarch64

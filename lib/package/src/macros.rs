@@ -7,7 +7,7 @@ use webc::Version;
 /// Construct a sequence of bytes using one or more items that implement the
 /// [`ToBytes`] trait.
 macro_rules! bytes {
-    ($($item:expr_2021),* $(,)?) => {
+    ($($item:expr),* $(,)?) => {
         {
             #[allow(unused_mut)]
             let mut buffer: ::bytes::BytesMut = ::bytes::BytesMut::new();
@@ -109,7 +109,7 @@ macro_rules! impl_to_bytes_le {
 impl_to_bytes_le!(u16, u32);
 
 macro_rules! assert_bytes_eq {
-    ($lhs:expr_2021, $rhs:expr_2021, $msg:literal $( $tokens:tt)*) => {{
+    ($lhs:expr, $rhs:expr, $msg:literal $( $tokens:tt)*) => {{
         let lhs = &$lhs[..];
         let rhs = &$rhs[..];
         if lhs != rhs {
@@ -123,7 +123,7 @@ macro_rules! assert_bytes_eq {
             pretty_assertions::assert_eq!(lhs.join("\n"), rhs.join("\n"), $msg $($tokens)*);
         }
     }};
-    ($lhs:expr_2021, $rhs:expr_2021) => {
+    ($lhs:expr, $rhs:expr) => {
         assert_bytes_eq!($lhs, $rhs, "{} != {}", stringify!($lhs), stringify!($rhs));
     };
 }

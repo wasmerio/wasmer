@@ -111,7 +111,7 @@ use wasmer_types::{
 /// when we can statically determine that a Wasm access will unconditionally
 /// trap.
 macro_rules! unwrap_or_return_unreachable_state {
-    ($state:ident, $value:expr_2021) => {
+    ($state:ident, $value:expr) => {
         match $value {
             Reachability::Reachable(x) => x,
             Reachability::Unreachable => {

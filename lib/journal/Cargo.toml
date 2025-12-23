@@ -31,7 +31,7 @@ rkyv.workspace = true
 
 thiserror.workspace = true
 bytes.workspace = true
-async-trait = { workspace = true }
+async-trait.workspace = true
 tracing.workspace = true
 bincode.workspace = true
 serde = { workspace = true, default-features = false, features = ["derive"] }
