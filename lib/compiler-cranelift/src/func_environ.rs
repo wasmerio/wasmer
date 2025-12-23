@@ -1384,6 +1384,11 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                     "`ref.null T` that is not a `funcref` or an `externref`".into(),
                 ));
             }
+            HeapType::Exact(_) => {
+                return Err(WasmError::Unsupported(
+                    "custom-descriptors not supported yet".into(),
+                ));
+            }
         })
     }
 
