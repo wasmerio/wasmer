@@ -107,6 +107,7 @@ impl CodeMemory {
         // 2. Allocate the pages. Mark them all read-write.
 
         self.mmap = Mmap::with_at_least(total_len)?;
+        dbg!(self.mmap.ptr);
 
         // 3. Determine where the pointers to each function, executable section
         // or data section are. Copy the functions. Collect the addresses of each and return them.

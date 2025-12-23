@@ -374,7 +374,9 @@ impl Artifact {
         };
 
         let code_memory_start = engine_inner.code_memory_start();
-        dbg!(&custom_sections);
+        for cs in &custom_sections {
+            dbg!(cs.1.addr() - code_memory_start);
+        }
 
         match &artifact {
             ArtifactBuildVariant::Plain(p) => link_module(
