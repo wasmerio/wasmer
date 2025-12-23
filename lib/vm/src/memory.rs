@@ -143,6 +143,12 @@ impl WasmMmap {
     /// Resets the memory down to a zero size
     fn reset(&mut self) -> Result<(), MemoryError> {
         self.size.0 = 0;
+        // update memory definition
+        unsafe {
+            let mut md_ptr = self.vm_memory_definition.as_ptr();
+            let md = md_ptr.as_mut();
+            md.current_length = 0;
+        }
         Ok(())
     }
 

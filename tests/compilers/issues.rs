@@ -609,3 +609,35 @@ fn compiler_debug_dir_test(mut config: crate::Config) {
 
     assert!(Module::new(&store, wat).is_ok());
 }
+
+#[compiler_test(issues)]
+fn issue_5795_memory_reset_size(mut config: crate::Config) {
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+   (memory (export "memory") 1 65536)
+   (func (export "mem_size") (result i32)
+       memory.size)
+   (func (export "grow") (param i32) (result i32)
+       local.get 0
+       memory.grow))
+"#
+        .as_bytes(),
+    )
+    .expect("wat2wasm must succeed");
+
+    let mut store = config.store();
+    let module = Module::new(&store, wasm_bytes).unwrap();
+    let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    let memory = instance.exports.get_memory("memory").unwrap();
+
+    let _ = memory.grow(&mut store, 999).unwrap();
+    memory.reset(&mut store);
+
+    assert_eq!(memory.size(&store).bytes().0, 0);
+    assert_eq!(memory.view(&store).size().0, 0);
+
+    assert_eq!(memory.grow(&mut store, 1).unwrap().0, 0);
+
+    assert_eq!(memory.view(&store).size().0, 1);
+}
