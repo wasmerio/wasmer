@@ -20,9 +20,6 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-    env:
-      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
-      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust
