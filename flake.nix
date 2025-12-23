@@ -2,8 +2,11 @@
   description = "Wasmer Webassembly runtime";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-    flakeutils.url = "github:numtide/flake-utils";
+    # nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    flakeutils = {
+      url = "github:numtide/flake-utils";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, flakeutils }:
@@ -43,7 +46,8 @@
             libffi
             cmake
             ninja
-            webkitgtk_4_0
+            webkitgtk_4_1
+
 
             # Rust tooling
 
@@ -75,7 +79,7 @@
           shellHook = ''
             export LLVM_SYS_211_PREFIX="${pkgs.llvmPackages_21.llvm.dev}"
             export LIBCLANG_PATH="${pkgs.llvmPackages_21.libclang.lib}/lib"
-            export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_0.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
+            export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
             export LIBRARY_PATH="${pkgs.llvmPackages_21.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
             export LD_LIBRARY_PATH="${pkgs.llvmPackages_21.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
             export BINDGEN_EXTRA_CLANG_ARGS="$(
