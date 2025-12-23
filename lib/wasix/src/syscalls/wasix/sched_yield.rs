@@ -1,9 +1,15 @@
 use super::*;
 use crate::syscalls::*;
 
+// NOTE: This syscall is not instrumented by default since it can be logged too frequently,
+// particularly in Go runtimes, introducing excessive noise to the logs.
+
 /// ### `sched_yield()`
 /// Yields execution of the thread
-#[instrument(level = "trace", skip_all, ret)]
+#[cfg_attr(
+    feature = "extra-logging",
+    tracing::instrument(level = "trace", skip_all, ret)
+)]
 pub fn sched_yield<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
 ) -> Result<Errno, WasiError> {
