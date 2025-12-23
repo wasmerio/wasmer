@@ -516,7 +516,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Type::I32 | Type::F32 => Size::S32,
                 Type::I64 | Type::F64 => Size::S64,
                 Type::ExternRef | Type::FuncRef => Size::S64,
-                _ => codegen_error!("singlepass init_local unimplemented"),
+                _ => {
+                    codegen_error!("singlepass init_local unimplemented type: {param}")
+                }
             };
             let loc = self.machine.get_call_param_location(
                 sig.results().len(),

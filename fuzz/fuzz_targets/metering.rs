@@ -1,35 +1,12 @@
 #![no_main]
 
-use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
+use libfuzzer_sys::fuzz_target;
 use std::sync::Arc;
-use wasm_smith::{Config, ConfiguredModule};
 use wasmer::wasmparser::Operator;
-use wasmer::{CompilerConfig, Instance, Module, Store, imports};
+use wasmer::{Instance, Module, Store, imports};
+use wasmer_compiler::CompilerConfig;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::Metering;
-
-#[derive(Arbitrary, Debug, Default, Copy, Clone)]
-struct NoImportsConfig;
-impl Config for NoImportsConfig {
-    fn max_imports(&self) -> usize {
-        0
-    }
-    fn max_memory_pages(&self) -> u32 {
-        // https://github.com/wasmerio/wasmer/issues/2187
-        65535
-    }
-    fn allow_start_export(&self) -> bool {
-        false
-    }
-}
-
-#[derive(Arbitrary)]
-struct WasmSmithModule(ConfiguredModule<NoImportsConfig>);
-impl std::fmt::Debug for WasmSmithModule {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&wasmprinter::print_bytes(self.0.to_bytes()).unwrap())
-    }
-}
 
 fn cost(operator: &Operator) -> u64 {
     match operator {
@@ -39,8 +16,8 @@ fn cost(operator: &Operator) -> u64 {
     }
 }
 
-fuzz_target!(|module: WasmSmithModule| {
-    let wasm_bytes = module.0.to_bytes();
+fuzz_target!(|module: wasm_smith::Module| {
+    let wasm_bytes = module.to_bytes();
 
     if let Ok(path) = std::env::var("DUMP_TESTCASE") {
         use std::fs::File;
