@@ -8,10 +8,12 @@ pub(crate) use thread_local::*;
 
 use tracing::{error, trace};
 use wasmer::{
-    AsStoreMut, AsStoreRef, Function, Global, Instance, Memory, MemoryView, Module, Table,
-    TypedFunction, Value,
+    AsStoreMut, AsStoreRef, Function, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
+    Table, TypedFunction, Value,
 };
 use wasmer_wasix_types::wasi::Errno;
+
+use crate::{WasiEnv, state::LinkError};
 
 use super::Linker;
 
@@ -361,10 +363,15 @@ impl WasiModuleTreeHandles {
     /// Check if an indirect_function_table entry is reserved for closures.
     ///
     /// Returns false if the entry is not reserved for closures.
-    pub fn is_closure(&self, function_id: u32) -> bool {
-        match self {
-            WasiModuleTreeHandles::Static(_) => false,
-            WasiModuleTreeHandles::Dynamic { linker, .. } => linker.is_closure(function_id),
+    pub fn is_closure(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        function_id: u32,
+    ) -> Result<bool, LinkError> {
+        match ctx.data().inner() {
+            WasiModuleTreeHandles::Static(_) => Ok(false),
+            WasiModuleTreeHandles::Dynamic { linker, .. } => {
+                linker.clone().is_closure(function_id, ctx)
+            }
         }
     }
 }
