@@ -74,6 +74,10 @@ fn apply_relocation(
     let mut macho_aarch64_subtractor_addresses = HashSet::new();
 
     match r.kind() {
+        RelocationKind::Abs4 => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            write_unaligned(reloc_address as *mut u32, reloc_delta as _);
+        },
         RelocationKind::Abs8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);

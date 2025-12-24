@@ -261,7 +261,8 @@ pub trait RelocationLike {
     // [1]: https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst
     fn for_address(&self, start: usize, target_func_address: u64) -> (usize, u64) {
         match self.kind() {
-            RelocationKind::Abs8
+            RelocationKind::Abs4
+            | RelocationKind::Abs8
             | RelocationKind::Arm64Movw0
             | RelocationKind::Arm64Movw1
             | RelocationKind::Arm64Movw2

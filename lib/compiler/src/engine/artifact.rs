@@ -1121,11 +1121,13 @@ impl Artifact {
             _ => 1,
         };
 
+        // MetadataHeader::parse requires that metadata must be aligned
+        // by 8 bytes.
         let offset = emit_data(
             &mut obj,
             object_name.as_bytes(),
             metadata_builder.placeholder_data(),
-            default_align,
+            std::cmp::max(8, default_align),
         )
         .map_err(to_compile_error)?;
         metadata_builder.set_section_offset(offset);
