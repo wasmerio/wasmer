@@ -183,8 +183,14 @@ impl LLVMCompiler {
             || {
                 let target_machine = self.config().target_machine(target);
                 let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
-                FuncTranslator::new(target_machine, Some(target_machine_no_opt), binary_format)
-                    .unwrap()
+                let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                FuncTranslator::new(
+                    target_machine,
+                    Some(target_machine_no_opt),
+                    binary_format,
+                    pointer_width,
+                )
+                .unwrap()
             },
             |func_translator, (i, input)| {
                 let module = func_translator.translate_to_module(
@@ -401,10 +407,12 @@ impl Compiler for LLVMCompiler {
                                 self.config().target_machine_with_opt(target, true);
                             let target_machine_no_opt =
                                 self.config().target_machine_with_opt(target, false);
+                            let pointer_width = target.triple().pointer_width().unwrap().bytes();
                             FuncTranslator::new(
                                 target_machine,
                                 Some(target_machine_no_opt),
                                 binary_format,
+                                pointer_width,
                             )
                             .unwrap()
                         },
@@ -429,10 +437,15 @@ impl Compiler for LLVMCompiler {
             })?
         } else {
             let target_machine = self.config().target_machine(target);
+            let pointer_width = target.triple().pointer_width().unwrap().bytes();
             let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
-            let func_translator =
-                FuncTranslator::new(target_machine, Some(target_machine_no_opt), binary_format)
-                    .unwrap();
+            let func_translator = FuncTranslator::new(
+                target_machine,
+                Some(target_machine_no_opt),
+                binary_format,
+                pointer_width,
+            )
+            .unwrap();
 
             function_body_inputs
                 .iter()
