@@ -986,9 +986,6 @@ impl Linker {
         let indirect_function_table = Table::new(store, function_table_type, Value::FuncRef(None))
             .map_err(LinkError::TableAllocationError)?;
 
-        // TODO: do we need to add one to the table length requested by the module? I _think_
-        // clang takes the null funcref at index zero into account in the table size, so we
-        // _may_ not need this. Need to experiment and figure this out.
         let expected_table_length =
             dylink_section.mem_info.table_size + MAIN_MODULE_TABLE_BASE as u32;
         // Make sure the function table is as big as the dylink.0 section expects it to be
@@ -1565,12 +1562,23 @@ impl Linker {
     /// Check if an indirect_function_table entry is reserved for closures.
     ///
     /// Returns false if the entry is not reserved for closures.
-    pub fn is_closure(&self, function_id: u32) -> bool {
-        // TODO: Check if this can result in a deadlock
-        let linker = self.linker_state.read().unwrap();
-        linker
+    // TODO: we can cache this information within the group state so we don't
+    // need a write lock on the linker state here
+    pub fn is_closure(
+        &self,
+        function_id: u32,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ) -> Result<bool, LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        write_linker_state!(linker_state, self, group_state, ctx);
+        Ok(linker_state
             .allocated_closure_functions
-            .contains_key(&function_id)
+            .contains_key(&function_id))
     }
 
     /// Loads a side module from the given path, linking it against the existing module tree
@@ -2908,8 +2916,6 @@ impl InstanceGroupState {
         Ok(())
     }
 
-    // TODO: take expected type into account in case multiple modules export the same name,
-    // but with different types
     fn resolve_exported_symbol(&self, symbol: &str) -> Option<(ModuleHandle, &Extern)> {
         if let Some(export) = self
             .main_instance()
@@ -4005,9 +4011,6 @@ async fn locate_module(
     } else {
         // Go through all dynamic library lookup paths
         // Note: a path without a slash does *not* look at the current directory. This is by design.
-
-        // TODO: implement RUNPATH once it's supported by clang and wasmparser
-        // TODO: support $ORIGIN and ${ORIGIN} in RUNPATH
 
         trace!(
             ?module_path,
