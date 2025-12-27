@@ -40,7 +40,7 @@ jobs:
           echo $DOING_RELEASE
 
   build:
-    name: Build on ${{ matrix.build }}
+    name: ${{ matrix.build }}
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ${{ matrix.os }}
     needs: setup
@@ -288,7 +288,7 @@ jobs:
           retention-days: 2
 
   windows_gnu:
-    name: Windows GNU
+    name: windows-gnu
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
     steps:
@@ -357,7 +357,7 @@ jobs:
           retention-days: 2
 
   darwin_aarch64_jsc:
-    name: macOS aarch64 (JSC)
+    name: JSC - macos-aarch64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: depot-macos-14
     steps:
@@ -391,7 +391,7 @@ jobs:
           retention-days: 2
 
   darwin_x86_64_jsc:
-    name: macOS x86_64 (JSC)
+    name: JSC - macos-x86_64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: macos-15-intel
     steps:
@@ -421,7 +421,7 @@ jobs:
           retention-days: 2
 
   linux_riscv64:
-    name: Linux riscv64
+    name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
     steps:
