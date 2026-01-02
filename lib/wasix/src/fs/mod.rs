@@ -1579,10 +1579,8 @@ impl WasiFs {
         Prestat {
             pr_type: Preopentype::Dir,
             u: PrestatEnum::Dir {
-                // REVIEW:
-                // no need for +1, because there is no 0 end-of-string marker
-                // john: removing the +1 seems cause regression issues
-                pr_name_len: inode_val.name.read().unwrap().len() as u32 + 1,
+                // WASI spec: pr_name_len is the length of the path string, NOT including null terminator
+                pr_name_len: inode_val.name.read().unwrap().len() as u32,
             }
             .untagged(),
         }
