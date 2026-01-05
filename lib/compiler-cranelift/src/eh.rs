@@ -146,7 +146,7 @@ pub fn build_function_lsda<'a>(
         let action_indices = site
             .actions
             .iter()
-            // Sort actions to ensure CatchAll is always last in the chain, since the action table
+            // Reverse actions to ensure CatchAll is always last in the chain, since the action table
             // encoding uses back references and relies on this ordering.
             .rev()
             .map(|action| type_entries.get_or_insert(*action) as i32)
