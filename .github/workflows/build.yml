@@ -103,15 +103,12 @@ jobs:
             #  artifact_name: 'wasmer-linux-musl-amd64'
             #  container: alpine:latest
             #  build_wasm: true
-            #  use_sccache: false
             #  enable_llvm: false
             #  enable_v8: true
             #  enable_wasmi: true
             #  enable_wamr: false
 
     env:
-      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
-      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v6
