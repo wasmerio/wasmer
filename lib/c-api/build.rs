@@ -53,7 +53,7 @@ const MIDDLEWARES_FEATURE_AS_C_DEFINE: &str = "WASMER_MIDDLEWARES_ENABLED";
 const JSC_FEATURE_AS_C_DEFINE: &str = "WASMER_JSC_BACKEND";
 
 macro_rules! map_feature_as_c_define {
-    ($feature:expr_2021, $c_define:ident, $accumulator:ident) => {
+    ($feature:expr, $c_define:ident, $accumulator:ident) => {
         #[cfg(feature = $feature)]
         {
             use std::fmt::Write;

@@ -93,6 +93,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     let option_pid = match option_pid.tag {
         OptionTag::None => None,
         OptionTag::Some => Some(option_pid.pid),
+        _ => return Ok(Errno::Inval),
     };
     tracing::trace!("filter_pid = {:?}", option_pid);
 

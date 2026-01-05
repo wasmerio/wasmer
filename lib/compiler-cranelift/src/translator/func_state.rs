@@ -11,8 +11,11 @@
 
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::heap::Heap;
+use crate::translator::code_translator::CatchClause;
 use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, Inst, Value};
+use cranelift_frontend::FunctionBuilder;
+use itertools::Itertools;
 use std::vec::Vec;
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult};
 
@@ -84,6 +87,9 @@ pub enum ControlStackFrame {
         num_return_values: usize,
         original_stack_size: usize,
         exit_is_branched_to: bool,
+        /// When this block corresponds to a try-table, keep the handler state
+        /// checkpoint and the list of catch blocks to seal once the scope ends.
+        try_table_info: Option<(HandlerStateCheckpoint, Vec<Block>)>,
     },
     Loop {
         destination: Block,
@@ -214,6 +220,25 @@ impl ControlStackFrame {
         };
         stack.truncate(self.original_stack_size() - num_duplicated_params);
     }
+
+    /// Restore exception handler state and seal catch blocks when exiting a
+    /// try-table scope.
+    pub fn restore_catch_handlers(
+        &self,
+        handlers: &mut HandlerState,
+        builder: &mut FunctionBuilder,
+    ) {
+        if let Self::Block {
+            try_table_info: Some((checkpoint, catch_blocks)),
+            ..
+        } = self
+        {
+            handlers.restore_checkpoint(*checkpoint);
+            for block in catch_blocks {
+                builder.seal_block(*block);
+            }
+        }
+    }
 }
 
 /// Contains information passed along during a function's translation and that records:
@@ -227,6 +252,8 @@ pub struct FuncTranslationState {
     pub(crate) stack: Vec<Value>,
     /// A stack of active control flow operations at this point in the input wasm function.
     pub(crate) control_stack: Vec<ControlStackFrame>,
+    /// Exception handler state used to attach catch blocks to try-calls.
+    pub(crate) handlers: HandlerState,
     /// Is the current translation state still reachable? This is false when translating operators
     /// like End, Return, or Unreachable.
     pub(crate) reachable: bool,
@@ -258,6 +285,68 @@ impl FuncTranslationState {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct HandlerStateCheckpoint(usize, usize);
+
+#[derive(Default)]
+pub(crate) struct HandlerState {
+    handlers: Vec<Block>,
+    clauses: Vec<CatchClause>,
+}
+
+pub(crate) struct LandingPad {
+    pub(crate) block: Block,
+    pub(crate) clauses: Vec<CatchClause>,
+}
+
+impl HandlerState {
+    pub fn add_handler(&mut self, block: Block) {
+        self.handlers.push(block);
+    }
+
+    pub fn add_clause(&mut self, clause: CatchClause) {
+        self.clauses.push(clause);
+    }
+
+    pub fn take_checkpoint(&self) -> HandlerStateCheckpoint {
+        HandlerStateCheckpoint(self.handlers.len(), self.clauses.len())
+    }
+
+    pub fn restore_checkpoint(&mut self, checkpoint: HandlerStateCheckpoint) {
+        debug_assert!(checkpoint.0 <= self.handlers.len());
+        debug_assert!(checkpoint.1 <= self.clauses.len());
+        self.handlers.truncate(checkpoint.0);
+        self.clauses.truncate(checkpoint.1);
+    }
+
+    /// Get the latest landing pad block including all the tags covered by it.
+    pub fn landing_pad(&self) -> Option<LandingPad> {
+        self.handlers.last().copied().map(|block| LandingPad {
+            block,
+            clauses: self.unique_clauses(),
+        })
+    }
+
+    /// Returns an iterator over the catch clauses in reverse order, with duplicates removed.
+    pub fn unique_clauses(&self) -> Vec<CatchClause> {
+        self.clauses
+            .iter()
+            .unique_by(|c| c.wasm_tag)
+            .rev()
+            .cloned()
+            .collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.handlers.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.handlers.clear();
+        self.clauses.clear();
+    }
+}
+
 impl FuncTranslationState {
     /// Construct a new, empty, `FuncTranslationState`
     pub(crate) fn new() -> Self {
@@ -266,6 +355,7 @@ impl FuncTranslationState {
             // TODO(reftypes):
             //metadata_stack: Vec::new(),
             control_stack: Vec::new(),
+            handlers: HandlerState::default(),
             reachable: true,
             globals: HashMap::new(),
             heaps: HashMap::new(),
@@ -277,7 +367,9 @@ impl FuncTranslationState {
     fn clear(&mut self) {
         debug_assert!(self.stack.is_empty());
         debug_assert!(self.control_stack.is_empty());
+        debug_assert!(self.handlers.is_empty());
         self.reachable = true;
+        self.handlers.clear();
         self.globals.clear();
         self.heaps.clear();
         self.signatures.clear();
@@ -374,12 +466,12 @@ impl FuncTranslationState {
         &mut self.stack[len - n..]
     }
 
-    /// Push a block on the control stack.
-    pub(crate) fn push_block(
+    fn push_block_impl(
         &mut self,
         following_code: Block,
         num_param_types: usize,
         num_result_types: usize,
+        try_table_info: Option<(HandlerStateCheckpoint, Vec<Block>)>,
     ) {
         debug_assert!(num_param_types <= self.stack.len());
         self.control_stack.push(ControlStackFrame::Block {
@@ -388,7 +480,35 @@ impl FuncTranslationState {
             num_param_values: num_param_types,
             num_return_values: num_result_types,
             exit_is_branched_to: false,
+            try_table_info,
         });
+    }
+
+    /// Push a block on the control stack.
+    pub(crate) fn push_block(
+        &mut self,
+        following_code: Block,
+        num_param_types: usize,
+        num_result_types: usize,
+    ) {
+        self.push_block_impl(following_code, num_param_types, num_result_types, None);
+    }
+
+    /// Push a try-table block on the control stack.
+    pub(crate) fn push_try_table_block(
+        &mut self,
+        following_code: Block,
+        catch_blocks: Vec<Block>,
+        num_param_types: usize,
+        num_result_types: usize,
+        checkpoint: HandlerStateCheckpoint,
+    ) {
+        self.push_block_impl(
+            following_code,
+            num_param_types,
+            num_result_types,
+            Some((checkpoint, catch_blocks)),
+        );
     }
 
     /// Push a loop on the control stack.

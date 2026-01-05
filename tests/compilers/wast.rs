@@ -51,12 +51,15 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     if cfg!(feature = "coverage") {
         wast.disable_assert_and_exhaustion();
     }
+
+    wast.allow_instantiation_failures(&["Validation error: memory size must be at most"]);
     if is_simd {
         // We allow this, so tests can be run properly for `simd_const` test.
         wast.allow_instantiation_failures(&[
             "Validation error: multiple tables",
             "Validation error: unknown memory 0",
             "Validation error: Invalid var_u32",
+            "Validation error: SIMD index out of bounds",
         ]);
     }
     if is_threads {

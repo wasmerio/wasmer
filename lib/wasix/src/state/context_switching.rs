@@ -25,6 +25,9 @@ use wasmer_wasix_types::wasi::ExitCode;
 /// on a single host thread.
 #[derive(Debug)]
 pub(crate) struct ContextSwitchingEnvironment {
+    // TODO: We might be able to get rid of this Arc by passing an AsyncFunctionEnvMut to the functions instead
+    //       We need to be super-careful about memory leaks by cyclical references if we do that change.
+    //       The Arc allows us to have weak references to the ContextSwitchingEnvironment indepenend of the WasiEnv.
     inner: Arc<ContextSwitchingEnvironmentInner>,
 }
 
@@ -109,6 +112,17 @@ impl ContextSwitchingEnvironment {
         entrypoint: wasmer::Function,
         params: Vec<wasmer::Value>,
     ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
+        // If we are already in a context-switching environment, something went wrong
+        if ctx
+            .data_mut(&mut store)
+            .context_switching_environment
+            .is_some()
+        {
+            panic!(
+                "Failed to start a WASIX main context as there was already a context-switching environment present."
+            );
+        }
+
         // Do a normal call and dont install the context switching env, if the engine does not support async
         let engine_supports_async = store.engine().supports_async();
         if !engine_supports_async {
@@ -122,28 +136,11 @@ impl ContextSwitchingEnvironment {
         let this = Self::new(local_executor.spawner());
 
         // Add the context-switching environment to the WasiEnv
-        let env = ctx.data_mut(&mut store);
-
-        if env.vfork.is_some() {
-            // This is enforced here and in proc_fork
-            tracing::error!(
-                "process forking is mutally exclusive with WASIX context-switching features. If you need both, please open an issue."
-            );
-            return (
-                store,
-                Err(RuntimeError::user(
-                    // Exit with code 129 to indicate an internal error
-                    WasiError::Exit(ExitCode::from(129)).into(),
-                )),
-            );
-        }
-
-        let previous_environment = env.context_switching_environment.replace(this);
-        if previous_environment.is_some() {
-            panic!(
-                "Failed to start a wasix main context as there was already a context-switching environment present."
-            );
-        }
+        let previous = ctx
+            .data_mut(&mut store)
+            .context_switching_environment
+            .replace(this);
+        assert!(previous.is_none()); // Should never be hit because of the check at the top
 
         // Turn the store into an async store and run the entrypoint
         let store_async = store.into_async();
@@ -164,6 +161,7 @@ impl ContextSwitchingEnvironment {
             },
             _ => result,
         };
+        tracing::trace!("Main context finished execution and returned {result:?}");
 
         // Drop the executor to ensure all references to the StoreAsync are gone and convert back to a normal store
         drop(local_executor);
@@ -171,9 +169,21 @@ impl ContextSwitchingEnvironment {
 
         // Remove the context-switching environment from the WasiEnv
         let env = ctx.data_mut(&mut store);
-        env.context_switching_environment.take().expect(
-            "Failed to remove wasix context-switching environment from WASIX env after main context finished, this should never happen",
-        );
+
+        env.context_switching_environment
+            .take()
+            .or_else(|| {
+                env.vfork
+                    .as_mut()
+                    .and_then(|vfork| vfork.env.context_switching_environment.take())
+                    .inspect(|_| {
+                        // Grace for vforks, so they don't bring everything down with them.
+                        // This is still an error.
+                        // The message below is oversimplified there is more nuance to this.
+                        tracing::error!("Exiting a vforked process in any other way than calling `_exit()` is undefined behavior but the current program just did that.");
+                    })
+            })
+            .expect("Failed to remove wasix context-switching environment from WASIX env after main context finished. This means we lost it somehow which should never happen.");
 
         (store, result)
     }
@@ -189,6 +199,13 @@ impl ContextSwitchingEnvironment {
     }
 
     pub(crate) fn destroy_context(&self, target_context_id: &u64) -> bool {
+        // For now this only queues the context up for destruction by removing its unblocker.
+        // This will only cause destruction when the context_switch is called.
+        // That could cause memory issues if many contexts are created and destroyed without switching
+        // which could happen in applications that use contexts during setup, but not during main execution.
+        // We don't do immediate destruction because that would make this more complex, as it is essentially
+        // identical to switching to the target context
+        // TODO: Implement immediate destruction if the above becoms an issue
         self.inner
             .unblockers
             .write()

@@ -18,7 +18,7 @@ ipnet.workspace = true
 iprange.workspace = true
 thiserror.workspace = true
 bytes.workspace = true
-async-trait = { workspace = true }
+async-trait.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, default-features = false, features = ["io-util"] }
 libc = { workspace = true, optional = true }
@@ -26,7 +26,7 @@ mio = { workspace = true, optional = true }
 socket2 = { workspace = true, optional = true }
 derive_more.workspace = true
 virtual-mio = { path = "../virtual-io", version = "0.601.0", default-features = false }
-bincode.workspace = true
+bincode = { workspace = true, features = ["serde"] }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 pin-project-lite.workspace = true
 futures-util.workspace = true

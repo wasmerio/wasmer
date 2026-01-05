@@ -5,6 +5,7 @@ use std::sync::{
 use wasmer::{Instance, Memory, MemoryLocation, MemoryType, Module, Store, imports};
 
 #[test]
+#[allow(unused_attributes)]
 #[cfg_attr(feature = "wamr", ignore = "wamr ignores import memories")]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support threads")]
 #[cfg_attr(

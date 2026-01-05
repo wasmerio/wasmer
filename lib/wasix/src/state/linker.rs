@@ -4087,9 +4087,6 @@ pub fn is_dynamically_linked(module: &Module) -> bool {
     module.custom_sections("dylink.0").next().is_some()
 }
 
-// Need to parse the RUNPATH subsection manually until wasmparser adds support
-const WASM_DYLINK_RUNTIME_PATH: u8 = 5;
-
 pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let mut sections = module.custom_sections("dylink.0");
 
@@ -4116,39 +4113,24 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
             wasmparser::Dylink0Subsection::MemInfo(m) => {
                 mem_info = Some(m);
             }
-
             wasmparser::Dylink0Subsection::Needed(n) => {
                 needed = Some(n.iter().map(|s| s.to_string()).collect::<Vec<_>>());
             }
-
             wasmparser::Dylink0Subsection::ImportInfo(i) => {
                 for i in i {
                     import_metadata.insert((i.module.to_owned(), i.field.to_owned()), i.flags);
                 }
             }
-
             wasmparser::Dylink0Subsection::ExportInfo(e) => {
                 for e in e {
                     export_metadata.insert(e.name.to_owned(), e.flags);
                 }
             }
-
-            wasmparser::Dylink0Subsection::Unknown {
-                ty: WASM_DYLINK_RUNTIME_PATH,
-                data,
-                range,
-            } => {
-                let mut reader = wasmparser::BinaryReader::new(data, range.start);
-                runtime_path.extend(
-                    (0..reader.read_var_u32()?)
-                        .map(|_| reader.read_string().map(ToOwned::to_owned))
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter(),
-                )
-            }
-
             wasmparser::Dylink0Subsection::Unknown { ty, .. } => {
                 tracing::warn!("Skipping unknown dylink.0 subsection {ty}");
+            }
+            wasmparser::Dylink0Subsection::RuntimePath(path) => {
+                runtime_path.extend(path.into_iter().map(|path| path.to_string()));
             }
         }
     }

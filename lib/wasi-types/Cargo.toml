@@ -41,5 +41,5 @@ pretty_assertions.workspace = true
 enable-serde = ["serde", "wasmer-types/serde"]
 
 [package.metadata.docs.rs]
-features = ["wasmer/sys", "wasmer/compiler"]
+features = ["wasmer/sys", "wasmer/cranelift"]
 rustc-args = ["--cfg", "docsrs"]

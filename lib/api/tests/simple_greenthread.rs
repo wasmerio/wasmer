@@ -219,7 +219,7 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
     drop(localpool);
 
     let store = store_async.into_store().ok().unwrap();
-    return Ok(env.as_ref(&store).logs.clone());
+    Ok(env.as_ref(&store).logs.clone())
 }
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -70,7 +70,7 @@ int main()
 
     // Print something to make sure printf and, by extension, data relocations work.
     // Do *NOT* remote this.
-    printf("All tests passed successfully!\n");
+    printf("  All tests passed successfully!\n");
 
     return 0;
 }

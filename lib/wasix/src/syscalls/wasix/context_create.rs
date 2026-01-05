@@ -76,7 +76,7 @@ pub fn context_create<M: MemorySize>(
     // Get the context-switching environment
     let Some(environment) = &data.context_switching_environment else {
         tracing::warn!(
-            "The WASIX context-switching API is only available in engines supporting async execution"
+            "The WASIX context-switching API is only available in a context-switching environment"
         );
         return Ok(Errno::Notsup);
     };

@@ -149,7 +149,7 @@ pub fn proc_exec3<M: MemorySize>(
         wasi_env.owned_handles.push(vfork.handle.clone());
         _prepare_wasi(&mut wasi_env, Some(args), envs, None);
 
-        // Recrod the stack offsets before we give up ownership of the wasi_env
+        // Record the stack offsets before we give up ownership of the wasi_env
         let stack_lower = wasi_env.layout.stack_lower;
         let stack_upper = wasi_env.layout.stack_upper;
 
@@ -195,18 +195,34 @@ pub fn proc_exec3<M: MemorySize>(
 
         match spawn_result {
             Err(e) => {
-                // We failed to spawn a new process - put the vfork back
+                // We failed to spawn a new process - put the child env back
                 child_env.swap_inner(ctx.data_mut());
                 std::mem::swap(child_env.as_mut(), ctx.data_mut());
 
+                // Put back the vfork we previously took from here
                 ctx.data_mut().vfork = Some(vfork);
                 return Ok(e);
             }
             Ok(()) => {
-                // Jump back to the vfork point and current on execution
+                // We spawned a new process - put the parent env back
+                ctx.data_mut().swap_inner(&mut vfork.env);
+                std::mem::swap(ctx.data_mut(), &mut vfork.env);
+
+                assert!(vfork.env.context_switching_environment.is_none());
+                assert!(ctx.data().context_switching_environment.is_some());
+
+                let Some(asyncify_info) = vfork.asyncify else {
+                    // vfork without asyncify only forks the WasiEnv, which we have restored
+                    // above. Restoring the control flow is done on the guest side.
+                    // See `proc_fork_env()` for information about this.
+
+                    return Ok(Errno::Success);
+                };
+
+                // Jump back to the vfork point and continue execution
                 // note: fork does not return any values hence passing `()`
-                let rewind_stack = vfork.rewind_stack.freeze();
-                let store_data = vfork.store_data;
+                let rewind_stack = asyncify_info.rewind_stack.freeze();
+                let store_data = asyncify_info.store_data;
                 unwind::<M, _>(ctx, move |mut ctx, _, _| {
                     // Rewind the stack
                     match rewind::<M, _>(

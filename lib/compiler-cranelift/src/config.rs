@@ -11,11 +11,15 @@ use std::{
     sync::Arc,
 };
 use std::{num::NonZero, path::PathBuf};
+use target_lexicon::OperatingSystem;
 use wasmer_compiler::{
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
-use wasmer_types::target::{Architecture, CpuFeature, Target};
+use wasmer_types::{
+    Features,
+    target::{Architecture, CpuFeature, Target},
+};
 
 /// Callbacks to the different Cranelift compilation phases.
 #[derive(Debug, Clone)]
@@ -285,6 +289,14 @@ impl CompilerConfig for Cranelift {
     /// Pushes a middleware onto the back of the middleware chain.
     fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
         self.middlewares.push(middleware);
+    }
+
+    fn supported_features_for_target(&self, target: &Target) -> wasmer_types::Features {
+        let mut feats = Features::default();
+        if target.triple().operating_system == OperatingSystem::Linux {
+            feats.exceptions(true);
+        }
+        feats
     }
 }
 

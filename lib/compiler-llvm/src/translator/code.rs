@@ -61,9 +61,14 @@ const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 // ( Arshia: that comment above is AI-generated... AI is savage XD )
 const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 
+// Use the lowest optimization level for very large function bodies to reduce compile time.
+// See #5997 for more numbers connected to the change.
+const LLVMIR_LARGE_FUNCTION_THRESHOLD: usize = 100_000;
+
 pub struct FuncTranslator {
     ctx: Context,
     target_machine: TargetMachine,
+    target_machine_no_opt: Option<TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
@@ -72,12 +77,14 @@ pub struct FuncTranslator {
 impl FuncTranslator {
     pub fn new(
         target_machine: TargetMachine,
+        target_machine_no_opt: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
             target_machine,
+            target_machine_no_opt,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -364,16 +371,6 @@ impl FuncTranslator {
         passes.push("simplifycfg");
         passes.push("mem2reg");
 
-        //let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
-        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
-        //    let path = std::path::Path::new(llvm_dump_path);
-        //    if !path.exists() {
-        //        std::fs::create_dir_all(path).unwrap()
-        //    }
-        //    let path = path.join(format!("{function_name}.ll"));
-        //    _ = module.print_to_file(path).unwrap();
-        //}
-
         module
             .run_passes(
                 passes.join(",").as_str(),
@@ -381,14 +378,6 @@ impl FuncTranslator {
                 PassBuilderOptions::create(),
             )
             .unwrap();
-
-        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
-        //    if !passes.is_empty() {
-        //        let path =
-        //            std::path::Path::new(llvm_dump_path).join(format!("{function_name}_opt.ll"));
-        //        _ = module.print_to_file(path).unwrap();
-        //    }
-        //}
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -425,7 +414,14 @@ impl FuncTranslator {
             *local_func_index,
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
-        let target_machine = &self.target_machine;
+
+        let target_machine = if function_body.data.len() > LLVMIR_LARGE_FUNCTION_THRESHOLD {
+            self.target_machine_no_opt
+                .as_ref()
+                .unwrap_or(&self.target_machine)
+        } else {
+            &self.target_machine
+        };
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
