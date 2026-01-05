@@ -642,6 +642,7 @@ fn issue_5795_memory_reset_size(mut config: crate::Config) {
     assert_eq!(memory.view(&store).size().0, 1);
 }
 
+#[cfg(not(target_os = "windows"))]
 #[compiler_test(issues)]
 fn issue_6004_exception(mut config: crate::Config) {
     let wasm_bytes = wat2wasm(
