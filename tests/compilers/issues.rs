@@ -641,3 +641,53 @@ fn issue_5795_memory_reset_size(mut config: crate::Config) {
 
     assert_eq!(memory.view(&store).size().0, 1);
 }
+
+#[cfg(not(target_os = "windows"))]
+#[compiler_test(issues)]
+fn issue_6004_exception(mut config: crate::Config) {
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+  (tag $e)
+
+  (func (export "throw-expect-42") (result i32)
+    (block $h1 (result exnref)
+      (try_table (result exnref) (catch_all_ref $h1)
+        (block $h2 (result exnref)
+          (try_table (result exnref) (catch_ref $e $h2)
+            (throw $e)
+          )
+        )
+        (i32.const 42)
+        (return)
+      )
+    )
+    (drop)
+    (i32.const 1)
+  )
+)
+"#
+        .as_bytes(),
+    )
+    .expect("wat2wasm must succeed");
+
+    let mut store = config.store();
+    let module = match Module::new(&store, wasm_bytes) {
+        Err(CompileError::Validate(message))
+            if message.contains("exceptions proposal not enabled") =>
+        {
+            // Skip the test in that case.
+            return;
+        }
+        Ok(module) => module,
+        _ => unreachable!(),
+    };
+    let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    let result = instance
+        .exports
+        .get_function("throw-expect-42")
+        .unwrap()
+        .call(&mut store, &[])
+        .unwrap();
+    assert_eq!(&Value::I32(42), result.first().unwrap());
+}
