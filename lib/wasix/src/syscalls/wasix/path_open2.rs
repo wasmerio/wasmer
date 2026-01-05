@@ -271,7 +271,7 @@ pub(crate) fn path_open_internal(
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Root { .. } => {
                 if !o_flags.contains(Oflags::DIRECTORY) {
-                    return Ok(Err(Errno::Notcapable));
+                    return Ok(Err(Errno::Isdir));
                 }
             }
             Kind::Dir { .. } => {
