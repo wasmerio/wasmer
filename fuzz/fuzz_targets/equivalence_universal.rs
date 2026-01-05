@@ -2,9 +2,10 @@
 #![deny(unused_variables)]
 
 use anyhow::Result;
-use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
-use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{CompilerConfig, EngineBuilder, Instance, Module, Store, Val, imports};
+use libfuzzer_sys::fuzz_target;
+use wasmer::{Instance, Module, Store, Value, imports};
+use wasmer_compiler::{CompilerConfig, EngineBuilder};
+
 #[cfg(feature = "cranelift")]
 use wasmer_compiler_cranelift::Cranelift;
 #[cfg(feature = "llvm")]
@@ -12,43 +13,11 @@ use wasmer_compiler_llvm::LLVM;
 #[cfg(feature = "singlepass")]
 use wasmer_compiler_singlepass::Singlepass;
 
-#[derive(Arbitrary, Debug, Default, Copy, Clone)]
-struct ExportedFunctionConfig;
-impl Config for ExportedFunctionConfig {
-    fn max_imports(&self) -> usize {
-        0
-    }
-    fn max_memory_pages(&self) -> u32 {
-        // https://github.com/wasmerio/wasmer/issues/2187
-        65535
-    }
-    fn min_funcs(&self) -> usize {
-        1
-    }
-    fn min_exports(&self) -> usize {
-        1
-    }
-}
-
-struct WasmSmithModule(ConfiguredModule<ExportedFunctionConfig>);
-impl<'a> arbitrary::Arbitrary<'a> for WasmSmithModule {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        let mut module = ConfiguredModule::<ExportedFunctionConfig>::arbitrary(u)?;
-        module.ensure_termination(100000);
-        Ok(WasmSmithModule(module))
-    }
-}
-impl std::fmt::Debug for WasmSmithModule {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&wasmprinter::print_bytes(self.0.to_bytes()).unwrap())
-    }
-}
-
 #[cfg(feature = "singlepass")]
-fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
+fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<(Store, Instance)>> {
     let compiler = Singlepass::default();
-    let mut store = Store::new(compiler);
-    let module = Module::new(&store, &wasm_bytes);
+    let mut store = Store::new(EngineBuilder::new(compiler));
+    let module = Module::new(&store, wasm_bytes);
     let module = match module {
         Ok(m) => m,
         Err(e) => {
@@ -59,36 +28,36 @@ fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
             return Err(e.into());
         }
     };
-    let instance = Instance::new(&module, &imports! {})?;
-    Ok(Some(instance))
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    Ok(Some((store, instance)))
 }
 
 #[cfg(feature = "cranelift")]
-fn maybe_instantiate_cranelift(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
+fn maybe_instantiate_cranelift(wasm_bytes: &[u8]) -> Result<Option<(Store, Instance)>> {
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
     let mut store = Store::new(compiler);
-    let module = Module::new(&store, &wasm_bytes)?;
-    let instance = Instance::new(&module, &imports! {})?;
-    Ok(Some(instance))
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    Ok(Some((store, instance)))
 }
 
 #[cfg(feature = "llvm")]
-fn maybe_instantiate_llvm(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
+fn maybe_instantiate_llvm(wasm_bytes: &[u8]) -> Result<Option<(Store, Instance)>> {
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let mut store = Store::new(compiler);
-    let module = Module::new(&store, &wasm_bytes)?;
-    let instance = Instance::new(&module, &imports! {})?;
-    Ok(Some(instance))
+    let mut store = Store::new(EngineBuilder::new(compiler));
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    Ok(Some((store, instance)))
 }
 
 #[derive(Debug)]
 enum FunctionResult {
-    Error(String),
-    Values(Vec<Val>),
+    Error(()),
+    Values(Vec<Value>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -121,8 +90,8 @@ impl PartialEq for FunctionResult {
                         .iter()
                         .zip(other_values.iter())
                         .all(|(x, y)| match (x, y) {
-                            (Val::F32(x), Val::F32(y)) => x.to_bits() == y.to_bits(),
-                            (Val::F64(x), Val::F64(y)) => x.to_bits() == y.to_bits(),
+                            (Value::F32(x), Value::F32(y)) => x.to_bits() == y.to_bits(),
+                            (Value::F64(x), Value::F64(y)) => x.to_bits() == y.to_bits(),
                             _ => x == y,
                         })
             }
@@ -133,8 +102,8 @@ impl PartialEq for FunctionResult {
 
 impl Eq for FunctionResult {}
 
-fn evaluate_instance(instance: Result<Instance>) -> InstanceResult {
-    if let Err(_err) = instance {
+fn evaluate_instance(store_instance: Result<(Store, Instance)>) -> InstanceResult {
+    if let Err(_err) = store_instance {
         /*let mut error_message = format!("{}", err);
         // Remove the stack trace.
         if error_message.starts_with("RuntimeError: unreachable\n") {
@@ -143,13 +112,13 @@ fn evaluate_instance(instance: Result<Instance>) -> InstanceResult {
         InstanceResult::Error(error_message)*/
         InstanceResult::Error("".into())
     } else {
-        let instance = instance.unwrap();
+        let (mut store, instance) = store_instance.unwrap();
         let mut results = vec![];
         for it in instance.exports.iter().functions() {
             let (_, f) = it;
             // TODO: support functions which take params.
-            if f.ty().params().is_empty() {
-                let result = f.call(&[]);
+            if f.ty(&store).params().is_empty() {
+                let result = f.call(&mut store, &[]);
                 let result = if let Ok(values) = result {
                     FunctionResult::Values(values.into())
                 } else {
@@ -158,7 +127,7 @@ fn evaluate_instance(instance: Result<Instance>) -> InstanceResult {
                     let error_message = err.message();
                     FunctionResult::Error(error_message)
                      */
-                    FunctionResult::Error("".into())
+                    FunctionResult::Error(())
                 };
                 results.push(result);
             }
@@ -167,8 +136,8 @@ fn evaluate_instance(instance: Result<Instance>) -> InstanceResult {
     }
 }
 
-fuzz_target!(|module: WasmSmithModule| {
-    let wasm_bytes = module.0.to_bytes();
+fuzz_target!(|module: wasm_smith::Module| {
+    let wasm_bytes = module.to_bytes();
 
     if let Ok(path) = std::env::var("DUMP_TESTCASE") {
         use std::fs::File;
