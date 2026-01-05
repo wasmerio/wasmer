@@ -285,7 +285,8 @@ pub trait RelocationLike {
             | RelocationKind::LArchAbs64Lo20
             | RelocationKind::LArchAbs64Hi12
             | RelocationKind::LArchPCAlaLo12
-            | RelocationKind::Add4 => {
+            | RelocationKind::Add4
+            | RelocationKind::Sub4 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_abs = target_func_address
