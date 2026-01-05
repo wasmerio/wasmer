@@ -38,6 +38,7 @@ bytes.workspace = true
 tracing = { workspace = true, default-features = true }
 # - Optional shared dependencies.
 wat = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
 rustc-demangle.workspace = true
 shared-buffer.workspace = true
 
@@ -65,7 +66,6 @@ wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=6.1.
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=6.1.0", optional = true }
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=6.1.0", optional = true }
 corosensei = { workspace = true, optional = true }
-futures = { workspace = true, optional = true }
 
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }

@@ -7,6 +7,9 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use futures::task::LocalSpawnExt;
 use futures::{FutureExt, channel::oneshot};
+use macro_wasmer_universal_test::universal_test;
+#[cfg(feature = "js")]
+use wasm_bindgen_test::*;
 use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Memory,
     Module, RuntimeError, Store, Type, Value, imports,
@@ -222,8 +225,7 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
     Ok(env.as_ref(&store).logs.clone())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-#[test]
+#[universal_test]
 fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
     let logs = run_greenthread_test(include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
