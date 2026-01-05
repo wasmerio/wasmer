@@ -1374,14 +1374,19 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                     pos.ins().iconst(self.reference_type(), 0)
                 }
                 _ => {
-                    return Err(WasmError::Unsupported(
-                        "`ref.null T` that is not a `funcref` or an `externref`".into(),
-                    ));
+                    return Err(WasmError::Unsupported(format!(
+                        "`ref.null T` that is not a `funcref` or an `externref`: {ty:?}"
+                    )));
                 }
             },
             HeapType::Concrete(_) => {
                 return Err(WasmError::Unsupported(
                     "`ref.null T` that is not a `funcref` or an `externref`".into(),
+                ));
+            }
+            HeapType::Exact(_) => {
+                return Err(WasmError::Unsupported(
+                    "custom-descriptors not supported yet".into(),
                 ));
             }
         })

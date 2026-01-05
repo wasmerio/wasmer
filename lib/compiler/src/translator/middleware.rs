@@ -5,8 +5,8 @@ use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::{Deref, Range};
-use wasmer_types::{LocalFunctionIndex, MiddlewareError, ModuleInfo, WasmResult};
-use wasmparser::{BinaryReader, Operator, ValType};
+use wasmer_types::{LocalFunctionIndex, MiddlewareError, ModuleInfo, WasmError, WasmResult};
+use wasmparser::{BinaryReader, FunctionBody, Operator, OperatorsReader, ValType};
 
 use super::error::from_binaryreadererror_wasmerror;
 use crate::translator::environ::FunctionBinaryReader;
@@ -43,7 +43,6 @@ pub trait FunctionMiddleware: Debug {
 }
 
 /// A Middleware binary reader of the WebAssembly structures and types.
-#[derive(Debug)]
 pub struct MiddlewareBinaryReader<'a> {
     /// Parsing state.
     state: MiddlewareReaderState<'a>,
@@ -52,11 +51,18 @@ pub struct MiddlewareBinaryReader<'a> {
     chain: Vec<Box<dyn FunctionMiddleware>>,
 }
 
+enum MiddlewareInnerReader<'a> {
+    Binary {
+        reader: BinaryReader<'a>,
+        original_reader: BinaryReader<'a>,
+    },
+    Operator(OperatorsReader<'a>),
+}
+
 /// The state of the binary reader. Exposed to middlewares to push their outputs.
-#[derive(Debug)]
 pub struct MiddlewareReaderState<'a> {
     /// Raw binary reader.
-    inner: BinaryReader<'a>,
+    inner: Option<MiddlewareInnerReader<'a>>,
 
     /// The pending operations added by the middleware.
     pending_operations: VecDeque<Operator<'a>>,
@@ -119,7 +125,10 @@ impl<'a> MiddlewareBinaryReader<'a> {
         let inner = BinaryReader::new(data, original_offset);
         Self {
             state: MiddlewareReaderState {
-                inner,
+                inner: Some(MiddlewareInnerReader::Binary {
+                    original_reader: inner.clone(),
+                    reader: inner,
+                }),
                 pending_operations: VecDeque::new(),
             },
             chain: vec![],
@@ -134,43 +143,68 @@ impl<'a> MiddlewareBinaryReader<'a> {
 
 impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
     fn read_local_count(&mut self) -> WasmResult<u32> {
-        self.state
-            .inner
-            .read_var_u32()
-            .map_err(from_binaryreadererror_wasmerror)
+        match self.state.inner.as_mut().expect("inner state must exist") {
+            MiddlewareInnerReader::Binary { reader, .. } => reader
+                .read_var_u32()
+                .map_err(from_binaryreadererror_wasmerror),
+            MiddlewareInnerReader::Operator(..) => Err(WasmError::InvalidWebAssembly {
+                message: "locals must be read before the function body".to_string(),
+                offset: self.current_position(),
+            }),
+        }
     }
 
     fn read_local_decl(&mut self) -> WasmResult<(u32, ValType)> {
-        let count = self
-            .state
-            .inner
-            .read_var_u32()
-            .map_err(from_binaryreadererror_wasmerror)?;
-        let ty: ValType = self
-            .state
-            .inner
-            .read::<ValType>()
-            .map_err(from_binaryreadererror_wasmerror)?;
-        Ok((count, ty))
+        match self.state.inner.as_mut().expect("inner state must exist") {
+            MiddlewareInnerReader::Binary { reader, .. } => {
+                let count = reader
+                    .read_var_u32()
+                    .map_err(from_binaryreadererror_wasmerror)?;
+                let ty: ValType = reader
+                    .read::<ValType>()
+                    .map_err(from_binaryreadererror_wasmerror)?;
+                Ok((count, ty))
+            }
+            MiddlewareInnerReader::Operator(..) => Err(WasmError::InvalidWebAssembly {
+                message: "locals must be read before the function body".to_string(),
+                offset: self.current_position(),
+            }),
+        }
     }
 
     fn read_operator(&mut self) -> WasmResult<Operator<'a>> {
+        if let Some(inner) = self.state.inner.take() {
+            self.state.inner = Some(match inner {
+                MiddlewareInnerReader::Binary {
+                    original_reader, ..
+                } => {
+                    let operator_reader = FunctionBody::new(original_reader)
+                        .get_operators_reader()
+                        .map_err(from_binaryreadererror_wasmerror)?;
+                    MiddlewareInnerReader::Operator(operator_reader)
+                }
+                other => other,
+            });
+        }
+
+        let read_operator = |state: &mut MiddlewareReaderState<'a>| {
+            let Some(MiddlewareInnerReader::Operator(operator_reader)) = state.inner.as_mut()
+            else {
+                unreachable!();
+            };
+            operator_reader
+                .read()
+                .map_err(from_binaryreadererror_wasmerror)
+        };
+
         if self.chain.is_empty() {
             // We short-circuit in case no chain is used
-            return self
-                .state
-                .inner
-                .read_operator()
-                .map_err(from_binaryreadererror_wasmerror);
+            return read_operator(&mut self.state);
         }
 
         // Try to fill the `self.pending_operations` buffer, until it is non-empty.
         while self.state.pending_operations.is_empty() {
-            let raw_op = self
-                .state
-                .inner
-                .read_operator()
-                .map_err(from_binaryreadererror_wasmerror)?;
+            let raw_op = read_operator(&mut self.state)?;
 
             // Fill the initial raw operator into pending buffer.
             self.state.pending_operations.push_back(raw_op);
@@ -192,22 +226,43 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
     }
 
     fn current_position(&self) -> usize {
-        self.state.inner.current_position()
+        match self.state.inner.as_ref().expect("inner state must exist") {
+            MiddlewareInnerReader::Binary { reader, .. } => reader.current_position(),
+            MiddlewareInnerReader::Operator(operator_reader) => {
+                operator_reader.get_binary_reader().current_position()
+            }
+        }
     }
 
     fn original_position(&self) -> usize {
-        self.state.inner.original_position()
+        match self.state.inner.as_ref().expect("inner state must exist") {
+            MiddlewareInnerReader::Binary { reader, .. } => reader.original_position(),
+            MiddlewareInnerReader::Operator(operator_reader) => operator_reader.original_position(),
+        }
     }
 
     fn bytes_remaining(&self) -> usize {
-        self.state.inner.bytes_remaining()
+        match self.state.inner.as_ref().expect("inner state must exist") {
+            MiddlewareInnerReader::Binary { reader, .. } => reader.bytes_remaining(),
+            MiddlewareInnerReader::Operator(operator_reader) => {
+                operator_reader.get_binary_reader().bytes_remaining()
+            }
+        }
     }
 
     fn eof(&self) -> bool {
-        self.state.inner.eof()
+        match self.state.inner.as_ref().expect("inner state must exist") {
+            MiddlewareInnerReader::Binary { reader, .. } => reader.eof(),
+            MiddlewareInnerReader::Operator(operator_reader) => operator_reader.eof(),
+        }
     }
 
     fn range(&self) -> Range<usize> {
-        self.state.inner.range()
+        match self.state.inner.as_ref().expect("inner state must exist") {
+            MiddlewareInnerReader::Binary { reader, .. } => reader.range(),
+            MiddlewareInnerReader::Operator(operator_reader) => {
+                operator_reader.get_binary_reader().range()
+            }
+        }
     }
 }
