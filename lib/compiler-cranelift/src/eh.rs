@@ -128,16 +128,27 @@ pub fn build_function_lsda<'a>(
     let mut callsite_actions = Vec::with_capacity(sites.len());
 
     for site in &sites {
+        #[cfg(debug_assertions)]
+        {
+            // CatchAll must always be the last item in the action list; otherwise, the tags that follow
+            // it will be ignored.
+            let catch_all_positions = site
+                .actions
+                .iter()
+                .positions(|a| matches!(a, ExceptionType::CatchAll))
+                .collect_vec();
+            assert!(catch_all_positions.iter().at_most_one().is_ok());
+            if let Some(&i) = catch_all_positions.first() {
+                assert!(i == site.actions.len() - 1);
+            }
+        }
+
         let action_indices = site
             .actions
             .iter()
-            // Note: Actions must be sorted to ensure that CatchAll is always the last in the chain, as required by find_eh_action.
-            // As the actions use a pointer to the previous one (as part of a chain), we place the CatchAll at the beginning in the
-            // action_indices.
-            .sorted_by_key(|e| match e {
-                ExceptionType::CatchAll => 0,
-                _ => 1,
-            })
+            // Sort actions to ensure CatchAll is always last in the chain, since the action table
+            // encoding uses back references and relies on this ordering.
+            .rev()
             .map(|action| type_entries.get_or_insert(*action) as i32)
             .collect_vec();
         callsite_actions.push(action_indices);
