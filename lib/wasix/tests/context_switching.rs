@@ -45,7 +45,7 @@ fn test_with_wasixcc(name: &str) -> Result<(), anyhow::Error> {
     )
 }
 
-// macOS si currently disabled, because cranelift does not
+// macOS is currently disabled, because cranelift does not
 // support exception handling on that platform yet.
 #[cfg(all(unix, not(target_os = "macos")))]
 #[test]
