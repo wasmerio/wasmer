@@ -232,7 +232,7 @@ regex = "1.11"
 region = "3.0"
 replace_with = "0.1.7"
 reqwest = { version = "0.12.0", default-features = false }
-rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
+rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
 rustc-demangle = "0.1"
 rustc_version = "0.4"
 rusty_jsc = "0.1.0"
