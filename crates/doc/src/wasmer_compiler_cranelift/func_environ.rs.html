@@ -1374,9 +1374,9 @@
 <a href=#1374 id=1374 data-nosnippet>1374</a>                    pos.ins().iconst(<span class="self">self</span>.reference_type(), <span class="number">0</span>)
 <a href=#1375 id=1375 data-nosnippet>1375</a>                }
 <a href=#1376 id=1376 data-nosnippet>1376</a>                <span class="kw">_ </span>=&gt; {
-<a href=#1377 id=1377 data-nosnippet>1377</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(
-<a href=#1378 id=1378 data-nosnippet>1378</a>                        <span class="string">"`ref.null T` that is not a `funcref` or an `externref`"</span>.into(),
-<a href=#1379 id=1379 data-nosnippet>1379</a>                    ));
+<a href=#1377 id=1377 data-nosnippet>1377</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(<span class="macro">format!</span>(
+<a href=#1378 id=1378 data-nosnippet>1378</a>                        <span class="string">"`ref.null T` that is not a `funcref` or an `externref`: {ty:?}"
+<a href=#1379 id=1379 data-nosnippet>1379</a>                    </span>)));
 <a href=#1380 id=1380 data-nosnippet>1380</a>                }
 <a href=#1381 id=1381 data-nosnippet>1381</a>            },
 <a href=#1382 id=1382 data-nosnippet>1382</a>            HeapType::Concrete(<span class="kw">_</span>) =&gt; {
