@@ -8,6 +8,7 @@ use cranelift_codegen::{
     ExceptionContextLoc, FinalizedMachCallSite, FinalizedMachExceptionHandler,
 };
 use cranelift_entity::EntityRef;
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
@@ -54,13 +55,13 @@ pub fn build_function_lsda<'a>(
             match handler {
                 FinalizedMachExceptionHandler::Tag(tag, offset) => {
                     landing_pad = Some(landing_pad.unwrap_or(*offset));
-                    catches.push(ActionKind::Tag {
+                    catches.push(ExceptionType::Tag {
                         tag: u32::try_from(tag.index()).expect("tag index fits in u32"),
                     });
                 }
                 FinalizedMachExceptionHandler::Default(offset) => {
                     landing_pad = Some(landing_pad.unwrap_or(*offset));
-                    catches.push(ActionKind::CatchAll);
+                    catches.push(ExceptionType::CatchAll);
                 }
                 FinalizedMachExceptionHandler::Context(context) => {
                     // Context records are used by Cranelift to thread VMContext
@@ -127,14 +128,16 @@ pub fn build_function_lsda<'a>(
     let mut callsite_actions = Vec::with_capacity(sites.len());
 
     for site in &sites {
-        let mut action_indices = Vec::new();
-        for action in &site.actions {
-            let index = match action {
-                ActionKind::Tag { tag } => type_entries.get_or_insert_tag(*tag),
-                ActionKind::CatchAll => type_entries.get_or_insert_catch_all(),
-            };
-            action_indices.push(index as i32);
-        }
+        let action_indices = site
+            .actions
+            .iter()
+            // Note: Actions must be sorted to ensure that CatchAll is always the last in the chain, as required by find_eh_action.
+            .sorted_by_key(|e| match e {
+                ExceptionType::CatchAll => 0,
+                _ => 1,
+            })
+            .map(|action| type_entries.get_or_insert(*action) as i32)
+            .collect_vec();
         callsite_actions.push(action_indices);
     }
 
@@ -301,26 +304,24 @@ struct CallSiteDesc {
     start: u32,
     len: u32,
     landing_pad: u32,
-    actions: Vec<ActionKind>,
+    actions: Vec<ExceptionType>,
 }
 
-#[derive(Debug)]
-enum ActionKind {
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+enum ExceptionType {
     Tag { tag: u32 },
     CatchAll,
 }
 
 #[derive(Debug)]
 struct TypeTable {
-    entries: Vec<TypeEntry>,
-    index_map: HashMap<TypeKey, usize>,
+    entries: indexmap::IndexSet<ExceptionType>,
 }
 
 impl TypeTable {
     fn new() -> Self {
         Self {
-            entries: Vec::new(),
-            index_map: HashMap::new(),
+            entries: indexmap::IndexSet::new(),
         }
     }
 
@@ -328,42 +329,31 @@ impl TypeTable {
         self.entries.is_empty()
     }
 
-    fn get_or_insert_tag(&mut self, tag: u32) -> usize {
-        let key = TypeKey::Tag(tag);
-        if let Some(idx) = self.index_map.get(&key) {
-            *idx
-        } else {
-            let idx = self.entries.len() + 1;
-            self.entries.push(TypeEntry::Tag { tag });
-            self.index_map.insert(key, idx);
-            idx
+    fn get_or_insert(&mut self, exception: ExceptionType) -> usize {
+        if !self.entries.contains(&exception) {
+            self.entries.insert(exception);
         }
-    }
 
-    fn get_or_insert_catch_all(&mut self) -> usize {
-        let key = TypeKey::CatchAll;
-        if let Some(idx) = self.index_map.get(&key) {
-            *idx
-        } else {
-            let idx = self.entries.len() + 1;
-            self.entries.push(TypeEntry::CatchAll);
-            self.index_map.insert(key, idx);
-            idx
-        }
+        // The indices are one-based!
+        self.entries
+            .get_index_of(&exception)
+            .expect("must be already inserted")
+            + 1
     }
 
     fn encode(&self, pointer_bytes: u8) -> (Vec<u8>, Vec<TagRelocation>) {
         let mut bytes = Vec::with_capacity(self.entries.len() * pointer_bytes as usize);
         let mut relocations = Vec::new();
 
+        // Note the exception types must be streamed in the reverse order!
         for entry in self.entries.iter().rev() {
             let offset = bytes.len() as u32;
             match entry {
-                TypeEntry::Tag { tag } => {
+                ExceptionType::Tag { tag } => {
                     bytes.extend_from_slice(&vec![0; pointer_bytes as usize]);
                     relocations.push(TagRelocation { offset, tag: *tag });
                 }
-                TypeEntry::CatchAll => {
+                ExceptionType::CatchAll => {
                     bytes.extend_from_slice(&vec![0; pointer_bytes as usize]);
                 }
             }
@@ -371,18 +361,6 @@ impl TypeTable {
 
         (bytes, relocations)
     }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq)]
-enum TypeKey {
-    Tag(u32),
-    CatchAll,
-}
-
-#[derive(Debug)]
-enum TypeEntry {
-    Tag { tag: u32 },
-    CatchAll,
 }
 
 struct ActionTable {
