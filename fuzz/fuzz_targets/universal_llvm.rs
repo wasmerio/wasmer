@@ -1,47 +1,54 @@
 #![no_main]
 
-use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
-use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{CompilerConfig, Instance, Module, Store, imports};
+use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
+use wasmer::{Instance, Module, Store, imports};
+use wasmer_compiler::{CompilerConfig, EngineBuilder};
 use wasmer_compiler_llvm::LLVM;
 
-#[derive(Arbitrary, Debug, Default, Copy, Clone)]
-struct NoImportsConfig;
-impl Config for NoImportsConfig {
-    fn max_imports(&self) -> usize {
-        0
-    }
-    fn max_memory_pages(&self) -> u32 {
-        // https://github.com/wasmerio/wasmer/issues/2187
-        65535
-    }
-    fn allow_start_export(&self) -> bool {
-        false
+struct LLVMPassFuzzModule(wasm_smith::Module);
+
+impl Arbitrary<'_> for LLVMPassFuzzModule {
+    fn arbitrary(
+        u: &mut libfuzzer_sys::arbitrary::Unstructured,
+    ) -> libfuzzer_sys::arbitrary::Result<Self> {
+        let mut config = wasm_smith::Config::arbitrary(u)?;
+        config.min_imports = 0;
+        config.max_imports = 0;
+        config.max_memory32_bytes = 65535 * 4096;
+        config.min_funcs = 1;
+        config.max_funcs = std::cmp::max(config.min_funcs, config.max_funcs);
+        config.min_exports = 1;
+        config.max_exports = std::cmp::max(config.min_exports, config.max_exports);
+        config.gc_enabled = false;
+        config.memory64_enabled = false;
+        config.max_memories = 1;
+        config.tail_call_enabled = false;
+        Ok(Self(wasm_smith::Module::new(config, u)?))
     }
 }
-#[derive(Arbitrary)]
-struct WasmSmithModule(ConfiguredModule<NoImportsConfig>);
-impl std::fmt::Debug for WasmSmithModule {
+
+impl std::fmt::Debug for LLVMPassFuzzModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&wasmprinter::print_bytes(self.0.to_bytes()).unwrap())
     }
 }
 
-fuzz_target!(|module: WasmSmithModule| {
-    let wasm_bytes = module.0.to_bytes();
-
+fn save_wasm_file(data: &[u8]) {
     if let Ok(path) = std::env::var("DUMP_TESTCASE") {
         use std::fs::File;
         use std::io::Write;
         let mut file = File::create(path).unwrap();
-        file.write_all(&wasm_bytes).unwrap();
-        return;
+        file.write_all(data).unwrap();
     }
+}
+
+fuzz_target!(|module: LLVMPassFuzzModule| {
+    let wasm_bytes = module.0.to_bytes();
 
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let mut store = Store::new(compiler);
+    let mut store = Store::new(EngineBuilder::new(compiler));
     let module = Module::new(&store, &wasm_bytes).unwrap();
     match Instance::new(&mut store, &module, &imports! {}) {
         Ok(_) => {}
@@ -52,6 +59,7 @@ fuzz_target!(|module: WasmSmithModule| {
             {
                 return;
             }
+            save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
     }

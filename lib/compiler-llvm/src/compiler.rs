@@ -182,7 +182,9 @@ impl LLVMCompiler {
         let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTranslator::new(target_machine, binary_format).unwrap()
+                let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
+                FuncTranslator::new(target_machine, Some(target_machine_no_opt), binary_format)
+                    .unwrap()
             },
             |func_translator, (i, input)| {
                 let module = func_translator.translate_to_module(
@@ -395,8 +397,16 @@ impl Compiler for LLVMCompiler {
                     .par_iter()
                     .map_init(
                         || {
-                            let target_machine = self.config().target_machine(target);
-                            FuncTranslator::new(target_machine, binary_format).unwrap()
+                            let target_machine =
+                                self.config().target_machine_with_opt(target, true);
+                            let target_machine_no_opt =
+                                self.config().target_machine_with_opt(target, false);
+                            FuncTranslator::new(
+                                target_machine,
+                                Some(target_machine_no_opt),
+                                binary_format,
+                            )
+                            .unwrap()
                         },
                         |func_translator, (i, input)| {
                             // TODO: remove (to serialize)
@@ -419,7 +429,10 @@ impl Compiler for LLVMCompiler {
             })?
         } else {
             let target_machine = self.config().target_machine(target);
-            let func_translator = FuncTranslator::new(target_machine, binary_format).unwrap();
+            let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
+            let func_translator =
+                FuncTranslator::new(target_machine, Some(target_machine_no_opt), binary_format)
+                    .unwrap();
 
             function_body_inputs
                 .iter()

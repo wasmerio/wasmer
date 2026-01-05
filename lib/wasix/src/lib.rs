@@ -322,28 +322,33 @@ impl std::fmt::Display for WasiRuntimeErrorDisplay<'_> {
 
 #[derive(Debug)]
 pub struct WasiVFork {
-    /// The unwound stack before the vfork occured
-    pub rewind_stack: BytesMut,
-    /// The mutable parts of the store
-    pub store_data: Bytes,
-    /// The environment before the vfork occured
+    /// The information needed to rewind the stack with asyncify
+    pub asyncify: Option<WasiVForkAsyncify>,
+
+    /// The environment before the vfork occurred
     pub env: Box<WasiEnv>,
 
     /// Handle of the thread we have forked (dropping this handle
     /// will signal that the thread is dead)
     pub handle: WasiThreadHandle,
+}
 
-    is_64bit: bool,
+#[derive(Debug, Clone)]
+pub struct WasiVForkAsyncify {
+    /// The unwound stack before the vfork occurred
+    pub rewind_stack: BytesMut,
+    /// The mutable parts of the store
+    pub store_data: Bytes,
+    /// Whether the store is 64-bit
+    pub is_64bit: bool,
 }
 
 impl Clone for WasiVFork {
     fn clone(&self) -> Self {
         Self {
-            rewind_stack: self.rewind_stack.clone(),
-            store_data: self.store_data.clone(),
+            asyncify: self.asyncify.clone(),
             env: Box::new(self.env.as_ref().clone()),
             handle: self.handle.clone(),
-            is_64bit: self.is_64bit,
         }
     }
 }
@@ -554,6 +559,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff::<Memory32>),
         "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory32>),
         "proc_fork" => Function::new_typed_with_env(&mut store, env, proc_fork::<Memory32>),
+        "proc_fork_env" => Function::new_typed_with_env(&mut store, env, proc_fork_env::<Memory32>),
         "proc_join" => Function::new_typed_with_env(&mut store, env, proc_join::<Memory32>),
         "proc_signal" => Function::new_typed_with_env(&mut store, env, proc_signal),
         "proc_signals_get" => Function::new_typed_with_env(&mut store, env, proc_signals_get::<Memory32>),
@@ -561,6 +567,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "proc_exec" => Function::new_typed_with_env(&mut store, env, proc_exec::<Memory32>),
         "proc_exec2" => Function::new_typed_with_env(&mut store, env, proc_exec2::<Memory32>),
         "proc_exec3" => Function::new_typed_with_env(&mut store, env, proc_exec3::<Memory32>),
+        "proc_exit2" => Function::new_typed_with_env(&mut store, env, proc_exit2::<Memory32>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "proc_raise_interval" => Function::new_typed_with_env(&mut store, env, proc_raise_interval),
         "proc_snapshot" => Function::new_typed_with_env(&mut store, env, proc_snapshot::<Memory32>),
@@ -699,6 +706,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff::<Memory64>),
         "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory64>),
         "proc_fork" => Function::new_typed_with_env(&mut store, env, proc_fork::<Memory64>),
+        "proc_fork_env" => Function::new_typed_with_env(&mut store, env, proc_fork_env::<Memory64>),
         "proc_join" => Function::new_typed_with_env(&mut store, env, proc_join::<Memory64>),
         "proc_signal" => Function::new_typed_with_env(&mut store, env, proc_signal),
         "proc_signals_get" => Function::new_typed_with_env(&mut store, env, proc_signals_get::<Memory64>),
@@ -706,6 +714,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "proc_exec" => Function::new_typed_with_env(&mut store, env, proc_exec::<Memory64>),
         "proc_exec2" => Function::new_typed_with_env(&mut store, env, proc_exec2::<Memory64>),
         "proc_exec3" => Function::new_typed_with_env(&mut store, env, proc_exec3::<Memory64>),
+        "proc_exit2" => Function::new_typed_with_env(&mut store, env, proc_exit2::<Memory64>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "proc_raise_interval" => Function::new_typed_with_env(&mut store, env, proc_raise_interval),
         "proc_snapshot" => Function::new_typed_with_env(&mut store, env, proc_snapshot::<Memory64>),

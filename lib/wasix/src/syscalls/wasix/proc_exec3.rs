@@ -199,6 +199,7 @@ pub fn proc_exec3<M: MemorySize>(
                 child_env.swap_inner(ctx.data_mut());
                 std::mem::swap(child_env.as_mut(), ctx.data_mut());
 
+                // Put back the vfork we previously took from here
                 ctx.data_mut().vfork = Some(vfork);
                 return Ok(e);
             }
@@ -209,10 +210,19 @@ pub fn proc_exec3<M: MemorySize>(
 
                 assert!(vfork.env.context_switching_environment.is_none());
                 assert!(ctx.data().context_switching_environment.is_some());
-                // Jump back to the vfork point and current on execution
+
+                let Some(asyncify_info) = vfork.asyncify else {
+                    // vfork without asyncify only forks the WasiEnv, which we have restored
+                    // above. Restoring the control flow is done on the guest side.
+                    // See `proc_fork_env()` for information about this.
+
+                    return Ok(Errno::Success);
+                };
+
+                // Jump back to the vfork point and continue execution
                 // note: fork does not return any values hence passing `()`
-                let rewind_stack = vfork.rewind_stack.freeze();
-                let store_data = vfork.store_data;
+                let rewind_stack = asyncify_info.rewind_stack.freeze();
+                let store_data = asyncify_info.store_data;
                 unwind::<M, _>(ctx, move |mut ctx, _, _| {
                     // Rewind the stack
                     match rewind::<M, _>(

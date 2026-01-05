@@ -134,9 +134,9 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "^5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.126.1", default-features = false }
-cranelift-entity = { version = "=0.126.1", default-features = false }
-cranelift-frontend = { version = "=0.126.1", default-features = false }
+cranelift-codegen = { version = "=0.127.0", default-features = false }
+cranelift-entity = { version = "=0.127.0", default-features = false }
+cranelift-frontend = { version = "=0.127.0", default-features = false }
 criterion = { version = "0.7", default-features = false }
 crossbeam-channel = "0.5.15"
 crossbeam-queue = "0.3.8"
@@ -183,7 +183,7 @@ indexmap = "2"
 inline-c = "0.1.7"
 # TODO: use a proper release
 inkwell = { git = "https://github.com/TheDan64/inkwell.git", rev = "b9c53276e30935ccec841d12c9687a17e9199958", default-features = false }
-insta = "1.44.2"
+insta = "1.45.0"
 interfaces = "0.0.9"
 ipnet = "2.10.1"
 iprange = "0.6.7"
@@ -232,7 +232,7 @@ regex = "1.11"
 region = "3.0"
 replace_with = "0.1.7"
 reqwest = { version = "0.12.0", default-features = false }
-rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
+rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
 rustc-demangle = "0.1"
 rustc_version = "0.4"
 rusty_jsc = "0.1.0"
@@ -298,20 +298,20 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.37"
 wasm-bindgen-test = "0.3.0"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.242.0", default-features = false, features = [
+wasm-encoder = { version = "0.243.0", default-features = false, features = [
 	"std",
 ] }
-wasm-smith = "0.4.4"
+wasm-smith = "0.243.0"
 wasmi_c_api_impl = "1.0.4"
 wasmparser = { version = "0.243.0", default-features = false, features = [
 	"validate",
 	"features",
 	"simd",
 ] }
-wasmprinter = "0.242.0"
+wasmprinter = "0.243.0"
 wasmer-inline-c = "0.1.1"
-wast = "242.0.0"
-wat = "1.242.0"
+wast = "243.0.0"
+wat = "1.243.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
@@ -321,7 +321,7 @@ which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
-zip = { version = "6.0.0", default-features = false }
+zip = { version = "7.0.0", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
