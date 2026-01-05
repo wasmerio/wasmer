@@ -276,14 +276,16 @@ impl BackendFunction {
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_async(store, ty, func),
             ),
+            #[cfg(feature = "js")]
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_async(store, ty, func),
+            ),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
-            #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
         }
@@ -317,14 +319,16 @@ impl BackendFunction {
                     store, env, ty, func,
                 ),
             ),
+            #[cfg(feature = "js")]
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_with_env_async(store, env, ty, func),
+            ),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
-            #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
         }
@@ -347,14 +351,16 @@ impl BackendFunction {
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_typed_async(store, func),
             ),
+            #[cfg(feature = "js")]
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_typed_async(store, func),
+            ),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
-            #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
         }
@@ -380,14 +386,16 @@ impl BackendFunction {
                     store, env, func,
                 ),
             ),
+            #[cfg(feature = "js")]
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_typed_with_env_async(store, env, func),
+            ),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
-            #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
         }
@@ -777,7 +785,7 @@ impl BackendFunction {
 #[cold]
 fn unsupported_async_backend(backend: &str) -> ! {
     panic!(
-        "async host functions are only supported with the `sys` backend (attempted on {backend})"
+        "async host functions are only supported with the `sys` or `js` backend (attempted on {backend})"
     )
 }
 
@@ -786,7 +794,7 @@ pub(super) fn unsupported_async_future<'a>()
 -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a>> {
     Box::pin(async {
         Err(RuntimeError::new(
-            "async calls are only supported with the `sys` backend",
+            "async calls are only supported with the `sys` or `js` backend",
         ))
     })
 }

@@ -1,5 +1,10 @@
 pub(crate) mod env;
+
+pub(crate) mod js;
+pub(crate) use js::*;
+
 pub(crate) mod typed;
+
 use std::marker::PhantomData;
 
 pub(crate) use typed::*;
@@ -8,6 +13,15 @@ use js_sys::{Array, Function as JsFunction};
 use wasm_bindgen::{JsCast, prelude::*};
 use wasmer_types::{FunctionType, RawValue};
 
+#[cfg(feature = "experimental-async")]
+use crate::{
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync,
+    entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction}
+};
+#[cfg(feature = "experimental-async")]
+use std::future::Future;
+#[cfg(feature = "experimental-async")]
+use std::pin::Pin;
 use crate::{
     AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
     FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind, IntoResult,
@@ -121,6 +135,128 @@ impl Function {
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    {
+        if !supports_jspi() {
+            panic!("WebAssembly.Suspending is not supported on this platform (only Chrome or Node 25+ supports for now)");
+        }
+        panic!("test");
+        // suspending()
+        // let env = FunctionEnv::new(store, ());
+        // let wrapped = move |_env: AsyncFunctionEnvMut<()>, values: &[Value]| func(values);
+        // Self::new_with_env_async(store, &env, ty, wrapped)
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_with_env_async<FT, F, Fut, T: 'static>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    {
+        unimplemented!("new_with_env_async not implemented for js");
+        // let function_type = ty.into();
+        // let func_ty = function_type.clone();
+        // let func_env = env.clone().into_sys();
+        // let store_id = store.objects_mut().id();
+        // let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
+        //     unsafe {
+        //         let mut context = StoreContext::try_get_current_async(store_id);
+        //         let mut store_mut = match &mut context {
+        //             crate::GetStoreAsyncGuardResult::Ok(wrapper) => StoreMut {
+        //                 inner: wrapper.guard.as_mut().unwrap(),
+        //             },
+        //             crate::GetStoreAsyncGuardResult::NotAsync(ptr) => ptr.as_mut(),
+        //             crate::GetStoreAsyncGuardResult::NotInstalled => {
+        //                 panic!("No store context installed on this thread")
+        //             }
+        //         };
+        //         let id = store_mut.as_store_ref().objects().id();
+        //         let mut args = Vec::with_capacity(func_ty.params().len());
+
+        //         for (i, ty) in func_ty.params().iter().enumerate() {
+        //             args.push(Value::from_raw(
+        //                 &mut store_mut,
+        //                 *ty,
+        //                 values_vec.add(i).read_unaligned(),
+        //             ));
+        //         }
+        //         let store_async = match context {
+        //             crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
+        //                 AsyncFunctionEnvMutStore::Async(StoreAsync {
+        //                     id,
+        //                     inner: crate::LocalRwLockWriteGuard::lock_handle(
+        //                         wrapper.guard.as_mut().unwrap(),
+        //                     ),
+        //                 })
+        //             }
+        //             crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {
+        //                 AsyncFunctionEnvMutStore::Sync(ptr)
+        //             }
+        //             crate::GetStoreAsyncGuardResult::NotInstalled => unreachable!(),
+        //         };
+        //         let env = crate::AsyncFunctionEnvMut(crate::BackendAsyncFunctionEnvMut::Sys(
+        //             env::AsyncFunctionEnvMut {
+        //                 store: store_async,
+        //                 func_env: func_env.clone(),
+        //             },
+        //         ));
+        //         let sig = func_ty.clone();
+        //         let future = func(env, &args);
+        //         HostCallOutcome::Future {
+        //             func_ty: sig,
+        //             future: Box::pin(future),
+        //         }
+        //     }
+        // };
+        // let mut host_data = Box::new(VMDynamicFunctionContext {
+        //     address: std::ptr::null(),
+        //     ctx: DynamicFunction {
+        //         func: wrapper,
+        //         store_id,
+        //     },
+        // });
+        // host_data.address = host_data.ctx.func_body_ptr();
+
+        // let func_ptr = std::ptr::null() as VMFunctionCallback;
+        // let type_index = store
+        //     .as_store_ref()
+        //     .engine()
+        //     .as_sys()
+        //     .register_signature(&function_type);
+        // let vmctx = VMFunctionContext {
+        //     host_env: host_data.as_ref() as *const _ as *mut c_void,
+        // };
+        // let call_trampoline = host_data.ctx.call_trampoline_address();
+        // let anyfunc = VMCallerCheckedAnyfunc {
+        //     func_ptr,
+        //     type_index,
+        //     vmctx,
+        //     call_trampoline,
+        // };
+
+        // let vm_function = VMFunction {
+        //     anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+        //     kind: VMFunctionKind::Dynamic,
+        //     signature: function_type,
+        //     host_data,
+        // };
+        // Self {
+        //     handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+        // }
+    }
+
     /// Creates a new host `Function` from a native function.
     pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
@@ -183,8 +319,157 @@ impl Function {
         }
     }
 
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
+    {
+        unimplemented!("new_typed_async not implemented for js");
+        // let env = FunctionEnv::new(store, ());
+        // let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        // let args_sig = Arc::new(signature.clone());
+        // let results_sig = Arc::new(signature.clone());
+        // let func = Arc::new(func);
+        // Self::new_with_env_async(
+        //     store,
+        //     &env,
+        //     signature,
+        //     move |mut env_mut,
+        //           values|
+        //           -> Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>> {
+        //         let sys_env = match env_mut.0 {
+        //             BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
+        //             _ => panic!("Not a sys backend"),
+        //         };
+        //         let mut store_mut_wrapper =
+        //             unsafe { StoreContext::get_current(sys_env.store_id()) };
+        //         let mut store_mut = store_mut_wrapper.as_mut();
+        //         let args_sig = args_sig.clone();
+        //         let results_sig = results_sig.clone();
+        //         let func = func.clone();
+        //         let args =
+        //             match typed_args_from_values::<Args>(&mut store_mut, args_sig.as_ref(), values)
+        //             {
+        //                 Ok(args) => args,
+        //                 Err(err) => return Box::pin(async { Err(err) }),
+        //             };
+        //         drop(store_mut_wrapper);
+        //         let future = func.as_ref().call_async(AsyncFunctionEnv::new(), args);
+        //         Box::pin(async move {
+        //             let typed_result = future.await?;
+        //             let mut store_mut = env_mut.write().await;
+        //             typed_results_to_values::<Rets>(
+        //                 &mut store_mut.as_store_mut(),
+        //                 results_sig.as_ref(),
+        //                 typed_result,
+        //             )
+        //         })
+        //     },
+        // )
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_typed_with_env_async<T, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        T: 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + 'static,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+    {
+        if !supports_jspi() {
+            panic!("WebAssembly.Suspending is not yet supported on this JavaScript Engine. Use a newer version of Chrome or Node 25+");
+        }
+        unimplemented!("new_typed_with_env_async not implemented for js");
+        // let store = store.as_store_mut();
+        // if std::mem::size_of::<F>() != 0 {
+        //     Self::closures_unsupported_panic();
+        // }
+        // let ty = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+
+        // let address = func.function_callback() as usize as u32;
+
+        // let ft = wasm_bindgen::function_table();
+        // let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
+        // let func = as_table.get(address).unwrap();
+
+        // let binded_func = func.bind2(
+        //     &JsValue::UNDEFINED,
+        //     &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+        //     &JsValue::from_f64(env.as_js().handle.internal_handle().index() as f64),
+        // );
+        // let suspending_func = suspending(&binded_func);
+        // let vm_function = VMFunction::new(suspending_func.into(), ty);
+        // Self {
+        //     handle: vm_function,
+        // }
+        // let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        // let args_sig = Arc::new(signature.clone());
+        // let results_sig = Arc::new(signature.clone());
+        // let func = Arc::new(func);
+        // Self::new_with_env_async(
+        //     store,
+        //     env,
+        //     signature,
+        //     move |mut env_mut,
+        //           values|
+        //           -> Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>> {
+        //         let sys_env = match env_mut.0 {
+        //             BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
+        //             _ => panic!("Not a sys backend"),
+        //         };
+        //         let mut store_mut_wrapper =
+        //             unsafe { StoreContext::get_current(sys_env.store_id()) };
+        //         let mut store_mut = store_mut_wrapper.as_mut();
+        //         let args_sig = args_sig.clone();
+        //         let results_sig = results_sig.clone();
+        //         let func = func.clone();
+        //         let args =
+        //             match typed_args_from_values::<Args>(&mut store_mut, args_sig.as_ref(), values)
+        //             {
+        //                 Ok(args) => args,
+        //                 Err(err) => return Box::pin(async { Err(err) }),
+        //             };
+        //         drop(store_mut_wrapper);
+        //         let env_mut_clone = env_mut.as_mut();
+        //         let future = func
+        //             .as_ref()
+        //             .call_async(AsyncFunctionEnv::with_env(env_mut), args);
+        //         Box::pin(async move {
+        //             let typed_result = future.await?;
+        //             let mut store_mut = env_mut_clone.write().await;
+        //             typed_results_to_values::<Rets>(
+        //                 &mut store_mut.as_store_mut(),
+        //                 results_sig.as_ref(),
+        //                 typed_result,
+        //             )
+        //         })
+        //     },
+        // )
+    }
+
     pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
         self.handle.ty.clone()
+    }
+
+
+    #[cfg(feature = "experimental-async")]
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn call_async(
+        &self,
+        store: &impl AsStoreAsync,
+        params: Vec<Value>,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'static>> {
+        unimplemented!("call_async not implemented for js");
+        // let function = self.clone();
+        // let store = store.store();
+        // Box::pin(call_function_async(function, store, params))
     }
 
     pub fn call_raw(
