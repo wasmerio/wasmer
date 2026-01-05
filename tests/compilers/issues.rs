@@ -671,7 +671,16 @@ fn issue_6004_exception(mut config: crate::Config) {
     .expect("wat2wasm must succeed");
 
     let mut store = config.store();
-    let module = Module::new(&store, wasm_bytes).unwrap();
+    let module = match Module::new(&store, wasm_bytes) {
+        Err(CompileError::Validate(message))
+            if message.contains("exceptions proposal not enabled") =>
+        {
+            // Skip the test in that case.
+            return;
+        }
+        Ok(module) => module,
+        _ => unreachable!(),
+    };
     let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
     let result = instance
         .exports
