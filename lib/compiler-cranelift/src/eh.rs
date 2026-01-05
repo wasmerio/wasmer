@@ -132,6 +132,8 @@ pub fn build_function_lsda<'a>(
             .actions
             .iter()
             // Note: Actions must be sorted to ensure that CatchAll is always the last in the chain, as required by find_eh_action.
+            // As the actions use a pointer to the previous one (as part of a chain), we place the CatchAll at the beginning in the
+            // action_indices.
             .sorted_by_key(|e| match e {
                 ExceptionType::CatchAll => 0,
                 _ => 1,
@@ -330,9 +332,7 @@ impl TypeTable {
     }
 
     fn get_or_insert(&mut self, exception: ExceptionType) -> usize {
-        if !self.entries.contains(&exception) {
-            self.entries.insert(exception);
-        }
+        self.entries.insert(exception);
 
         // The indices are one-based!
         self.entries
@@ -350,11 +350,11 @@ impl TypeTable {
             let offset = bytes.len() as u32;
             match entry {
                 ExceptionType::Tag { tag } => {
-                    bytes.extend_from_slice(&vec![0; pointer_bytes as usize]);
+                    bytes.extend(std::iter::repeat_n(0, pointer_bytes as usize));
                     relocations.push(TagRelocation { offset, tag: *tag });
                 }
                 ExceptionType::CatchAll => {
-                    bytes.extend_from_slice(&vec![0; pointer_bytes as usize]);
+                    bytes.extend(std::iter::repeat_n(0, pointer_bytes as usize));
                 }
             }
         }
