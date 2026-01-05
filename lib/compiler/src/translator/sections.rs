@@ -526,15 +526,18 @@ pub fn parse_name_section<'data>(
         };
         match subsection {
             wasmparser::Name::Function(function_subsection) => {
-                let mut unique_name_suffix = 0;
+                let mut unique_name_map = HashMap::new();
                 for naming in function_subsection.into_iter().flatten() {
                     if naming.index != u32::MAX {
                         let mut name = naming.name.to_string();
                         // In very rare cases a function name can have duplicates.
                         if names_set.contains(&name) {
-                            let alternative = format!("{name}.{unique_name_suffix}");
+                            let index = unique_name_map
+                                .entry(name.clone())
+                                .and_modify(|e| *e += 1)
+                                .or_insert(0);
+                            let alternative = format!("{name}.{index}");
                             name = alternative;
-                            unique_name_suffix += 1;
                         }
                         names_set.insert(name.clone());
                         functions.insert(FunctionIndex::from_u32(naming.index), name);
