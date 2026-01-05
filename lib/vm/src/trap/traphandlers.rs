@@ -472,7 +472,7 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.mc_gpregs.gp_x[0] = x0 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[1] = x1 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[29] = x29 as libc::register_t;
-                    context.uc_mcontext.mc_gpregs.gp_x[30] = lr as libc::register_t;
+                    context.uc_mcontext.mc_gpregs.gp_lr = lr as libc::register_t;
                 } else if #[cfg(all(target_os = "linux", target_arch = "loongarch64"))] {
                     let TrapHandlerRegs { pc, sp, a0, a1, fp, ra } = regs;
                     context.uc_mcontext.__pc = pc;
