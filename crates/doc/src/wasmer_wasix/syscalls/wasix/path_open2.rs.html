@@ -271,7 +271,7 @@
 <a href=#271 id=271 data-nosnippet>271</a>            Kind::Buffer { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">"wasi::path_open for Buffer type files"</span>),
 <a href=#272 id=272 data-nosnippet>272</a>            Kind::Root { .. } =&gt; {
 <a href=#273 id=273 data-nosnippet>273</a>                <span class="kw">if </span>!o_flags.contains(Oflags::DIRECTORY) {
-<a href=#274 id=274 data-nosnippet>274</a>                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notcapable));
+<a href=#274 id=274 data-nosnippet>274</a>                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Isdir));
 <a href=#275 id=275 data-nosnippet>275</a>                }
 <a href=#276 id=276 data-nosnippet>276</a>            }
 <a href=#277 id=277 data-nosnippet>277</a>            Kind::Dir { .. } =&gt; {
