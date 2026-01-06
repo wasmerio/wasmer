@@ -499,6 +499,13 @@ where
                     64,
                 ) => RelocationKind::Abs8,
                 (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_32_PCREL,
+                    },
+                    0,
+                ) => RelocationKind::PCRel4,
+                (
                     object::Architecture::LoongArch64,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_LARCH_ABS_HI20,
