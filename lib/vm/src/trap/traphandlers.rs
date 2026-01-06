@@ -54,25 +54,7 @@ struct ucontext_t {
     uc_mcontext: libc::mcontext_t,
 }
 
-// Current definition of `ucontext_t` in the `libc` crate is not present
-// on aarch64-unknown-freebsd so it's defined here.
-#[repr(C)]
-#[cfg(all(target_arch = "aarch64", target_os = "freebsd"))]
-#[allow(non_camel_case_types)]
-struct ucontext_t {
-    uc_sigmask: libc::sigset_t,
-    uc_mcontext: libc::mcontext_t,
-    uc_link: *mut ucontext_t,
-    uc_stack: libc::stack_t,
-    uc_flags: libc::c_int,
-    spare: [libc::c_int; 4],
-}
-
-#[cfg(all(
-    unix,
-    not(all(target_arch = "aarch64", target_os = "macos")),
-    not(all(target_arch = "aarch64", target_os = "freebsd"))
-))]
+#[cfg(all(unix, not(all(target_arch = "aarch64", target_os = "macos"))))]
 use libc::ucontext_t;
 
 /// Default stack size is 1MB.
