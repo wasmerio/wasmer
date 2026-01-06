@@ -230,14 +230,9 @@ where
     for section in obj.sections() {
         let index = section.index();
         if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
-            || section.name().is_ok_and(|section_name| {
-                [
-                    "__eh_frame",
-                    ".eh_frame",
-                    ".data.DW.ref.wasmer_eh_personality",
-                ]
-                .contains(&section_name)
-            })
+            || section
+                .name()
+                .is_ok_and(|section_name| ["__eh_frame", ".eh_frame"].contains(&section_name))
         {
             worklist.push(index);
             eh_frame_section_indices.push(index);
