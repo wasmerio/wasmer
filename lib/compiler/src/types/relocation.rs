@@ -29,12 +29,6 @@ use wasmer_types::{FunctionIndex, LibCall, LocalFunctionIndex, entity::PrimaryMa
 #[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum RelocationKind {
-    /// absolute 6 bits
-    Abs6Bits,
-    /// absolute 1-byte
-    Abs,
-    /// absolute 2-byte
-    Abs2,
     /// absolute 4-byte
     Abs4,
     /// absolute 8-byte
@@ -44,26 +38,6 @@ pub enum RelocationKind {
     PCRel4,
     /// PC-relative 8-byte
     PCRel8,
-
-    /// addition at the place of the relocation (1-byte)
-    Add,
-    /// addition at the place of the relocation (2-bytes)
-    Add2,
-    /// addition at the place of the relocation (4-bytes)
-    Add4,
-    /// addition at the place of the relocation (8-bytes)
-    Add8,
-
-    /// subtraction at the place of the relocation (6 bits)
-    Sub6Bits,
-    /// subtraction at the place of the relocation (1-byte)
-    Sub,
-    /// subtraction at the place of the relocation (2-bytes)
-    Sub2,
-    /// subtraction at the place of the relocation (4-bytes)
-    Sub4,
-    /// subtraction at the place of the relocation (8-bytes)
-    Sub8,
 
     /// x86 call to PC-relative 4-byte
     X86CallPCRel4,
@@ -175,6 +149,34 @@ pub enum RelocationKind {
     MachoX86_64RelocSigned4,
     // (MACHO_X86_64_RELOC_TLV) for thread local variables
     MachoX86_64RelocTlv,
+
+    // TODO: sort the items when we bump the rkyv version
+    /// absolute 6 bits
+    Abs6Bits,
+    /// absolute 1-byte
+    Abs,
+    /// absolute 2-byte
+    Abs2,
+
+    /// addition at the place of the relocation (1-byte)
+    Add,
+    /// addition at the place of the relocation (2-bytes)
+    Add2,
+    /// addition at the place of the relocation (4-bytes)
+    Add4,
+    /// addition at the place of the relocation (8-bytes)
+    Add8,
+
+    /// subtraction at the place of the relocation (6 bits)
+    Sub6Bits,
+    /// subtraction at the place of the relocation (1-byte)
+    Sub,
+    /// subtraction at the place of the relocation (2-bytes)
+    Sub2,
+    /// subtraction at the place of the relocation (4-bytes)
+    Sub4,
+    /// subtraction at the place of the relocation (8-bytes)
+    Sub8,
 }
 
 impl RelocationKind {
