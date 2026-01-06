@@ -31,6 +31,7 @@ pub struct CompiledFunction {
     pub eh_frame_section_indices: Vec<SectionIndex>,
     pub compact_unwind_section_indices: Vec<SectionIndex>,
     pub gcc_except_table_section_indices: Vec<SectionIndex>,
+    pub data_dw_ref_personality_section_indices: Vec<SectionIndex>,
 }
 
 static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
@@ -227,6 +228,8 @@ where
     // unexpected custom sections, so we do a bit of book-keeping here.
     let mut gcc_except_table_section_indices = vec![];
 
+    let mut data_dw_ref_personality_section_indices = vec![];
+
     for section in obj.sections() {
         let index = section.index();
         if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
@@ -247,6 +250,11 @@ where
         } else if section.name().unwrap_or_default() == ".gcc_except_table" {
             worklist.push(index);
             gcc_except_table_section_indices.push(index);
+
+            elf_section_to_target(index);
+        } else if section.name().unwrap_or_default() == ".data.DW.ref.wasmer_eh_personality" {
+            worklist.push(index);
+            data_dw_ref_personality_section_indices.push(index);
 
             elf_section_to_target(index);
         }
@@ -724,6 +732,20 @@ where
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
 
+    let data_dw_ref_personality_section_indices = data_dw_ref_personality_section_indices
+        .iter()
+        .map(|index| {
+            section_to_custom_section.get(index).map_or_else(
+                || {
+                    Err(CompileError::Codegen(format!(
+                        ".data.DW.ref.wasmer_eh_personality section with index={index:?} was never loaded",
+                    )))
+                },
+                |idx| Ok(*idx),
+            )
+        })
+        .collect::<Result<Vec<SectionIndex>, _>>()?;
+
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
@@ -784,5 +806,6 @@ where
         eh_frame_section_indices,
         compact_unwind_section_indices,
         gcc_except_table_section_indices,
+        data_dw_ref_personality_section_indices,
     })
 }
