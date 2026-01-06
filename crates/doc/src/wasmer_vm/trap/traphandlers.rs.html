@@ -472,7 +472,7 @@
 <a href=#472 id=472 data-nosnippet>472</a>                    context.uc_mcontext.mc_gpregs.gp_x[<span class="number">0</span>] = x0 <span class="kw">as </span>libc::register_t;
 <a href=#473 id=473 data-nosnippet>473</a>                    context.uc_mcontext.mc_gpregs.gp_x[<span class="number">1</span>] = x1 <span class="kw">as </span>libc::register_t;
 <a href=#474 id=474 data-nosnippet>474</a>                    context.uc_mcontext.mc_gpregs.gp_x[<span class="number">29</span>] = x29 <span class="kw">as </span>libc::register_t;
-<a href=#475 id=475 data-nosnippet>475</a>                    context.uc_mcontext.mc_gpregs.gp_x[<span class="number">30</span>] = lr <span class="kw">as </span>libc::register_t;
+<a href=#475 id=475 data-nosnippet>475</a>                    context.uc_mcontext.mc_gpregs.gp_lr = lr <span class="kw">as </span>libc::register_t;
 <a href=#476 id=476 data-nosnippet>476</a>                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"linux"</span>, target_arch = <span class="string">"loongarch64"</span>))] </span>{
 <a href=#477 id=477 data-nosnippet>477</a>                    <span class="kw">let </span>TrapHandlerRegs { pc, sp, a0, a1, fp, ra } = regs;
 <a href=#478 id=478 data-nosnippet>478</a>                    context.uc_mcontext.__pc = pc;
