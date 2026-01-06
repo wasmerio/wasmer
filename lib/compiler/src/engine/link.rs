@@ -98,7 +98,8 @@ fn apply_relocation(
         },
         RelocationKind::Abs8 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
-            write_unaligned(dbg!(reloc_address) as *mut u64, dbg!(reloc_abs));
+            eprintln!("reloc_address={reloc_address:x}, value={reloc_abs:x}");
+            write_unaligned(reloc_address as *mut u64, reloc_abs);
         },
         RelocationKind::PCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
