@@ -443,6 +443,7 @@ impl EngineInner {
                         "failed to allocate memory for functions: {message}",
                     ))
                 })?;
+        dbg!(&allocated_data_sections);
 
         let allocated_functions_result = allocated_functions
             .drain(0..functions_len)
