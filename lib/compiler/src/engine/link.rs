@@ -484,7 +484,7 @@ fn apply_relocation(
             let value = read_unaligned(reloc_address as *mut u32);
             write_unaligned(
                 reloc_address as *mut u32,
-                value.wrapping_sub(reloc_abs as u32),
+                dbg!(value.wrapping_sub(reloc_abs as u32)),
             );
         },
         RelocationKind::Sub8 => unsafe {
