@@ -102,6 +102,7 @@ pub trait EmitterRiscv {
         loc_a: Location,
         loc_b: Location,
         label: Label,
+        tmp: GPR,
     ) -> Result<(), CompileError>;
     fn emit_reserved_sd(
         &mut self,
@@ -304,13 +305,32 @@ pub trait EmitterRiscv {
         ret: Location,
     ) -> Result<(), CompileError>;
 
-    fn emit_on_false_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
-    fn emit_on_false_label_far(&mut self, cond: Location, label: Label)
-    -> Result<(), CompileError>;
-    fn emit_on_true_label_far(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
-    fn emit_on_true_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
+    fn emit_on_false_label(
+        &mut self,
+        cond: Location,
+        label: Label,
+        tmp: GPR,
+    ) -> Result<(), CompileError>;
+    fn emit_on_false_label_far(
+        &mut self,
+        cond: Location,
+        label: Label,
+        tmp: GPR,
+    ) -> Result<(), CompileError>;
+    fn emit_on_true_label_far(
+        &mut self,
+        cond: Location,
+        label: Label,
+        tmp: GPR,
+    ) -> Result<(), CompileError>;
+    fn emit_on_true_label(
+        &mut self,
+        cond: Location,
+        label: Label,
+        tmp: GPR,
+    ) -> Result<(), CompileError>;
 
-    fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError>;
+    fn emit_j_label(&mut self, label: Label, reg: Option<GPR>) -> Result<(), CompileError>;
     fn emit_j_register(&mut self, reg: GPR) -> Result<(), CompileError>;
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError>;
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError>;
@@ -1463,6 +1483,7 @@ impl EmitterRiscv for Assembler {
         loc_a: Location,
         loc_b: Location,
         label: Label,
+        tmp: GPR,
     ) -> Result<(), CompileError> {
         let (Location::GPR(loc_a), Location::GPR(loc_b)) = (loc_a, loc_b) else {
             codegen_error!("singlepass can't emit JMP_ON_COND {:?} {:?} ", loc_a, loc_b,);
@@ -1496,16 +1517,21 @@ impl EmitterRiscv for Assembler {
             ),
         }
 
-        self.emit_j_label(cont)?;
+        self.emit_j_label(cont, Some(tmp))?;
         self.emit_label(jump)?;
-        self.emit_j_label(label)?;
+        self.emit_j_label(label, Some(tmp))?;
 
         self.emit_label(cont)?;
 
         Ok(())
     }
 
-    fn emit_on_false_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError> {
+    fn emit_on_false_label(
+        &mut self,
+        cond: Location,
+        label: Label,
+        tmp: GPR,
+    ) -> Result<(), CompileError> {
         match cond {
             Location::GPR(cond) => {
                 dynasm!(self; beqz X(cond), => label);
@@ -1513,7 +1539,7 @@ impl EmitterRiscv for Assembler {
             _ if cond.is_imm() => {
                 let imm = cond.imm_value_scalar().unwrap();
                 if imm == 0 {
-                    return self.emit_j_label(label);
+                    return self.emit_j_label(label, Some(tmp));
                 }
             }
             _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
@@ -1524,6 +1550,7 @@ impl EmitterRiscv for Assembler {
         &mut self,
         cond: Location,
         label: Label,
+        tmp: GPR,
     ) -> Result<(), CompileError> {
         let cont: Label = self.get_label();
         match cond {
@@ -1535,19 +1562,24 @@ impl EmitterRiscv for Assembler {
             _ if cond.is_imm() => {
                 let imm = cond.imm_value_scalar().unwrap();
                 if imm == 0 {
-                    return self.emit_j_label(label);
+                    return self.emit_j_label(label, Some(tmp));
                 } else {
-                    self.emit_j_label(cont)?;
+                    self.emit_j_label(cont, Some(tmp))?;
                 }
             }
             _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
         }
 
-        dynasm!(self; j => label);
+        self.emit_j_label(label, Some(tmp))?;
         self.emit_label(cont)?;
         Ok(())
     }
-    fn emit_on_true_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError> {
+    fn emit_on_true_label(
+        &mut self,
+        cond: Location,
+        label: Label,
+        tmp: GPR,
+    ) -> Result<(), CompileError> {
         match cond {
             Location::GPR(cond) => {
                 dynasm!(self; bnez X(cond), => label);
@@ -1555,14 +1587,19 @@ impl EmitterRiscv for Assembler {
             _ if cond.is_imm() => {
                 let imm = cond.imm_value_scalar().unwrap();
                 if imm != 0 {
-                    return self.emit_j_label(label);
+                    return self.emit_j_label(label, Some(tmp));
                 }
             }
             _ => codegen_error!("singlepass can't emit jump to true branch {:?}", cond),
         }
         Ok(())
     }
-    fn emit_on_true_label_far(&mut self, cond: Location, label: Label) -> Result<(), CompileError> {
+    fn emit_on_true_label_far(
+        &mut self,
+        cond: Location,
+        label: Label,
+        tmp: GPR,
+    ) -> Result<(), CompileError> {
         let cont: Label = self.get_label();
         let jump_label: Label = self.get_label();
         match cond {
@@ -1572,25 +1609,29 @@ impl EmitterRiscv for Assembler {
             _ if cond.is_imm() => {
                 let imm = cond.imm_value_scalar().unwrap();
                 if imm == 1 {
-                    return self.emit_j_label(jump_label);
+                    return self.emit_j_label(jump_label, Some(tmp));
                 }
             }
             _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
         }
 
         // skip over the jump to target
-        dynasm!(self; j => cont);
+        self.emit_j_label(cont, Some(tmp))?;
 
         self.emit_label(jump_label)?;
-        dynasm!(self; j => label);
+        self.emit_j_label(label, Some(tmp))?;
 
         self.emit_label(cont)?;
 
         Ok(())
     }
 
-    fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError> {
-        dynasm!(self ; j => label);
+    fn emit_j_label(&mut self, label: Label, reg: Option<GPR>) -> Result<(), CompileError> {
+        if let Some(reg) = reg {
+            dynasm!(self ; jump => label, X(reg));
+        } else {
+            dynasm!(self ; j => label);
+        }
         Ok(())
     }
 

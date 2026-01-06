@@ -417,6 +417,7 @@ impl MachineRiscv {
                         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
                             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                         })?;
+                        temps.push(tmp);
 
                         // Loop
                         let label_retry = self.get_label();
@@ -466,8 +467,12 @@ impl MachineRiscv {
                         )?;
                         self.assembler
                             .emit_reserved_sd(Size::S32, tmp, aligned_addr, tmp)?;
+                        let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
+                            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                        })?;
+                        temps.push(tmp2);
                         self.assembler
-                            .emit_on_true_label(Location::GPR(tmp), label_retry)?;
+                            .emit_on_true_label(Location::GPR(tmp), label_retry, tmp2)?;
 
                         self.assembler.emit_rwfence()?;
 
@@ -574,6 +579,11 @@ impl MachineRiscv {
             panic!("emit_relaxed_atomic_cmpxchg expects locations in registers");
         };
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         match size {
             Size::S32 | Size::S64 => {
                 let value = self.acquire_temp_gpr().ok_or_else(|| {
@@ -597,11 +607,14 @@ impl MachineRiscv {
                     Location::GPR(cmp),
                     Location::GPR(cond),
                 )?;
-                self.assembler
-                    .emit_on_false_label(Location::GPR(cond), label_after_retry)?;
+                self.assembler.emit_on_false_label(
+                    Location::GPR(cond),
+                    label_after_retry,
+                    jmp_tmp,
+                )?;
                 self.assembler.emit_reserved_sd(size, cond, addr, new)?;
                 self.assembler
-                    .emit_on_true_label(Location::GPR(cond), label_retry)?;
+                    .emit_on_true_label(Location::GPR(cond), label_retry, jmp_tmp)?;
 
                 // after re-try get the previous value
                 self.assembler.emit_rwfence()?;
@@ -702,8 +715,11 @@ impl MachineRiscv {
                     Location::GPR(cmp),
                     Location::GPR(cond),
                 )?;
-                self.assembler
-                    .emit_on_false_label(Location::GPR(cond), label_after_retry)?;
+                self.assembler.emit_on_false_label(
+                    Location::GPR(cond),
+                    label_after_retry,
+                    jmp_tmp,
+                )?;
 
                 // mask new to the 4B word
                 self.assembler.emit_xor(
@@ -727,7 +743,7 @@ impl MachineRiscv {
                 self.assembler
                     .emit_reserved_sd(Size::S32, cond, addr, tmp)?;
                 self.assembler
-                    .emit_on_true_label(Location::GPR(cond), label_retry)?;
+                    .emit_on_true_label(Location::GPR(cond), label_retry, jmp_tmp)?;
 
                 // After re-try get the previous value
                 self.assembler.emit_rwfence()?;
@@ -779,6 +795,10 @@ impl MachineRiscv {
                 CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
             gprs.push(tmp);
+            let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            gprs.push(jmp_tmp);
 
             // Return an ArithmeticNan if either src1 or (and) src2 have a NaN value.
             let canonical_nan = match sz {
@@ -794,12 +814,12 @@ impl MachineRiscv {
             self.assembler
                 .emit_fcmp(Condition::Eq, sz, src1, src1, Location::GPR(tmp))?;
             self.assembler
-                .emit_on_false_label(Location::GPR(tmp), label_after)?;
+                .emit_on_false_label(Location::GPR(tmp), label_after, jmp_tmp)?;
 
             self.assembler
                 .emit_fcmp(Condition::Eq, sz, src2, src2, Location::GPR(tmp))?;
             self.assembler
-                .emit_on_false_label(Location::GPR(tmp), label_after)?;
+                .emit_on_false_label(Location::GPR(tmp), label_after, jmp_tmp)?;
         }
 
         op(&mut self.assembler, sz, src1, src2, dest)?;
@@ -942,6 +962,10 @@ impl MachineRiscv {
         // might be reused.
         self.move_location(Size::S32, addr, Location::GPR(tmp_addr))?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
         // Add offset to memory address.
         if memarg.offset != 0 {
             if ImmType::Bits12.compatible_imm(memarg.offset as _) {
@@ -978,7 +1002,7 @@ impl MachineRiscv {
                 Location::GPR(tmp),
             )?;
             self.assembler
-                .emit_on_true_label_far(Location::GPR(tmp), heap_access_oob)?;
+                .emit_on_true_label_far(Location::GPR(tmp), heap_access_oob, jmp_tmp)?;
             self.release_gpr(tmp);
         }
 
@@ -1003,7 +1027,7 @@ impl MachineRiscv {
 
         // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
         self.assembler
-            .emit_on_false_label_far(Location::GPR(cond), heap_access_oob)?;
+            .emit_on_false_label_far(Location::GPR(cond), heap_access_oob, jmp_tmp)?;
 
         self.release_gpr(tmp_bound);
         self.release_gpr(cond);
@@ -1016,14 +1040,18 @@ impl MachineRiscv {
                 Location::Imm64((align - 1) as u64),
                 Location::GPR(cond),
             )?;
-            self.assembler
-                .emit_on_true_label_far(Location::GPR(cond), unaligned_atomic)?;
+            self.assembler.emit_on_true_label_far(
+                Location::GPR(cond),
+                unaligned_atomic,
+                jmp_tmp,
+            )?;
         }
         let begin = self.assembler.get_offset().0;
         cb(self, tmp_addr)?;
         let end = self.assembler.get_offset().0;
         self.mark_address_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, begin, end);
 
+        self.release_gpr(jmp_tmp);
         self.release_gpr(tmp_addr);
         Ok(())
     }
@@ -1095,8 +1123,12 @@ impl MachineRiscv {
             Location::Imm64((sz.bytes() - 1) as u64),
             Location::GPR(tmp_cond),
         )?;
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
         self.assembler
-            .emit_on_true_label(Location::GPR(tmp_cond), label_unaligned)?;
+            .emit_on_true_label(Location::GPR(tmp_cond), label_unaligned, jmp_tmp)?;
         // Aligned load
         self.assembler
             .emit_ld(sz, signed, dest, Location::Memory(src, 0))?;
@@ -1204,8 +1236,12 @@ impl MachineRiscv {
             Location::Imm64((sz.bytes() - 1) as u64),
             Location::GPR(tmp_cond),
         )?;
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
         self.assembler
-            .emit_on_true_label(Location::GPR(tmp_cond), label_unaligned)?;
+            .emit_on_true_label(Location::GPR(tmp_cond), label_unaligned, jmp_tmp)?;
         // Aligned store
         self.assembler
             .emit_sd(sz, src_value, Location::Memory(dst, 0))?;
@@ -1364,8 +1400,12 @@ impl MachineRiscv {
         )?;
         self.assembler
             .emit_srl(sz, Location::GPR(arg), one_imm, Location::GPR(arg))?;
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
         self.assembler
-            .emit_on_false_label(Location::GPR(arg), label_exit)?;
+            .emit_on_false_label(Location::GPR(arg), label_exit, jmp_tmp)?;
+        self.release_gpr(jmp_tmp);
         self.jmp_unconditional(label_loop)?;
 
         self.assembler.emit_label(label_exit)?; // exit:
@@ -1400,10 +1440,14 @@ impl MachineRiscv {
         let label_loop = self.assembler.get_label();
         let label_exit = self.assembler.get_label();
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
         // if the value is zero, return size_bits
         self.move_location(sz, Location::Imm32(size_bits), Location::GPR(cnt))?;
         self.assembler
-            .emit_on_false_label(Location::GPR(arg), label_exit)?;
+            .emit_on_false_label(Location::GPR(arg), label_exit, jmp_tmp)?;
 
         self.move_location(sz, Location::Imm32(0), Location::GPR(cnt))?;
 
@@ -1411,7 +1455,9 @@ impl MachineRiscv {
         self.assembler
             .emit_and(sz, Location::GPR(arg), one_imm, Location::GPR(temp))?;
         self.assembler
-            .emit_on_true_label(Location::GPR(temp), label_exit)?;
+            .emit_on_true_label(Location::GPR(temp), label_exit, jmp_tmp)?;
+
+        self.release_gpr(jmp_tmp);
 
         self.assembler
             .emit_add(sz, Location::GPR(cnt), one_imm, Location::GPR(cnt))?;
@@ -1451,10 +1497,14 @@ impl MachineRiscv {
         let label_loop = self.assembler.get_label();
         let label_exit = self.assembler.get_label();
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
         // if the value is zero, return size_bits
         self.move_location(sz, Location::Imm32(size_bits), Location::GPR(cnt))?;
         self.assembler
-            .emit_on_false_label(Location::GPR(arg), label_exit)?;
+            .emit_on_false_label(Location::GPR(arg), label_exit, jmp_tmp)?;
 
         self.move_location(sz, Location::Imm32(0), Location::GPR(cnt))?;
 
@@ -1479,10 +1529,11 @@ impl MachineRiscv {
             Location::GPR(tmp),
         )?;
         self.assembler
-            .emit_on_true_label(Location::GPR(tmp), label_exit)?;
+            .emit_on_true_label(Location::GPR(tmp), label_exit, jmp_tmp)?;
 
         self.assembler
             .emit_add(sz, Location::GPR(cnt), one_imm, Location::GPR(cnt))?;
+        self.release_gpr(jmp_tmp);
         self.jmp_unconditional(label_loop)?;
 
         self.assembler.emit_label(label_exit)?; // exit:i
@@ -1520,8 +1571,12 @@ impl MachineRiscv {
             // if NaN -> skip convert operation
             self.assembler
                 .emit_fcmp(Condition::Eq, size_in, src, src, Location::GPR(cond))?;
+            let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
             self.assembler
-                .emit_on_false_label(Location::GPR(cond), end)?;
+                .emit_on_false_label(Location::GPR(cond), end, jmp_tmp)?;
+            self.release_gpr(jmp_tmp);
             self.release_gpr(cond);
 
             self.assembler
@@ -1637,8 +1692,14 @@ impl MachineRiscv {
             Location::Imm32(4),
             Location::GPR(fscr),
         )?;
+
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label(Location::GPR(fscr), end)?;
+            .emit_on_false_label(Location::GPR(fscr), end, jmp_tmp)?;
 
         // now need to check if it's overflow or NaN
         let cond = self.acquire_temp_gpr().ok_or_else(|| {
@@ -1650,7 +1711,7 @@ impl MachineRiscv {
             .emit_fcmp(Condition::Eq, sz, f, f, Location::GPR(cond))?;
         // fallthru: trap_overflow
         self.assembler
-            .emit_on_false_label(Location::GPR(cond), trap_badconv)?;
+            .emit_on_false_label(Location::GPR(cond), trap_badconv, jmp_tmp)?;
         self.emit_illegal_op_internal(TrapCode::IntegerOverflow)?;
         self.emit_label(trap_badconv)?;
         self.emit_illegal_op_internal(TrapCode::BadConversionToInteger)?;
@@ -1732,13 +1793,17 @@ impl MachineRiscv {
             _ => unreachable!(),
         };
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp fpr".to_owned())
+        })?;
+
         self.assembler
             .emit_mov_imm(Location::GPR(tmp), canonical_nan as _)?;
         self.assembler.emit_mov(size, Location::GPR(tmp), dest)?;
         self.assembler
             .emit_fcmp(Condition::Eq, size, loc, loc, Location::GPR(cond))?;
         self.assembler
-            .emit_on_false_label(Location::GPR(cond), label_after)?;
+            .emit_on_false_label(Location::GPR(cond), label_after, jmp_tmp)?;
 
         // TODO: refactor the constants
         if size == Size::S64 {
@@ -1765,7 +1830,7 @@ impl MachineRiscv {
 
         self.assembler.emit_mov(size, loc, dest)?;
         self.assembler
-            .emit_on_false_label(Location::GPR(cond), label_after)?;
+            .emit_on_false_label(Location::GPR(cond), label_after, jmp_tmp)?;
 
         // Emit the actual conversion operation.
         self.assembler
@@ -1779,6 +1844,7 @@ impl MachineRiscv {
         for r in fprs {
             self.release_simd(r);
         }
+        self.release_gpr(jmp_tmp);
         self.release_gpr(tmp);
         self.release_gpr(cond);
         self.release_simd(tmp1);
@@ -2406,7 +2472,11 @@ impl Machine for MachineRiscv {
             Location::Imm64(8),
             Location::GPR(dest),
         )?;
-        self.assembler.emit_on_true_label(cnt, label)?;
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+        self.assembler.emit_on_true_label(cnt, label, jmp_tmp)?;
         for r in temps {
             self.release_gpr(r);
         }
@@ -2626,7 +2696,12 @@ impl Machine for MachineRiscv {
         codegen_error!("singlepass location_cmp not implemented")
     }
     fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_j_label(label)
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        self.assembler.emit_j_label(label, Some(tmp))?;
+        self.release_gpr(tmp);
+        Ok(())
     }
     fn jmp_on_condition(
         &mut self,
@@ -2654,8 +2729,12 @@ impl Machine for MachineRiscv {
             self.assembler.emit_extend(size, false, loc_b, loc_b)?;
         }
 
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(tmp);
         self.assembler
-            .emit_jmp_on_condition(c, loc_a, loc_b, label)?;
+            .emit_jmp_on_condition(c, loc_a, loc_b, label, tmp)?;
 
         for r in temps {
             self.release_gpr(r);
@@ -2675,11 +2754,12 @@ impl Machine for MachineRiscv {
         self.assembler.emit_load_label(tmp1, label)?;
         self.move_location(Size::S32, cond, Location::GPR(tmp2))?;
 
-        // Multiply by 4 (size of each instruction)
+        // Multiply by 8, for RISC-V, a jump is made via 2 instructions:
+        // auipc and j. This way we can navigate greater code regions.
         self.assembler.emit_sll(
             Size::S32,
             Location::GPR(tmp2),
-            Location::Imm32(2),
+            Location::Imm32(3),
             Location::GPR(tmp2),
         )?;
         self.assembler.emit_add(
@@ -2848,8 +2928,13 @@ impl Machine for MachineRiscv {
         let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero, jmp_tmp)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_udiv(Size::S32, src1, src2, dest)?;
         if ret != dest {
@@ -2873,8 +2958,13 @@ impl Machine for MachineRiscv {
         let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero, jmp_tmp)?;
         let label_nooverflow = self.assembler.get_label();
         let tmp = self.location_to_reg(
             Size::S32,
@@ -2885,11 +2975,12 @@ impl Machine for MachineRiscv {
             None,
         )?;
         self.assembler.emit_cmp(Condition::Ne, tmp, src1, tmp)?;
-        self.assembler.emit_on_true_label(tmp, label_nooverflow)?;
+        self.assembler
+            .emit_on_true_label(tmp, label_nooverflow, jmp_tmp)?;
         self.move_location(Size::S32, Location::Imm32(-1i32 as _), tmp)?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src2, tmp)?;
         self.assembler
-            .emit_on_true_label_far(tmp, integer_overflow)?;
+            .emit_on_true_label_far(tmp, integer_overflow, jmp_tmp)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow)?;
         self.assembler.emit_sdiv(Size::S32, src1, src2, dest)?;
@@ -2913,8 +3004,13 @@ impl Machine for MachineRiscv {
         let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero, jmp_tmp)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_urem(Size::S32, src1, src2, dest)?;
         if ret != dest {
@@ -2937,8 +3033,13 @@ impl Machine for MachineRiscv {
         let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero, jmp_tmp)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_srem(Size::S32, src1, src2, dest)?;
         if ret != dest {
@@ -4087,8 +4188,13 @@ impl Machine for MachineRiscv {
         let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero, jmp_tmp)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_udiv(Size::S64, src1, src2, dest)?;
         if ret != dest {
@@ -4112,8 +4218,13 @@ impl Machine for MachineRiscv {
         let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero, jmp_tmp)?;
         let label_nooverflow = self.assembler.get_label();
         let tmp = self.location_to_reg(
             Size::S64,
@@ -4125,11 +4236,12 @@ impl Machine for MachineRiscv {
         )?;
 
         self.assembler.emit_cmp(Condition::Ne, tmp, src1, tmp)?;
-        self.assembler.emit_on_true_label(tmp, label_nooverflow)?;
+        self.assembler
+            .emit_on_true_label(tmp, label_nooverflow, jmp_tmp)?;
         self.move_location(Size::S64, Location::Imm64(-1i64 as _), tmp)?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src2, tmp)?;
         self.assembler
-            .emit_on_true_label_far(tmp, integer_overflow)?;
+            .emit_on_true_label_far(tmp, integer_overflow, jmp_tmp)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow)?;
         self.assembler.emit_sdiv(Size::S64, src1, src2, dest)?;
@@ -4153,8 +4265,13 @@ impl Machine for MachineRiscv {
         let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero, jmp_tmp)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_urem(Size::S64, src1, src2, dest)?;
         if ret != dest {
@@ -4177,8 +4294,13 @@ impl Machine for MachineRiscv {
         let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
 
+        let jmp_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(jmp_tmp);
+
         self.assembler
-            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero, jmp_tmp)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_srem(Size::S64, src1, src2, dest)?;
         if ret != dest {
