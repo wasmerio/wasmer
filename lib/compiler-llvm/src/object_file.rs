@@ -410,7 +410,7 @@ where
                         r_type: object::elf::R_X86_64_PC64,
                     },
                     0,
-                ) => RelocationKind::X86PCRel8,
+                ) => RelocationKind::PCRel8,
                 (
                     object::Architecture::Aarch64,
                     object::RelocationFlags::Elf {
@@ -558,6 +558,20 @@ where
                     },
                     0,
                 ) => RelocationKind::Aarch64AdrPrelLo21,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_64,
+                    },
+                    64,
+                ) => RelocationKind::Abs8,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_32_PCREL,
+                    },
+                    32,
+                ) => RelocationKind::PCRel4,
                 (
                     object::Architecture::Aarch64,
                     object::RelocationFlags::Elf {

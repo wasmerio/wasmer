@@ -33,10 +33,10 @@ pub enum RelocationKind {
     Abs4,
     /// absolute 8-byte
     Abs8,
-    /// x86 PC-relative 4-byte
-    X86PCRel4,
-    /// x86 PC-relative 8-byte
-    X86PCRel8,
+    /// PC-relative 4-byte
+    PCRel4,
+    /// PC-relative 8-byte
+    PCRel8,
     /// x86 call to PC-relative 4-byte
     X86CallPCRel4,
     /// x86 call to PLT-relative 4-byte
@@ -176,8 +176,8 @@ impl fmt::Display for RelocationKind {
             Self::Abs8 => write!(f, "Abs8"),
             Self::Add4 => write!(f, "Add4"),
             Self::Sub4 => write!(f, "Sub4"),
-            Self::X86PCRel4 => write!(f, "PCRel4"),
-            Self::X86PCRel8 => write!(f, "PCRel8"),
+            Self::PCRel4 => write!(f, "PCRel4"),
+            Self::PCRel8 => write!(f, "PCRel8"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
             Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
             Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
@@ -294,7 +294,7 @@ pub trait RelocationLike {
                     .unwrap();
                 (reloc_address, reloc_abs)
             }
-            RelocationKind::X86PCRel4 => {
+            RelocationKind::PCRel4 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_delta_u32 = (target_func_address as u32)
@@ -303,7 +303,7 @@ pub trait RelocationLike {
                     .unwrap();
                 (reloc_address, reloc_delta_u32 as u64)
             }
-            RelocationKind::X86PCRel8 => {
+            RelocationKind::PCRel8 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_delta = target_func_address

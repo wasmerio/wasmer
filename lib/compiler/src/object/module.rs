@@ -326,7 +326,7 @@ pub fn emit_compilation(
                     encoding: RelocationEncoding::Generic,
                     size: 64,
                 },
-                Reloc::X86PCRel4 => RelocationFlags::Generic {
+                Reloc::PCRel4 => RelocationFlags::Generic {
                     kind: RelocationKind::Relative,
                     encoding: RelocationEncoding::Generic,
                     size: 32,

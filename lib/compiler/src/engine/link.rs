@@ -51,7 +51,7 @@ fn apply_relocation(
                 if matches!(
                     r.kind(),
                     RelocationKind::Abs8
-                        | RelocationKind::X86PCRel8
+                        | RelocationKind::PCRel8
                         | RelocationKind::MachoArm64RelocUnsigned
                         | RelocationKind::MachoX86_64RelocUnsigned
                 ) {
@@ -78,11 +78,11 @@ fn apply_relocation(
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
-        RelocationKind::X86PCRel4 => unsafe {
+        RelocationKind::PCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
-        RelocationKind::X86PCRel8 => unsafe {
+        RelocationKind::PCRel8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
