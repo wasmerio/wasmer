@@ -320,7 +320,6 @@ pub fn emit_compilation(
                     encoding: RelocationEncoding::Generic,
                     size: 32,
                 },
-
                 Reloc::Abs8 => RelocationFlags::Generic {
                     kind: RelocationKind::Absolute,
                     encoding: RelocationEncoding::Generic,

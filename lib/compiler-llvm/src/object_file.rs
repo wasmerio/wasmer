@@ -408,13 +408,6 @@ where
                     64,
                 ) => RelocationKind::Abs8,
                 (
-                    _,
-                    object::RelocationFlags::Elf {
-                        r_type: object::elf::R_386_32,
-                    },
-                    32,
-                ) => RelocationKind::Abs4,
-                (
                     object::Architecture::X86_64,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_X86_64_PC64,
@@ -480,6 +473,20 @@ where
                 (
                     object::Architecture::Riscv64,
                     object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_ADD8,
+                    },
+                    0,
+                ) => RelocationKind::Add,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_ADD16,
+                    },
+                    0,
+                ) => RelocationKind::Add2,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_ADD32,
                     },
                     0,
@@ -487,10 +494,80 @@ where
                 (
                     object::Architecture::Riscv64,
                     object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_ADD64,
+                    },
+                    0,
+                ) => RelocationKind::Add8,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB6,
+                    },
+                    0,
+                ) => RelocationKind::Sub6Bits,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB8,
+                    },
+                    0,
+                ) => RelocationKind::Sub,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB16,
+                    },
+                    0,
+                ) => RelocationKind::Sub2,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_SUB32,
                     },
                     0,
                 ) => RelocationKind::Sub4,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB64,
+                    },
+                    0,
+                ) => RelocationKind::Sub8,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SET6,
+                    },
+                    0,
+                ) => RelocationKind::Abs6Bits,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SET8,
+                    },
+                    0,
+                ) => RelocationKind::Abs,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SET16,
+                    },
+                    0,
+                ) => RelocationKind::Abs2,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SET32,
+                    },
+                    0,
+                ) => RelocationKind::Abs4,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_32,
+                    },
+                    32,
+                ) => RelocationKind::Abs4,
                 (
                     object::Architecture::Riscv64,
                     object::RelocationFlags::Elf {

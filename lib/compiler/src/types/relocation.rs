@@ -29,14 +29,42 @@ use wasmer_types::{FunctionIndex, LibCall, LocalFunctionIndex, entity::PrimaryMa
 #[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum RelocationKind {
+    /// absolute 6 bits
+    Abs6Bits,
+    /// absolute 1-byte
+    Abs,
+    /// absolute 2-byte
+    Abs2,
     /// absolute 4-byte
     Abs4,
     /// absolute 8-byte
     Abs8,
+
     /// PC-relative 4-byte
     PCRel4,
     /// PC-relative 8-byte
     PCRel8,
+
+    /// addition at the place of the relocation (1-byte)
+    Add,
+    /// addition at the place of the relocation (2-bytes)
+    Add2,
+    /// addition at the place of the relocation (4-bytes)
+    Add4,
+    /// addition at the place of the relocation (8-bytes)
+    Add8,
+
+    /// subtraction at the place of the relocation (6 bits)
+    Sub6Bits,
+    /// subtraction at the place of the relocation (1-byte)
+    Sub,
+    /// subtraction at the place of the relocation (2-bytes)
+    Sub2,
+    /// subtraction at the place of the relocation (4-bytes)
+    Sub4,
+    /// subtraction at the place of the relocation (8-bytes)
+    Sub8,
+
     /// x86 call to PC-relative 4-byte
     X86CallPCRel4,
     /// x86 call to PLT-relative 4-byte
@@ -147,11 +175,6 @@ pub enum RelocationKind {
     MachoX86_64RelocSigned4,
     // (MACHO_X86_64_RELOC_TLV) for thread local variables
     MachoX86_64RelocTlv,
-
-    /// addition at the place of the relocation (4-bytes)
-    Add4,
-    /// subtraction at the place of the relocation (4-bytes)
-    Sub4,
 }
 
 impl RelocationKind {
@@ -172,10 +195,20 @@ impl fmt::Display for RelocationKind {
     /// already unambiguous, e.g. clif syntax with isa specified. In other contexts, use Debug.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Self::Abs6Bits => write!(f, "Abs6Bits"),
+            Self::Abs => write!(f, "Abs"),
+            Self::Abs2 => write!(f, "Abs2"),
             Self::Abs4 => write!(f, "Abs4"),
             Self::Abs8 => write!(f, "Abs8"),
+            Self::Add => write!(f, "Add"),
+            Self::Add2 => write!(f, "Add2"),
             Self::Add4 => write!(f, "Add4"),
+            Self::Add8 => write!(f, "Add8"),
+            Self::Sub6Bits => write!(f, "Sub6Bits"),
+            Self::Sub => write!(f, "Sub"),
+            Self::Sub2 => write!(f, "Sub2"),
             Self::Sub4 => write!(f, "Sub4"),
+            Self::Sub8 => write!(f, "Sub8"),
             Self::PCRel4 => write!(f, "PCRel4"),
             Self::PCRel8 => write!(f, "PCRel8"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
@@ -268,7 +301,11 @@ pub trait RelocationLike {
     // [1]: https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst
     fn for_address(&self, start: usize, target_func_address: u64) -> (usize, u64) {
         match self.kind() {
-            RelocationKind::Abs8
+            RelocationKind::Abs6Bits
+            | RelocationKind::Abs
+            | RelocationKind::Abs2
+            | RelocationKind::Abs4
+            | RelocationKind::Abs8
             | RelocationKind::Arm64Movw0
             | RelocationKind::Arm64Movw1
             | RelocationKind::Arm64Movw2
@@ -285,8 +322,15 @@ pub trait RelocationLike {
             | RelocationKind::LArchAbs64Lo20
             | RelocationKind::LArchAbs64Hi12
             | RelocationKind::LArchPCAlaLo12
+            | RelocationKind::Add
+            | RelocationKind::Add2
             | RelocationKind::Add4
-            | RelocationKind::Sub4 => {
+            | RelocationKind::Add8
+            | RelocationKind::Sub6Bits
+            | RelocationKind::Sub
+            | RelocationKind::Sub2
+            | RelocationKind::Sub4
+            | RelocationKind::Sub8 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_abs = target_func_address
