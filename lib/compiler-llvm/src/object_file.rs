@@ -268,6 +268,7 @@ where
 
     dbg!(&worklist);
     while let Some(section_index) = worklist.pop() {
+        visited.insert(section_index);
         dbg!(&section_index);
         let sec = obj
             .section_by_index(section_index)
