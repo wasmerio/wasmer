@@ -417,8 +417,8 @@ pub fn emit_compilation(
                 },
                 other => {
                     return Err(ObjectError::UnsupportedArchitecture(format!(
-                        "{} (relocation: {})",
-                        triple.architecture, other
+                        "{} (relocation: {other:?})",
+                        triple.architecture
                     )));
                 }
             };

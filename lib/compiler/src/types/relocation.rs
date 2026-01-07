@@ -20,7 +20,7 @@ use crate::{Addend, CodeOffset};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::{FunctionIndex, LibCall, LocalFunctionIndex, entity::PrimaryMap, lib::std::fmt};
+use wasmer_types::{FunctionIndex, LibCall, LocalFunctionIndex, entity::PrimaryMap};
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -189,77 +189,6 @@ impl RelocationKind {
                 | Self::MachoX86_64RelocGotLoad
                 | Self::MachoX86_64RelocGot
         )
-    }
-}
-
-impl fmt::Display for RelocationKind {
-    /// Display trait implementation drops the arch, since its used in contexts where the arch is
-    /// already unambiguous, e.g. clif syntax with isa specified. In other contexts, use Debug.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Self::Abs6Bits => write!(f, "Abs6Bits"),
-            Self::Abs => write!(f, "Abs"),
-            Self::Abs2 => write!(f, "Abs2"),
-            Self::Abs4 => write!(f, "Abs4"),
-            Self::Abs8 => write!(f, "Abs8"),
-            Self::Add => write!(f, "Add"),
-            Self::Add2 => write!(f, "Add2"),
-            Self::Add4 => write!(f, "Add4"),
-            Self::Add8 => write!(f, "Add8"),
-            Self::Sub6Bits => write!(f, "Sub6Bits"),
-            Self::Sub => write!(f, "Sub"),
-            Self::Sub2 => write!(f, "Sub2"),
-            Self::Sub4 => write!(f, "Sub4"),
-            Self::Sub8 => write!(f, "Sub8"),
-            Self::PCRel4 => write!(f, "PCRel4"),
-            Self::PCRel8 => write!(f, "PCRel8"),
-            Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
-            Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
-            Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
-            Self::Arm32Call | Self::Arm64Call | Self::RiscvCall => write!(f, "Call"),
-            Self::Arm64Movw0 => write!(f, "Arm64MovwG0"),
-            Self::Arm64Movw1 => write!(f, "Arm64MovwG1"),
-            Self::Arm64Movw2 => write!(f, "Arm64MovwG2"),
-            Self::Arm64Movw3 => write!(f, "Arm64MovwG3"),
-            Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
-            Self::RiscvPCRelHi20 => write!(f, "RiscvPCRelHi20"),
-            Self::RiscvPCRelLo12I => write!(f, "RiscvPCRelLo12I"),
-            Self::LArchAbsHi20 => write!(f, "LArchAbsHi20"),
-            Self::LArchAbsLo12 => write!(f, "LArchAbsLo12"),
-            Self::LArchAbs64Hi12 => write!(f, "LArchAbs64Hi12"),
-            Self::LArchAbs64Lo20 => write!(f, "LArchAbs64Lo20"),
-            Self::LArchCall36 => write!(f, "LArchCall36"),
-            Self::LArchPCAlaHi20 => write!(f, "LArchPCAlaHi20"),
-            Self::LArchPCAlaLo12 => write!(f, "LArchPCAlaLo12"),
-            Self::LArchPCAla64Hi12 => write!(f, "LArchPCAla64Hi12"),
-            Self::LArchPCAla64Lo20 => write!(f, "LArchPCAla64Lo20"),
-            Self::Aarch64AdrPrelLo21 => write!(f, "Aarch64AdrPrelLo21"),
-            Self::Aarch64AdrPrelPgHi21 => write!(f, "Aarch64AdrPrelPgHi21"),
-            Self::Aarch64AddAbsLo12Nc => write!(f, "Aarch64AddAbsLo12Nc"),
-            Self::Aarch64Ldst128AbsLo12Nc => write!(f, "Aarch64Ldst128AbsLo12Nc"),
-            Self::Aarch64Ldst64AbsLo12Nc => write!(f, "Aarch64Ldst64AbsLo12Nc"),
-            Self::MachoArm64RelocUnsigned => write!(f, "MachoArm64RelocUnsigned"),
-            Self::MachoArm64RelocSubtractor => write!(f, "MachoArm64RelocSubtractor"),
-            Self::MachoArm64RelocBranch26 => write!(f, "MachoArm64RelocBranch26"),
-            Self::MachoArm64RelocPage21 => write!(f, "MachoArm64RelocPage21"),
-            Self::MachoArm64RelocPageoff12 => write!(f, "MachoArm64RelocPageoff12"),
-            Self::MachoArm64RelocGotLoadPage21 => write!(f, "MachoArm64RelocGotLoadPage21"),
-            Self::MachoArm64RelocGotLoadPageoff12 => write!(f, "MachoArm64RelocGotLoadPageoff12"),
-            Self::MachoArm64RelocPointerToGot => write!(f, "MachoArm64RelocPointerToGot"),
-            Self::MachoArm64RelocTlvpLoadPage21 => write!(f, "MachoArm64RelocTlvpLoadPage21"),
-            Self::MachoArm64RelocTlvpLoadPageoff12 => write!(f, "MachoArm64RelocTlvpLoadPageoff12"),
-            Self::MachoArm64RelocAddend => write!(f, "MachoArm64RelocAddend"),
-            Self::MachoX86_64RelocUnsigned => write!(f, "MachoX86_64RelocUnsigned"),
-            Self::MachoX86_64RelocSigned => write!(f, "MachoX86_64RelocSigned"),
-            Self::MachoX86_64RelocBranch => write!(f, "MachoX86_64RelocBranch"),
-            Self::MachoX86_64RelocGotLoad => write!(f, "MachoX86_64RelocGotLoad"),
-            Self::MachoX86_64RelocGot => write!(f, "MachoX86_64RelocGot"),
-            Self::MachoX86_64RelocSubtractor => write!(f, "MachoX86_64RelocSubtractor"),
-            Self::MachoX86_64RelocSigned1 => write!(f, "MachoX86_64RelocSigned1"),
-            Self::MachoX86_64RelocSigned2 => write!(f, "MachoX86_64RelocSigned2"),
-            Self::MachoX86_64RelocSigned4 => write!(f, "MachoX86_64RelocSigned4"),
-            Self::MachoX86_64RelocTlv => write!(f, "MachoX86_64RelocTlv"),
-        }
     }
 }
 

@@ -501,7 +501,7 @@ fn apply_relocation(
             let value = read_unaligned(reloc_address as *mut u64);
             write_unaligned(reloc_address as *mut u64, value.wrapping_sub(reloc_abs));
         },
-        kind => panic!("Relocation kind unsupported in the current architecture: {kind}"),
+        kind => panic!("Relocation kind unsupported in the current architecture: {kind:?}"),
     }
 }
 
