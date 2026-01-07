@@ -445,7 +445,7 @@ fn apply_relocation(
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
             let value = read_unaligned(reloc_address as *mut u32);
             eprintln!(
-                "Add4: reloc_abs={reloc_abs:x}, value={value:x}, section offset: {}",
+                "Add4: reloc_address={reloc_address:x} reloc_abs={reloc_abs:x}, value={value:x}, section offset: {}",
                 r.offset()
             );
             write_unaligned(
@@ -488,7 +488,7 @@ fn apply_relocation(
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
             let value = read_unaligned(reloc_address as *mut u32);
             eprintln!(
-                "Sub4: reloc_abs={reloc_abs:x}, value={value:x}, section offset: {}",
+                "Sub4: reloc_address={reloc_address:x} reloc_abs={reloc_abs:x}, value={value:x}, section offset: {}",
                 r.offset()
             );
             write_unaligned(
