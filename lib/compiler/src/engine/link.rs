@@ -444,6 +444,7 @@ fn apply_relocation(
         RelocationKind::Add4 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
             let value = read_unaligned(reloc_address as *mut u32);
+            eprintln!("Add4: reloc_abs={reloc_abs:x}, value={value:x}");
             write_unaligned(
                 reloc_address as *mut u32,
                 value.wrapping_add(reloc_abs as u32),
@@ -483,6 +484,7 @@ fn apply_relocation(
         RelocationKind::Sub4 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
             let value = read_unaligned(reloc_address as *mut u32);
+            eprintln!("Sub4: reloc_abs={reloc_abs:x}, value={value:x}");
             write_unaligned(
                 reloc_address as *mut u32,
                 dbg!(value.wrapping_sub(reloc_abs as u32)),
