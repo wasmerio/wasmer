@@ -484,6 +484,7 @@ impl EngineInner {
                 )
             })
             .collect::<PrimaryMap<SectionIndex, _>>();
+        dbg!(&allocated_custom_sections);
         Ok((
             allocated_functions_result,
             allocated_function_call_trampolines,
