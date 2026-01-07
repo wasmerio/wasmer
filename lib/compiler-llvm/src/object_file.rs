@@ -175,7 +175,7 @@ where
     let mut section_targets: HashMap<object::read::SectionIndex, RelocationTarget> = HashMap::new();
 
     let root_section_index = obj
-        .section_by_name(dbg!(root_section))
+        .section_by_name(root_section)
         .ok_or_else(|| CompileError::Codegen(format!("no section named {root_section}")))?
         .index();
 
@@ -266,7 +266,6 @@ where
 
     let mut visited: HashSet<_> = HashSet::from_iter(worklist.iter().copied());
     while let Some(section_index) = worklist.pop() {
-        dbg!(&section_index);
         let sec = obj
             .section_by_index(section_index)
             .map_err(map_object_err)?;
@@ -821,7 +820,6 @@ where
             )
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
-    dbg!(&gcc_except_table_section_indices);
 
     let data_dw_ref_personality_section_indices = data_dw_ref_personality_section_indices
         .iter()
@@ -837,7 +835,6 @@ where
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
 
-    dbg!(&section_to_custom_section);
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {

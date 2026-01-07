@@ -493,7 +493,7 @@ fn apply_relocation(
             );
             write_unaligned(
                 reloc_address as *mut u32,
-                dbg!(value.wrapping_sub(reloc_abs as u32)),
+                value.wrapping_sub(reloc_abs as u32),
             );
         },
         RelocationKind::Sub8 => unsafe {

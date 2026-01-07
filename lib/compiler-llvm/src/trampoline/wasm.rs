@@ -220,7 +220,6 @@ impl FuncTrampoline {
             }
         }
         if !all_sections_are_eh_sections {
-            dbg!(&custom_sections);
             return Err(CompileError::Codegen(
                 "trampoline generation produced non-eh custom sections".into(),
             ));
@@ -411,7 +410,6 @@ impl FuncTrampoline {
                 {
                     final_module_custom_sections.push(custom_section);
                 } else {
-                    dbg!(&custom_section);
                     return Err(CompileError::Codegen(
                         "trampoline generation produced non-eh custom sections".into(),
                     ));
