@@ -821,6 +821,7 @@ where
             )
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
+    dbg!(&gcc_except_table_section_indices);
 
     let data_dw_ref_personality_section_indices = data_dw_ref_personality_section_indices
         .iter()
@@ -836,6 +837,7 @@ where
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
 
+    dbg!(&section_to_custom_section);
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
