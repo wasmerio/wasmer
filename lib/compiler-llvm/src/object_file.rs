@@ -267,6 +267,7 @@ where
     }
 
     while let Some(section_index) = worklist.pop() {
+        dbg!(&section_index);
         let sec = obj
             .section_by_index(section_index)
             .map_err(map_object_err)?;
