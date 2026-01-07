@@ -701,6 +701,13 @@ where
                 ) => RelocationKind::Aarch64Ldst64AbsLo12Nc,
                 (
                     object::Architecture::Aarch64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_PREL64,
+                    },
+                    64,
+                ) => RelocationKind::PCRel8,
+                (
+                    object::Architecture::Aarch64,
                     object::RelocationFlags::MachO { r_type: value, .. },
                     _,
                 ) => match value {
