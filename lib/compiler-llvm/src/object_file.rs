@@ -176,7 +176,7 @@ where
     let mut section_targets: HashMap<object::read::SectionIndex, RelocationTarget> = HashMap::new();
 
     let root_section_index = obj
-        .section_by_name(root_section)
+        .section_by_name(dbg!(root_section))
         .ok_or_else(|| CompileError::Codegen(format!("no section named {root_section}")))?
         .index();
 
@@ -266,6 +266,7 @@ where
         }
     }
 
+    dbg!(&worklist);
     while let Some(section_index) = worklist.pop() {
         dbg!(&section_index);
         let sec = obj
