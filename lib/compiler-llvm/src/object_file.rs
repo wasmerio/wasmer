@@ -232,31 +232,37 @@ where
 
     for section in obj.sections() {
         let index = section.index();
-        if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
-            || section
-                .name()
-                .is_ok_and(|section_name| ["__eh_frame", ".eh_frame"].contains(&section_name))
-        {
-            worklist.push(index);
-            eh_frame_section_indices.push(index);
+        let Ok(section_name) = section.name() else {
+            continue;
+        };
 
-            // This allocates a custom section index for the ELF section.
-            elf_section_to_target(index);
-        } else if section.name().unwrap_or_default() == "__compact_unwind" {
-            worklist.push(index);
-            compact_unwind_section_indices.push(index);
+        match section_name {
+            "__eh_frame" | ".eh_frame" => {
+                worklist.push(index);
+                eh_frame_section_indices.push(index);
 
-            elf_section_to_target(index);
-        } else if section.name().unwrap_or_default() == ".gcc_except_table" {
-            worklist.push(index);
-            gcc_except_table_section_indices.push(index);
+                // This allocates a custom section index for the ELF section.
+                elf_section_to_target(index);
+            }
+            "__compact_unwind" => {
+                worklist.push(index);
+                compact_unwind_section_indices.push(index);
 
-            elf_section_to_target(index);
-        } else if section.name().unwrap_or_default() == ".data.DW.ref.wasmer_eh_personality" {
-            worklist.push(index);
-            data_dw_ref_personality_section_indices.push(index);
+                elf_section_to_target(index);
+            }
+            ".gcc_except_table" => {
+                worklist.push(index);
+                gcc_except_table_section_indices.push(index);
 
-            elf_section_to_target(index);
+                elf_section_to_target(index);
+            }
+            ".data.DW.ref.wasmer_eh_personality" => {
+                worklist.push(index);
+                data_dw_ref_personality_section_indices.push(index);
+
+                elf_section_to_target(index);
+            }
+            _ => {}
         }
     }
 
