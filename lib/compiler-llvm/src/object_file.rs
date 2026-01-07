@@ -171,7 +171,6 @@ where
         }
     };
 
-    let mut visited: HashSet<object::read::SectionIndex> = HashSet::new();
     let mut worklist: Vec<object::read::SectionIndex> = Vec::new();
     let mut section_targets: HashMap<object::read::SectionIndex, RelocationTarget> = HashMap::new();
 
@@ -214,7 +213,6 @@ where
     // it to worklist. `section_to_custom_section` is filled in with all
     // the sections we want to include.
     worklist.push(root_section_index);
-    visited.insert(root_section_index);
 
     // Add any .eh_frame sections.
     let mut eh_frame_section_indices = vec![];
@@ -266,9 +264,8 @@ where
         }
     }
 
-    dbg!(&worklist);
+    let mut visited: HashSet<_> = HashSet::from_iter(worklist.iter().copied());
     while let Some(section_index) = worklist.pop() {
-        visited.insert(section_index);
         dbg!(&section_index);
         let sec = obj
             .section_by_index(section_index)
