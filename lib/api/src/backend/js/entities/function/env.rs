@@ -1,5 +1,7 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
+#[cfg(feature = "experimental-async")]
+use crate::StoreInner;
 use crate::{
     StoreMut,
     js::{store::StoreHandle, vm::VMFunctionEnvironment},
@@ -204,4 +206,12 @@ impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
     fn from(value: FunctionEnv<T>) -> Self {
         Self(crate::BackendFunctionEnv::Js(value))
     }
+}
+
+/// A shared handle to a [`FunctionEnv`], suitable for use
+/// in async imports.
+#[cfg(feature = "experimental-async")]
+pub struct AsyncFunctionEnvMut<T> {
+    pub(crate) store_raw: *mut StoreInner,
+    pub(crate) func_env: FunctionEnv<T>,
 }
