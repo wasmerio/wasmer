@@ -49,11 +49,13 @@ pub fn reflect_signature<M: MemorySize>(
     result_types_len: u16,
     result: WasmPtr<ReflectionResult, M>,
 ) -> Result<Errno, WasiError> {
-    let is_closure = WasiModuleTreeHandles::is_closure(&mut ctx, function_id).map_err(|e| {
-        trace!("Failed to check if function is a closure: {}", e);
-        WasiError::Exit(Errno::Noexec.into())
-    })?;
-    let cacheable = if is_closure { Bool::False } else { Bool::True };
+    WasiEnv::do_pending_operations(&mut ctx)?;
+    let maybe_closure = WasiModuleTreeHandles::is_closure(&mut ctx, function_id).unwrap_or(true);
+    let cacheable = if maybe_closure {
+        Bool::False
+    } else {
+        Bool::True
+    };
 
     let (env, mut store) = ctx.data_and_store_mut();
 

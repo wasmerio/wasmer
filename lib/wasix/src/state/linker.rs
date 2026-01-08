@@ -1575,30 +1575,14 @@ impl Linker {
     /// be processed before acquiring any lock on the linker.
     // TODO: we can cache this information within the group state so we don't
     // need a write lock on the linker state here
-    pub fn is_closure(
-        &self,
-        function_id: u32,
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    ) -> Result<bool, LinkError> {
+    pub fn is_closure(&self, function_id: u32) -> Option<bool> {
         // If we can get a read lock on the linker state, do it
-        if let Ok(linker_state) = self.linker_state.try_read() {
-            return Ok(linker_state
+        let linker_state = self.linker_state.try_read().ok()?;
+        Some(
+            linker_state
                 .allocated_closure_functions
-                .contains_key(&function_id));
-        }
-
-        // Otherwise, fall back to the path where we apply DL ops and acquire
-        // a write lock afterwards
-        lock_instance_group_state!(
-            group_state_guard,
-            group_state,
-            self,
-            LinkError::InstanceGroupIsDead
-        );
-        write_linker_state!(linker_state, self, group_state, ctx);
-        Ok(linker_state
-            .allocated_closure_functions
-            .contains_key(&function_id))
+                .contains_key(&function_id),
+        )
     }
 
     /// Loads a side module from the given path, linking it against the existing module tree

@@ -363,19 +363,14 @@ impl WasiModuleTreeHandles {
     /// Check if an indirect_function_table entry is reserved for closures.
     ///
     /// Returns false if the entry is not reserved for closures.
-    pub fn is_closure(
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-        function_id: u32,
-    ) -> Result<bool, LinkError> {
+    pub fn is_closure(ctx: &mut FunctionEnvMut<'_, WasiEnv>, function_id: u32) -> Option<bool> {
         // We need a manual deref here for the thread_local case.
         // See: impl Deref for WasiInstanceGuard<'_> in thread_local.rs.
         // Then, we need to allow the lint for the normal case.
         #[allow(clippy::borrow_deref_ref)]
         match &*ctx.data().inner() {
-            WasiModuleTreeHandles::Static(_) => Ok(false),
-            WasiModuleTreeHandles::Dynamic { linker, .. } => {
-                linker.clone().is_closure(function_id, ctx)
-            }
+            WasiModuleTreeHandles::Static(_) => Some(false),
+            WasiModuleTreeHandles::Dynamic { linker, .. } => linker.clone().is_closure(function_id),
         }
     }
 }
