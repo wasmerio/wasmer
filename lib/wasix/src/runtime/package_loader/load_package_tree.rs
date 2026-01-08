@@ -466,9 +466,6 @@ fn filesystem_v3(
 ) -> Result<UnionFileSystem, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
-    mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
-
     let union_fs = UnionFileSystem::new();
 
     for ResolvedFileSystemMapping {
@@ -480,6 +477,12 @@ fn filesystem_v3(
     {
         if *package == pkg.root_package && root_is_local_dir {
             continue;
+        }
+
+        if mount_path.as_path() == Path::new("/") {
+            tracing::warn!(
+                "The \"{package}\" package wants to mount a volume at \"/\", which breaks WASIX modules' filesystems",
+            );
         }
 
         // Note: We want to reuse existing Volume instances if we can. That way
@@ -538,9 +541,6 @@ fn filesystem_v2(
 ) -> Result<UnionFileSystem, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
-    mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
-
     let union_fs = UnionFileSystem::new();
 
     for ResolvedFileSystemMapping {
@@ -552,6 +552,12 @@ fn filesystem_v2(
     {
         if *package == pkg.root_package && root_is_local_dir {
             continue;
+        }
+
+        if mount_path.as_path() == Path::new("/") {
+            tracing::warn!(
+                "The \"{package}\" package wants to mount a volume at \"/\", which breaks WASIX modules' filesystems",
+            );
         }
 
         // Note: We want to reuse existing Volume instances if we can. That way
