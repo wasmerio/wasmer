@@ -2870,10 +2870,42 @@ fn translate_load<FE: FuncEnvironment + ?Sized>(
 
     environ.before_load(builder, mem_op_size, wasm_index, memarg.offset);
 
-    let (load, dfg) = builder
-        .ins()
-        .Load(opcode, result_ty, flags, Offset32::new(0), base);
-    state.push1(dfg.first_result(load));
+    if mem_op_size > 1 {
+        // Test and handle aligned / unaligned loads separately
+        let block_aligned = builder.create_block();
+        let block_unaligned = builder.create_block();
+        let block_merge = builder.create_block();
+        builder.append_block_param(block_merge, result_ty);
+
+        let alignment_check = builder.ins().band_imm(base, (mem_op_size - 1) as i64);
+        builder.ins().brif(alignment_check, block_unaligned, &[], block_aligned, &[]);
+
+        builder.seal_block(block_aligned);
+        builder.seal_block(block_unaligned);
+
+        builder.switch_to_block(block_aligned);
+        let fast_val = builder.ins().load(result_ty, flags, base, 0);
+        builder.ins().jump(block_merge, &[fast_val.into()]);
+
+        builder.switch_to_block(block_unaligned);
+        let mut slow_val = builder.ins().uload8(result_ty, flags, base, 0);
+        for i in 1..mem_op_size {
+            let byte = builder.ins().uload8(result_ty, flags, base, i as i32);
+            let shifted = builder.ins().ishl_imm(byte, (i * 8) as i64);
+            slow_val = builder.ins().bor(slow_val, shifted);
+        }
+        builder.ins().jump(block_merge, &[slow_val.into()]);
+
+        builder.seal_block(block_merge);
+        builder.switch_to_block(block_merge);
+        state.push1(builder.block_params(block_merge)[0]);
+    } else {
+        let (load, dfg) = builder
+            .ins()
+            .Load(opcode, result_ty, flags, Offset32::new(0), base);
+        state.push1(dfg.first_result(load));
+    }
+
     Ok(Reachability::Reachable(()))
 }
 
@@ -2896,9 +2928,15 @@ fn translate_store<FE: FuncEnvironment + ?Sized>(
 
     environ.before_store(builder, mem_op_size, wasm_index, memarg.offset);
 
-    builder
-        .ins()
-        .Store(opcode, val_ty, flags, Offset32::new(0), val, base);
+    {
+        // Unaligned store
+        assert_eq!(flags.explicit_endianness(), Some(ir::Endianness::Little));
+        for i in 0..mem_op_size {
+            let shifted = builder.ins().ushr_imm(val, (i * 8) as i64);
+            builder.ins().istore8(flags, shifted, base, i as i32);
+        }
+    }
+
     Ok(())
 }
 
