@@ -1580,6 +1580,15 @@ impl Linker {
         function_id: u32,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<bool, LinkError> {
+        // If we can get a read lock on the linker state, do it
+        if let Ok(linker_state) = self.linker_state.try_read() {
+            return Ok(linker_state
+                .allocated_closure_functions
+                .contains_key(&function_id));
+        }
+
+        // Otherwise, fall back to the path where we apply DL ops and acquire
+        // a write lock afterwards
         lock_instance_group_state!(
             group_state_guard,
             group_state,
