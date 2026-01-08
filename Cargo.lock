@@ -7020,6 +7020,7 @@ dependencies = [
  "cranelift-frontend",
  "gimli",
  "hashbrown 0.16.1",
+ "indexmap",
  "itertools 0.14.0",
  "leb128",
  "more-asserts",

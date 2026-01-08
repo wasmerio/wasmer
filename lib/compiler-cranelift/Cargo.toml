@@ -39,6 +39,7 @@ gimli = { workspace = true, optional = true }
 smallvec.workspace = true
 target-lexicon.workspace = true
 leb128.workspace = true
+indexmap.workspace = true
 
 [dev-dependencies]
 cranelift-codegen = { workspace = true, features = ["all-arch"] }
