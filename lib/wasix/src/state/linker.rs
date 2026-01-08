@@ -1570,8 +1570,9 @@ impl Linker {
     }
 
     /// Check if an indirect_function_table entry is reserved for closures.
-    ///
     /// Returns false if the entry is not reserved for closures.
+    /// Requires a FunctionEnvMut because pending DL operations should always
+    /// be processed before acquiring any lock on the linker.
     // TODO: we can cache this information within the group state so we don't
     // need a write lock on the linker state here
     pub fn is_closure(
@@ -3147,7 +3148,7 @@ impl InstanceGroupState {
                             ));
                         }
                         Err(e) => {
-                            Err(e).expect("Internal error: bad in-progress symbol resolution")
+                            panic!("Internal error: bad in-progress symbol resolution: {e:?}")
                         }
                     };
 
