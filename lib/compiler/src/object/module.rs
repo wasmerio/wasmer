@@ -320,13 +320,12 @@ pub fn emit_compilation(
                     encoding: RelocationEncoding::Generic,
                     size: 32,
                 },
-
                 Reloc::Abs8 => RelocationFlags::Generic {
                     kind: RelocationKind::Absolute,
                     encoding: RelocationEncoding::Generic,
                     size: 64,
                 },
-                Reloc::X86PCRel4 => RelocationFlags::Generic {
+                Reloc::PCRel4 => RelocationFlags::Generic {
                     kind: RelocationKind::Relative,
                     encoding: RelocationEncoding::Generic,
                     size: 32,
@@ -418,8 +417,8 @@ pub fn emit_compilation(
                 },
                 other => {
                     return Err(ObjectError::UnsupportedArchitecture(format!(
-                        "{} (relocation: {})",
-                        triple.architecture, other
+                        "{} (relocation: {other:?})",
+                        triple.architecture
                     )));
                 }
             };

@@ -31,6 +31,7 @@ pub struct CompiledFunction {
     pub eh_frame_section_indices: Vec<SectionIndex>,
     pub compact_unwind_section_indices: Vec<SectionIndex>,
     pub gcc_except_table_section_indices: Vec<SectionIndex>,
+    pub data_dw_ref_personality_section_indices: Vec<SectionIndex>,
 }
 
 static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
@@ -170,7 +171,6 @@ where
         }
     };
 
-    let mut visited: HashSet<object::read::SectionIndex> = HashSet::new();
     let mut worklist: Vec<object::read::SectionIndex> = Vec::new();
     let mut section_targets: HashMap<object::read::SectionIndex, RelocationTarget> = HashMap::new();
 
@@ -213,7 +213,6 @@ where
     // it to worklist. `section_to_custom_section` is filled in with all
     // the sections we want to include.
     worklist.push(root_section_index);
-    visited.insert(root_section_index);
 
     // Add any .eh_frame sections.
     let mut eh_frame_section_indices = vec![];
@@ -227,29 +226,45 @@ where
     // unexpected custom sections, so we do a bit of book-keeping here.
     let mut gcc_except_table_section_indices = vec![];
 
+    let mut data_dw_ref_personality_section_indices = vec![];
+
     for section in obj.sections() {
         let index = section.index();
-        if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
-            || section.name().unwrap_or_default() == "__eh_frame"
-        {
-            worklist.push(index);
-            eh_frame_section_indices.push(index);
+        let Ok(section_name) = section.name() else {
+            continue;
+        };
 
-            // This allocates a custom section index for the ELF section.
-            elf_section_to_target(index);
-        } else if section.name().unwrap_or_default() == "__compact_unwind" {
-            worklist.push(index);
-            compact_unwind_section_indices.push(index);
+        match section_name {
+            "__eh_frame" | ".eh_frame" => {
+                worklist.push(index);
+                eh_frame_section_indices.push(index);
 
-            elf_section_to_target(index);
-        } else if section.name().unwrap_or_default() == ".gcc_except_table" {
-            worklist.push(index);
-            gcc_except_table_section_indices.push(index);
+                // This allocates a custom section index for the ELF section.
+                elf_section_to_target(index);
+            }
+            "__compact_unwind" => {
+                worklist.push(index);
+                compact_unwind_section_indices.push(index);
 
-            elf_section_to_target(index);
+                elf_section_to_target(index);
+            }
+            ".gcc_except_table" => {
+                worklist.push(index);
+                gcc_except_table_section_indices.push(index);
+
+                elf_section_to_target(index);
+            }
+            ".data.DW.ref.wasmer_eh_personality" => {
+                worklist.push(index);
+                data_dw_ref_personality_section_indices.push(index);
+
+                elf_section_to_target(index);
+            }
+            _ => {}
         }
     }
 
+    let mut visited: HashSet<_> = HashSet::from_iter(worklist.iter().copied());
     while let Some(section_index) = worklist.pop() {
         let sec = obj
             .section_by_index(section_index)
@@ -398,19 +413,12 @@ where
                     64,
                 ) => RelocationKind::Abs8,
                 (
-                    _,
-                    object::RelocationFlags::Elf {
-                        r_type: object::elf::R_386_32,
-                    },
-                    32,
-                ) => RelocationKind::Abs4,
-                (
                     object::Architecture::X86_64,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_X86_64_PC64,
                     },
                     0,
-                ) => RelocationKind::X86PCRel8,
+                ) => RelocationKind::PCRel8,
                 (
                     object::Architecture::Aarch64,
                     object::RelocationFlags::Elf {
@@ -467,6 +475,118 @@ where
                     },
                     0,
                 ) => RelocationKind::RiscvPCRelLo12I,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_ADD8,
+                    },
+                    0,
+                ) => RelocationKind::Add,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_ADD16,
+                    },
+                    0,
+                ) => RelocationKind::Add2,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_ADD32,
+                    },
+                    0,
+                ) => RelocationKind::Add4,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_ADD64,
+                    },
+                    0,
+                ) => RelocationKind::Add8,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB6,
+                    },
+                    0,
+                ) => RelocationKind::Sub6Bits,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB8,
+                    },
+                    0,
+                ) => RelocationKind::Sub,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB16,
+                    },
+                    0,
+                ) => RelocationKind::Sub2,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB32,
+                    },
+                    0,
+                ) => RelocationKind::Sub4,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SUB64,
+                    },
+                    0,
+                ) => RelocationKind::Sub8,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SET6,
+                    },
+                    0,
+                ) => RelocationKind::Abs6Bits,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SET8,
+                    },
+                    0,
+                ) => RelocationKind::Abs,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SET16,
+                    },
+                    0,
+                ) => RelocationKind::Abs2,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_SET32,
+                    },
+                    0,
+                ) => RelocationKind::Abs4,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_32,
+                    },
+                    32,
+                ) => RelocationKind::Abs4,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_64,
+                    },
+                    64,
+                ) => RelocationKind::Abs8,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_32_PCREL,
+                    },
+                    0,
+                ) => RelocationKind::PCRel4,
                 (
                     object::Architecture::LoongArch64,
                     object::RelocationFlags::Elf {
@@ -538,6 +658,20 @@ where
                     0,
                 ) => RelocationKind::Aarch64AdrPrelLo21,
                 (
+                    object::Architecture::LoongArch64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_64,
+                    },
+                    64,
+                ) => RelocationKind::Abs8,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_LARCH_32_PCREL,
+                    },
+                    32,
+                ) => RelocationKind::PCRel4,
+                (
                     object::Architecture::Aarch64,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_AARCH64_ADR_PREL_PG_HI21,
@@ -565,6 +699,20 @@ where
                     },
                     0,
                 ) => RelocationKind::Aarch64Ldst64AbsLo12Nc,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_PREL64,
+                    },
+                    64,
+                ) => RelocationKind::PCRel8,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_ABS64,
+                    },
+                    64,
+                ) => RelocationKind::Abs8,
                 (
                     object::Architecture::Aarch64,
                     object::RelocationFlags::MachO { r_type: value, .. },
@@ -687,6 +835,20 @@ where
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
 
+    let data_dw_ref_personality_section_indices = data_dw_ref_personality_section_indices
+        .iter()
+        .map(|index| {
+            section_to_custom_section.get(index).map_or_else(
+                || {
+                    Err(CompileError::Codegen(format!(
+                        ".data.DW.ref.wasmer_eh_personality section with index={index:?} was never loaded",
+                    )))
+                },
+                |idx| Ok(*idx),
+            )
+        })
+        .collect::<Result<Vec<SectionIndex>, _>>()?;
+
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
@@ -747,5 +909,6 @@ where
         eh_frame_section_indices,
         compact_unwind_section_indices,
         gcc_except_table_section_indices,
+        data_dw_ref_personality_section_indices,
     })
 }

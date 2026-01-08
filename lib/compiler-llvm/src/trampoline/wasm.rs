@@ -336,6 +336,7 @@ impl FuncTrampoline {
             eh_frame_section_indices,
             compact_unwind_section_indices,
             gcc_except_table_section_indices,
+            data_dw_ref_personality_section_indices,
         } = load_object_file(
             mem_buf_slice,
             &self.func_section,
@@ -404,7 +405,9 @@ impl FuncTrampoline {
                         bytes: SectionBody::new_with_vec(vec![]),
                         relocations: vec![],
                     });
-                } else if gcc_except_table_section_indices.contains(&section_index) {
+                } else if gcc_except_table_section_indices.contains(&section_index)
+                    || data_dw_ref_personality_section_indices.contains(&section_index)
+                {
                     final_module_custom_sections.push(custom_section);
                 } else {
                     return Err(CompileError::Codegen(

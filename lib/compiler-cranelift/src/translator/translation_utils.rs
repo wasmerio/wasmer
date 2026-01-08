@@ -79,7 +79,7 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
     match reloc {
         Reloc::Abs4 => RelocationKind::Abs4,
         Reloc::Abs8 => RelocationKind::Abs8,
-        Reloc::X86PCRel4 => RelocationKind::X86PCRel4,
+        Reloc::X86PCRel4 => RelocationKind::PCRel4,
         Reloc::X86CallPCRel4 => RelocationKind::X86CallPCRel4,
         Reloc::X86CallPLTRel4 => RelocationKind::X86CallPLTRel4,
         Reloc::X86GOTPCRel4 => RelocationKind::X86GOTPCRel4,
