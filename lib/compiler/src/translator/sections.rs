@@ -15,6 +15,7 @@ use super::environ::ModuleEnvironment;
 use super::error::from_binaryreadererror_wasmerror;
 use super::state::ModuleTranslationState;
 use std::boxed::Box;
+use std::collections::{HashMap, HashSet};
 use std::vec::Vec;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::packed_option::ReservedValue;
@@ -513,6 +514,9 @@ pub fn parse_name_section<'data>(
     names: NameSectionReader<'data>,
     environ: &mut ModuleEnvironment<'data>,
 ) -> WasmResult<()> {
+    let mut functions = HashMap::new();
+    let mut names_set = HashSet::new();
+
     for res in names {
         let subsection = if let Ok(subsection) = res {
             subsection
@@ -522,12 +526,21 @@ pub fn parse_name_section<'data>(
         };
         match subsection {
             wasmparser::Name::Function(function_subsection) => {
+                let mut unique_name_map = HashMap::new();
                 for naming in function_subsection.into_iter().flatten() {
                     if naming.index != u32::MAX {
-                        environ.declare_function_name(
-                            FunctionIndex::from_u32(naming.index),
-                            naming.name,
-                        )?;
+                        let mut name = naming.name.to_string();
+                        // In very rare cases a function name can have duplicates.
+                        if names_set.contains(&name) {
+                            let index = unique_name_map
+                                .entry(name.clone())
+                                .and_modify(|e| *e += 1)
+                                .or_insert(0);
+                            let alternative = format!("{name}.{index}");
+                            name = alternative;
+                        }
+                        names_set.insert(name.clone());
+                        functions.insert(FunctionIndex::from_u32(naming.index), name);
                     }
                 }
             }
@@ -551,5 +564,5 @@ pub fn parse_name_section<'data>(
         }
     }
 
-    Ok(())
+    environ.declare_function_names(functions)
 }
