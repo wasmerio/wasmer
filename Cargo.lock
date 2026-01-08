@@ -6738,6 +6738,7 @@ dependencies = [
  "wasmi_c_api_impl",
  "wasmparser 0.243.0",
  "wat",
+ "web-sys",
  "which",
  "windows-sys 0.61.2",
  "xz",

@@ -54,7 +54,6 @@ pub fn call_dynamic2<M: MemorySize>(
 
     let memory = unsafe { env.memory_view(&store) };
 
-    tracing::debug!("1");
     let values = wasi_try_ok!(
         values
             .slice(&memory, values_len)
@@ -63,7 +62,6 @@ pub fn call_dynamic2<M: MemorySize>(
     );
 
     // There is no reflection in JS, so we cannot perform strict checks there
-    tracing::debug!("2");
     let mut is_js = false;
     #[cfg(feature = "js")]
     {
@@ -81,45 +79,47 @@ pub fn call_dynamic2<M: MemorySize>(
         }
     }
 
-    tracing::debug!("3");
-    let values = values
-        .into_iter()
-        .map(|v| match v.type_ {
-            WasmValueType::I32 => {
-                Value::I32(i32::from_le_bytes(v.value.bytes[0..4].try_into().unwrap()))
-            }
-            WasmValueType::I64 => {
-                Value::I64(i64::from_le_bytes(v.value.bytes[0..8].try_into().unwrap()))
-            }
-            WasmValueType::F32 => {
-                Value::F32(f32::from_le_bytes(v.value.bytes[0..4].try_into().unwrap()))
-            }
-            WasmValueType::F64 => {
-                Value::F64(f64::from_le_bytes(v.value.bytes[0..8].try_into().unwrap()))
-            }
-            WasmValueType::V128 => Value::V128(u128::from_le_bytes(
-                v.value.bytes[0..16].try_into().unwrap(),
-            )),
-        })
-        .collect::<Vec<_>>();
+    let values = wasi_try_ok!(
+        values
+            .into_iter()
+            .map(|v| {
+                let bytes_slice =
+                    unsafe { std::slice::from_raw_parts(&v.value as *const _ as *const u8, 16) };
+                match v.type_ {
+                    WasmValueType::I32 => Ok(Value::I32(i32::from_le_bytes(
+                        bytes_slice[0..4].try_into().unwrap(),
+                    ))),
+                    WasmValueType::I64 => Ok(Value::I64(i64::from_le_bytes(
+                        bytes_slice[0..8].try_into().unwrap(),
+                    ))),
+                    WasmValueType::F32 => Ok(Value::F32(f32::from_le_bytes(
+                        bytes_slice[0..4].try_into().unwrap(),
+                    ))),
+                    WasmValueType::F64 => Ok(Value::F64(f64::from_le_bytes(
+                        bytes_slice[0..8].try_into().unwrap(),
+                    ))),
+                    WasmValueType::V128 => Ok(Value::V128(u128::from_le_bytes(
+                        bytes_slice[0..16].try_into().unwrap(),
+                    ))),
+                    _ => Err(Errno::Inval),
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()
+    );
 
-    tracing::debug!("4");
     let result_values = function
         .call(&mut store, values.as_slice())
         .map_err(crate::flatten_runtime_error)?;
 
-    tracing::debug!("5");
     let memory = unsafe { env.memory_view(&store) };
     let results_buffer_len =
         wasi_try_ok!(results_len_ptr.read(&memory).map_err(mem_error_to_wasi)).into() as usize;
 
-    tracing::debug!("6");
     if strict {
         if result_values.len() != results_buffer_len {
             return Ok(Errno::Inval);
         }
     } else {
-        tracing::debug!("7");
         wasi_try_ok!(
             results_len_ptr
                 .write(&memory, M::Offset::from(result_values.len() as u32))
@@ -127,9 +127,13 @@ pub fn call_dynamic2<M: MemorySize>(
         );
     }
 
-    tracing::debug!("8");
     for i in 0..results_buffer_len {
-        let mut buffer = vec![0u8; 16];
+        let mut value = WasmRawValue {
+            lower: 0,
+            higher: 0,
+        };
+        let mut buffer =
+            unsafe { std::slice::from_raw_parts_mut(&mut value as *mut _ as *mut u8, 16) };
         let type_ = match result_values.get(i) {
             None => WasmValueType::I32,
             Some(Value::I32(n)) => {
@@ -156,14 +160,7 @@ pub fn call_dynamic2<M: MemorySize>(
                 return Ok(Errno::Inval);
             }
         };
-        tracing::debug!("9");
-        let raw_value = WasmRawValueWithType {
-            type_,
-            value: WasmRawValue {
-                bytes: buffer.try_into().unwrap(),
-            },
-        };
-        tracing::debug!("10");
+        let mut raw_value = WasmRawValueWithType { type_, value };
         wasi_try_ok!(
             results
                 .add_offset(M::Offset::from(i as u32))
@@ -172,6 +169,5 @@ pub fn call_dynamic2<M: MemorySize>(
         );
     }
 
-    tracing::debug!("11");
     Ok(Errno::Success)
 }

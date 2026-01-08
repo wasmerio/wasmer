@@ -224,6 +224,10 @@ impl Function {
                     &wasm_bindgen::JsValue::NULL,
                     &arr,
                 );
+                if let Err(ref e) = r {
+                    web_sys::console::error_2(&JsValue::from_str("FUNCTION CALL ERROR"), e);
+                    web_sys::console::dir_1(e);
+                }
                 let store_mut = store.as_store_mut();
                 if let Some(callback) = store_mut.inner.on_called.take() {
                     match callback(store_mut) {

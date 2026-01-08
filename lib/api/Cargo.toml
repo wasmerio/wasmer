@@ -69,6 +69,7 @@ futures = { workspace = true, optional = true }
 
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true, features = ["console"] }
 rusty_jsc = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
 
@@ -92,6 +93,7 @@ wasmer-types = { path = "../types", version = "=6.1.0", default-features = false
 ] }
 wasm-bindgen.workspace = true
 js-sys.workspace = true
+web-sys.workspace = true
 wasmer-derive = { path = "../derive", version = "=6.1.0" }
 wasmer-compiler = { path = "../compiler", version = "=6.1.0" }
 # - Optional dependencies for `js`.
@@ -164,7 +166,7 @@ v8-default = ["v8", "wat"]
 wasm-c-api = ["wasm-types-polyfill"]
 
 # Features for `js`.
-js = ["wasm-bindgen", "js-sys"]
+js = ["wasm-bindgen", "js-sys", "web-sys"]
 js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["wasmparser"]

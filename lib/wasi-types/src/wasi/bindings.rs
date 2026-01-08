@@ -2526,7 +2526,8 @@ impl From<WasmValueType> for wasmer::Type {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct WasmRawValue {
-    pub bytes: [u8; 16],
+    pub lower: u64,
+    pub higher: u64,
 }
 
 unsafe impl wasmer_types::ValueType for WasmRawValue {
