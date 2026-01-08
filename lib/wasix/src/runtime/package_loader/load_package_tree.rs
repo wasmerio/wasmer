@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, Error, bail};
+use anyhow::{Context, Error};
 use futures::{StreamExt, TryStreamExt, future::BoxFuture};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
@@ -480,8 +480,8 @@ fn filesystem_v3(
         }
 
         if mount_path.as_path() == Path::new("/") {
-            bail!(
-                "The \"{package}\" package wants to mount a volume at \"/\", but that's not allowed",
+            tracing::warn!(
+                "The \"{package}\" package wants to mount a volume at \"/\", which breaks WASIX modules' filesystems",
             );
         }
 
@@ -555,8 +555,8 @@ fn filesystem_v2(
         }
 
         if mount_path.as_path() == Path::new("/") {
-            bail!(
-                "The \"{package}\" package wants to mount a volume at \"/\", but that's not allowed",
+            tracing::warn!(
+                "The \"{package}\" package wants to mount a volume at \"/\", which breaks WASIX modules' filesystems",
             );
         }
 

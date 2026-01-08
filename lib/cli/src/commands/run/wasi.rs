@@ -523,11 +523,13 @@ impl Wasi {
                         "/".to_string()
                     },
                 }
-            } else if dir == Path::new("/") && is_wasix {
-                bail!(
-                    "Cannot pre-open the root directory with --dir=/ as mounting on the guest's virtual root is not allowed"
-                );
             } else {
+                if dir == Path::new("/") && is_wasix {
+                    tracing::warn!(
+                        "Pre-opening the root directory with --dir=/ breaks WASIX modules' filesystems"
+                    );
+                }
+
                 let resolved = dir.canonicalize().with_context(|| {
                     format!(
                         "could not canonicalize path for argument '--dir {}'",
@@ -565,8 +567,8 @@ impl Wasi {
             if guest == "/" && is_wasix {
                 // Note: it appears we canonicalize the path before this point and showing the value of
                 // `host` in the error message may throw users off, so we use a placeholder.
-                bail!(
-                    "Mounting on the guest's virtual root with --mapdir /:<HOST_PATH> is not allowed"
+                tracing::warn!(
+                    "Mounting on the guest's virtual root with --mapdir /:<HOST_PATH> breaks WASIX modules' filesystems"
                 );
             }
             let resolved_host = host.canonicalize().with_context(|| {
