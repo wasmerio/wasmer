@@ -423,389 +423,391 @@
 <a href=#423 id=423 data-nosnippet>423</a>        uses: Vec&lt;BinaryPackage&gt;,
 <a href=#424 id=424 data-nosnippet>424</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
 <a href=#425 id=425 data-nosnippet>425</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#426 id=426 data-nosnippet>426</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
-<a href=#427 id=427 data-nosnippet>427</a>        Runner::run_command(<span class="kw-2">&amp;mut </span>runner, command_name, pkg, runtime)
-<a href=#428 id=428 data-nosnippet>428</a>    }
-<a href=#429 id=429 data-nosnippet>429</a>
-<a href=#430 id=430 data-nosnippet>430</a>    <span class="kw">fn </span>run_wcgi(
-<a href=#431 id=431 data-nosnippet>431</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#432 id=432 data-nosnippet>432</a>        command_name: <span class="kw-2">&amp;</span>str,
-<a href=#433 id=433 data-nosnippet>433</a>        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-<a href=#434 id=434 data-nosnippet>434</a>        uses: Vec&lt;BinaryPackage&gt;,
-<a href=#435 id=435 data-nosnippet>435</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#436 id=436 data-nosnippet>436</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#437 id=437 data-nosnippet>437</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(NoOpWcgiCallbacks);
-<a href=#438 id=438 data-nosnippet>438</a>        <span class="self">self</span>.config_wcgi(runner.config(), uses)<span class="question-mark">?</span>;
-<a href=#439 id=439 data-nosnippet>439</a>        runner.run_command(command_name, pkg, runtime)
-<a href=#440 id=440 data-nosnippet>440</a>    }
-<a href=#441 id=441 data-nosnippet>441</a>
-<a href=#442 id=442 data-nosnippet>442</a>    <span class="kw">fn </span>config_wcgi(
-<a href=#443 id=443 data-nosnippet>443</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#444 id=444 data-nosnippet>444</a>        config: <span class="kw-2">&amp;mut </span>wcgi::Config,
-<a href=#445 id=445 data-nosnippet>445</a>        uses: Vec&lt;BinaryPackage&gt;,
-<a href=#446 id=446 data-nosnippet>446</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#447 id=447 data-nosnippet>447</a>        config
-<a href=#448 id=448 data-nosnippet>448</a>            .args(<span class="self">self</span>.args.clone())
-<a href=#449 id=449 data-nosnippet>449</a>            .addr(<span class="self">self</span>.wcgi.addr)
-<a href=#450 id=450 data-nosnippet>450</a>            .envs(<span class="self">self</span>.wasi.env_vars.clone())
-<a href=#451 id=451 data-nosnippet>451</a>            .map_directories(<span class="self">self</span>.wasi.mapped_dirs.clone())
-<a href=#452 id=452 data-nosnippet>452</a>            .callbacks(Callbacks::new(<span class="self">self</span>.wcgi.addr))
-<a href=#453 id=453 data-nosnippet>453</a>            .inject_packages(uses);
-<a href=#454 id=454 data-nosnippet>454</a>        <span class="kw-2">*</span>config.capabilities() = <span class="self">self</span>.wasi.capabilities();
-<a href=#455 id=455 data-nosnippet>455</a>        <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
-<a href=#456 id=456 data-nosnippet>456</a>            config.forward_host_env();
-<a href=#457 id=457 data-nosnippet>457</a>        }
-<a href=#458 id=458 data-nosnippet>458</a>
-<a href=#459 id=459 data-nosnippet>459</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#460 id=460 data-nosnippet>460</a>        </span>{
-<a href=#461 id=461 data-nosnippet>461</a>            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
-<a href=#462 id=462 data-nosnippet>462</a>                config.add_snapshot_trigger(trigger);
-<a href=#463 id=463 data-nosnippet>463</a>            }
-<a href=#464 id=464 data-nosnippet>464</a>            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.writable_journals.is_empty() {
-<a href=#465 id=465 data-nosnippet>465</a>                config.add_default_snapshot_triggers();
-<a href=#466 id=466 data-nosnippet>466</a>            }
-<a href=#467 id=467 data-nosnippet>467</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
-<a href=#468 id=468 data-nosnippet>468</a>                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
-<a href=#469 id=469 data-nosnippet>469</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-<a href=#470 id=470 data-nosnippet>470</a>                        <span class="string">"If you specify a snapshot interval then you must also specify a writable journal file"
-<a href=#471 id=471 data-nosnippet>471</a>                    </span>));
-<a href=#472 id=472 data-nosnippet>472</a>                }
-<a href=#473 id=473 data-nosnippet>473</a>                config.with_snapshot_interval(Duration::from_millis(period));
-<a href=#474 id=474 data-nosnippet>474</a>            }
-<a href=#475 id=475 data-nosnippet>475</a>            <span class="kw">if </span><span class="self">self</span>.wasi.stop_after_snapshot {
-<a href=#476 id=476 data-nosnippet>476</a>                config.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
-<a href=#477 id=477 data-nosnippet>477</a>            }
-<a href=#478 id=478 data-nosnippet>478</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.wasi.build_journals()<span class="question-mark">?</span>;
-<a href=#479 id=479 data-nosnippet>479</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
-<a href=#480 id=480 data-nosnippet>480</a>                config.add_read_only_journal(journal);
-<a href=#481 id=481 data-nosnippet>481</a>            }
-<a href=#482 id=482 data-nosnippet>482</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
-<a href=#483 id=483 data-nosnippet>483</a>                config.add_writable_journal(journal);
-<a href=#484 id=484 data-nosnippet>484</a>            }
-<a href=#485 id=485 data-nosnippet>485</a>        }
-<a href=#486 id=486 data-nosnippet>486</a>
-<a href=#487 id=487 data-nosnippet>487</a>        <span class="prelude-val">Ok</span>(())
-<a href=#488 id=488 data-nosnippet>488</a>    }
-<a href=#489 id=489 data-nosnippet>489</a>
-<a href=#490 id=490 data-nosnippet>490</a>    <span class="kw">fn </span>run_dcgi(
-<a href=#491 id=491 data-nosnippet>491</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#492 id=492 data-nosnippet>492</a>        command_name: <span class="kw-2">&amp;</span>str,
-<a href=#493 id=493 data-nosnippet>493</a>        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-<a href=#494 id=494 data-nosnippet>494</a>        uses: Vec&lt;BinaryPackage&gt;,
-<a href=#495 id=495 data-nosnippet>495</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#496 id=496 data-nosnippet>496</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#497 id=497 data-nosnippet>497</a>        <span class="kw">let </span>factory = DcgiInstanceFactory::new();
-<a href=#498 id=498 data-nosnippet>498</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::dcgi::DcgiRunner::new(factory);
-<a href=#499 id=499 data-nosnippet>499</a>        <span class="self">self</span>.config_wcgi(runner.config().inner(), uses);
-<a href=#500 id=500 data-nosnippet>500</a>        runner.run_command(command_name, pkg, runtime)
-<a href=#501 id=501 data-nosnippet>501</a>    }
-<a href=#502 id=502 data-nosnippet>502</a>
-<a href=#503 id=503 data-nosnippet>503</a>    <span class="kw">fn </span>run_dproxy(
-<a href=#504 id=504 data-nosnippet>504</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#505 id=505 data-nosnippet>505</a>        command_name: <span class="kw-2">&amp;</span>str,
-<a href=#506 id=506 data-nosnippet>506</a>        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-<a href=#507 id=507 data-nosnippet>507</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#508 id=508 data-nosnippet>508</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#509 id=509 data-nosnippet>509</a>        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
-<a href=#510 id=510 data-nosnippet>510</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, pkg);
-<a href=#511 id=511 data-nosnippet>511</a>        runner.run_command(command_name, pkg, runtime)
-<a href=#512 id=512 data-nosnippet>512</a>    }
-<a href=#513 id=513 data-nosnippet>513</a>
-<a href=#514 id=514 data-nosnippet>514</a>    <span class="attr">#[tracing::instrument(skip_all)]
-<a href=#515 id=515 data-nosnippet>515</a>    </span><span class="kw">fn </span>execute_pure_wasm_module(<span class="kw-2">&amp;</span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>Module) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#516 id=516 data-nosnippet>516</a>        <span class="doccomment">/// The rest of the execution happens in the main thread, so we can create the
-<a href=#517 id=517 data-nosnippet>517</a>        /// store here.
-<a href=#518 id=518 data-nosnippet>518</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>store = <span class="self">self</span>.rt.get_store()<span class="question-mark">?</span>;
-<a href=#519 id=519 data-nosnippet>519</a>        <span class="kw">let </span>imports = Imports::default();
-<a href=#520 id=520 data-nosnippet>520</a>        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, module, <span class="kw-2">&amp;</span>imports)
-<a href=#521 id=521 data-nosnippet>521</a>            .context(<span class="string">"Unable to instantiate the WebAssembly module"</span>)<span class="question-mark">?</span>;
-<a href=#522 id=522 data-nosnippet>522</a>
-<a href=#523 id=523 data-nosnippet>523</a>        <span class="kw">let </span>entry_function  = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.invoke {
-<a href=#524 id=524 data-nosnippet>524</a>            <span class="prelude-val">Some</span>(entry) =&gt; {
-<a href=#525 id=525 data-nosnippet>525</a>                instance.exports
-<a href=#526 id=526 data-nosnippet>526</a>                    .get_function(entry)
-<a href=#527 id=527 data-nosnippet>527</a>                    .with_context(|| <span class="macro">format!</span>(<span class="string">"The module doesn't export a function named \"{entry}\""</span>))<span class="question-mark">?
-<a href=#528 id=528 data-nosnippet>528</a>            </span>},
-<a href=#529 id=529 data-nosnippet>529</a>            <span class="prelude-val">None </span>=&gt; {
-<a href=#530 id=530 data-nosnippet>530</a>                instance.exports.get_function(<span class="string">"_start"</span>)
-<a href=#531 id=531 data-nosnippet>531</a>                    .context(<span class="string">"The module doesn't export a \"_start\" function. Either implement it or specify an entry function with --invoke"</span>)<span class="question-mark">?
-<a href=#532 id=532 data-nosnippet>532</a>            </span>}
-<a href=#533 id=533 data-nosnippet>533</a>        };
-<a href=#534 id=534 data-nosnippet>534</a>
-<a href=#535 id=535 data-nosnippet>535</a>        <span class="kw">let </span>result = invoke_function(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;mut </span>store, entry_function, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
-<a href=#536 id=536 data-nosnippet>536</a>
-<a href=#537 id=537 data-nosnippet>537</a>        <span class="kw">match </span>result {
-<a href=#538 id=538 data-nosnippet>538</a>            <span class="prelude-val">Ok</span>(return_values) =&gt; {
-<a href=#539 id=539 data-nosnippet>539</a>                <span class="macro">println!</span>(
-<a href=#540 id=540 data-nosnippet>540</a>                    <span class="string">"{}"</span>,
-<a href=#541 id=541 data-nosnippet>541</a>                    return_values
-<a href=#542 id=542 data-nosnippet>542</a>                        .iter()
-<a href=#543 id=543 data-nosnippet>543</a>                        .map(|val| val.to_string())
-<a href=#544 id=544 data-nosnippet>544</a>                        .collect::&lt;Vec&lt;String&gt;&gt;()
-<a href=#545 id=545 data-nosnippet>545</a>                        .join(<span class="string">" "</span>)
-<a href=#546 id=546 data-nosnippet>546</a>                );
-<a href=#547 id=547 data-nosnippet>547</a>                <span class="prelude-val">Ok</span>(())
-<a href=#548 id=548 data-nosnippet>548</a>            }
-<a href=#549 id=549 data-nosnippet>549</a>            <span class="prelude-val">Err</span>(err) =&gt; {
-<a href=#550 id=550 data-nosnippet>550</a>                <span class="macro">bail!</span>(<span class="string">"{}"</span>, err.display(<span class="kw-2">&amp;mut </span>store));
-<a href=#551 id=551 data-nosnippet>551</a>            }
-<a href=#552 id=552 data-nosnippet>552</a>        }
-<a href=#553 id=553 data-nosnippet>553</a>    }
-<a href=#554 id=554 data-nosnippet>554</a>
-<a href=#555 id=555 data-nosnippet>555</a>    <span class="kw">fn </span>build_wasi_runner(
-<a href=#556 id=556 data-nosnippet>556</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#557 id=557 data-nosnippet>557</a>        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#558 id=558 data-nosnippet>558</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiRunner, anyhow::Error&gt; {
-<a href=#559 id=559 data-nosnippet>559</a>        <span class="kw">let </span>packages = <span class="self">self</span>.load_injected_packages(runtime)<span class="question-mark">?</span>;
-<a href=#560 id=560 data-nosnippet>560</a>
-<a href=#561 id=561 data-nosnippet>561</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = WasiRunner::new();
+<a href=#426 id=426 data-nosnippet>426</a>        <span class="comment">// Assume webcs are always WASIX
+<a href=#427 id=427 data-nosnippet>427</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>runner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+<a href=#428 id=428 data-nosnippet>428</a>        Runner::run_command(<span class="kw-2">&amp;mut </span>runner, command_name, pkg, runtime)
+<a href=#429 id=429 data-nosnippet>429</a>    }
+<a href=#430 id=430 data-nosnippet>430</a>
+<a href=#431 id=431 data-nosnippet>431</a>    <span class="kw">fn </span>run_wcgi(
+<a href=#432 id=432 data-nosnippet>432</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#433 id=433 data-nosnippet>433</a>        command_name: <span class="kw-2">&amp;</span>str,
+<a href=#434 id=434 data-nosnippet>434</a>        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+<a href=#435 id=435 data-nosnippet>435</a>        uses: Vec&lt;BinaryPackage&gt;,
+<a href=#436 id=436 data-nosnippet>436</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#437 id=437 data-nosnippet>437</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#438 id=438 data-nosnippet>438</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(NoOpWcgiCallbacks);
+<a href=#439 id=439 data-nosnippet>439</a>        <span class="self">self</span>.config_wcgi(runner.config(), uses)<span class="question-mark">?</span>;
+<a href=#440 id=440 data-nosnippet>440</a>        runner.run_command(command_name, pkg, runtime)
+<a href=#441 id=441 data-nosnippet>441</a>    }
+<a href=#442 id=442 data-nosnippet>442</a>
+<a href=#443 id=443 data-nosnippet>443</a>    <span class="kw">fn </span>config_wcgi(
+<a href=#444 id=444 data-nosnippet>444</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#445 id=445 data-nosnippet>445</a>        config: <span class="kw-2">&amp;mut </span>wcgi::Config,
+<a href=#446 id=446 data-nosnippet>446</a>        uses: Vec&lt;BinaryPackage&gt;,
+<a href=#447 id=447 data-nosnippet>447</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#448 id=448 data-nosnippet>448</a>        config
+<a href=#449 id=449 data-nosnippet>449</a>            .args(<span class="self">self</span>.args.clone())
+<a href=#450 id=450 data-nosnippet>450</a>            .addr(<span class="self">self</span>.wcgi.addr)
+<a href=#451 id=451 data-nosnippet>451</a>            .envs(<span class="self">self</span>.wasi.env_vars.clone())
+<a href=#452 id=452 data-nosnippet>452</a>            .map_directories(<span class="self">self</span>.wasi.mapped_dirs.clone())
+<a href=#453 id=453 data-nosnippet>453</a>            .callbacks(Callbacks::new(<span class="self">self</span>.wcgi.addr))
+<a href=#454 id=454 data-nosnippet>454</a>            .inject_packages(uses);
+<a href=#455 id=455 data-nosnippet>455</a>        <span class="kw-2">*</span>config.capabilities() = <span class="self">self</span>.wasi.capabilities();
+<a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
+<a href=#457 id=457 data-nosnippet>457</a>            config.forward_host_env();
+<a href=#458 id=458 data-nosnippet>458</a>        }
+<a href=#459 id=459 data-nosnippet>459</a>
+<a href=#460 id=460 data-nosnippet>460</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#461 id=461 data-nosnippet>461</a>        </span>{
+<a href=#462 id=462 data-nosnippet>462</a>            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
+<a href=#463 id=463 data-nosnippet>463</a>                config.add_snapshot_trigger(trigger);
+<a href=#464 id=464 data-nosnippet>464</a>            }
+<a href=#465 id=465 data-nosnippet>465</a>            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.writable_journals.is_empty() {
+<a href=#466 id=466 data-nosnippet>466</a>                config.add_default_snapshot_triggers();
+<a href=#467 id=467 data-nosnippet>467</a>            }
+<a href=#468 id=468 data-nosnippet>468</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
+<a href=#469 id=469 data-nosnippet>469</a>                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
+<a href=#470 id=470 data-nosnippet>470</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
+<a href=#471 id=471 data-nosnippet>471</a>                        <span class="string">"If you specify a snapshot interval then you must also specify a writable journal file"
+<a href=#472 id=472 data-nosnippet>472</a>                    </span>));
+<a href=#473 id=473 data-nosnippet>473</a>                }
+<a href=#474 id=474 data-nosnippet>474</a>                config.with_snapshot_interval(Duration::from_millis(period));
+<a href=#475 id=475 data-nosnippet>475</a>            }
+<a href=#476 id=476 data-nosnippet>476</a>            <span class="kw">if </span><span class="self">self</span>.wasi.stop_after_snapshot {
+<a href=#477 id=477 data-nosnippet>477</a>                config.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
+<a href=#478 id=478 data-nosnippet>478</a>            }
+<a href=#479 id=479 data-nosnippet>479</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.wasi.build_journals()<span class="question-mark">?</span>;
+<a href=#480 id=480 data-nosnippet>480</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
+<a href=#481 id=481 data-nosnippet>481</a>                config.add_read_only_journal(journal);
+<a href=#482 id=482 data-nosnippet>482</a>            }
+<a href=#483 id=483 data-nosnippet>483</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
+<a href=#484 id=484 data-nosnippet>484</a>                config.add_writable_journal(journal);
+<a href=#485 id=485 data-nosnippet>485</a>            }
+<a href=#486 id=486 data-nosnippet>486</a>        }
+<a href=#487 id=487 data-nosnippet>487</a>
+<a href=#488 id=488 data-nosnippet>488</a>        <span class="prelude-val">Ok</span>(())
+<a href=#489 id=489 data-nosnippet>489</a>    }
+<a href=#490 id=490 data-nosnippet>490</a>
+<a href=#491 id=491 data-nosnippet>491</a>    <span class="kw">fn </span>run_dcgi(
+<a href=#492 id=492 data-nosnippet>492</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#493 id=493 data-nosnippet>493</a>        command_name: <span class="kw-2">&amp;</span>str,
+<a href=#494 id=494 data-nosnippet>494</a>        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+<a href=#495 id=495 data-nosnippet>495</a>        uses: Vec&lt;BinaryPackage&gt;,
+<a href=#496 id=496 data-nosnippet>496</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#497 id=497 data-nosnippet>497</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#498 id=498 data-nosnippet>498</a>        <span class="kw">let </span>factory = DcgiInstanceFactory::new();
+<a href=#499 id=499 data-nosnippet>499</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::dcgi::DcgiRunner::new(factory);
+<a href=#500 id=500 data-nosnippet>500</a>        <span class="self">self</span>.config_wcgi(runner.config().inner(), uses);
+<a href=#501 id=501 data-nosnippet>501</a>        runner.run_command(command_name, pkg, runtime)
+<a href=#502 id=502 data-nosnippet>502</a>    }
+<a href=#503 id=503 data-nosnippet>503</a>
+<a href=#504 id=504 data-nosnippet>504</a>    <span class="kw">fn </span>run_dproxy(
+<a href=#505 id=505 data-nosnippet>505</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#506 id=506 data-nosnippet>506</a>        command_name: <span class="kw-2">&amp;</span>str,
+<a href=#507 id=507 data-nosnippet>507</a>        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+<a href=#508 id=508 data-nosnippet>508</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#509 id=509 data-nosnippet>509</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#510 id=510 data-nosnippet>510</a>        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+<a href=#511 id=511 data-nosnippet>511</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, pkg);
+<a href=#512 id=512 data-nosnippet>512</a>        runner.run_command(command_name, pkg, runtime)
+<a href=#513 id=513 data-nosnippet>513</a>    }
+<a href=#514 id=514 data-nosnippet>514</a>
+<a href=#515 id=515 data-nosnippet>515</a>    <span class="attr">#[tracing::instrument(skip_all)]
+<a href=#516 id=516 data-nosnippet>516</a>    </span><span class="kw">fn </span>execute_pure_wasm_module(<span class="kw-2">&amp;</span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>Module) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#517 id=517 data-nosnippet>517</a>        <span class="doccomment">/// The rest of the execution happens in the main thread, so we can create the
+<a href=#518 id=518 data-nosnippet>518</a>        /// store here.
+<a href=#519 id=519 data-nosnippet>519</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>store = <span class="self">self</span>.rt.get_store()<span class="question-mark">?</span>;
+<a href=#520 id=520 data-nosnippet>520</a>        <span class="kw">let </span>imports = Imports::default();
+<a href=#521 id=521 data-nosnippet>521</a>        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, module, <span class="kw-2">&amp;</span>imports)
+<a href=#522 id=522 data-nosnippet>522</a>            .context(<span class="string">"Unable to instantiate the WebAssembly module"</span>)<span class="question-mark">?</span>;
+<a href=#523 id=523 data-nosnippet>523</a>
+<a href=#524 id=524 data-nosnippet>524</a>        <span class="kw">let </span>entry_function  = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.invoke {
+<a href=#525 id=525 data-nosnippet>525</a>            <span class="prelude-val">Some</span>(entry) =&gt; {
+<a href=#526 id=526 data-nosnippet>526</a>                instance.exports
+<a href=#527 id=527 data-nosnippet>527</a>                    .get_function(entry)
+<a href=#528 id=528 data-nosnippet>528</a>                    .with_context(|| <span class="macro">format!</span>(<span class="string">"The module doesn't export a function named \"{entry}\""</span>))<span class="question-mark">?
+<a href=#529 id=529 data-nosnippet>529</a>            </span>},
+<a href=#530 id=530 data-nosnippet>530</a>            <span class="prelude-val">None </span>=&gt; {
+<a href=#531 id=531 data-nosnippet>531</a>                instance.exports.get_function(<span class="string">"_start"</span>)
+<a href=#532 id=532 data-nosnippet>532</a>                    .context(<span class="string">"The module doesn't export a \"_start\" function. Either implement it or specify an entry function with --invoke"</span>)<span class="question-mark">?
+<a href=#533 id=533 data-nosnippet>533</a>            </span>}
+<a href=#534 id=534 data-nosnippet>534</a>        };
+<a href=#535 id=535 data-nosnippet>535</a>
+<a href=#536 id=536 data-nosnippet>536</a>        <span class="kw">let </span>result = invoke_function(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;mut </span>store, entry_function, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
+<a href=#537 id=537 data-nosnippet>537</a>
+<a href=#538 id=538 data-nosnippet>538</a>        <span class="kw">match </span>result {
+<a href=#539 id=539 data-nosnippet>539</a>            <span class="prelude-val">Ok</span>(return_values) =&gt; {
+<a href=#540 id=540 data-nosnippet>540</a>                <span class="macro">println!</span>(
+<a href=#541 id=541 data-nosnippet>541</a>                    <span class="string">"{}"</span>,
+<a href=#542 id=542 data-nosnippet>542</a>                    return_values
+<a href=#543 id=543 data-nosnippet>543</a>                        .iter()
+<a href=#544 id=544 data-nosnippet>544</a>                        .map(|val| val.to_string())
+<a href=#545 id=545 data-nosnippet>545</a>                        .collect::&lt;Vec&lt;String&gt;&gt;()
+<a href=#546 id=546 data-nosnippet>546</a>                        .join(<span class="string">" "</span>)
+<a href=#547 id=547 data-nosnippet>547</a>                );
+<a href=#548 id=548 data-nosnippet>548</a>                <span class="prelude-val">Ok</span>(())
+<a href=#549 id=549 data-nosnippet>549</a>            }
+<a href=#550 id=550 data-nosnippet>550</a>            <span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#551 id=551 data-nosnippet>551</a>                <span class="macro">bail!</span>(<span class="string">"{}"</span>, err.display(<span class="kw-2">&amp;mut </span>store));
+<a href=#552 id=552 data-nosnippet>552</a>            }
+<a href=#553 id=553 data-nosnippet>553</a>        }
+<a href=#554 id=554 data-nosnippet>554</a>    }
+<a href=#555 id=555 data-nosnippet>555</a>
+<a href=#556 id=556 data-nosnippet>556</a>    <span class="kw">fn </span>build_wasi_runner(
+<a href=#557 id=557 data-nosnippet>557</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#558 id=558 data-nosnippet>558</a>        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#559 id=559 data-nosnippet>559</a>        is_wasix: bool,
+<a href=#560 id=560 data-nosnippet>560</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiRunner, anyhow::Error&gt; {
+<a href=#561 id=561 data-nosnippet>561</a>        <span class="kw">let </span>packages = <span class="self">self</span>.load_injected_packages(runtime)<span class="question-mark">?</span>;
 <a href=#562 id=562 data-nosnippet>562</a>
-<a href=#563 id=563 data-nosnippet>563</a>        <span class="kw">let </span>(is_home_mapped, mapped_diretories) = <span class="self">self</span>.wasi.build_mapped_directories()<span class="question-mark">?</span>;
+<a href=#563 id=563 data-nosnippet>563</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = WasiRunner::new();
 <a href=#564 id=564 data-nosnippet>564</a>
-<a href=#565 id=565 data-nosnippet>565</a>        runner
-<a href=#566 id=566 data-nosnippet>566</a>            .with_args(<span class="kw-2">&amp;</span><span class="self">self</span>.args)
-<a href=#567 id=567 data-nosnippet>567</a>            .with_injected_packages(packages)
-<a href=#568 id=568 data-nosnippet>568</a>            .with_envs(<span class="self">self</span>.wasi.env_vars.clone())
-<a href=#569 id=569 data-nosnippet>569</a>            .with_mapped_host_commands(<span class="self">self</span>.wasi.build_mapped_commands()<span class="question-mark">?</span>)
-<a href=#570 id=570 data-nosnippet>570</a>            .with_mapped_directories(mapped_diretories)
-<a href=#571 id=571 data-nosnippet>571</a>            .with_home_mapped(is_home_mapped)
-<a href=#572 id=572 data-nosnippet>572</a>            .with_forward_host_env(<span class="self">self</span>.wasi.forward_host_env)
-<a href=#573 id=573 data-nosnippet>573</a>            .with_capabilities(<span class="self">self</span>.wasi.capabilities());
-<a href=#574 id=574 data-nosnippet>574</a>
-<a href=#575 id=575 data-nosnippet>575</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(cwd) = <span class="self">self</span>.wasi.cwd.as_ref() {
-<a href=#576 id=576 data-nosnippet>576</a>            <span class="kw">if </span>!cwd.starts_with(<span class="string">"/"</span>) {
-<a href=#577 id=577 data-nosnippet>577</a>                <span class="macro">bail!</span>(<span class="string">"The argument to --cwd must be an absolute path"</span>);
-<a href=#578 id=578 data-nosnippet>578</a>            }
-<a href=#579 id=579 data-nosnippet>579</a>            runner.with_current_dir(cwd.clone());
-<a href=#580 id=580 data-nosnippet>580</a>        }
-<a href=#581 id=581 data-nosnippet>581</a>
-<a href=#582 id=582 data-nosnippet>582</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>entry_function) = <span class="self">self</span>.invoke {
-<a href=#583 id=583 data-nosnippet>583</a>            runner.with_entry_function(entry_function);
-<a href=#584 id=584 data-nosnippet>584</a>        }
-<a href=#585 id=585 data-nosnippet>585</a>
-<a href=#586 id=586 data-nosnippet>586</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#587 id=587 data-nosnippet>587</a>        </span>{
-<a href=#588 id=588 data-nosnippet>588</a>            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
-<a href=#589 id=589 data-nosnippet>589</a>                runner.with_snapshot_trigger(trigger);
-<a href=#590 id=590 data-nosnippet>590</a>            }
-<a href=#591 id=591 data-nosnippet>591</a>            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.writable_journals.is_empty() {
-<a href=#592 id=592 data-nosnippet>592</a>                runner.with_default_snapshot_triggers();
-<a href=#593 id=593 data-nosnippet>593</a>            }
-<a href=#594 id=594 data-nosnippet>594</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
-<a href=#595 id=595 data-nosnippet>595</a>                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
-<a href=#596 id=596 data-nosnippet>596</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-<a href=#597 id=597 data-nosnippet>597</a>                        <span class="string">"If you specify a snapshot interval then you must also specify a writable journal file"
-<a href=#598 id=598 data-nosnippet>598</a>                    </span>));
-<a href=#599 id=599 data-nosnippet>599</a>                }
-<a href=#600 id=600 data-nosnippet>600</a>                runner.with_snapshot_interval(Duration::from_millis(period));
-<a href=#601 id=601 data-nosnippet>601</a>            }
-<a href=#602 id=602 data-nosnippet>602</a>            <span class="kw">if </span><span class="self">self</span>.wasi.stop_after_snapshot {
-<a href=#603 id=603 data-nosnippet>603</a>                runner.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
-<a href=#604 id=604 data-nosnippet>604</a>            }
-<a href=#605 id=605 data-nosnippet>605</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.wasi.build_journals()<span class="question-mark">?</span>;
-<a href=#606 id=606 data-nosnippet>606</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
-<a href=#607 id=607 data-nosnippet>607</a>                runner.with_read_only_journal(journal);
-<a href=#608 id=608 data-nosnippet>608</a>            }
-<a href=#609 id=609 data-nosnippet>609</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
-<a href=#610 id=610 data-nosnippet>610</a>                runner.with_writable_journal(journal);
-<a href=#611 id=611 data-nosnippet>611</a>            }
-<a href=#612 id=612 data-nosnippet>612</a>            runner.with_skip_stdio_during_bootstrap(<span class="self">self</span>.wasi.skip_stdio_during_bootstrap);
-<a href=#613 id=613 data-nosnippet>613</a>        }
-<a href=#614 id=614 data-nosnippet>614</a>
-<a href=#615 id=615 data-nosnippet>615</a>        <span class="prelude-val">Ok</span>(runner)
-<a href=#616 id=616 data-nosnippet>616</a>    }
-<a href=#617 id=617 data-nosnippet>617</a>
-<a href=#618 id=618 data-nosnippet>618</a>    <span class="attr">#[tracing::instrument(skip_all)]
-<a href=#619 id=619 data-nosnippet>619</a>    </span><span class="kw">fn </span>execute_wasi_module(
-<a href=#620 id=620 data-nosnippet>620</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#621 id=621 data-nosnippet>621</a>        wasm_path: <span class="kw-2">&amp;</span>Path,
-<a href=#622 id=622 data-nosnippet>622</a>        module: Module,
-<a href=#623 id=623 data-nosnippet>623</a>        module_hash: ModuleHash,
-<a href=#624 id=624 data-nosnippet>624</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#625 id=625 data-nosnippet>625</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#626 id=626 data-nosnippet>626</a>        <span class="kw">let </span>program_name = wasm_path.display().to_string();
-<a href=#627 id=627 data-nosnippet>627</a>
-<a href=#628 id=628 data-nosnippet>628</a>        <span class="kw">let </span>runner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
-<a href=#629 id=629 data-nosnippet>629</a>        runner.run_wasm(
-<a href=#630 id=630 data-nosnippet>630</a>            RuntimeOrEngine::Runtime(runtime),
-<a href=#631 id=631 data-nosnippet>631</a>            <span class="kw-2">&amp;</span>program_name,
-<a href=#632 id=632 data-nosnippet>632</a>            module,
-<a href=#633 id=633 data-nosnippet>633</a>            module_hash,
-<a href=#634 id=634 data-nosnippet>634</a>        )
-<a href=#635 id=635 data-nosnippet>635</a>    }
-<a href=#636 id=636 data-nosnippet>636</a>
-<a href=#637 id=637 data-nosnippet>637</a>    <span class="attr">#[allow(unused_variables)]
-<a href=#638 id=638 data-nosnippet>638</a>    </span><span class="kw">fn </span>maybe_save_coredump(<span class="kw-2">&amp;</span><span class="self">self</span>, e: <span class="kw-2">&amp;</span>Error) {
-<a href=#639 id=639 data-nosnippet>639</a>        <span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
-<a href=#640 id=640 data-nosnippet>640</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(coredump) = <span class="kw-2">&amp;</span><span class="self">self</span>.coredump_on_trap
-<a href=#641 id=641 data-nosnippet>641</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Err</span>(e) = generate_coredump(e, <span class="self">self</span>.input.to_string(), coredump)
-<a href=#642 id=642 data-nosnippet>642</a>        {
-<a href=#643 id=643 data-nosnippet>643</a>            <span class="macro">tracing::warn!</span>(
-<a href=#644 id=644 data-nosnippet>644</a>                error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-<a href=#645 id=645 data-nosnippet>645</a>                coredump_path=%coredump.display(),
-<a href=#646 id=646 data-nosnippet>646</a>                <span class="string">"Unable to generate a coredump"</span>,
-<a href=#647 id=647 data-nosnippet>647</a>            );
-<a href=#648 id=648 data-nosnippet>648</a>        }
-<a href=#649 id=649 data-nosnippet>649</a>    }
-<a href=#650 id=650 data-nosnippet>650</a>}
-<a href=#651 id=651 data-nosnippet>651</a>
-<a href=#652 id=652 data-nosnippet>652</a><span class="kw">fn </span>invoke_function(
-<a href=#653 id=653 data-nosnippet>653</a>    instance: <span class="kw-2">&amp;</span>Instance,
-<a href=#654 id=654 data-nosnippet>654</a>    store: <span class="kw-2">&amp;mut </span>Store,
-<a href=#655 id=655 data-nosnippet>655</a>    func: <span class="kw-2">&amp;</span>Function,
-<a href=#656 id=656 data-nosnippet>656</a>    args: <span class="kw-2">&amp;</span>[String],
-<a href=#657 id=657 data-nosnippet>657</a>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Result</span>&lt;Box&lt;[Value]&gt;, RuntimeError&gt;&gt; {
-<a href=#658 id=658 data-nosnippet>658</a>    <span class="kw">let </span>func_ty = func.ty(store);
-<a href=#659 id=659 data-nosnippet>659</a>    <span class="kw">let </span>required_arguments = func_ty.params().len();
-<a href=#660 id=660 data-nosnippet>660</a>    <span class="kw">let </span>provided_arguments = args.len();
-<a href=#661 id=661 data-nosnippet>661</a>
-<a href=#662 id=662 data-nosnippet>662</a>    <span class="macro">anyhow::ensure!</span>(
-<a href=#663 id=663 data-nosnippet>663</a>        required_arguments == provided_arguments,
-<a href=#664 id=664 data-nosnippet>664</a>        <span class="string">"Function expected {required_arguments} arguments, but received {provided_arguments}"
-<a href=#665 id=665 data-nosnippet>665</a>    </span>);
-<a href=#666 id=666 data-nosnippet>666</a>
-<a href=#667 id=667 data-nosnippet>667</a>    <span class="kw">let </span>invoke_args = args
-<a href=#668 id=668 data-nosnippet>668</a>        .iter()
-<a href=#669 id=669 data-nosnippet>669</a>        .zip(func_ty.params().iter())
-<a href=#670 id=670 data-nosnippet>670</a>        .map(|(arg, param_type)| {
-<a href=#671 id=671 data-nosnippet>671</a>            parse_value(arg, <span class="kw-2">*</span>param_type)
-<a href=#672 id=672 data-nosnippet>672</a>                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to convert {arg:?} to {param_type:?}"</span>))
-<a href=#673 id=673 data-nosnippet>673</a>        })
-<a href=#674 id=674 data-nosnippet>674</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-<a href=#675 id=675 data-nosnippet>675</a>
-<a href=#676 id=676 data-nosnippet>676</a>    <span class="prelude-val">Ok</span>(func.call(store, <span class="kw-2">&amp;</span>invoke_args))
-<a href=#677 id=677 data-nosnippet>677</a>}
-<a href=#678 id=678 data-nosnippet>678</a>
-<a href=#679 id=679 data-nosnippet>679</a><span class="kw">fn </span>parse_value(s: <span class="kw-2">&amp;</span>str, ty: wasmer_types::Type) -&gt; <span class="prelude-ty">Result</span>&lt;Value, Error&gt; {
-<a href=#680 id=680 data-nosnippet>680</a>    <span class="kw">let </span>value = <span class="kw">match </span>ty {
-<a href=#681 id=681 data-nosnippet>681</a>        Type::I32 =&gt; Value::I32(s.parse()<span class="question-mark">?</span>),
-<a href=#682 id=682 data-nosnippet>682</a>        Type::I64 =&gt; Value::I64(s.parse()<span class="question-mark">?</span>),
-<a href=#683 id=683 data-nosnippet>683</a>        Type::F32 =&gt; Value::F32(s.parse()<span class="question-mark">?</span>),
-<a href=#684 id=684 data-nosnippet>684</a>        Type::F64 =&gt; Value::F64(s.parse()<span class="question-mark">?</span>),
-<a href=#685 id=685 data-nosnippet>685</a>        Type::V128 =&gt; Value::V128(s.parse()<span class="question-mark">?</span>),
-<a href=#686 id=686 data-nosnippet>686</a>        <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"There is no known conversion from {s:?} to {ty:?}"</span>),
-<a href=#687 id=687 data-nosnippet>687</a>    };
-<a href=#688 id=688 data-nosnippet>688</a>    <span class="prelude-val">Ok</span>(value)
-<a href=#689 id=689 data-nosnippet>689</a>}
-<a href=#690 id=690 data-nosnippet>690</a>
-<a href=#691 id=691 data-nosnippet>691</a><span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
-<a href=#692 id=692 data-nosnippet>692</a></span><span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source_name: String, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#693 id=693 data-nosnippet>693</a>    <span class="kw">let </span>err: <span class="kw-2">&amp;</span>wasmer::RuntimeError = <span class="kw">match </span>err.downcast_ref() {
-<a href=#694 id=694 data-nosnippet>694</a>        <span class="prelude-val">Some</span>(e) =&gt; e,
-<a href=#695 id=695 data-nosnippet>695</a>        <span class="prelude-val">None </span>=&gt; {
-<a href=#696 id=696 data-nosnippet>696</a>            <span class="macro">log::warn!</span>(<span class="string">"no runtime error found to generate coredump with"</span>);
-<a href=#697 id=697 data-nosnippet>697</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#698 id=698 data-nosnippet>698</a>        }
-<a href=#699 id=699 data-nosnippet>699</a>    };
-<a href=#700 id=700 data-nosnippet>700</a>
-<a href=#701 id=701 data-nosnippet>701</a>    <span class="kw">let </span><span class="kw-2">mut </span>coredump_builder =
-<a href=#702 id=702 data-nosnippet>702</a>        wasm_coredump_builder::CoredumpBuilder::new().executable_name(<span class="kw-2">&amp;</span>source_name);
-<a href=#703 id=703 data-nosnippet>703</a>
-<a href=#704 id=704 data-nosnippet>704</a>    <span class="kw">let </span><span class="kw-2">mut </span>thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name(<span class="string">"main"</span>);
+<a href=#565 id=565 data-nosnippet>565</a>        <span class="kw">let </span>(is_home_mapped, mapped_diretories) = <span class="self">self</span>.wasi.build_mapped_directories(is_wasix)<span class="question-mark">?</span>;
+<a href=#566 id=566 data-nosnippet>566</a>
+<a href=#567 id=567 data-nosnippet>567</a>        runner
+<a href=#568 id=568 data-nosnippet>568</a>            .with_args(<span class="kw-2">&amp;</span><span class="self">self</span>.args)
+<a href=#569 id=569 data-nosnippet>569</a>            .with_injected_packages(packages)
+<a href=#570 id=570 data-nosnippet>570</a>            .with_envs(<span class="self">self</span>.wasi.env_vars.clone())
+<a href=#571 id=571 data-nosnippet>571</a>            .with_mapped_host_commands(<span class="self">self</span>.wasi.build_mapped_commands()<span class="question-mark">?</span>)
+<a href=#572 id=572 data-nosnippet>572</a>            .with_mapped_directories(mapped_diretories)
+<a href=#573 id=573 data-nosnippet>573</a>            .with_home_mapped(is_home_mapped)
+<a href=#574 id=574 data-nosnippet>574</a>            .with_forward_host_env(<span class="self">self</span>.wasi.forward_host_env)
+<a href=#575 id=575 data-nosnippet>575</a>            .with_capabilities(<span class="self">self</span>.wasi.capabilities());
+<a href=#576 id=576 data-nosnippet>576</a>
+<a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(cwd) = <span class="self">self</span>.wasi.cwd.as_ref() {
+<a href=#578 id=578 data-nosnippet>578</a>            <span class="kw">if </span>!cwd.starts_with(<span class="string">"/"</span>) {
+<a href=#579 id=579 data-nosnippet>579</a>                <span class="macro">bail!</span>(<span class="string">"The argument to --cwd must be an absolute path"</span>);
+<a href=#580 id=580 data-nosnippet>580</a>            }
+<a href=#581 id=581 data-nosnippet>581</a>            runner.with_current_dir(cwd.clone());
+<a href=#582 id=582 data-nosnippet>582</a>        }
+<a href=#583 id=583 data-nosnippet>583</a>
+<a href=#584 id=584 data-nosnippet>584</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>entry_function) = <span class="self">self</span>.invoke {
+<a href=#585 id=585 data-nosnippet>585</a>            runner.with_entry_function(entry_function);
+<a href=#586 id=586 data-nosnippet>586</a>        }
+<a href=#587 id=587 data-nosnippet>587</a>
+<a href=#588 id=588 data-nosnippet>588</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#589 id=589 data-nosnippet>589</a>        </span>{
+<a href=#590 id=590 data-nosnippet>590</a>            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
+<a href=#591 id=591 data-nosnippet>591</a>                runner.with_snapshot_trigger(trigger);
+<a href=#592 id=592 data-nosnippet>592</a>            }
+<a href=#593 id=593 data-nosnippet>593</a>            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.writable_journals.is_empty() {
+<a href=#594 id=594 data-nosnippet>594</a>                runner.with_default_snapshot_triggers();
+<a href=#595 id=595 data-nosnippet>595</a>            }
+<a href=#596 id=596 data-nosnippet>596</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
+<a href=#597 id=597 data-nosnippet>597</a>                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
+<a href=#598 id=598 data-nosnippet>598</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
+<a href=#599 id=599 data-nosnippet>599</a>                        <span class="string">"If you specify a snapshot interval then you must also specify a writable journal file"
+<a href=#600 id=600 data-nosnippet>600</a>                    </span>));
+<a href=#601 id=601 data-nosnippet>601</a>                }
+<a href=#602 id=602 data-nosnippet>602</a>                runner.with_snapshot_interval(Duration::from_millis(period));
+<a href=#603 id=603 data-nosnippet>603</a>            }
+<a href=#604 id=604 data-nosnippet>604</a>            <span class="kw">if </span><span class="self">self</span>.wasi.stop_after_snapshot {
+<a href=#605 id=605 data-nosnippet>605</a>                runner.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
+<a href=#606 id=606 data-nosnippet>606</a>            }
+<a href=#607 id=607 data-nosnippet>607</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.wasi.build_journals()<span class="question-mark">?</span>;
+<a href=#608 id=608 data-nosnippet>608</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
+<a href=#609 id=609 data-nosnippet>609</a>                runner.with_read_only_journal(journal);
+<a href=#610 id=610 data-nosnippet>610</a>            }
+<a href=#611 id=611 data-nosnippet>611</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
+<a href=#612 id=612 data-nosnippet>612</a>                runner.with_writable_journal(journal);
+<a href=#613 id=613 data-nosnippet>613</a>            }
+<a href=#614 id=614 data-nosnippet>614</a>            runner.with_skip_stdio_during_bootstrap(<span class="self">self</span>.wasi.skip_stdio_during_bootstrap);
+<a href=#615 id=615 data-nosnippet>615</a>        }
+<a href=#616 id=616 data-nosnippet>616</a>
+<a href=#617 id=617 data-nosnippet>617</a>        <span class="prelude-val">Ok</span>(runner)
+<a href=#618 id=618 data-nosnippet>618</a>    }
+<a href=#619 id=619 data-nosnippet>619</a>
+<a href=#620 id=620 data-nosnippet>620</a>    <span class="attr">#[tracing::instrument(skip_all)]
+<a href=#621 id=621 data-nosnippet>621</a>    </span><span class="kw">fn </span>execute_wasi_module(
+<a href=#622 id=622 data-nosnippet>622</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#623 id=623 data-nosnippet>623</a>        wasm_path: <span class="kw-2">&amp;</span>Path,
+<a href=#624 id=624 data-nosnippet>624</a>        module: Module,
+<a href=#625 id=625 data-nosnippet>625</a>        module_hash: ModuleHash,
+<a href=#626 id=626 data-nosnippet>626</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#627 id=627 data-nosnippet>627</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#628 id=628 data-nosnippet>628</a>        <span class="kw">let </span>program_name = wasm_path.display().to_string();
+<a href=#629 id=629 data-nosnippet>629</a>
+<a href=#630 id=630 data-nosnippet>630</a>        <span class="kw">let </span>runner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime, wasmer_wasix::is_wasix_module(<span class="kw-2">&amp;</span>module))<span class="question-mark">?</span>;
+<a href=#631 id=631 data-nosnippet>631</a>        runner.run_wasm(
+<a href=#632 id=632 data-nosnippet>632</a>            RuntimeOrEngine::Runtime(runtime),
+<a href=#633 id=633 data-nosnippet>633</a>            <span class="kw-2">&amp;</span>program_name,
+<a href=#634 id=634 data-nosnippet>634</a>            module,
+<a href=#635 id=635 data-nosnippet>635</a>            module_hash,
+<a href=#636 id=636 data-nosnippet>636</a>        )
+<a href=#637 id=637 data-nosnippet>637</a>    }
+<a href=#638 id=638 data-nosnippet>638</a>
+<a href=#639 id=639 data-nosnippet>639</a>    <span class="attr">#[allow(unused_variables)]
+<a href=#640 id=640 data-nosnippet>640</a>    </span><span class="kw">fn </span>maybe_save_coredump(<span class="kw-2">&amp;</span><span class="self">self</span>, e: <span class="kw-2">&amp;</span>Error) {
+<a href=#641 id=641 data-nosnippet>641</a>        <span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
+<a href=#642 id=642 data-nosnippet>642</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(coredump) = <span class="kw-2">&amp;</span><span class="self">self</span>.coredump_on_trap
+<a href=#643 id=643 data-nosnippet>643</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Err</span>(e) = generate_coredump(e, <span class="self">self</span>.input.to_string(), coredump)
+<a href=#644 id=644 data-nosnippet>644</a>        {
+<a href=#645 id=645 data-nosnippet>645</a>            <span class="macro">tracing::warn!</span>(
+<a href=#646 id=646 data-nosnippet>646</a>                error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+<a href=#647 id=647 data-nosnippet>647</a>                coredump_path=%coredump.display(),
+<a href=#648 id=648 data-nosnippet>648</a>                <span class="string">"Unable to generate a coredump"</span>,
+<a href=#649 id=649 data-nosnippet>649</a>            );
+<a href=#650 id=650 data-nosnippet>650</a>        }
+<a href=#651 id=651 data-nosnippet>651</a>    }
+<a href=#652 id=652 data-nosnippet>652</a>}
+<a href=#653 id=653 data-nosnippet>653</a>
+<a href=#654 id=654 data-nosnippet>654</a><span class="kw">fn </span>invoke_function(
+<a href=#655 id=655 data-nosnippet>655</a>    instance: <span class="kw-2">&amp;</span>Instance,
+<a href=#656 id=656 data-nosnippet>656</a>    store: <span class="kw-2">&amp;mut </span>Store,
+<a href=#657 id=657 data-nosnippet>657</a>    func: <span class="kw-2">&amp;</span>Function,
+<a href=#658 id=658 data-nosnippet>658</a>    args: <span class="kw-2">&amp;</span>[String],
+<a href=#659 id=659 data-nosnippet>659</a>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Result</span>&lt;Box&lt;[Value]&gt;, RuntimeError&gt;&gt; {
+<a href=#660 id=660 data-nosnippet>660</a>    <span class="kw">let </span>func_ty = func.ty(store);
+<a href=#661 id=661 data-nosnippet>661</a>    <span class="kw">let </span>required_arguments = func_ty.params().len();
+<a href=#662 id=662 data-nosnippet>662</a>    <span class="kw">let </span>provided_arguments = args.len();
+<a href=#663 id=663 data-nosnippet>663</a>
+<a href=#664 id=664 data-nosnippet>664</a>    <span class="macro">anyhow::ensure!</span>(
+<a href=#665 id=665 data-nosnippet>665</a>        required_arguments == provided_arguments,
+<a href=#666 id=666 data-nosnippet>666</a>        <span class="string">"Function expected {required_arguments} arguments, but received {provided_arguments}"
+<a href=#667 id=667 data-nosnippet>667</a>    </span>);
+<a href=#668 id=668 data-nosnippet>668</a>
+<a href=#669 id=669 data-nosnippet>669</a>    <span class="kw">let </span>invoke_args = args
+<a href=#670 id=670 data-nosnippet>670</a>        .iter()
+<a href=#671 id=671 data-nosnippet>671</a>        .zip(func_ty.params().iter())
+<a href=#672 id=672 data-nosnippet>672</a>        .map(|(arg, param_type)| {
+<a href=#673 id=673 data-nosnippet>673</a>            parse_value(arg, <span class="kw-2">*</span>param_type)
+<a href=#674 id=674 data-nosnippet>674</a>                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to convert {arg:?} to {param_type:?}"</span>))
+<a href=#675 id=675 data-nosnippet>675</a>        })
+<a href=#676 id=676 data-nosnippet>676</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#677 id=677 data-nosnippet>677</a>
+<a href=#678 id=678 data-nosnippet>678</a>    <span class="prelude-val">Ok</span>(func.call(store, <span class="kw-2">&amp;</span>invoke_args))
+<a href=#679 id=679 data-nosnippet>679</a>}
+<a href=#680 id=680 data-nosnippet>680</a>
+<a href=#681 id=681 data-nosnippet>681</a><span class="kw">fn </span>parse_value(s: <span class="kw-2">&amp;</span>str, ty: wasmer_types::Type) -&gt; <span class="prelude-ty">Result</span>&lt;Value, Error&gt; {
+<a href=#682 id=682 data-nosnippet>682</a>    <span class="kw">let </span>value = <span class="kw">match </span>ty {
+<a href=#683 id=683 data-nosnippet>683</a>        Type::I32 =&gt; Value::I32(s.parse()<span class="question-mark">?</span>),
+<a href=#684 id=684 data-nosnippet>684</a>        Type::I64 =&gt; Value::I64(s.parse()<span class="question-mark">?</span>),
+<a href=#685 id=685 data-nosnippet>685</a>        Type::F32 =&gt; Value::F32(s.parse()<span class="question-mark">?</span>),
+<a href=#686 id=686 data-nosnippet>686</a>        Type::F64 =&gt; Value::F64(s.parse()<span class="question-mark">?</span>),
+<a href=#687 id=687 data-nosnippet>687</a>        Type::V128 =&gt; Value::V128(s.parse()<span class="question-mark">?</span>),
+<a href=#688 id=688 data-nosnippet>688</a>        <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"There is no known conversion from {s:?} to {ty:?}"</span>),
+<a href=#689 id=689 data-nosnippet>689</a>    };
+<a href=#690 id=690 data-nosnippet>690</a>    <span class="prelude-val">Ok</span>(value)
+<a href=#691 id=691 data-nosnippet>691</a>}
+<a href=#692 id=692 data-nosnippet>692</a>
+<a href=#693 id=693 data-nosnippet>693</a><span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
+<a href=#694 id=694 data-nosnippet>694</a></span><span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source_name: String, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#695 id=695 data-nosnippet>695</a>    <span class="kw">let </span>err: <span class="kw-2">&amp;</span>wasmer::RuntimeError = <span class="kw">match </span>err.downcast_ref() {
+<a href=#696 id=696 data-nosnippet>696</a>        <span class="prelude-val">Some</span>(e) =&gt; e,
+<a href=#697 id=697 data-nosnippet>697</a>        <span class="prelude-val">None </span>=&gt; {
+<a href=#698 id=698 data-nosnippet>698</a>            <span class="macro">log::warn!</span>(<span class="string">"no runtime error found to generate coredump with"</span>);
+<a href=#699 id=699 data-nosnippet>699</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#700 id=700 data-nosnippet>700</a>        }
+<a href=#701 id=701 data-nosnippet>701</a>    };
+<a href=#702 id=702 data-nosnippet>702</a>
+<a href=#703 id=703 data-nosnippet>703</a>    <span class="kw">let </span><span class="kw-2">mut </span>coredump_builder =
+<a href=#704 id=704 data-nosnippet>704</a>        wasm_coredump_builder::CoredumpBuilder::new().executable_name(<span class="kw-2">&amp;</span>source_name);
 <a href=#705 id=705 data-nosnippet>705</a>
-<a href=#706 id=706 data-nosnippet>706</a>    <span class="kw">for </span>frame <span class="kw">in </span>err.trace() {
-<a href=#707 id=707 data-nosnippet>707</a>        <span class="kw">let </span>coredump_frame = wasm_coredump_builder::FrameBuilder::new()
-<a href=#708 id=708 data-nosnippet>708</a>            .codeoffset(frame.func_offset() <span class="kw">as </span>u32)
-<a href=#709 id=709 data-nosnippet>709</a>            .funcidx(frame.func_index())
-<a href=#710 id=710 data-nosnippet>710</a>            .build();
-<a href=#711 id=711 data-nosnippet>711</a>        thread_builder.add_frame(coredump_frame);
-<a href=#712 id=712 data-nosnippet>712</a>    }
-<a href=#713 id=713 data-nosnippet>713</a>
-<a href=#714 id=714 data-nosnippet>714</a>    coredump_builder.add_thread(thread_builder.build());
+<a href=#706 id=706 data-nosnippet>706</a>    <span class="kw">let </span><span class="kw-2">mut </span>thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name(<span class="string">"main"</span>);
+<a href=#707 id=707 data-nosnippet>707</a>
+<a href=#708 id=708 data-nosnippet>708</a>    <span class="kw">for </span>frame <span class="kw">in </span>err.trace() {
+<a href=#709 id=709 data-nosnippet>709</a>        <span class="kw">let </span>coredump_frame = wasm_coredump_builder::FrameBuilder::new()
+<a href=#710 id=710 data-nosnippet>710</a>            .codeoffset(frame.func_offset() <span class="kw">as </span>u32)
+<a href=#711 id=711 data-nosnippet>711</a>            .funcidx(frame.func_index())
+<a href=#712 id=712 data-nosnippet>712</a>            .build();
+<a href=#713 id=713 data-nosnippet>713</a>        thread_builder.add_frame(coredump_frame);
+<a href=#714 id=714 data-nosnippet>714</a>    }
 <a href=#715 id=715 data-nosnippet>715</a>
-<a href=#716 id=716 data-nosnippet>716</a>    <span class="kw">let </span>coredump = coredump_builder
-<a href=#717 id=717 data-nosnippet>717</a>        .serialize()
-<a href=#718 id=718 data-nosnippet>718</a>        .map_err(Error::msg)
-<a href=#719 id=719 data-nosnippet>719</a>        .context(<span class="string">"Coredump serializing failed"</span>)<span class="question-mark">?</span>;
-<a href=#720 id=720 data-nosnippet>720</a>
-<a href=#721 id=721 data-nosnippet>721</a>    std::fs::write(coredump_path, <span class="kw-2">&amp;</span>coredump).with_context(|| {
-<a href=#722 id=722 data-nosnippet>722</a>        <span class="macro">format!</span>(
-<a href=#723 id=723 data-nosnippet>723</a>            <span class="string">"Unable to save the coredump to \"{}\""</span>,
-<a href=#724 id=724 data-nosnippet>724</a>            coredump_path.display()
-<a href=#725 id=725 data-nosnippet>725</a>        )
-<a href=#726 id=726 data-nosnippet>726</a>    })<span class="question-mark">?</span>;
-<a href=#727 id=727 data-nosnippet>727</a>
-<a href=#728 id=728 data-nosnippet>728</a>    <span class="prelude-val">Ok</span>(())
-<a href=#729 id=729 data-nosnippet>729</a>}
-<a href=#730 id=730 data-nosnippet>730</a>
-<a href=#731 id=731 data-nosnippet>731</a><span class="attr">#[derive(Debug, Clone, Parser)]
-<a href=#732 id=732 data-nosnippet>732</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WcgiOptions {
-<a href=#733 id=733 data-nosnippet>733</a>    <span class="doccomment">/// The address to serve on.
-<a href=#734 id=734 data-nosnippet>734</a>    </span><span class="attr">#[clap(long, short, env, default_value_t = ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).into())]
-<a href=#735 id=735 data-nosnippet>735</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) addr: SocketAddr,
-<a href=#736 id=736 data-nosnippet>736</a>}
-<a href=#737 id=737 data-nosnippet>737</a>
-<a href=#738 id=738 data-nosnippet>738</a><span class="kw">impl </span>Default <span class="kw">for </span>WcgiOptions {
-<a href=#739 id=739 data-nosnippet>739</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#740 id=740 data-nosnippet>740</a>        <span class="self">Self </span>{
-<a href=#741 id=741 data-nosnippet>741</a>            addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
-<a href=#742 id=742 data-nosnippet>742</a>        }
-<a href=#743 id=743 data-nosnippet>743</a>    }
-<a href=#744 id=744 data-nosnippet>744</a>}
-<a href=#745 id=745 data-nosnippet>745</a>
-<a href=#746 id=746 data-nosnippet>746</a><span class="attr">#[derive(Debug)]
-<a href=#747 id=747 data-nosnippet>747</a></span><span class="kw">struct </span>Callbacks {
-<a href=#748 id=748 data-nosnippet>748</a>    stderr: Mutex&lt;LineWriter&lt;std::io::Stderr&gt;&gt;,
-<a href=#749 id=749 data-nosnippet>749</a>    addr: SocketAddr,
-<a href=#750 id=750 data-nosnippet>750</a>}
-<a href=#751 id=751 data-nosnippet>751</a>
-<a href=#752 id=752 data-nosnippet>752</a><span class="kw">impl </span>Callbacks {
-<a href=#753 id=753 data-nosnippet>753</a>    <span class="kw">fn </span>new(addr: SocketAddr) -&gt; <span class="self">Self </span>{
-<a href=#754 id=754 data-nosnippet>754</a>        Callbacks {
-<a href=#755 id=755 data-nosnippet>755</a>            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
-<a href=#756 id=756 data-nosnippet>756</a>            addr,
-<a href=#757 id=757 data-nosnippet>757</a>        }
-<a href=#758 id=758 data-nosnippet>758</a>    }
-<a href=#759 id=759 data-nosnippet>759</a>}
-<a href=#760 id=760 data-nosnippet>760</a>
-<a href=#761 id=761 data-nosnippet>761</a><span class="kw">impl </span>wasmer_wasix::runners::wcgi::Callbacks <span class="kw">for </span>Callbacks {
-<a href=#762 id=762 data-nosnippet>762</a>    <span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {
-<a href=#763 id=763 data-nosnippet>763</a>        <span class="macro">println!</span>(<span class="string">"WCGI Server running at http://{}/"</span>, <span class="self">self</span>.addr);
-<a href=#764 id=764 data-nosnippet>764</a>    }
-<a href=#765 id=765 data-nosnippet>765</a>
-<a href=#766 id=766 data-nosnippet>766</a>    <span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_message: <span class="kw-2">&amp;</span>[u8]) {
-<a href=#767 id=767 data-nosnippet>767</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = <span class="self">self</span>.stderr.lock() {
-<a href=#768 id=768 data-nosnippet>768</a>            <span class="comment">// If the WCGI runner printed any log messages we want to make sure
-<a href=#769 id=769 data-nosnippet>769</a>            // they get propagated to the user. Line buffering is important here
-<a href=#770 id=770 data-nosnippet>770</a>            // because it helps prevent the output from becoming a complete
-<a href=#771 id=771 data-nosnippet>771</a>            // mess.
-<a href=#772 id=772 data-nosnippet>772</a>            </span><span class="kw">let _ </span>= stderr.write_all(raw_message);
-<a href=#773 id=773 data-nosnippet>773</a>        }
-<a href=#774 id=774 data-nosnippet>774</a>    }
-<a href=#775 id=775 data-nosnippet>775</a>}
-<a href=#776 id=776 data-nosnippet>776</a>
-<a href=#777 id=777 data-nosnippet>777</a><span class="doccomment">/// Exit the current process, using the WASI exit code if the error contains
-<a href=#778 id=778 data-nosnippet>778</a>/// one.
-<a href=#779 id=779 data-nosnippet>779</a></span><span class="kw">fn </span>exit_with_wasi_exit_code(result: <span class="prelude-ty">Result</span>&lt;(), Error&gt;) -&gt; ! {
-<a href=#780 id=780 data-nosnippet>780</a>    <span class="kw">let </span>exit_code = <span class="kw">match </span>result {
-<a href=#781 id=781 data-nosnippet>781</a>        <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="number">0</span>,
-<a href=#782 id=782 data-nosnippet>782</a>        <span class="prelude-val">Err</span>(error) =&gt; {
-<a href=#783 id=783 data-nosnippet>783</a>            <span class="kw">match </span>error.chain().find_map(get_exit_code) {
-<a href=#784 id=784 data-nosnippet>784</a>                <span class="prelude-val">Some</span>(exit_code) =&gt; exit_code.raw(),
-<a href=#785 id=785 data-nosnippet>785</a>                <span class="prelude-val">None </span>=&gt; {
-<a href=#786 id=786 data-nosnippet>786</a>                    <span class="macro">eprintln!</span>(<span class="string">"{:?}"</span>, PrettyError::new(error));
-<a href=#787 id=787 data-nosnippet>787</a>                    <span class="comment">// Something else happened
-<a href=#788 id=788 data-nosnippet>788</a>                    </span><span class="number">1
-<a href=#789 id=789 data-nosnippet>789</a>                </span>}
-<a href=#790 id=790 data-nosnippet>790</a>            }
-<a href=#791 id=791 data-nosnippet>791</a>        }
-<a href=#792 id=792 data-nosnippet>792</a>    };
-<a href=#793 id=793 data-nosnippet>793</a>
-<a href=#794 id=794 data-nosnippet>794</a>    std::io::stdout().flush().ok();
-<a href=#795 id=795 data-nosnippet>795</a>    std::io::stderr().flush().ok();
-<a href=#796 id=796 data-nosnippet>796</a>
-<a href=#797 id=797 data-nosnippet>797</a>    std::process::exit(exit_code);
-<a href=#798 id=798 data-nosnippet>798</a>}
-<a href=#799 id=799 data-nosnippet>799</a>
-<a href=#800 id=800 data-nosnippet>800</a><span class="kw">fn </span>get_exit_code(
-<a href=#801 id=801 data-nosnippet>801</a>    error: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">'static</span>),
-<a href=#802 id=802 data-nosnippet>802</a>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_wasix::types::wasi::ExitCode&gt; {
-<a href=#803 id=803 data-nosnippet>803</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(WasiError::Exit(exit_code)) = error.downcast_ref() {
-<a href=#804 id=804 data-nosnippet>804</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">*</span>exit_code);
-<a href=#805 id=805 data-nosnippet>805</a>    }
-<a href=#806 id=806 data-nosnippet>806</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(error) = error.downcast_ref::&lt;wasmer_wasix::WasiRuntimeError&gt;() {
-<a href=#807 id=807 data-nosnippet>807</a>        <span class="kw">return </span>error.as_exit_code();
-<a href=#808 id=808 data-nosnippet>808</a>    }
-<a href=#809 id=809 data-nosnippet>809</a>
-<a href=#810 id=810 data-nosnippet>810</a>    <span class="prelude-val">None
-<a href=#811 id=811 data-nosnippet>811</a></span>}</code></pre></div></section></main></body></html>
+<a href=#716 id=716 data-nosnippet>716</a>    coredump_builder.add_thread(thread_builder.build());
+<a href=#717 id=717 data-nosnippet>717</a>
+<a href=#718 id=718 data-nosnippet>718</a>    <span class="kw">let </span>coredump = coredump_builder
+<a href=#719 id=719 data-nosnippet>719</a>        .serialize()
+<a href=#720 id=720 data-nosnippet>720</a>        .map_err(Error::msg)
+<a href=#721 id=721 data-nosnippet>721</a>        .context(<span class="string">"Coredump serializing failed"</span>)<span class="question-mark">?</span>;
+<a href=#722 id=722 data-nosnippet>722</a>
+<a href=#723 id=723 data-nosnippet>723</a>    std::fs::write(coredump_path, <span class="kw-2">&amp;</span>coredump).with_context(|| {
+<a href=#724 id=724 data-nosnippet>724</a>        <span class="macro">format!</span>(
+<a href=#725 id=725 data-nosnippet>725</a>            <span class="string">"Unable to save the coredump to \"{}\""</span>,
+<a href=#726 id=726 data-nosnippet>726</a>            coredump_path.display()
+<a href=#727 id=727 data-nosnippet>727</a>        )
+<a href=#728 id=728 data-nosnippet>728</a>    })<span class="question-mark">?</span>;
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a>    <span class="prelude-val">Ok</span>(())
+<a href=#731 id=731 data-nosnippet>731</a>}
+<a href=#732 id=732 data-nosnippet>732</a>
+<a href=#733 id=733 data-nosnippet>733</a><span class="attr">#[derive(Debug, Clone, Parser)]
+<a href=#734 id=734 data-nosnippet>734</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WcgiOptions {
+<a href=#735 id=735 data-nosnippet>735</a>    <span class="doccomment">/// The address to serve on.
+<a href=#736 id=736 data-nosnippet>736</a>    </span><span class="attr">#[clap(long, short, env, default_value_t = ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).into())]
+<a href=#737 id=737 data-nosnippet>737</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) addr: SocketAddr,
+<a href=#738 id=738 data-nosnippet>738</a>}
+<a href=#739 id=739 data-nosnippet>739</a>
+<a href=#740 id=740 data-nosnippet>740</a><span class="kw">impl </span>Default <span class="kw">for </span>WcgiOptions {
+<a href=#741 id=741 data-nosnippet>741</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#742 id=742 data-nosnippet>742</a>        <span class="self">Self </span>{
+<a href=#743 id=743 data-nosnippet>743</a>            addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
+<a href=#744 id=744 data-nosnippet>744</a>        }
+<a href=#745 id=745 data-nosnippet>745</a>    }
+<a href=#746 id=746 data-nosnippet>746</a>}
+<a href=#747 id=747 data-nosnippet>747</a>
+<a href=#748 id=748 data-nosnippet>748</a><span class="attr">#[derive(Debug)]
+<a href=#749 id=749 data-nosnippet>749</a></span><span class="kw">struct </span>Callbacks {
+<a href=#750 id=750 data-nosnippet>750</a>    stderr: Mutex&lt;LineWriter&lt;std::io::Stderr&gt;&gt;,
+<a href=#751 id=751 data-nosnippet>751</a>    addr: SocketAddr,
+<a href=#752 id=752 data-nosnippet>752</a>}
+<a href=#753 id=753 data-nosnippet>753</a>
+<a href=#754 id=754 data-nosnippet>754</a><span class="kw">impl </span>Callbacks {
+<a href=#755 id=755 data-nosnippet>755</a>    <span class="kw">fn </span>new(addr: SocketAddr) -&gt; <span class="self">Self </span>{
+<a href=#756 id=756 data-nosnippet>756</a>        Callbacks {
+<a href=#757 id=757 data-nosnippet>757</a>            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
+<a href=#758 id=758 data-nosnippet>758</a>            addr,
+<a href=#759 id=759 data-nosnippet>759</a>        }
+<a href=#760 id=760 data-nosnippet>760</a>    }
+<a href=#761 id=761 data-nosnippet>761</a>}
+<a href=#762 id=762 data-nosnippet>762</a>
+<a href=#763 id=763 data-nosnippet>763</a><span class="kw">impl </span>wasmer_wasix::runners::wcgi::Callbacks <span class="kw">for </span>Callbacks {
+<a href=#764 id=764 data-nosnippet>764</a>    <span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {
+<a href=#765 id=765 data-nosnippet>765</a>        <span class="macro">println!</span>(<span class="string">"WCGI Server running at http://{}/"</span>, <span class="self">self</span>.addr);
+<a href=#766 id=766 data-nosnippet>766</a>    }
+<a href=#767 id=767 data-nosnippet>767</a>
+<a href=#768 id=768 data-nosnippet>768</a>    <span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_message: <span class="kw-2">&amp;</span>[u8]) {
+<a href=#769 id=769 data-nosnippet>769</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = <span class="self">self</span>.stderr.lock() {
+<a href=#770 id=770 data-nosnippet>770</a>            <span class="comment">// If the WCGI runner printed any log messages we want to make sure
+<a href=#771 id=771 data-nosnippet>771</a>            // they get propagated to the user. Line buffering is important here
+<a href=#772 id=772 data-nosnippet>772</a>            // because it helps prevent the output from becoming a complete
+<a href=#773 id=773 data-nosnippet>773</a>            // mess.
+<a href=#774 id=774 data-nosnippet>774</a>            </span><span class="kw">let _ </span>= stderr.write_all(raw_message);
+<a href=#775 id=775 data-nosnippet>775</a>        }
+<a href=#776 id=776 data-nosnippet>776</a>    }
+<a href=#777 id=777 data-nosnippet>777</a>}
+<a href=#778 id=778 data-nosnippet>778</a>
+<a href=#779 id=779 data-nosnippet>779</a><span class="doccomment">/// Exit the current process, using the WASI exit code if the error contains
+<a href=#780 id=780 data-nosnippet>780</a>/// one.
+<a href=#781 id=781 data-nosnippet>781</a></span><span class="kw">fn </span>exit_with_wasi_exit_code(result: <span class="prelude-ty">Result</span>&lt;(), Error&gt;) -&gt; ! {
+<a href=#782 id=782 data-nosnippet>782</a>    <span class="kw">let </span>exit_code = <span class="kw">match </span>result {
+<a href=#783 id=783 data-nosnippet>783</a>        <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="number">0</span>,
+<a href=#784 id=784 data-nosnippet>784</a>        <span class="prelude-val">Err</span>(error) =&gt; {
+<a href=#785 id=785 data-nosnippet>785</a>            <span class="kw">match </span>error.chain().find_map(get_exit_code) {
+<a href=#786 id=786 data-nosnippet>786</a>                <span class="prelude-val">Some</span>(exit_code) =&gt; exit_code.raw(),
+<a href=#787 id=787 data-nosnippet>787</a>                <span class="prelude-val">None </span>=&gt; {
+<a href=#788 id=788 data-nosnippet>788</a>                    <span class="macro">eprintln!</span>(<span class="string">"{:?}"</span>, PrettyError::new(error));
+<a href=#789 id=789 data-nosnippet>789</a>                    <span class="comment">// Something else happened
+<a href=#790 id=790 data-nosnippet>790</a>                    </span><span class="number">1
+<a href=#791 id=791 data-nosnippet>791</a>                </span>}
+<a href=#792 id=792 data-nosnippet>792</a>            }
+<a href=#793 id=793 data-nosnippet>793</a>        }
+<a href=#794 id=794 data-nosnippet>794</a>    };
+<a href=#795 id=795 data-nosnippet>795</a>
+<a href=#796 id=796 data-nosnippet>796</a>    std::io::stdout().flush().ok();
+<a href=#797 id=797 data-nosnippet>797</a>    std::io::stderr().flush().ok();
+<a href=#798 id=798 data-nosnippet>798</a>
+<a href=#799 id=799 data-nosnippet>799</a>    std::process::exit(exit_code);
+<a href=#800 id=800 data-nosnippet>800</a>}
+<a href=#801 id=801 data-nosnippet>801</a>
+<a href=#802 id=802 data-nosnippet>802</a><span class="kw">fn </span>get_exit_code(
+<a href=#803 id=803 data-nosnippet>803</a>    error: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">'static</span>),
+<a href=#804 id=804 data-nosnippet>804</a>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_wasix::types::wasi::ExitCode&gt; {
+<a href=#805 id=805 data-nosnippet>805</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(WasiError::Exit(exit_code)) = error.downcast_ref() {
+<a href=#806 id=806 data-nosnippet>806</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">*</span>exit_code);
+<a href=#807 id=807 data-nosnippet>807</a>    }
+<a href=#808 id=808 data-nosnippet>808</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(error) = error.downcast_ref::&lt;wasmer_wasix::WasiRuntimeError&gt;() {
+<a href=#809 id=809 data-nosnippet>809</a>        <span class="kw">return </span>error.as_exit_code();
+<a href=#810 id=810 data-nosnippet>810</a>    }
+<a href=#811 id=811 data-nosnippet>811</a>
+<a href=#812 id=812 data-nosnippet>812</a>    <span class="prelude-val">None
+<a href=#813 id=813 data-nosnippet>813</a></span>}</code></pre></div></section></main></body></html>
