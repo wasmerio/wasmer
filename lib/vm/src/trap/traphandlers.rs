@@ -162,14 +162,8 @@ cfg_if::cfg_if! {
             register(&mut PREV_SIGILL, libc::SIGILL);
 
             // x86 uses SIGFPE to report division by zero
-            if cfg!(target_arch = "x86") || cfg!(target_arch = "x86_64") {
+            if cfg!(target_arch = "x86_64") {
                 register(&mut PREV_SIGFPE, libc::SIGFPE);
-            }
-
-            // On ARM, handle Unaligned Accesses.
-            // On Darwin, guard page accesses are raised as SIGBUS.
-            if cfg!(target_arch = "arm") || cfg!(target_vendor = "apple") {
-                register(&mut PREV_SIGBUS, libc::SIGBUS);
             }
 
             // This is necessary to support debugging under LLDB on Darwin.
@@ -286,15 +280,6 @@ cfg_if::cfg_if! {
                 ))] {
                     pc = context.uc_mcontext.gregs[libc::REG_RIP as usize] as usize;
                     sp = context.uc_mcontext.gregs[libc::REG_RSP as usize] as usize;
-                } else if #[cfg(all(
-                    any(target_os = "linux", target_os = "android"),
-                    target_arch = "x86",
-                ))] {
-                    pc = context.uc_mcontext.gregs[libc::REG_EIP as usize] as usize;
-                    sp = context.uc_mcontext.gregs[libc::REG_ESP as usize] as usize;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
-                    pc = context.uc_mcontext.mc_eip as usize;
-                    sp = context.uc_mcontext.mc_esp as usize;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
                     pc = context.uc_mcontext.mc_rip as usize;
                     sp = context.uc_mcontext.mc_rsp as usize;
@@ -308,12 +293,6 @@ cfg_if::cfg_if! {
                     ))] {
                     pc = context.uc_mcontext.pc as usize;
                     sp = context.uc_mcontext.sp as usize;
-                } else if #[cfg(all(
-                    any(target_os = "linux", target_os = "android"),
-                    target_arch = "arm",
-                ))] {
-                    pc = context.uc_mcontext.arm_pc as usize;
-                    sp = context.uc_mcontext.arm_sp as usize;
                 } else if #[cfg(all(
                     any(target_os = "linux", target_os = "android"),
                     any(target_arch = "riscv64", target_arch = "riscv32"),
@@ -352,16 +331,6 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.gregs[libc::REG_RBP as usize] = rbp as i64;
                     context.uc_mcontext.gregs[libc::REG_RDI as usize] = rdi as i64;
                     context.uc_mcontext.gregs[libc::REG_RSI as usize] = rsi as i64;
-                } else if #[cfg(all(
-                    any(target_os = "linux", target_os = "android"),
-                    target_arch = "x86",
-                ))] {
-                    let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
-                    context.uc_mcontext.gregs[libc::REG_EIP as usize] = eip as i32;
-                    context.uc_mcontext.gregs[libc::REG_ESP as usize] = esp as i32;
-                    context.uc_mcontext.gregs[libc::REG_EBP as usize] = ebp as i32;
-                    context.uc_mcontext.gregs[libc::REG_ECX as usize] = ecx as i32;
-                    context.uc_mcontext.gregs[libc::REG_EDX as usize] = edx as i32;
                 } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     let mcontext = unsafe { &mut *context.uc_mcontext };
@@ -370,13 +339,6 @@ cfg_if::cfg_if! {
                     mcontext.__ss.__rbp = rbp;
                     mcontext.__ss.__rdi = rdi;
                     mcontext.__ss.__rsi = rsi;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
-                    let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
-                    context.uc_mcontext.mc_eip = eip as libc::register_t;
-                    context.uc_mcontext.mc_esp = esp as libc::register_t;
-                    context.uc_mcontext.mc_ebp = ebp as libc::register_t;
-                    context.uc_mcontext.mc_ecx = ecx as libc::register_t;
-                    context.uc_mcontext.mc_edx = edx as libc::register_t;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.uc_mcontext.mc_rip = rip as libc::register_t;
@@ -395,38 +357,6 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.regs[1] = x1;
                     context.uc_mcontext.regs[29] = x29;
                     context.uc_mcontext.regs[30] = lr;
-                } else if #[cfg(all(
-                        any(target_os = "linux", target_os = "android"),
-                        target_arch = "arm",
-                    ))] {
-                    let TrapHandlerRegs {
-                        pc,
-                        r0,
-                        r1,
-                        r7,
-                        r11,
-                        r13,
-                        r14,
-                        cpsr_thumb,
-                        cpsr_endian,
-                    } = regs;
-                    context.uc_mcontext.arm_pc = pc;
-                    context.uc_mcontext.arm_r0 = r0;
-                    context.uc_mcontext.arm_r1 = r1;
-                    context.uc_mcontext.arm_r7 = r7;
-                    context.uc_mcontext.arm_fp = r11;
-                    context.uc_mcontext.arm_sp = r13;
-                    context.uc_mcontext.arm_lr = r14;
-                    if cpsr_thumb {
-                        context.uc_mcontext.arm_cpsr |= 0x20;
-                    } else {
-                        context.uc_mcontext.arm_cpsr &= !0x20;
-                    }
-                    if cpsr_endian {
-                        context.uc_mcontext.arm_cpsr |= 0x200;
-                    } else {
-                        context.uc_mcontext.arm_cpsr &= !0x200;
-                    }
                 } else if #[cfg(all(
                     any(target_os = "linux", target_os = "android"),
                     any(target_arch = "riscv64", target_arch = "riscv32"),
@@ -574,9 +504,6 @@ cfg_if::cfg_if! {
                 if #[cfg(target_arch = "x86_64")] {
                     pc = context.Rip as usize;
                     sp = context.Rsp as usize;
-                } else if #[cfg(target_arch = "x86")] {
-                    pc = context.Rip as usize;
-                    sp = context.Rsp as usize;
                 } else {
                     compile_error!("Unsupported platform");
                 }
@@ -593,13 +520,6 @@ cfg_if::cfg_if! {
                     context.Rbp = rbp;
                     context.Rdi = rdi;
                     context.Rsi = rsi;
-                } else if #[cfg(target_arch = "x86")] {
-                    let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
-                    context.Eip = eip;
-                    context.Esp = esp;
-                    context.Ebp = ebp;
-                    context.Ecx = ecx;
-                    context.Edx = edx;
                 } else {
                     compile_error!("Unsupported platform");
                 }

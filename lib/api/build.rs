@@ -25,9 +25,7 @@ fn build_wamr() {
     // Read target arch from cargo env
     // Transform from cargo value to valid wasm-micro-runtime WAMR_BUILD_TARGET
     let target_arch = match env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str() {
-        "x86" => "X86_32",
         "x86_64" => "X86_64",
-        "arm" => "ARM",
         "aarch64" => "AARCH64",
         "mips" => "MIPS",
         "powerpc" => "POWERPC",

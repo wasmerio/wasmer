@@ -50,7 +50,7 @@ cfg_if::cfg_if! {
         }
         /// The probestack for Windows when compiled with GNU
         pub const PROBESTACK: unsafe extern "C" fn() = ___chkstk_ms;
-    } else if #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))] {
+    } else if #[cfg(not(target_arch = "x86_64"))] {
         // As per
         // https://github.com/rust-lang/compiler-builtins/blob/cae3e6ea23739166504f9f9fb50ec070097979d4/src/probestack.rs#L39,
         // LLVM only has stack-probe support on x86-64 and x86. Thus, on any other CPU

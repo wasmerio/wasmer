@@ -44,7 +44,7 @@
 // Windows and Cygwin already has builtins to do this.
 #![cfg(not(any(windows, target_os = "cygwin")))]
 // We only define stack probing for these architectures today.
-#![cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#![cfg(target_arch = "x86_64")]
 
 // SAFETY: defined in this module.
 // FIXME(extern_custom): the ABI is not correct.
@@ -93,20 +93,6 @@ macro_rules! define_rust_probestack {
 // Same as above, but for Mach-O. Note that the triple underscore
 // is deliberate
 #[cfg(target_vendor = "apple")]
-macro_rules! define_rust_probestack {
-    ($body: expr) => {
-        concat!(
-            "
-            .globl ___rust_probestack
-        ___rust_probestack:
-            ",
-            $body
-        )
-    };
-}
-
-// In UEFI x86 arch, triple underscore is deliberate.
-#[cfg(all(target_os = "uefi", target_arch = "x86"))]
 macro_rules! define_rust_probestack {
     ($body: expr) => {
         concat!(
@@ -249,108 +235,6 @@ core::arch::global_asm!(
     pop %r11
     lfence
     jmp *%r11
-    .cfi_endproc
-    "
-    ),
-    options(att_syntax)
-);
-
-#[cfg(all(target_arch = "x86", not(target_os = "uefi")))]
-// This is the same as x86_64 above, only translated for 32-bit sizes. Note
-// that on Unix we're expected to restore everything as it was, this
-// function basically can't tamper with anything.
-//
-// FIXME(abi_custom): This function is unsafe because it uses a custom ABI,
-// it does not actually match `extern "C"`.
-//
-// The ABI here is the same as x86_64, except everything is 32-bits large.
-core::arch::global_asm!(
-    define_rust_probestack!(
-        "
-    .cfi_startproc
-    push   %ebp
-    .cfi_adjust_cfa_offset 4
-    .cfi_offset %ebp, -8
-    mov    %esp, %ebp
-    .cfi_def_cfa_register %ebp
-    push   %ecx
-    mov    %eax,%ecx
-
-    cmp    $0x1000,%ecx
-    jna    3f
-2:
-    sub    $0x1000,%esp
-    test   %esp,8(%esp)
-    sub    $0x1000,%ecx
-    cmp    $0x1000,%ecx
-    ja     2b
-
-3:
-    sub    %ecx,%esp
-    test   %esp,8(%esp)
-
-    add    %eax,%esp
-    pop    %ecx
-    leave
-    .cfi_def_cfa_register %esp
-    .cfi_adjust_cfa_offset -4
-    ret
-    .cfi_endproc
-    "
-    ),
-    options(att_syntax)
-);
-
-#[cfg(all(target_arch = "x86", target_os = "uefi"))]
-// UEFI target is windows like target. LLVM will do _chkstk things like windows.
-// probestack function will also do things like _chkstk in MSVC.
-// So we need to sub %ax %sp in probestack when arch is x86.
-//
-// FIXME(abi_custom): This function is unsafe because it uses a custom ABI,
-// it does not actually match `extern "C"`.
-//
-// REF: Rust commit(74e80468347)
-// rust\src\llvm-project\llvm\lib\Target\X86\X86FrameLowering.cpp: 805
-// Comments in LLVM:
-//   MSVC x32's _chkstk and cygwin/mingw's _alloca adjust %esp themselves.
-//   MSVC x64's __chkstk and cygwin/mingw's ___chkstk_ms do not adjust %rsp
-//   themselves.
-core::arch::global_asm!(
-    define_rust_probestack!(
-        "
-    .cfi_startproc
-    push   %ebp
-    .cfi_adjust_cfa_offset 4
-    .cfi_offset %ebp, -8
-    mov    %esp, %ebp
-    .cfi_def_cfa_register %ebp
-    push   %ecx
-    push   %edx
-    mov    %eax,%ecx
-
-    cmp    $0x1000,%ecx
-    jna    3f
-2:
-    sub    $0x1000,%esp
-    test   %esp,8(%esp)
-    sub    $0x1000,%ecx
-    cmp    $0x1000,%ecx
-    ja     2b
-
-3:
-    sub    %ecx,%esp
-    test   %esp,8(%esp)
-    mov    4(%ebp),%edx
-    mov    %edx, 12(%esp)
-    add    %eax,%esp
-    pop    %edx
-    pop    %ecx
-    leave
-
-    sub   %eax, %esp
-    .cfi_def_cfa_register %esp
-    .cfi_adjust_cfa_offset -4
-    ret
     .cfi_endproc
     "
     ),
