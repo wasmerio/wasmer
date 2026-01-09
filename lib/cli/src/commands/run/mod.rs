@@ -247,7 +247,7 @@ impl Run {
 
         if let ExecutableTarget::Package(ref pkg) = target {
             self.wasi
-                .mapped_dirs
+                .volumes
                 .extend(pkg.additional_host_mapped_directories.clone());
         }
 
@@ -449,7 +449,7 @@ impl Run {
             .args(self.args.clone())
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.clone())
+            .map_directories(self.wasi.volumes.clone())
             .callbacks(Callbacks::new(self.wcgi.addr))
             .inject_packages(uses);
         *config.capabilities() = self.wasi.capabilities();

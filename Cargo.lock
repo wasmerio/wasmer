@@ -6954,6 +6954,7 @@ dependencies = [
  "indexmap",
  "indicatif",
  "interfaces",
+ "itertools 0.14.0",
  "libc",
  "log",
  "lzma-rs",

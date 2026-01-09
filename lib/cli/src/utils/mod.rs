@@ -9,37 +9,34 @@ pub(crate) mod unpack;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
+use itertools::Itertools;
 use wasmer_wasix::runners::MappedDirectory;
 
-fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
-    let pb = PathBuf::from(&real_dir).canonicalize()?;
-    if let Ok(pb_metadata) = pb.metadata() {
+fn retrieve_alias_pathbuf(host_dir: &str, guest_dir: &str) -> Result<MappedDirectory> {
+    let host_dir_path = PathBuf::from(&host_dir).canonicalize()?;
+    if let Ok(pb_metadata) = host_dir_path.metadata() {
         if !pb_metadata.is_dir() {
-            bail!("\"{}\" exists, but it is not a directory", &real_dir);
+            bail!("\"{}\" exists, but it is not a directory", &host_dir);
         }
     } else {
-        bail!("Directory \"{}\" does not exist", &real_dir);
+        bail!("Directory \"{}\" does not exist", &host_dir);
     }
     Ok(MappedDirectory {
-        guest: alias.to_string(),
-        host: pb,
+        host: host_dir_path,
+        guest: guest_dir.to_string(),
     })
 }
 
-/// Parses a mapdir from a string
-pub fn parse_mapdir(entry: &str) -> Result<MappedDirectory> {
-    // We try first splitting by `::`
-    if let [alias, real_dir] = entry.split("::").collect::<Vec<&str>>()[..] {
-        retrieve_alias_pathbuf(alias, real_dir)
-    }
-    // And then we try splitting by `:` (for compatibility with previous API)
-    else if let [alias, real_dir] = entry.splitn(2, ':').collect::<Vec<&str>>()[..] {
-        retrieve_alias_pathbuf(alias, real_dir)
-    } else {
-        bail!(
-            "Directory mappings must consist of two paths separate by a `::` or `:`. Found {}",
+/// Parses a volume from a string
+pub fn parse_volume(entry: &str) -> Result<MappedDirectory> {
+    let components = entry.split(":").collect_vec();
+    match components.as_slice() {
+        [entry] => retrieve_alias_pathbuf(entry, entry),
+        [host_dir, guest_dir] => retrieve_alias_pathbuf(host_dir, guest_dir),
+        _ => bail!(
+            "Directory mappings must consist of a single path, of two paths separate by a `:`. Found {}",
             &entry
-        )
+        ),
     }
 }
 

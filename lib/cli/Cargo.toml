@@ -211,6 +211,7 @@ serde_yaml.workspace = true
 base64.workspace = true
 comfy-table.workspace = true
 git-version.workspace = true
+itertools.workspace = true
 
 # Used by tuntap and connect
 futures-util.workspace = true
