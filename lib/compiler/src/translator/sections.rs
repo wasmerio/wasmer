@@ -118,8 +118,8 @@ pub fn parse_import_section<'data>(
 
     for entry in imports {
         let import = entry.map_err(from_binaryreadererror_wasmerror)?;
-        let Imports::Single(_, import) = import else {
-            return WasmResult::Err(WasmError::Generic(
+        let Imports::Single(_index, import) = import else {
+            return Err(WasmError::Generic(
                 "non-Single section Imports not implemented yet".to_string(),
             ));
         };
