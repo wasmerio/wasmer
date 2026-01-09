@@ -83,6 +83,17 @@ llvm+loongarch64  spec::simd::simd_f64x2_rounding::llvm::universal
 llvm+loongarch64  wasmer::nan_canonicalization::llvm::universal
 llvm+loongarch64  wasmer::stack_overflow_sret::llvm::universal
 
+# #6017 - a crash in the LLVM compiler
+llvm+loongarch64  spec::simd::simd_f32x4::llvm::llvm
+llvm+loongarch64  spec::simd::simd_f64x2::llvm::llvm
+llvm+loongarch64  spec::simd::simd_load::llvm::llvm
+llvm+loongarch64  spec::simd::simd_splat::llvm::llvm
+llvm+loongarch64  spec::simd_f32x4::llvm::llvm
+llvm+loongarch64  spec::simd_f64x2::llvm::llvm
+llvm+loongarch64  spec::simd_load::llvm::llvm
+llvm+loongarch64  spec::simd_splat::llvm::llvm
+
+
 # Windows doesn't overcommit and fails to allocate 4GB of memory
 windows wasmer::max_size_of_memory
 
@@ -374,8 +385,10 @@ windows     wasitests::nightly_2022_10_18::host_fs::path_rename
 # FIXME - re-enable once the path resolution failures in WasiFs have been worked out
 path_rename
 
-# Multi-value tests
-singlepass    multi_value_imports
-cranelift     multi_value_imports
-windows+llvm  multi_value_imports
-windows+llvm  static_function_with_results
+# #5943 - multi-value tests
+singlepass        multi_value_imports
+cranelift         multi_value_imports
+llvm+windows      multi_value_imports
+llvm+loongarch64  multi_value_imports
+llvm+riscv64      multi_value_imports
+llvm+windows      static_function_with_results
