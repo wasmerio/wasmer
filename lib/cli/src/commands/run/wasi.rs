@@ -239,6 +239,13 @@ pub struct RunProperties {
     pub args: Vec<String>,
 }
 
+fn endpoint_to_folder(url: &Url) -> String {
+    url.to_string()
+        .replace("registry.wasmer.io", "wasmer.io")
+        .replace("registry.wasmer.wtf", "wasmer.wtf")
+        .replace(|c| "/:?&=#%\\".contains(c), "_")
+}
+
 #[allow(dead_code)]
 impl Wasi {
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
@@ -797,7 +804,10 @@ impl Wasi {
         source.add_source(preloaded);
 
         let graphql_endpoint = self.graphql_endpoint(env)?;
-        let cache_dir = env.cache_dir().join("queries");
+        let cache_dir = env
+            .cache_dir()
+            .join("queries")
+            .join(endpoint_to_folder(&graphql_endpoint));
         let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
             .with_preferred_webc_version(preferred_webc_version);
