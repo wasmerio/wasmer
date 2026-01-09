@@ -501,10 +501,6 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(self.config.num_threads.get())
-            .build()
-            .map_err(|e| CompileError::Resource(e.to_string()))?;
         let function_call_trampolines = pool.install(|| {
             module
                 .signatures
