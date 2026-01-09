@@ -296,7 +296,7 @@ impl WasmerCmd {
                     match (kind, value.to_string().as_str()) {
                         (ContextKind::InvalidArg, "--mapdir") => {
                             eprintln!(
-                                "{}`{}` argument is replaced with `{}` (with swapped `HOST_DIR:GUEST_DIR` locations)",
+                                "{}`{}` argument has been replaced by `{}` (with the order swapped to `HOST_DIR:GUEST_DIR`)",
                                 "note: ".bold(),
                                 "--mapdir".yellow(),
                                 "--volume".yellow()
@@ -304,7 +304,7 @@ impl WasmerCmd {
                         }
                         (ContextKind::InvalidArg, "--map") => {
                             eprintln!(
-                                "{}`{}` argument is replaced with `{}`",
+                                "{}`{}` argument has been replaced by `{}`",
                                 "note: ".bold(),
                                 "--map".yellow(),
                                 "--volume".yellow()
