@@ -287,25 +287,21 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
         let exception = Box::new(UwExceptionWrapper::new(exnref));
         let exception_ptr = Box::into_raw(exception);
 
-        match uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception) {
-            libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-                delete_exception(exception_ptr as *mut c_void);
+        // WARNING: The return code from _Unwind_RaiseException is unreliable on some targets
+        // due to GCC compiler issues (see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=114843).
+        // We proceed regardless of the actual return value (similarly to the libstdc++).
+        uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception);
+        delete_exception(exception_ptr as *mut c_void);
 
-                let exnref = VMExceptionRef(StoreHandle::from_internal(
-                    ctx.id(),
-                    InternalStoreHandle::from_index(exnref as usize).unwrap(),
-                ));
-                log!(
-                    "[wasmer][eh] throw -> URC_END_OF_STACK (personality={:p})",
-                    wasmer_eh_personality as *const ()
-                );
-                crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
-            }
-            other => {
-                log!("[wasmer][eh] throw -> unexpected code {:?}", other);
-                unreachable!()
-            }
-        }
+        let exnref = VMExceptionRef(StoreHandle::from_internal(
+            ctx.id(),
+            InternalStoreHandle::from_index(exnref as usize).unwrap(),
+        ));
+        log!(
+            "[wasmer][eh] throw -> _Unwind_RaiseException returned (personality={:p})",
+            wasmer_eh_personality as *const ()
+        );
+        crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
     }
 }
 
