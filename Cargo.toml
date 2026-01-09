@@ -181,8 +181,7 @@ ignore = "0.4"
 indicatif = "0.18.3"
 indexmap = "2"
 inline-c = "0.1.7"
-# TODO: use a proper release
-inkwell = { git = "https://github.com/TheDan64/inkwell.git", rev = "b9c53276e30935ccec841d12c9687a17e9199958", default-features = false }
+inkwell = { version = "0.8.0", default-features = false }
 insta = "1.45.0"
 interfaces = "0.0.9"
 ipnet = "2.10.1"
