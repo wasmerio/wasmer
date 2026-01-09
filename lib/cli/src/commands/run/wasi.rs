@@ -240,7 +240,10 @@ pub struct RunProperties {
 }
 
 fn endpoint_to_folder(url: &Url) -> String {
-    url.to_string().replace(|c| "/:?&=#%\\".contains(c), "_")
+    url.to_string()
+        .replace("registry.wasmer.io", "wasmer.io")
+        .replace("registry.wasmer.wtf", "wasmer.wtf")
+        .replace(|c| "/:?&=#%\\".contains(c), "_")
 }
 
 #[allow(dead_code)]
