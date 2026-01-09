@@ -423,7 +423,7 @@ jobs:
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Wasmer-cli",
+              name: "Wasmer-cli binary",
             },
           ]
     steps:
