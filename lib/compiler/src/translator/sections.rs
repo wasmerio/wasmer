@@ -27,9 +27,9 @@ use wasmer_types::{WasmError, WasmResult};
 use wasmparser::{
     self, Data, DataKind, DataSectionReader, Element, ElementItems, ElementKind,
     ElementSectionReader, Export, ExportSectionReader, ExternalKind, FunctionSectionReader,
-    GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, MemorySectionReader,
-    MemoryType as WPMemoryType, NameSectionReader, Operator, TableSectionReader,
-    TagType as WPTagType, TypeRef, TypeSectionReader,
+    GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, Imports,
+    MemorySectionReader, MemoryType as WPMemoryType, NameSectionReader, Operator,
+    TableSectionReader, TagType as WPTagType, TypeRef, TypeSectionReader,
 };
 
 /// Helper function translating wasmparser types to Wasm Type.
@@ -118,6 +118,11 @@ pub fn parse_import_section<'data>(
 
     for entry in imports {
         let import = entry.map_err(from_binaryreadererror_wasmerror)?;
+        let Imports::Single(_, import) = import else {
+            return WasmResult::Err(WasmError::Generic(
+                "non-Single section Imports not implemented yet".to_string(),
+            ));
+        };
         let module_name = import.module;
         let field_name = import.name;
 
