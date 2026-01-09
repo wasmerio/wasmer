@@ -287,42 +287,38 @@
 <a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span>exception = Box::new(UwExceptionWrapper::new(exnref));
 <a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">let </span>exception_ptr = Box::into_raw(exception);
 <a href=#289 id=289 data-nosnippet>289</a>
-<a href=#290 id=290 data-nosnippet>290</a>        <span class="kw">match </span>uw::_Unwind_RaiseException(exception_ptr <span class="kw">as </span><span class="kw-2">*mut </span>libunwind::_Unwind_Exception) {
-<a href=#291 id=291 data-nosnippet>291</a>            libunwind::_Unwind_Reason_Code__URC_END_OF_STACK =&gt; {
-<a href=#292 id=292 data-nosnippet>292</a>                delete_exception(exception_ptr <span class="kw">as </span><span class="kw-2">*mut </span>c_void);
-<a href=#293 id=293 data-nosnippet>293</a>
-<a href=#294 id=294 data-nosnippet>294</a>                <span class="kw">let </span>exnref = VMExceptionRef(StoreHandle::from_internal(
-<a href=#295 id=295 data-nosnippet>295</a>                    ctx.id(),
-<a href=#296 id=296 data-nosnippet>296</a>                    InternalStoreHandle::from_index(exnref <span class="kw">as </span>usize).unwrap(),
-<a href=#297 id=297 data-nosnippet>297</a>                ));
-<a href=#298 id=298 data-nosnippet>298</a>                <span class="macro">log!</span>(
-<a href=#299 id=299 data-nosnippet>299</a>                    <span class="string">"[wasmer][eh] throw -&gt; URC_END_OF_STACK (personality={:p})"</span>,
-<a href=#300 id=300 data-nosnippet>300</a>                    wasmer_eh_personality <span class="kw">as </span><span class="kw-2">*const </span>()
-<a href=#301 id=301 data-nosnippet>301</a>                );
-<a href=#302 id=302 data-nosnippet>302</a>                <span class="kw">crate</span>::raise_lib_trap(<span class="kw">crate</span>::Trap::uncaught_exception(exnref, ctx))
-<a href=#303 id=303 data-nosnippet>303</a>            }
-<a href=#304 id=304 data-nosnippet>304</a>            other =&gt; {
-<a href=#305 id=305 data-nosnippet>305</a>                <span class="macro">log!</span>(<span class="string">"[wasmer][eh] throw -&gt; unexpected code {:?}"</span>, other);
-<a href=#306 id=306 data-nosnippet>306</a>                <span class="macro">unreachable!</span>()
-<a href=#307 id=307 data-nosnippet>307</a>            }
-<a href=#308 id=308 data-nosnippet>308</a>        }
-<a href=#309 id=309 data-nosnippet>309</a>    }
-<a href=#310 id=310 data-nosnippet>310</a>}
-<a href=#311 id=311 data-nosnippet>311</a>
-<a href=#312 id=312 data-nosnippet>312</a><span class="kw">pub unsafe fn </span>delete_exception(exception: <span class="kw-2">*mut </span>c_void) {
-<a href=#313 id=313 data-nosnippet>313</a>    <span class="kw">unsafe </span>{
-<a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">if </span>!exception.is_null() {
-<a href=#315 id=315 data-nosnippet>315</a>            uw::_Unwind_DeleteException(exception <span class="kw">as </span><span class="kw-2">*mut </span>uw::_Unwind_Exception);
-<a href=#316 id=316 data-nosnippet>316</a>        }
-<a href=#317 id=317 data-nosnippet>317</a>    }
-<a href=#318 id=318 data-nosnippet>318</a>}
-<a href=#319 id=319 data-nosnippet>319</a>
-<a href=#320 id=320 data-nosnippet>320</a><span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>deallocate_exception(
-<a href=#321 id=321 data-nosnippet>321</a>    <span class="kw">_</span>: uw::_Unwind_Reason_Code,
-<a href=#322 id=322 data-nosnippet>322</a>    exception: <span class="kw-2">*mut </span>uw::_Unwind_Exception,
-<a href=#323 id=323 data-nosnippet>323</a>) {
-<a href=#324 id=324 data-nosnippet>324</a>    <span class="kw">unsafe </span>{
-<a href=#325 id=325 data-nosnippet>325</a>        <span class="kw">let </span>exception = Box::from_raw(exception <span class="kw">as </span><span class="kw-2">*mut </span>UwExceptionWrapper);
-<a href=#326 id=326 data-nosnippet>326</a>        drop(exception);
-<a href=#327 id=327 data-nosnippet>327</a>    }
-<a href=#328 id=328 data-nosnippet>328</a>}</code></pre></div></section></main></body></html>
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="comment">// WARNING: The return code from _Unwind_RaiseException is unreliable on some targets
+<a href=#291 id=291 data-nosnippet>291</a>        // due to GCC compiler issues (see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=114843).
+<a href=#292 id=292 data-nosnippet>292</a>        // We proceed regardless of the actual return value (similarly to the libstdc++).
+<a href=#293 id=293 data-nosnippet>293</a>        </span>uw::_Unwind_RaiseException(exception_ptr <span class="kw">as </span><span class="kw-2">*mut </span>libunwind::_Unwind_Exception);
+<a href=#294 id=294 data-nosnippet>294</a>        delete_exception(exception_ptr <span class="kw">as </span><span class="kw-2">*mut </span>c_void);
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>        <span class="kw">let </span>exnref = VMExceptionRef(StoreHandle::from_internal(
+<a href=#297 id=297 data-nosnippet>297</a>            ctx.id(),
+<a href=#298 id=298 data-nosnippet>298</a>            InternalStoreHandle::from_index(exnref <span class="kw">as </span>usize).unwrap(),
+<a href=#299 id=299 data-nosnippet>299</a>        ));
+<a href=#300 id=300 data-nosnippet>300</a>        <span class="macro">log!</span>(
+<a href=#301 id=301 data-nosnippet>301</a>            <span class="string">"[wasmer][eh] throw -&gt; _Unwind_RaiseException returned (personality={:p})"</span>,
+<a href=#302 id=302 data-nosnippet>302</a>            wasmer_eh_personality <span class="kw">as </span><span class="kw-2">*const </span>()
+<a href=#303 id=303 data-nosnippet>303</a>        );
+<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">crate</span>::raise_lib_trap(<span class="kw">crate</span>::Trap::uncaught_exception(exnref, ctx))
+<a href=#305 id=305 data-nosnippet>305</a>    }
+<a href=#306 id=306 data-nosnippet>306</a>}
+<a href=#307 id=307 data-nosnippet>307</a>
+<a href=#308 id=308 data-nosnippet>308</a><span class="kw">pub unsafe fn </span>delete_exception(exception: <span class="kw-2">*mut </span>c_void) {
+<a href=#309 id=309 data-nosnippet>309</a>    <span class="kw">unsafe </span>{
+<a href=#310 id=310 data-nosnippet>310</a>        <span class="kw">if </span>!exception.is_null() {
+<a href=#311 id=311 data-nosnippet>311</a>            uw::_Unwind_DeleteException(exception <span class="kw">as </span><span class="kw-2">*mut </span>uw::_Unwind_Exception);
+<a href=#312 id=312 data-nosnippet>312</a>        }
+<a href=#313 id=313 data-nosnippet>313</a>    }
+<a href=#314 id=314 data-nosnippet>314</a>}
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a><span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>deallocate_exception(
+<a href=#317 id=317 data-nosnippet>317</a>    <span class="kw">_</span>: uw::_Unwind_Reason_Code,
+<a href=#318 id=318 data-nosnippet>318</a>    exception: <span class="kw-2">*mut </span>uw::_Unwind_Exception,
+<a href=#319 id=319 data-nosnippet>319</a>) {
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">unsafe </span>{
+<a href=#321 id=321 data-nosnippet>321</a>        <span class="kw">let </span>exception = Box::from_raw(exception <span class="kw">as </span><span class="kw-2">*mut </span>UwExceptionWrapper);
+<a href=#322 id=322 data-nosnippet>322</a>        drop(exception);
+<a href=#323 id=323 data-nosnippet>323</a>    }
+<a href=#324 id=324 data-nosnippet>324</a>}</code></pre></div></section></main></body></html>
