@@ -925,7 +925,7 @@ jobs:
   test_integration_cli:
     name: CLI tests - ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
-    needs: [build, build_linux_aarch64, build_linux_riscv64]
+    needs: [build, build_linux_riscv64]
     strategy:
       fail-fast: false
       matrix:
