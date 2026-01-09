@@ -298,7 +298,7 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
             InternalStoreHandle::from_index(exnref as usize).unwrap(),
         ));
         log!(
-            "[wasmer][eh] throw -> URC_END_OF_STACK (personality={:p})",
+            "[wasmer][eh] throw -> _Unwind_RaiseException returned (personality={:p})",
             wasmer_eh_personality as *const ()
         );
         crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
