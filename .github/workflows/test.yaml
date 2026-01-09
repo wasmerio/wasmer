@@ -1033,7 +1033,7 @@ jobs:
           ls package/cache/wasmercache3
           ls package/cache/wasmercache4
           ls package/cache/wasmercache5
-          cp package/cache/wasmercache1/wasmer.tar.gz package/cache/wasmer-linux-arm64.tar.gz
+          cp package/cache/wasmercache1/build-capi.tar.gz package/cache/wasmer-linux-arm64.tar.gz
           cp package/cache/wasmercache2/build-capi.tar.gz package/cache/wasmer-windows-gnu64.tar.gz
           cp package/cache/wasmercache3/build-capi.tar.gz package/cache/wasmer-darwin-arm64.tar.gz
           cp package/cache/wasmercache4/build-capi.tar.gz package/cache/wasmer-darwin-amd64.tar.gz
