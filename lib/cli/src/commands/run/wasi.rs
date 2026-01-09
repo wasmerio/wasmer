@@ -502,7 +502,10 @@ impl Wasi {
         Ok(Vec::new())
     }
 
-    pub fn build_mapped_directories(&self) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
+    pub fn build_mapped_directories(
+        &self,
+        is_wasix: bool,
+    ) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
         let mut mapped_dirs = Vec::new();
 
         // Process the --dirs flag and merge it with --mapdir.
@@ -521,9 +524,19 @@ impl Wasi {
 
                 MappedDirectory {
                     host: current_dir,
-                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: if is_wasix {
+                        MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string()
+                    } else {
+                        "/".to_string()
+                    },
                 }
             } else {
+                if dir == Path::new("/") && is_wasix {
+                    tracing::warn!(
+                        "Pre-opening the root directory with --dir=/ breaks WASIX modules' filesystems"
+                    );
+                }
+
                 let resolved = dir.canonicalize().with_context(|| {
                     format!(
                         "could not canonicalize path for argument '--dir {}'",
@@ -558,11 +571,18 @@ impl Wasi {
         }
 
         for MappedDirectory { host, guest } in &self.mapped_dirs {
+            if guest == "/" && is_wasix {
+                // Note: it appears we canonicalize the path before this point and showing the value of
+                // `host` in the error message may throw users off, so we use a placeholder.
+                tracing::warn!(
+                    "Mounting on the guest's virtual root with --mapdir /:<HOST_PATH> breaks WASIX modules' filesystems"
+                );
+            }
             let resolved_host = host.canonicalize().with_context(|| {
                 format!(
                     "could not canonicalize path for argument '--mapdir {}:{}'",
-                    host.display(),
                     guest,
+                    host.display(),
                 )
             })?;
 
@@ -576,7 +596,11 @@ impl Wasi {
 
                 MappedDirectory {
                     host: resolved_host,
-                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: if is_wasix {
+                        MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string()
+                    } else {
+                        "/".to_string()
+                    },
                 }
             } else {
                 MappedDirectory {
