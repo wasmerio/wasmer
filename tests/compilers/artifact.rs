@@ -12,10 +12,11 @@ fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
     for file_name in file_names {
         let path = PathBuf::from("tests/integration/cli/tests/wasm").join(file_name);
         let wasm_module = fs::read(path).unwrap();
-        let module = Module::new(&config.store(), wasm_module).unwrap();
+        let store = config.store();
+        let module = Module::new(&store, wasm_module).unwrap();
         let serialized_bytes = module.serialize().unwrap();
         let deserialized_module =
-            unsafe { Module::deserialize(&config.store(), serialized_bytes.clone()) }.unwrap();
+            unsafe { Module::deserialize(&store, serialized_bytes.clone()) }.unwrap();
         let reserialized_bytes = deserialized_module.serialize().unwrap();
         assert_eq!(serialized_bytes, reserialized_bytes);
     }
