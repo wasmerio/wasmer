@@ -514,6 +514,14 @@ jobs:
               supports_v8: false,
             },
             {
+              build: linux-arm64,
+              os: ubuntu-22.04-arm,
+              target: aarch64-unknown-linux-gnu,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz",
+              supports_v8: true,
+            },
+            {
               build: macos-x64,
               os: macos-15-intel,
               target: x86_64-apple-darwin,
