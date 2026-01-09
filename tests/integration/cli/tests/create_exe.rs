@@ -556,12 +556,12 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     let result_lines = result.lines().collect::<Vec<&str>>();
     assert_eq!(result_lines, vec!["\"Hello, World\""]);
 
-    // test with `--mapdir`
+    // test with `--volume`
     let result = run_code(
         &operating_dir,
         &executable_path,
         &[
-            "--mapdir=abc:.".to_string(),
+            "--volume=.:abc".to_string(),
             "--script".to_string(),
             "abc/test.js".to_string(),
         ],
