@@ -21,17 +21,16 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
     let guard = inode.read();
     match guard.deref() {
         Kind::Dir { .. } | Kind::Root { .. } => {
-            // TODO: verify this: null termination, etc
             let path_len: u64 = path_len.into();
-            if (name.len() as u64) < path_len {
+            let name_len = name.len() as u64;
+            if name_len <= path_len {
                 wasi_try_mem!(
                     path_chars
-                        .subslice(0..name.len() as u64)
+                        .subslice(0..name_len)
                         .write_slice(name.as_bytes())
                 );
-                wasi_try_mem!(path_chars.index(name.len() as u64).write(0));
-
-                //trace!("=> result: \"{}\"", inode_val.name);
+                // Note: We don't write a null terminator since WASI spec doesn't require it
+                // and pr_name_len already gives the exact length
 
                 Errno::Success
             } else {

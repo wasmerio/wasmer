@@ -31,3 +31,4 @@ link.tar.gz
 # Ignore files used by the "direnv" tool.
 .direnv
 .envrc
+/tests/tmp

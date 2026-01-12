@@ -531,7 +531,7 @@ mod test_virtual_file {
     use std::time::Duration;
 
     macro_rules! path {
-        ($path:expr_2021) => {
+        ($path:expr) => {
             std::path::Path::new($path)
         };
     }
@@ -1189,7 +1189,7 @@ mod test_read_write_seek {
     use std::io;
 
     macro_rules! path {
-        ($path:expr_2021) => {
+        ($path:expr) => {
             std::path::Path::new($path)
         };
     }

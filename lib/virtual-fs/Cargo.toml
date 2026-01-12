@@ -16,7 +16,7 @@ dashmap.workspace = true
 derive_more.workspace = true
 dunce.workspace = true
 anyhow = { workspace = true, optional = true }
-async-trait = { workspace = true }
+async-trait.workspace = true
 bytes.workspace = true
 filetime = { workspace = true, optional = true }
 fs_extra = { workspace = true, optional = true }

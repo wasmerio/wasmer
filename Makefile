@@ -488,7 +488,7 @@ bench:
 # rpath = false
 build-wasmer-headless-minimal: RUSTFLAGS += -C panic=abort
 build-wasmer-headless-minimal:
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features sys,headless-minimal --bin wasmer-headless
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features sys,headless-minimal,singlepass --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
 	strip target/$(HOST_TARGET)/release/wasmer-headless
 else ifeq ($(IS_WINDOWS), 1)

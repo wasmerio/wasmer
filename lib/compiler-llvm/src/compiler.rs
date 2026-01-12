@@ -182,7 +182,9 @@ impl LLVMCompiler {
         let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTranslator::new(target_machine, binary_format).unwrap()
+                let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
+                FuncTranslator::new(target_machine, Some(target_machine_no_opt), binary_format)
+                    .unwrap()
             },
             |func_translator, (i, input)| {
                 let module = func_translator.translate_to_module(
@@ -383,66 +385,46 @@ impl Compiler for LLVMCompiler {
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
 
-        let functions = if self.config.num_threads.get() > 1 {
-            let pool = ThreadPoolBuilder::new()
-                .num_threads(self.config.num_threads.get())
-                .build()
-                .map_err(|e| CompileError::Resource(e.to_string()))?;
-            pool.install(|| {
-                function_body_inputs
-                    .iter()
-                    .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-                    .par_iter()
-                    .map_init(
-                        || {
-                            let target_machine = self.config().target_machine(target);
-                            FuncTranslator::new(target_machine, binary_format).unwrap()
-                        },
-                        |func_translator, (i, input)| {
-                            // TODO: remove (to serialize)
-                            //let _data = data.lock().unwrap();
-
-                            func_translator.translate(
-                                module,
-                                module_translation,
-                                i,
-                                input,
-                                self.config(),
-                                memory_styles,
-                                table_styles,
-                                &symbol_registry,
-                                target.triple(),
-                            )
-                        },
-                    )
-                    .collect::<Result<Vec<_>, CompileError>>()
-            })?
-        } else {
-            let target_machine = self.config().target_machine(target);
-            let func_translator = FuncTranslator::new(target_machine, binary_format).unwrap();
-
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(self.config.num_threads.get())
+            .build()
+            .map_err(|e| CompileError::Resource(e.to_string()))?;
+        let functions = pool.install(|| {
             function_body_inputs
                 .iter()
                 .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-                .into_iter()
-                .map(|(i, input)| {
-                    // TODO: remove (to serialize)
-                    //let _data = data.lock().unwrap();
+                .par_iter()
+                .map_init(
+                    || {
+                        let target_machine = self.config().target_machine_with_opt(target, true);
+                        let target_machine_no_opt =
+                            self.config().target_machine_with_opt(target, false);
+                        FuncTranslator::new(
+                            target_machine,
+                            Some(target_machine_no_opt),
+                            binary_format,
+                        )
+                        .unwrap()
+                    },
+                    |func_translator, (i, input)| {
+                        // TODO: remove (to serialize)
+                        //let _data = data.lock().unwrap();
 
-                    func_translator.translate(
-                        module,
-                        module_translation,
-                        &i,
-                        input,
-                        self.config(),
-                        memory_styles,
-                        table_styles,
-                        &symbol_registry,
-                        target.triple(),
-                    )
-                })
-                .collect::<Result<Vec<_>, CompileError>>()?
-        };
+                        func_translator.translate(
+                            module,
+                            module_translation,
+                            i,
+                            input,
+                            self.config(),
+                            memory_styles,
+                            table_styles,
+                            &symbol_registry,
+                            target.triple(),
+                        )
+                    },
+                )
+                .collect::<Result<Vec<_>, CompileError>>()
+        })?;
 
         let functions = functions
             .into_iter()
@@ -519,43 +501,25 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let function_call_trampolines = if self.config.num_threads.get() > 1 {
-            let pool = ThreadPoolBuilder::new()
-                .num_threads(self.config.num_threads.get())
-                .build()
-                .map_err(|e| CompileError::Resource(e.to_string()))?;
-            pool.install(|| {
-                module
-                    .signatures
-                    .values()
-                    .collect::<Vec<_>>()
-                    .par_iter()
-                    .map_init(
-                        || {
-                            let target_machine = self.config().target_machine(target);
-                            FuncTrampoline::new(target_machine, binary_format).unwrap()
-                        },
-                        |func_trampoline, sig| {
-                            func_trampoline.trampoline(sig, self.config(), "", compile_info)
-                        },
-                    )
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .collect::<Result<PrimaryMap<_, _>, CompileError>>()
-            })?
-        } else {
-            let target_machine = self.config().target_machine(target);
-            let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
+        let function_call_trampolines = pool.install(|| {
             module
                 .signatures
                 .values()
                 .collect::<Vec<_>>()
-                .into_iter()
-                .map(|sig| func_trampoline.trampoline(sig, self.config(), "", compile_info))
+                .par_iter()
+                .map_init(
+                    || {
+                        let target_machine = self.config().target_machine(target);
+                        FuncTrampoline::new(target_machine, binary_format).unwrap()
+                    },
+                    |func_trampoline, sig| {
+                        func_trampoline.trampoline(sig, self.config(), "", compile_info)
+                    },
+                )
                 .collect::<Vec<_>>()
                 .into_iter()
-                .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
-        };
+                .collect::<Result<PrimaryMap<_, _>, CompileError>>()
+        })?;
 
         // TODO: I removed the parallel processing of dynamic trampolines because we're passing
         // the sections bytes and relocations directly into the trampoline generation function.

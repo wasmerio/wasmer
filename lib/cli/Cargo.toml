@@ -192,7 +192,7 @@ tracing-subscriber = { workspace = true, features = [
 	"json",
 	"ansi"
 ] }
-async-trait = { workspace = true }
+async-trait.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 once_cell.workspace = true
 indicatif.workspace = true
