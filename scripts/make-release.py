@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 
 import os
-import signal
 import time
 import sys
 import subprocess
@@ -64,8 +63,6 @@ def make_release(version):
     if not (gh_logged_in):
         raise Exception("please log in")
 
-    import tempfile
-
     temp_dir = tempfile.TemporaryDirectory()
     print(temp_dir.name)
     if (
@@ -113,11 +110,11 @@ def make_release(version):
     fixed = []
     release_notes_changed = []
 
-    for l in lines:
-        fields = l.split("\t")
+    for line in lines:
+        fields = line.split("\t")
         pr_number = fields[1]
         pr_text = fields[3]
-        l = (
+        line = (
             "  - [#"
             + pr_number
             + "](https://github.com/wasmerio/wasmer/pull/"
@@ -125,13 +122,13 @@ def make_release(version):
             + ") "
             + pr_text
         )
-        release_notes_changed.append(l)
-        if "add" in l.lower():
-            added.append(l)
-        elif "fix" in l.lower():
-            fixed.append(l)
+        release_notes_changed.append(line)
+        if "add" in line.lower():
+            added.append(line)
+        elif "fix" in line.lower():
+            fixed.append(line)
         else:
-            changed.append(l)
+            changed.append(line)
 
     changelog = []
 
@@ -156,8 +153,8 @@ def make_release(version):
     changelog.append("")
     changelog.append("")
 
-    for l in changelog:
-        print("        " + l)
+    for line in changelog:
+        print("        " + line)
 
     proc = subprocess.Popen(
         [

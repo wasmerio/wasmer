@@ -18,7 +18,6 @@ import itertools
 import os
 import re
 import subprocess
-import time
 import sys
 import typing
 from pprint import pprint
@@ -129,23 +128,25 @@ class Publisher:
         print(data["dependencies"])
         print("wasmer-package" in data["workspace"]["dependencies"])
 
-        check_local_workspace_dep = lambda t: (
-            t[0] in data["dependencies"]
-            and isinstance(data["dependencies"][t[0]], dict)
-            and "path" in data["dependencies"][t[0]]
-        ) or (
-            t[0] in data["workspace"]["dependencies"]
-            and isinstance(data["workspace"]["dependencies"][t[0]], dict)
-            and "path" in data["workspace"]["dependencies"][t[0]]
-        )
+        def check_local_workspace_dep(t):
+            return (
+                t[0] in data["dependencies"]
+                and isinstance(data["dependencies"][t[0]], dict)
+                and "path" in data["dependencies"][t[0]]
+            ) or (
+                t[0] in data["workspace"]["dependencies"]
+                and isinstance(data["workspace"]["dependencies"][t[0]], dict)
+                and "path" in data["workspace"]["dependencies"][t[0]]
+            )
 
         # define helper function
-        check_local_dep_fn = lambda t: isinstance(t[1], dict) and (
-            "path" in t[1]
-            or "workspace" in t[1]
-            and t[1]["workspace"] is True
-            and check_local_workspace_dep(t)
-        )
+        def check_local_dep_fn(t):
+            return isinstance(t[1], dict) and (
+                "path" in t[1]
+                or "workspace" in t[1]
+                and t[1]["workspace"] is True
+                and check_local_workspace_dep(t)
+            )
 
         members = set(
             map(

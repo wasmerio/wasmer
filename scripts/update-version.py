@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+import os
+import re
+
 PREVIOUS_VERSION = "6.1.0-rc.5"
 NEXT_VERSION = "6.1.0"
 
@@ -16,9 +19,6 @@ def make_prerelease_version(version: str) -> str:
 
 PREVIOUS_PRERELEASE_VERSION = make_prerelease_version(PREVIOUS_VERSION)
 NEXT_PRERELEASE_VERSION = make_prerelease_version(NEXT_VERSION)
-
-import os
-import re
 
 
 def replace(file, pattern, subst):
