@@ -232,6 +232,7 @@ unsafe fn wasi_env_with_filesystem_inner(
     let package = package_str.to_str().unwrap_or("");
     let module = &module.as_ref()?.inner;
     let imports = imports?;
+    #[allow(clippy::unnecessary_cast)]
     let fs_bytes = unsafe { &*(fs.ptr as *const u8) };
 
     let (wasi_env, import_object) = {

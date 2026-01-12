@@ -407,67 +407,6 @@ jobs:
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
 
-  build_linux_aarch64:
-    name: ${{ matrix.build-what.name }} - linux-aarch64
-    runs-on: ubuntu-22.04-arm
-    strategy:
-      fail-fast: false
-      matrix:
-        build-what:
-          [
-            {
-              key: capi,
-              build-cmd: "make build-capi && make package-capi",
-              name: "C-API",
-            },
-            {
-              key: wasmer,
-              build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Wasmer-cli",
-            },
-          ]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.MSRV }}
-          target: aarch64-unknown-linux-gnu
-      - name: Build cross image
-        run: |
-          docker build -t wasmer/aarch64 ${GITHUB_WORKSPACE}/.github/cross-linux-aarch64/
-        env:
-          CROSS_DOCKER_IN_DOCKER: true
-      - name: ${{ matrix.build-what.key }}
-        run: |
-          ${{ matrix.build-what.build-cmd }}
-        env:
-          # CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
-          # CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: aarch64-unknown-linux-gnu
-          #PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          #PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-      - name: Dist
-        if: ${{ matrix.build-what.key == 'capi' }}
-        run: |
-          make distribution
-        env:
-          #CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
-          #CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: aarch64-unknown-linux-gnu
-          #PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          #PKG_CONFIG_ALLOW_CROSS: true
-          TARGET: aarch64-unknown-linux-gnu
-          TARGET_DIR: target/aarch64-unknown-linux-gnu/release
-      - name: Upload Artifacts
-        if: ${{ matrix.build-what.key == 'capi' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: capi-linux-aarch64
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-
   build_linux_riscv64:
     name: ${{ matrix.build-what.name }} - linux-riscv64
     runs-on: ubuntu-22.04
@@ -484,7 +423,7 @@ jobs:
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Wasmer-cli",
+              name: "Wasmer-cli binary",
             },
           ]
     steps:
@@ -549,7 +488,7 @@ jobs:
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Wasmer-cli",
+              name: "Wasmer-cli binary",
             },
             {
               key: "check",
@@ -572,6 +511,14 @@ jobs:
               # Unfortunately, building a shared lib of the c_api with the v8
               # backend does not work, due to unsupported relocations to hidden
               # symbols in wee8.
+              supports_v8: false,
+            },
+            {
+              build: linux-arm64,
+              os: ubuntu-22.04-arm,
+              target: aarch64-unknown-linux-gnu,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz",
               supports_v8: false,
             },
             {
@@ -841,6 +788,13 @@ jobs:
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz",
             },
             {
+              build: linux-arm64,
+              os: ubuntu-22.04-arm,
+              target: aarch64-unknown-linux-gnu,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz",
+            },
+            {
               build: macos-x64,
               os: macos-15-intel,
               target: x86_64-apple-darwin,
@@ -979,7 +933,7 @@ jobs:
   test_integration_cli:
     name: CLI tests - ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
-    needs: [build, build_linux_aarch64, build_linux_riscv64]
+    needs: [build, build_linux_riscv64]
     strategy:
       fail-fast: false
       matrix:
@@ -1053,7 +1007,7 @@ jobs:
           mkdir -p package/cache
       - uses: actions/download-artifact@v4
         with:
-          name: capi-linux-aarch64
+          name: capi-linux-arm64
           path: package/cache/wasmercache1
       - uses: actions/download-artifact@v4
         with:
@@ -1079,7 +1033,7 @@ jobs:
           ls package/cache/wasmercache3
           ls package/cache/wasmercache4
           ls package/cache/wasmercache5
-          cp package/cache/wasmercache1/wasmer.tar.gz package/cache/wasmer-linux-aarch64.tar.gz
+          cp package/cache/wasmercache1/build-capi.tar.gz package/cache/wasmer-linux-arm64.tar.gz
           cp package/cache/wasmercache2/build-capi.tar.gz package/cache/wasmer-windows-gnu64.tar.gz
           cp package/cache/wasmercache3/build-capi.tar.gz package/cache/wasmer-darwin-arm64.tar.gz
           cp package/cache/wasmercache4/build-capi.tar.gz package/cache/wasmer-darwin-amd64.tar.gz
