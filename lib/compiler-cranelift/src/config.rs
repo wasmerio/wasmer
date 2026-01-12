@@ -35,9 +35,18 @@ impl CraneliftCallbacks {
         Ok(Self { debug_dir })
     }
 
-    /// Writes the pre-optimization intermediate representation to a debug file.
-    pub fn preopt_ir(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
+    fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
+        if let Some(hash) = module_hash {
+            path.push(hash);
+        }
+        std::fs::create_dir_all(&path).expect("cannot create debug directory: {path}");
+        path
+    }
+
+    /// Writes the pre-optimization intermediate representation to a debug file.
+    pub fn preopt_ir(&self, kind: &CompiledKind, module_hash: &Option<String>, mem_buffer: &[u8]) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".preopt.clif"));
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift IR");
@@ -45,8 +54,13 @@ impl CraneliftCallbacks {
     }
 
     /// Writes the object file memory buffer to a debug file.
-    pub fn obj_memory_buffer(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
-        let mut path = self.debug_dir.clone();
+    pub fn obj_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        mem_buffer: &[u8],
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".o"));
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift object");
@@ -57,10 +71,11 @@ impl CraneliftCallbacks {
     pub fn asm_memory_buffer(
         &self,
         kind: &CompiledKind,
+        module_hash: &Option<String>,
         arch: Architecture,
         mem_buffer: &[u8],
     ) -> Result<(), wasmer_types::CompileError> {
-        let mut path = self.debug_dir.clone();
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".s"));
         save_assembly_to_file(arch, path, mem_buffer, HashMap::<usize, String>::new())
     }

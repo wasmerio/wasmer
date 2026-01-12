@@ -220,6 +220,7 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .unzip();
 
+        let module_hash = module.hash_string();
         let function_call_trampolines = module
             .signatures
             .values()
@@ -230,10 +231,12 @@ impl Compiler for SinglepassCompiler {
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
                     callbacks.obj_memory_buffer(
                         &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        &module_hash,
                         &body.body,
                     );
                     callbacks.asm_memory_buffer(
                         &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        &module_hash,
                         arch,
                         &body.body,
                         HashMap::new(),
@@ -260,10 +263,12 @@ impl Compiler for SinglepassCompiler {
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
                     callbacks.obj_memory_buffer(
                         &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &module_hash,
                         &body.body,
                     );
                     callbacks.asm_memory_buffer(
                         &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &module_hash,
                         arch,
                         &body.body,
                         HashMap::new(),

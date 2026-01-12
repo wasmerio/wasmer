@@ -335,7 +335,7 @@ impl FuncTranslator {
         fcg.finalize(wasm_fn_type)?;
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.preopt_ir(&function, &module);
+            callbacks.preopt_ir(&function, &wasm_module.hash_string(), &module);
         }
 
         let mut passes = vec![];
@@ -380,7 +380,11 @@ impl FuncTranslator {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.postopt_ir(&function, &module);
+            callbacks.postopt_ir(
+                &function,
+                &wasm_module.hash().map(|m| m.to_string()),
+                &module,
+            );
         }
 
         Ok(module)
@@ -427,11 +431,12 @@ impl FuncTranslator {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.obj_memory_buffer(&function, &memory_buffer);
+            let module_hash = wasm_module.hash().map(|m| m.to_string());
+            callbacks.obj_memory_buffer(&function, &module_hash, &memory_buffer);
             let asm_buffer = target_machine
                 .write_to_memory_buffer(&module, FileType::Assembly)
                 .unwrap();
-            callbacks.asm_memory_buffer(&function, &asm_buffer)
+            callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
         let mem_buf_slice = memory_buffer.as_slice();

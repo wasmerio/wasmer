@@ -127,7 +127,7 @@ impl FuncTrampoline {
         )?;
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.preopt_ir(&function, &module);
+            callbacks.preopt_ir(&function, &compile_info.module.hash_string(), &module);
         }
 
         let mut passes = vec![];
@@ -146,7 +146,7 @@ impl FuncTrampoline {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.postopt_ir(&function, &module);
+            callbacks.postopt_ir(&function, &compile_info.module.hash_string(), &module);
         }
         Ok(module)
     }
@@ -167,11 +167,12 @@ impl FuncTrampoline {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.obj_memory_buffer(&function, &memory_buffer);
+            let module_hash = compile_info.module.hash().map(|m| m.to_string());
+            callbacks.obj_memory_buffer(&function, &module_hash.clone(), &memory_buffer);
             let asm_buffer = target_machine
                 .write_to_memory_buffer(&module, FileType::Assembly)
                 .unwrap();
-            callbacks.asm_memory_buffer(&function, &asm_buffer);
+            callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer);
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
@@ -242,6 +243,7 @@ impl FuncTrampoline {
         ty: &FuncType,
         config: &LLVM,
         name: &str,
+        module_hash: &Option<String>,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
@@ -274,7 +276,7 @@ impl FuncTrampoline {
         self.generate_dynamic_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.preopt_ir(&function, &module);
+            callbacks.preopt_ir(&function, module_hash, &module);
         }
 
         let mut passes = vec![];
@@ -293,7 +295,7 @@ impl FuncTrampoline {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.postopt_ir(&function, &module);
+            callbacks.postopt_ir(&function, module_hash, &module);
         }
 
         Ok(module)
@@ -311,22 +313,23 @@ impl FuncTrampoline {
         eh_frame_section_relocations: &mut Vec<Relocation>,
         compact_unwind_section_bytes: &mut Vec<u8>,
         compact_unwind_section_relocations: &mut Vec<Relocation>,
+        module_hash: &Option<String>,
     ) -> Result<FunctionBody, CompileError> {
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
-        let module = self.dynamic_trampoline_to_module(ty, config, name)?;
+        let module = self.dynamic_trampoline_to_module(ty, config, name, module_hash)?;
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.obj_memory_buffer(&function, &memory_buffer);
+            callbacks.obj_memory_buffer(&function, module_hash, &memory_buffer);
             let asm_buffer = target_machine
                 .write_to_memory_buffer(&module, FileType::Assembly)
                 .unwrap();
-            callbacks.asm_memory_buffer(&function, &asm_buffer)
+            callbacks.asm_memory_buffer(&function, module_hash, &asm_buffer)
         }
 
         let mem_buf_slice = memory_buffer.as_slice();

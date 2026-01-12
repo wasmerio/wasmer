@@ -184,6 +184,7 @@ impl CraneliftCompiler {
 
                     callbacks.preopt_ir(
                         &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                        &compile_info.module.hash_string(),
                         context.func.display().to_string().as_bytes(),
                     );
                 }
@@ -201,10 +202,12 @@ impl CraneliftCompiler {
 
                     callbacks.obj_memory_buffer(
                         &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                        &compile_info.module.hash_string(),
                         &code_buf,
                     );
                     callbacks.asm_memory_buffer(
                         &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                        &compile_info.module.hash_string(),
                         target.triple().architecture,
                         &code_buf,
                     )?;
@@ -390,6 +393,8 @@ impl CraneliftCompiler {
             unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1));
         };
 
+        let module_hash = module.hash_string();
+
         #[cfg(not(feature = "unwind"))]
         let _ = fdes;
 
@@ -427,6 +432,7 @@ impl CraneliftCompiler {
                     target.triple().architecture,
                     cx,
                     sig,
+                    &module_hash,
                 )
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
@@ -469,6 +475,7 @@ impl CraneliftCompiler {
                     &offsets,
                     cx,
                     func_type,
+                    &module_hash,
                 )
             })
             .collect::<Result<Vec<_>, CompileError>>()?
