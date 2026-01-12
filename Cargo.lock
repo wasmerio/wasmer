@@ -2229,9 +2229,9 @@ dependencies = [
 
 [[package]]
 name = "graphql-ws-client"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aa2e818b9e62654f2039d524c92a19495fcc2b0139ffc0354956865b3c7e939"
+checksum = "a7c12b734aef65c081d988163f5a3b8991f4193c837aa5bfdcad96630e4f2385"
 dependencies = [
  "async-channel",
  "cynic",
@@ -2242,7 +2242,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "tungstenite 0.24.0",
 ]
 

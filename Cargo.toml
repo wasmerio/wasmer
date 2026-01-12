@@ -164,7 +164,7 @@ getrandom = "0.2"
 gimli = { version = "0.32.3" }
 git-version = "0.3.9"
 glob = "0.3"
-graphql-ws-client = "0.11.0"
+graphql-ws-client = "0.12.0"
 gumdrop = "0.8"
 harsh = "0.2.2"
 hashbrown = "0.16.1"
