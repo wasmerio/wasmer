@@ -318,7 +318,7 @@ impl Compiler for SinglepassCompiler {
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()
-                .unwrap();
+                .map_err(|e| CompileError::Codegen(format!("failed to build rayon thread pool: {e}")))?;
 
             pool.install(|| {
                 self.compile_module_internal(target, compile_info, function_body_inputs)
