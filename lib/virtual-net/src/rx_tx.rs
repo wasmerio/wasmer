@@ -136,6 +136,8 @@ where
             }
             #[cfg(feature = "tokio-tungstenite")]
             RemoteTx::TokioWebSocket { tx, format, .. } => {
+                use bytes::Bytes;
+
                 let data = match format {
                     crate::meta::FrameSerializationFormat::Bincode => {
                         bincode::serde::encode_to_vec(&req, config::legacy()).map_err(|err| {
@@ -149,9 +151,11 @@ where
                     }
                 };
                 let mut tx = tx.lock().await;
-                tx.send(tokio_tungstenite::tungstenite::Message::Binary(data))
-                    .await
-                    .map_err(|_| NetworkError::ConnectionAborted)
+                tx.send(tokio_tungstenite::tungstenite::Message::Binary(
+                    Bytes::from_owner(data),
+                ))
+                .await
+                .map_err(|_| NetworkError::ConnectionAborted)
             }
         }
     }
@@ -299,8 +303,12 @@ where
                 };
 
                 let mut job = Box::pin(async move {
+                    use bytes::Bytes;
+
                     if let Err(err) = tx_guard
-                        .send(tokio_tungstenite::tungstenite::Message::Binary(data))
+                        .send(tokio_tungstenite::tungstenite::Message::Binary(
+                            Bytes::from_owner(data),
+                        ))
                         .await
                     {
                         tracing::error!("failed to send remaining bytes for request - {}", err);
@@ -461,9 +469,13 @@ where
                     Err(_) => {
                         let tx = tx.clone();
                         work.send(Box::pin(async move {
+                            use bytes::Bytes;
+
                             let mut tx_guard = tx.lock().await;
                             tx_guard
-                                .send(tokio_tungstenite::tungstenite::Message::Binary(data))
+                                .send(tokio_tungstenite::tungstenite::Message::Binary(
+                                    Bytes::from_owner(data),
+                                ))
                                 .await
                                 .ok();
                         }))
@@ -476,8 +488,12 @@ where
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
+                    use bytes::Bytes;
+
                     if let Err(err) = tx_guard
-                        .send(tokio_tungstenite::tungstenite::Message::Binary(data))
+                        .send(tokio_tungstenite::tungstenite::Message::Binary(
+                            Bytes::from_owner(data),
+                        ))
                         .await
                     {
                         tracing::error!("failed to send remaining bytes for request - {}", err);

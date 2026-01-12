@@ -100,7 +100,7 @@ anyhow = "1.0"
 assert-panic = "1.0.1"
 assert_cmd = "2.1.1"
 async-trait = "0.1.68"
-async-tungstenite = "0.28.0"
+async-tungstenite = "0.32.1"
 axum = { version = "=0.6.9", default-features = false }
 backtrace = "0.3"
 base64 = "0.22.1"
@@ -268,7 +268,7 @@ time = { version = "0.3.44", default-features = false }
 tokio = { version = "1.39.0", default-features = false }
 tokio-serde = "0.9"
 tokio-stream = "0.1"
-tokio-tungstenite = { version = "0.24.0" }
+tokio-tungstenite = { version = "0.28.0" }
 tokio-util = "0.7.8"
 toml = { version = "0.9.8", features = ["preserve_order"] }
 tower = "0.5.2"
