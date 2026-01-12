@@ -320,7 +320,8 @@ which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
-zip = { version = "7.0.0", default-features = false }
+# Stick to a stable version due to #6039
+zip = { version = "6.0.0", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
