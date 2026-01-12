@@ -3,8 +3,8 @@
 import os
 import re
 
-PREVIOUS_VERSION = "6.1.0-rc.5"
-NEXT_VERSION = "6.1.0"
+PREVIOUS_VERSION = "6.1.0"
+NEXT_VERSION = "7.0.0-alpha.1"
 
 
 def make_prerelease_version(version: str) -> str:
