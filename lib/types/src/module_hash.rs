@@ -110,11 +110,7 @@ impl ModuleHash {
 impl Display for ModuleHash {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         fn format<const N: usize>(f: &mut Formatter<'_>, bytes: &[u8; N]) -> fmt::Result {
-            for byte in bytes {
-                write!(f, "{byte:02X}")?;
-            }
-
-            Ok(())
+            write!(f, "{}", hex::encode_upper(bytes))
         }
 
         match self {

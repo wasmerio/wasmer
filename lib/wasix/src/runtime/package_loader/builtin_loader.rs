@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    fmt::Write as _,
     io::{ErrorKind, Write as _},
     path::PathBuf,
     sync::{Arc, RwLock},
@@ -572,14 +571,11 @@ impl FileSystemCache {
     }
 
     fn path(&self, hash: &WebcHash) -> PathBuf {
-        let hash = hash.as_bytes();
-        let mut filename = String::with_capacity(hash.len() * 2);
-        for b in hash {
-            write!(filename, "{b:02x}").unwrap();
-        }
-        filename.push_str(Self::FILE_SUFFIX);
-
-        self.cache_dir.join(filename)
+        self.cache_dir.join(format!(
+            "{}{}",
+            hex::encode(hash.as_bytes()),
+            Self::FILE_SUFFIX
+        ))
     }
 
     /// Scan all the cached webc files and invoke the callback for each.
