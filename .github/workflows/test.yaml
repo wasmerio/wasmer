@@ -122,6 +122,21 @@ jobs:
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Cache
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
+        with:
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-js
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: make test-js
         run: |
           make test-js
@@ -151,6 +166,21 @@ jobs:
           echo "LLVM_SYS_211_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Cache
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
+        with:
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-wasi-fyi
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: make test-wasi-fyi
         run: |
           make test-wasi-fyi
@@ -173,18 +203,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git make lld curl
-
       - name: Install wasixcc
         uses: wasix-org/wasixcc@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          sysroot-tag: v2025-12-22.1
 
       - name: Tool versions
         run: |
           echo "wasixcc version: $(wasixcc --version)"
           echo "llvm version: $(wasixcc -- --version)"
           echo "wasm-opt version: $(wasm-opt --version)"
-
       - name: Install LLVM 21 (for building Wasmer)
         run: |
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
@@ -197,7 +226,21 @@ jobs:
           echo "LLVM_SYS_211_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-
+      - name: Cache
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
+        with:
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-wasix
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: make test-wasix
         run: |
           WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
@@ -218,10 +261,23 @@ jobs:
           node-version: 16
       - name: Install libjavascriptcoregtk-4.0-dev
         run: sudo apt update && sudo apt install -y libjavascriptcoregtk-4.0-dev
-
+      - name: Cache
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
+        with:
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-jsc
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: lint jsc
         run: make lint-jsc
-
       - name: make build-wasmer-jsc
         run: make build-wasmer-jsc
 
@@ -351,67 +407,6 @@ jobs:
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
 
-  build_linux_aarch64:
-    name: ${{ matrix.build-what.name }} - linux-aarch64
-    runs-on: ubuntu-22.04-arm
-    strategy:
-      fail-fast: false
-      matrix:
-        build-what:
-          [
-            {
-              key: capi,
-              build-cmd: "make build-capi && make package-capi",
-              name: "C-API",
-            },
-            {
-              key: wasmer,
-              build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Wasmer-cli",
-            },
-          ]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.MSRV }}
-          target: aarch64-unknown-linux-gnu
-      - name: Build cross image
-        run: |
-          docker build -t wasmer/aarch64 ${GITHUB_WORKSPACE}/.github/cross-linux-aarch64/
-        env:
-          CROSS_DOCKER_IN_DOCKER: true
-      - name: ${{ matrix.build-what.key }}
-        run: |
-          ${{ matrix.build-what.build-cmd }}
-        env:
-          # CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
-          # CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: aarch64-unknown-linux-gnu
-          #PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          #PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-      - name: Dist
-        if: ${{ matrix.build-what.key == 'capi' }}
-        run: |
-          make distribution
-        env:
-          #CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
-          #CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: aarch64-unknown-linux-gnu
-          #PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          #PKG_CONFIG_ALLOW_CROSS: true
-          TARGET: aarch64-unknown-linux-gnu
-          TARGET_DIR: target/aarch64-unknown-linux-gnu/release
-      - name: Upload Artifacts
-        if: ${{ matrix.build-what.key == 'capi' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: capi-linux-aarch64
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-
   build_linux_riscv64:
     name: ${{ matrix.build-what.name }} - linux-riscv64
     runs-on: ubuntu-22.04
@@ -428,7 +423,7 @@ jobs:
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Wasmer-cli",
+              name: "Wasmer-cli binary",
             },
           ]
     steps:
@@ -493,7 +488,7 @@ jobs:
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Wasmer-cli",
+              name: "Wasmer-cli binary",
             },
             {
               key: "check",
@@ -516,6 +511,14 @@ jobs:
               # Unfortunately, building a shared lib of the c_api with the v8
               # backend does not work, due to unsupported relocations to hidden
               # symbols in wee8.
+              supports_v8: false,
+            },
+            {
+              build: linux-arm64,
+              os: ubuntu-22.04-arm,
+              target: aarch64-unknown-linux-gnu,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz",
               supports_v8: false,
             },
             {
@@ -558,9 +561,6 @@ jobs:
             },
           ]
     container: ${{ matrix.metadata.container }}
-    env:
-      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
-      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v6
       - name: Set up Depot CLI
@@ -663,15 +663,6 @@ jobs:
           target = "${{ matrix.metadata.target }}"
           EOF
         if: matrix.metadata.target
-      - name: which cargo
-        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
-        run: which cargo
-      - name: Set cargo env
-        run: echo "CARGO_ROOT_DIR=$(dirname $(dirname $( which cargo )))" >> $GITHUB_ENV
-      - name: List root dir
-        shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
-        run: ls -R $CARGO_ROOT_DIR
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
@@ -679,7 +670,6 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-            $CARGO_ROOT_DIR/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -798,6 +788,13 @@ jobs:
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz",
             },
             {
+              build: linux-arm64,
+              os: ubuntu-22.04-arm,
+              target: aarch64-unknown-linux-gnu,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz",
+            },
+            {
               build: macos-x64,
               os: macos-15-intel,
               target: x86_64-apple-darwin,
@@ -827,9 +824,6 @@ jobs:
             },
           ]
     container: ${{ matrix.metadata.container }}
-    env:
-      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
-      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v6
       - name: Show disk capacity
@@ -878,6 +872,7 @@ jobs:
         uses: wasix-org/wasixcc@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          sysroot-tag: v2025-12-22.1
 
       - name: Install LLVM
         shell: bash
@@ -938,7 +933,7 @@ jobs:
   test_integration_cli:
     name: CLI tests - ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
-    needs: [build, build_linux_aarch64, build_linux_riscv64]
+    needs: [build, build_linux_riscv64]
     strategy:
       fail-fast: false
       matrix:
@@ -965,9 +960,6 @@ jobs:
             exe: ".exe"
 
     container: ${{ matrix.container }}
-    env:
-      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
-      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v6
       - uses: goto-bus-stop/setup-zig@v2
@@ -1015,7 +1007,7 @@ jobs:
           mkdir -p package/cache
       - uses: actions/download-artifact@v4
         with:
-          name: capi-linux-aarch64
+          name: capi-linux-arm64
           path: package/cache/wasmercache1
       - uses: actions/download-artifact@v4
         with:
@@ -1041,7 +1033,7 @@ jobs:
           ls package/cache/wasmercache3
           ls package/cache/wasmercache4
           ls package/cache/wasmercache5
-          cp package/cache/wasmercache1/wasmer.tar.gz package/cache/wasmer-linux-aarch64.tar.gz
+          cp package/cache/wasmercache1/build-capi.tar.gz package/cache/wasmer-linux-arm64.tar.gz
           cp package/cache/wasmercache2/build-capi.tar.gz package/cache/wasmer-windows-gnu64.tar.gz
           cp package/cache/wasmercache3/build-capi.tar.gz package/cache/wasmer-darwin-arm64.tar.gz
           cp package/cache/wasmercache4/build-capi.tar.gz package/cache/wasmer-darwin-amd64.tar.gz

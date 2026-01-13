@@ -701,15 +701,13 @@ impl WasiFs {
     }
 
     /// Converts a relative path into an absolute path
-    pub(crate) fn relative_path_to_absolute(&self, mut path: String) -> String {
-        if !path.starts_with("/") {
-            let current_dir = self.current_dir.lock().unwrap();
-            path = format!("{}{}", current_dir.as_str(), &path[1..]);
-            if path.contains("//") {
-                path = path.replace("//", "/");
-            }
+    pub(crate) fn relative_path_to_absolute(&self, path: String) -> String {
+        if path.starts_with('/') {
+            return path;
         }
-        path
+
+        let current_dir = self.current_dir.lock().unwrap();
+        format!("{}/{}", current_dir.trim_end_matches('/'), path)
     }
 
     /// Private helper function to init the filesystem, called in `new` and
@@ -1579,10 +1577,8 @@ impl WasiFs {
         Prestat {
             pr_type: Preopentype::Dir,
             u: PrestatEnum::Dir {
-                // REVIEW:
-                // no need for +1, because there is no 0 end-of-string marker
-                // john: removing the +1 seems cause regression issues
-                pr_name_len: inode_val.name.read().unwrap().len() as u32 + 1,
+                // WASI spec: pr_name_len is the length of the path string, NOT including null terminator
+                pr_name_len: inode_val.name.read().unwrap().len() as u32,
             }
             .untagged(),
         }
@@ -2376,5 +2372,96 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::StorageFull => Errno::Overflow,
         FsError::Lock | FsError::UnknownError => Errno::Io,
         FsError::Unsupported => Errno::Notsup,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_relative_path_to_absolute() {
+        let inodes = WasiInodes::new();
+        let fs_backing = WasiFsRoot::Sandbox(TmpFileSystem::new());
+        let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
+
+        // Test absolute path (returned as-is, no normalization)
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("/foo/bar".to_string()),
+            "/foo/bar"
+        );
+        assert_eq!(wasi_fs.relative_path_to_absolute("/".to_string()), "/");
+
+        // Absolute paths with special components are not normalized
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("//foo//bar//".to_string()),
+            "//foo//bar//"
+        );
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("/a/b/./c".to_string()),
+            "/a/b/./c"
+        );
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("/a/b/../c".to_string()),
+            "/a/b/../c"
+        );
+
+        // Test relative path with root as current dir
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("foo/bar".to_string()),
+            "/foo/bar"
+        );
+        assert_eq!(wasi_fs.relative_path_to_absolute("foo".to_string()), "/foo");
+
+        // Test with different current directory
+        wasi_fs.set_current_dir("/home/user");
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("file.txt".to_string()),
+            "/home/user/file.txt"
+        );
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("dir/file.txt".to_string()),
+            "/home/user/dir/file.txt"
+        );
+
+        // Test relative paths with . and .. components
+        wasi_fs.set_current_dir("/a/b/c");
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("./file.txt".to_string()),
+            "/a/b/c/./file.txt"
+        );
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("../file.txt".to_string()),
+            "/a/b/c/../file.txt"
+        );
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("../../file.txt".to_string()),
+            "/a/b/c/../../file.txt"
+        );
+
+        // Test edge cases
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute(".".to_string()),
+            "/a/b/c/."
+        );
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("..".to_string()),
+            "/a/b/c/.."
+        );
+        assert_eq!(wasi_fs.relative_path_to_absolute("".to_string()), "/a/b/c/");
+
+        // Test current directory with trailing slash
+        wasi_fs.set_current_dir("/home/user/");
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("file.txt".to_string()),
+            "/home/user/file.txt"
+        );
+
+        // Test current directory without trailing slash
+        wasi_fs.set_current_dir("/home/user");
+        assert_eq!(
+            wasi_fs.relative_path_to_absolute("file.txt".to_string()),
+            "/home/user/file.txt"
+        );
     }
 }

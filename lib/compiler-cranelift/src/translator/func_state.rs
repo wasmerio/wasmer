@@ -17,7 +17,9 @@ use cranelift_codegen::ir::{self, Block, Inst, Value};
 use cranelift_frontend::FunctionBuilder;
 use itertools::Itertools;
 use std::vec::Vec;
-use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult};
+use wasmer_types::{
+    CATCH_ALL_TAG_VALUE, FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult,
+};
 
 /// Information about the presence of an associated `else` for an `if`, or the
 /// lack thereof.
@@ -294,6 +296,7 @@ pub(crate) struct HandlerState {
     clauses: Vec<CatchClause>,
 }
 
+#[derive(Debug)]
 pub(crate) struct LandingPad {
     pub(crate) block: Block,
     pub(crate) clauses: Vec<CatchClause>,
@@ -331,8 +334,11 @@ impl HandlerState {
     pub fn unique_clauses(&self) -> Vec<CatchClause> {
         self.clauses
             .iter()
-            .unique_by(|c| c.wasm_tag)
+            // Starting with the inner-most try_table catch clauses.
             .rev()
+            .unique_by(|c| c.tag_value)
+            // We can ignore every tag followed by the CatchAll.
+            .take_while_inclusive(|c| c.tag_value != CATCH_ALL_TAG_VALUE)
             .cloned()
             .collect()
     }

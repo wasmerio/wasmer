@@ -14,11 +14,11 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0", default-features = false, features = [
+wasmer-compiler = { path = "../compiler", version = "=7.0.0-alpha.1", default-features = false, features = [
 	"translator",
 	"compiler",
 ] }
-wasmer-types = { path = "../types", version = "=6.1.0", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=7.0.0-alpha.1", default-features = false, features = [
 	"std",
 ] }
 
@@ -39,6 +39,7 @@ gimli = { workspace = true, optional = true }
 smallvec.workspace = true
 target-lexicon.workspace = true
 leb128.workspace = true
+indexmap.workspace = true
 
 [dev-dependencies]
 cranelift-codegen = { workspace = true, features = ["all-arch"] }

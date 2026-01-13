@@ -15,6 +15,8 @@ use std::{
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, ModuleInfo, entity::PrimaryMap};
 use wasmer_vm::{FunctionBodyPtr, SectionBodyPtr, libcalls::function_pointer};
 
+const LOW6_BITS_MASK: u8 = 0x3f;
+
 #[allow(clippy::too_many_arguments)]
 fn apply_relocation(
     body: usize,
@@ -51,7 +53,7 @@ fn apply_relocation(
                 if matches!(
                     r.kind(),
                     RelocationKind::Abs8
-                        | RelocationKind::X86PCRel8
+                        | RelocationKind::PCRel8
                         | RelocationKind::MachoArm64RelocUnsigned
                         | RelocationKind::MachoX86_64RelocUnsigned
                 ) {
@@ -74,15 +76,35 @@ fn apply_relocation(
     let mut macho_aarch64_subtractor_addresses = HashSet::new();
 
     match r.kind() {
-        RelocationKind::Abs8 => unsafe {
-            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            write_unaligned(reloc_address as *mut u64, reloc_delta);
+        RelocationKind::Abs6Bits => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u8) & !LOW6_BITS_MASK;
+            write_unaligned(
+                reloc_address as *mut u8,
+                value | ((reloc_abs as u8) & LOW6_BITS_MASK),
+            );
         },
-        RelocationKind::X86PCRel4 => unsafe {
+        RelocationKind::Abs => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            write_unaligned(reloc_address as *mut u8, reloc_abs as u8);
+        },
+        RelocationKind::Abs2 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            write_unaligned(reloc_address as *mut u16, reloc_abs as u16);
+        },
+        RelocationKind::Abs4 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            write_unaligned(reloc_address as *mut u32, reloc_abs as u32);
+        },
+        RelocationKind::Abs8 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            write_unaligned(reloc_address as *mut u64, reloc_abs);
+        },
+        RelocationKind::PCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
-        RelocationKind::X86PCRel8 => unsafe {
+        RelocationKind::PCRel8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
@@ -402,7 +424,75 @@ fn apply_relocation(
 
             write_unaligned(fixup_ptr as *mut u32, fixed_instr);
         },
-        kind => panic!("Relocation kind unsupported in the current architecture: {kind}"),
+        RelocationKind::Add => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u8);
+            write_unaligned(
+                reloc_address as *mut u8,
+                value.wrapping_add(reloc_abs as u8),
+            );
+        },
+        RelocationKind::Add2 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u16);
+            write_unaligned(
+                reloc_address as *mut u16,
+                value.wrapping_add(reloc_abs as u16),
+            );
+        },
+        RelocationKind::Add4 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u32);
+            write_unaligned(
+                reloc_address as *mut u32,
+                value.wrapping_add(reloc_abs as u32),
+            );
+        },
+        RelocationKind::Add8 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u64);
+            write_unaligned(reloc_address as *mut u64, value.wrapping_add(reloc_abs));
+        },
+        RelocationKind::Sub6Bits => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u8);
+            let upper_2_bits = value & !LOW6_BITS_MASK;
+            write_unaligned(
+                reloc_address as *mut u8,
+                (value.wrapping_sub((reloc_abs as u8) & LOW6_BITS_MASK) & LOW6_BITS_MASK)
+                    | upper_2_bits,
+            );
+        },
+        RelocationKind::Sub => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u8);
+            write_unaligned(
+                reloc_address as *mut u8,
+                value.wrapping_sub(reloc_abs as u8),
+            );
+        },
+        RelocationKind::Sub2 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u16);
+            write_unaligned(
+                reloc_address as *mut u16,
+                value.wrapping_sub(reloc_abs as u16),
+            );
+        },
+        RelocationKind::Sub4 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u32);
+            write_unaligned(
+                reloc_address as *mut u32,
+                value.wrapping_sub(reloc_abs as u32),
+            );
+        },
+        RelocationKind::Sub8 => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let value = read_unaligned(reloc_address as *mut u64);
+            write_unaligned(reloc_address as *mut u64, value.wrapping_sub(reloc_abs));
+        },
+        kind => panic!("Relocation kind unsupported in the current architecture: {kind:?}"),
     }
 }
 
