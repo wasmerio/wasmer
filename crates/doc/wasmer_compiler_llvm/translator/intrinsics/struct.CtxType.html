@@ -17,6 +17,7 @@
     cache_builder: &amp;'a Builder&lt;'ctx&gt;,
     abi: &amp;'a dyn <a class="trait" href="../../abi/trait.Abi.html" title="trait wasmer_compiler_llvm::abi::Abi">Abi</a>,
     config: &amp;'a <a class="struct" href="../../struct.LLVM.html" title="struct wasmer_compiler_llvm::LLVM">LLVM</a>,
+    pointer_width: <a class="primitive" href="https://doc.rust-lang.org/1.90.0/std/primitive.u8.html">u8</a>,
 ) -&gt; <a class="struct" href="struct.CtxType.html" title="struct wasmer_compiler_llvm::translator::intrinsics::CtxType">CtxType</a>&lt;'ctx, 'a&gt;</h4></section><section id="method.basic" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_llvm/translator/intrinsics.rs.html#1311-1313">Source</a><h4 class="code-header">pub fn <a href="#method.basic" class="fn">basic</a>(&amp;self) -&gt; BasicValueEnum&lt;'ctx&gt;</h4></section><section id="method.memory" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_llvm/translator/intrinsics.rs.html#1315-1415">Source</a><h4 class="code-header">pub fn <a href="#method.memory" class="fn">memory</a>(
     &amp;mut self,
     index: MemoryIndex,

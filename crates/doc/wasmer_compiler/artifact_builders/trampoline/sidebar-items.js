@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["AARCH64_TRAMPOLINE","LOONGARCH64_TRAMPOLINE","RISCV64_TRAMPOLINE","X86_64_TRAMPOLINE"],"fn":["get_libcall_trampoline","libcall_trampoline_len","make_libcall_trampolines","make_trampoline"]};
+window.SIDEBAR_ITEMS = {"constant":["AARCH64_TRAMPOLINE","LOONGARCH64_TRAMPOLINE","RISCV32_TRAMPOLINE","RISCV64_TRAMPOLINE","X86_64_TRAMPOLINE"],"fn":["get_libcall_trampoline","libcall_trampoline_len","make_libcall_trampolines","make_trampoline"]};
