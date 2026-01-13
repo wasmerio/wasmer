@@ -146,7 +146,7 @@ virtual-mio = { version = "0.700.0-alpha.1", path = "../virtual-io" }
 
 webc.workspace = true
 wasmer-backend-api = { version = "=0.700.0-alpha.1", path = "../backend-api" }
-wasmer-sdk = { path = "../sdk" }
+wasmer-sdk = { version = "=7.0.0-alpha.1", path = "../sdk" }
 wasmer-config = { version = "0.700.0-alpha.1", path = "../config" }
 
 shared-buffer = { workspace = true, optional = true }
