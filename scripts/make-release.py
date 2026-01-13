@@ -213,7 +213,7 @@ def make_release(version):
         proc.wait()
 
         proc = subprocess.Popen(
-            ["git", "pull", "origin", "release-" + RELEASE_VERSION, "--depth", "1"],
+            ["git", "pull", "origin", "release-" + RELEASE_VERSION],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
