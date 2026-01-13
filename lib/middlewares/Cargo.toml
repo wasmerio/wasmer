@@ -15,6 +15,7 @@ version.workspace = true
 [dependencies]
 wasmer = { path = "../api", version = "=7.0.0-alpha.2", default-features = false, features = [
 	"compiler",
+	"singlepass",
 	"wasmparser",
 ] }
 wasmer-types = { path = "../types", version = "=7.0.0-alpha.2" }
@@ -22,7 +23,7 @@ wasmer-vm = { path = "../vm", version = "=7.0.0-alpha.2" }
 
 [dev-dependencies]
 wasmer = { path = "../api", version = "=7.0.0-alpha.2", features = [
-	"compiler",
+	"compiler",	
 	"wasmparser",
 ] }
 
