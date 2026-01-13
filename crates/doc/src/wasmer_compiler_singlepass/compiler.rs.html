@@ -55,355 +55,382 @@
 <a href=#55 id=55 data-nosnippet>55</a>    </span><span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Singlepass {
 <a href=#56 id=56 data-nosnippet>56</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config
 <a href=#57 id=57 data-nosnippet>57</a>    }
-<a href=#58 id=58 data-nosnippet>58</a>}
-<a href=#59 id=59 data-nosnippet>59</a>
-<a href=#60 id=60 data-nosnippet>60</a><span class="kw">impl </span>Compiler <span class="kw">for </span>SinglepassCompiler {
-<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-<a href=#62 id=62 data-nosnippet>62</a>        <span class="string">"singlepass"
-<a href=#63 id=63 data-nosnippet>63</a>    </span>}
-<a href=#64 id=64 data-nosnippet>64</a>
-<a href=#65 id=65 data-nosnippet>65</a>    <span class="kw">fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-<a href=#66 id=66 data-nosnippet>66</a>        String::from(<span class="string">"singlepass"</span>)
-<a href=#67 id=67 data-nosnippet>67</a>    }
-<a href=#68 id=68 data-nosnippet>68</a>
-<a href=#69 id=69 data-nosnippet>69</a>    <span class="doccomment">/// Get the middlewares for this compiler
-<a href=#70 id=70 data-nosnippet>70</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
-<a href=#71 id=71 data-nosnippet>71</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
-<a href=#72 id=72 data-nosnippet>72</a>    }
-<a href=#73 id=73 data-nosnippet>73</a>
-<a href=#74 id=74 data-nosnippet>74</a>    <span class="doccomment">/// Compile the module using Singlepass, producing a compilation result with
-<a href=#75 id=75 data-nosnippet>75</a>    /// associated relocations.
-<a href=#76 id=76 data-nosnippet>76</a>    </span><span class="kw">fn </span>compile_module(
-<a href=#77 id=77 data-nosnippet>77</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#78 id=78 data-nosnippet>78</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#79 id=79 data-nosnippet>79</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
-<a href=#80 id=80 data-nosnippet>80</a>        _module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#81 id=81 data-nosnippet>81</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#82 id=82 data-nosnippet>82</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">let </span>arch = target.triple().architecture;
-<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">match </span>arch {
-<a href=#85 id=85 data-nosnippet>85</a>            Architecture::X86_64 =&gt; {}
-<a href=#86 id=86 data-nosnippet>86</a>            Architecture::Aarch64(<span class="kw">_</span>) =&gt; {}
-<a href=#87 id=87 data-nosnippet>87</a>            <span class="kw">_ </span>=&gt; {
-<a href=#88 id=88 data-nosnippet>88</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
-<a href=#89 id=89 data-nosnippet>89</a>                    target.triple().architecture.to_string(),
-<a href=#90 id=90 data-nosnippet>90</a>                ));
-<a href=#91 id=91 data-nosnippet>91</a>            }
-<a href=#92 id=92 data-nosnippet>92</a>        };
-<a href=#93 id=93 data-nosnippet>93</a>
-<a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">let </span>calling_convention = <span class="kw">match </span>target.triple().default_calling_convention() {
-<a href=#95 id=95 data-nosnippet>95</a>            <span class="prelude-val">Ok</span>(CallingConvention::WindowsFastcall) =&gt; CallingConvention::WindowsFastcall,
-<a href=#96 id=96 data-nosnippet>96</a>            <span class="prelude-val">Ok</span>(CallingConvention::SystemV) =&gt; CallingConvention::SystemV,
-<a href=#97 id=97 data-nosnippet>97</a>            <span class="prelude-val">Ok</span>(CallingConvention::AppleAarch64) =&gt; CallingConvention::AppleAarch64,
-<a href=#98 id=98 data-nosnippet>98</a>            <span class="kw">_ </span>=&gt; {
-<a href=#99 id=99 data-nosnippet>99</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
-<a href=#100 id=100 data-nosnippet>100</a>                    <span class="string">"Unsupported Calling convention for Singlepass compiler"</span>.to_string(),
-<a href=#101 id=101 data-nosnippet>101</a>                ));
-<a href=#102 id=102 data-nosnippet>102</a>            }
-<a href=#103 id=103 data-nosnippet>103</a>        };
-<a href=#104 id=104 data-nosnippet>104</a>
-<a href=#105 id=105 data-nosnippet>105</a>        <span class="comment">// Generate the frametable
-<a href=#106 id=106 data-nosnippet>106</a>        </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#107 id=107 data-nosnippet>107</a>        </span><span class="kw">let </span>dwarf_frametable = <span class="kw">if </span>function_body_inputs.is_empty() {
-<a href=#108 id=108 data-nosnippet>108</a>            <span class="comment">// If we have no function body inputs, we don't need to
-<a href=#109 id=109 data-nosnippet>109</a>            // construct the `FrameTable`. Constructing it, with empty
-<a href=#110 id=110 data-nosnippet>110</a>            // FDEs will cause some issues in Linux.
-<a href=#111 id=111 data-nosnippet>111</a>            </span><span class="prelude-val">None
-<a href=#112 id=112 data-nosnippet>112</a>        </span>} <span class="kw">else </span>{
-<a href=#113 id=113 data-nosnippet>113</a>            <span class="kw">match </span>target.triple().default_calling_convention() {
-<a href=#114 id=114 data-nosnippet>114</a>                <span class="prelude-val">Ok</span>(CallingConvention::SystemV) =&gt; {
-<a href=#115 id=115 data-nosnippet>115</a>                    <span class="kw">match </span>create_systemv_cie(target.triple().architecture) {
-<a href=#116 id=116 data-nosnippet>116</a>                        <span class="prelude-val">Some</span>(cie) =&gt; {
-<a href=#117 id=117 data-nosnippet>117</a>                            <span class="kw">let </span><span class="kw-2">mut </span>dwarf_frametable = FrameTable::default();
-<a href=#118 id=118 data-nosnippet>118</a>                            <span class="kw">let </span>cie_id = dwarf_frametable.add_cie(cie);
-<a href=#119 id=119 data-nosnippet>119</a>                            <span class="prelude-val">Some</span>((dwarf_frametable, cie_id))
-<a href=#120 id=120 data-nosnippet>120</a>                        }
-<a href=#121 id=121 data-nosnippet>121</a>                        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#122 id=122 data-nosnippet>122</a>                    }
-<a href=#123 id=123 data-nosnippet>123</a>                }
-<a href=#124 id=124 data-nosnippet>124</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#125 id=125 data-nosnippet>125</a>            }
-<a href=#126 id=126 data-nosnippet>126</a>        };
-<a href=#127 id=127 data-nosnippet>127</a>
-<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
-<a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
-<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">let </span>vmoffsets = VMOffsets::new(<span class="number">8</span>, <span class="kw-2">&amp;</span>compile_info.module);
-<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
-<a href=#132 id=132 data-nosnippet>132</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
-<a href=#133 id=133 data-nosnippet>133</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>custom_sections: PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt; = (<span class="number">0</span>..module.num_imported_functions)
-<a href=#134 id=134 data-nosnippet>134</a>            .map(FunctionIndex::new)
-<a href=#135 id=135 data-nosnippet>135</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#136 id=136 data-nosnippet>136</a>            .into_par_iter_if_rayon()
-<a href=#137 id=137 data-nosnippet>137</a>            .map(|i| {
-<a href=#138 id=138 data-nosnippet>138</a>                gen_import_call_trampoline(
-<a href=#139 id=139 data-nosnippet>139</a>                    <span class="kw-2">&amp;</span>vmoffsets,
-<a href=#140 id=140 data-nosnippet>140</a>                    i,
-<a href=#141 id=141 data-nosnippet>141</a>                    <span class="kw-2">&amp;</span>module.signatures[module.functions[i]],
-<a href=#142 id=142 data-nosnippet>142</a>                    target,
-<a href=#143 id=143 data-nosnippet>143</a>                    calling_convention,
-<a href=#144 id=144 data-nosnippet>144</a>                )
-<a href=#145 id=145 data-nosnippet>145</a>            })
-<a href=#146 id=146 data-nosnippet>146</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
-<a href=#147 id=147 data-nosnippet>147</a>            </span>.into_iter()
-<a href=#148 id=148 data-nosnippet>148</a>            .collect();
-<a href=#149 id=149 data-nosnippet>149</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_variables))]
-<a href=#150 id=150 data-nosnippet>150</a>        </span><span class="kw">let </span>(functions, fdes): (Vec&lt;CompiledFunction&gt;, Vec&lt;<span class="kw">_</span>&gt;) = function_body_inputs
-<a href=#151 id=151 data-nosnippet>151</a>            .iter()
-<a href=#152 id=152 data-nosnippet>152</a>            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;)&gt;&gt;()
-<a href=#153 id=153 data-nosnippet>153</a>            .into_par_iter_if_rayon()
-<a href=#154 id=154 data-nosnippet>154</a>            .map(|(i, input)| {
-<a href=#155 id=155 data-nosnippet>155</a>                <span class="kw">let </span>middleware_chain = <span class="self">self
-<a href=#156 id=156 data-nosnippet>156</a>                    </span>.config
-<a href=#157 id=157 data-nosnippet>157</a>                    .middlewares
-<a href=#158 id=158 data-nosnippet>158</a>                    .generate_function_middleware_chain(i);
-<a href=#159 id=159 data-nosnippet>159</a>                <span class="kw">let </span><span class="kw-2">mut </span>reader =
-<a href=#160 id=160 data-nosnippet>160</a>                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
-<a href=#161 id=161 data-nosnippet>161</a>                reader.set_middleware_chain(middleware_chain);
-<a href=#162 id=162 data-nosnippet>162</a>
-<a href=#163 id=163 data-nosnippet>163</a>                <span class="comment">// This local list excludes arguments.
-<a href=#164 id=164 data-nosnippet>164</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>locals = <span class="macro">vec!</span>[];
-<a href=#165 id=165 data-nosnippet>165</a>                <span class="kw">let </span>num_locals = reader.read_local_count()<span class="question-mark">?</span>;
-<a href=#166 id=166 data-nosnippet>166</a>                <span class="kw">for _ in </span><span class="number">0</span>..num_locals {
-<a href=#167 id=167 data-nosnippet>167</a>                    <span class="kw">let </span>(count, ty) = reader.read_local_decl()<span class="question-mark">?</span>;
-<a href=#168 id=168 data-nosnippet>168</a>                    <span class="kw">for _ in </span><span class="number">0</span>..count {
-<a href=#169 id=169 data-nosnippet>169</a>                        locals.push(ty);
-<a href=#170 id=170 data-nosnippet>170</a>                    }
-<a href=#171 id=171 data-nosnippet>171</a>                }
-<a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a>                <span class="kw">match </span>arch {
-<a href=#174 id=174 data-nosnippet>174</a>                    Architecture::X86_64 =&gt; {
-<a href=#175 id=175 data-nosnippet>175</a>                        <span class="kw">let </span>machine = MachineX86_64::new(<span class="prelude-val">Some</span>(target.clone()))<span class="question-mark">?</span>;
-<a href=#176 id=176 data-nosnippet>176</a>                        <span class="kw">let </span><span class="kw-2">mut </span>generator = FuncGen::new(
-<a href=#177 id=177 data-nosnippet>177</a>                            module,
-<a href=#178 id=178 data-nosnippet>178</a>                            <span class="kw-2">&amp;</span><span class="self">self</span>.config,
-<a href=#179 id=179 data-nosnippet>179</a>                            <span class="kw-2">&amp;</span>vmoffsets,
-<a href=#180 id=180 data-nosnippet>180</a>                            memory_styles,
-<a href=#181 id=181 data-nosnippet>181</a>                            table_styles,
-<a href=#182 id=182 data-nosnippet>182</a>                            i,
-<a href=#183 id=183 data-nosnippet>183</a>                            <span class="kw-2">&amp;</span>locals,
-<a href=#184 id=184 data-nosnippet>184</a>                            machine,
-<a href=#185 id=185 data-nosnippet>185</a>                            calling_convention,
-<a href=#186 id=186 data-nosnippet>186</a>                        )<span class="question-mark">?</span>;
-<a href=#187 id=187 data-nosnippet>187</a>                        <span class="kw">while </span>generator.has_control_frames() {
-<a href=#188 id=188 data-nosnippet>188</a>                            generator.set_srcloc(reader.original_position() <span class="kw">as </span>u32);
-<a href=#189 id=189 data-nosnippet>189</a>                            <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
-<a href=#190 id=190 data-nosnippet>190</a>                            generator.feed_operator(op)<span class="question-mark">?</span>;
-<a href=#191 id=191 data-nosnippet>191</a>                        }
-<a href=#192 id=192 data-nosnippet>192</a>
-<a href=#193 id=193 data-nosnippet>193</a>                        generator.finalize(input, arch)
-<a href=#194 id=194 data-nosnippet>194</a>                    }
-<a href=#195 id=195 data-nosnippet>195</a>                    Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
-<a href=#196 id=196 data-nosnippet>196</a>                        <span class="kw">let </span>machine = MachineARM64::new(<span class="prelude-val">Some</span>(target.clone()));
-<a href=#197 id=197 data-nosnippet>197</a>                        <span class="kw">let </span><span class="kw-2">mut </span>generator = FuncGen::new(
-<a href=#198 id=198 data-nosnippet>198</a>                            module,
-<a href=#199 id=199 data-nosnippet>199</a>                            <span class="kw-2">&amp;</span><span class="self">self</span>.config,
-<a href=#200 id=200 data-nosnippet>200</a>                            <span class="kw-2">&amp;</span>vmoffsets,
-<a href=#201 id=201 data-nosnippet>201</a>                            memory_styles,
-<a href=#202 id=202 data-nosnippet>202</a>                            table_styles,
-<a href=#203 id=203 data-nosnippet>203</a>                            i,
-<a href=#204 id=204 data-nosnippet>204</a>                            <span class="kw-2">&amp;</span>locals,
-<a href=#205 id=205 data-nosnippet>205</a>                            machine,
-<a href=#206 id=206 data-nosnippet>206</a>                            calling_convention,
-<a href=#207 id=207 data-nosnippet>207</a>                        )<span class="question-mark">?</span>;
-<a href=#208 id=208 data-nosnippet>208</a>                        <span class="kw">while </span>generator.has_control_frames() {
-<a href=#209 id=209 data-nosnippet>209</a>                            generator.set_srcloc(reader.original_position() <span class="kw">as </span>u32);
-<a href=#210 id=210 data-nosnippet>210</a>                            <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
-<a href=#211 id=211 data-nosnippet>211</a>                            generator.feed_operator(op)<span class="question-mark">?</span>;
-<a href=#212 id=212 data-nosnippet>212</a>                        }
-<a href=#213 id=213 data-nosnippet>213</a>
-<a href=#214 id=214 data-nosnippet>214</a>                        generator.finalize(input, arch)
-<a href=#215 id=215 data-nosnippet>215</a>                    }
-<a href=#216 id=216 data-nosnippet>216</a>                    <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
-<a href=#217 id=217 data-nosnippet>217</a>                }
-<a href=#218 id=218 data-nosnippet>218</a>            })
-<a href=#219 id=219 data-nosnippet>219</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
-<a href=#220 id=220 data-nosnippet>220</a>            </span>.into_iter()
-<a href=#221 id=221 data-nosnippet>221</a>            .unzip();
-<a href=#222 id=222 data-nosnippet>222</a>
-<a href=#223 id=223 data-nosnippet>223</a>        <span class="kw">let </span>function_call_trampolines = module
-<a href=#224 id=224 data-nosnippet>224</a>            .signatures
-<a href=#225 id=225 data-nosnippet>225</a>            .values()
-<a href=#226 id=226 data-nosnippet>226</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#227 id=227 data-nosnippet>227</a>            .into_par_iter_if_rayon()
-<a href=#228 id=228 data-nosnippet>228</a>            .map(|func_type| -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
-<a href=#229 id=229 data-nosnippet>229</a>                <span class="kw">let </span>body = gen_std_trampoline(func_type, target, calling_convention)<span class="question-mark">?</span>;
-<a href=#230 id=230 data-nosnippet>230</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
-<a href=#231 id=231 data-nosnippet>231</a>                    callbacks.obj_memory_buffer(
-<a href=#232 id=232 data-nosnippet>232</a>                        <span class="kw-2">&amp;</span>CompiledKind::FunctionCallTrampoline(func_type.clone()),
-<a href=#233 id=233 data-nosnippet>233</a>                        <span class="kw-2">&amp;</span>body.body,
-<a href=#234 id=234 data-nosnippet>234</a>                    );
-<a href=#235 id=235 data-nosnippet>235</a>                    callbacks.asm_memory_buffer(
-<a href=#236 id=236 data-nosnippet>236</a>                        <span class="kw-2">&amp;</span>CompiledKind::FunctionCallTrampoline(func_type.clone()),
-<a href=#237 id=237 data-nosnippet>237</a>                        arch,
-<a href=#238 id=238 data-nosnippet>238</a>                        <span class="kw-2">&amp;</span>body.body,
-<a href=#239 id=239 data-nosnippet>239</a>                        HashMap::new(),
-<a href=#240 id=240 data-nosnippet>240</a>                    )<span class="question-mark">?</span>;
-<a href=#241 id=241 data-nosnippet>241</a>                }
-<a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a>                <span class="prelude-val">Ok</span>(body)
-<a href=#244 id=244 data-nosnippet>244</a>            })
-<a href=#245 id=245 data-nosnippet>245</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
-<a href=#246 id=246 data-nosnippet>246</a>            </span>.into_iter()
-<a href=#247 id=247 data-nosnippet>247</a>            .collect::&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
-<a href=#248 id=248 data-nosnippet>248</a>
-<a href=#249 id=249 data-nosnippet>249</a>        <span class="kw">let </span>dynamic_function_trampolines = module
-<a href=#250 id=250 data-nosnippet>250</a>            .imported_function_types()
-<a href=#251 id=251 data-nosnippet>251</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#252 id=252 data-nosnippet>252</a>            .into_par_iter_if_rayon()
-<a href=#253 id=253 data-nosnippet>253</a>            .map(|func_type| -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
-<a href=#254 id=254 data-nosnippet>254</a>                <span class="kw">let </span>body = gen_std_dynamic_import_trampoline(
-<a href=#255 id=255 data-nosnippet>255</a>                    <span class="kw-2">&amp;</span>vmoffsets,
-<a href=#256 id=256 data-nosnippet>256</a>                    <span class="kw-2">&amp;</span>func_type,
-<a href=#257 id=257 data-nosnippet>257</a>                    target,
-<a href=#258 id=258 data-nosnippet>258</a>                    calling_convention,
-<a href=#259 id=259 data-nosnippet>259</a>                )<span class="question-mark">?</span>;
-<a href=#260 id=260 data-nosnippet>260</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
-<a href=#261 id=261 data-nosnippet>261</a>                    callbacks.obj_memory_buffer(
-<a href=#262 id=262 data-nosnippet>262</a>                        <span class="kw-2">&amp;</span>CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-<a href=#263 id=263 data-nosnippet>263</a>                        <span class="kw-2">&amp;</span>body.body,
-<a href=#264 id=264 data-nosnippet>264</a>                    );
-<a href=#265 id=265 data-nosnippet>265</a>                    callbacks.asm_memory_buffer(
-<a href=#266 id=266 data-nosnippet>266</a>                        <span class="kw-2">&amp;</span>CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-<a href=#267 id=267 data-nosnippet>267</a>                        arch,
-<a href=#268 id=268 data-nosnippet>268</a>                        <span class="kw-2">&amp;</span>body.body,
-<a href=#269 id=269 data-nosnippet>269</a>                        HashMap::new(),
-<a href=#270 id=270 data-nosnippet>270</a>                    )<span class="question-mark">?</span>;
-<a href=#271 id=271 data-nosnippet>271</a>                }
-<a href=#272 id=272 data-nosnippet>272</a>                <span class="prelude-val">Ok</span>(body)
-<a href=#273 id=273 data-nosnippet>273</a>            })
-<a href=#274 id=274 data-nosnippet>274</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
-<a href=#275 id=275 data-nosnippet>275</a>            </span>.into_iter()
-<a href=#276 id=276 data-nosnippet>276</a>            .collect::&lt;PrimaryMap&lt;FunctionIndex, FunctionBody&gt;&gt;();
-<a href=#277 id=277 data-nosnippet>277</a>
-<a href=#278 id=278 data-nosnippet>278</a>        <span class="attr">#[allow(unused_mut)]
-<a href=#279 id=279 data-nosnippet>279</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>unwind_info = UnwindInfo::default();
+<a href=#58 id=58 data-nosnippet>58</a>
+<a href=#59 id=59 data-nosnippet>59</a>    <span class="kw">fn </span>compile_module_internal(
+<a href=#60 id=60 data-nosnippet>60</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#61 id=61 data-nosnippet>61</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#62 id=62 data-nosnippet>62</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#63 id=63 data-nosnippet>63</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#64 id=64 data-nosnippet>64</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
+<a href=#65 id=65 data-nosnippet>65</a>        <span class="kw">let </span>arch = target.triple().architecture;
+<a href=#66 id=66 data-nosnippet>66</a>        <span class="kw">match </span>arch {
+<a href=#67 id=67 data-nosnippet>67</a>            Architecture::X86_64 =&gt; {}
+<a href=#68 id=68 data-nosnippet>68</a>            Architecture::Aarch64(<span class="kw">_</span>) =&gt; {}
+<a href=#69 id=69 data-nosnippet>69</a>            <span class="kw">_ </span>=&gt; {
+<a href=#70 id=70 data-nosnippet>70</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
+<a href=#71 id=71 data-nosnippet>71</a>                    target.triple().architecture.to_string(),
+<a href=#72 id=72 data-nosnippet>72</a>                ));
+<a href=#73 id=73 data-nosnippet>73</a>            }
+<a href=#74 id=74 data-nosnippet>74</a>        };
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">let </span>calling_convention = <span class="kw">match </span>target.triple().default_calling_convention() {
+<a href=#77 id=77 data-nosnippet>77</a>            <span class="prelude-val">Ok</span>(CallingConvention::WindowsFastcall) =&gt; CallingConvention::WindowsFastcall,
+<a href=#78 id=78 data-nosnippet>78</a>            <span class="prelude-val">Ok</span>(CallingConvention::SystemV) =&gt; CallingConvention::SystemV,
+<a href=#79 id=79 data-nosnippet>79</a>            <span class="prelude-val">Ok</span>(CallingConvention::AppleAarch64) =&gt; CallingConvention::AppleAarch64,
+<a href=#80 id=80 data-nosnippet>80</a>            <span class="kw">_ </span>=&gt; {
+<a href=#81 id=81 data-nosnippet>81</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
+<a href=#82 id=82 data-nosnippet>82</a>                    <span class="string">"Unsupported Calling convention for Singlepass compiler"</span>.to_string(),
+<a href=#83 id=83 data-nosnippet>83</a>                ));
+<a href=#84 id=84 data-nosnippet>84</a>            }
+<a href=#85 id=85 data-nosnippet>85</a>        };
+<a href=#86 id=86 data-nosnippet>86</a>
+<a href=#87 id=87 data-nosnippet>87</a>        <span class="comment">// Generate the frametable
+<a href=#88 id=88 data-nosnippet>88</a>        </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#89 id=89 data-nosnippet>89</a>        </span><span class="kw">let </span>dwarf_frametable = <span class="kw">if </span>function_body_inputs.is_empty() {
+<a href=#90 id=90 data-nosnippet>90</a>            <span class="comment">// If we have no function body inputs, we don't need to
+<a href=#91 id=91 data-nosnippet>91</a>            // construct the `FrameTable`. Constructing it, with empty
+<a href=#92 id=92 data-nosnippet>92</a>            // FDEs will cause some issues in Linux.
+<a href=#93 id=93 data-nosnippet>93</a>            </span><span class="prelude-val">None
+<a href=#94 id=94 data-nosnippet>94</a>        </span>} <span class="kw">else </span>{
+<a href=#95 id=95 data-nosnippet>95</a>            <span class="kw">match </span>target.triple().default_calling_convention() {
+<a href=#96 id=96 data-nosnippet>96</a>                <span class="prelude-val">Ok</span>(CallingConvention::SystemV) =&gt; {
+<a href=#97 id=97 data-nosnippet>97</a>                    <span class="kw">match </span>create_systemv_cie(target.triple().architecture) {
+<a href=#98 id=98 data-nosnippet>98</a>                        <span class="prelude-val">Some</span>(cie) =&gt; {
+<a href=#99 id=99 data-nosnippet>99</a>                            <span class="kw">let </span><span class="kw-2">mut </span>dwarf_frametable = FrameTable::default();
+<a href=#100 id=100 data-nosnippet>100</a>                            <span class="kw">let </span>cie_id = dwarf_frametable.add_cie(cie);
+<a href=#101 id=101 data-nosnippet>101</a>                            <span class="prelude-val">Some</span>((dwarf_frametable, cie_id))
+<a href=#102 id=102 data-nosnippet>102</a>                        }
+<a href=#103 id=103 data-nosnippet>103</a>                        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#104 id=104 data-nosnippet>104</a>                    }
+<a href=#105 id=105 data-nosnippet>105</a>                }
+<a href=#106 id=106 data-nosnippet>106</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#107 id=107 data-nosnippet>107</a>            }
+<a href=#108 id=108 data-nosnippet>108</a>        };
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="kw">let </span>vmoffsets = VMOffsets::new(<span class="number">8</span>, <span class="kw-2">&amp;</span>compile_info.module);
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
+<a href=#114 id=114 data-nosnippet>114</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
+<a href=#115 id=115 data-nosnippet>115</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>custom_sections: PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt; = (<span class="number">0</span>..module.num_imported_functions)
+<a href=#116 id=116 data-nosnippet>116</a>            .map(FunctionIndex::new)
+<a href=#117 id=117 data-nosnippet>117</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#118 id=118 data-nosnippet>118</a>            .into_par_iter_if_rayon()
+<a href=#119 id=119 data-nosnippet>119</a>            .map(|i| {
+<a href=#120 id=120 data-nosnippet>120</a>                gen_import_call_trampoline(
+<a href=#121 id=121 data-nosnippet>121</a>                    <span class="kw-2">&amp;</span>vmoffsets,
+<a href=#122 id=122 data-nosnippet>122</a>                    i,
+<a href=#123 id=123 data-nosnippet>123</a>                    <span class="kw-2">&amp;</span>module.signatures[module.functions[i]],
+<a href=#124 id=124 data-nosnippet>124</a>                    target,
+<a href=#125 id=125 data-nosnippet>125</a>                    calling_convention,
+<a href=#126 id=126 data-nosnippet>126</a>                )
+<a href=#127 id=127 data-nosnippet>127</a>            })
+<a href=#128 id=128 data-nosnippet>128</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+<a href=#129 id=129 data-nosnippet>129</a>            </span>.into_iter()
+<a href=#130 id=130 data-nosnippet>130</a>            .collect();
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_variables))]
+<a href=#132 id=132 data-nosnippet>132</a>        </span><span class="kw">let </span>(functions, fdes): (Vec&lt;CompiledFunction&gt;, Vec&lt;<span class="kw">_</span>&gt;) = function_body_inputs
+<a href=#133 id=133 data-nosnippet>133</a>            .iter()
+<a href=#134 id=134 data-nosnippet>134</a>            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;)&gt;&gt;()
+<a href=#135 id=135 data-nosnippet>135</a>            .into_par_iter_if_rayon()
+<a href=#136 id=136 data-nosnippet>136</a>            .map(|(i, input)| {
+<a href=#137 id=137 data-nosnippet>137</a>                <span class="kw">let </span>middleware_chain = <span class="self">self
+<a href=#138 id=138 data-nosnippet>138</a>                    </span>.config
+<a href=#139 id=139 data-nosnippet>139</a>                    .middlewares
+<a href=#140 id=140 data-nosnippet>140</a>                    .generate_function_middleware_chain(i);
+<a href=#141 id=141 data-nosnippet>141</a>                <span class="kw">let </span><span class="kw-2">mut </span>reader =
+<a href=#142 id=142 data-nosnippet>142</a>                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+<a href=#143 id=143 data-nosnippet>143</a>                reader.set_middleware_chain(middleware_chain);
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a>                <span class="comment">// This local list excludes arguments.
+<a href=#146 id=146 data-nosnippet>146</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>locals = <span class="macro">vec!</span>[];
+<a href=#147 id=147 data-nosnippet>147</a>                <span class="kw">let </span>num_locals = reader.read_local_count()<span class="question-mark">?</span>;
+<a href=#148 id=148 data-nosnippet>148</a>                <span class="kw">for _ in </span><span class="number">0</span>..num_locals {
+<a href=#149 id=149 data-nosnippet>149</a>                    <span class="kw">let </span>(count, ty) = reader.read_local_decl()<span class="question-mark">?</span>;
+<a href=#150 id=150 data-nosnippet>150</a>                    <span class="kw">for _ in </span><span class="number">0</span>..count {
+<a href=#151 id=151 data-nosnippet>151</a>                        locals.push(ty);
+<a href=#152 id=152 data-nosnippet>152</a>                    }
+<a href=#153 id=153 data-nosnippet>153</a>                }
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a>                <span class="kw">match </span>arch {
+<a href=#156 id=156 data-nosnippet>156</a>                    Architecture::X86_64 =&gt; {
+<a href=#157 id=157 data-nosnippet>157</a>                        <span class="kw">let </span>machine = MachineX86_64::new(<span class="prelude-val">Some</span>(target.clone()))<span class="question-mark">?</span>;
+<a href=#158 id=158 data-nosnippet>158</a>                        <span class="kw">let </span><span class="kw-2">mut </span>generator = FuncGen::new(
+<a href=#159 id=159 data-nosnippet>159</a>                            module,
+<a href=#160 id=160 data-nosnippet>160</a>                            <span class="kw-2">&amp;</span><span class="self">self</span>.config,
+<a href=#161 id=161 data-nosnippet>161</a>                            <span class="kw-2">&amp;</span>vmoffsets,
+<a href=#162 id=162 data-nosnippet>162</a>                            memory_styles,
+<a href=#163 id=163 data-nosnippet>163</a>                            table_styles,
+<a href=#164 id=164 data-nosnippet>164</a>                            i,
+<a href=#165 id=165 data-nosnippet>165</a>                            <span class="kw-2">&amp;</span>locals,
+<a href=#166 id=166 data-nosnippet>166</a>                            machine,
+<a href=#167 id=167 data-nosnippet>167</a>                            calling_convention,
+<a href=#168 id=168 data-nosnippet>168</a>                        )<span class="question-mark">?</span>;
+<a href=#169 id=169 data-nosnippet>169</a>                        <span class="kw">while </span>generator.has_control_frames() {
+<a href=#170 id=170 data-nosnippet>170</a>                            generator.set_srcloc(reader.original_position() <span class="kw">as </span>u32);
+<a href=#171 id=171 data-nosnippet>171</a>                            <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
+<a href=#172 id=172 data-nosnippet>172</a>                            generator.feed_operator(op)<span class="question-mark">?</span>;
+<a href=#173 id=173 data-nosnippet>173</a>                        }
+<a href=#174 id=174 data-nosnippet>174</a>
+<a href=#175 id=175 data-nosnippet>175</a>                        generator.finalize(input, arch)
+<a href=#176 id=176 data-nosnippet>176</a>                    }
+<a href=#177 id=177 data-nosnippet>177</a>                    Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
+<a href=#178 id=178 data-nosnippet>178</a>                        <span class="kw">let </span>machine = MachineARM64::new(<span class="prelude-val">Some</span>(target.clone()));
+<a href=#179 id=179 data-nosnippet>179</a>                        <span class="kw">let </span><span class="kw-2">mut </span>generator = FuncGen::new(
+<a href=#180 id=180 data-nosnippet>180</a>                            module,
+<a href=#181 id=181 data-nosnippet>181</a>                            <span class="kw-2">&amp;</span><span class="self">self</span>.config,
+<a href=#182 id=182 data-nosnippet>182</a>                            <span class="kw-2">&amp;</span>vmoffsets,
+<a href=#183 id=183 data-nosnippet>183</a>                            memory_styles,
+<a href=#184 id=184 data-nosnippet>184</a>                            table_styles,
+<a href=#185 id=185 data-nosnippet>185</a>                            i,
+<a href=#186 id=186 data-nosnippet>186</a>                            <span class="kw-2">&amp;</span>locals,
+<a href=#187 id=187 data-nosnippet>187</a>                            machine,
+<a href=#188 id=188 data-nosnippet>188</a>                            calling_convention,
+<a href=#189 id=189 data-nosnippet>189</a>                        )<span class="question-mark">?</span>;
+<a href=#190 id=190 data-nosnippet>190</a>                        <span class="kw">while </span>generator.has_control_frames() {
+<a href=#191 id=191 data-nosnippet>191</a>                            generator.set_srcloc(reader.original_position() <span class="kw">as </span>u32);
+<a href=#192 id=192 data-nosnippet>192</a>                            <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
+<a href=#193 id=193 data-nosnippet>193</a>                            generator.feed_operator(op)<span class="question-mark">?</span>;
+<a href=#194 id=194 data-nosnippet>194</a>                        }
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>                        generator.finalize(input, arch)
+<a href=#197 id=197 data-nosnippet>197</a>                    }
+<a href=#198 id=198 data-nosnippet>198</a>                    <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
+<a href=#199 id=199 data-nosnippet>199</a>                }
+<a href=#200 id=200 data-nosnippet>200</a>            })
+<a href=#201 id=201 data-nosnippet>201</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+<a href=#202 id=202 data-nosnippet>202</a>            </span>.into_iter()
+<a href=#203 id=203 data-nosnippet>203</a>            .unzip();
+<a href=#204 id=204 data-nosnippet>204</a>
+<a href=#205 id=205 data-nosnippet>205</a>        <span class="kw">let </span>function_call_trampolines = module
+<a href=#206 id=206 data-nosnippet>206</a>            .signatures
+<a href=#207 id=207 data-nosnippet>207</a>            .values()
+<a href=#208 id=208 data-nosnippet>208</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#209 id=209 data-nosnippet>209</a>            .into_par_iter_if_rayon()
+<a href=#210 id=210 data-nosnippet>210</a>            .map(|func_type| -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
+<a href=#211 id=211 data-nosnippet>211</a>                <span class="kw">let </span>body = gen_std_trampoline(func_type, target, calling_convention)<span class="question-mark">?</span>;
+<a href=#212 id=212 data-nosnippet>212</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
+<a href=#213 id=213 data-nosnippet>213</a>                    callbacks.obj_memory_buffer(
+<a href=#214 id=214 data-nosnippet>214</a>                        <span class="kw-2">&amp;</span>CompiledKind::FunctionCallTrampoline(func_type.clone()),
+<a href=#215 id=215 data-nosnippet>215</a>                        <span class="kw-2">&amp;</span>body.body,
+<a href=#216 id=216 data-nosnippet>216</a>                    );
+<a href=#217 id=217 data-nosnippet>217</a>                    callbacks.asm_memory_buffer(
+<a href=#218 id=218 data-nosnippet>218</a>                        <span class="kw-2">&amp;</span>CompiledKind::FunctionCallTrampoline(func_type.clone()),
+<a href=#219 id=219 data-nosnippet>219</a>                        arch,
+<a href=#220 id=220 data-nosnippet>220</a>                        <span class="kw-2">&amp;</span>body.body,
+<a href=#221 id=221 data-nosnippet>221</a>                        HashMap::new(),
+<a href=#222 id=222 data-nosnippet>222</a>                    )<span class="question-mark">?</span>;
+<a href=#223 id=223 data-nosnippet>223</a>                }
+<a href=#224 id=224 data-nosnippet>224</a>
+<a href=#225 id=225 data-nosnippet>225</a>                <span class="prelude-val">Ok</span>(body)
+<a href=#226 id=226 data-nosnippet>226</a>            })
+<a href=#227 id=227 data-nosnippet>227</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+<a href=#228 id=228 data-nosnippet>228</a>            </span>.into_iter()
+<a href=#229 id=229 data-nosnippet>229</a>            .collect::&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
+<a href=#230 id=230 data-nosnippet>230</a>
+<a href=#231 id=231 data-nosnippet>231</a>        <span class="kw">let </span>dynamic_function_trampolines = module
+<a href=#232 id=232 data-nosnippet>232</a>            .imported_function_types()
+<a href=#233 id=233 data-nosnippet>233</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#234 id=234 data-nosnippet>234</a>            .into_par_iter_if_rayon()
+<a href=#235 id=235 data-nosnippet>235</a>            .map(|func_type| -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
+<a href=#236 id=236 data-nosnippet>236</a>                <span class="kw">let </span>body = gen_std_dynamic_import_trampoline(
+<a href=#237 id=237 data-nosnippet>237</a>                    <span class="kw-2">&amp;</span>vmoffsets,
+<a href=#238 id=238 data-nosnippet>238</a>                    <span class="kw-2">&amp;</span>func_type,
+<a href=#239 id=239 data-nosnippet>239</a>                    target,
+<a href=#240 id=240 data-nosnippet>240</a>                    calling_convention,
+<a href=#241 id=241 data-nosnippet>241</a>                )<span class="question-mark">?</span>;
+<a href=#242 id=242 data-nosnippet>242</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
+<a href=#243 id=243 data-nosnippet>243</a>                    callbacks.obj_memory_buffer(
+<a href=#244 id=244 data-nosnippet>244</a>                        <span class="kw-2">&amp;</span>CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+<a href=#245 id=245 data-nosnippet>245</a>                        <span class="kw-2">&amp;</span>body.body,
+<a href=#246 id=246 data-nosnippet>246</a>                    );
+<a href=#247 id=247 data-nosnippet>247</a>                    callbacks.asm_memory_buffer(
+<a href=#248 id=248 data-nosnippet>248</a>                        <span class="kw-2">&amp;</span>CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+<a href=#249 id=249 data-nosnippet>249</a>                        arch,
+<a href=#250 id=250 data-nosnippet>250</a>                        <span class="kw-2">&amp;</span>body.body,
+<a href=#251 id=251 data-nosnippet>251</a>                        HashMap::new(),
+<a href=#252 id=252 data-nosnippet>252</a>                    )<span class="question-mark">?</span>;
+<a href=#253 id=253 data-nosnippet>253</a>                }
+<a href=#254 id=254 data-nosnippet>254</a>                <span class="prelude-val">Ok</span>(body)
+<a href=#255 id=255 data-nosnippet>255</a>            })
+<a href=#256 id=256 data-nosnippet>256</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+<a href=#257 id=257 data-nosnippet>257</a>            </span>.into_iter()
+<a href=#258 id=258 data-nosnippet>258</a>            .collect::&lt;PrimaryMap&lt;FunctionIndex, FunctionBody&gt;&gt;();
+<a href=#259 id=259 data-nosnippet>259</a>
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="attr">#[allow(unused_mut)]
+<a href=#261 id=261 data-nosnippet>261</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>unwind_info = UnwindInfo::default();
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a>        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#264 id=264 data-nosnippet>264</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>dwarf_frametable, cie_id)) = dwarf_frametable {
+<a href=#265 id=265 data-nosnippet>265</a>            <span class="kw">for </span>fde <span class="kw">in </span>fdes.into_iter().flatten() {
+<a href=#266 id=266 data-nosnippet>266</a>                <span class="kw">match </span>fde {
+<a href=#267 id=267 data-nosnippet>267</a>                    UnwindFrame::SystemV(fde) =&gt; dwarf_frametable.add_fde(cie_id, fde),
+<a href=#268 id=268 data-nosnippet>268</a>                }
+<a href=#269 id=269 data-nosnippet>269</a>            }
+<a href=#270 id=270 data-nosnippet>270</a>            <span class="kw">let </span><span class="kw-2">mut </span>eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
+<a href=#271 id=271 data-nosnippet>271</a>            dwarf_frametable.write_eh_frame(<span class="kw-2">&amp;mut </span>eh_frame).unwrap();
+<a href=#272 id=272 data-nosnippet>272</a>            eh_frame.write(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]).unwrap(); <span class="comment">// Write a 0 length at the end of the table.
+<a href=#273 id=273 data-nosnippet>273</a>
+<a href=#274 id=274 data-nosnippet>274</a>            </span><span class="kw">let </span>eh_frame_section = eh_frame.<span class="number">0</span>.into_section();
+<a href=#275 id=275 data-nosnippet>275</a>            custom_sections.push(eh_frame_section);
+<a href=#276 id=276 data-nosnippet>276</a>            unwind_info.eh_frame = <span class="prelude-val">Some</span>(SectionIndex::new(custom_sections.len() - <span class="number">1</span>))
+<a href=#277 id=277 data-nosnippet>277</a>        };
+<a href=#278 id=278 data-nosnippet>278</a>
+<a href=#279 id=279 data-nosnippet>279</a>        <span class="kw">let </span>got = wasmer_compiler::types::function::GOT::empty();
 <a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#282 id=282 data-nosnippet>282</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>dwarf_frametable, cie_id)) = dwarf_frametable {
-<a href=#283 id=283 data-nosnippet>283</a>            <span class="kw">for </span>fde <span class="kw">in </span>fdes.into_iter().flatten() {
-<a href=#284 id=284 data-nosnippet>284</a>                <span class="kw">match </span>fde {
-<a href=#285 id=285 data-nosnippet>285</a>                    UnwindFrame::SystemV(fde) =&gt; dwarf_frametable.add_fde(cie_id, fde),
-<a href=#286 id=286 data-nosnippet>286</a>                }
-<a href=#287 id=287 data-nosnippet>287</a>            }
-<a href=#288 id=288 data-nosnippet>288</a>            <span class="kw">let </span><span class="kw-2">mut </span>eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
-<a href=#289 id=289 data-nosnippet>289</a>            dwarf_frametable.write_eh_frame(<span class="kw-2">&amp;mut </span>eh_frame).unwrap();
-<a href=#290 id=290 data-nosnippet>290</a>            eh_frame.write(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]).unwrap(); <span class="comment">// Write a 0 length at the end of the table.
+<a href=#281 id=281 data-nosnippet>281</a>        <span class="prelude-val">Ok</span>(Compilation {
+<a href=#282 id=282 data-nosnippet>282</a>            functions: functions.into_iter().collect(),
+<a href=#283 id=283 data-nosnippet>283</a>            custom_sections,
+<a href=#284 id=284 data-nosnippet>284</a>            function_call_trampolines,
+<a href=#285 id=285 data-nosnippet>285</a>            dynamic_function_trampolines,
+<a href=#286 id=286 data-nosnippet>286</a>            unwind_info,
+<a href=#287 id=287 data-nosnippet>287</a>            got,
+<a href=#288 id=288 data-nosnippet>288</a>        })
+<a href=#289 id=289 data-nosnippet>289</a>    }
+<a href=#290 id=290 data-nosnippet>290</a>}
 <a href=#291 id=291 data-nosnippet>291</a>
-<a href=#292 id=292 data-nosnippet>292</a>            </span><span class="kw">let </span>eh_frame_section = eh_frame.<span class="number">0</span>.into_section();
-<a href=#293 id=293 data-nosnippet>293</a>            custom_sections.push(eh_frame_section);
-<a href=#294 id=294 data-nosnippet>294</a>            unwind_info.eh_frame = <span class="prelude-val">Some</span>(SectionIndex::new(custom_sections.len() - <span class="number">1</span>))
-<a href=#295 id=295 data-nosnippet>295</a>        };
+<a href=#292 id=292 data-nosnippet>292</a><span class="kw">impl </span>Compiler <span class="kw">for </span>SinglepassCompiler {
+<a href=#293 id=293 data-nosnippet>293</a>    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+<a href=#294 id=294 data-nosnippet>294</a>        <span class="string">"singlepass"
+<a href=#295 id=295 data-nosnippet>295</a>    </span>}
 <a href=#296 id=296 data-nosnippet>296</a>
-<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">let </span>got = wasmer_compiler::types::function::GOT::empty();
-<a href=#298 id=298 data-nosnippet>298</a>
-<a href=#299 id=299 data-nosnippet>299</a>        <span class="prelude-val">Ok</span>(Compilation {
-<a href=#300 id=300 data-nosnippet>300</a>            functions: functions.into_iter().collect(),
-<a href=#301 id=301 data-nosnippet>301</a>            custom_sections,
-<a href=#302 id=302 data-nosnippet>302</a>            function_call_trampolines,
-<a href=#303 id=303 data-nosnippet>303</a>            dynamic_function_trampolines,
-<a href=#304 id=304 data-nosnippet>304</a>            unwind_info,
-<a href=#305 id=305 data-nosnippet>305</a>            got,
-<a href=#306 id=306 data-nosnippet>306</a>        })
-<a href=#307 id=307 data-nosnippet>307</a>    }
-<a href=#308 id=308 data-nosnippet>308</a>
-<a href=#309 id=309 data-nosnippet>309</a>    <span class="kw">fn </span>get_cpu_features_used(<span class="kw-2">&amp;</span><span class="self">self</span>, cpu_features: <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt;) -&gt; EnumSet&lt;CpuFeature&gt; {
-<a href=#310 id=310 data-nosnippet>310</a>        <span class="kw">let </span>used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
-<a href=#311 id=311 data-nosnippet>311</a>        cpu_features.intersection(used)
-<a href=#312 id=312 data-nosnippet>312</a>    }
-<a href=#313 id=313 data-nosnippet>313</a>}
-<a href=#314 id=314 data-nosnippet>314</a>
-<a href=#315 id=315 data-nosnippet>315</a><span class="kw">trait </span>IntoParIterIfRayon {
-<a href=#316 id=316 data-nosnippet>316</a>    <span class="kw">type </span>Output;
-<a href=#317 id=317 data-nosnippet>317</a>    <span class="kw">fn </span>into_par_iter_if_rayon(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
-<a href=#318 id=318 data-nosnippet>318</a>}
-<a href=#319 id=319 data-nosnippet>319</a>
-<a href=#320 id=320 data-nosnippet>320</a><span class="kw">impl</span>&lt;T: Send&gt; IntoParIterIfRayon <span class="kw">for </span>Vec&lt;T&gt; {
-<a href=#321 id=321 data-nosnippet>321</a>    <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
-<a href=#322 id=322 data-nosnippet>322</a>    </span><span class="kw">type </span>Output = std::vec::IntoIter&lt;T&gt;;
-<a href=#323 id=323 data-nosnippet>323</a>    <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
-<a href=#324 id=324 data-nosnippet>324</a>    </span><span class="kw">type </span>Output = rayon::vec::IntoIter&lt;T&gt;;
-<a href=#325 id=325 data-nosnippet>325</a>
-<a href=#326 id=326 data-nosnippet>326</a>    <span class="kw">fn </span>into_par_iter_if_rayon(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
-<a href=#327 id=327 data-nosnippet>327</a>        <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
-<a href=#328 id=328 data-nosnippet>328</a>        </span><span class="kw">return </span><span class="self">self</span>.into_iter();
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
-<a href=#330 id=330 data-nosnippet>330</a>        </span><span class="kw">return </span><span class="self">self</span>.into_par_iter();
-<a href=#331 id=331 data-nosnippet>331</a>    }
-<a href=#332 id=332 data-nosnippet>332</a>}
-<a href=#333 id=333 data-nosnippet>333</a>
-<a href=#334 id=334 data-nosnippet>334</a><span class="attr">#[cfg(test)]
-<a href=#335 id=335 data-nosnippet>335</a></span><span class="kw">mod </span>tests {
-<a href=#336 id=336 data-nosnippet>336</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#337 id=337 data-nosnippet>337</a>    <span class="kw">use </span>std::str::FromStr;
-<a href=#338 id=338 data-nosnippet>338</a>    <span class="kw">use </span>target_lexicon::triple;
-<a href=#339 id=339 data-nosnippet>339</a>    <span class="kw">use </span>wasmer_compiler::Features;
-<a href=#340 id=340 data-nosnippet>340</a>    <span class="kw">use </span>wasmer_types::{
-<a href=#341 id=341 data-nosnippet>341</a>        MemoryStyle, TableStyle,
-<a href=#342 id=342 data-nosnippet>342</a>        target::{CpuFeature, Triple},
-<a href=#343 id=343 data-nosnippet>343</a>    };
-<a href=#344 id=344 data-nosnippet>344</a>
-<a href=#345 id=345 data-nosnippet>345</a>    <span class="kw">fn </span>dummy_compilation_ingredients&lt;<span class="lifetime">'a</span>&gt;() -&gt; (
-<a href=#346 id=346 data-nosnippet>346</a>        CompileModuleInfo,
-<a href=#347 id=347 data-nosnippet>347</a>        ModuleTranslationState,
-<a href=#348 id=348 data-nosnippet>348</a>        PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'a</span>&gt;&gt;,
-<a href=#349 id=349 data-nosnippet>349</a>    ) {
-<a href=#350 id=350 data-nosnippet>350</a>        <span class="kw">let </span>compile_info = CompileModuleInfo {
-<a href=#351 id=351 data-nosnippet>351</a>            features: Features::new(),
-<a href=#352 id=352 data-nosnippet>352</a>            module: Arc::new(ModuleInfo::new()),
-<a href=#353 id=353 data-nosnippet>353</a>            memory_styles: PrimaryMap::&lt;MemoryIndex, MemoryStyle&gt;::new(),
-<a href=#354 id=354 data-nosnippet>354</a>            table_styles: PrimaryMap::&lt;TableIndex, TableStyle&gt;::new(),
-<a href=#355 id=355 data-nosnippet>355</a>        };
-<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw">let </span>module_translation = ModuleTranslationState::new();
-<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span>function_body_inputs = PrimaryMap::&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;::new();
-<a href=#358 id=358 data-nosnippet>358</a>        (compile_info, module_translation, function_body_inputs)
-<a href=#359 id=359 data-nosnippet>359</a>    }
+<a href=#297 id=297 data-nosnippet>297</a>    <span class="kw">fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+<a href=#298 id=298 data-nosnippet>298</a>        String::from(<span class="string">"singlepass"</span>)
+<a href=#299 id=299 data-nosnippet>299</a>    }
+<a href=#300 id=300 data-nosnippet>300</a>
+<a href=#301 id=301 data-nosnippet>301</a>    <span class="doccomment">/// Get the middlewares for this compiler
+<a href=#302 id=302 data-nosnippet>302</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
+<a href=#304 id=304 data-nosnippet>304</a>    }
+<a href=#305 id=305 data-nosnippet>305</a>
+<a href=#306 id=306 data-nosnippet>306</a>    <span class="doccomment">/// Compile the module using Singlepass, producing a compilation result with
+<a href=#307 id=307 data-nosnippet>307</a>    /// associated relocations.
+<a href=#308 id=308 data-nosnippet>308</a>    </span><span class="kw">fn </span>compile_module(
+<a href=#309 id=309 data-nosnippet>309</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#310 id=310 data-nosnippet>310</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#311 id=311 data-nosnippet>311</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#312 id=312 data-nosnippet>312</a>        _module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#313 id=313 data-nosnippet>313</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#314 id=314 data-nosnippet>314</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
+<a href=#315 id=315 data-nosnippet>315</a>        <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
+<a href=#316 id=316 data-nosnippet>316</a>        </span>{
+<a href=#317 id=317 data-nosnippet>317</a>            <span class="kw">let </span>num_threads = <span class="self">self</span>.config.num_threads.get();
+<a href=#318 id=318 data-nosnippet>318</a>            <span class="kw">let </span>pool = rayon::ThreadPoolBuilder::new()
+<a href=#319 id=319 data-nosnippet>319</a>                .num_threads(num_threads)
+<a href=#320 id=320 data-nosnippet>320</a>                .build()
+<a href=#321 id=321 data-nosnippet>321</a>                .map_err(|e| {
+<a href=#322 id=322 data-nosnippet>322</a>                    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to build rayon thread pool: {e}"</span>))
+<a href=#323 id=323 data-nosnippet>323</a>                })<span class="question-mark">?</span>;
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>            pool.install(|| {
+<a href=#326 id=326 data-nosnippet>326</a>                <span class="self">self</span>.compile_module_internal(target, compile_info, function_body_inputs)
+<a href=#327 id=327 data-nosnippet>327</a>            })
+<a href=#328 id=328 data-nosnippet>328</a>        }
+<a href=#329 id=329 data-nosnippet>329</a>
+<a href=#330 id=330 data-nosnippet>330</a>        <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
+<a href=#331 id=331 data-nosnippet>331</a>        </span>{
+<a href=#332 id=332 data-nosnippet>332</a>            <span class="self">self</span>.compile_module_internal(target, compile_info, function_body_inputs)
+<a href=#333 id=333 data-nosnippet>333</a>        }
+<a href=#334 id=334 data-nosnippet>334</a>    }
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a>    <span class="kw">fn </span>get_cpu_features_used(<span class="kw-2">&amp;</span><span class="self">self</span>, cpu_features: <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt;) -&gt; EnumSet&lt;CpuFeature&gt; {
+<a href=#337 id=337 data-nosnippet>337</a>        <span class="kw">let </span>used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+<a href=#338 id=338 data-nosnippet>338</a>        cpu_features.intersection(used)
+<a href=#339 id=339 data-nosnippet>339</a>    }
+<a href=#340 id=340 data-nosnippet>340</a>}
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a><span class="kw">trait </span>IntoParIterIfRayon {
+<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">type </span>Output;
+<a href=#344 id=344 data-nosnippet>344</a>    <span class="kw">fn </span>into_par_iter_if_rayon(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
+<a href=#345 id=345 data-nosnippet>345</a>}
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a><span class="kw">impl</span>&lt;T: Send&gt; IntoParIterIfRayon <span class="kw">for </span>Vec&lt;T&gt; {
+<a href=#348 id=348 data-nosnippet>348</a>    <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
+<a href=#349 id=349 data-nosnippet>349</a>    </span><span class="kw">type </span>Output = std::vec::IntoIter&lt;T&gt;;
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
+<a href=#351 id=351 data-nosnippet>351</a>    </span><span class="kw">type </span>Output = rayon::vec::IntoIter&lt;T&gt;;
+<a href=#352 id=352 data-nosnippet>352</a>
+<a href=#353 id=353 data-nosnippet>353</a>    <span class="kw">fn </span>into_par_iter_if_rayon(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
+<a href=#355 id=355 data-nosnippet>355</a>        </span><span class="kw">return </span><span class="self">self</span>.into_iter();
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
+<a href=#357 id=357 data-nosnippet>357</a>        </span><span class="kw">return </span><span class="self">self</span>.into_par_iter();
+<a href=#358 id=358 data-nosnippet>358</a>    }
+<a href=#359 id=359 data-nosnippet>359</a>}
 <a href=#360 id=360 data-nosnippet>360</a>
-<a href=#361 id=361 data-nosnippet>361</a>    <span class="attr">#[test]
-<a href=#362 id=362 data-nosnippet>362</a>    </span><span class="kw">fn </span>errors_for_unsupported_targets() {
-<a href=#363 id=363 data-nosnippet>363</a>        <span class="kw">let </span>compiler = SinglepassCompiler::new(Singlepass::default());
-<a href=#364 id=364 data-nosnippet>364</a>
-<a href=#365 id=365 data-nosnippet>365</a>        <span class="comment">// Compile for 32bit Linux
-<a href=#366 id=366 data-nosnippet>366</a>        </span><span class="kw">let </span>linux32 = Target::new(<span class="macro">triple!</span>(<span class="string">"i686-unknown-linux-gnu"</span>), CpuFeature::for_host());
-<a href=#367 id=367 data-nosnippet>367</a>        <span class="kw">let </span>(info, translation, inputs) = dummy_compilation_ingredients();
-<a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">let </span>result = compiler.compile_module(<span class="kw-2">&amp;</span>linux32, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>translation, inputs);
-<a href=#369 id=369 data-nosnippet>369</a>        <span class="kw">match </span>result.unwrap_err() {
-<a href=#370 id=370 data-nosnippet>370</a>            CompileError::UnsupportedTarget(name) =&gt; <span class="macro">assert_eq!</span>(name, <span class="string">"i686"</span>),
-<a href=#371 id=371 data-nosnippet>371</a>            error =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {error:?}"</span>),
-<a href=#372 id=372 data-nosnippet>372</a>        };
-<a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a>        <span class="comment">// Compile for win32
-<a href=#375 id=375 data-nosnippet>375</a>        </span><span class="kw">let </span>win32 = Target::new(<span class="macro">triple!</span>(<span class="string">"i686-pc-windows-gnu"</span>), CpuFeature::for_host());
-<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw">let </span>(info, translation, inputs) = dummy_compilation_ingredients();
-<a href=#377 id=377 data-nosnippet>377</a>        <span class="kw">let </span>result = compiler.compile_module(<span class="kw-2">&amp;</span>win32, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>translation, inputs);
-<a href=#378 id=378 data-nosnippet>378</a>        <span class="kw">match </span>result.unwrap_err() {
-<a href=#379 id=379 data-nosnippet>379</a>            CompileError::UnsupportedTarget(name) =&gt; <span class="macro">assert_eq!</span>(name, <span class="string">"i686"</span>), <span class="comment">// Windows should be checked before architecture
-<a href=#380 id=380 data-nosnippet>380</a>            </span>error =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {error:?}"</span>),
-<a href=#381 id=381 data-nosnippet>381</a>        };
-<a href=#382 id=382 data-nosnippet>382</a>    }
-<a href=#383 id=383 data-nosnippet>383</a>
-<a href=#384 id=384 data-nosnippet>384</a>    <span class="attr">#[test]
-<a href=#385 id=385 data-nosnippet>385</a>    </span><span class="kw">fn </span>errors_for_unsuported_cpufeatures() {
-<a href=#386 id=386 data-nosnippet>386</a>        <span class="kw">let </span>compiler = SinglepassCompiler::new(Singlepass::default());
-<a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">let </span><span class="kw-2">mut </span>features =
-<a href=#388 id=388 data-nosnippet>388</a>            CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
-<a href=#389 id=389 data-nosnippet>389</a>        <span class="comment">// simple test
-<a href=#390 id=390 data-nosnippet>390</a>        </span><span class="macro">assert!</span>(
-<a href=#391 id=391 data-nosnippet>391</a>            compiler.get_cpu_features_used(<span class="kw-2">&amp;</span>features).is_subset(
-<a href=#392 id=392 data-nosnippet>392</a>                CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1
-<a href=#393 id=393 data-nosnippet>393</a>            )
-<a href=#394 id=394 data-nosnippet>394</a>        );
-<a href=#395 id=395 data-nosnippet>395</a>        <span class="comment">// check that an AVX build don't work on SSE4.2 only host
-<a href=#396 id=396 data-nosnippet>396</a>        </span><span class="macro">assert!</span>(
-<a href=#397 id=397 data-nosnippet>397</a>            !compiler
-<a href=#398 id=398 data-nosnippet>398</a>                .get_cpu_features_used(<span class="kw-2">&amp;</span>features)
-<a href=#399 id=399 data-nosnippet>399</a>                .is_subset(CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1)
-<a href=#400 id=400 data-nosnippet>400</a>        );
-<a href=#401 id=401 data-nosnippet>401</a>        <span class="comment">// check that having a host with AVX512 doesn't change anything
-<a href=#402 id=402 data-nosnippet>402</a>        </span>features.insert_all(CpuFeature::AVX512DQ | CpuFeature::AVX512F);
-<a href=#403 id=403 data-nosnippet>403</a>        <span class="macro">assert!</span>(
-<a href=#404 id=404 data-nosnippet>404</a>            compiler.get_cpu_features_used(<span class="kw-2">&amp;</span>features).is_subset(
-<a href=#405 id=405 data-nosnippet>405</a>                CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1
-<a href=#406 id=406 data-nosnippet>406</a>            )
-<a href=#407 id=407 data-nosnippet>407</a>        );
-<a href=#408 id=408 data-nosnippet>408</a>    }
-<a href=#409 id=409 data-nosnippet>409</a>}</code></pre></div></section></main></body></html>
+<a href=#361 id=361 data-nosnippet>361</a><span class="attr">#[cfg(test)]
+<a href=#362 id=362 data-nosnippet>362</a></span><span class="kw">mod </span>tests {
+<a href=#363 id=363 data-nosnippet>363</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="kw">use </span>std::str::FromStr;
+<a href=#365 id=365 data-nosnippet>365</a>    <span class="kw">use </span>target_lexicon::triple;
+<a href=#366 id=366 data-nosnippet>366</a>    <span class="kw">use </span>wasmer_compiler::Features;
+<a href=#367 id=367 data-nosnippet>367</a>    <span class="kw">use </span>wasmer_types::{
+<a href=#368 id=368 data-nosnippet>368</a>        MemoryStyle, TableStyle,
+<a href=#369 id=369 data-nosnippet>369</a>        target::{CpuFeature, Triple},
+<a href=#370 id=370 data-nosnippet>370</a>    };
+<a href=#371 id=371 data-nosnippet>371</a>
+<a href=#372 id=372 data-nosnippet>372</a>    <span class="kw">fn </span>dummy_compilation_ingredients&lt;<span class="lifetime">'a</span>&gt;() -&gt; (
+<a href=#373 id=373 data-nosnippet>373</a>        CompileModuleInfo,
+<a href=#374 id=374 data-nosnippet>374</a>        ModuleTranslationState,
+<a href=#375 id=375 data-nosnippet>375</a>        PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'a</span>&gt;&gt;,
+<a href=#376 id=376 data-nosnippet>376</a>    ) {
+<a href=#377 id=377 data-nosnippet>377</a>        <span class="kw">let </span>compile_info = CompileModuleInfo {
+<a href=#378 id=378 data-nosnippet>378</a>            features: Features::new(),
+<a href=#379 id=379 data-nosnippet>379</a>            module: Arc::new(ModuleInfo::new()),
+<a href=#380 id=380 data-nosnippet>380</a>            memory_styles: PrimaryMap::&lt;MemoryIndex, MemoryStyle&gt;::new(),
+<a href=#381 id=381 data-nosnippet>381</a>            table_styles: PrimaryMap::&lt;TableIndex, TableStyle&gt;::new(),
+<a href=#382 id=382 data-nosnippet>382</a>        };
+<a href=#383 id=383 data-nosnippet>383</a>        <span class="kw">let </span>module_translation = ModuleTranslationState::new();
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">let </span>function_body_inputs = PrimaryMap::&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;::new();
+<a href=#385 id=385 data-nosnippet>385</a>        (compile_info, module_translation, function_body_inputs)
+<a href=#386 id=386 data-nosnippet>386</a>    }
+<a href=#387 id=387 data-nosnippet>387</a>
+<a href=#388 id=388 data-nosnippet>388</a>    <span class="attr">#[test]
+<a href=#389 id=389 data-nosnippet>389</a>    </span><span class="kw">fn </span>errors_for_unsupported_targets() {
+<a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">let </span>compiler = SinglepassCompiler::new(Singlepass::default());
+<a href=#391 id=391 data-nosnippet>391</a>
+<a href=#392 id=392 data-nosnippet>392</a>        <span class="comment">// Compile for 32bit Linux
+<a href=#393 id=393 data-nosnippet>393</a>        </span><span class="kw">let </span>linux32 = Target::new(<span class="macro">triple!</span>(<span class="string">"i686-unknown-linux-gnu"</span>), CpuFeature::for_host());
+<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw">let </span>(info, translation, inputs) = dummy_compilation_ingredients();
+<a href=#395 id=395 data-nosnippet>395</a>        <span class="kw">let </span>result = compiler.compile_module(<span class="kw-2">&amp;</span>linux32, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>translation, inputs);
+<a href=#396 id=396 data-nosnippet>396</a>        <span class="kw">match </span>result.unwrap_err() {
+<a href=#397 id=397 data-nosnippet>397</a>            CompileError::UnsupportedTarget(name) =&gt; <span class="macro">assert_eq!</span>(name, <span class="string">"i686"</span>),
+<a href=#398 id=398 data-nosnippet>398</a>            error =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {error:?}"</span>),
+<a href=#399 id=399 data-nosnippet>399</a>        };
+<a href=#400 id=400 data-nosnippet>400</a>
+<a href=#401 id=401 data-nosnippet>401</a>        <span class="comment">// Compile for win32
+<a href=#402 id=402 data-nosnippet>402</a>        </span><span class="kw">let </span>win32 = Target::new(<span class="macro">triple!</span>(<span class="string">"i686-pc-windows-gnu"</span>), CpuFeature::for_host());
+<a href=#403 id=403 data-nosnippet>403</a>        <span class="kw">let </span>(info, translation, inputs) = dummy_compilation_ingredients();
+<a href=#404 id=404 data-nosnippet>404</a>        <span class="kw">let </span>result = compiler.compile_module(<span class="kw-2">&amp;</span>win32, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>translation, inputs);
+<a href=#405 id=405 data-nosnippet>405</a>        <span class="kw">match </span>result.unwrap_err() {
+<a href=#406 id=406 data-nosnippet>406</a>            CompileError::UnsupportedTarget(name) =&gt; <span class="macro">assert_eq!</span>(name, <span class="string">"i686"</span>), <span class="comment">// Windows should be checked before architecture
+<a href=#407 id=407 data-nosnippet>407</a>            </span>error =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {error:?}"</span>),
+<a href=#408 id=408 data-nosnippet>408</a>        };
+<a href=#409 id=409 data-nosnippet>409</a>    }
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a>    <span class="attr">#[test]
+<a href=#412 id=412 data-nosnippet>412</a>    </span><span class="kw">fn </span>errors_for_unsuported_cpufeatures() {
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="kw">let </span>compiler = SinglepassCompiler::new(Singlepass::default());
+<a href=#414 id=414 data-nosnippet>414</a>        <span class="kw">let </span><span class="kw-2">mut </span>features =
+<a href=#415 id=415 data-nosnippet>415</a>            CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+<a href=#416 id=416 data-nosnippet>416</a>        <span class="comment">// simple test
+<a href=#417 id=417 data-nosnippet>417</a>        </span><span class="macro">assert!</span>(
+<a href=#418 id=418 data-nosnippet>418</a>            compiler.get_cpu_features_used(<span class="kw-2">&amp;</span>features).is_subset(
+<a href=#419 id=419 data-nosnippet>419</a>                CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1
+<a href=#420 id=420 data-nosnippet>420</a>            )
+<a href=#421 id=421 data-nosnippet>421</a>        );
+<a href=#422 id=422 data-nosnippet>422</a>        <span class="comment">// check that an AVX build don't work on SSE4.2 only host
+<a href=#423 id=423 data-nosnippet>423</a>        </span><span class="macro">assert!</span>(
+<a href=#424 id=424 data-nosnippet>424</a>            !compiler
+<a href=#425 id=425 data-nosnippet>425</a>                .get_cpu_features_used(<span class="kw-2">&amp;</span>features)
+<a href=#426 id=426 data-nosnippet>426</a>                .is_subset(CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1)
+<a href=#427 id=427 data-nosnippet>427</a>        );
+<a href=#428 id=428 data-nosnippet>428</a>        <span class="comment">// check that having a host with AVX512 doesn't change anything
+<a href=#429 id=429 data-nosnippet>429</a>        </span>features.insert_all(CpuFeature::AVX512DQ | CpuFeature::AVX512F);
+<a href=#430 id=430 data-nosnippet>430</a>        <span class="macro">assert!</span>(
+<a href=#431 id=431 data-nosnippet>431</a>            compiler.get_cpu_features_used(<span class="kw-2">&amp;</span>features).is_subset(
+<a href=#432 id=432 data-nosnippet>432</a>                CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1
+<a href=#433 id=433 data-nosnippet>433</a>            )
+<a href=#434 id=434 data-nosnippet>434</a>        );
+<a href=#435 id=435 data-nosnippet>435</a>    }
+<a href=#436 id=436 data-nosnippet>436</a>}</code></pre></div></section></main></body></html>
