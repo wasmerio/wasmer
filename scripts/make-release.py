@@ -67,7 +67,7 @@ def make_release(version):
     print(temp_dir.name)
     if (
         os.system(
-            "git clone https://github.com/wasmerio/wasmer --branch "
+            "git clone git@github.com:wasmerio/wasmer.git --branch "
             + TAG
             + " --depth 1 "
             + temp_dir.name
@@ -259,19 +259,19 @@ def make_release(version):
         update_version_py = get_file_string(
             temp_dir.name + "/scripts/update-version.py"
         )
-        previous_version = re.search("NEXT_VERSION='(.*)'", update_version_py).groups(
+        previous_version = re.search('NEXT_VERSION = "(.*)"', update_version_py).groups(
             1
         )[0]
         next_version = RELEASE_VERSION
         print("updating version " + previous_version + " -> " + next_version)
         update_version_py = re.sub(
-            "PREVIOUS_VERSION='.*'",
-            "PREVIOUS_VERSION='" + previous_version + "'",
+            'PREVIOUS_VERSION = ".*"',
+            f'PREVIOUS_VERSION = "{previous_version}"',
             update_version_py,
         )
         update_version_py = re.sub(
-            "NEXT_VERSION='.*'",
-            "NEXT_VERSION='" + next_version + "'",
+            'NEXT_VERSION = ".*"',
+            f'NEXT_VERSION = "{next_version}"',
             update_version_py,
         )
         write_file_string(
@@ -630,13 +630,7 @@ def make_release(version):
     )
     proc.wait()
 
-    raise Exception("script done and merged")
+    print("Script done and merged 🎉🎉🎉")
 
 
-try:
-    make_release(RELEASE_VERSION)
-except Exception as err:
-    while True:
-        print(str(err))
-        if os.system("say " + str(err)) != 0:
-            sys.exit()
+make_release(RELEASE_VERSION)
