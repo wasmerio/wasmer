@@ -4,8 +4,6 @@
 
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
-Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
-
 ## **Unreleased**
 
 ## 7.0.0-alpha.2 - 13/01/2026
