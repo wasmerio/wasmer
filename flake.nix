@@ -2,21 +2,24 @@
   description = "Wasmer Webassembly runtime";
 
   inputs = {
-    # nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    rust-overlay.url = "github:oxalica/rust-overlay";
     flakeutils = {
       url = "github:numtide/flake-utils";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flakeutils }:
+  outputs = { self, nixpkgs, flakeutils, rust-overlay }:
     flakeutils.lib.eachDefaultSystem (system:
       let
         NAME = "wasmer";
 
         pkgs = import nixpkgs {
           inherit system;
+          overlays = [ (import rust-overlay) ];
         };
+
+        rust-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
       in
       rec {
         packages.${NAME} = import ./scripts/nix/pkg.nix pkgs;
@@ -50,6 +53,7 @@
 
 
             # Rust tooling
+            rust-toolchain
 
             # Snapshot testing
             # https://github.com/mitsuhiko/insta
