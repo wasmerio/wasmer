@@ -208,7 +208,7 @@ pub struct RuntimeOptions {
 
     /// Sets the number of threads used to compile the input module(s).
     #[clap(long, alias = "llvm-num-threads")]
-    num_threads: Option<NonZero<usize>>,
+    compiler_threads: Option<NonZero<usize>>,
 
     #[clap(flatten)]
     features: WasmFeatures,
@@ -472,7 +472,7 @@ impl RuntimeOptions {
                     debug_dir.push("singlepass");
                     config.callbacks(Some(SinglepassCallbacks::new(debug_dir)?));
                 }
-                if let Some(num_threads) = self.num_threads {
+                if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
                 }
                 Box::new(config)
@@ -494,7 +494,7 @@ impl RuntimeOptions {
                     debug_dir.push("cranelift");
                     config.callbacks(Some(CraneliftCallbacks::new(debug_dir)?));
                 }
-                if let Some(num_threads) = self.num_threads {
+                if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
                 }
                 Box::new(config)
@@ -509,7 +509,7 @@ impl RuntimeOptions {
                     config.enable_pass_params_opt();
                 }
 
-                if let Some(num_threads) = self.num_threads {
+                if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
                 }
 
@@ -611,7 +611,7 @@ impl BackendType {
                     debug_dir.push("singlepass");
                     config.callbacks(Some(SinglepassCallbacks::new(debug_dir)?));
                 }
-                if let Some(num_threads) = runtime_opts.num_threads {
+                if let Some(num_threads) = runtime_opts.compiler_threads {
                     config.num_threads(num_threads);
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
@@ -638,7 +638,7 @@ impl BackendType {
                     debug_dir.push("cranelift");
                     config.callbacks(Some(CraneliftCallbacks::new(debug_dir)?));
                 }
-                if let Some(num_threads) = runtime_opts.num_threads {
+                if let Some(num_threads) = runtime_opts.compiler_threads {
                     config.num_threads(num_threads);
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
@@ -667,7 +667,7 @@ impl BackendType {
                     config.enable_pass_params_opt();
                 }
 
-                if let Some(num_threads) = runtime_opts.num_threads {
+                if let Some(num_threads) = runtime_opts.compiler_threads {
                     config.num_threads(num_threads);
                 }
 
