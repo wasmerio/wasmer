@@ -7,11 +7,8 @@ use colored::Colorize;
 use dialoguer::Confirm;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Body;
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-};
-use wasmer_backend_api::WasmerClient;
+use std::path::{Path, PathBuf};
+use wasmer_backend_api::{WasmerClient, query::UploadMethod};
 use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash};
 use wasmer_package::package::Package;
 
@@ -57,6 +54,7 @@ pub(super) async fn upload(
             Some(hash_str),
             None,
             None,
+            Some(UploadMethod::R2),
         );
 
         match q.await? {
@@ -83,39 +81,6 @@ pub(super) async fn upload(
         builder.build().unwrap()
     };
 
-    let res = client
-        .post(&session_uri)
-        .header(reqwest::header::CONTENT_LENGTH, "0")
-        .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
-        .header("x-goog-resumable", "start");
-
-    let result = res.send().await?;
-
-    if result.status() != reqwest::StatusCode::from_u16(201).unwrap() {
-        return Err(anyhow::anyhow!(
-            "Uploading package failed: got HTTP {:?} when uploading",
-            result.status()
-        ));
-    }
-
-    let headers = result
-        .headers()
-        .into_iter()
-        .filter_map(|(k, v)| {
-            let k = k.to_string();
-            let v = v.to_str().ok()?.to_string();
-            Some((k.to_lowercase(), v))
-        })
-        .collect::<BTreeMap<_, _>>();
-
-    let session_uri = headers
-        .get("location")
-        .ok_or_else(|| {
-            anyhow::anyhow!("The upload server did not provide the upload URL correctly")
-        })?
-        .clone();
-
-    tracing::info!("session uri is: {session_uri}");
     /* XXX: If the package is large this line may result in
      * a surge in memory use.
      *
@@ -244,4 +209,48 @@ pub(super) fn make_package_url(client: &WasmerClient, pkg: &NamedPackageIdent) -
         pkg.full_name(),
         pkg.version_or_default().to_string().replace('=', "")
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Context;
+    use humantime::Duration as HumanDuration;
+    use indicatif::ProgressBar;
+    use sha2::{Digest, Sha256};
+    use url::Url;
+
+    #[tokio::test]
+    #[ignore = "Requires WASMER_REGISTRY_URL/WASMER_TOKEN"]
+    async fn test_upload_package_r2() -> anyhow::Result<()> {
+        let registry = std::env::var("WASMER_REGISTRY_URL")
+            .context("set WASMER_REGISTRY_URL to point at the registry GraphQL endpoint")?;
+        let token = std::env::var("WASMER_TOKEN")
+            .context("set WASMER_TOKEN for the registry under test")?;
+        let client = WasmerClient::new(Url::parse(&registry)?, "wasmer-cli-upload-test")?
+            .with_auth_token(token);
+        let pkg_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/old-tar-gz/cowsay-0.3.0.tar.gz");
+        let package = Package::from_tarball_file(&pkg_path)?;
+        let bytes = package.serialize()?;
+        let hash_bytes: [u8; 32] = Sha256::digest(&bytes).into();
+        let hash = PackageHash::from_sha256_bytes(hash_bytes);
+        let pb = ProgressBar::hidden();
+
+        // Upload should succeed
+        let upload_url = upload(
+            &client,
+            &hash,
+            HumanDuration::from(std::time::Duration::from_secs(300)),
+            &package,
+            pb,
+            None,
+        )
+        .await?;
+        assert!(
+            upload_url.starts_with("http"),
+            "upload returned non-url: {upload_url}"
+        );
+        Ok(())
+    }
 }
