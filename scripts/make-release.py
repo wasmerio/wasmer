@@ -417,7 +417,7 @@ def make_release(version):
     while not (already_released):
         print("git pull origin main...")
         proc = subprocess.Popen(
-            ["git", "pull", "origin", "main", "--depth", "1"],
+            ["git", "pull", "origin", "main"],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
