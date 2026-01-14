@@ -388,7 +388,12 @@ impl Compiler for SinglepassCompiler {
 
         #[cfg(not(feature = "rayon"))]
         {
-            self.compile_module_internal(target, compile_info, function_body_inputs)
+            self.compile_module_internal(
+                target,
+                compile_info,
+                function_body_inputs,
+                progress_callback,
+            )
         }
     }
 

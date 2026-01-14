@@ -23,7 +23,6 @@ use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::{CompileError, Engine, Module, RuntimeError};
-use wasmer::sys::NativeEngineExt as _;
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -361,10 +360,18 @@ pub async fn load_module(
     }
 
     let res = if let Some(progress) = on_progress {
+        #[allow(unused_variables)]
         let p = CompilationProgressCallback::new(move |p| {
             progress.notify(ModuleLoadProgress::CompilingModule(p))
         });
-        engine.new_module_with_progress(input.wasm(), p)
+        #[cfg(all(feature = "sys", feature = "compiler"))]
+        {
+            engine.new_module_with_progress(input.wasm(), p)
+        }
+        #[cfg(not(all(feature = "sys", feature = "compiler")))]
+        {
+            Module::new(&engine, input.wasm())
+        }
     } else {
         Module::new(&engine, input.wasm())
     };
