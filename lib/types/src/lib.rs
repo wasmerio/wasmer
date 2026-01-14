@@ -51,6 +51,7 @@ pub mod lib {
 }
 
 pub mod error;
+mod exception;
 mod features;
 mod indexes;
 mod initializers;
@@ -107,6 +108,7 @@ pub use crate::memory::MemoryStyle;
 pub use crate::table::TableStyle;
 pub use serialize::MetadataHeader;
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+pub use crate::exception::CATCH_ALL_TAG_VALUE;
 pub use crate::stack::{FrameInfo, SourceLoc, TrapInformation};
 pub use crate::store_id::StoreId;
 pub use crate::trapcode::{OnCalledAction, TrapCode};

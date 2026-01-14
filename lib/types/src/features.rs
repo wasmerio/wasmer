@@ -157,6 +157,22 @@ impl Features {
         self
     }
 
+    /// Configures whether the WebAssembly Relaxed SIMD proposal will be
+    /// enabled.
+    ///
+    /// The [WebAssembly Relaxed SIMD proposal][proposal] is not currently
+    /// fully standardized and is undergoing development. Support for this
+    /// feature can be enabled through this method for appropriate WebAssembly
+    /// modules.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/WebAssembly/relaxed-simd
+    pub fn relaxed_simd(&mut self, enable: bool) -> &mut Self {
+        self.relaxed_simd = enable;
+        self
+    }
+
     /// Configures whether the WebAssembly bulk memory operations proposal will
     /// be enabled.
     ///

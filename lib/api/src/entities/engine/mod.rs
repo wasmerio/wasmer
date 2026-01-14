@@ -258,4 +258,14 @@ impl Engine {
             _ => Ok(()),
         }
     }
+
+    #[cfg(feature = "experimental-async")]
+    /// Returns true if the engine supports async operations.
+    pub fn supports_async(&self) -> bool {
+        match self.be {
+            #[cfg(feature = "sys")]
+            BackendEngine::Sys(ref e) => true,
+            _ => false,
+        }
+    }
 }

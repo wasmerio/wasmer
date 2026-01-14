@@ -73,12 +73,11 @@ impl UnwindRegistry {
                     "function table allocation was not aligned"
                 );
                 unsafe {
-                    if RtlAddFunctionTable(
+                    if !RtlAddFunctionTable(
                         functions.as_mut_ptr(),
                         functions.len() as u32,
                         *base_address as u64,
-                    ) == 0
-                    {
+                    ) {
                         return Err("failed to register function tables".to_string());
                     }
                 }

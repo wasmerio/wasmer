@@ -147,7 +147,7 @@ use crate::lib::std::string::String;
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum CompileError {
-    /// A Wasm translation error occured.
+    /// A Wasm translation error occurred.
     #[cfg_attr(feature = "std", error("WebAssembly translation error: {0}"))]
     Wasm(WasmError),
 

@@ -8,7 +8,7 @@ use crate::*;
 
 use std::{path::Path, sync::Arc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MountPoint {
     pub path: PathBuf,
     pub name: String,
@@ -36,6 +36,17 @@ pub struct UnionFileSystem {
     pub mounts: DashMap<PathBuf, MountPoint>,
 }
 
+/// Defines how to handle conflicts when merging two UnionFileSystems
+#[derive(Clone, Copy, Debug)]
+pub enum UnionMergeMode {
+    /// Replace existing nodes with the new ones.
+    Replace,
+    /// Skip conflicting nodes, and keep the existing ones.
+    Skip,
+    /// Return an error if a conflict is found.
+    Fail,
+}
+
 impl UnionFileSystem {
     pub fn new() -> Self {
         Self::default()
@@ -57,6 +68,47 @@ impl UnionFileSystem {
                 .unwrap_or(path)
                 .to_owned()
         }
+    }
+
+    /// Merge another UnionFileSystem into this one.
+    pub fn merge(&self, other: &UnionFileSystem, mode: UnionMergeMode) -> Result<()> {
+        for item in other.mounts.iter() {
+            if self.mounts.contains_key(item.key()) {
+                match mode {
+                    UnionMergeMode::Replace => {
+                        self.mounts.insert(item.key().clone(), item.value().clone());
+                    }
+                    UnionMergeMode::Skip => {
+                        tracing::debug!(
+                            path = %item.key().display(),
+                            "skipping existing mount point while merging two union file systems"
+                        );
+                    }
+                    UnionMergeMode::Fail => {
+                        return Err(FsError::AlreadyExists);
+                    }
+                }
+            } else {
+                self.mounts.insert(item.key().clone(), item.value().clone());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Duplicate this UnionFileSystem.
+    ///
+    /// This differs from the Clone implementation in that it creates a new
+    /// underlying shared map.
+    /// Clone just does a shallow copy.
+    pub fn duplicate(&self) -> Self {
+        let mounts = DashMap::new();
+
+        for item in self.mounts.iter() {
+            mounts.insert(item.key().clone(), item.value().clone());
+        }
+
+        Self { mounts }
     }
 }
 

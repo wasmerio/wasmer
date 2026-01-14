@@ -27,7 +27,7 @@ type Assembler = VecAssembler<Aarch64Relocation>;
 /// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 /// is always equal to host, even when cross-compiling.
 macro_rules! dynasm {
-    ($a:expr_2021 ; $($tt:tt)*) => {
+    ($a:expr ; $($tt:tt)*) => {
         dynasm::dynasm!(
             $a
             ; .arch aarch64
@@ -491,14 +491,6 @@ pub trait EmitterARM64 {
     fn emit_write_fpcr(&mut self, reg: GPR) -> Result<(), CompileError>;
     fn emit_read_fpsr(&mut self, reg: GPR) -> Result<(), CompileError>;
     fn emit_write_fpsr(&mut self, reg: GPR) -> Result<(), CompileError>;
-
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        true
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        false
-    }
 
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,

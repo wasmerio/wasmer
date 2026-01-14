@@ -188,7 +188,15 @@ impl LLVMCompiler {
         let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTranslator::new(target_machine, binary_format).unwrap()
+                let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
+                let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                FuncTranslator::new(
+                    target_machine,
+                    Some(target_machine_no_opt),
+                    binary_format,
+                    pointer_width,
+                )
+                .unwrap()
             },
             |func_translator, (i, input)| {
                 let module = func_translator.translate_to_module(
@@ -200,6 +208,7 @@ impl LLVMCompiler {
                     &compile_info.memory_styles,
                     &compile_info.table_styles,
                     symbol_registry,
+                    target.triple(),
                 )?;
 
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
@@ -397,78 +406,55 @@ impl Compiler for LLVMCompiler {
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
 
-        let functions = if self.config.num_threads.get() > 1 {
-            let progress = progress.clone();
-            let pool = ThreadPoolBuilder::new()
-                .num_threads(self.config.num_threads.get())
-                .build()
-                .map_err(|e| CompileError::Resource(e.to_string()))?;
-            pool.install(|| {
-                function_body_inputs
-                    .iter()
-                    .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-                    .par_iter()
-                    .map_init(
-                        || {
-                            let target_machine = self.config().target_machine(target);
-                            FuncTranslator::new(target_machine, binary_format).unwrap()
-                        },
-                        |func_translator, (i, input)| {
-                            // TODO: remove (to serialize)
-                            //let _data = data.lock().unwrap();
-
-                            let translated = func_translator.translate(
-                                module,
-                                module_translation,
-                                i,
-                                input,
-                                self.config(),
-                                memory_styles,
-                                table_styles,
-                                &symbol_registry,
-                            )?;
-
-                            if let Some(progress) = progress.as_ref() {
-                                progress.notify()?;
-                            }
-
-                            Ok(translated)
-                        },
-                    )
-                    .collect::<Result<Vec<_>, CompileError>>()
-            })?
-        } else {
-            let progress = progress.clone();
-            let target_machine = self.config().target_machine(target);
-            let func_translator = FuncTranslator::new(target_machine, binary_format).unwrap();
-
+        let progress = progress.clone();
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(self.config.num_threads.get())
+            .build()
+            .map_err(|e| CompileError::Resource(e.to_string()))?;
+        let functions = pool.install(|| {
             function_body_inputs
                 .iter()
                 .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-                .into_iter()
-                .map(|(i, input)| {
-                    // TODO: remove (to serialize)
-                    //let _data = data.lock().unwrap();
+                .par_iter()
+                .map_init(
+                    || {
+                        let target_machine = self.config().target_machine_with_opt(target, true);
+                        let target_machine_no_opt =
+                            self.config().target_machine_with_opt(target, false);
+                        let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                        FuncTranslator::new(
+                            target_machine,
+                            Some(target_machine_no_opt),
+                            binary_format,
+                            pointer_width,
+                        )
+                        .unwrap()
+                    },
+                    |func_translator, (i, input)| {
+                        // TODO: remove (to serialize)
+                        //let _data = data.lock().unwrap();
 
-                    let translated = func_translator.translate(
-                        module,
-                        module_translation,
-                        &i,
-                        input,
-                        self.config(),
-                        memory_styles,
-                        table_styles,
-                        &symbol_registry,
-                    )?;
+                        let translated = func_translator.translate(
+                            module,
+                            module_translation,
+                            i,
+                            input,
+                            self.config(),
+                            memory_styles,
+                            table_styles,
+                            &symbol_registry,
+                            target.triple(),
+                        );
 
-                    if let Some(progress) = progress.as_ref() {
-                        progress.notify()?;
-                    }
+                        if let Some(progress) = progress.as_ref() {
+                            progress.notify()?;
+                        }
 
-                    Ok(translated)
-                })
-                .collect::<Result<Vec<_>, CompileError>>()?
-        };
+                        translated
+                    },
+                )
+                .collect::<Result<Vec<_>, CompileError>>()
+        })?;
 
         let functions = functions
             .into_iter()
@@ -545,57 +531,31 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let function_call_trampolines = if self.config.num_threads.get() > 1 {
-            let progress = progress.clone();
-            let pool = ThreadPoolBuilder::new()
-                .num_threads(self.config.num_threads.get())
-                .build()
-                .map_err(|e| CompileError::Resource(e.to_string()))?;
-            pool.install(|| {
-                module
-                    .signatures
-                    .values()
-                    .collect::<Vec<_>>()
-                    .par_iter()
-                    .map_init(
-                        || {
-                            let target_machine = self.config().target_machine(target);
-                            FuncTrampoline::new(target_machine, binary_format).unwrap()
-                        },
-                        |func_trampoline, sig| {
-                            let trampoline =
-                                func_trampoline.trampoline(sig, self.config(), "", compile_info)?;
-                            if let Some(progress) = progress.as_ref() {
-                                progress.notify()?;
-                            }
-                            Ok(trampoline)
-                        },
-                    )
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .collect::<Result<PrimaryMap<_, _>, CompileError>>()
-            })?
-        } else {
-            let progress = progress.clone();
-            let target_machine = self.config().target_machine(target);
-            let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
+        let progress = progress.clone();
+        let function_call_trampolines = pool.install(|| {
             module
                 .signatures
                 .values()
                 .collect::<Vec<_>>()
-                .into_iter()
-                .map(|sig| {
-                    let trampoline =
-                        func_trampoline.trampoline(sig, self.config(), "", compile_info)?;
-                    if let Some(progress) = progress.as_ref() {
-                        progress.notify()?;
-                    }
-                    Ok(trampoline)
-                })
+                .par_iter()
+                .map_init(
+                    || {
+                        let target_machine = self.config().target_machine(target);
+                        FuncTrampoline::new(target_machine, binary_format).unwrap()
+                    },
+                    |func_trampoline, sig| {
+                        let trampoline =
+                            func_trampoline.trampoline(sig, self.config(), "", compile_info);
+                        if let Some(progress) = progress.as_ref() {
+                            progress.notify()?;
+                        }
+                        trampoline
+                    },
+                )
                 .collect::<Vec<_>>()
                 .into_iter()
-                .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
-        };
+                .collect::<Result<PrimaryMap<_, _>, CompileError>>()
+        })?;
 
         // TODO: I removed the parallel processing of dynamic trampolines because we're passing
         // the sections bytes and relocations directly into the trampoline generation function.

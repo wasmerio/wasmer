@@ -10,7 +10,7 @@ use wasmer_types::{
 };
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendModule, IntoBytes,
+    AsStoreMut, AsStoreRef, BackendModule, IntoBytes, StoreContext,
     backend::sys::entities::engine::NativeEngineExt, engine::AsEngineRef,
     error::InstantiationError, vm::VMInstance,
 };
@@ -198,6 +198,7 @@ impl Module {
         }
         let signal_handler = store.as_store_ref().signal_handler();
         let mut store_mut = store.as_store_mut();
+        let store_ptr = store_mut.inner as *mut _;
         let (engine, objects) = store_mut.engine_and_objects_mut();
         let config = engine.tunables().vmconfig();
         unsafe {
@@ -210,6 +211,9 @@ impl Module {
                 objects.as_sys_mut(),
             )?;
 
+            let store_id = objects.id();
+            let store_install_guard = StoreContext::ensure_installed(store_ptr);
+
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
             // of this steps traps, we still need to keep the instance alive
@@ -217,6 +221,8 @@ impl Module {
             // instance tables.
             self.artifact
                 .finish_instantiation(config, signal_handler, &mut instance_handle)?;
+
+            drop(store_install_guard);
 
             Ok(VMInstance::Sys(instance_handle))
         }

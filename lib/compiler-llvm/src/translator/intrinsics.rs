@@ -167,6 +167,8 @@ pub struct Intrinsics<'ctx> {
     pub stack_probe: Attribute,
     pub uwtable: Attribute,
     pub frame_pointer: Attribute,
+    // Stack probe function used on Windows MSVC
+    pub chkstk: FunctionValue<'ctx>,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -764,6 +766,7 @@ impl<'ctx> Intrinsics<'ctx> {
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
             uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id("uwtable"), 1),
             frame_pointer: context.create_string_attribute("frame-pointer", "non-leaf"),
+            chkstk: module.add_function("__chkstk", void_ty.fn_type(&[], false), None),
             void_ty,
             i1_ty,
             i2_ty,
@@ -1284,6 +1287,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         cache_builder: &'a Builder<'ctx>,
         abi: &'a dyn Abi,
         config: &'a LLVM,
+        pointer_width: u8,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
             config,
@@ -1300,8 +1304,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cached_functions: HashMap::new(),
             cached_memory_op: HashMap::new(),
 
-            // TODO: pointer width
-            offsets: VMOffsets::new(8, wasm_module),
+            offsets: VMOffsets::new(pointer_width, wasm_module),
         }
     }
 

@@ -239,6 +239,13 @@ pub struct RunProperties {
     pub args: Vec<String>,
 }
 
+fn endpoint_to_folder(url: &Url) -> String {
+    url.to_string()
+        .replace("registry.wasmer.io", "wasmer.io")
+        .replace("registry.wasmer.wtf", "wasmer.wtf")
+        .replace(|c| "/:?&=#%\\".contains(c), "_")
+}
+
 #[allow(dead_code)]
 impl Wasi {
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
@@ -399,7 +406,7 @@ impl Wasi {
             if !mapped_dirs.is_empty() {
                 // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
+                    Arc::new(PassthruFileSystem::new_arc(default_fs_backing()));
                 for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
                     let host = if !host.is_absolute() {
                         Path::new("/").join(host)
@@ -495,7 +502,10 @@ impl Wasi {
         Ok(Vec::new())
     }
 
-    pub fn build_mapped_directories(&self) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
+    pub fn build_mapped_directories(
+        &self,
+        is_wasix: bool,
+    ) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
         let mut mapped_dirs = Vec::new();
 
         // Process the --dirs flag and merge it with --mapdir.
@@ -514,9 +524,19 @@ impl Wasi {
 
                 MappedDirectory {
                     host: current_dir,
-                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: if is_wasix {
+                        MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string()
+                    } else {
+                        "/".to_string()
+                    },
                 }
             } else {
+                if dir == Path::new("/") && is_wasix {
+                    tracing::warn!(
+                        "Pre-opening the root directory with --dir=/ breaks WASIX modules' filesystems"
+                    );
+                }
+
                 let resolved = dir.canonicalize().with_context(|| {
                     format!(
                         "could not canonicalize path for argument '--dir {}'",
@@ -551,11 +571,18 @@ impl Wasi {
         }
 
         for MappedDirectory { host, guest } in &self.mapped_dirs {
+            if guest == "/" && is_wasix {
+                // Note: it appears we canonicalize the path before this point and showing the value of
+                // `host` in the error message may throw users off, so we use a placeholder.
+                tracing::warn!(
+                    "Mounting on the guest's virtual root with --mapdir /:<HOST_PATH> breaks WASIX modules' filesystems"
+                );
+            }
             let resolved_host = host.canonicalize().with_context(|| {
                 format!(
                     "could not canonicalize path for argument '--mapdir {}:{}'",
-                    host.display(),
                     guest,
+                    host.display(),
                 )
             })?;
 
@@ -569,7 +596,11 @@ impl Wasi {
 
                 MappedDirectory {
                     host: resolved_host,
-                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: if is_wasix {
+                        MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string()
+                    } else {
+                        "/".to_string()
+                    },
                 }
             } else {
                 MappedDirectory {
@@ -773,7 +804,10 @@ impl Wasi {
         source.add_source(preloaded);
 
         let graphql_endpoint = self.graphql_endpoint(env)?;
-        let cache_dir = env.cache_dir().join("queries");
+        let cache_dir = env
+            .cache_dir()
+            .join("queries")
+            .join(endpoint_to_folder(&graphql_endpoint));
         let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
             .with_preferred_webc_version(preferred_webc_version);

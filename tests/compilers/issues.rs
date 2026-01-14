@@ -1,9 +1,7 @@
 //! This file is mainly to assure specific issues are working well
-use std::env;
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
-use tempfile::TempDir;
 use wasmer::FunctionEnv;
 use wasmer::*;
 
@@ -591,19 +589,17 @@ fn huge_number_of_arguments_fn(
     Ok(())
 }
 
+#[cfg(feature = "llvm")]
 #[compiler_test(issues)]
 fn compiler_debug_dir_test(mut config: crate::Config) {
+    use tempfile::TempDir;
+    use wasmer_compiler::EngineBuilder;
+    use wasmer_compiler_llvm::LLVMCallbacks;
+
+    let mut compiler_config = wasmer_compiler_llvm::LLVM::default();
     let temp = TempDir::new().expect("temp folder creation failed");
-    unsafe {
-        env::set_var(
-            "WASMER_COMPILER_DEBUG_DIR",
-            temp.path()
-                .as_os_str()
-                .to_str()
-                .expect("path must be valid"),
-        );
-    }
-    let store = config.store();
+    compiler_config.callbacks(Some(LLVMCallbacks::new(temp.path().to_path_buf()).unwrap()));
+    let mut store = Store::new(EngineBuilder::new(compiler_config));
 
     let mut wat = include_str!("../wast/spec/fac.wast").to_string();
     wat.truncate(
@@ -612,4 +608,86 @@ fn compiler_debug_dir_test(mut config: crate::Config) {
     );
 
     assert!(Module::new(&store, wat).is_ok());
+}
+
+#[compiler_test(issues)]
+fn issue_5795_memory_reset_size(mut config: crate::Config) {
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+   (memory (export "memory") 1 65536)
+   (func (export "mem_size") (result i32)
+       memory.size)
+   (func (export "grow") (param i32) (result i32)
+       local.get 0
+       memory.grow))
+"#
+        .as_bytes(),
+    )
+    .expect("wat2wasm must succeed");
+
+    let mut store = config.store();
+    let module = Module::new(&store, wasm_bytes).unwrap();
+    let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    let memory = instance.exports.get_memory("memory").unwrap();
+
+    let _ = memory.grow(&mut store, 999).unwrap();
+    memory.reset(&mut store);
+
+    assert_eq!(memory.size(&store).bytes().0, 0);
+    assert_eq!(memory.view(&store).size().0, 0);
+
+    assert_eq!(memory.grow(&mut store, 1).unwrap().0, 0);
+
+    assert_eq!(memory.view(&store).size().0, 1);
+}
+
+#[cfg(not(target_os = "windows"))]
+#[compiler_test(issues)]
+fn issue_6004_exception(mut config: crate::Config) {
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+  (tag $e)
+
+  (func (export "throw-expect-42") (result i32)
+    (block $h1 (result exnref)
+      (try_table (result exnref) (catch_all_ref $h1)
+        (block $h2 (result exnref)
+          (try_table (result exnref) (catch_ref $e $h2)
+            (throw $e)
+          )
+        )
+        (i32.const 42)
+        (return)
+      )
+    )
+    (drop)
+    (i32.const 1)
+  )
+)
+"#
+        .as_bytes(),
+    )
+    .expect("wat2wasm must succeed");
+
+    let mut store = config.store();
+    let module = match Module::new(&store, wasm_bytes) {
+        Err(CompileError::Validate(message))
+            if message.contains("exceptions proposal not enabled") =>
+        {
+            // Skip the test in that case.
+            return;
+        }
+        Ok(module) => module,
+        _ => unreachable!(),
+    };
+    let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    let result = instance
+        .exports
+        .get_function("throw-expect-42")
+        .unwrap()
+        .call(&mut store, &[])
+        .unwrap();
+    assert_eq!(&Value::I32(42), result.first().unwrap());
 }

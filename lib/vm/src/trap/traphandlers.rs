@@ -54,25 +54,7 @@ struct ucontext_t {
     uc_mcontext: libc::mcontext_t,
 }
 
-// Current definition of `ucontext_t` in the `libc` crate is not present
-// on aarch64-unknown-freebsd so it's defined here.
-#[repr(C)]
-#[cfg(all(target_arch = "aarch64", target_os = "freebsd"))]
-#[allow(non_camel_case_types)]
-struct ucontext_t {
-    uc_sigmask: libc::sigset_t,
-    uc_mcontext: libc::mcontext_t,
-    uc_link: *mut ucontext_t,
-    uc_stack: libc::stack_t,
-    uc_flags: libc::c_int,
-    spare: [libc::c_int; 4],
-}
-
-#[cfg(all(
-    unix,
-    not(all(target_arch = "aarch64", target_os = "macos")),
-    not(all(target_arch = "aarch64", target_os = "freebsd"))
-))]
+#[cfg(all(unix, not(all(target_arch = "aarch64", target_os = "macos"))))]
 use libc::ucontext_t;
 
 /// Default stack size is 1MB.
@@ -348,6 +330,9 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "linux", target_arch = "loongarch64"))] {
                     pc = context.uc_mcontext.__gregs[1] as usize;
                     sp = context.uc_mcontext.__gregs[3] as usize;
+                } else if #[cfg(all(target_os = "linux", target_arch = "powerpc64"))] {
+                    pc = (*context.uc_mcontext.regs).nip as usize;
+                    sp = (*context.uc_mcontext.regs).gpr[1] as usize;
                 } else {
                     compile_error!("Unsupported platform");
                 }
@@ -469,7 +454,7 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.mc_gpregs.gp_x[0] = x0 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[1] = x1 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[29] = x29 as libc::register_t;
-                    context.uc_mcontext.mc_gpregs.gp_x[30] = lr as libc::register_t;
+                    context.uc_mcontext.mc_gpregs.gp_lr = lr as libc::register_t;
                 } else if #[cfg(all(target_os = "linux", target_arch = "loongarch64"))] {
                     let TrapHandlerRegs { pc, sp, a0, a1, fp, ra } = regs;
                     context.uc_mcontext.__pc = pc;
@@ -478,6 +463,14 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.__gregs[4] = a0;
                     context.uc_mcontext.__gregs[5] = a1;
                     context.uc_mcontext.__gregs[22] = fp;
+                } else if #[cfg(all(target_os = "linux", target_arch = "powerpc64"))] {
+                    let TrapHandlerRegs { pc, sp, r3, r4, r31, lr } = regs;
+                    (*context.uc_mcontext.regs).nip = pc;
+                    (*context.uc_mcontext.regs).gpr[1] = sp;
+                    (*context.uc_mcontext.regs).gpr[3] = r3;
+                    (*context.uc_mcontext.regs).gpr[4] = r4;
+                    (*context.uc_mcontext.regs).gpr[31] = r31;
+                    (*context.uc_mcontext.regs).link = lr;
                 } else {
                     compile_error!("Unsupported platform");
                 }

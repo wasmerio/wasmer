@@ -13,11 +13,15 @@ use wasmer_types::{CompilationProgressCallback, CompileError, HashAlgorithm, tar
 
 #[cfg(not(target_arch = "wasm32"))]
 use shared_buffer::OwnedBuffer;
+#[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
+use std::io::Write;
 #[cfg(not(target_arch = "wasm32"))]
-use std::{io::Write, path::Path};
+use std::path::Path;
+#[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
+use wasmer_types::ModuleInfo;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo, SignatureIndex,
+    DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex,
     entity::PrimaryMap,
 };
 
@@ -557,7 +561,7 @@ impl EngineInner {
             .register_frame_info(frame_info);
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
     pub(crate) fn register_perfmap(
         &self,
         finished_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,

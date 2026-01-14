@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use super::{
     NamedPackageId, NamedPackageIdent, PackageHash, PackageId, PackageIdent, PackageParseError,
@@ -146,12 +146,20 @@ impl<'de> serde::Deserialize<'de> for PackageSource {
 }
 
 impl schemars::JsonSchema for PackageSource {
-    fn schema_name() -> String {
-        "PackageSource".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("PackageSource")
     }
 
-    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(r#gen)
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        String::json_schema(generator)
+    }
+
+    fn inline_schema() -> bool {
+        false
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        Self::schema_name()
     }
 }
 

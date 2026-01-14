@@ -2,7 +2,7 @@ name: Release cloudcompiler.wasm
 
 env:
   RUST_BACKTRACE: 1
-  MSRV: "1.89"
+  MSRV: "1.90"
 
 on:
   push:
@@ -23,7 +23,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
-          target: ${{ matrix.target }}
       - name: Install wasm32-wasip1 target
         shell: bash
         run: |

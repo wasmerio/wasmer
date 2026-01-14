@@ -561,7 +561,7 @@ mod test_file_opener {
     use std::io;
 
     macro_rules! path {
-        ($path:expr_2021) => {
+        ($path:expr) => {
             std::path::Path::new($path)
         };
     }

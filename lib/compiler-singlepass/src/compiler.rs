@@ -56,29 +56,11 @@ impl SinglepassCompiler {
     fn config(&self) -> &Singlepass {
         &self.config
     }
-}
 
-impl Compiler for SinglepassCompiler {
-    fn name(&self) -> &str {
-        "singlepass"
-    }
-
-    fn deterministic_id(&self) -> String {
-        String::from("singlepass")
-    }
-
-    /// Get the middlewares for this compiler
-    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
-        &self.config.middlewares
-    }
-
-    /// Compile the module using Singlepass, producing a compilation result with
-    /// associated relocations.
-    fn compile_module(
+    fn compile_module_internal(
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
@@ -322,6 +304,57 @@ impl Compiler for SinglepassCompiler {
             unwind_info,
             got,
         })
+    }
+}
+
+impl Compiler for SinglepassCompiler {
+    fn name(&self) -> &str {
+        "singlepass"
+    }
+
+    fn deterministic_id(&self) -> String {
+        String::from("singlepass")
+    }
+
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
+    /// Compile the module using Singlepass, producing a compilation result with
+    /// associated relocations.
+    fn compile_module(
+        &self,
+        target: &Target,
+        compile_info: &CompileModuleInfo,
+        _module_translation: &ModuleTranslationState,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
+    ) -> Result<Compilation, CompileError> {
+        #[cfg(feature = "rayon")]
+        {
+            let num_threads = self.config.num_threads.get();
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()
+                .map_err(|e| {
+                    CompileError::Codegen(format!("failed to build rayon thread pool: {e}"))
+                })?;
+
+            pool.install(|| {
+                self.compile_module_internal(
+                    target,
+                    compile_info,
+                    function_body_inputs,
+                    progress_callback,
+                )
+            })
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
+            self.compile_module_internal(target, compile_info, function_body_inputs)
+        }
     }
 
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {

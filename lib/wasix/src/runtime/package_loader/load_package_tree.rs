@@ -9,7 +9,7 @@ use anyhow::{Context, Error};
 use futures::{StreamExt, TryStreamExt, future::BoxFuture};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
-use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
+use virtual_fs::{FileSystem, UnionFileSystem, WebcVolumeFileSystem};
 use wasmer_config::package::{PackageId, SuggestedCompilerOptimizations};
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
@@ -62,13 +62,17 @@ pub async fn load_package_tree(
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
     containers.insert(resolution.package.root_package.clone(), root.clone());
     let package_ids = containers.keys().cloned().collect();
-    let fs = filesystem(&containers, &resolution.package, root_is_local_dir)?;
+    let fs_opt = filesystem(&containers, &resolution.package, root_is_local_dir)?;
 
     let root = &resolution.package.root_package;
     let commands: Vec<BinaryPackageCommand> =
         commands(&resolution.package.commands, &containers, resolution)?;
 
-    let file_system_memory_footprint = count_file_system(&fs, Path::new("/"));
+    let file_system_memory_footprint = if let Some(fs) = &fs_opt {
+        count_file_system(fs, Path::new("/"))
+    } else {
+        0
+    };
 
     let loaded = BinaryPackage {
         id: root.clone(),
@@ -81,7 +85,7 @@ pub async fn load_package_tree(
         .map(|ts| ts as u128),
         hash: OnceCell::new(),
         entrypoint_cmd: resolution.package.entrypoint.clone(),
-        webc_fs: Arc::new(fs),
+        webc_fs: fs_opt.map(Arc::new),
         commands,
         uses: Vec::new(),
         file_system_memory_footprint,
@@ -398,18 +402,15 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
 
 /// Given a set of [`ResolvedFileSystemMapping`]s and the [`Container`] for each
 /// package in a dependency tree, construct the resulting filesystem.
+///
+/// Returns `Ok(None)` if no filesystem mappings were specified.
 fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+) -> Result<Option<UnionFileSystem>, Error> {
     if pkg.filesystem.is_empty() {
-        return Ok(Box::new(OverlayFileSystem::<
-            virtual_fs::EmptyFileSystem,
-            Vec<WebcVolumeFileSystem>,
-        >::new(
-            virtual_fs::EmptyFileSystem::default(), vec![]
-        )));
+        return Ok(None);
     }
 
     let mut found_v2 = None;
@@ -423,17 +424,31 @@ fn filesystem(
             )
         })?;
 
-        if container.version() == webc::Version::V2 && found_v2.is_none() {
-            found_v2 = Some(package.clone());
-        }
-        if container.version() == webc::Version::V3 && found_v3.is_none() {
-            found_v3 = Some(package.clone());
+        match container.version() {
+            webc::Version::V1 => {
+                anyhow::bail!(
+                    "the package '{package}' is a webc v1 package, but webc v1 support was removed"
+                );
+            }
+            webc::Version::V2 => {
+                if found_v2.is_none() {
+                    found_v2 = Some(package.clone());
+                }
+            }
+            webc::Version::V3 => {
+                if found_v3.is_none() {
+                    found_v3 = Some(package.clone());
+                }
+            }
+            other => {
+                anyhow::bail!("the package '{package}' has an unknown webc version: {other}");
+            }
         }
     }
 
     match (found_v2, found_v3) {
-        (None, Some(_)) => filesystem_v3(packages, pkg, root_is_local_dir),
-        (Some(_), None) => filesystem_v2(packages, pkg, root_is_local_dir),
+        (None, Some(_)) => filesystem_v3(packages, pkg, root_is_local_dir).map(Some),
+        (Some(_), None) => filesystem_v2(packages, pkg, root_is_local_dir).map(Some),
         (Some(v2), Some(v3)) => {
             anyhow::bail!(
                 "Mix of webc v2 and v3 in the same dependency tree is not supported; v2: {v2}, v3: {v3}"
@@ -448,11 +463,8 @@ fn filesystem_v3(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+) -> Result<UnionFileSystem, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
-
-    let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
-    mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
 
     let union_fs = UnionFileSystem::new();
 
@@ -465,6 +477,12 @@ fn filesystem_v3(
     {
         if *package == pkg.root_package && root_is_local_dir {
             continue;
+        }
+
+        if mount_path.as_path() == Path::new("/") {
+            tracing::warn!(
+                "The \"{package}\" package wants to mount a volume at \"/\", which breaks WASIX modules' filesystems",
+            );
         }
 
         // Note: We want to reuse existing Volume instances if we can. That way
@@ -490,9 +508,7 @@ fn filesystem_v3(
         union_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))?;
     }
 
-    let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), [union_fs]);
-
-    Ok(Box::new(fs))
+    Ok(union_fs)
 }
 
 /// Build the filesystem for webc v2 packages.
@@ -522,12 +538,10 @@ fn filesystem_v2(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
-    let mut filesystems = Vec::new();
+) -> Result<UnionFileSystem, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
-    mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
+    let union_fs = UnionFileSystem::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -538,6 +552,12 @@ fn filesystem_v2(
     {
         if *package == pkg.root_package && root_is_local_dir {
             continue;
+        }
+
+        if mount_path.as_path() == Path::new("/") {
+            tracing::warn!(
+                "The \"{package}\" package wants to mount a volume at \"/\", which breaks WASIX modules' filesystems",
+            );
         }
 
         // Note: We want to reuse existing Volume instances if we can. That way
@@ -561,7 +581,7 @@ fn filesystem_v2(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let mount_path = mount_path.clone();
+        let mount_path_clone = mount_path.clone();
         // Get a filesystem which will map "$mount_dir/some-path" to
         // "$original_path/some-path" on the original volume
         let fs = if let Some(original) = original_path {
@@ -571,7 +591,7 @@ fn filesystem_v2(
                 WebcVolumeFileSystem::new(volume.clone()),
                 Box::new(move |path: &Path| {
                     let without_mount_dir = path
-                        .strip_prefix(&mount_path)
+                        .strip_prefix(&mount_path_clone)
                         .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
                     Ok(original.join(without_mount_dir))
                 }) as DynPathMapper,
@@ -581,26 +601,21 @@ fn filesystem_v2(
                 WebcVolumeFileSystem::new(volume.clone()),
                 Box::new(move |path: &Path| {
                     let without_mount_dir = path
-                        .strip_prefix(&mount_path)
+                        .strip_prefix(&mount_path_clone)
                         .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
                     Ok(without_mount_dir.to_owned())
                 }) as DynPathMapper,
             )
         };
 
-        filesystems.push(fs);
+        union_fs.mount(volume_name.clone(), mount_path, Box::new(fs))?;
     }
 
-    let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), filesystems);
-
-    Ok(Box::new(fs))
+    Ok(union_fs)
 }
 
 type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;
 
-/// A [`FileSystem`] implementation that lets you map the [`Path`] to something
-/// else.
-#[derive(Clone, PartialEq)]
 struct MappedPathFileSystem<F, M> {
     inner: F,
     map: M,

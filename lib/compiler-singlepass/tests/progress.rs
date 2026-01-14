@@ -1,5 +1,3 @@
-#![cfg(all(feature = "std", any(target_arch = "x86_64", target_arch = "aarch64")))]
-
 use std::sync::{Arc, Mutex};
 
 use wasmer_compiler::EngineBuilder;

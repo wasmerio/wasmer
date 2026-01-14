@@ -14,9 +14,9 @@ use wasmer_types::{
 
 use wasmparser::{
     self, BinaryReaderError, Export, ExportSectionReader, ExternalKind, FunctionSectionReader,
-    GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, MemorySectionReader,
-    MemoryType as WPMemoryType, NameSectionReader, Parser, Payload, TableSectionReader,
-    TagType as WPTagType, TypeRef, TypeSectionReader,
+    GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, Imports,
+    MemorySectionReader, MemoryType as WPMemoryType, NameSectionReader, Parser, Payload,
+    TableSectionReader, TagType as WPTagType, TypeRef, TypeSectionReader,
 };
 
 pub type WasmResult<T> = Result<T, String>;
@@ -428,6 +428,10 @@ pub fn parse_import_section(
 
     for entry in imports {
         let import = entry.map_err(transform_err)?;
+        let Imports::Single(_index, import) = import else {
+            return Err("non-Single section Imports not implemented yet".to_string());
+        };
+
         let module_name = import.module;
         let field_name = import.name;
 
@@ -483,6 +487,7 @@ pub fn parse_import_section(
                     field_name,
                 )?;
             }
+            TypeRef::FuncExact(_) => unimplemented!("custom-descriptors not implemented yet"),
         }
     }
     Ok(())
@@ -621,6 +626,9 @@ pub fn parse_export_section(
                 module_info.declare_global_export(GlobalIndex::new(index), name)?
             }
             ExternalKind::Tag => module_info.declare_tag_export(TagIndex::new(index), name)?,
+            ExternalKind::FuncExact => {
+                return Err("custom-descriptors not implemented yet".to_string());
+            }
         }
     }
     Ok(())

@@ -30,7 +30,7 @@ use url::Url;
 use wasmer::sys::NativeEngineExt;
 use wasmer::{
     AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, RuntimeError, Store,
-    Type, TypedFunction, Value,
+    Type, TypedFunction, Value, wat2wasm,
 };
 
 use wasmer_types::{Features, target::Target};
@@ -65,8 +65,12 @@ use webc::Container;
 use webc::metadata::Manifest;
 
 use crate::{
-    backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
-    error::PrettyError, logging::Output,
+    backend::RuntimeOptions,
+    commands::run::{target::TargetOnDisk, wasi::Wasi},
+    common::HashAlgorithm,
+    config::WasmerEnv,
+    error::PrettyError,
+    logging::Output,
 };
 
 use self::{
@@ -149,34 +153,39 @@ impl Run {
             tracing::info!("Input file path: {}", path.display());
 
             // Try to read and detect any file that exists, regardless of extension
-            if path.exists() {
-                tracing::info!("Found file: {}", path.display());
-                match std::fs::read(path) {
-                    Ok(bytes) => {
-                        tracing::info!("Read {} bytes from file", bytes.len());
-
-                        // Check if it's a WebAssembly module by looking for magic bytes
-                        let magic = [0x00, 0x61, 0x73, 0x6D]; // "\0asm"
-                        if bytes.len() >= 4 && bytes[0..4] == magic {
-                            // Looks like a valid WebAssembly module, save the bytes for feature detection
-                            tracing::info!(
-                                "Valid WebAssembly module detected, magic header verified"
-                            );
-                            wasm_bytes = Some(bytes);
+            let target = TargetOnDisk::from_file(path);
+            if let Ok(target) = target {
+                match target {
+                    TargetOnDisk::WebAssemblyBinary => {
+                        if let Ok(data) = std::fs::read(path) {
+                            wasm_bytes = Some(data);
                         } else {
-                            tracing::info!(
-                                "File does not have valid WebAssembly magic number, will try to run it anyway"
-                            );
-                            // Still provide the bytes so the engine can attempt to run it
-                            wasm_bytes = Some(bytes);
+                            tracing::info!("Failed to read file: {}", path.display());
                         }
                     }
-                    Err(e) => {
-                        tracing::info!("Failed to read file for feature detection: {}", e);
-                    }
+                    TargetOnDisk::Wat => match std::fs::read(path) {
+                        Ok(data) => match wat2wasm(&data) {
+                            Ok(wasm) => {
+                                wasm_bytes = Some(wasm.to_vec());
+                            }
+                            Err(e) => {
+                                tracing::info!(
+                                    "Failed to convert WAT to Wasm for {}: {e}",
+                                    path.display()
+                                );
+                            }
+                        },
+                        Err(e) => {
+                            tracing::info!("Failed to read WAT file {}: {e}", path.display());
+                        }
+                    },
+                    _ => {}
                 }
             } else {
-                tracing::info!("File does not exist: {}", path.display());
+                tracing::info!(
+                    "Failed to read file for feature detection: {}",
+                    path.display()
+                );
             }
         } else {
             tracing::info!("Input is not a file, skipping WebAssembly feature detection");
@@ -414,7 +423,8 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut runner = self.build_wasi_runner(&runtime)?;
+        // Assume webcs are always WASIX
+        let mut runner = self.build_wasi_runner(&runtime, true)?;
         Runner::run_command(&mut runner, command_name, pkg, runtime)
     }
 
@@ -497,7 +507,7 @@ impl Run {
         pkg: &BinaryPackage,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut inner = self.build_wasi_runner(&runtime)?;
+        let mut inner = self.build_wasi_runner(&runtime, true)?;
         let mut runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, pkg);
         runner.run_command(command_name, pkg, runtime)
     }
@@ -546,12 +556,13 @@ impl Run {
     fn build_wasi_runner(
         &self,
         runtime: &Arc<dyn Runtime + Send + Sync>,
+        is_wasix: bool,
     ) -> Result<WasiRunner, anyhow::Error> {
         let packages = self.load_injected_packages(runtime)?;
 
         let mut runner = WasiRunner::new();
 
-        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories()?;
+        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories(is_wasix)?;
 
         runner
             .with_args(&self.args)
@@ -616,7 +627,7 @@ impl Run {
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
-        let runner = self.build_wasi_runner(&runtime)?;
+        let runner = self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
         runner.run_wasm(
             RuntimeOrEngine::Runtime(runtime),
             &program_name,
@@ -628,14 +639,14 @@ impl Run {
     #[allow(unused_variables)]
     fn maybe_save_coredump(&self, e: &Error) {
         #[cfg(feature = "coredump")]
-        if let Some(coredump) = &self.coredump_on_trap {
-            if let Err(e) = generate_coredump(e, self.input.to_string(), coredump) {
-                tracing::warn!(
-                    error = &*e as &dyn std::error::Error,
-                    coredump_path=%coredump.display(),
-                    "Unable to generate a coredump",
-                );
-            }
+        if let Some(coredump) = &self.coredump_on_trap
+            && let Err(e) = generate_coredump(e, self.input.to_string(), coredump)
+        {
+            tracing::warn!(
+                error = &*e as &dyn std::error::Error,
+                coredump_path=%coredump.display(),
+                "Unable to generate a coredump",
+            );
         }
     }
 }

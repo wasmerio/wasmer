@@ -12,7 +12,6 @@ use crate::{
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
-use std::mem::size_of;
 
 /// An index type for builtin functions.
 #[derive(Copy, Clone, Debug)]
@@ -152,9 +151,34 @@ impl VMBuiltinFunctionIndex {
         Self(31)
     }
 
+    /// Returns an index for wasm's imported `wasmer_eh_personality2` builtin function.
+    pub const fn get_imported_personality2_index() -> Self {
+        Self(32)
+    }
+
+    /// Returns an index for wasm's imported `alloc_exception` builtin function.
+    pub const fn get_imported_alloc_exception_index() -> Self {
+        Self(33)
+    }
+
+    /// Returns an index for wasm's imported `throw` builtin function.
+    pub const fn get_imported_throw_index() -> Self {
+        Self(34)
+    }
+
+    /// Returns an index for wasm's imported `read_exnref` builtin function.
+    pub const fn get_imported_read_exnref_index() -> Self {
+        Self(35)
+    }
+
+    /// Returns an index for wasm's imported `exception_into_exnref` builtin function.
+    pub const fn get_imported_exception_into_exnref_index() -> Self {
+        Self(36)
+    }
+
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        32
+        37
     }
 
     /// Return the index as an u32 number.
@@ -304,16 +328,17 @@ impl VMOffsets {
             base.checked_add(num_items.checked_mul(item_size).unwrap())
                 .unwrap()
         }
-        /// Offset base by num_items items of size item_size, panicking on overflow
-        /// Also, will align the value on pointer size boundary,
-        /// to avoid misalignement issue
-        fn offset_by_aligned(base: u32, num_items: u32, item_size: u32) -> u32 {
+        // Offset base by num_items items of size item_size, panicking on overflow
+        // Also, will align the value on pointer size boundary,
+        // to avoid misalignement issue
+        let pointer_size = self.pointer_size as u32;
+        let offset_by_aligned = |base: u32, num_items: u32, item_size: u32| -> u32 {
             align(
                 base.checked_add(num_items.checked_mul(item_size).unwrap())
                     .unwrap(),
-                size_of::<&u32>() as u32,
+                pointer_size,
             )
-        }
+        };
 
         self.vmctx_signature_ids_begin = 0;
         self.vmctx_imported_functions_begin = offset_by_aligned(

@@ -47,7 +47,6 @@ default = [
 # 	"dep:interfaces",
 # ]
 journal = ["wasmer-wasix/journal"]
-fuse = ["dep:fuser", "dep:time01", "dep:shared-buffer", "dep:rkyv"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "dep:wasmer-vm"]
@@ -113,17 +112,17 @@ tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=6.1.0", path = "../api", default-features = false }
-wasmer-compiler = { version = "=6.1.0", path = "../compiler", features = [
+wasmer = { version = "=7.0.0-alpha.2", path = "../api", default-features = false }
+wasmer-compiler = { version = "=7.0.0-alpha.2", path = "../compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=6.1.0", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=6.1.0", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=6.1.0", path = "../compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=7.0.0-alpha.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=7.0.0-alpha.2", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=7.0.0-alpha.2", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
 
-wasmer-vm = { version = "=6.1.0", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.601.0", features = [
+wasmer-vm = { version = "=7.0.0-alpha.2", path = "../vm", optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.700.0-alpha.2", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -132,33 +131,26 @@ wasmer-wasix = { path = "../wasix", version = "=0.601.0", features = [
 	"ctrlc",
 	"sys",
 ], default-features = false }
-wasmer-wast = { version = "=6.1.0", path = "../../tests/lib/wast", optional = true }
-wasmer-types = { version = "=6.1.0", path = "../types", features = [
+wasmer-wast = { version = "=7.0.0-alpha.2", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=7.0.0-alpha.2", path = "../types", features = [
 	"enable-serde",
 	"detect-wasm-features",
 ] }
-virtual-fs = { version = "0.601.0", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.700.0-alpha.2", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
-virtual-net = { version = "0.601.0", path = "../virtual-net" }
-virtual-mio = { version = "0.601.0", path = "../virtual-io" }
+virtual-net = { version = "0.700.0-alpha.2", path = "../virtual-net" }
+virtual-mio = { version = "0.700.0-alpha.2", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
 
 webc.workspace = true
-wasmer-backend-api = { version = "=0.601.0", path = "../backend-api" }
-wasmer-sdk = { path = "../sdk" }
-wasmer-config = { version = "0.601.0", path = "../config" }
-
-# Used by the mount command
+wasmer-backend-api = { version = "=0.700.0-alpha.2", path = "../backend-api" }
+wasmer-sdk = { version = "=7.0.0-alpha.2", path = "../sdk" }
+wasmer-config = { version = "0.700.0-alpha.2", path = "../config" }
 
 shared-buffer = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }
-
-# TODO: #5858
-fuser = { version = "0.14.0", optional = true }
-time01 = { package = "time", version = "0.1.45", optional = true }
-
 
 # Third-party dependencies.
 
@@ -200,7 +192,7 @@ tracing-subscriber = { workspace = true, features = [
 	"json",
 	"ansi"
 ] }
-async-trait = { workspace = true }
+async-trait.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 once_cell.workspace = true
 indicatif.workspace = true
@@ -321,3 +313,4 @@ bin-dir = "bin/{ bin }.exe"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
+features = ["wasmer/cranelift"]

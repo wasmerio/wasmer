@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.601.0"
+version = "0.700.0-alpha.2"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -14,20 +14,22 @@ rust-version.workspace = true
 
 [dependencies]
 wasmer-package.workspace = true
-wasmer-wasix-types = { path = "../wasi-types", version = "0.601.0", features = [
+wasmer-wasix-types = { path = "../wasi-types", version = "0.700.0-alpha.2", features = [
 	"enable-serde",
 ] }
-wasmer-types = { path = "../types", version = "=6.1.0", default-features = false }
-wasmer = { path = "../api", version = "=6.1.0", default-features = false }
-virtual-mio = { path = "../virtual-io", version = "0.601.0", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.601.0", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=7.0.0-alpha.2", default-features = false }
+wasmer = { path = "../api", version = "=7.0.0-alpha.2", default-features = false, features = [
+	"experimental-async",
+] }
+virtual-mio = { path = "../virtual-io", version = "0.700.0-alpha.2", default-features = false }
+virtual-fs = { path = "../virtual-fs", version = "0.700.0-alpha.2", default-features = false, features = [
 	"webc-fs",
 ] }
-virtual-net = { path = "../virtual-net", version = "0.601.0", default-features = false, features = [
+virtual-net = { path = "../virtual-net", version = "0.700.0-alpha.2", default-features = false, features = [
 	"rkyv",
 ] }
-wasmer-journal = { path = "../journal", version = "0.601.0", default-features = false }
-wasmer-config = { version = "0.601.0", path = "../config" }
+wasmer-journal = { path = "../journal", version = "0.700.0-alpha.2", default-features = false }
+wasmer-config = { version = "0.700.0-alpha.2", path = "../config" }
 
 http.workspace = true
 dashmap.workspace = true
@@ -48,7 +50,7 @@ tracing.workspace = true
 getrandom.workspace = true
 typetag = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
-bincode = { workspace = true }
+bincode.workspace = true
 chrono = { workspace = true, default-features = false, features = [
 	"wasmbind",
 	"std",
@@ -121,7 +123,7 @@ hyper-util = { workspace = true, features = [
 http-body-util = { workspace = true, optional = true }
 toml.workspace = true
 pin-utils.workspace = true
-wasmparser = { workspace = true }
+wasmparser.workspace = true
 crossbeam-channel.workspace = true
 bus.workspace = true
 
@@ -152,7 +154,7 @@ windows-sys = { workspace = true, features = [
 terminal_size.workspace = true
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = [
+wasmer = { path = "../api", version = "=7.0.0-alpha.2", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 ] }
@@ -173,8 +175,8 @@ wasm-bindgen-test.workspace = true
 tracing-wasm.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tracing-subscriber = { workspace = true}
-wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = [
+tracing-subscriber.workspace = true
+wasmer = { path = "../api", version = "=7.0.0-alpha.2", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 	"cranelift",
@@ -265,7 +267,7 @@ enable-serde = [
 [package.metadata.docs.rs]
 features = [
 	"wasmer/sys",
-	"wasmer/compiler",
+	"wasmer/cranelift",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
 	"webc_runner_rt_dproxy",

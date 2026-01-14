@@ -20,6 +20,18 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+macro_rules! cfg_std_or_core {
+    ($($item:item)*) => {
+        $(
+            #[cfg(any(
+                feature = "std",
+                feature = "core",
+            ))]
+            $item
+        )*
+    };
+}
+
 #[cfg(all(feature = "std", feature = "core"))]
 compile_error!(
     "The `std` and `core` features are both enabled, which is an error. Please enable only once."
@@ -32,6 +44,7 @@ compile_error!("Both the `std` and `core` features are disabled. Please enable o
 extern crate alloc;
 
 #[allow(unused_imports)]
+#[cfg(any(feature = "std", feature = "core"))]
 mod lib {
     #[cfg(feature = "core")]
     pub mod std {
@@ -46,21 +59,23 @@ mod lib {
     }
 }
 
-mod engine;
-mod traits;
+cfg_std_or_core! {
+    mod engine;
+    mod traits;
 
-pub mod misc;
-pub mod object;
-pub mod progress;
-pub mod serialize;
-pub mod types;
+    pub mod misc;
+    pub mod object;
+    pub mod progress;
+    pub mod serialize;
+    pub mod types;
 
-pub use crate::engine::*;
-pub use crate::traits::*;
+    pub use crate::engine::*;
+    pub use crate::traits::*;
 
-mod artifact_builders;
+    mod artifact_builders;
 
-pub use self::artifact_builders::*;
+    pub use self::artifact_builders::*;
+}
 
 #[cfg(feature = "compiler")]
 mod compiler;

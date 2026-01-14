@@ -2,14 +2,19 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 use crate::{
+    HashMap,
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
-    translator::{FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment},
+    translator::{
+        EXN_REF_TYPE, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, LandingPad, TAG_TYPE,
+        TargetEnvironment,
+    },
 };
 use cranelift_codegen::{
     cursor::FuncCursor,
     ir::{
-        self, AbiParam, ArgumentPurpose, Function, InstBuilder, MemFlags, Signature,
+        self, AbiParam, ArgumentPurpose, BlockArg, Endianness, ExceptionTableData,
+        ExceptionTableItem, ExceptionTag, Function, InstBuilder, MemFlags, Signature,
         UserExternalName,
         condcodes::IntCC,
         immediates::{Offset32, Uimm64},
@@ -18,12 +23,13 @@ use cranelift_codegen::{
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
+use smallvec::SmallVec;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
-    ModuleInfo, SignatureIndex, TableIndex, TableStyle, Type as WasmerType, VMBuiltinFunctionIndex,
-    VMOffsets, WasmError, WasmResult,
+    ModuleInfo, SignatureIndex, TableIndex, TableStyle, TagIndex, Type as WasmerType,
+    VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
     entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
 
@@ -39,6 +45,17 @@ pub fn get_function_name(func: &mut Function, func_index: FunctionIndex) -> ir::
 #[allow(unused)]
 pub fn type_of_vmtable_definition_current_elements(vmoffsets: &VMOffsets) -> ir::Type {
     ir::Type::int(u16::from(vmoffsets.size_of_vmtable_definition_current_elements()) * 8).unwrap()
+}
+
+#[derive(Clone)]
+struct ExceptionFieldLayout {
+    offset: u32,
+    ty: ir::Type,
+}
+
+#[derive(Clone)]
+struct ExceptionTypeLayout {
+    fields: SmallVec<[ExceptionFieldLayout; 4]>,
 }
 
 /// The `FuncEnvironment` implementation for use by the `ModuleEnvironment`.
@@ -122,6 +139,16 @@ pub struct FuncEnvironment<'module_environment> {
     /// The external function signature for implementing wasm's `memory32.atomic.notify`.
     memory32_atomic_notify_sig: Option<ir::SigRef>,
 
+    /// Cached signatures for exception helper builtins.
+    personality2_sig: Option<ir::SigRef>,
+    throw_sig: Option<ir::SigRef>,
+    alloc_exception_sig: Option<ir::SigRef>,
+    read_exception_sig: Option<ir::SigRef>,
+    read_exnref_sig: Option<ir::SigRef>,
+
+    /// Cached payload layouts for exception tags.
+    exception_type_layouts: HashMap<u32, ExceptionTypeLayout>,
+
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
 
@@ -167,6 +194,12 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             memory32_atomic_wait32_sig: None,
             memory32_atomic_wait64_sig: None,
             memory32_atomic_notify_sig: None,
+            personality2_sig: None,
+            throw_sig: None,
+            alloc_exception_sig: None,
+            read_exception_sig: None,
+            read_exnref_sig: None,
+            exception_type_layouts: HashMap::new(),
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
             tables: Default::default(),
@@ -916,6 +949,287 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         }
     }
 
+    fn get_personality2_func(
+        &mut self,
+        func: &mut Function,
+    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        let sig = self.personality2_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::new(self.pointer_type()));
+            signature.params.push(AbiParam::new(self.pointer_type()));
+            signature.returns.push(AbiParam::new(TAG_TYPE));
+            let sig = func.import_signature(signature);
+            self.personality2_sig = Some(sig);
+            sig
+        });
+        (
+            sig,
+            VMBuiltinFunctionIndex::get_imported_personality2_index(),
+        )
+    }
+
+    fn get_throw_func(&mut self, func: &mut Function) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        let sig = self.throw_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::special(
+                self.pointer_type(),
+                ArgumentPurpose::VMContext,
+            ));
+            signature.params.push(AbiParam::new(EXN_REF_TYPE));
+            let sig = func.import_signature(signature);
+            self.throw_sig = Some(sig);
+            sig
+        });
+        (sig, VMBuiltinFunctionIndex::get_imported_throw_index())
+    }
+
+    fn get_alloc_exception_func(
+        &mut self,
+        func: &mut Function,
+    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        let sig = self.alloc_exception_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::special(
+                self.pointer_type(),
+                ArgumentPurpose::VMContext,
+            ));
+            signature.params.push(AbiParam::new(TAG_TYPE));
+            signature.returns.push(AbiParam::new(EXN_REF_TYPE));
+            let sig = func.import_signature(signature);
+            self.alloc_exception_sig = Some(sig);
+            sig
+        });
+        (
+            sig,
+            VMBuiltinFunctionIndex::get_imported_alloc_exception_index(),
+        )
+    }
+
+    fn get_read_exnref_func(
+        &mut self,
+        func: &mut Function,
+    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        let sig = self.read_exnref_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::special(
+                self.pointer_type(),
+                ArgumentPurpose::VMContext,
+            ));
+            signature.params.push(AbiParam::new(EXN_REF_TYPE));
+            signature.returns.push(AbiParam::new(self.pointer_type()));
+            let sig = func.import_signature(signature);
+            self.read_exnref_sig = Some(sig);
+            sig
+        });
+        (
+            sig,
+            VMBuiltinFunctionIndex::get_imported_read_exnref_index(),
+        )
+    }
+
+    fn get_read_exception_func(
+        &mut self,
+        func: &mut Function,
+    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        let sig = self.read_exception_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::new(self.pointer_type()));
+            signature.returns.push(AbiParam::new(EXN_REF_TYPE));
+            let sig = func.import_signature(signature);
+            self.read_exception_sig = Some(sig);
+            sig
+        });
+        (
+            sig,
+            VMBuiltinFunctionIndex::get_imported_exception_into_exnref_index(),
+        )
+    }
+
+    fn exception_type_layout(&mut self, tag_index: TagIndex) -> WasmResult<&ExceptionTypeLayout> {
+        let key = tag_index.as_u32();
+        if !self.exception_type_layouts.contains_key(&key) {
+            let layout = self.compute_exception_type_layout(tag_index)?;
+            self.exception_type_layouts.insert(key, layout);
+        }
+        Ok(self.exception_type_layouts.get(&key).unwrap())
+    }
+
+    fn compute_exception_type_layout(
+        &self,
+        tag_index: TagIndex,
+    ) -> WasmResult<ExceptionTypeLayout> {
+        let sig_index = self.module.tags[tag_index];
+        let func_type = &self.module.signatures[sig_index];
+        let mut offset = 0u32;
+        let mut max_align = 1u32;
+        let mut fields = SmallVec::<[ExceptionFieldLayout; 4]>::new();
+
+        for wasm_ty in func_type.params() {
+            let ir_ty = self.map_wasmer_type_to_ir(*wasm_ty)?;
+            let field_size = ir_ty.bytes();
+            let align = field_size.max(1);
+            max_align = max_align.max(align);
+            offset = offset.next_multiple_of(align);
+            fields.push(ExceptionFieldLayout { offset, ty: ir_ty });
+            offset = offset
+                .checked_add(field_size)
+                .ok_or_else(|| WasmError::Unsupported("exception payload too large".to_string()))?;
+        }
+
+        Ok(ExceptionTypeLayout { fields })
+    }
+
+    fn map_wasmer_type_to_ir(&self, ty: WasmerType) -> WasmResult<ir::Type> {
+        Ok(match ty {
+            WasmerType::I32 => ir::types::I32,
+            WasmerType::I64 => ir::types::I64,
+            WasmerType::F32 => ir::types::F32,
+            WasmerType::F64 => ir::types::F64,
+            WasmerType::V128 => ir::types::I8X16,
+            WasmerType::FuncRef | WasmerType::ExternRef | WasmerType::ExceptionRef => {
+                self.reference_type()
+            }
+        })
+    }
+
+    fn call_with_handlers(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        callee: ir::FuncRef,
+        args: &[ir::Value],
+        context: Option<ir::Value>,
+        landing_pad: Option<LandingPad>,
+        unreachable_on_return: bool,
+    ) -> SmallVec<[ir::Value; 4]> {
+        let sig_ref = builder.func.dfg.ext_funcs[callee].signature;
+        let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig_ref]
+            .returns
+            .iter()
+            .map(|ret| ret.value_type)
+            .collect();
+
+        if landing_pad.is_none() {
+            let inst = builder.ins().call(callee, args);
+            let results: SmallVec<[ir::Value; 4]> =
+                builder.inst_results(inst).iter().copied().collect();
+            if unreachable_on_return {
+                builder.ins().trap(crate::TRAP_UNREACHABLE);
+            }
+            return results;
+        }
+
+        let continuation = builder.create_block();
+        let mut normal_args = SmallVec::<[BlockArg; 4]>::with_capacity(return_types.len());
+        let mut result_values = SmallVec::<[ir::Value; 4]>::with_capacity(return_types.len());
+        for (i, ty) in return_types.iter().enumerate() {
+            let val = builder.append_block_param(continuation, *ty);
+            result_values.push(val);
+            normal_args.push(BlockArg::TryCallRet(u32::try_from(i).unwrap()));
+        }
+        let continuation_call = builder
+            .func
+            .dfg
+            .block_call(continuation, normal_args.iter());
+
+        let mut table_items = Vec::new();
+        if let Some(ctx) = context {
+            table_items.push(ExceptionTableItem::Context(ctx));
+        }
+        if let Some(landing_pad) = landing_pad {
+            for tag in landing_pad.clauses {
+                let block_call = builder.func.dfg.block_call(
+                    landing_pad.block,
+                    &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)],
+                );
+                table_items.push(match tag.wasm_tag {
+                    Some(tag) => ExceptionTableItem::Tag(ExceptionTag::from_u32(tag), block_call),
+                    None => ExceptionTableItem::Default(block_call),
+                });
+            }
+        }
+        let etd = ExceptionTableData::new(sig_ref, continuation_call, table_items);
+        let et = builder.func.dfg.exception_tables.push(etd);
+        builder.ins().try_call(callee, args, et);
+        builder.switch_to_block(continuation);
+        builder.seal_block(continuation);
+        if unreachable_on_return {
+            builder.ins().trap(crate::TRAP_UNREACHABLE);
+        }
+        result_values
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn call_indirect_with_handlers(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        sig: ir::SigRef,
+        func_addr: ir::Value,
+        args: &[ir::Value],
+        context: Option<ir::Value>,
+        landing_pad: Option<LandingPad>,
+        unreachable_on_return: bool,
+    ) -> SmallVec<[ir::Value; 4]> {
+        let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig]
+            .returns
+            .iter()
+            .map(|ret| ret.value_type)
+            .collect();
+
+        if landing_pad.is_none() {
+            let inst = builder.ins().call_indirect(sig, func_addr, args);
+            let results: SmallVec<[ir::Value; 4]> =
+                builder.inst_results(inst).iter().copied().collect();
+            if unreachable_on_return {
+                builder.ins().trap(crate::TRAP_UNREACHABLE);
+            }
+            return results;
+        }
+
+        let continuation = builder.create_block();
+        let current_block = builder.current_block().expect("current block");
+        builder.insert_block_after(continuation, current_block);
+
+        let mut normal_args = SmallVec::<[BlockArg; 4]>::with_capacity(return_types.len());
+        let mut result_values = SmallVec::<[ir::Value; 4]>::with_capacity(return_types.len());
+        for (i, ty) in return_types.iter().enumerate() {
+            let val = builder.append_block_param(continuation, *ty);
+            result_values.push(val);
+            normal_args.push(BlockArg::TryCallRet(u32::try_from(i).unwrap()));
+        }
+        let continuation_call = builder
+            .func
+            .dfg
+            .block_call(continuation, normal_args.iter());
+
+        let mut table_items = Vec::new();
+        if let Some(ctx) = context {
+            table_items.push(ExceptionTableItem::Context(ctx));
+        }
+        if let Some(landing_pad) = landing_pad {
+            for tag in landing_pad.clauses {
+                let block_call = builder.func.dfg.block_call(
+                    landing_pad.block,
+                    &[BlockArg::TryCallExn(0), BlockArg::TryCallExn(1)],
+                );
+                table_items.push(match tag.wasm_tag {
+                    Some(tag) => ExceptionTableItem::Tag(ExceptionTag::from_u32(tag), block_call),
+                    None => ExceptionTableItem::Default(block_call),
+                });
+            }
+        }
+
+        let etd = ExceptionTableData::new(sig, continuation_call, table_items);
+        let et = builder.func.dfg.exception_tables.push(etd);
+        builder.ins().try_call_indirect(func_addr, args, et);
+        builder.switch_to_block(continuation);
+        builder.seal_block(continuation);
+        if unreachable_on_return {
+            builder.ins().trap(crate::TRAP_UNREACHABLE);
+        }
+
+        result_values
+    }
+
     /// Translates load of builtin function and returns a pair of values `vmctx`
     /// and address of the loaded function.
     fn translate_load_builtin_function_address(
@@ -1060,14 +1374,19 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                     pos.ins().iconst(self.reference_type(), 0)
                 }
                 _ => {
-                    return Err(WasmError::Unsupported(
-                        "`ref.null T` that is not a `funcref` or an `externref`".into(),
-                    ));
+                    return Err(WasmError::Unsupported(format!(
+                        "`ref.null T` that is not a `funcref` or an `externref`: {ty:?}"
+                    )));
                 }
             },
             HeapType::Concrete(_) => {
                 return Err(WasmError::Unsupported(
                     "`ref.null T` that is not a `funcref` or an `externref`".into(),
+                ));
+            }
+            HeapType::Exact(_) => {
+                return Err(WasmError::Unsupported(
+                    "custom-descriptors not supported yet".into(),
                 ));
             }
         })
@@ -1272,7 +1591,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-    ) -> WasmResult<ir::Inst> {
+        landing_pad: Option<LandingPad>,
+    ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let pointer_type = self.pointer_type();
 
         // Get the anyfunc pointer (the funcref) from the table.
@@ -1339,9 +1659,16 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         // Then append the regular call arguments.
         real_call_args.extend_from_slice(call_args);
 
-        Ok(builder
-            .ins()
-            .call_indirect(sig_ref, func_addr, &real_call_args))
+        let results = self.call_indirect_with_handlers(
+            builder,
+            sig_ref,
+            func_addr,
+            &real_call_args,
+            Some(vmctx),
+            landing_pad,
+            false,
+        );
+        Ok(results)
     }
 
     fn translate_call(
@@ -1350,7 +1677,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
-    ) -> WasmResult<ir::Inst> {
+        landing_pad: Option<LandingPad>,
+    ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
 
         // Handle direct calls to locally-defined functions.
@@ -1367,7 +1695,15 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             // Then append the regular call arguments.
             real_call_args.extend_from_slice(call_args);
 
-            return Ok(builder.ins().call(callee, &real_call_args));
+            let results = self.call_with_handlers(
+                builder,
+                callee,
+                &real_call_args,
+                Some(caller_vmctx),
+                landing_pad,
+                false,
+            );
+            return Ok(results);
         }
 
         // Handle direct calls to imported functions. We use an indirect call
@@ -1397,9 +1733,203 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         // Then append the regular call arguments.
         real_call_args.extend_from_slice(call_args);
 
-        Ok(builder
+        let results = self.call_indirect_with_handlers(
+            builder,
+            sig_ref,
+            func_addr,
+            &real_call_args,
+            Some(vmctx),
+            landing_pad,
+            false,
+        );
+        Ok(results)
+    }
+
+    fn tag_param_arity(&self, tag_index: TagIndex) -> usize {
+        let sig_index = self.module.tags[tag_index];
+        let signature = &self.module.signatures[sig_index];
+        signature.params().len()
+    }
+
+    fn translate_exn_pointer_to_ref(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exn_ptr: ir::Value,
+    ) -> ir::Value {
+        let (read_sig, read_idx) = self.get_read_exception_func(builder.func);
+        let mut pos = builder.cursor();
+        let (_, read_addr) = self.translate_load_builtin_function_address(&mut pos, read_idx);
+        let read_call = builder.ins().call_indirect(read_sig, read_addr, &[exn_ptr]);
+        builder.inst_results(read_call)[0]
+    }
+
+    fn translate_exn_unbox(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        tag_index: TagIndex,
+        exnref: ir::Value,
+    ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
+        let layout = self.exception_type_layout(tag_index)?.clone();
+
+        let (read_exnref_sig, read_exnref_idx) = self.get_read_exnref_func(builder.func);
+        let mut pos = builder.cursor();
+        let (vmctx, read_exnref_addr) =
+            self.translate_load_builtin_function_address(&mut pos, read_exnref_idx);
+        let read_exnref_call =
+            builder
+                .ins()
+                .call_indirect(read_exnref_sig, read_exnref_addr, &[vmctx, exnref]);
+        let payload_ptr = builder.inst_results(read_exnref_call)[0];
+
+        let mut values = SmallVec::<[ir::Value; 4]>::with_capacity(layout.fields.len());
+        let data_flags = ir::MemFlags::trusted();
+        for field in &layout.fields {
+            let value = builder.ins().load(
+                field.ty,
+                data_flags,
+                payload_ptr,
+                Offset32::new(field.offset as i32),
+            );
+            values.push(value);
+        }
+
+        Ok(values)
+    }
+
+    fn translate_exn_throw(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        tag_index: TagIndex,
+        args: &[ir::Value],
+        landing_pad: Option<LandingPad>,
+    ) -> WasmResult<()> {
+        let layout = self.exception_type_layout(tag_index)?.clone();
+        if layout.fields.len() != args.len() {
+            return Err(WasmError::Generic(format!(
+                "exception payload arity mismatch: expected {}, got {}",
+                layout.fields.len(),
+                args.len()
+            )));
+        }
+
+        let (alloc_sig, alloc_idx) = self.get_alloc_exception_func(builder.func);
+        let mut pos = builder.cursor();
+        let (vmctx, alloc_addr) = self.translate_load_builtin_function_address(&mut pos, alloc_idx);
+        let tag_value = builder
             .ins()
-            .call_indirect(sig_ref, func_addr, &real_call_args))
+            .iconst(TAG_TYPE, i64::from(tag_index.as_u32()));
+        let alloc_call = builder
+            .ins()
+            .call_indirect(alloc_sig, alloc_addr, &[vmctx, tag_value]);
+        let exnref = builder.inst_results(alloc_call)[0];
+
+        let (read_exnref_sig, read_exnref_idx) = self.get_read_exnref_func(builder.func);
+        let mut pos = builder.cursor();
+        let (vmctx, read_exnref_addr) =
+            self.translate_load_builtin_function_address(&mut pos, read_exnref_idx);
+        let read_exnref_call =
+            builder
+                .ins()
+                .call_indirect(read_exnref_sig, read_exnref_addr, &[vmctx, exnref]);
+        let payload_ptr = builder.inst_results(read_exnref_call)[0];
+
+        let store_flags = ir::MemFlags::trusted();
+        for (field, value) in layout.fields.iter().zip(args.iter()) {
+            debug_assert_eq!(
+                builder.func.dfg.value_type(*value),
+                field.ty,
+                "exception payload type mismatch"
+            );
+            builder.ins().store(
+                store_flags,
+                *value,
+                payload_ptr,
+                Offset32::new(field.offset as i32),
+            );
+        }
+
+        let (throw_sig, throw_idx) = self.get_throw_func(builder.func);
+        let mut pos = builder.cursor();
+        let (vmctx_value, throw_addr) =
+            self.translate_load_builtin_function_address(&mut pos, throw_idx);
+        let call_args = [vmctx_value, exnref];
+
+        let _ = self.call_indirect_with_handlers(
+            builder,
+            throw_sig,
+            throw_addr,
+            &call_args,
+            Some(vmctx_value),
+            landing_pad,
+            true,
+        );
+
+        Ok(())
+    }
+
+    fn translate_exn_throw_ref(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exnref: ir::Value,
+        landing_pad: Option<LandingPad>,
+    ) -> WasmResult<()> {
+        let (throw_sig, throw_idx) = self.get_throw_func(builder.func);
+        let mut pos = builder.cursor();
+        let (vmctx_value, throw_addr) =
+            self.translate_load_builtin_function_address(&mut pos, throw_idx);
+        let call_args = [vmctx_value, exnref];
+
+        let _ = self.call_indirect_with_handlers(
+            builder,
+            throw_sig,
+            throw_addr,
+            &call_args,
+            Some(vmctx_value),
+            landing_pad,
+            true,
+        );
+
+        Ok(())
+    }
+
+    fn translate_exn_personality_selector(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exn_ptr: ir::Value,
+    ) -> WasmResult<ir::Value> {
+        let (sig, idx) = self.get_personality2_func(builder.func);
+        let pointer_type = self.pointer_type();
+        let exn_ty = builder.func.dfg.value_type(exn_ptr);
+        let exn_arg = if exn_ty == pointer_type {
+            exn_ptr
+        } else {
+            let mut flags = MemFlags::new();
+            flags.set_endianness(Endianness::Little);
+            builder.ins().bitcast(pointer_type, flags, exn_ptr)
+        };
+
+        let mut pos = builder.cursor();
+        let (vmctx_value, func_addr) = self.translate_load_builtin_function_address(&mut pos, idx);
+        let call = builder
+            .ins()
+            .call_indirect(sig, func_addr, &[vmctx_value, exn_arg]);
+        Ok(builder.inst_results(call)[0])
+    }
+
+    fn translate_exn_reraise_unmatched(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exnref: ir::Value,
+    ) -> WasmResult<()> {
+        let (throw_sig, throw_idx) = self.get_throw_func(builder.func);
+        let mut pos = builder.cursor();
+        let (vmctx_value, throw_addr) =
+            self.translate_load_builtin_function_address(&mut pos, throw_idx);
+        builder
+            .ins()
+            .call_indirect(throw_sig, throw_addr, &[vmctx_value, exnref]);
+        builder.ins().trap(crate::TRAP_UNREACHABLE);
+        Ok(())
     }
 
     fn translate_memory_grow(

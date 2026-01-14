@@ -75,9 +75,8 @@ ignore = [
 	#"a-crate-that-is-yanked@0.1.1", # you can also ignore yanked crate versions if you wish
 	#{ crate = "a-crate-that-is-yanked@0.1.1", reason = "you can specify why you are ignoring the yanked crate" },
 
-	"proc-macro-error@1.0.4",
-	"RUSTSEC-2024-0370",
-	"RUSTSEC-2024-0436",
+	"RUSTSEC-2024-0436", # unmaintained 'paste' crate
+	"RUSTSEC-2025-0141", # unmaintained 'bincode' crate
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
@@ -107,6 +106,8 @@ allow = [
 	"BSL-1.0",
 	"Unicode-3.0",
 	"CDLA-Permissive-2.0",
+	"Zlib",
+	"bzip2-1.0.6"
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the

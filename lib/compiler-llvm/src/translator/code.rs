@@ -24,7 +24,7 @@ use inkwell::{
 };
 use itertools::Itertools;
 use smallvec::SmallVec;
-use target_lexicon::BinaryFormat;
+use target_lexicon::{BinaryFormat, OperatingSystem, Triple};
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
@@ -61,23 +61,32 @@ const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 // ( Arshia: that comment above is AI-generated... AI is savage XD )
 const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 
+// Use the lowest optimization level for very large function bodies to reduce compile time.
+// See #5997 for more numbers connected to the change.
+const LLVMIR_LARGE_FUNCTION_THRESHOLD: usize = 100_000;
+
 pub struct FuncTranslator {
     ctx: Context,
     target_machine: TargetMachine,
+    target_machine_no_opt: Option<TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
+    pointer_width: u8,
 }
 
 impl FuncTranslator {
     pub fn new(
         target_machine: TargetMachine,
+        target_machine_no_opt: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
+        pointer_width: u8,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
             target_machine,
+            target_machine_no_opt,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -89,6 +98,7 @@ impl FuncTranslator {
                 }
             },
             binary_fmt,
+            pointer_width,
         })
     }
 
@@ -103,6 +113,7 @@ impl FuncTranslator {
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &dyn SymbolRegistry,
+        target: &Triple,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let func_index = wasm_module.func_index(*local_func_index);
@@ -134,8 +145,7 @@ impl FuncTranslator {
             .get(wasm_module.functions[func_index])
             .unwrap();
 
-        // TODO: pointer width
-        let offsets = VMOffsets::new(8, wasm_module);
+        let offsets = VMOffsets::new(self.pointer_width, wasm_module);
         let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
         let (func_type, func_attrs) = self.abi.func_type_to_llvm(
             &self.ctx,
@@ -150,7 +160,10 @@ impl FuncTranslator {
             func.add_attribute(*attr_loc, *attr);
         }
 
-        func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
+        if !matches!(target.operating_system, OperatingSystem::Windows) {
+            func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
+        }
+
         func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
 
@@ -293,7 +306,14 @@ impl FuncTranslator {
             state,
             function: func,
             locals: params_locals,
-            ctx: CtxType::new(wasm_module, &func, &cache_builder, &*self.abi, config),
+            ctx: CtxType::new(
+                wasm_module,
+                &func,
+                &cache_builder,
+                &*self.abi,
+                config,
+                self.pointer_width,
+            ),
             unreachable_depth: 0,
             memory_styles,
             _table_styles,
@@ -360,16 +380,6 @@ impl FuncTranslator {
         passes.push("simplifycfg");
         passes.push("mem2reg");
 
-        //let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
-        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
-        //    let path = std::path::Path::new(llvm_dump_path);
-        //    if !path.exists() {
-        //        std::fs::create_dir_all(path).unwrap()
-        //    }
-        //    let path = path.join(format!("{function_name}.ll"));
-        //    _ = module.print_to_file(path).unwrap();
-        //}
-
         module
             .run_passes(
                 passes.join(",").as_str(),
@@ -377,14 +387,6 @@ impl FuncTranslator {
                 PassBuilderOptions::create(),
             )
             .unwrap();
-
-        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
-        //    if !passes.is_empty() {
-        //        let path =
-        //            std::path::Path::new(llvm_dump_path).join(format!("{function_name}_opt.ll"));
-        //        _ = module.print_to_file(path).unwrap();
-        //    }
-        //}
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -404,6 +406,7 @@ impl FuncTranslator {
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &dyn SymbolRegistry,
+        target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
         let module = self.translate_to_module(
             wasm_module,
@@ -414,12 +417,20 @@ impl FuncTranslator {
             memory_styles,
             table_styles,
             symbol_registry,
+            target,
         )?;
         let function = CompiledKind::Local(
             *local_func_index,
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
-        let target_machine = &self.target_machine;
+
+        let target_machine = if function_body.data.len() > LLVMIR_LARGE_FUNCTION_THRESHOLD {
+            self.target_machine_no_opt
+                .as_ref()
+                .unwrap_or(&self.target_machine)
+        } else {
+            &self.target_machine
+        };
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();

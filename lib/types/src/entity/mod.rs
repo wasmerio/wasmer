@@ -56,7 +56,7 @@ macro_rules! entity_impl {
 
     // Include basic `Display` impl using the given display prefix.
     // Display a `Block` reference as "block12".
-    ($entity:ident, $display_prefix:expr_2021) => {
+    ($entity:ident, $display_prefix:expr) => {
         entity_impl!($entity);
 
         impl $crate::lib::std::fmt::Display for $entity {

@@ -12,23 +12,24 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
+wat.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0", default-features = false, features = [
+wasmer-compiler = { path = "../compiler", version = "=7.0.0-alpha.2", default-features = false, features = [
 	"translator",
 	"compiler",
 ] }
-wasmer-types = { path = "../types", version = "=6.1.0", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=7.0.0-alpha.2", default-features = false, features = [
 	"std",
 ] }
 
-cranelift-entity = { workspace = true }
+cranelift-entity.workspace = true
 cranelift-codegen = { workspace = true, features = [
 	"x86",
 	"arm64",
 	"riscv64",
 ] }
-cranelift-frontend = { workspace = true }
+cranelift-frontend.workspace = true
 
 itertools.workspace = true
 tracing.workspace = true
@@ -37,7 +38,9 @@ rayon = { workspace = true, optional = true }
 more-asserts.workspace = true
 gimli = { workspace = true, optional = true }
 smallvec.workspace = true
-target-lexicon = { workspace = true }
+target-lexicon.workspace = true
+leb128.workspace = true
+indexmap.workspace = true
 
 [dev-dependencies]
 cranelift-codegen = { workspace = true, features = ["all-arch"] }

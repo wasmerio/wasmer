@@ -232,6 +232,7 @@ unsafe fn wasi_env_with_filesystem_inner(
     let package = package_str.to_str().unwrap_or("");
     let module = &module.as_ref()?.inner;
     let imports = imports?;
+    #[allow(clippy::unnecessary_cast)]
     let fs_bytes = unsafe { &*(fs.ptr as *const u8) };
 
     let (wasi_env, import_object) = {
@@ -264,6 +265,7 @@ fn prepare_webc_env(
     package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
     use virtual_fs::static_fs::StaticFileSystem;
+    use wasmer_wasix::virtual_fs::FileSystem;
     use webc::v1::{FsEntryType, WebC};
 
     let store_mut = store.as_store_mut();
@@ -298,7 +300,8 @@ fn prepare_webc_env(
         })
         .collect::<Vec<_>>();
 
-    let filesystem = Box::new(StaticFileSystem::init(slice, package_name)?);
+    let filesystem =
+        Arc::new(StaticFileSystem::init(slice, package_name)?) as Arc<dyn FileSystem + Send + Sync>;
     let mut builder = config.builder.runtime(Arc::new(rt));
 
     if !config.inherit_stdout {

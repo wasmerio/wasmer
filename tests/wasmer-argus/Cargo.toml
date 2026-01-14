@@ -12,7 +12,7 @@ version.workspace = true
 wasmer_lib = ["dep:wasmer"]
 
 [dependencies]
-wasmer = { version = "6.1.0", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
+wasmer = { version = "7.0.0-alpha.2", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
 indicatif.workspace = true
 anyhow.workspace = true
 log.workspace = true
@@ -27,7 +27,7 @@ serde.workspace = true
 serde_json.workspace = true
 derive_more.workspace = true
 webc.workspace = true
-async-trait = { workspace = true }
+async-trait.workspace = true
 wasmer-backend-api = { path = "../../lib/backend-api" }
 shared-buffer.workspace = true
 

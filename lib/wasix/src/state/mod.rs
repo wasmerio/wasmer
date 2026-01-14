@@ -16,6 +16,7 @@
 #![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
 
 mod builder;
+pub mod context_switching;
 mod env;
 mod func_env;
 mod handles;

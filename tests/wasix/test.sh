@@ -1,29 +1,42 @@
 #!/bin/bash
 
-export WASMER=$(realpath "../../target/release/wasmer")
-
-printf "\n\nStarting WASIX Test Suite:\n"
-
+export WASMER="$(realpath "../../target/release/wasmer")"
 status=0
-while read dir; do
-    dir=$(basename "$dir")
-    printf "Testing $dir..."
+run_tests() {
+    local backend="$1"
+    export WASMER_RUN="${WASMER} run -q ${backend}"
 
-    if [ -e "$dir/.no-build" ]; then
-        cmd="cd $dir; \
-            ./run.sh"
-    else
-        cmd="cd $dir; \
-            wasixcc main.c -o main.wasm; \
-            ./run.sh"
-    fi
+    printf "\n\nStarting WASIX Test Suite ($backend):\n"
+    while read dir; do
+        dir=$(basename "$dir")
+        printf "Testing $backend: $dir...\r"
 
-    if bash -c "$cmd"; then
-        printf "\rTesting $dir ✅\n"
-    else
-        printf "\rTesting $dir ❌\n"
-        status=1
-    fi
-done < <(find . -mindepth 1 -maxdepth 1 -type d | sort)
+        if [ -e "$dir/.no-build" ]; then
+            cmd="cd $dir; \
+                find . -name 'output*' | xargs rm -f; \
+                ./run.sh"
+        else
+            cmd="cd $dir; \
+                find . -name 'output*' | xargs rm -f; \
+                find . -name '*.wasm' | xargs rm -f; \
+                if [ -f main.cc ]; \
+                  then wasix++ -fwasm-exceptions main.cc -o main.wasm; \
+                  else wasixcc main.c -o main.wasm; \
+                fi; \
+                ./run.sh"
+        fi
+
+        if bash -c "$cmd"; then
+            printf "Testing $backend: $dir ✅\n"
+        else
+            printf "Testing $backend: $dir ❌\n"
+            status=1
+        fi
+    done < <(find . -mindepth 1 -maxdepth 1 -type d | sort)
+}
+
+# Call the function with the desired backend argument
+run_tests "--llvm"
+run_tests "--cranelift"
 
 exit $status
