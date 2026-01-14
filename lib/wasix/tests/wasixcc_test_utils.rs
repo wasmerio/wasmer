@@ -191,15 +191,13 @@ impl WasixccTest {
     /// Lowlevel function to invoke wasixcc with custom arguments and environment variables.
     fn wasixcc(
         &self,
-        test_file: &Path,
+        sources: &[&str],
         output_file: &Path,
         extra_args: &[&str],
         extra_env: &[(&str, &str)],
         cpp: bool,
     ) -> Result<(), anyhow::Error> {
         // Derive the test directory from the test file path
-        let input_file_path = self.input_dir.join(test_file);
-
         let tool = if cpp { "wasix++" } else { "wasixcc" };
 
         // Check if the tool is available in PATH
@@ -212,8 +210,11 @@ impl WasixccTest {
 
         // Compile with wasixcc
         let mut command = Command::new(tool);
+        for source in sources {
+            let source_path = self.input_dir.join(source);
+            command.arg(source_path);
+        }
         command
-            .arg(&input_file_path)
             .arg("-o")
             .arg(&output_file)
             .current_dir(&self.input_dir);
@@ -227,10 +228,21 @@ impl WasixccTest {
         }
 
         eprintln!("Running wasixcc: {:?}", command);
-        let compile_status = command
-            .status()
+        let output = command
+            .output()
             .expect(format!("Failed to run {tool}").as_str());
-        assert!(compile_status.success(), "wasixcc compilation failed");
+
+        if !output.status.success() {
+            eprintln!(
+                "wasixcc stdout: {}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            eprintln!(
+                "wasixcc stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            anyhow::bail!("wasixcc compilation failed");
+        }
 
         assert!(
             output_file.exists(),
@@ -242,43 +254,78 @@ impl WasixccTest {
 
     /// Compiles the default C source file with wasixcc and wasm-exceptions enabled and returns the path to the WASM file.
     ///
-    /// If you need more control about the file use `compile_c_executable()` instead.
+    /// If you need more control about the file use `compile_executable()` instead.
     pub fn compile(&self) -> Result<PathBuf, anyhow::Error> {
-        self.compile_c_executable(&self.default_source)
+        self.compile_executable(&self.default_source, &[])
     }
 
     /// Compiles a C file with wasixcc and wasm-exceptions enabled and returns the path to the WASM file.
     ///
     /// If you need more control about the compiler flags use `wasixcc()` instead.
     #[allow(dead_code)]
-    pub fn compile_c_executable(&self, source_file: &Path) -> Result<PathBuf, anyhow::Error> {
+    pub fn compile_executable(
+        &self,
+        source_file: &Path,
+        extra_flags: &[&str],
+    ) -> Result<PathBuf, anyhow::Error> {
         let main_c = self.input_dir.join(source_file);
 
+        let cpp = source_file
+            .extension()
+            .map_or(false, |ext| ext == "cpp" || ext == "cc");
+
+        let link_dir_flag = format!("-L{}", self.output_dir.display());
+        let mut base_flags = vec![
+            "-fwasm-exceptions",
+            "-Wl,--pie",
+            "-fPIC",
+            link_dir_flag.as_str(),
+        ];
+        base_flags.extend_from_slice(extra_flags);
+
         self.wasixcc(
-            &main_c,
+            &[main_c.to_str().unwrap()],
             &self.default_executable,
-            &["-fwasm-exceptions"],
+            &base_flags,
             &[],
-            false,
+            cpp,
         )?;
 
         Ok(self.default_executable.clone())
     }
 
-    /// Compiles a C++ file with wasixcc and wasm-exceptions enabled and returns the path to the WASM file.
+    /// Compile a shared library (.so) from source files
     ///
-    /// If you need more control about the compiler flags use `wasixcc()` instead.
-    #[allow(dead_code)]
-    pub fn compile_cpp_executable(&self, source_file: &Path) -> Result<PathBuf, anyhow::Error> {
-        let main_c = self.input_dir.join(source_file);
+    /// ### Example
+    /// ```no_run
+    /// let test = WasixccTest::new(file!(), "my_test");
+    /// test.compile_shared_library(&["side.c"], "libside.so").unwrap();
+    /// ```
+    pub fn compile_shared_library(
+        &self,
+        sources: &[&str],
+        lib_name: &str,
+        extra_flags: &[&str],
+    ) -> Result<PathBuf, anyhow::Error> {
+        let cpp = sources
+            .iter()
+            .find(|source| {
+                PathBuf::from(source)
+                    .extension()
+                    .map_or(false, |ext| ext == "cpp" || ext == "cc")
+            })
+            .is_some();
 
-        self.wasixcc(
-            &main_c,
-            &self.default_executable,
-            &["-fwasm-exceptions"],
-            &[],
-            true,
-        )?;
+        let link_dir_flag = format!("-L{}", self.output_dir.display());
+        let mut base_flags = vec![
+            "-fwasm-exceptions",
+            "-shared",
+            "-fPIC",
+            link_dir_flag.as_str(),
+        ];
+        base_flags.extend_from_slice(extra_flags);
+
+        self.wasixcc(sources, &self.default_executable, &base_flags, &[], cpp)?;
 
         Ok(self.default_executable.clone())
     }
@@ -324,6 +371,10 @@ impl WasixccTest {
                         guest: self.output_dir.to_string_lossy().to_string(),
                         host: self.output_dir.clone(),
                     }])
+                    .with_mapped_directories([MappedDirectory {
+                        guest: "/lib".to_string(),
+                        host: self.output_dir.clone(),
+                    }])
                     .with_current_dir(self.output_dir.to_string_lossy().to_string())
                     .with_stdout(stdout_capture)
                     .with_stderr(stderr_capture);
@@ -343,4 +394,99 @@ impl WasixccTest {
     pub fn run(&self) -> Result<(), anyhow::Error> {
         self.run_executable(&self.output_dir.join(&self.test_name))
     }
+}
+
+/// Get the wasix-tests directory path
+pub fn get_wasix_tests_dir() -> PathBuf {
+    PathBuf::from(std::env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("wasix-tests")
+}
+
+/// Run a build.sh script in the context_switching directory
+pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::Error> {
+    let input_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join(PathBuf::from(
+            file.split('/')
+                .next_back()
+                .expect("The test file name can not be empty")
+                .trim_end_matches(".rs"),
+        ));
+
+    let cc = "wasixcc";
+    let cxx = "wasix++";
+    let test_path = input_dir.join(test_dir);
+    let build_script = test_path.join("build.sh");
+
+    let output = Command::new("bash")
+        .arg(&build_script)
+        .current_dir(&test_path)
+        .env("CC", cc)
+        .env("CXX", cxx)
+        .env("WASIXCC_SYSROOT", "/home/lennart/.wasix-clang/wasix-sysroot")
+        .env("WASIXCC_COMPILER_FLAGS", "-fPIC:-fwasm-exceptions:-Wl,-L/home/lennart/.wasix-clang/wasix-sysroot/usr/local/lib/wasm32-wasi:-I/home/lennart/.wasix-clang/wasix-sysroot/usr/local/include:-Wl,-mllvm,--wasm-enable-eh:-Wl,-mllvm,--wasm-enable-sjlj:-Wl,-mllvm,--wasm-use-legacy-eh=false:-Wl,-mllvm,--exception-model=wasm")
+        .output()?;
+
+    if !output.status.success() {
+        eprintln!("Build stdout: {}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("Build stderr: {}", String::from_utf8_lossy(&output.stderr));
+        anyhow::bail!("Build script failed");
+    }
+
+    Ok(test_path.join("main"))
+}
+/// Run a compiled WASM file using WasiRunner
+pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
+    // Load the compiled WASM module
+    let wasm_bytes = std::fs::read(&wasm_path).expect("Failed to read compiled WASM file");
+    let module_data = HashedModuleData::new(wasm_bytes);
+    let (hash, wasm_bytes) = module_data.into_parts();
+    let engine = wasmer::Engine::default();
+    let module = Module::new(&engine, &wasm_bytes).expect("Failed to create module");
+
+    // Create buffers to capture stdout and stderr
+    //
+    // For now these are not used, but they can be useful for debugging test failures.
+    let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
+    let stderr_buffer = Arc::new(Mutex::new(Vec::new()));
+
+    let stdout_capture = Box::new(CaptureFile::new(
+        stdout_buffer.clone(),
+        Some(std::io::stdout()),
+    ));
+    let stderr_capture = Box::new(CaptureFile::new(
+        stderr_buffer.clone(),
+        Some(std::io::stderr()),
+    ));
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create tokio runtime for running wasix programs");
+
+    rt.block_on(async {
+        tokio::task::block_in_place(move || {
+            // Run the WASM module using WasiRunner
+            let mut runner = WasiRunner::new();
+            runner
+                .with_mapped_directories([MappedDirectory {
+                    guest: dir.to_string_lossy().to_string(),
+                    host: dir.to_path_buf(),
+                }])
+                .with_mapped_directories([MappedDirectory {
+                    guest: "/lib".to_string(),
+                    host: dir.to_path_buf(),
+                }])
+                .with_current_dir(dir.to_string_lossy().to_string())
+                .with_stdout(stdout_capture)
+                .with_stderr(stderr_capture);
+            runner.run_wasm(
+                RuntimeOrEngine::Engine(engine),
+                &wasm_path.to_string_lossy().to_string(),
+                module,
+                hash,
+            )
+        })
+    })
 }
