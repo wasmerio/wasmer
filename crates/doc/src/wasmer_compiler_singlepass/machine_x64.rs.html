@@ -1991,7 +1991,7 @@
 <a href=#1991 id=1991 data-nosnippet>1991</a>
 <a href=#1992 id=1992 data-nosnippet>1992</a>    <span class="kw">fn </span>pick_gpr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;GPR&gt; {
 <a href=#1993 id=1993 data-nosnippet>1993</a>        <span class="kw">use </span>GPR::<span class="kw-2">*</span>;
-<a href=#1994 id=1994 data-nosnippet>1994</a>        <span class="kw">static </span>REGS: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[RSI, RDI, R8, R9, R10, R11];
+<a href=#1994 id=1994 data-nosnippet>1994</a>        <span class="kw">static </span>REGS: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[R8, R9, R10, R11];
 <a href=#1995 id=1995 data-nosnippet>1995</a>        <span class="kw">for </span>r <span class="kw">in </span>REGS {
 <a href=#1996 id=1996 data-nosnippet>1996</a>            <span class="kw">if </span>!<span class="self">self</span>.used_gprs_contains(r) {
 <a href=#1997 id=1997 data-nosnippet>1997</a>                <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">*</span>r);
@@ -2003,7 +2003,7 @@
 <a href=#2003 id=2003 data-nosnippet>2003</a>    <span class="comment">// Picks an unused general purpose register for internal temporary use.
 <a href=#2004 id=2004 data-nosnippet>2004</a>    </span><span class="kw">fn </span>pick_temp_gpr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;GPR&gt; {
 <a href=#2005 id=2005 data-nosnippet>2005</a>        <span class="kw">use </span>GPR::<span class="kw-2">*</span>;
-<a href=#2006 id=2006 data-nosnippet>2006</a>        <span class="kw">static </span>REGS: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[RAX, RCX, RDX];
+<a href=#2006 id=2006 data-nosnippet>2006</a>        <span class="kw">static </span>REGS: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[RAX, RCX, RDX, RDI, RSI];
 <a href=#2007 id=2007 data-nosnippet>2007</a>        <span class="kw">for </span>r <span class="kw">in </span>REGS {
 <a href=#2008 id=2008 data-nosnippet>2008</a>            <span class="kw">if </span>!<span class="self">self</span>.used_gprs_contains(r) {
 <a href=#2009 id=2009 data-nosnippet>2009</a>                <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">*</span>r);
@@ -8163,7 +8163,7 @@
 <a href=#8163 id=8163 data-nosnippet>8163</a>                    instruction_offset,
 <a href=#8164 id=8164 data-nosnippet>8164</a>                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
 <a href=#8165 id=8165 data-nosnippet>8165</a>                )),
-<a href=#8166 id=8166 data-nosnippet>8166</a>                UnwindOps::Push2Regs { .. } =&gt; <span class="macro">unimplemented!</span>(),
+<a href=#8166 id=8166 data-nosnippet>8166</a>                UnwindOps::Push2Regs { .. } | UnwindOps::SubtractFP { .. } =&gt; <span class="macro">unimplemented!</span>(),
 <a href=#8167 id=8167 data-nosnippet>8167</a>            }
 <a href=#8168 id=8168 data-nosnippet>8168</a>        }
 <a href=#8169 id=8169 data-nosnippet>8169</a>        <span class="prelude-val">Some</span>(UnwindInstructions {

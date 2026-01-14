@@ -511,7 +511,7 @@
 <a href=#511 id=511 data-nosnippet>511</a>                    temps.push(tmp);
 <a href=#512 id=512 data-nosnippet>512</a>                }
 <a href=#513 id=513 data-nosnippet>513</a>            }
-<a href=#514 id=514 data-nosnippet>514</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singplass emit_relaxed_ldr64 unreachable"</span>),
+<a href=#514 id=514 data-nosnippet>514</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_ldr64 unreachable"</span>),
 <a href=#515 id=515 data-nosnippet>515</a>        }
 <a href=#516 id=516 data-nosnippet>516</a>        <span class="kw">if </span>dst != dest {
 <a href=#517 id=517 data-nosnippet>517</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
@@ -8312,345 +8312,346 @@
 <a href=#8312 id=8312 data-nosnippet>8312</a>                    instruction_offset,
 <a href=#8313 id=8313 data-nosnippet>8313</a>                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
 <a href=#8314 id=8314 data-nosnippet>8314</a>                )),
-<a href=#8315 id=8315 data-nosnippet>8315</a>            }
-<a href=#8316 id=8316 data-nosnippet>8316</a>        }
-<a href=#8317 id=8317 data-nosnippet>8317</a>        <span class="prelude-val">Some</span>(UnwindInstructions {
-<a href=#8318 id=8318 data-nosnippet>8318</a>            instructions,
-<a href=#8319 id=8319 data-nosnippet>8319</a>            len: code_len <span class="kw">as </span>u32,
-<a href=#8320 id=8320 data-nosnippet>8320</a>        })
-<a href=#8321 id=8321 data-nosnippet>8321</a>    }
-<a href=#8322 id=8322 data-nosnippet>8322</a>    <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
-<a href=#8323 id=8323 data-nosnippet>8323</a>    </span><span class="kw">fn </span>gen_dwarf_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInstructions&gt; {
-<a href=#8324 id=8324 data-nosnippet>8324</a>        <span class="prelude-val">None
-<a href=#8325 id=8325 data-nosnippet>8325</a>    </span>}
-<a href=#8326 id=8326 data-nosnippet>8326</a>
-<a href=#8327 id=8327 data-nosnippet>8327</a>    <span class="kw">fn </span>gen_windows_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#8328 id=8328 data-nosnippet>8328</a>        <span class="prelude-val">None
-<a href=#8329 id=8329 data-nosnippet>8329</a>    </span>}
-<a href=#8330 id=8330 data-nosnippet>8330</a>}
-<a href=#8331 id=8331 data-nosnippet>8331</a>
-<a href=#8332 id=8332 data-nosnippet>8332</a><span class="attr">#[cfg(test)]
-<a href=#8333 id=8333 data-nosnippet>8333</a></span><span class="kw">mod </span>test {
-<a href=#8334 id=8334 data-nosnippet>8334</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#8335 id=8335 data-nosnippet>8335</a>
-<a href=#8336 id=8336 data-nosnippet>8336</a>    <span class="kw">fn </span>test_move_location(machine: <span class="kw-2">&amp;mut </span>MachineARM64, size: Size) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#8337 id=8337 data-nosnippet>8337</a>        machine.move_location(size, Location::GPR(GPR::X1), Location::GPR(GPR::X2))<span class="question-mark">?</span>;
-<a href=#8338 id=8338 data-nosnippet>8338</a>        machine.move_location(size, Location::GPR(GPR::X1), Location::Memory(GPR::X2, <span class="number">10</span>))<span class="question-mark">?</span>;
-<a href=#8339 id=8339 data-nosnippet>8339</a>        machine.move_location(size, Location::GPR(GPR::X1), Location::Memory(GPR::X2, -<span class="number">10</span>))<span class="question-mark">?</span>;
-<a href=#8340 id=8340 data-nosnippet>8340</a>        machine.move_location(
-<a href=#8341 id=8341 data-nosnippet>8341</a>            size,
-<a href=#8342 id=8342 data-nosnippet>8342</a>            Location::GPR(GPR::X1),
-<a href=#8343 id=8343 data-nosnippet>8343</a>            Location::Memory(GPR::X2, <span class="number">1024</span>),
-<a href=#8344 id=8344 data-nosnippet>8344</a>        )<span class="question-mark">?</span>;
-<a href=#8345 id=8345 data-nosnippet>8345</a>        machine.move_location(
-<a href=#8346 id=8346 data-nosnippet>8346</a>            size,
-<a href=#8347 id=8347 data-nosnippet>8347</a>            Location::GPR(GPR::X1),
-<a href=#8348 id=8348 data-nosnippet>8348</a>            Location::Memory(GPR::X2, -<span class="number">1024</span>),
-<a href=#8349 id=8349 data-nosnippet>8349</a>        )<span class="question-mark">?</span>;
-<a href=#8350 id=8350 data-nosnippet>8350</a>        machine.move_location(size, Location::Memory(GPR::X2, <span class="number">10</span>), Location::GPR(GPR::X1))<span class="question-mark">?</span>;
-<a href=#8351 id=8351 data-nosnippet>8351</a>        machine.move_location(size, Location::Memory(GPR::X2, -<span class="number">10</span>), Location::GPR(GPR::X1))<span class="question-mark">?</span>;
-<a href=#8352 id=8352 data-nosnippet>8352</a>        machine.move_location(
-<a href=#8353 id=8353 data-nosnippet>8353</a>            size,
-<a href=#8354 id=8354 data-nosnippet>8354</a>            Location::Memory(GPR::X2, <span class="number">1024</span>),
-<a href=#8355 id=8355 data-nosnippet>8355</a>            Location::GPR(GPR::X1),
-<a href=#8356 id=8356 data-nosnippet>8356</a>        )<span class="question-mark">?</span>;
-<a href=#8357 id=8357 data-nosnippet>8357</a>        machine.move_location(
-<a href=#8358 id=8358 data-nosnippet>8358</a>            size,
-<a href=#8359 id=8359 data-nosnippet>8359</a>            Location::Memory(GPR::X2, -<span class="number">1024</span>),
-<a href=#8360 id=8360 data-nosnippet>8360</a>            Location::GPR(GPR::X1),
-<a href=#8361 id=8361 data-nosnippet>8361</a>        )<span class="question-mark">?</span>;
-<a href=#8362 id=8362 data-nosnippet>8362</a>        machine.move_location(size, Location::GPR(GPR::X1), Location::SIMD(NEON::V0))<span class="question-mark">?</span>;
-<a href=#8363 id=8363 data-nosnippet>8363</a>        machine.move_location(size, Location::SIMD(NEON::V0), Location::GPR(GPR::X1))<span class="question-mark">?</span>;
-<a href=#8364 id=8364 data-nosnippet>8364</a>        machine.move_location(
-<a href=#8365 id=8365 data-nosnippet>8365</a>            size,
-<a href=#8366 id=8366 data-nosnippet>8366</a>            Location::SIMD(NEON::V0),
-<a href=#8367 id=8367 data-nosnippet>8367</a>            Location::Memory(GPR::X2, <span class="number">10</span>),
-<a href=#8368 id=8368 data-nosnippet>8368</a>        )<span class="question-mark">?</span>;
-<a href=#8369 id=8369 data-nosnippet>8369</a>        machine.move_location(
-<a href=#8370 id=8370 data-nosnippet>8370</a>            size,
-<a href=#8371 id=8371 data-nosnippet>8371</a>            Location::SIMD(NEON::V0),
-<a href=#8372 id=8372 data-nosnippet>8372</a>            Location::Memory(GPR::X2, -<span class="number">10</span>),
-<a href=#8373 id=8373 data-nosnippet>8373</a>        )<span class="question-mark">?</span>;
-<a href=#8374 id=8374 data-nosnippet>8374</a>        machine.move_location(
-<a href=#8375 id=8375 data-nosnippet>8375</a>            size,
-<a href=#8376 id=8376 data-nosnippet>8376</a>            Location::SIMD(NEON::V0),
-<a href=#8377 id=8377 data-nosnippet>8377</a>            Location::Memory(GPR::X2, <span class="number">1024</span>),
-<a href=#8378 id=8378 data-nosnippet>8378</a>        )<span class="question-mark">?</span>;
-<a href=#8379 id=8379 data-nosnippet>8379</a>        machine.move_location(
-<a href=#8380 id=8380 data-nosnippet>8380</a>            size,
-<a href=#8381 id=8381 data-nosnippet>8381</a>            Location::SIMD(NEON::V0),
-<a href=#8382 id=8382 data-nosnippet>8382</a>            Location::Memory(GPR::X2, -<span class="number">1024</span>),
-<a href=#8383 id=8383 data-nosnippet>8383</a>        )<span class="question-mark">?</span>;
-<a href=#8384 id=8384 data-nosnippet>8384</a>        machine.move_location(
-<a href=#8385 id=8385 data-nosnippet>8385</a>            size,
-<a href=#8386 id=8386 data-nosnippet>8386</a>            Location::Memory(GPR::X2, <span class="number">10</span>),
-<a href=#8387 id=8387 data-nosnippet>8387</a>            Location::SIMD(NEON::V0),
-<a href=#8388 id=8388 data-nosnippet>8388</a>        )<span class="question-mark">?</span>;
-<a href=#8389 id=8389 data-nosnippet>8389</a>        machine.move_location(
-<a href=#8390 id=8390 data-nosnippet>8390</a>            size,
-<a href=#8391 id=8391 data-nosnippet>8391</a>            Location::Memory(GPR::X2, -<span class="number">10</span>),
-<a href=#8392 id=8392 data-nosnippet>8392</a>            Location::SIMD(NEON::V0),
-<a href=#8393 id=8393 data-nosnippet>8393</a>        )<span class="question-mark">?</span>;
-<a href=#8394 id=8394 data-nosnippet>8394</a>        machine.move_location(
-<a href=#8395 id=8395 data-nosnippet>8395</a>            size,
-<a href=#8396 id=8396 data-nosnippet>8396</a>            Location::Memory(GPR::X2, <span class="number">1024</span>),
-<a href=#8397 id=8397 data-nosnippet>8397</a>            Location::SIMD(NEON::V0),
-<a href=#8398 id=8398 data-nosnippet>8398</a>        )<span class="question-mark">?</span>;
-<a href=#8399 id=8399 data-nosnippet>8399</a>        machine.move_location(
-<a href=#8400 id=8400 data-nosnippet>8400</a>            size,
-<a href=#8401 id=8401 data-nosnippet>8401</a>            Location::Memory(GPR::X2, -<span class="number">1024</span>),
-<a href=#8402 id=8402 data-nosnippet>8402</a>            Location::SIMD(NEON::V0),
-<a href=#8403 id=8403 data-nosnippet>8403</a>        )<span class="question-mark">?</span>;
-<a href=#8404 id=8404 data-nosnippet>8404</a>
-<a href=#8405 id=8405 data-nosnippet>8405</a>        <span class="prelude-val">Ok</span>(())
-<a href=#8406 id=8406 data-nosnippet>8406</a>    }
-<a href=#8407 id=8407 data-nosnippet>8407</a>
-<a href=#8408 id=8408 data-nosnippet>8408</a>    <span class="kw">fn </span>test_move_location_extended(
-<a href=#8409 id=8409 data-nosnippet>8409</a>        machine: <span class="kw-2">&amp;mut </span>MachineARM64,
-<a href=#8410 id=8410 data-nosnippet>8410</a>        signed: bool,
-<a href=#8411 id=8411 data-nosnippet>8411</a>        sized: Size,
-<a href=#8412 id=8412 data-nosnippet>8412</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#8413 id=8413 data-nosnippet>8413</a>        machine.move_location_extend(
-<a href=#8414 id=8414 data-nosnippet>8414</a>            sized,
-<a href=#8415 id=8415 data-nosnippet>8415</a>            signed,
-<a href=#8416 id=8416 data-nosnippet>8416</a>            Location::GPR(GPR::X0),
-<a href=#8417 id=8417 data-nosnippet>8417</a>            Size::S64,
-<a href=#8418 id=8418 data-nosnippet>8418</a>            Location::GPR(GPR::X1),
-<a href=#8419 id=8419 data-nosnippet>8419</a>        )<span class="question-mark">?</span>;
-<a href=#8420 id=8420 data-nosnippet>8420</a>        machine.move_location_extend(
-<a href=#8421 id=8421 data-nosnippet>8421</a>            sized,
-<a href=#8422 id=8422 data-nosnippet>8422</a>            signed,
-<a href=#8423 id=8423 data-nosnippet>8423</a>            Location::GPR(GPR::X0),
-<a href=#8424 id=8424 data-nosnippet>8424</a>            Size::S64,
-<a href=#8425 id=8425 data-nosnippet>8425</a>            Location::Memory(GPR::X1, <span class="number">10</span>),
-<a href=#8426 id=8426 data-nosnippet>8426</a>        )<span class="question-mark">?</span>;
-<a href=#8427 id=8427 data-nosnippet>8427</a>        machine.move_location_extend(
-<a href=#8428 id=8428 data-nosnippet>8428</a>            sized,
-<a href=#8429 id=8429 data-nosnippet>8429</a>            signed,
-<a href=#8430 id=8430 data-nosnippet>8430</a>            Location::GPR(GPR::X0),
-<a href=#8431 id=8431 data-nosnippet>8431</a>            Size::S64,
-<a href=#8432 id=8432 data-nosnippet>8432</a>            Location::Memory(GPR::X1, <span class="number">16</span>),
-<a href=#8433 id=8433 data-nosnippet>8433</a>        )<span class="question-mark">?</span>;
-<a href=#8434 id=8434 data-nosnippet>8434</a>        machine.move_location_extend(
-<a href=#8435 id=8435 data-nosnippet>8435</a>            sized,
-<a href=#8436 id=8436 data-nosnippet>8436</a>            signed,
-<a href=#8437 id=8437 data-nosnippet>8437</a>            Location::GPR(GPR::X0),
-<a href=#8438 id=8438 data-nosnippet>8438</a>            Size::S64,
-<a href=#8439 id=8439 data-nosnippet>8439</a>            Location::Memory(GPR::X1, -<span class="number">16</span>),
-<a href=#8440 id=8440 data-nosnippet>8440</a>        )<span class="question-mark">?</span>;
-<a href=#8441 id=8441 data-nosnippet>8441</a>        machine.move_location_extend(
-<a href=#8442 id=8442 data-nosnippet>8442</a>            sized,
-<a href=#8443 id=8443 data-nosnippet>8443</a>            signed,
-<a href=#8444 id=8444 data-nosnippet>8444</a>            Location::GPR(GPR::X0),
-<a href=#8445 id=8445 data-nosnippet>8445</a>            Size::S64,
-<a href=#8446 id=8446 data-nosnippet>8446</a>            Location::Memory(GPR::X1, <span class="number">1024</span>),
-<a href=#8447 id=8447 data-nosnippet>8447</a>        )<span class="question-mark">?</span>;
-<a href=#8448 id=8448 data-nosnippet>8448</a>        machine.move_location_extend(
-<a href=#8449 id=8449 data-nosnippet>8449</a>            sized,
-<a href=#8450 id=8450 data-nosnippet>8450</a>            signed,
-<a href=#8451 id=8451 data-nosnippet>8451</a>            Location::GPR(GPR::X0),
-<a href=#8452 id=8452 data-nosnippet>8452</a>            Size::S64,
-<a href=#8453 id=8453 data-nosnippet>8453</a>            Location::Memory(GPR::X1, -<span class="number">1024</span>),
-<a href=#8454 id=8454 data-nosnippet>8454</a>        )<span class="question-mark">?</span>;
-<a href=#8455 id=8455 data-nosnippet>8455</a>        machine.move_location_extend(
-<a href=#8456 id=8456 data-nosnippet>8456</a>            sized,
-<a href=#8457 id=8457 data-nosnippet>8457</a>            signed,
-<a href=#8458 id=8458 data-nosnippet>8458</a>            Location::Memory(GPR::X0, <span class="number">10</span>),
-<a href=#8459 id=8459 data-nosnippet>8459</a>            Size::S64,
-<a href=#8460 id=8460 data-nosnippet>8460</a>            Location::GPR(GPR::X1),
-<a href=#8461 id=8461 data-nosnippet>8461</a>        )<span class="question-mark">?</span>;
-<a href=#8462 id=8462 data-nosnippet>8462</a>
-<a href=#8463 id=8463 data-nosnippet>8463</a>        <span class="prelude-val">Ok</span>(())
-<a href=#8464 id=8464 data-nosnippet>8464</a>    }
-<a href=#8465 id=8465 data-nosnippet>8465</a>
-<a href=#8466 id=8466 data-nosnippet>8466</a>    <span class="kw">fn </span>test_binop_op(
-<a href=#8467 id=8467 data-nosnippet>8467</a>        machine: <span class="kw-2">&amp;mut </span>MachineARM64,
-<a href=#8468 id=8468 data-nosnippet>8468</a>        op: <span class="kw">fn</span>(<span class="kw-2">&amp;mut </span>MachineARM64, Location, Location, Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;,
-<a href=#8469 id=8469 data-nosnippet>8469</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#8470 id=8470 data-nosnippet>8470</a>        op(
-<a href=#8471 id=8471 data-nosnippet>8471</a>            machine,
-<a href=#8472 id=8472 data-nosnippet>8472</a>            Location::GPR(GPR::X2),
+<a href=#8315 id=8315 data-nosnippet>8315</a>                UnwindOps::SubtractFP { .. } =&gt; <span class="macro">unimplemented!</span>(),
+<a href=#8316 id=8316 data-nosnippet>8316</a>            }
+<a href=#8317 id=8317 data-nosnippet>8317</a>        }
+<a href=#8318 id=8318 data-nosnippet>8318</a>        <span class="prelude-val">Some</span>(UnwindInstructions {
+<a href=#8319 id=8319 data-nosnippet>8319</a>            instructions,
+<a href=#8320 id=8320 data-nosnippet>8320</a>            len: code_len <span class="kw">as </span>u32,
+<a href=#8321 id=8321 data-nosnippet>8321</a>        })
+<a href=#8322 id=8322 data-nosnippet>8322</a>    }
+<a href=#8323 id=8323 data-nosnippet>8323</a>    <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
+<a href=#8324 id=8324 data-nosnippet>8324</a>    </span><span class="kw">fn </span>gen_dwarf_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInstructions&gt; {
+<a href=#8325 id=8325 data-nosnippet>8325</a>        <span class="prelude-val">None
+<a href=#8326 id=8326 data-nosnippet>8326</a>    </span>}
+<a href=#8327 id=8327 data-nosnippet>8327</a>
+<a href=#8328 id=8328 data-nosnippet>8328</a>    <span class="kw">fn </span>gen_windows_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#8329 id=8329 data-nosnippet>8329</a>        <span class="prelude-val">None
+<a href=#8330 id=8330 data-nosnippet>8330</a>    </span>}
+<a href=#8331 id=8331 data-nosnippet>8331</a>}
+<a href=#8332 id=8332 data-nosnippet>8332</a>
+<a href=#8333 id=8333 data-nosnippet>8333</a><span class="attr">#[cfg(test)]
+<a href=#8334 id=8334 data-nosnippet>8334</a></span><span class="kw">mod </span>test {
+<a href=#8335 id=8335 data-nosnippet>8335</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#8336 id=8336 data-nosnippet>8336</a>
+<a href=#8337 id=8337 data-nosnippet>8337</a>    <span class="kw">fn </span>test_move_location(machine: <span class="kw-2">&amp;mut </span>MachineARM64, size: Size) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#8338 id=8338 data-nosnippet>8338</a>        machine.move_location(size, Location::GPR(GPR::X1), Location::GPR(GPR::X2))<span class="question-mark">?</span>;
+<a href=#8339 id=8339 data-nosnippet>8339</a>        machine.move_location(size, Location::GPR(GPR::X1), Location::Memory(GPR::X2, <span class="number">10</span>))<span class="question-mark">?</span>;
+<a href=#8340 id=8340 data-nosnippet>8340</a>        machine.move_location(size, Location::GPR(GPR::X1), Location::Memory(GPR::X2, -<span class="number">10</span>))<span class="question-mark">?</span>;
+<a href=#8341 id=8341 data-nosnippet>8341</a>        machine.move_location(
+<a href=#8342 id=8342 data-nosnippet>8342</a>            size,
+<a href=#8343 id=8343 data-nosnippet>8343</a>            Location::GPR(GPR::X1),
+<a href=#8344 id=8344 data-nosnippet>8344</a>            Location::Memory(GPR::X2, <span class="number">1024</span>),
+<a href=#8345 id=8345 data-nosnippet>8345</a>        )<span class="question-mark">?</span>;
+<a href=#8346 id=8346 data-nosnippet>8346</a>        machine.move_location(
+<a href=#8347 id=8347 data-nosnippet>8347</a>            size,
+<a href=#8348 id=8348 data-nosnippet>8348</a>            Location::GPR(GPR::X1),
+<a href=#8349 id=8349 data-nosnippet>8349</a>            Location::Memory(GPR::X2, -<span class="number">1024</span>),
+<a href=#8350 id=8350 data-nosnippet>8350</a>        )<span class="question-mark">?</span>;
+<a href=#8351 id=8351 data-nosnippet>8351</a>        machine.move_location(size, Location::Memory(GPR::X2, <span class="number">10</span>), Location::GPR(GPR::X1))<span class="question-mark">?</span>;
+<a href=#8352 id=8352 data-nosnippet>8352</a>        machine.move_location(size, Location::Memory(GPR::X2, -<span class="number">10</span>), Location::GPR(GPR::X1))<span class="question-mark">?</span>;
+<a href=#8353 id=8353 data-nosnippet>8353</a>        machine.move_location(
+<a href=#8354 id=8354 data-nosnippet>8354</a>            size,
+<a href=#8355 id=8355 data-nosnippet>8355</a>            Location::Memory(GPR::X2, <span class="number">1024</span>),
+<a href=#8356 id=8356 data-nosnippet>8356</a>            Location::GPR(GPR::X1),
+<a href=#8357 id=8357 data-nosnippet>8357</a>        )<span class="question-mark">?</span>;
+<a href=#8358 id=8358 data-nosnippet>8358</a>        machine.move_location(
+<a href=#8359 id=8359 data-nosnippet>8359</a>            size,
+<a href=#8360 id=8360 data-nosnippet>8360</a>            Location::Memory(GPR::X2, -<span class="number">1024</span>),
+<a href=#8361 id=8361 data-nosnippet>8361</a>            Location::GPR(GPR::X1),
+<a href=#8362 id=8362 data-nosnippet>8362</a>        )<span class="question-mark">?</span>;
+<a href=#8363 id=8363 data-nosnippet>8363</a>        machine.move_location(size, Location::GPR(GPR::X1), Location::SIMD(NEON::V0))<span class="question-mark">?</span>;
+<a href=#8364 id=8364 data-nosnippet>8364</a>        machine.move_location(size, Location::SIMD(NEON::V0), Location::GPR(GPR::X1))<span class="question-mark">?</span>;
+<a href=#8365 id=8365 data-nosnippet>8365</a>        machine.move_location(
+<a href=#8366 id=8366 data-nosnippet>8366</a>            size,
+<a href=#8367 id=8367 data-nosnippet>8367</a>            Location::SIMD(NEON::V0),
+<a href=#8368 id=8368 data-nosnippet>8368</a>            Location::Memory(GPR::X2, <span class="number">10</span>),
+<a href=#8369 id=8369 data-nosnippet>8369</a>        )<span class="question-mark">?</span>;
+<a href=#8370 id=8370 data-nosnippet>8370</a>        machine.move_location(
+<a href=#8371 id=8371 data-nosnippet>8371</a>            size,
+<a href=#8372 id=8372 data-nosnippet>8372</a>            Location::SIMD(NEON::V0),
+<a href=#8373 id=8373 data-nosnippet>8373</a>            Location::Memory(GPR::X2, -<span class="number">10</span>),
+<a href=#8374 id=8374 data-nosnippet>8374</a>        )<span class="question-mark">?</span>;
+<a href=#8375 id=8375 data-nosnippet>8375</a>        machine.move_location(
+<a href=#8376 id=8376 data-nosnippet>8376</a>            size,
+<a href=#8377 id=8377 data-nosnippet>8377</a>            Location::SIMD(NEON::V0),
+<a href=#8378 id=8378 data-nosnippet>8378</a>            Location::Memory(GPR::X2, <span class="number">1024</span>),
+<a href=#8379 id=8379 data-nosnippet>8379</a>        )<span class="question-mark">?</span>;
+<a href=#8380 id=8380 data-nosnippet>8380</a>        machine.move_location(
+<a href=#8381 id=8381 data-nosnippet>8381</a>            size,
+<a href=#8382 id=8382 data-nosnippet>8382</a>            Location::SIMD(NEON::V0),
+<a href=#8383 id=8383 data-nosnippet>8383</a>            Location::Memory(GPR::X2, -<span class="number">1024</span>),
+<a href=#8384 id=8384 data-nosnippet>8384</a>        )<span class="question-mark">?</span>;
+<a href=#8385 id=8385 data-nosnippet>8385</a>        machine.move_location(
+<a href=#8386 id=8386 data-nosnippet>8386</a>            size,
+<a href=#8387 id=8387 data-nosnippet>8387</a>            Location::Memory(GPR::X2, <span class="number">10</span>),
+<a href=#8388 id=8388 data-nosnippet>8388</a>            Location::SIMD(NEON::V0),
+<a href=#8389 id=8389 data-nosnippet>8389</a>        )<span class="question-mark">?</span>;
+<a href=#8390 id=8390 data-nosnippet>8390</a>        machine.move_location(
+<a href=#8391 id=8391 data-nosnippet>8391</a>            size,
+<a href=#8392 id=8392 data-nosnippet>8392</a>            Location::Memory(GPR::X2, -<span class="number">10</span>),
+<a href=#8393 id=8393 data-nosnippet>8393</a>            Location::SIMD(NEON::V0),
+<a href=#8394 id=8394 data-nosnippet>8394</a>        )<span class="question-mark">?</span>;
+<a href=#8395 id=8395 data-nosnippet>8395</a>        machine.move_location(
+<a href=#8396 id=8396 data-nosnippet>8396</a>            size,
+<a href=#8397 id=8397 data-nosnippet>8397</a>            Location::Memory(GPR::X2, <span class="number">1024</span>),
+<a href=#8398 id=8398 data-nosnippet>8398</a>            Location::SIMD(NEON::V0),
+<a href=#8399 id=8399 data-nosnippet>8399</a>        )<span class="question-mark">?</span>;
+<a href=#8400 id=8400 data-nosnippet>8400</a>        machine.move_location(
+<a href=#8401 id=8401 data-nosnippet>8401</a>            size,
+<a href=#8402 id=8402 data-nosnippet>8402</a>            Location::Memory(GPR::X2, -<span class="number">1024</span>),
+<a href=#8403 id=8403 data-nosnippet>8403</a>            Location::SIMD(NEON::V0),
+<a href=#8404 id=8404 data-nosnippet>8404</a>        )<span class="question-mark">?</span>;
+<a href=#8405 id=8405 data-nosnippet>8405</a>
+<a href=#8406 id=8406 data-nosnippet>8406</a>        <span class="prelude-val">Ok</span>(())
+<a href=#8407 id=8407 data-nosnippet>8407</a>    }
+<a href=#8408 id=8408 data-nosnippet>8408</a>
+<a href=#8409 id=8409 data-nosnippet>8409</a>    <span class="kw">fn </span>test_move_location_extended(
+<a href=#8410 id=8410 data-nosnippet>8410</a>        machine: <span class="kw-2">&amp;mut </span>MachineARM64,
+<a href=#8411 id=8411 data-nosnippet>8411</a>        signed: bool,
+<a href=#8412 id=8412 data-nosnippet>8412</a>        sized: Size,
+<a href=#8413 id=8413 data-nosnippet>8413</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#8414 id=8414 data-nosnippet>8414</a>        machine.move_location_extend(
+<a href=#8415 id=8415 data-nosnippet>8415</a>            sized,
+<a href=#8416 id=8416 data-nosnippet>8416</a>            signed,
+<a href=#8417 id=8417 data-nosnippet>8417</a>            Location::GPR(GPR::X0),
+<a href=#8418 id=8418 data-nosnippet>8418</a>            Size::S64,
+<a href=#8419 id=8419 data-nosnippet>8419</a>            Location::GPR(GPR::X1),
+<a href=#8420 id=8420 data-nosnippet>8420</a>        )<span class="question-mark">?</span>;
+<a href=#8421 id=8421 data-nosnippet>8421</a>        machine.move_location_extend(
+<a href=#8422 id=8422 data-nosnippet>8422</a>            sized,
+<a href=#8423 id=8423 data-nosnippet>8423</a>            signed,
+<a href=#8424 id=8424 data-nosnippet>8424</a>            Location::GPR(GPR::X0),
+<a href=#8425 id=8425 data-nosnippet>8425</a>            Size::S64,
+<a href=#8426 id=8426 data-nosnippet>8426</a>            Location::Memory(GPR::X1, <span class="number">10</span>),
+<a href=#8427 id=8427 data-nosnippet>8427</a>        )<span class="question-mark">?</span>;
+<a href=#8428 id=8428 data-nosnippet>8428</a>        machine.move_location_extend(
+<a href=#8429 id=8429 data-nosnippet>8429</a>            sized,
+<a href=#8430 id=8430 data-nosnippet>8430</a>            signed,
+<a href=#8431 id=8431 data-nosnippet>8431</a>            Location::GPR(GPR::X0),
+<a href=#8432 id=8432 data-nosnippet>8432</a>            Size::S64,
+<a href=#8433 id=8433 data-nosnippet>8433</a>            Location::Memory(GPR::X1, <span class="number">16</span>),
+<a href=#8434 id=8434 data-nosnippet>8434</a>        )<span class="question-mark">?</span>;
+<a href=#8435 id=8435 data-nosnippet>8435</a>        machine.move_location_extend(
+<a href=#8436 id=8436 data-nosnippet>8436</a>            sized,
+<a href=#8437 id=8437 data-nosnippet>8437</a>            signed,
+<a href=#8438 id=8438 data-nosnippet>8438</a>            Location::GPR(GPR::X0),
+<a href=#8439 id=8439 data-nosnippet>8439</a>            Size::S64,
+<a href=#8440 id=8440 data-nosnippet>8440</a>            Location::Memory(GPR::X1, -<span class="number">16</span>),
+<a href=#8441 id=8441 data-nosnippet>8441</a>        )<span class="question-mark">?</span>;
+<a href=#8442 id=8442 data-nosnippet>8442</a>        machine.move_location_extend(
+<a href=#8443 id=8443 data-nosnippet>8443</a>            sized,
+<a href=#8444 id=8444 data-nosnippet>8444</a>            signed,
+<a href=#8445 id=8445 data-nosnippet>8445</a>            Location::GPR(GPR::X0),
+<a href=#8446 id=8446 data-nosnippet>8446</a>            Size::S64,
+<a href=#8447 id=8447 data-nosnippet>8447</a>            Location::Memory(GPR::X1, <span class="number">1024</span>),
+<a href=#8448 id=8448 data-nosnippet>8448</a>        )<span class="question-mark">?</span>;
+<a href=#8449 id=8449 data-nosnippet>8449</a>        machine.move_location_extend(
+<a href=#8450 id=8450 data-nosnippet>8450</a>            sized,
+<a href=#8451 id=8451 data-nosnippet>8451</a>            signed,
+<a href=#8452 id=8452 data-nosnippet>8452</a>            Location::GPR(GPR::X0),
+<a href=#8453 id=8453 data-nosnippet>8453</a>            Size::S64,
+<a href=#8454 id=8454 data-nosnippet>8454</a>            Location::Memory(GPR::X1, -<span class="number">1024</span>),
+<a href=#8455 id=8455 data-nosnippet>8455</a>        )<span class="question-mark">?</span>;
+<a href=#8456 id=8456 data-nosnippet>8456</a>        machine.move_location_extend(
+<a href=#8457 id=8457 data-nosnippet>8457</a>            sized,
+<a href=#8458 id=8458 data-nosnippet>8458</a>            signed,
+<a href=#8459 id=8459 data-nosnippet>8459</a>            Location::Memory(GPR::X0, <span class="number">10</span>),
+<a href=#8460 id=8460 data-nosnippet>8460</a>            Size::S64,
+<a href=#8461 id=8461 data-nosnippet>8461</a>            Location::GPR(GPR::X1),
+<a href=#8462 id=8462 data-nosnippet>8462</a>        )<span class="question-mark">?</span>;
+<a href=#8463 id=8463 data-nosnippet>8463</a>
+<a href=#8464 id=8464 data-nosnippet>8464</a>        <span class="prelude-val">Ok</span>(())
+<a href=#8465 id=8465 data-nosnippet>8465</a>    }
+<a href=#8466 id=8466 data-nosnippet>8466</a>
+<a href=#8467 id=8467 data-nosnippet>8467</a>    <span class="kw">fn </span>test_binop_op(
+<a href=#8468 id=8468 data-nosnippet>8468</a>        machine: <span class="kw-2">&amp;mut </span>MachineARM64,
+<a href=#8469 id=8469 data-nosnippet>8469</a>        op: <span class="kw">fn</span>(<span class="kw-2">&amp;mut </span>MachineARM64, Location, Location, Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;,
+<a href=#8470 id=8470 data-nosnippet>8470</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#8471 id=8471 data-nosnippet>8471</a>        op(
+<a href=#8472 id=8472 data-nosnippet>8472</a>            machine,
 <a href=#8473 id=8473 data-nosnippet>8473</a>            Location::GPR(GPR::X2),
-<a href=#8474 id=8474 data-nosnippet>8474</a>            Location::GPR(GPR::X0),
-<a href=#8475 id=8475 data-nosnippet>8475</a>        )<span class="question-mark">?</span>;
-<a href=#8476 id=8476 data-nosnippet>8476</a>        op(
-<a href=#8477 id=8477 data-nosnippet>8477</a>            machine,
-<a href=#8478 id=8478 data-nosnippet>8478</a>            Location::GPR(GPR::X2),
-<a href=#8479 id=8479 data-nosnippet>8479</a>            Location::Imm32(<span class="number">10</span>),
-<a href=#8480 id=8480 data-nosnippet>8480</a>            Location::GPR(GPR::X0),
-<a href=#8481 id=8481 data-nosnippet>8481</a>        )<span class="question-mark">?</span>;
-<a href=#8482 id=8482 data-nosnippet>8482</a>        op(
-<a href=#8483 id=8483 data-nosnippet>8483</a>            machine,
-<a href=#8484 id=8484 data-nosnippet>8484</a>            Location::GPR(GPR::X0),
+<a href=#8474 id=8474 data-nosnippet>8474</a>            Location::GPR(GPR::X2),
+<a href=#8475 id=8475 data-nosnippet>8475</a>            Location::GPR(GPR::X0),
+<a href=#8476 id=8476 data-nosnippet>8476</a>        )<span class="question-mark">?</span>;
+<a href=#8477 id=8477 data-nosnippet>8477</a>        op(
+<a href=#8478 id=8478 data-nosnippet>8478</a>            machine,
+<a href=#8479 id=8479 data-nosnippet>8479</a>            Location::GPR(GPR::X2),
+<a href=#8480 id=8480 data-nosnippet>8480</a>            Location::Imm32(<span class="number">10</span>),
+<a href=#8481 id=8481 data-nosnippet>8481</a>            Location::GPR(GPR::X0),
+<a href=#8482 id=8482 data-nosnippet>8482</a>        )<span class="question-mark">?</span>;
+<a href=#8483 id=8483 data-nosnippet>8483</a>        op(
+<a href=#8484 id=8484 data-nosnippet>8484</a>            machine,
 <a href=#8485 id=8485 data-nosnippet>8485</a>            Location::GPR(GPR::X0),
 <a href=#8486 id=8486 data-nosnippet>8486</a>            Location::GPR(GPR::X0),
-<a href=#8487 id=8487 data-nosnippet>8487</a>        )<span class="question-mark">?</span>;
-<a href=#8488 id=8488 data-nosnippet>8488</a>        op(
-<a href=#8489 id=8489 data-nosnippet>8489</a>            machine,
-<a href=#8490 id=8490 data-nosnippet>8490</a>            Location::Imm32(<span class="number">10</span>),
-<a href=#8491 id=8491 data-nosnippet>8491</a>            Location::GPR(GPR::X2),
-<a href=#8492 id=8492 data-nosnippet>8492</a>            Location::GPR(GPR::X0),
-<a href=#8493 id=8493 data-nosnippet>8493</a>        )<span class="question-mark">?</span>;
-<a href=#8494 id=8494 data-nosnippet>8494</a>        op(
-<a href=#8495 id=8495 data-nosnippet>8495</a>            machine,
-<a href=#8496 id=8496 data-nosnippet>8496</a>            Location::GPR(GPR::X0),
-<a href=#8497 id=8497 data-nosnippet>8497</a>            Location::GPR(GPR::X2),
-<a href=#8498 id=8498 data-nosnippet>8498</a>            Location::Memory(GPR::X0, <span class="number">10</span>),
-<a href=#8499 id=8499 data-nosnippet>8499</a>        )<span class="question-mark">?</span>;
-<a href=#8500 id=8500 data-nosnippet>8500</a>        op(
-<a href=#8501 id=8501 data-nosnippet>8501</a>            machine,
-<a href=#8502 id=8502 data-nosnippet>8502</a>            Location::GPR(GPR::X0),
-<a href=#8503 id=8503 data-nosnippet>8503</a>            Location::Memory(GPR::X2, <span class="number">16</span>),
-<a href=#8504 id=8504 data-nosnippet>8504</a>            Location::Memory(GPR::X0, <span class="number">10</span>),
-<a href=#8505 id=8505 data-nosnippet>8505</a>        )<span class="question-mark">?</span>;
-<a href=#8506 id=8506 data-nosnippet>8506</a>        op(
-<a href=#8507 id=8507 data-nosnippet>8507</a>            machine,
-<a href=#8508 id=8508 data-nosnippet>8508</a>            Location::Memory(GPR::X0, <span class="number">0</span>),
-<a href=#8509 id=8509 data-nosnippet>8509</a>            Location::Memory(GPR::X2, <span class="number">16</span>),
-<a href=#8510 id=8510 data-nosnippet>8510</a>            Location::Memory(GPR::X0, <span class="number">10</span>),
-<a href=#8511 id=8511 data-nosnippet>8511</a>        )<span class="question-mark">?</span>;
-<a href=#8512 id=8512 data-nosnippet>8512</a>
-<a href=#8513 id=8513 data-nosnippet>8513</a>        <span class="prelude-val">Ok</span>(())
-<a href=#8514 id=8514 data-nosnippet>8514</a>    }
-<a href=#8515 id=8515 data-nosnippet>8515</a>
-<a href=#8516 id=8516 data-nosnippet>8516</a>    <span class="kw">fn </span>test_float_binop_op(
-<a href=#8517 id=8517 data-nosnippet>8517</a>        machine: <span class="kw-2">&amp;mut </span>MachineARM64,
-<a href=#8518 id=8518 data-nosnippet>8518</a>        op: <span class="kw">fn</span>(<span class="kw-2">&amp;mut </span>MachineARM64, Location, Location, Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;,
-<a href=#8519 id=8519 data-nosnippet>8519</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#8520 id=8520 data-nosnippet>8520</a>        op(
-<a href=#8521 id=8521 data-nosnippet>8521</a>            machine,
-<a href=#8522 id=8522 data-nosnippet>8522</a>            Location::SIMD(NEON::V3),
-<a href=#8523 id=8523 data-nosnippet>8523</a>            Location::SIMD(NEON::V2),
-<a href=#8524 id=8524 data-nosnippet>8524</a>            Location::SIMD(NEON::V0),
-<a href=#8525 id=8525 data-nosnippet>8525</a>        )<span class="question-mark">?</span>;
-<a href=#8526 id=8526 data-nosnippet>8526</a>        op(
-<a href=#8527 id=8527 data-nosnippet>8527</a>            machine,
-<a href=#8528 id=8528 data-nosnippet>8528</a>            Location::SIMD(NEON::V0),
-<a href=#8529 id=8529 data-nosnippet>8529</a>            Location::SIMD(NEON::V2),
-<a href=#8530 id=8530 data-nosnippet>8530</a>            Location::SIMD(NEON::V0),
-<a href=#8531 id=8531 data-nosnippet>8531</a>        )<span class="question-mark">?</span>;
-<a href=#8532 id=8532 data-nosnippet>8532</a>        op(
-<a href=#8533 id=8533 data-nosnippet>8533</a>            machine,
-<a href=#8534 id=8534 data-nosnippet>8534</a>            Location::SIMD(NEON::V0),
+<a href=#8487 id=8487 data-nosnippet>8487</a>            Location::GPR(GPR::X0),
+<a href=#8488 id=8488 data-nosnippet>8488</a>        )<span class="question-mark">?</span>;
+<a href=#8489 id=8489 data-nosnippet>8489</a>        op(
+<a href=#8490 id=8490 data-nosnippet>8490</a>            machine,
+<a href=#8491 id=8491 data-nosnippet>8491</a>            Location::Imm32(<span class="number">10</span>),
+<a href=#8492 id=8492 data-nosnippet>8492</a>            Location::GPR(GPR::X2),
+<a href=#8493 id=8493 data-nosnippet>8493</a>            Location::GPR(GPR::X0),
+<a href=#8494 id=8494 data-nosnippet>8494</a>        )<span class="question-mark">?</span>;
+<a href=#8495 id=8495 data-nosnippet>8495</a>        op(
+<a href=#8496 id=8496 data-nosnippet>8496</a>            machine,
+<a href=#8497 id=8497 data-nosnippet>8497</a>            Location::GPR(GPR::X0),
+<a href=#8498 id=8498 data-nosnippet>8498</a>            Location::GPR(GPR::X2),
+<a href=#8499 id=8499 data-nosnippet>8499</a>            Location::Memory(GPR::X0, <span class="number">10</span>),
+<a href=#8500 id=8500 data-nosnippet>8500</a>        )<span class="question-mark">?</span>;
+<a href=#8501 id=8501 data-nosnippet>8501</a>        op(
+<a href=#8502 id=8502 data-nosnippet>8502</a>            machine,
+<a href=#8503 id=8503 data-nosnippet>8503</a>            Location::GPR(GPR::X0),
+<a href=#8504 id=8504 data-nosnippet>8504</a>            Location::Memory(GPR::X2, <span class="number">16</span>),
+<a href=#8505 id=8505 data-nosnippet>8505</a>            Location::Memory(GPR::X0, <span class="number">10</span>),
+<a href=#8506 id=8506 data-nosnippet>8506</a>        )<span class="question-mark">?</span>;
+<a href=#8507 id=8507 data-nosnippet>8507</a>        op(
+<a href=#8508 id=8508 data-nosnippet>8508</a>            machine,
+<a href=#8509 id=8509 data-nosnippet>8509</a>            Location::Memory(GPR::X0, <span class="number">0</span>),
+<a href=#8510 id=8510 data-nosnippet>8510</a>            Location::Memory(GPR::X2, <span class="number">16</span>),
+<a href=#8511 id=8511 data-nosnippet>8511</a>            Location::Memory(GPR::X0, <span class="number">10</span>),
+<a href=#8512 id=8512 data-nosnippet>8512</a>        )<span class="question-mark">?</span>;
+<a href=#8513 id=8513 data-nosnippet>8513</a>
+<a href=#8514 id=8514 data-nosnippet>8514</a>        <span class="prelude-val">Ok</span>(())
+<a href=#8515 id=8515 data-nosnippet>8515</a>    }
+<a href=#8516 id=8516 data-nosnippet>8516</a>
+<a href=#8517 id=8517 data-nosnippet>8517</a>    <span class="kw">fn </span>test_float_binop_op(
+<a href=#8518 id=8518 data-nosnippet>8518</a>        machine: <span class="kw-2">&amp;mut </span>MachineARM64,
+<a href=#8519 id=8519 data-nosnippet>8519</a>        op: <span class="kw">fn</span>(<span class="kw-2">&amp;mut </span>MachineARM64, Location, Location, Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;,
+<a href=#8520 id=8520 data-nosnippet>8520</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#8521 id=8521 data-nosnippet>8521</a>        op(
+<a href=#8522 id=8522 data-nosnippet>8522</a>            machine,
+<a href=#8523 id=8523 data-nosnippet>8523</a>            Location::SIMD(NEON::V3),
+<a href=#8524 id=8524 data-nosnippet>8524</a>            Location::SIMD(NEON::V2),
+<a href=#8525 id=8525 data-nosnippet>8525</a>            Location::SIMD(NEON::V0),
+<a href=#8526 id=8526 data-nosnippet>8526</a>        )<span class="question-mark">?</span>;
+<a href=#8527 id=8527 data-nosnippet>8527</a>        op(
+<a href=#8528 id=8528 data-nosnippet>8528</a>            machine,
+<a href=#8529 id=8529 data-nosnippet>8529</a>            Location::SIMD(NEON::V0),
+<a href=#8530 id=8530 data-nosnippet>8530</a>            Location::SIMD(NEON::V2),
+<a href=#8531 id=8531 data-nosnippet>8531</a>            Location::SIMD(NEON::V0),
+<a href=#8532 id=8532 data-nosnippet>8532</a>        )<span class="question-mark">?</span>;
+<a href=#8533 id=8533 data-nosnippet>8533</a>        op(
+<a href=#8534 id=8534 data-nosnippet>8534</a>            machine,
 <a href=#8535 id=8535 data-nosnippet>8535</a>            Location::SIMD(NEON::V0),
 <a href=#8536 id=8536 data-nosnippet>8536</a>            Location::SIMD(NEON::V0),
-<a href=#8537 id=8537 data-nosnippet>8537</a>        )<span class="question-mark">?</span>;
-<a href=#8538 id=8538 data-nosnippet>8538</a>        op(
-<a href=#8539 id=8539 data-nosnippet>8539</a>            machine,
-<a href=#8540 id=8540 data-nosnippet>8540</a>            Location::Memory(GPR::X0, <span class="number">0</span>),
-<a href=#8541 id=8541 data-nosnippet>8541</a>            Location::SIMD(NEON::V2),
-<a href=#8542 id=8542 data-nosnippet>8542</a>            Location::SIMD(NEON::V0),
-<a href=#8543 id=8543 data-nosnippet>8543</a>        )<span class="question-mark">?</span>;
-<a href=#8544 id=8544 data-nosnippet>8544</a>        op(
-<a href=#8545 id=8545 data-nosnippet>8545</a>            machine,
-<a href=#8546 id=8546 data-nosnippet>8546</a>            Location::Memory(GPR::X0, <span class="number">0</span>),
-<a href=#8547 id=8547 data-nosnippet>8547</a>            Location::Memory(GPR::X1, <span class="number">10</span>),
-<a href=#8548 id=8548 data-nosnippet>8548</a>            Location::SIMD(NEON::V0),
-<a href=#8549 id=8549 data-nosnippet>8549</a>        )<span class="question-mark">?</span>;
-<a href=#8550 id=8550 data-nosnippet>8550</a>        op(
-<a href=#8551 id=8551 data-nosnippet>8551</a>            machine,
-<a href=#8552 id=8552 data-nosnippet>8552</a>            Location::Memory(GPR::X0, <span class="number">0</span>),
-<a href=#8553 id=8553 data-nosnippet>8553</a>            Location::Memory(GPR::X1, <span class="number">16</span>),
-<a href=#8554 id=8554 data-nosnippet>8554</a>            Location::Memory(GPR::X2, <span class="number">32</span>),
-<a href=#8555 id=8555 data-nosnippet>8555</a>        )<span class="question-mark">?</span>;
-<a href=#8556 id=8556 data-nosnippet>8556</a>        op(
-<a href=#8557 id=8557 data-nosnippet>8557</a>            machine,
-<a href=#8558 id=8558 data-nosnippet>8558</a>            Location::SIMD(NEON::V0),
-<a href=#8559 id=8559 data-nosnippet>8559</a>            Location::Memory(GPR::X1, <span class="number">16</span>),
-<a href=#8560 id=8560 data-nosnippet>8560</a>            Location::Memory(GPR::X2, <span class="number">32</span>),
-<a href=#8561 id=8561 data-nosnippet>8561</a>        )<span class="question-mark">?</span>;
-<a href=#8562 id=8562 data-nosnippet>8562</a>        op(
-<a href=#8563 id=8563 data-nosnippet>8563</a>            machine,
-<a href=#8564 id=8564 data-nosnippet>8564</a>            Location::SIMD(NEON::V0),
-<a href=#8565 id=8565 data-nosnippet>8565</a>            Location::SIMD(NEON::V1),
-<a href=#8566 id=8566 data-nosnippet>8566</a>            Location::Memory(GPR::X2, <span class="number">32</span>),
-<a href=#8567 id=8567 data-nosnippet>8567</a>        )<span class="question-mark">?</span>;
-<a href=#8568 id=8568 data-nosnippet>8568</a>
-<a href=#8569 id=8569 data-nosnippet>8569</a>        <span class="prelude-val">Ok</span>(())
-<a href=#8570 id=8570 data-nosnippet>8570</a>    }
-<a href=#8571 id=8571 data-nosnippet>8571</a>
-<a href=#8572 id=8572 data-nosnippet>8572</a>    <span class="kw">fn </span>test_float_cmp_op(
-<a href=#8573 id=8573 data-nosnippet>8573</a>        machine: <span class="kw-2">&amp;mut </span>MachineARM64,
-<a href=#8574 id=8574 data-nosnippet>8574</a>        op: <span class="kw">fn</span>(<span class="kw-2">&amp;mut </span>MachineARM64, Location, Location, Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;,
-<a href=#8575 id=8575 data-nosnippet>8575</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#8576 id=8576 data-nosnippet>8576</a>        op(
-<a href=#8577 id=8577 data-nosnippet>8577</a>            machine,
-<a href=#8578 id=8578 data-nosnippet>8578</a>            Location::SIMD(NEON::V3),
-<a href=#8579 id=8579 data-nosnippet>8579</a>            Location::SIMD(NEON::V2),
-<a href=#8580 id=8580 data-nosnippet>8580</a>            Location::GPR(GPR::X0),
-<a href=#8581 id=8581 data-nosnippet>8581</a>        )<span class="question-mark">?</span>;
-<a href=#8582 id=8582 data-nosnippet>8582</a>        op(
-<a href=#8583 id=8583 data-nosnippet>8583</a>            machine,
-<a href=#8584 id=8584 data-nosnippet>8584</a>            Location::SIMD(NEON::V0),
+<a href=#8537 id=8537 data-nosnippet>8537</a>            Location::SIMD(NEON::V0),
+<a href=#8538 id=8538 data-nosnippet>8538</a>        )<span class="question-mark">?</span>;
+<a href=#8539 id=8539 data-nosnippet>8539</a>        op(
+<a href=#8540 id=8540 data-nosnippet>8540</a>            machine,
+<a href=#8541 id=8541 data-nosnippet>8541</a>            Location::Memory(GPR::X0, <span class="number">0</span>),
+<a href=#8542 id=8542 data-nosnippet>8542</a>            Location::SIMD(NEON::V2),
+<a href=#8543 id=8543 data-nosnippet>8543</a>            Location::SIMD(NEON::V0),
+<a href=#8544 id=8544 data-nosnippet>8544</a>        )<span class="question-mark">?</span>;
+<a href=#8545 id=8545 data-nosnippet>8545</a>        op(
+<a href=#8546 id=8546 data-nosnippet>8546</a>            machine,
+<a href=#8547 id=8547 data-nosnippet>8547</a>            Location::Memory(GPR::X0, <span class="number">0</span>),
+<a href=#8548 id=8548 data-nosnippet>8548</a>            Location::Memory(GPR::X1, <span class="number">10</span>),
+<a href=#8549 id=8549 data-nosnippet>8549</a>            Location::SIMD(NEON::V0),
+<a href=#8550 id=8550 data-nosnippet>8550</a>        )<span class="question-mark">?</span>;
+<a href=#8551 id=8551 data-nosnippet>8551</a>        op(
+<a href=#8552 id=8552 data-nosnippet>8552</a>            machine,
+<a href=#8553 id=8553 data-nosnippet>8553</a>            Location::Memory(GPR::X0, <span class="number">0</span>),
+<a href=#8554 id=8554 data-nosnippet>8554</a>            Location::Memory(GPR::X1, <span class="number">16</span>),
+<a href=#8555 id=8555 data-nosnippet>8555</a>            Location::Memory(GPR::X2, <span class="number">32</span>),
+<a href=#8556 id=8556 data-nosnippet>8556</a>        )<span class="question-mark">?</span>;
+<a href=#8557 id=8557 data-nosnippet>8557</a>        op(
+<a href=#8558 id=8558 data-nosnippet>8558</a>            machine,
+<a href=#8559 id=8559 data-nosnippet>8559</a>            Location::SIMD(NEON::V0),
+<a href=#8560 id=8560 data-nosnippet>8560</a>            Location::Memory(GPR::X1, <span class="number">16</span>),
+<a href=#8561 id=8561 data-nosnippet>8561</a>            Location::Memory(GPR::X2, <span class="number">32</span>),
+<a href=#8562 id=8562 data-nosnippet>8562</a>        )<span class="question-mark">?</span>;
+<a href=#8563 id=8563 data-nosnippet>8563</a>        op(
+<a href=#8564 id=8564 data-nosnippet>8564</a>            machine,
+<a href=#8565 id=8565 data-nosnippet>8565</a>            Location::SIMD(NEON::V0),
+<a href=#8566 id=8566 data-nosnippet>8566</a>            Location::SIMD(NEON::V1),
+<a href=#8567 id=8567 data-nosnippet>8567</a>            Location::Memory(GPR::X2, <span class="number">32</span>),
+<a href=#8568 id=8568 data-nosnippet>8568</a>        )<span class="question-mark">?</span>;
+<a href=#8569 id=8569 data-nosnippet>8569</a>
+<a href=#8570 id=8570 data-nosnippet>8570</a>        <span class="prelude-val">Ok</span>(())
+<a href=#8571 id=8571 data-nosnippet>8571</a>    }
+<a href=#8572 id=8572 data-nosnippet>8572</a>
+<a href=#8573 id=8573 data-nosnippet>8573</a>    <span class="kw">fn </span>test_float_cmp_op(
+<a href=#8574 id=8574 data-nosnippet>8574</a>        machine: <span class="kw-2">&amp;mut </span>MachineARM64,
+<a href=#8575 id=8575 data-nosnippet>8575</a>        op: <span class="kw">fn</span>(<span class="kw-2">&amp;mut </span>MachineARM64, Location, Location, Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;,
+<a href=#8576 id=8576 data-nosnippet>8576</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#8577 id=8577 data-nosnippet>8577</a>        op(
+<a href=#8578 id=8578 data-nosnippet>8578</a>            machine,
+<a href=#8579 id=8579 data-nosnippet>8579</a>            Location::SIMD(NEON::V3),
+<a href=#8580 id=8580 data-nosnippet>8580</a>            Location::SIMD(NEON::V2),
+<a href=#8581 id=8581 data-nosnippet>8581</a>            Location::GPR(GPR::X0),
+<a href=#8582 id=8582 data-nosnippet>8582</a>        )<span class="question-mark">?</span>;
+<a href=#8583 id=8583 data-nosnippet>8583</a>        op(
+<a href=#8584 id=8584 data-nosnippet>8584</a>            machine,
 <a href=#8585 id=8585 data-nosnippet>8585</a>            Location::SIMD(NEON::V0),
-<a href=#8586 id=8586 data-nosnippet>8586</a>            Location::GPR(GPR::X0),
-<a href=#8587 id=8587 data-nosnippet>8587</a>        )<span class="question-mark">?</span>;
-<a href=#8588 id=8588 data-nosnippet>8588</a>        op(
-<a href=#8589 id=8589 data-nosnippet>8589</a>            machine,
-<a href=#8590 id=8590 data-nosnippet>8590</a>            Location::Memory(GPR::X1, <span class="number">0</span>),
-<a href=#8591 id=8591 data-nosnippet>8591</a>            Location::SIMD(NEON::V2),
-<a href=#8592 id=8592 data-nosnippet>8592</a>            Location::GPR(GPR::X0),
-<a href=#8593 id=8593 data-nosnippet>8593</a>        )<span class="question-mark">?</span>;
-<a href=#8594 id=8594 data-nosnippet>8594</a>        op(
-<a href=#8595 id=8595 data-nosnippet>8595</a>            machine,
-<a href=#8596 id=8596 data-nosnippet>8596</a>            Location::Memory(GPR::X1, <span class="number">0</span>),
-<a href=#8597 id=8597 data-nosnippet>8597</a>            Location::Memory(GPR::X2, <span class="number">10</span>),
-<a href=#8598 id=8598 data-nosnippet>8598</a>            Location::GPR(GPR::X0),
-<a href=#8599 id=8599 data-nosnippet>8599</a>        )<span class="question-mark">?</span>;
-<a href=#8600 id=8600 data-nosnippet>8600</a>        op(
-<a href=#8601 id=8601 data-nosnippet>8601</a>            machine,
-<a href=#8602 id=8602 data-nosnippet>8602</a>            Location::Memory(GPR::X1, <span class="number">0</span>),
-<a href=#8603 id=8603 data-nosnippet>8603</a>            Location::Memory(GPR::X2, <span class="number">16</span>),
-<a href=#8604 id=8604 data-nosnippet>8604</a>            Location::Memory(GPR::X0, <span class="number">32</span>),
-<a href=#8605 id=8605 data-nosnippet>8605</a>        )<span class="question-mark">?</span>;
-<a href=#8606 id=8606 data-nosnippet>8606</a>        op(
-<a href=#8607 id=8607 data-nosnippet>8607</a>            machine,
-<a href=#8608 id=8608 data-nosnippet>8608</a>            Location::SIMD(NEON::V0),
-<a href=#8609 id=8609 data-nosnippet>8609</a>            Location::Memory(GPR::X2, <span class="number">16</span>),
-<a href=#8610 id=8610 data-nosnippet>8610</a>            Location::Memory(GPR::X0, <span class="number">32</span>),
-<a href=#8611 id=8611 data-nosnippet>8611</a>        )<span class="question-mark">?</span>;
-<a href=#8612 id=8612 data-nosnippet>8612</a>        op(
-<a href=#8613 id=8613 data-nosnippet>8613</a>            machine,
-<a href=#8614 id=8614 data-nosnippet>8614</a>            Location::SIMD(NEON::V0),
-<a href=#8615 id=8615 data-nosnippet>8615</a>            Location::SIMD(NEON::V1),
-<a href=#8616 id=8616 data-nosnippet>8616</a>            Location::Memory(GPR::X0, <span class="number">32</span>),
-<a href=#8617 id=8617 data-nosnippet>8617</a>        )<span class="question-mark">?</span>;
-<a href=#8618 id=8618 data-nosnippet>8618</a>
-<a href=#8619 id=8619 data-nosnippet>8619</a>        <span class="prelude-val">Ok</span>(())
-<a href=#8620 id=8620 data-nosnippet>8620</a>    }
-<a href=#8621 id=8621 data-nosnippet>8621</a>
-<a href=#8622 id=8622 data-nosnippet>8622</a>    <span class="attr">#[test]
-<a href=#8623 id=8623 data-nosnippet>8623</a>    </span><span class="kw">fn </span>tests_arm64() -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#8624 id=8624 data-nosnippet>8624</a>        <span class="kw">let </span><span class="kw-2">mut </span>machine = MachineARM64::new(<span class="prelude-val">None</span>);
-<a href=#8625 id=8625 data-nosnippet>8625</a>
-<a href=#8626 id=8626 data-nosnippet>8626</a>        test_move_location(<span class="kw-2">&amp;mut </span>machine, Size::S32)<span class="question-mark">?</span>;
-<a href=#8627 id=8627 data-nosnippet>8627</a>        test_move_location(<span class="kw-2">&amp;mut </span>machine, Size::S64)<span class="question-mark">?</span>;
-<a href=#8628 id=8628 data-nosnippet>8628</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">false</span>, Size::S8)<span class="question-mark">?</span>;
-<a href=#8629 id=8629 data-nosnippet>8629</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">false</span>, Size::S16)<span class="question-mark">?</span>;
-<a href=#8630 id=8630 data-nosnippet>8630</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">false</span>, Size::S32)<span class="question-mark">?</span>;
-<a href=#8631 id=8631 data-nosnippet>8631</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">true</span>, Size::S8)<span class="question-mark">?</span>;
-<a href=#8632 id=8632 data-nosnippet>8632</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">true</span>, Size::S16)<span class="question-mark">?</span>;
-<a href=#8633 id=8633 data-nosnippet>8633</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">true</span>, Size::S32)<span class="question-mark">?</span>;
-<a href=#8634 id=8634 data-nosnippet>8634</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_add32)<span class="question-mark">?</span>;
-<a href=#8635 id=8635 data-nosnippet>8635</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_add64)<span class="question-mark">?</span>;
-<a href=#8636 id=8636 data-nosnippet>8636</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_sub32)<span class="question-mark">?</span>;
-<a href=#8637 id=8637 data-nosnippet>8637</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_sub64)<span class="question-mark">?</span>;
-<a href=#8638 id=8638 data-nosnippet>8638</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_and32)<span class="question-mark">?</span>;
-<a href=#8639 id=8639 data-nosnippet>8639</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_and64)<span class="question-mark">?</span>;
-<a href=#8640 id=8640 data-nosnippet>8640</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_xor32)<span class="question-mark">?</span>;
-<a href=#8641 id=8641 data-nosnippet>8641</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_xor64)<span class="question-mark">?</span>;
-<a href=#8642 id=8642 data-nosnippet>8642</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_or32)<span class="question-mark">?</span>;
-<a href=#8643 id=8643 data-nosnippet>8643</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_or64)<span class="question-mark">?</span>;
-<a href=#8644 id=8644 data-nosnippet>8644</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_mul32)<span class="question-mark">?</span>;
-<a href=#8645 id=8645 data-nosnippet>8645</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_mul64)<span class="question-mark">?</span>;
-<a href=#8646 id=8646 data-nosnippet>8646</a>        test_float_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_add)<span class="question-mark">?</span>;
-<a href=#8647 id=8647 data-nosnippet>8647</a>        test_float_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_sub)<span class="question-mark">?</span>;
-<a href=#8648 id=8648 data-nosnippet>8648</a>        test_float_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_mul)<span class="question-mark">?</span>;
-<a href=#8649 id=8649 data-nosnippet>8649</a>        test_float_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_div)<span class="question-mark">?</span>;
-<a href=#8650 id=8650 data-nosnippet>8650</a>        test_float_cmp_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_cmp_eq)<span class="question-mark">?</span>;
-<a href=#8651 id=8651 data-nosnippet>8651</a>        test_float_cmp_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_cmp_lt)<span class="question-mark">?</span>;
-<a href=#8652 id=8652 data-nosnippet>8652</a>        test_float_cmp_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_cmp_le)<span class="question-mark">?</span>;
-<a href=#8653 id=8653 data-nosnippet>8653</a>
-<a href=#8654 id=8654 data-nosnippet>8654</a>        <span class="prelude-val">Ok</span>(())
-<a href=#8655 id=8655 data-nosnippet>8655</a>    }
-<a href=#8656 id=8656 data-nosnippet>8656</a>}</code></pre></div></section></main></body></html>
+<a href=#8586 id=8586 data-nosnippet>8586</a>            Location::SIMD(NEON::V0),
+<a href=#8587 id=8587 data-nosnippet>8587</a>            Location::GPR(GPR::X0),
+<a href=#8588 id=8588 data-nosnippet>8588</a>        )<span class="question-mark">?</span>;
+<a href=#8589 id=8589 data-nosnippet>8589</a>        op(
+<a href=#8590 id=8590 data-nosnippet>8590</a>            machine,
+<a href=#8591 id=8591 data-nosnippet>8591</a>            Location::Memory(GPR::X1, <span class="number">0</span>),
+<a href=#8592 id=8592 data-nosnippet>8592</a>            Location::SIMD(NEON::V2),
+<a href=#8593 id=8593 data-nosnippet>8593</a>            Location::GPR(GPR::X0),
+<a href=#8594 id=8594 data-nosnippet>8594</a>        )<span class="question-mark">?</span>;
+<a href=#8595 id=8595 data-nosnippet>8595</a>        op(
+<a href=#8596 id=8596 data-nosnippet>8596</a>            machine,
+<a href=#8597 id=8597 data-nosnippet>8597</a>            Location::Memory(GPR::X1, <span class="number">0</span>),
+<a href=#8598 id=8598 data-nosnippet>8598</a>            Location::Memory(GPR::X2, <span class="number">10</span>),
+<a href=#8599 id=8599 data-nosnippet>8599</a>            Location::GPR(GPR::X0),
+<a href=#8600 id=8600 data-nosnippet>8600</a>        )<span class="question-mark">?</span>;
+<a href=#8601 id=8601 data-nosnippet>8601</a>        op(
+<a href=#8602 id=8602 data-nosnippet>8602</a>            machine,
+<a href=#8603 id=8603 data-nosnippet>8603</a>            Location::Memory(GPR::X1, <span class="number">0</span>),
+<a href=#8604 id=8604 data-nosnippet>8604</a>            Location::Memory(GPR::X2, <span class="number">16</span>),
+<a href=#8605 id=8605 data-nosnippet>8605</a>            Location::Memory(GPR::X0, <span class="number">32</span>),
+<a href=#8606 id=8606 data-nosnippet>8606</a>        )<span class="question-mark">?</span>;
+<a href=#8607 id=8607 data-nosnippet>8607</a>        op(
+<a href=#8608 id=8608 data-nosnippet>8608</a>            machine,
+<a href=#8609 id=8609 data-nosnippet>8609</a>            Location::SIMD(NEON::V0),
+<a href=#8610 id=8610 data-nosnippet>8610</a>            Location::Memory(GPR::X2, <span class="number">16</span>),
+<a href=#8611 id=8611 data-nosnippet>8611</a>            Location::Memory(GPR::X0, <span class="number">32</span>),
+<a href=#8612 id=8612 data-nosnippet>8612</a>        )<span class="question-mark">?</span>;
+<a href=#8613 id=8613 data-nosnippet>8613</a>        op(
+<a href=#8614 id=8614 data-nosnippet>8614</a>            machine,
+<a href=#8615 id=8615 data-nosnippet>8615</a>            Location::SIMD(NEON::V0),
+<a href=#8616 id=8616 data-nosnippet>8616</a>            Location::SIMD(NEON::V1),
+<a href=#8617 id=8617 data-nosnippet>8617</a>            Location::Memory(GPR::X0, <span class="number">32</span>),
+<a href=#8618 id=8618 data-nosnippet>8618</a>        )<span class="question-mark">?</span>;
+<a href=#8619 id=8619 data-nosnippet>8619</a>
+<a href=#8620 id=8620 data-nosnippet>8620</a>        <span class="prelude-val">Ok</span>(())
+<a href=#8621 id=8621 data-nosnippet>8621</a>    }
+<a href=#8622 id=8622 data-nosnippet>8622</a>
+<a href=#8623 id=8623 data-nosnippet>8623</a>    <span class="attr">#[test]
+<a href=#8624 id=8624 data-nosnippet>8624</a>    </span><span class="kw">fn </span>tests_arm64() -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#8625 id=8625 data-nosnippet>8625</a>        <span class="kw">let </span><span class="kw-2">mut </span>machine = MachineARM64::new(<span class="prelude-val">None</span>);
+<a href=#8626 id=8626 data-nosnippet>8626</a>
+<a href=#8627 id=8627 data-nosnippet>8627</a>        test_move_location(<span class="kw-2">&amp;mut </span>machine, Size::S32)<span class="question-mark">?</span>;
+<a href=#8628 id=8628 data-nosnippet>8628</a>        test_move_location(<span class="kw-2">&amp;mut </span>machine, Size::S64)<span class="question-mark">?</span>;
+<a href=#8629 id=8629 data-nosnippet>8629</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">false</span>, Size::S8)<span class="question-mark">?</span>;
+<a href=#8630 id=8630 data-nosnippet>8630</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">false</span>, Size::S16)<span class="question-mark">?</span>;
+<a href=#8631 id=8631 data-nosnippet>8631</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">false</span>, Size::S32)<span class="question-mark">?</span>;
+<a href=#8632 id=8632 data-nosnippet>8632</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">true</span>, Size::S8)<span class="question-mark">?</span>;
+<a href=#8633 id=8633 data-nosnippet>8633</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">true</span>, Size::S16)<span class="question-mark">?</span>;
+<a href=#8634 id=8634 data-nosnippet>8634</a>        test_move_location_extended(<span class="kw-2">&amp;mut </span>machine, <span class="bool-val">true</span>, Size::S32)<span class="question-mark">?</span>;
+<a href=#8635 id=8635 data-nosnippet>8635</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_add32)<span class="question-mark">?</span>;
+<a href=#8636 id=8636 data-nosnippet>8636</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_add64)<span class="question-mark">?</span>;
+<a href=#8637 id=8637 data-nosnippet>8637</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_sub32)<span class="question-mark">?</span>;
+<a href=#8638 id=8638 data-nosnippet>8638</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_sub64)<span class="question-mark">?</span>;
+<a href=#8639 id=8639 data-nosnippet>8639</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_and32)<span class="question-mark">?</span>;
+<a href=#8640 id=8640 data-nosnippet>8640</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_and64)<span class="question-mark">?</span>;
+<a href=#8641 id=8641 data-nosnippet>8641</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_xor32)<span class="question-mark">?</span>;
+<a href=#8642 id=8642 data-nosnippet>8642</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_xor64)<span class="question-mark">?</span>;
+<a href=#8643 id=8643 data-nosnippet>8643</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_or32)<span class="question-mark">?</span>;
+<a href=#8644 id=8644 data-nosnippet>8644</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_or64)<span class="question-mark">?</span>;
+<a href=#8645 id=8645 data-nosnippet>8645</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_mul32)<span class="question-mark">?</span>;
+<a href=#8646 id=8646 data-nosnippet>8646</a>        test_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::emit_binop_mul64)<span class="question-mark">?</span>;
+<a href=#8647 id=8647 data-nosnippet>8647</a>        test_float_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_add)<span class="question-mark">?</span>;
+<a href=#8648 id=8648 data-nosnippet>8648</a>        test_float_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_sub)<span class="question-mark">?</span>;
+<a href=#8649 id=8649 data-nosnippet>8649</a>        test_float_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_mul)<span class="question-mark">?</span>;
+<a href=#8650 id=8650 data-nosnippet>8650</a>        test_float_binop_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_div)<span class="question-mark">?</span>;
+<a href=#8651 id=8651 data-nosnippet>8651</a>        test_float_cmp_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_cmp_eq)<span class="question-mark">?</span>;
+<a href=#8652 id=8652 data-nosnippet>8652</a>        test_float_cmp_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_cmp_lt)<span class="question-mark">?</span>;
+<a href=#8653 id=8653 data-nosnippet>8653</a>        test_float_cmp_op(<span class="kw-2">&amp;mut </span>machine, MachineARM64::f32_cmp_le)<span class="question-mark">?</span>;
+<a href=#8654 id=8654 data-nosnippet>8654</a>
+<a href=#8655 id=8655 data-nosnippet>8655</a>        <span class="prelude-val">Ok</span>(())
+<a href=#8656 id=8656 data-nosnippet>8656</a>    }
+<a href=#8657 id=8657 data-nosnippet>8657</a>}</code></pre></div></section></main></body></html>

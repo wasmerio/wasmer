@@ -280,22 +280,23 @@
 <a href=#280 id=280 data-nosnippet>280</a>            UnwindOps::Push2Regs { .. } =&gt; {
 <a href=#281 id=281 data-nosnippet>281</a>                <span class="macro">unreachable!</span>(<span class="string">"no aarch64 on x64"</span>);
 <a href=#282 id=282 data-nosnippet>282</a>            }
-<a href=#283 id=283 data-nosnippet>283</a>        }
-<a href=#284 id=284 data-nosnippet>284</a>        max_unwind_offset = instruction_offset;
-<a href=#285 id=285 data-nosnippet>285</a>    }
-<a href=#286 id=286 data-nosnippet>286</a>
-<a href=#287 id=287 data-nosnippet>287</a>    <span class="prelude-val">Some</span>(UnwindInfo {
-<a href=#288 id=288 data-nosnippet>288</a>        flags: <span class="number">0</span>,
-<a href=#289 id=289 data-nosnippet>289</a>        prologue_size: max_unwind_offset,
-<a href=#290 id=290 data-nosnippet>290</a>        frame_register: <span class="prelude-val">Some</span>(UNWIND_RBP_REG),
-<a href=#291 id=291 data-nosnippet>291</a>        frame_register_offset,
-<a href=#292 id=292 data-nosnippet>292</a>        unwind_codes,
-<a href=#293 id=293 data-nosnippet>293</a>    })
-<a href=#294 id=294 data-nosnippet>294</a>}
-<a href=#295 id=295 data-nosnippet>295</a>
-<a href=#296 id=296 data-nosnippet>296</a><span class="kw">fn </span>ensure_unwind_offset(offset: u32) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
-<a href=#297 id=297 data-nosnippet>297</a>    <span class="kw">if </span>offset &gt; <span class="number">255 </span>{
-<a href=#298 id=298 data-nosnippet>298</a>        <span class="macro">panic!</span>(<span class="string">"function prologues cannot exceed 255 bytes in size for Windows x64"</span>);
-<a href=#299 id=299 data-nosnippet>299</a>    }
-<a href=#300 id=300 data-nosnippet>300</a>    <span class="prelude-val">Some</span>(offset <span class="kw">as </span>u8)
-<a href=#301 id=301 data-nosnippet>301</a>}</code></pre></div></section></main></body></html>
+<a href=#283 id=283 data-nosnippet>283</a>            UnwindOps::SubtractFP { .. } =&gt; <span class="macro">unreachable!</span>(),
+<a href=#284 id=284 data-nosnippet>284</a>        }
+<a href=#285 id=285 data-nosnippet>285</a>        max_unwind_offset = instruction_offset;
+<a href=#286 id=286 data-nosnippet>286</a>    }
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a>    <span class="prelude-val">Some</span>(UnwindInfo {
+<a href=#289 id=289 data-nosnippet>289</a>        flags: <span class="number">0</span>,
+<a href=#290 id=290 data-nosnippet>290</a>        prologue_size: max_unwind_offset,
+<a href=#291 id=291 data-nosnippet>291</a>        frame_register: <span class="prelude-val">Some</span>(UNWIND_RBP_REG),
+<a href=#292 id=292 data-nosnippet>292</a>        frame_register_offset,
+<a href=#293 id=293 data-nosnippet>293</a>        unwind_codes,
+<a href=#294 id=294 data-nosnippet>294</a>    })
+<a href=#295 id=295 data-nosnippet>295</a>}
+<a href=#296 id=296 data-nosnippet>296</a>
+<a href=#297 id=297 data-nosnippet>297</a><span class="kw">fn </span>ensure_unwind_offset(offset: u32) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
+<a href=#298 id=298 data-nosnippet>298</a>    <span class="kw">if </span>offset &gt; <span class="number">255 </span>{
+<a href=#299 id=299 data-nosnippet>299</a>        <span class="macro">panic!</span>(<span class="string">"function prologues cannot exceed 255 bytes in size for Windows x64"</span>);
+<a href=#300 id=300 data-nosnippet>300</a>    }
+<a href=#301 id=301 data-nosnippet>301</a>    <span class="prelude-val">Some</span>(offset <span class="kw">as </span>u8)
+<a href=#302 id=302 data-nosnippet>302</a>}</code></pre></div></section></main></body></html>
