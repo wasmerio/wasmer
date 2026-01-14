@@ -1,6 +1,7 @@
 //! Types used to report and handle compilation progress.
 
 use crate::lib::std::{borrow::Cow, fmt, string::String, sync::Arc};
+use thiserror::Error;
 
 /// Indicates the current compilation progress.
 ///
@@ -44,7 +45,8 @@ impl CompilationProgress {
 }
 
 /// Error returned when the user requests to abort an expensive computation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Error)]
+#[error("{reason}")]
 pub struct UserAbort {
     reason: String,
 }
@@ -62,15 +64,6 @@ impl UserAbort {
         &self.reason
     }
 }
-
-impl fmt::Display for UserAbort {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.reason.fmt(f)
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for UserAbort {}
 
 /// Wraps a boxed callback that can receive compilation progress notifications.
 #[derive(Clone)]
