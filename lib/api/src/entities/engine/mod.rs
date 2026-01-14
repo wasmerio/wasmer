@@ -18,9 +18,6 @@ use crate::{BackendKind, IntoBytes, Store};
 /// Create temporary handles to engines.
 mod engine_ref;
 
-mod progress_ext;
-pub use progress_ext::ProgressEngineExt;
-
 /// The actual (private) definition of the engines.
 mod inner;
 pub(crate) use inner::BackendEngine;

@@ -22,7 +22,8 @@ use std::{
 use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{CompileError, Engine, Module, ProgressEngineExt as _, RuntimeError};
+use wasmer::{CompileError, Engine, Module, RuntimeError};
+use wasmer::sys::NativeEngineExt as _;
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
