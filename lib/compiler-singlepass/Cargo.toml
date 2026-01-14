@@ -38,7 +38,7 @@ target-lexicon.workspace = true
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "rayon", "unwind", "avx"]
+default = ["std", "rayon", "unwind", "avx", "riscv"]
 wasm = ["std", "unwind", "avx"]
 std = ["wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
@@ -46,6 +46,7 @@ unwind = ["gimli"]
 sse = []
 avx = []
 enable-serde = []
+riscv = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
