@@ -2,7 +2,6 @@
 */*.out
 wasix-tests
 */*/*
-!*/*/*.sh
 !*/*/build.sh
 !*/*/*.c
 !*/*/*.cpp
