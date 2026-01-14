@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
+#include <stdint.h>
 
 void __attribute__((constructor)) main_ctor()
 {
@@ -62,6 +63,83 @@ int main()
     {
         fprintf(stderr, "failed to unload library: %s\n", dlerror());
         return 1;
+    }
+
+    // Test dl_invalid_handle: invalid handle 0 (NULL) - should fail
+    printf("testing invalid handle 0 (NULL)...\n");
+    if (dlclose((void *)0) == 0)
+    {
+        fprintf(stderr, "expected dlclose to fail for NULL handle\n");
+        return 1;
+    }
+    char *error = dlerror();
+    if (!error || *error == '\0')
+    {
+        fprintf(stderr, "dlerror should not be empty after NULL dlclose\n");
+        return 1;
+    }
+
+    // Test dl_invalid_handle: invalid handle 0xffffff
+    printf("testing invalid handle 0xffffff...\n");
+    if (dlclose((void *)(uintptr_t)0xffffff) == 0)
+    {
+        fprintf(stderr, "expected dlclose to fail for bad handle 0xffffff\n");
+        return 1;
+    }
+    error = dlerror();
+    if (!error || *error == '\0')
+    {
+        fprintf(stderr, "dlerror should not be empty after bad dlclose\n");
+        return 1;
+    }
+
+    // Test dl_invalid_handle: invalid handle with max u32 value
+    printf("testing invalid handle 0xFFFFFFFF...\n");
+    if (dlclose((void *)(uintptr_t)0xFFFFFFFF) == 0)
+    {
+        fprintf(stderr, "expected dlclose to fail for max u32 handle\n");
+        return 1;
+    }
+    error = dlerror();
+    if (!error || *error == '\0')
+    {
+        fprintf(stderr, "dlerror should not be empty after max u32 dlclose\n");
+        return 1;
+    }
+
+    // Test dl_invalid_handle: some small sequential invalid handles (1-5)
+    printf("testing small sequential invalid handles...\n");
+    for (int i = 1; i <= 5; i++)
+    {
+        if (dlclose((void *)(uintptr_t)i) == 0)
+        {
+            fprintf(stderr, "expected dlclose to fail for small handle %d\n", i);
+            return 1;
+        }
+        error = dlerror();
+        if (!error || *error == '\0')
+        {
+            fprintf(stderr, "dlerror should not be empty after dlclose(%d)\n", i);
+            return 1;
+        }
+    }
+
+    // Test dl_invalid_handle: power-of-2 invalid handles
+    printf("testing power-of-2 invalid handles...\n");
+    unsigned int powers[] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    for (int i = 0; i < sizeof(powers) / sizeof(powers[0]); i++)
+    {
+        if (dlclose((void *)(uintptr_t)powers[i]) == 0)
+        {
+            fprintf(stderr, "expected dlclose to fail for power-of-2 handle %u\n", powers[i]);
+            return 1;
+        }
+        error = dlerror();
+        if (!error || *error == '\0')
+        {
+            fprintf(stderr, "dlerror should not be empty after dlclose(%u)\n", powers[i]);
+            return 1;
+        }
     }
 
     printf("done!\n");
