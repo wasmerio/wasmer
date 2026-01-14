@@ -268,6 +268,9 @@ impl SinglepassCompiler {
                         HashMap::new(),
                     )?;
                 }
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
 
                 Ok(body)
             })
@@ -297,6 +300,9 @@ impl SinglepassCompiler {
                         &body.body,
                         HashMap::new(),
                     )?;
+                }
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
                 }
                 Ok(body)
             })
