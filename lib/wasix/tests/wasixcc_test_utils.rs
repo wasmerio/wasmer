@@ -1,9 +1,143 @@
+use std::fmt::Debug;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::process::Command;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use wasmer::Module;
+use wasmer_wasix::VirtualFile as VirtualFileTrait;
 use wasmer_wasix::runners::MappedDirectory;
 use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
 use wasmer_wasix::runtime::module_cache::HashedModuleData;
+use wasmer_wasix::virtual_fs::{AsyncRead, AsyncSeek, AsyncWrite};
+
+/// A virtual file that captures all writes to an in-memory buffer
+#[derive(Debug)]
+struct CaptureFile<B: Write + Send + Debug + Unpin + 'static> {
+    buffer: Arc<Mutex<Vec<u8>>>,
+    file: Option<B>,
+}
+
+impl<B: Write + Send + Debug + Unpin + 'static> CaptureFile<B> {
+    fn new(buffer: Arc<Mutex<Vec<u8>>>, file: Option<B>) -> Self {
+        Self { buffer, file: file }
+    }
+}
+
+impl<B: Write + Send + Debug + Unpin + 'static> VirtualFileTrait for CaptureFile<B> {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+
+    fn last_modified(&self) -> u64 {
+        0
+    }
+
+    fn created_time(&self) -> u64 {
+        0
+    }
+
+    fn size(&self) -> u64 {
+        self.buffer.lock().unwrap().len() as u64
+    }
+
+    fn set_len(&mut self, _new_size: u64) -> Result<(), wasmer_wasix::FsError> {
+        Err(wasmer_wasix::FsError::PermissionDenied)
+    }
+
+    fn unlink(&mut self) -> Result<(), wasmer_wasix::FsError> {
+        Ok(())
+    }
+
+    fn is_open(&self) -> bool {
+        true
+    }
+
+    fn get_special_fd(&self) -> Option<u32> {
+        None
+    }
+
+    fn poll_read_ready(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<std::io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
+
+    fn poll_write_ready(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<std::io::Result<usize>> {
+        Poll::Ready(Ok(8192))
+    }
+}
+
+impl<B: Write + Send + Debug + Unpin + 'static> AsyncRead for CaptureFile<B> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        _buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl<B: Write + Send + Debug + Unpin + 'static> AsyncWrite for CaptureFile<B> {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Poll::Ready(self.write(buf))
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl<B: Write + Send + Debug + Unpin + 'static> AsyncSeek for CaptureFile<B> {
+    fn start_seek(self: Pin<&mut Self>, _position: std::io::SeekFrom) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<u64>> {
+        Poll::Ready(Ok(0))
+    }
+}
+
+impl<B: Write + Send + Debug + Unpin + 'static> std::io::Read for CaptureFile<B> {
+    fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+        Ok(0)
+    }
+}
+
+impl<B: Write + Send + Debug + Unpin + 'static> std::io::Write for CaptureFile<B> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if let Some(output) = &mut self.file {
+            output.write(buf)?;
+            output.flush()?;
+        }
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl<B: Write + Send + Debug + Unpin + 'static> std::io::Seek for CaptureFile<B> {
+    fn seek(&mut self, _pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        Ok(0)
+    }
+}
 
 /// A utility struct for testing wasixcc-compiled programs.
 ///
@@ -161,10 +295,26 @@ impl WasixccTest {
         let engine = wasmer::Engine::default();
         let module = Module::new(&engine, &wasm_bytes).expect("Failed to create module");
 
+        // Create buffers to capture stdout and stderr
+        //
+        // For now these are not used, but they can be useful for debugging test failures.
+        let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
+        let stderr_buffer = Arc::new(Mutex::new(Vec::new()));
+
+        let stdout_capture = Box::new(CaptureFile::new(
+            stdout_buffer.clone(),
+            Some(std::io::stdout()),
+        ));
+        let stderr_capture = Box::new(CaptureFile::new(
+            stderr_buffer.clone(),
+            Some(std::io::stderr()),
+        ));
+
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .expect("Failed to create tokio runtime for running wasix programs");
+
         rt.block_on(async {
             tokio::task::block_in_place(move || {
                 // Run the WASM module using WasiRunner
@@ -174,7 +324,9 @@ impl WasixccTest {
                         guest: self.output_dir.to_string_lossy().to_string(),
                         host: self.output_dir.clone(),
                     }])
-                    .with_current_dir(self.output_dir.to_string_lossy().to_string());
+                    .with_current_dir(self.output_dir.to_string_lossy().to_string())
+                    .with_stdout(stdout_capture)
+                    .with_stderr(stderr_capture);
                 runner.run_wasm(
                     RuntimeOrEngine::Engine(engine),
                     &executable_path.to_string_lossy().to_string(),
