@@ -27,7 +27,6 @@ smallvec.workspace = true
 tempfile.workspace = true
 itertools.workspace = true
 target-lexicon.workspace = true
-wat.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = { workspace = true, optional = true }

@@ -7067,7 +7067,6 @@ dependencies = [
  "tracing",
  "wasmer-compiler",
  "wasmer-types",
- "wat",
 ]
 
 [[package]]
@@ -7111,7 +7110,6 @@ dependencies = [
  "tempfile",
  "wasmer-compiler",
  "wasmer-types",
- "wat",
 ]
 
 [[package]]

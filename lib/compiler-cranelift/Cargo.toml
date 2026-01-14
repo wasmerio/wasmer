@@ -40,7 +40,6 @@ smallvec.workspace = true
 target-lexicon.workspace = true
 leb128.workspace = true
 indexmap.workspace = true
-wat.workspace = true
 
 [dev-dependencies]
 cranelift-codegen = { workspace = true, features = ["all-arch"] }
