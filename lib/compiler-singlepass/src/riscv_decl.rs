@@ -139,6 +139,7 @@ impl AbstractReg for GPR {
         ];
         GPRS.iter()
     }
+    #[cfg(feature = "unwind")]
     fn to_dwarf(self) -> gimli::Register {
         use gimli::RiscV;
 
@@ -313,6 +314,7 @@ impl AbstractReg for FPR {
         FPRS.iter()
     }
 
+    #[cfg(feature = "unwind")]
     fn to_dwarf(self) -> gimli::Register {
         use gimli::RiscV;
 
