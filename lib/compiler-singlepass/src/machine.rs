@@ -1,9 +1,8 @@
-#[cfg(feature = "riscv")]
-use crate::machine_riscv::MachineRiscv;
 use crate::{
     common_decl::*,
     location::{Location, Reg},
     machine_arm64::MachineARM64,
+    machine_riscv::MachineRiscv,
     machine_x64::MachineX86_64,
     unwind::UnwindInstructions,
 };
@@ -2368,7 +2367,6 @@ pub fn gen_std_trampoline(
             let machine = MachineARM64::new(Some(target.clone()));
             machine.gen_std_trampoline(sig, calling_convention)
         }
-        #[cfg(feature = "riscv")]
         Architecture::Riscv64(_) => {
             let machine = MachineRiscv::new(Some(target.clone()))?;
             machine.gen_std_trampoline(sig, calling_convention)
@@ -2395,7 +2393,6 @@ pub fn gen_std_dynamic_import_trampoline(
             let machine = MachineARM64::new(Some(target.clone()));
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
-        #[cfg(feature = "riscv")]
         Architecture::Riscv64(_) => {
             let machine = MachineRiscv::new(Some(target.clone()))?;
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
@@ -2422,7 +2419,6 @@ pub fn gen_import_call_trampoline(
             let machine = MachineARM64::new(Some(target.clone()));
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
-        #[cfg(feature = "riscv")]
         Architecture::Riscv64(_) => {
             let machine = MachineRiscv::new(Some(target.clone()))?;
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)

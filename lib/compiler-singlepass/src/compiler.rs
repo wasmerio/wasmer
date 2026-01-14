@@ -11,7 +11,6 @@ use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
 };
 use crate::machine_arm64::MachineARM64;
-#[cfg(feature = "riscv")]
 use crate::machine_riscv::MachineRiscv;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
@@ -68,7 +67,6 @@ impl SinglepassCompiler {
         match arch {
             Architecture::X86_64 => {}
             Architecture::Aarch64(_) => {}
-            #[cfg(feature = "riscv")]
             Architecture::Riscv64(_) => {}
             _ => {
                 return Err(CompileError::UnsupportedTarget(
@@ -202,7 +200,6 @@ impl SinglepassCompiler {
 
                         generator.finalize(input, arch)
                     }
-                    #[cfg(feature = "riscv")]
                     Architecture::Riscv64(_) => {
                         let machine = MachineRiscv::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
