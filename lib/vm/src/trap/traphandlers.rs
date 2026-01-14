@@ -74,8 +74,8 @@ cfg_if::cfg_if! {
 
 // Process an IllegalOpcode to see if it has a TrapCode payload
 unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
+    let mut val: Option<u8> = None;
     unsafe {
-        let mut val: Option<u8> = None;
         if cfg!(target_arch = "x86_64") {
             val = if read(addr as *mut u8) & 0xf0 == 0x40
                 && read((addr + 1) as *mut u8) == 0x0f
@@ -95,29 +95,51 @@ unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
                 None
             }
         }
-        match val.and_then(|val| {
+        if cfg!(target_arch = "riscv64") {
+            let addr = addr as *mut u32;
+            // Check if 'unimp' instruction
+            val = if read(addr) == 0xc0001073 {
+                // Read from the instruction we emitted: 'addi a0, xzero, $payload'
+                // and take the encoded immediate value (upper 12-bits).
+                let prev_insn = read(addr.sub(1));
+                if (prev_insn & 0xffff) == 0x0513 {
+                    Some((prev_insn >> 20) as u8)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+        }
+    }
+
+    // The direct encoding of a trap into the instruction is unused on RISC-V:
+    if cfg!(target_arch = "x86_64") || cfg!(target_arch = "aarch64") {
+        val = val.and_then(|val| {
             if val & MAGIC == MAGIC {
                 Some(val & 0xf)
             } else {
                 None
             }
-        }) {
-            None => None,
-            Some(val) => match val {
-                0 => Some(TrapCode::StackOverflow),
-                1 => Some(TrapCode::HeapAccessOutOfBounds),
-                2 => Some(TrapCode::HeapMisaligned),
-                3 => Some(TrapCode::TableAccessOutOfBounds),
-                4 => Some(TrapCode::IndirectCallToNull),
-                5 => Some(TrapCode::BadSignature),
-                6 => Some(TrapCode::IntegerOverflow),
-                7 => Some(TrapCode::IntegerDivisionByZero),
-                8 => Some(TrapCode::BadConversionToInteger),
-                9 => Some(TrapCode::UnreachableCodeReached),
-                10 => Some(TrapCode::UnalignedAtomic),
-                _ => None,
-            },
-        }
+        });
+    }
+
+    match val {
+        None => None,
+        Some(val) => match val {
+            0 => Some(TrapCode::StackOverflow),
+            1 => Some(TrapCode::HeapAccessOutOfBounds),
+            2 => Some(TrapCode::HeapMisaligned),
+            3 => Some(TrapCode::TableAccessOutOfBounds),
+            4 => Some(TrapCode::IndirectCallToNull),
+            5 => Some(TrapCode::BadSignature),
+            6 => Some(TrapCode::IntegerOverflow),
+            7 => Some(TrapCode::IntegerDivisionByZero),
+            8 => Some(TrapCode::BadConversionToInteger),
+            9 => Some(TrapCode::UnreachableCodeReached),
+            10 => Some(TrapCode::UnalignedAtomic),
+            _ => None,
+        },
     }
 }
 

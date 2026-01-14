@@ -416,6 +416,11 @@ jobs:
         build-what:
           [
             {
+              key: wast-tests,
+              build-cmd: "make test-stage-0-wast",
+              name: "WAST tests",
+            },
+            {
               key: capi,
               build-cmd: "make build-capi && make package-capi",
               name: "C-API",
