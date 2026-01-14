@@ -364,11 +364,12 @@ pub async fn load_module(
         let p = CompilationProgressCallback::new(move |p| {
             progress.notify(ModuleLoadProgress::CompilingModule(p))
         });
-        #[cfg(all(feature = "sys", feature = "compiler"))]
+        #[cfg(feature = "sys-default")]
         {
+            use wasmer::sys::NativeEngineExt;
             engine.new_module_with_progress(input.wasm(), p)
         }
-        #[cfg(not(all(feature = "sys", feature = "compiler")))]
+        #[cfg(not(feature = "sys-default"))]
         {
             Module::new(&engine, input.wasm())
         }
