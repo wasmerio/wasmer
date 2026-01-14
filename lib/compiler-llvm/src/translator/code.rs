@@ -146,7 +146,13 @@ impl FuncTranslator {
             .unwrap();
 
         let offsets = VMOffsets::new(self.pointer_width, wasm_module);
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let intrinsics = Intrinsics::declare(
+            &module,
+            &self.ctx,
+            &target_data,
+            &target_triple,
+            &self.binary_fmt,
+        );
         let (func_type, func_attrs) = self.abi.func_type_to_llvm(
             &self.ctx,
             &intrinsics,

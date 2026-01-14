@@ -20,19 +20,21 @@ use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
 
 mod aarch64_systemv;
+mod riscv_systemv;
 mod x86_64_systemv;
 
 use aarch64_systemv::Aarch64SystemV;
+use riscv_systemv::RiscvSystemV;
 use x86_64_systemv::X86_64SystemV;
 
 pub fn get_abi(target_machine: &TargetMachine) -> Box<dyn Abi> {
-    if target_machine
-        .get_triple()
-        .as_str()
-        .to_string_lossy()
-        .starts_with("aarch64")
-    {
+    let target_name = target_machine.get_triple();
+    let target_name = target_name.as_str().to_string_lossy();
+
+    if target_name.starts_with("aarch64") {
         Box::new(Aarch64SystemV {})
+    } else if target_name.starts_with("riscv") {
+        Box::new(RiscvSystemV {})
     } else {
         Box::new(X86_64SystemV {})
     }

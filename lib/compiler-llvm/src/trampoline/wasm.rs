@@ -83,7 +83,13 @@ impl FuncTrampoline {
         let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let intrinsics = Intrinsics::declare(
+            &module,
+            &self.ctx,
+            &target_data,
+            &target_triple,
+            &self.binary_fmt,
+        );
 
         let func_kind = if config.enable_g0m0_opt {
             Some(G0M0FunctionKind::Local)
@@ -251,7 +257,13 @@ impl FuncTrampoline {
         let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let intrinsics = Intrinsics::declare(
+            &module,
+            &self.ctx,
+            &target_data,
+            &target_triple,
+            &self.binary_fmt,
+        );
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi
