@@ -12,7 +12,6 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-wat.workspace = true
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=7.0.0-alpha.2", default-features = false, features = [
@@ -41,6 +40,7 @@ smallvec.workspace = true
 target-lexicon.workspace = true
 leb128.workspace = true
 indexmap.workspace = true
+wat.workspace = true
 
 [dev-dependencies]
 cranelift-codegen = { workspace = true, features = ["all-arch"] }
