@@ -51,7 +51,13 @@ impl Module {
         callback: CompilationProgressCallback,
     ) -> Result<Self, CompileError> {
         Self::validate(engine, binary)?;
-        unsafe { Self::from_binary_unchecked_with_progress(engine, binary, Some(callback)) }
+
+        let artifact = engine
+            .as_engine_ref()
+            .engine()
+            .as_sys()
+            .compile_with_progress(binary, Some(callback))?;
+        Ok(Self::from_artifact(artifact))
     }
 
     pub(crate) unsafe fn from_binary_unchecked(
@@ -59,15 +65,6 @@ impl Module {
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         Self::compile(engine, binary)
-    }
-
-    pub(crate) unsafe fn from_binary_unchecked_with_progress(
-        engine: &impl AsEngineRef,
-        binary: &[u8],
-        callback: Option<CompilationProgressCallback>,
-    ) -> Result<Self, CompileError> {
-        let module = Self::compile_with_progress(engine, binary, callback)?;
-        Ok(module)
     }
 
     #[cfg(feature = "compiler")]
@@ -86,20 +83,6 @@ impl Module {
     #[cfg(feature = "compiler")]
     fn compile(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
         let artifact = engine.as_engine_ref().engine().as_sys().compile(binary)?;
-        Ok(Self::from_artifact(artifact))
-    }
-
-    #[cfg(feature = "compiler")]
-    fn compile_with_progress(
-        engine: &impl AsEngineRef,
-        binary: &[u8],
-        callback: Option<CompilationProgressCallback>,
-    ) -> Result<Self, CompileError> {
-        let artifact = engine
-            .as_engine_ref()
-            .engine()
-            .as_sys()
-            .compile_with_progress(binary, callback)?;
         Ok(Self::from_artifact(artifact))
     }
 
