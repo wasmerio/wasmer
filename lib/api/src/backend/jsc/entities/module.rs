@@ -43,14 +43,6 @@ impl Module {
         unsafe { Self::from_binary_unchecked(_engine, binary) }
     }
 
-    pub(crate) fn from_binary_with_progress(
-        engine: &impl AsEngineRef,
-        binary: &[u8],
-        _callback: CompilationProgressCallback,
-    ) -> Result<Self, CompileError> {
-        Self::from_binary(engine, binary)
-    }
-
     pub(crate) unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
         binary: &[u8],

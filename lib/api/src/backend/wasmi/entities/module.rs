@@ -74,14 +74,6 @@ impl Module {
         unsafe { Self::from_binary_unchecked(_engine, binary) }
     }
 
-    pub(crate) fn from_binary_with_progress(
-        engine: &impl AsEngineRef,
-        binary: &[u8],
-        _callback: CompilationProgressCallback,
-    ) -> Result<Self, CompileError> {
-        Self::from_binary(engine, binary)
-    }
-
     #[allow(clippy::arc_with_non_send_sync)]
     pub(crate) unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
