@@ -838,17 +838,14 @@ jobs:
         if: startsWith(matrix.metadata.build, 'linux')
         run: df -h
       - name: Clean up disk space (container)
-        run: |
-          rm -rf /__t/*
+        run: |          
           rm -rf /host/usr/local/.ghcup
           rm -rf /host/usr/local/lib/android
         if: startsWith(matrix.metadata.build, 'linux') && matrix.metadata.container
       - name: Clean up disk space (native)
         run: |
-          du -hs /__t/
           du -hs /usr/local/.ghcup
           du -hs /usr/local/lib/android
-          sudo rm -rf /__t/*
           sudo rm -rf /usr/local/.ghcup
           sudo rm -rf /usr/local/lib/android
         if: startsWith(matrix.metadata.build, 'linux') && !matrix.metadata.container
