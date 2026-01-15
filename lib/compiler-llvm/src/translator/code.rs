@@ -74,7 +74,7 @@ pub struct FuncTranslator {
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
-    is_riscv64: bool,
+    is_riscv: bool,
 }
 
 impl FuncTranslator {
@@ -85,11 +85,11 @@ impl FuncTranslator {
         pointer_width: u8,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
-        let is_riscv64 = target_machine
+        let is_riscv = target_machine
             .get_triple()
             .as_str()
             .to_string_lossy()
-            .starts_with("riscv64");
+            .starts_with("riscv");
         Ok(Self {
             ctx: Context::create(),
             target_machine,
@@ -106,7 +106,7 @@ impl FuncTranslator {
             },
             binary_fmt,
             pointer_width,
-            is_riscv64,
+            is_riscv,
         })
     }
 
@@ -339,7 +339,7 @@ impl FuncTranslator {
             config,
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
-            is_riscv64: self.is_riscv64,
+            is_riscv: self.is_riscv,
         };
 
         fcg.ctx.add_func(
@@ -1930,7 +1930,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     config: &'a LLVM,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
-    is_riscv64: bool,
+    is_riscv: bool,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
@@ -12971,7 +12971,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             .build_call(function, args, name)
             .map_err(|e| CompileError::Codegen(e.to_string()))?;
 
-        if self.is_riscv64 {
+        if self.is_riscv {
             for (i, param) in function.get_params().iter().enumerate() {
                 if param.get_type() == self.context.i32_type().into() {
                     call.add_attribute(
