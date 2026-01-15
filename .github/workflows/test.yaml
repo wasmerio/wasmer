@@ -828,7 +828,10 @@ jobs:
               container: "alpine:edge",
             },
           ]
-    container: ${{ matrix.metadata.container }}
+    container:
+      image: ${{ matrix.metadata.container }}
+      volumes:
+         - /usr/local:/host/usr/local
     steps:
       - uses: actions/checkout@v6
       - name: Show disk capacity
