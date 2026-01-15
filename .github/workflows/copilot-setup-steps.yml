@@ -16,7 +16,7 @@ env:
 jobs:
   # The job MUST be called `copilot-setup-steps`
   copilot-setup-steps:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     permissions:
       contents: read
