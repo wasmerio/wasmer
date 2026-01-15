@@ -719,16 +719,23 @@ impl VirtualIoSource for LocalTcpStream {
                         stream.as_raw_fd(),
                         libc::SOL_SOCKET,
                         libc::SO_ERROR,
-                        &mut error as *mut _ as *mut _,
+                        &mut error as *mut libc::c_int as *mut libc::c_void,
                         &mut len,
                     )
                 };
-                if result == 0 && error != 0 {
+                if result != 0 {
+                    // getsockopt itself failed
+                    let io_error = std::io::Error::last_os_error();
+                    return Poll::Ready(Err(io_err_into_net_error(io_error)));
+                }
+                if error != 0 {
+                    // Socket has a pending error
                     let io_error = std::io::Error::from_raw_os_error(error);
                     return Poll::Ready(Err(io_err_into_net_error(io_error)));
                 }
-                // If we couldn't get the error, return a generic connection error
-                return Poll::Ready(Err(NetworkError::ConnectionRefused));
+                // POLLERR was set but SO_ERROR is 0 - this shouldn't normally happen,
+                // but we'll treat it as a generic IO error
+                return Poll::Ready(Err(NetworkError::IOError));
             }
             Some(val) if (val & libc::POLLHUP) != 0 => {
                 return Poll::Ready(Ok(0));
