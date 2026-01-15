@@ -838,6 +838,7 @@ jobs:
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: false
+        if: startsWith(matrix.metadata.build, 'linux')
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')
         run: df -h
