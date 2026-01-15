@@ -831,7 +831,7 @@ jobs:
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
-         - /usr/local:/host/usr/local
+        - /usr/local:/host/usr/local
     steps:
       - uses: actions/checkout@v6
       - name: Show disk capacity
@@ -843,14 +843,14 @@ jobs:
           rm -rf /__t/*
           rm -rf /host/usr/local/.ghcup
           rm -rf /host/usr/local/lib/android
-        if: startsWith(matrix.metadata.build, 'linux') && matrix.metadata.container
+        if: startsWith(matrix.metadata.build, 'linux') && matrix.metadata.container != ''
       # Saves ~16 GiB
       - name: Clean up disk space (native)
         run: |
           sudo rm -rf /__t/*
           sudo rm -rf /usr/local/.ghcup
           sudo rm -rf /usr/local/lib/android
-        if: startsWith(matrix.metadata.build, 'linux') && !matrix.metadata.container
+        if: startsWith(matrix.metadata.build, 'linux') && matrix.metadata.container == ''
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')
         run: df -h
