@@ -19,7 +19,7 @@ use crate::{
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 use std::sync::Arc;
 use tracing::*;
-use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store};
+use wasmer::{Function, Memory32, Memory64, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
@@ -296,7 +296,7 @@ fn call_module(
         return;
     };
 
-    let (store, call_ret) =
+    let (mut store, call_ret) =
         ContextSwitchingEnvironment::run_main_context(&ctx, store, start.clone(), vec![]);
 
     let ret = if let Err(err) = call_ret {
