@@ -11,6 +11,7 @@ use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
 };
 use crate::machine_arm64::MachineARM64;
+use crate::machine_riscv::MachineRiscv;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
 use crate::unwind::{UnwindFrame, create_systemv_cie};
@@ -55,35 +56,18 @@ impl SinglepassCompiler {
     fn config(&self) -> &Singlepass {
         &self.config
     }
-}
 
-impl Compiler for SinglepassCompiler {
-    fn name(&self) -> &str {
-        "singlepass"
-    }
-
-    fn deterministic_id(&self) -> String {
-        String::from("singlepass")
-    }
-
-    /// Get the middlewares for this compiler
-    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
-        &self.config.middlewares
-    }
-
-    /// Compile the module using Singlepass, producing a compilation result with
-    /// associated relocations.
-    fn compile_module(
+    fn compile_module_internal(
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         let arch = target.triple().architecture;
         match arch {
             Architecture::X86_64 => {}
             Architecture::Aarch64(_) => {}
+            Architecture::Riscv64(_) => {}
             _ => {
                 return Err(CompileError::UnsupportedTarget(
                     target.triple().architecture.to_string(),
@@ -95,11 +79,14 @@ impl Compiler for SinglepassCompiler {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
             Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
-            _ => {
-                return Err(CompileError::UnsupportedTarget(
-                    "Unsupported Calling convention for Singlepass compiler".to_string(),
-                ));
-            }
+            _ => match target.triple().architecture {
+                Architecture::Riscv64(_) => CallingConvention::SystemV,
+                _ => {
+                    return Err(CompileError::UnsupportedTarget(
+                        "Unsupported Calling convention for Singlepass compiler".to_string(),
+                    ));
+                }
+            },
         };
 
         // Generate the frametable
@@ -213,6 +200,27 @@ impl Compiler for SinglepassCompiler {
 
                         generator.finalize(input, arch)
                     }
+                    Architecture::Riscv64(_) => {
+                        let machine = MachineRiscv::new(Some(target.clone()))?;
+                        let mut generator = FuncGen::new(
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            memory_styles,
+                            table_styles,
+                            i,
+                            &locals,
+                            machine,
+                            calling_convention,
+                        )?;
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op)?;
+                        }
+
+                        generator.finalize(input, arch)
+                    }
                     _ => unimplemented!(),
                 }
             })
@@ -304,6 +312,51 @@ impl Compiler for SinglepassCompiler {
             unwind_info,
             got,
         })
+    }
+}
+
+impl Compiler for SinglepassCompiler {
+    fn name(&self) -> &str {
+        "singlepass"
+    }
+
+    fn deterministic_id(&self) -> String {
+        String::from("singlepass")
+    }
+
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
+    /// Compile the module using Singlepass, producing a compilation result with
+    /// associated relocations.
+    fn compile_module(
+        &self,
+        target: &Target,
+        compile_info: &CompileModuleInfo,
+        _module_translation: &ModuleTranslationState,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+    ) -> Result<Compilation, CompileError> {
+        #[cfg(feature = "rayon")]
+        {
+            let num_threads = self.config.num_threads.get();
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()
+                .map_err(|e| {
+                    CompileError::Codegen(format!("failed to build rayon thread pool: {e}"))
+                })?;
+
+            pool.install(|| {
+                self.compile_module_internal(target, compile_info, function_body_inputs)
+            })
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
+            self.compile_module_internal(target, compile_info, function_body_inputs)
+        }
     }
 
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
