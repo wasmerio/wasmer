@@ -1,0 +1,66 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+env:
+  RUST_BACKTRACE: 1
+  MSRV: "1.90"
+
+jobs:
+  # The job MUST be called `copilot-setup-steps`
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up libstdc++ on Linux
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6
+          sudo apt-get install --reinstall g++
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.MSRV }}
+          target: x86_64-unknown-linux-gnu
+          components: rustc,cargo,rust-std,rust-src,clippy,rustfmt,rust-analyzer,rust-docs
+
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Install LLVM
+        shell: bash
+        run: |
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf ${{ env.LLVM_URL }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_211_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz
+
+      - name: Install wasixcc
+        uses: wasix-org/wasixcc@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          sysroot-tag: v2025-12-22.1
+
+      - name: Ensure the setup works
+        run: |
+          cargo fmt --check || true
+          RUSTFLAGS="-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D function_item_references -D clippy::uninlined_format_args " cargo clippy --all --exclude wasmer-swift --locked --allow-dirty -- -D clippy::all || true
