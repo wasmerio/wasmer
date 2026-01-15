@@ -31,7 +31,7 @@
 - Names should reflect purpose and behavior; avoid names that require comments to explain intent.
 
 ## Making your changes pass CI
-- Before submitting any changes, make sure to run the following commands:
+- Before submitting any changes, make sure to run the following commands to check and fix formatting and linting:
   - `cargo fmt` to format all code according to the style guidelines.
   - `RUSTFLAGS="-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D function_item_references -D clippy::uninlined_format_args " cargo clippy --all --exclude wasmer-swift --locked --fix --allow-dirty -- -D clippy::all` to check for common mistakes and improve code quality.
 - If these commands don't pass, CI will reject your changes.
