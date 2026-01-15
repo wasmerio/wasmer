@@ -100,6 +100,7 @@ bytecheck.workspace = true
 blake3.workspace = true
 petgraph.workspace = true
 lz4_flex.workspace = true
+flate2.workspace = true
 rayon = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
@@ -152,6 +153,7 @@ windows-sys = { workspace = true, features = [
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 terminal_size.workspace = true
+zstd.workspace = true
 
 [dev-dependencies]
 wasmer = { path = "../api", version = "=7.0.0-alpha.2", default-features = false, features = [

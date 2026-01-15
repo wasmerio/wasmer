@@ -156,6 +156,7 @@ env_logger = { version = "0.11.5", default-features = false }
 field-offset = "0.3.3"
 filetime = "0.2.18"
 flate2 = "1.0.34"
+zstd = "0.13.2"
 fnv = "1.0.3"
 fs_extra = { version = "1.3.0" }
 futures = "0.3.30"
