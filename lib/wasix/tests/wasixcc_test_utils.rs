@@ -410,7 +410,7 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
         .join(PathBuf::from(
             file.split('/')
                 .next_back()
-                .expect("The test file name can not be empty")
+                .expect("The test file name cannot be empty")
                 .trim_end_matches(".rs"),
         ));
 
@@ -425,7 +425,7 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
         .env("CC", cc)
         .env("CXX", cxx)
         .env("WASIXCC_SYSROOT", "/home/lennart/.wasix-clang/wasix-sysroot")
-        .env("WASIXCC_COMPILER_FLAGS", "-fPIC:-fwasm-exceptions:-Wl,-L/home/lennart/.wasix-clang/wasix-sysroot/usr/local/lib/wasm32-wasi:-I/home/lennart/.wasix-clang/wasix-sysroot/usr/local/include:-Wl,-mllvm,--wasm-enable-eh:-Wl,-mllvm,--wasm-enable-sjlj:-Wl,-mllvm,--wasm-use-legacy-eh=false:-Wl,-mllvm,--exception-model=wasm")
+        .env("WASIXCC_COMPILER_FLAGS", "-fPIC:-fwasm-exceptions:-Wl,-L/home/lennart/.wasix-clang/wasix-sysroot/usr/local/lib/wasm32-wasi:-I/home/lennart/.wasix-clang/wasix-sysroot/usr/local/include:-Wl,-mllvm,--wasm-enable-eh:-Wl,-mllvm,--wasm-enable-sjlj:-Wl,-mllvm,--wasm-use-legacy-eh=false:-Wl,-mllvm,--exception-model=wasm:-iwithsysroot:/usr/local/include/c++/v1")
         .output()?;
 
     if !output.status.success() {
