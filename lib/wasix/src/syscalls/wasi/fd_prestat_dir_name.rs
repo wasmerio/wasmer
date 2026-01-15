@@ -905,4 +905,95 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_prestat_dir_rights_base() {
+        // Preopened directories should have all expected base rights
+        use wasmer_wasix_types::wasi::Rights;
+
+        let env = setup_wasi_env_with_preopen("/testdir");
+
+        // Get fdstat for the preopened directory (fd 4)
+        let fdstat = env.state.fs.fdstat(4).unwrap();
+
+        // Expected base rights for preopened directories (from wasmtime)
+        let expected_base_rights = vec![
+            (Rights::PATH_CREATE_DIRECTORY, "PATH_CREATE_DIRECTORY"),
+            (Rights::PATH_CREATE_FILE, "PATH_CREATE_FILE"),
+            (Rights::PATH_LINK_SOURCE, "PATH_LINK_SOURCE"),
+            (Rights::PATH_LINK_TARGET, "PATH_LINK_TARGET"),
+            (Rights::PATH_OPEN, "PATH_OPEN"),
+            (Rights::FD_READDIR, "FD_READDIR"),
+            (Rights::PATH_READLINK, "PATH_READLINK"),
+            (Rights::PATH_RENAME_SOURCE, "PATH_RENAME_SOURCE"),
+            (Rights::PATH_RENAME_TARGET, "PATH_RENAME_TARGET"),
+            (Rights::PATH_SYMLINK, "PATH_SYMLINK"),
+            (Rights::PATH_REMOVE_DIRECTORY, "PATH_REMOVE_DIRECTORY"),
+            (Rights::PATH_UNLINK_FILE, "PATH_UNLINK_FILE"),
+            (Rights::PATH_FILESTAT_GET, "PATH_FILESTAT_GET"),
+            (Rights::PATH_FILESTAT_SET_TIMES, "PATH_FILESTAT_SET_TIMES"),
+            (Rights::FD_FILESTAT_GET, "FD_FILESTAT_GET"),
+            (Rights::FD_FILESTAT_SET_TIMES, "FD_FILESTAT_SET_TIMES"),
+        ];
+
+        for (right, name) in expected_base_rights {
+            assert!(
+                (fdstat.fs_rights_base & right) == right,
+                "fs_rights_base does not have required right `{}`",
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn test_prestat_dir_rights_inheriting() {
+        // Preopened directories should have all expected inheriting rights
+        use wasmer_wasix_types::wasi::Rights;
+
+        let env = setup_wasi_env_with_preopen("/testdir");
+
+        // Get fdstat for the preopened directory (fd 4)
+        let fdstat = env.state.fs.fdstat(4).unwrap();
+
+        // Expected inheriting rights = base rights + additional file rights
+        let expected_inheriting_rights = vec![
+            // Base rights (same as above)
+            (Rights::PATH_CREATE_DIRECTORY, "PATH_CREATE_DIRECTORY"),
+            (Rights::PATH_CREATE_FILE, "PATH_CREATE_FILE"),
+            (Rights::PATH_LINK_SOURCE, "PATH_LINK_SOURCE"),
+            (Rights::PATH_LINK_TARGET, "PATH_LINK_TARGET"),
+            (Rights::PATH_OPEN, "PATH_OPEN"),
+            (Rights::FD_READDIR, "FD_READDIR"),
+            (Rights::PATH_READLINK, "PATH_READLINK"),
+            (Rights::PATH_RENAME_SOURCE, "PATH_RENAME_SOURCE"),
+            (Rights::PATH_RENAME_TARGET, "PATH_RENAME_TARGET"),
+            (Rights::PATH_SYMLINK, "PATH_SYMLINK"),
+            (Rights::PATH_REMOVE_DIRECTORY, "PATH_REMOVE_DIRECTORY"),
+            (Rights::PATH_UNLINK_FILE, "PATH_UNLINK_FILE"),
+            (Rights::PATH_FILESTAT_GET, "PATH_FILESTAT_GET"),
+            (Rights::PATH_FILESTAT_SET_TIMES, "PATH_FILESTAT_SET_TIMES"),
+            (Rights::FD_FILESTAT_GET, "FD_FILESTAT_GET"),
+            (Rights::FD_FILESTAT_SET_TIMES, "FD_FILESTAT_SET_TIMES"),
+            // Additional file rights that children can inherit
+            (Rights::FD_DATASYNC, "FD_DATASYNC"),
+            (Rights::FD_READ, "FD_READ"),
+            (Rights::FD_SEEK, "FD_SEEK"),
+            (Rights::FD_FDSTAT_SET_FLAGS, "FD_FDSTAT_SET_FLAGS"),
+            (Rights::FD_SYNC, "FD_SYNC"),
+            (Rights::FD_TELL, "FD_TELL"),
+            (Rights::FD_WRITE, "FD_WRITE"),
+            (Rights::FD_ADVISE, "FD_ADVISE"),
+            (Rights::FD_ALLOCATE, "FD_ALLOCATE"),
+            (Rights::FD_FILESTAT_SET_SIZE, "FD_FILESTAT_SET_SIZE"),
+            (Rights::POLL_FD_READWRITE, "POLL_FD_READWRITE"),
+        ];
+
+        for (right, name) in expected_inheriting_rights {
+            assert!(
+                (fdstat.fs_rights_inheriting & right) == right,
+                "fs_rights_inheriting does not have required right `{}`",
+                name
+            );
+        }
+    }
 }
