@@ -253,6 +253,7 @@ reqwest = { workspace = true, default-features = false, features = [
 	"json",
 	"multipart",
 	"gzip",
+	"zstd",
 ] }
 
 [target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies]
@@ -260,6 +261,7 @@ reqwest = { workspace = true, default-features = false, features = [
 	"native-tls",
 	"json",
 	"multipart",
+	"zstd",
 ] }
 
 
