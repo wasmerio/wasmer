@@ -436,18 +436,30 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
 
     Ok(test_path.join("main"))
 }
-/// Run a compiled WASM file using WasiRunner
-pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
+
+/// Result from running a WASM program, including captured output and exit status
+pub struct WasmRunResult {
+    #[allow(dead_code)]
+    pub stdout: Vec<u8>,
+    #[allow(dead_code)]
+    pub stderr: Vec<u8>,
+    #[allow(dead_code)]
+    pub exit_code: Option<i32>,
+}
+
+/// Run a compiled WASM file using WasiRunner and return output buffers and exit status
+pub fn run_wasm_with_result(
+    wasm_path: &PathBuf,
+    dir: &Path,
+) -> Result<WasmRunResult, anyhow::Error> {
     // Load the compiled WASM module
-    let wasm_bytes = std::fs::read(&wasm_path).expect("Failed to read compiled WASM file");
+    let wasm_bytes = std::fs::read(&wasm_path)?;
     let module_data = HashedModuleData::new(wasm_bytes);
     let (hash, wasm_bytes) = module_data.into_parts();
     let engine = wasmer::Engine::default();
-    let module = Module::new(&engine, &wasm_bytes).expect("Failed to create module");
+    let module = Module::new(&engine, &wasm_bytes)?;
 
     // Create buffers to capture stdout and stderr
-    //
-    // For now these are not used, but they can be useful for debugging test failures.
     let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
     let stderr_buffer = Arc::new(Mutex::new(Vec::new()));
 
@@ -465,7 +477,7 @@ pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
         .build()
         .expect("Failed to create tokio runtime for running wasix programs");
 
-    rt.block_on(async {
+    let result = rt.block_on(async {
         tokio::task::block_in_place(move || {
             // Run the WASM module using WasiRunner
             let mut runner = WasiRunner::new();
@@ -488,5 +500,47 @@ pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
                 hash,
             )
         })
+    });
+
+    // Extract the captured output
+    let stdout = stdout_buffer.lock().unwrap().clone();
+    let stderr = stderr_buffer.lock().unwrap().clone();
+
+    // Extract exit code from result
+    let exit_code = match &result {
+        Ok(_) => Some(0),
+        Err(e) => {
+            // Try to extract exit code from error message
+            let error_msg = e.to_string();
+            if let Some(code_str) = error_msg.split("ExitCode::").nth(1) {
+                if let Some(code) = code_str.split_whitespace().next() {
+                    code.parse::<i32>().ok()
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    };
+
+    Ok(WasmRunResult {
+        stdout,
+        stderr,
+        exit_code,
     })
+}
+
+/// Run a compiled WASM file using WasiRunner
+pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
+    let result = run_wasm_with_result(wasm_path, dir)?;
+
+    // If exit code is non-zero, return an error
+    if let Some(code) = result.exit_code {
+        if code != 0 {
+            anyhow::bail!("WASI exited with code: {}", code);
+        }
+    }
+
+    Ok(())
 }
