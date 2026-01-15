@@ -12971,6 +12971,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             .build_call(function, args, name)
             .map_err(|e| CompileError::Codegen(e.to_string()))?;
 
+        // https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
+        // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
+        // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
+        // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
         if self.is_riscv {
             for (i, param) in function.get_params().iter().enumerate() {
                 if param.get_type() == self.context.i32_type().into() {
