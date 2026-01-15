@@ -3,16 +3,16 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/types.h>
+#include <wasi/api_wasix.h>
 
-// For WASIX, we use a custom syscall to get thread ID
+// For WASIX, we use the syscall to get thread ID
 // In WASIX, thread IDs are sequential from 0
-#define __WASI_THREAD_ID 34
-extern int __wasi_thread_id(int *tid);
 
 static int get_thread_id(void)
 {
-    int tid;
-    if (__wasi_thread_id(&tid) != 0)
+    __wasi_tid_t tid;
+    __wasi_errno_t err = __wasi_thread_id(&tid);
+    if (err != 0)
     {
         return -1;
     }
