@@ -709,7 +709,27 @@ impl VirtualIoSource for LocalTcpStream {
         }
 
         #[cfg(not(target_os = "windows"))]
-        match libc_poll(stream.as_raw_fd(), libc::POLLOUT | libc::POLLHUP) {
+        match libc_poll(stream.as_raw_fd(), libc::POLLOUT | libc::POLLHUP | libc::POLLERR) {
+            Some(val) if (val & libc::POLLERR) != 0 => {
+                // Get the actual socket error using SO_ERROR
+                let mut error: libc::c_int = 0;
+                let mut len = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+                let result = unsafe {
+                    libc::getsockopt(
+                        stream.as_raw_fd(),
+                        libc::SOL_SOCKET,
+                        libc::SO_ERROR,
+                        &mut error as *mut _ as *mut _,
+                        &mut len,
+                    )
+                };
+                if result == 0 && error != 0 {
+                    let io_error = std::io::Error::from_raw_os_error(error);
+                    return Poll::Ready(Err(io_err_into_net_error(io_error)));
+                }
+                // If we couldn't get the error, return a generic connection error
+                return Poll::Ready(Err(NetworkError::ConnectionRefused));
+            }
             Some(val) if (val & libc::POLLHUP) != 0 => {
                 return Poll::Ready(Ok(0));
             }
