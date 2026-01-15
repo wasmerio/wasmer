@@ -67,7 +67,6 @@ use webc::metadata::Manifest;
 use crate::{
     backend::RuntimeOptions,
     commands::run::{target::TargetOnDisk, wasi::Wasi},
-    common::HashAlgorithm,
     config::WasmerEnv,
     error::PrettyError,
     logging::Output,
@@ -107,9 +106,6 @@ pub struct Run {
     input: CliPackageSource,
     /// Command-line arguments passed to the package
     args: Vec<String>,
-    /// Hashing algorithm to be used for module hash
-    #[clap(long, value_enum)]
-    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Run {
@@ -215,12 +211,8 @@ impl Run {
         tracing::info!("Executing on backend {engine_kind:?}");
 
         #[cfg(feature = "sys")]
-        if engine.is_sys() {
-            if self.stack_size.is_some() {
-                wasmer_vm::set_stack_size(self.stack_size.unwrap());
-            }
-            let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
-            engine.set_hash_algorithm(Some(hash_algorithm));
+        if engine.is_sys() && self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
         let engine = engine.clone();

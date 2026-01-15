@@ -33,8 +33,6 @@ use crate::object::{
     Object, ObjectMetadataBuilder, emit_compilation, emit_data, get_object_for_target,
 };
 
-#[cfg(feature = "compiler")]
-use wasmer_types::HashAlgorithm;
 use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
@@ -126,7 +124,6 @@ impl Artifact {
         engine: &Engine,
         data: &[u8],
         tunables: &dyn Tunables,
-        hash_algorithm: Option<HashAlgorithm>,
     ) -> Result<Self, CompileError> {
         let mut inner_engine = engine.inner_mut();
         let environ = ModuleEnvironment::new();
@@ -149,7 +146,6 @@ impl Artifact {
             engine.target(),
             memory_styles,
             table_styles,
-            hash_algorithm,
         )?;
 
         Self::from_parts(

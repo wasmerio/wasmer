@@ -239,7 +239,7 @@ impl BinaryPackage {
             if let Some(cmd) = self.get_entrypoint_command() {
                 cmd.hash
             } else {
-                ModuleHash::xxhash(self.id.to_string())
+                ModuleHash::new(self.id.to_string())
             }
         })
     }
@@ -384,7 +384,7 @@ mod tests {
         assert_eq!(pkg.commands.len(), 1);
         let command = pkg.get_command("cmd").unwrap();
         let atom_sha256_hash: [u8; 32] = sha2::Sha256::digest(webc.get_atom("foo").unwrap()).into();
-        let module_hash = ModuleHash::sha256_from_bytes(atom_sha256_hash);
+        let module_hash = ModuleHash::new(atom_sha256_hash);
         assert_eq!(command.hash(), &module_hash);
     }
 }

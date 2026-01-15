@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn key_is_displayed_as_hex() {
-        let key = ModuleHash::xxhash_from_bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+        let key = ModuleHash::new([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
 
         let repr = key.to_string();
 
@@ -155,7 +155,7 @@ mod tests {
         let wasm = b"\0asm...";
         let raw = [0x0c, 0xc7, 0x88, 0x60, 0xd4, 0x14, 0x71, 0x4c];
 
-        let hash = ModuleHash::xxhash(wasm);
+        let hash = ModuleHash::new(wasm);
 
         assert_eq!(hash.as_bytes(), raw);
     }

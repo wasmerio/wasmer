@@ -63,7 +63,6 @@ impl ArtifactBuild {
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: PrimaryMap<TableIndex, TableStyle>,
-        hash_algorithm: Option<HashAlgorithm>,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
@@ -78,15 +77,7 @@ impl ArtifactBuild {
         middlewares
             .apply_on_module_info(&mut module)
             .map_err(|err| CompileError::MiddlewareError(err.to_string()))?;
-
-        if let Some(hash_algorithm) = hash_algorithm {
-            let hash = match hash_algorithm {
-                HashAlgorithm::Sha256 => ModuleHash::sha256(data),
-                HashAlgorithm::XXHash => ModuleHash::xxhash(data),
-            };
-
-            module.hash = Some(hash);
-        }
+        module.hash = Some(ModuleHash::new(data));
 
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),

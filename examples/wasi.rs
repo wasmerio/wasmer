@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             RuntimeOrEngine::Runtime(Arc::new(runtime)),
             "hello",
             module,
-            wasmer_types::ModuleHash::xxhash(wasm_bytes),
+            wasmer_types::ModuleHash::new(wasm_bytes),
         )?;
     }
 
