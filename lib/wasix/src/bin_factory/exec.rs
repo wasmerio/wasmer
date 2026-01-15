@@ -19,8 +19,7 @@ use crate::{
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 use std::sync::Arc;
 use tracing::*;
-use virtual_mio::block_on;
-use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
@@ -297,28 +296,8 @@ fn call_module(
         return;
     };
 
-    let (mut store, mut call_ret) =
+    let (store, call_ret) =
         ContextSwitchingEnvironment::run_main_context(&ctx, store, start.clone(), vec![]);
-
-    let mut store = loop {
-        // Technically, it's an error for a vfork to return from main, but anyway...
-        store = match resume_vfork(&ctx, store, &start, &call_ret) {
-            // A vfork was resumed, there may be another, so loop back
-            (store, Ok(Some(ret))) => {
-                call_ret = ret;
-                store
-            }
-
-            // An error was encountered when restoring from the vfork, report it
-            (store, Err(e)) => {
-                call_ret = Err(RuntimeError::user(Box::new(WasiError::Exit(e.into()))));
-                break store;
-            }
-
-            // No vfork, keep the call_ret value
-            (store, Ok(None)) => break store,
-        };
-    };
 
     let ret = if let Err(err) = call_ret {
         match err.downcast::<WasiError>() {
@@ -391,130 +370,4 @@ fn call_module(
 
     debug!("wasi[{pid}]::main() has exited with {code}");
     handle.thread.set_status_finished(ret.map(|a| a.into()));
-}
-
-#[allow(clippy::type_complexity)]
-fn resume_vfork(
-    ctx: &WasiFunctionEnv,
-    mut store: Store,
-    start: &Function,
-    call_ret: &Result<Box<[Value]>, RuntimeError>,
-) -> (
-    Store,
-    Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno>,
-) {
-    let (err, code) = match call_ret {
-        Ok(_) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
-        Err(err) => match err.downcast_ref::<WasiError>() {
-            // If the child process is just deep sleeping, we don't restore the vfork
-            Some(WasiError::DeepSleep(..)) => return (store, Ok(None)),
-
-            Some(WasiError::Exit(code)) => (None, *code),
-            Some(WasiError::ThreadExit) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
-            Some(WasiError::UnknownWasiVersion) => (None, Errno::Noexec.into()),
-            Some(WasiError::DlSymbolResolutionFailed(_)) => (None, Errno::Nolink.into()),
-            None => (
-                Some(WasiRuntimeError::from(err.clone())),
-                Errno::Unknown.into(),
-            ),
-        },
-    };
-
-    if let Some(mut vfork) = ctx.data_mut(&mut store).vfork.take() {
-        if let Some(err) = err {
-            error!(%err, "Error from child process");
-            eprintln!("{err}");
-        }
-
-        block_on(
-            unsafe { ctx.data(&store).get_memory_and_wasi_state(&store, 0) }
-                .1
-                .fs
-                .close_all(),
-        );
-
-        tracing::debug!(
-            pid = %ctx.data_mut(&mut store).process.pid(),
-            vfork_pid = %vfork.env.process.pid(),
-            "Resuming from vfork after child process was terminated"
-        );
-
-        // Restore the WasiEnv to the point when we vforked
-        vfork.env.swap_inner(ctx.data_mut(&mut store));
-        std::mem::swap(vfork.env.as_mut(), ctx.data_mut(&mut store));
-        let mut child_env = *vfork.env;
-        child_env.owned_handles.push(vfork.handle);
-
-        // Terminate the child process
-        child_env.process.terminate(code);
-
-        // If the vfork contained a context-switching environment, exit now
-        if ctx.data(&store).context_switching_environment.is_some() {
-            // We cannot recover from this situation when using context switching
-            tracing::error!(
-                "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent process will be terminated."
-            );
-            return (store, Err(code.into()));
-        }
-        let Some(asyncify_info) = vfork.asyncify else {
-            // We can only recover from this situation when using asyncify-based vforking; since asyncify is not in use here, we cannot recover and must terminate the parent process
-            tracing::error!(
-                "Terminated a vfork in another way than exit or exec which is undefined behaviour. In this case the parent process will be terminated."
-            );
-            return (store, Err(code.into()));
-        };
-        // TODO: We can also only safely recover if we are not using nested calling
-        // TODO: Just delete this branch
-
-        // Jump back to the vfork point and continue execution
-        let child_pid = child_env.process.pid();
-        let rewind_stack = asyncify_info.rewind_stack.freeze();
-        let store_data = asyncify_info.store_data;
-
-        let ctx_cloned = ctx.env.clone().into_mut(&mut store);
-        // Now rewind the previous stack and carry on from where we did the vfork
-        let rewind_result = if asyncify_info.is_64bit {
-            crate::syscalls::rewind::<Memory64, _>(
-                ctx_cloned,
-                None,
-                rewind_stack,
-                store_data,
-                crate::syscalls::ForkResult {
-                    pid: child_pid.raw() as wasmer_wasix_types::wasi::Pid,
-                    ret: Errno::Success,
-                },
-            )
-        } else {
-            crate::syscalls::rewind::<Memory32, _>(
-                ctx_cloned,
-                None,
-                rewind_stack,
-                store_data,
-                crate::syscalls::ForkResult {
-                    pid: child_pid.raw() as wasmer_wasix_types::wasi::Pid,
-                    ret: Errno::Success,
-                },
-            )
-        };
-
-        match rewind_result {
-            Errno::Success => {
-                // We should only get here, if the engine does not support context switching
-                // If the engine supports it, we should exit in the check a few lines above
-                let (store, result) = ContextSwitchingEnvironment::run_main_context(
-                    ctx,
-                    store,
-                    start.clone(),
-                    vec![],
-                );
-                (store, Ok(Some(result)))
-            }
-            err => {
-                warn!("fork failed - could not rewind the stack - errno={}", err);
-                (store, Err(err))
-            }
-        }
-    } else {
-        (store, Ok(None))
-    }
 }
