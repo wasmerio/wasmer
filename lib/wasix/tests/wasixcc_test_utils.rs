@@ -9,7 +9,7 @@ use wasmer::Module;
 use wasmer_wasix::VirtualFile as VirtualFileTrait;
 use wasmer_wasix::runners::MappedDirectory;
 use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
-use wasmer_wasix::runtime::module_cache::HashedModuleData;
+use wasmer_wasix::runtime::module_cache::{HashedModuleData, ModuleCache};
 use wasmer_wasix::virtual_fs::{AsyncRead, AsyncSeek, AsyncWrite};
 
 /// A virtual file that captures all writes to an in-memory buffer
@@ -448,6 +448,18 @@ pub struct WasmRunResult {
 }
 
 /// Run a compiled WASM file using WasiRunner and return output buffers and exit status
+///
+/// This function uses the same caching mechanism as the Wasmer CLI:
+/// - In-memory cache (SharedCache) for fast repeated loads within the same process
+/// - Filesystem cache as a fallback for persistence across test runs
+/// - Cache directory follows the same precedence as the CLI:
+///   1. WASMER_CACHE_DIR environment variable
+///   2. WASMER_DIR/cache/compiled
+///   3. ~/.wasmer/cache/compiled
+///   4. temp_dir/wasmer/cache/compiled (fallback)
+///
+/// The caching significantly improves test performance by avoiding recompilation
+/// of the same WASM modules across multiple test runs.
 pub fn run_wasm_with_result(
     wasm_path: &PathBuf,
     dir: &Path,
@@ -455,9 +467,51 @@ pub fn run_wasm_with_result(
     // Load the compiled WASM module
     let wasm_bytes = std::fs::read(&wasm_path)?;
     let module_data = HashedModuleData::new(wasm_bytes);
-    let (hash, wasm_bytes) = module_data.into_parts();
+    let hash = *module_data.hash();
     let engine = wasmer::Engine::default();
-    let module = Module::new(&engine, &wasm_bytes)?;
+
+    // Use the same caching mechanism as the CLI
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create tokio runtime for module caching");
+
+    let module = rt.block_on(async {
+        // Set up module cache with in-memory + filesystem fallback (same as CLI)
+        let cache_dir = if let Ok(dir_str) = std::env::var("WASMER_CACHE_DIR") {
+            PathBuf::from(dir_str).join("compiled")
+        } else if let Ok(dir_str) = std::env::var("WASMER_DIR") {
+            PathBuf::from(dir_str).join("cache").join("compiled")
+        } else if let Ok(home) = std::env::var("HOME") {
+            PathBuf::from(home)
+                .join(".wasmer")
+                .join("cache")
+                .join("compiled")
+        } else {
+            // Fallback to temp directory if no home is available
+            std::env::temp_dir()
+                .join("wasmer")
+                .join("cache")
+                .join("compiled")
+        };
+
+        std::fs::create_dir_all(&cache_dir).ok();
+
+        let rt_handle = wasmer_wasix::runtime::task_manager::tokio::RuntimeOrHandle::Handle(
+            tokio::runtime::Handle::current(),
+        );
+        let tokio_task_manager =
+            Arc::new(wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager::new(rt_handle));
+        let module_cache = wasmer_wasix::runtime::module_cache::SharedCache::default()
+            .with_fallback(wasmer_wasix::runtime::module_cache::FileSystemCache::new(
+                cache_dir,
+                tokio_task_manager,
+            ));
+
+        wasmer_wasix::runtime::load_module(&engine, &module_cache, &module_data)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))
+    })?;
 
     // Create buffers to capture stdout and stderr
     let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
