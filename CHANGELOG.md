@@ -4,9 +4,23 @@
 
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
-Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
-
 ## **Unreleased**
+
+## 7.0.0-alpha.2 - 13/01/2026
+
+## Added
+
+
+## Changed
+
+
+## Fixed
+
+  - [#6046](https://github.com/wasmerio/wasmer/pull/6046) chore: fix publish issue
+  - [#6045](https://github.com/wasmerio/wasmer/pull/6045) fix(make-release): use full pull
+  - [#6007](https://github.com/wasmerio/wasmer/pull/6007) Enable riscv32 target in LLVM compiler & relocations fixes
+
+
 
 ## 7.0.0-alpha.1 - 12/01/2026
 
