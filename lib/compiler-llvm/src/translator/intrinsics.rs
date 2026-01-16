@@ -803,7 +803,10 @@ impl<'ctx> Intrinsics<'ctx> {
                 .const_int(TrapCode::TableAccessOutOfBounds as _, false)
                 .as_basic_value_enum(),
 
-            experimental_stackmap: add_function(
+            // Intentionally don't append any extra attributes:
+            // Attribute 'immarg' is incompatible with other attributes except the 'range' attribute
+            //  ptr @llvm.experimental.stackmap
+            experimental_stackmap: module.add_function(
                 "llvm.experimental.stackmap",
                 void_ty.fn_type(
                     &[
