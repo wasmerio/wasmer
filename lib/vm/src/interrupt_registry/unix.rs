@@ -2,15 +2,15 @@
 
 use std::{
     cell::UnsafeCell,
-    collections::{HashMap, hash_map::Entry},
     ffi::CStr,
     os::unix::thread::RawPthread,
     sync::{
-        Arc, LazyLock, Mutex,
+        Arc, LazyLock,
         atomic::{AtomicUsize, Ordering},
     },
 };
 
+use dashmap::{DashMap, Entry};
 use wasmer_types::StoreId;
 
 use super::*;
@@ -53,7 +53,7 @@ struct ThreadInterruptState {
 }
 
 /// HashMap of all store states, accessible from all threads
-static STORE_INTERRUPT_STATE: LazyLock<Mutex<HashMap<StoreId, StoreInterruptState>>> =
+static STORE_INTERRUPT_STATE: LazyLock<DashMap<StoreId, StoreInterruptState>> =
     LazyLock::new(Default::default);
 
 thread_local! {
@@ -79,8 +79,7 @@ thread_local! {
 /// may be called more than once, and correctly maintains a stack of
 /// stores for which the state is installed.
 pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError> {
-    let mut store_state_guard = STORE_INTERRUPT_STATE.lock().unwrap();
-    let store_state = store_state_guard.entry(store_id).or_insert_with(|| {
+    let store_state = STORE_INTERRUPT_STATE.entry(store_id).or_insert_with(|| {
         let thread_current_signal_target_store = THREAD_INTERRUPT_STATE.with(|t| {
             // Safety: See comments on THREAD_INTERRUPT_STATE.
             unsafe { t.get().as_mut().unwrap() }
@@ -117,8 +116,7 @@ pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError>
 }
 
 pub(super) fn uninstall(store_id: StoreId) {
-    let mut store_state_guard = STORE_INTERRUPT_STATE.lock().unwrap();
-    let Entry::Occupied(store_state_entry) = store_state_guard.entry(store_id) else {
+    let Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) else {
         panic!("Internal error: interrupt state not installed for store");
     };
 
@@ -162,10 +160,10 @@ pub(super) fn uninstall(store_id: StoreId) {
 /// the signalling thread must wait for that notification and retry the
 /// interrupt if the notification is not received after some time.
 pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
-    let mut store_state_guard = STORE_INTERRUPT_STATE.lock().unwrap();
-    let Some(store_state) = store_state_guard.get_mut(&store_id) else {
+    let Entry::Occupied(mut store_state) = STORE_INTERRUPT_STATE.entry(store_id) else {
         return Err(InterruptError::StoreNotRunning);
     };
+    let store_state = store_state.get_mut();
 
     if let Err(_) = store_state
         .thread_current_signal_target_store
@@ -224,8 +222,7 @@ pub(crate) fn on_interrupted() -> bool {
 
 /// Returns true if the store with the given ID has already been interrupted.
 pub fn is_interrupted(store_id: StoreId) -> bool {
-    let mut store_state_guard = STORE_INTERRUPT_STATE.lock().unwrap();
-    let Entry::Occupied(store_state_entry) = store_state_guard.entry(store_id) else {
+    let Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) else {
         return false;
     };
     store_state_entry.get().interrupted

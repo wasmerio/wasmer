@@ -6706,6 +6706,7 @@ dependencies = [
  "cmake",
  "corosensei",
  "crossbeam-channel",
+ "dashmap",
  "derive_more",
  "futures",
  "hashbrown 0.16.1",

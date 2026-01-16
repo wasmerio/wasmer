@@ -51,9 +51,7 @@ pub use crate::memory::{
 pub use crate::mmap::{Mmap, MmapType};
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
-pub use crate::store::{
-    InternalStoreHandle, Interrupter, MaybeInstanceOwned, StoreHandle, StoreObjects,
-};
+pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 pub use crate::table::{TableElement, VMTable};
 #[doc(hidden)]
 pub use crate::threadconditions::{
