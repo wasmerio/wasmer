@@ -12976,8 +12976,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
         // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
         if self.is_riscv64 {
-            for (i, param) in function.get_params().iter().enumerate() {
-                if param.get_type() == self.context.i32_type().into() {
+            let param_types = function.get_type().get_param_types();
+            for (i, ty) in param_types.into_iter().enumerate() {
+                if ty == self.context.i32_type().into() {
                     call.add_attribute(
                         AttributeLoc::Param(i as u32),
                         self.context
