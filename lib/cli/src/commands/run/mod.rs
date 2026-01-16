@@ -88,7 +88,7 @@ pub struct Run {
     #[clap(flatten)]
     rt: RuntimeOptions,
     #[clap(flatten)]
-    pub(crate) wasi: crate::commands::run::Wasi,
+    wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
     wcgi: WcgiOptions,
     /// Set the default stack size (default is 1048576)

@@ -378,7 +378,7 @@ impl Wasi {
                 // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new_arc(default_fs_backing()));
-                for MappedDirectory { host, guest } in self.volumes.clone() {
+                for MappedDirectory { host, guest } in self.all_volumes() {
                     let host = if !host.is_absolute() {
                         Path::new("/").join(host)
                     } else {
