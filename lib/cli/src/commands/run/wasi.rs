@@ -9,6 +9,7 @@ use std::{
 use anyhow::{Context, Result, bail};
 use bytes::Bytes;
 use clap::Parser;
+use itertools::Itertools;
 use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
@@ -47,7 +48,7 @@ use wasmer_wasix::{
 
 use crate::{
     config::{UserRegistry, WasmerEnv},
-    utils::{parse_envvar, parse_volume},
+    utils::{parse_envvar, parse_mapdir, parse_volume},
 };
 
 use super::{
@@ -64,9 +65,21 @@ pub struct Wasi {
     #[clap(
         long = "volume",
         name = "[HOST_DIR:]GUEST_DIR",
-        value_parser=parse_volume,
+        value_parser = parse_volume,
     )]
-    pub(crate) volumes: Vec<MappedDirectory>,
+    volumes: Vec<MappedDirectory>,
+
+    /// Legacy option
+    #[clap(long = "dir", group = "wasi", hide = true)]
+    pub(crate) pre_opened_directories: Vec<PathBuf>,
+
+    // Legacy option
+    #[clap(
+        long = "mapdir",
+        value_parser = parse_mapdir,
+        hide = true
+     )]
+    pub(crate) mapped_dirs: Vec<MappedDirectory>,
 
     /// Set the module's initial CWD to this path; does not work with
     /// WASI preview 1 modules.
@@ -271,6 +284,18 @@ impl Wasi {
         get_wasi_versions(module, false).is_some()
     }
 
+    pub(crate) fn all_volumes(&self) -> Vec<MappedDirectory> {
+        self.volumes
+            .iter()
+            .cloned()
+            .chain(self.pre_opened_directories.iter().map(|d| MappedDirectory {
+                host: d.clone(),
+                guest: d.to_str().expect("must be a valid path string").to_string(),
+            }))
+            .chain(self.mapped_dirs.iter().cloned())
+            .collect_vec()
+    }
+
     pub fn prepare(
         &self,
         module: &Module,
@@ -319,7 +344,7 @@ impl Wasi {
 
             // Process the --volume flag.
             let mut have_current_dir = false;
-            for MappedDirectory { host, guest } in &self.volumes {
+            for MappedDirectory { host, guest } in self.all_volumes() {
                 let resolved_host = host.canonicalize().with_context(|| {
                     format!(
                         "could not canonicalize path for argument '--volume {}:{}'",
@@ -456,7 +481,7 @@ impl Wasi {
 
         // Process the --volume flag.
         let mut have_current_dir = false;
-        for MappedDirectory { host, guest } in &self.volumes {
+        for MappedDirectory { host, guest } in &self.all_volumes() {
             let resolved_host = host.canonicalize().with_context(|| {
                 format!(
                     "could not canonicalize path for argument '--volume {}:{}'",

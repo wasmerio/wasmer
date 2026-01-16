@@ -40,6 +40,20 @@ pub fn parse_volume(entry: &str) -> Result<MappedDirectory> {
     }
 }
 
+/// Parses a mapdir(legacy option) from a string.
+pub fn parse_mapdir(entry: &str) -> Result<MappedDirectory> {
+    let components = entry.split(":").collect_vec();
+    match components.as_slice() {
+        [entry] => retrieve_alias_pathbuf(entry, entry),
+        // swapper order compared to the --volume option
+        [guest_dir, host_dir] => retrieve_alias_pathbuf(host_dir, guest_dir),
+        _ => bail!(
+            "Directory mappings must consist of a single path, of two paths separate by a `:`. Found {}",
+            &entry
+        ),
+    }
+}
+
 /// Parses an environment variable.
 pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
     let entry = entry.trim();

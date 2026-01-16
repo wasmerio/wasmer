@@ -31,14 +31,13 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-use colored::Colorize;
 use std::ffi::OsString;
 use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
 
 #[cfg(target_os = "linux")]
 pub use binfmt::*;
-use clap::{CommandFactory, Parser, error::ContextKind};
+use clap::{CommandFactory, Parser};
 #[cfg(feature = "compiler")]
 pub use compile::*;
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
@@ -292,27 +291,6 @@ impl WasmerCmd {
         match WasmerCmd::try_parse_from(args_vec.iter()) {
             Ok(args) => args.execute(),
             Err(e) => {
-                for (kind, value) in e.context() {
-                    match (kind, value.to_string().as_str()) {
-                        (ContextKind::InvalidArg, "--mapdir") => {
-                            eprintln!(
-                                "{}`{}` argument has been replaced by `{}` (with the order swapped to `HOST_DIR:GUEST_DIR`)",
-                                "note: ".bold(),
-                                "--mapdir".yellow(),
-                                "--volume".yellow()
-                            );
-                        }
-                        (ContextKind::InvalidArg, "--map") => {
-                            eprintln!(
-                                "{}`{}` argument has been replaced by `{}`",
-                                "note: ".bold(),
-                                "--map".yellow(),
-                                "--volume".yellow()
-                            );
-                        }
-                        _ => {}
-                    }
-                }
                 let first_arg_is_subcommand = if let Some(first_arg) = args_vec.get(1) {
                     let mut ret = false;
                     let cmd = WasmerCmd::command();
