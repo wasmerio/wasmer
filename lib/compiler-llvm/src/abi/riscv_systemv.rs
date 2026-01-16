@@ -1,16 +1,14 @@
 use crate::abi::Abi;
 use crate::error::{err, err_nt};
 use crate::translator::intrinsics::{Intrinsics, type_to_llvm};
-use inkwell::values::BasicValue;
 use inkwell::{
     AddressSpace,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     types::{AnyType, BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
-    values::{BasicValueEnum, CallSiteValue, FloatValue, IntValue, VectorValue},
+    values::{BasicValue, BasicValueEnum, CallSiteValue, FloatValue, IntValue, VectorValue},
 };
-use itertools::Itertools;
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
 
@@ -43,12 +41,8 @@ impl Abi for RiscvSystemV {
             param_types.push(Ok(intrinsics.ptr_ty.as_basic_type_enum()));
         }
 
-        // Include sret added latter in the function.
-        let extra_params = param_types.len() + 1;
-        let param_types = param_types
-            .into_iter()
-            .chain(user_param_types)
-            .collect_vec();
+        let mut extra_params = param_types.len();
+        let param_types = param_types.into_iter().chain(user_param_types);
 
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         let vmctx_attributes = |i: u32| {
@@ -81,26 +75,212 @@ impl Abi for RiscvSystemV {
             ]
         };
 
-        // TODO: properly support multi-value return types
-        let basic_types: Vec<_> = sig
+        let sig_returns_bitwidths = sig
             .results()
             .iter()
-            .map(|&ty| type_to_llvm(intrinsics, ty))
-            .collect::<Result<_, _>>()?;
+            .map(|ty| match ty {
+                Type::I32 | Type::F32 => 32,
+                Type::I64 | Type::F64 => 64,
+                Type::V128 => 128,
+                Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+            })
+            .collect::<Vec<i32>>();
 
-        let sret = context.struct_type(&basic_types, false);
-        let sret_ptr = context.ptr_type(AddressSpace::default());
-
-        let param_types = std::iter::once(Ok(sret_ptr.as_basic_type_enum())).chain(param_types);
-
-        let mut attributes = vec![(
-            context.create_type_attribute(
-                Attribute::get_named_enum_kind_id("sret"),
-                sret.as_any_type_enum(),
+        let (fn_type, mut attributes) = match sig_returns_bitwidths.as_slice() {
+            [] => (
+                intrinsics.void_ty.fn_type(
+                    param_types
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                        .as_slice(),
+                    false,
+                ),
+                vmctx_attributes(0),
             ),
-            AttributeLoc::Param(0),
-        )];
-        attributes.append(&mut vmctx_attributes(1));
+            [_] => {
+                let single_value = sig.results()[0];
+                (
+                    type_to_llvm(intrinsics, single_value)?.fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                    vmctx_attributes(0),
+                )
+            }
+            [32, 64] | [64, 32] | [64, 64] => {
+                let basic_types: Vec<_> = sig
+                    .results()
+                    .iter()
+                    .map(|&ty| type_to_llvm(intrinsics, ty))
+                    .collect::<Result<_, _>>()?;
+
+                (
+                    context.struct_type(&basic_types, false).fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                    vmctx_attributes(0),
+                )
+            }
+            [32, 32] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
+                intrinsics.f32_ty.vec_type(2).fn_type(
+                    param_types
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                        .as_slice(),
+                    false,
+                ),
+                vmctx_attributes(0),
+            ),
+            [32, 32] => (
+                intrinsics.i64_ty.fn_type(
+                    param_types
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                        .as_slice(),
+                    false,
+                ),
+                vmctx_attributes(0),
+            ),
+            [32, 32, _] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
+                context
+                    .struct_type(
+                        &[
+                            intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
+                            type_to_llvm(intrinsics, sig.results()[2])?,
+                        ],
+                        false,
+                    )
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                vmctx_attributes(0),
+            ),
+            [32, 32, _] => (
+                context
+                    .struct_type(
+                        &[
+                            intrinsics.i64_ty.as_basic_type_enum(),
+                            type_to_llvm(intrinsics, sig.results()[2])?,
+                        ],
+                        false,
+                    )
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                vmctx_attributes(0),
+            ),
+            [64, 32, 32] if sig.results()[1] == Type::F32 && sig.results()[2] == Type::F32 => (
+                context
+                    .struct_type(
+                        &[
+                            type_to_llvm(intrinsics, sig.results()[0])?,
+                            intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
+                        ],
+                        false,
+                    )
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                vmctx_attributes(0),
+            ),
+            [64, 32, 32] => (
+                context
+                    .struct_type(
+                        &[
+                            type_to_llvm(intrinsics, sig.results()[0])?,
+                            intrinsics.i64_ty.as_basic_type_enum(),
+                        ],
+                        false,
+                    )
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                vmctx_attributes(0),
+            ),
+            [32, 32, 32, 32] => (
+                context
+                    .struct_type(
+                        &[
+                            if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 {
+                                intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
+                            } else {
+                                intrinsics.i64_ty.as_basic_type_enum()
+                            },
+                            if sig.results()[2] == Type::F32 && sig.results()[3] == Type::F32 {
+                                intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
+                            } else {
+                                intrinsics.i64_ty.as_basic_type_enum()
+                            },
+                        ],
+                        false,
+                    )
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                vmctx_attributes(0),
+            ),
+            _ => {
+                let basic_types: Vec<_> = sig
+                    .results()
+                    .iter()
+                    .map(|&ty| type_to_llvm(intrinsics, ty))
+                    .collect::<Result<_, _>>()?;
+
+                let sret = context.struct_type(&basic_types, false);
+                let sret_ptr = context.ptr_type(AddressSpace::default());
+
+                let param_types =
+                    std::iter::once(Ok(sret_ptr.as_basic_type_enum())).chain(param_types);
+                extra_params += 1;
+
+                let mut attributes = vec![(
+                    context.create_type_attribute(
+                        Attribute::get_named_enum_kind_id("sret"),
+                        sret.as_any_type_enum(),
+                    ),
+                    AttributeLoc::Param(0),
+                )];
+                attributes.append(&mut vmctx_attributes(1));
+
+                (
+                    intrinsics.void_ty.fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                    attributes,
+                )
+            }
+        };
 
         // https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
         // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
@@ -124,16 +304,7 @@ impl Abi for RiscvSystemV {
             }
         }
 
-        Ok((
-            intrinsics.void_ty.fn_type(
-                param_types
-                    .map(|v| v.map(Into::into))
-                    .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                    .as_slice(),
-                false,
-            ),
-            attributes,
-        ))
+        Ok((fn_type, attributes))
     }
 
     // Given a CallSite, extract the returned values and return them in a Vec.
