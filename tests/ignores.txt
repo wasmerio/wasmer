@@ -84,14 +84,14 @@ llvm+loongarch64  wasmer::nan_canonicalization::llvm::universal
 llvm+loongarch64  wasmer::stack_overflow_sret::llvm::universal
 
 # #6017 - a crash in the LLVM compiler
-llvm+loongarch64  spec::simd::simd_f32x4::llvm::llvm
-llvm+loongarch64  spec::simd::simd_f64x2::llvm::llvm
-llvm+loongarch64  spec::simd::simd_load::llvm::llvm
-llvm+loongarch64  spec::simd::simd_splat::llvm::llvm
-llvm+loongarch64  spec::simd_f32x4::llvm::llvm
-llvm+loongarch64  spec::simd_f64x2::llvm::llvm
-llvm+loongarch64  spec::simd_load::llvm::llvm
-llvm+loongarch64  spec::simd_splat::llvm::llvm
+llvm+loongarch64  spec::simd::simd_f32x4::llvm::universal
+llvm+loongarch64  spec::simd::simd_f64x2::llvm::universal
+llvm+loongarch64  spec::simd::simd_load::llvm::universal
+llvm+loongarch64  spec::simd::simd_splat::llvm::universal
+llvm+loongarch64  spec::simd_f32x4::llvm::universal
+llvm+loongarch64  spec::simd_f64x2::llvm::universal
+llvm+loongarch64  spec::simd_load::llvm::universal
+llvm+loongarch64  spec::simd_splat::llvm::universal
 
 
 # Windows doesn't overcommit and fails to allocate 4GB of memory
