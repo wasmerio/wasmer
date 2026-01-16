@@ -10,7 +10,7 @@
 <a href=#10 id=10 data-nosnippet>10</a>};
 <a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>enumset::EnumSet;
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>wasmer_types::{
-<a href=#13 id=13 data-nosnippet>13</a>    Features, LocalFunctionIndex,
+<a href=#13 id=13 data-nosnippet>13</a>    CompilationProgressCallback, Features, LocalFunctionIndex,
 <a href=#14 id=14 data-nosnippet>14</a>    entity::PrimaryMap,
 <a href=#15 id=15 data-nosnippet>15</a>    error::CompileError,
 <a href=#16 id=16 data-nosnippet>16</a>    target::{CpuFeature, Target, UserCompilerOptimizations},
@@ -154,35 +154,36 @@
 <a href=#154 id=154 data-nosnippet>154</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
 <a href=#155 id=155 data-nosnippet>155</a>        <span class="comment">// The list of function bodies
 <a href=#156 id=156 data-nosnippet>156</a>        </span>function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#157 id=157 data-nosnippet>157</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt;;
-<a href=#158 id=158 data-nosnippet>158</a>
-<a href=#159 id=159 data-nosnippet>159</a>    <span class="doccomment">/// Compiles a module into a native object file.
-<a href=#160 id=160 data-nosnippet>160</a>    ///
-<a href=#161 id=161 data-nosnippet>161</a>    /// It returns the bytes as a `&amp;[u8]` or a [`CompileError`].
-<a href=#162 id=162 data-nosnippet>162</a>    </span><span class="kw">fn </span>experimental_native_compile_module(
-<a href=#163 id=163 data-nosnippet>163</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#164 id=164 data-nosnippet>164</a>        _target: <span class="kw-2">&amp;</span>Target,
-<a href=#165 id=165 data-nosnippet>165</a>        _module: <span class="kw-2">&amp;</span>CompileModuleInfo,
-<a href=#166 id=166 data-nosnippet>166</a>        _module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#167 id=167 data-nosnippet>167</a>        <span class="comment">// The list of function bodies
-<a href=#168 id=168 data-nosnippet>168</a>        </span>_function_body_inputs: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#169 id=169 data-nosnippet>169</a>        _symbol_registry: <span class="kw-2">&amp;</span><span class="kw">dyn </span>SymbolRegistry,
-<a href=#170 id=170 data-nosnippet>170</a>        <span class="comment">// The metadata to inject into the wasmer_metadata section of the object file.
-<a href=#171 id=171 data-nosnippet>171</a>        </span>_wasmer_metadata: <span class="kw-2">&amp;</span>[u8],
-<a href=#172 id=172 data-nosnippet>172</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt;&gt; {
-<a href=#173 id=173 data-nosnippet>173</a>        <span class="prelude-val">None
-<a href=#174 id=174 data-nosnippet>174</a>    </span>}
-<a href=#175 id=175 data-nosnippet>175</a>
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="doccomment">/// Get the middlewares for this compiler
-<a href=#177 id=177 data-nosnippet>177</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;];
-<a href=#178 id=178 data-nosnippet>178</a>
-<a href=#179 id=179 data-nosnippet>179</a>    <span class="doccomment">/// Get the CpuFeatues used by the compiler
-<a href=#180 id=180 data-nosnippet>180</a>    </span><span class="kw">fn </span>get_cpu_features_used(<span class="kw-2">&amp;</span><span class="self">self</span>, cpu_features: <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt;) -&gt; EnumSet&lt;CpuFeature&gt; {
-<a href=#181 id=181 data-nosnippet>181</a>        <span class="kw-2">*</span>cpu_features
-<a href=#182 id=182 data-nosnippet>182</a>    }
-<a href=#183 id=183 data-nosnippet>183</a>
-<a href=#184 id=184 data-nosnippet>184</a>    <span class="doccomment">/// Get whether `perfmap` is enabled or not.
-<a href=#185 id=185 data-nosnippet>185</a>    </span><span class="kw">fn </span>get_perfmap_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#186 id=186 data-nosnippet>186</a>        <span class="bool-val">false
-<a href=#187 id=187 data-nosnippet>187</a>    </span>}
-<a href=#188 id=188 data-nosnippet>188</a>}</code></pre></div></section></main></body></html>
+<a href=#157 id=157 data-nosnippet>157</a>        progress_callback: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CompilationProgressCallback&gt;,
+<a href=#158 id=158 data-nosnippet>158</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt;;
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>    <span class="doccomment">/// Compiles a module into a native object file.
+<a href=#161 id=161 data-nosnippet>161</a>    ///
+<a href=#162 id=162 data-nosnippet>162</a>    /// It returns the bytes as a `&amp;[u8]` or a [`CompileError`].
+<a href=#163 id=163 data-nosnippet>163</a>    </span><span class="kw">fn </span>experimental_native_compile_module(
+<a href=#164 id=164 data-nosnippet>164</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#165 id=165 data-nosnippet>165</a>        _target: <span class="kw-2">&amp;</span>Target,
+<a href=#166 id=166 data-nosnippet>166</a>        _module: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#167 id=167 data-nosnippet>167</a>        _module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="comment">// The list of function bodies
+<a href=#169 id=169 data-nosnippet>169</a>        </span>_function_body_inputs: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#170 id=170 data-nosnippet>170</a>        _symbol_registry: <span class="kw-2">&amp;</span><span class="kw">dyn </span>SymbolRegistry,
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="comment">// The metadata to inject into the wasmer_metadata section of the object file.
+<a href=#172 id=172 data-nosnippet>172</a>        </span>_wasmer_metadata: <span class="kw-2">&amp;</span>[u8],
+<a href=#173 id=173 data-nosnippet>173</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt;&gt; {
+<a href=#174 id=174 data-nosnippet>174</a>        <span class="prelude-val">None
+<a href=#175 id=175 data-nosnippet>175</a>    </span>}
+<a href=#176 id=176 data-nosnippet>176</a>
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="doccomment">/// Get the middlewares for this compiler
+<a href=#178 id=178 data-nosnippet>178</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;];
+<a href=#179 id=179 data-nosnippet>179</a>
+<a href=#180 id=180 data-nosnippet>180</a>    <span class="doccomment">/// Get the CpuFeatues used by the compiler
+<a href=#181 id=181 data-nosnippet>181</a>    </span><span class="kw">fn </span>get_cpu_features_used(<span class="kw-2">&amp;</span><span class="self">self</span>, cpu_features: <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt;) -&gt; EnumSet&lt;CpuFeature&gt; {
+<a href=#182 id=182 data-nosnippet>182</a>        <span class="kw-2">*</span>cpu_features
+<a href=#183 id=183 data-nosnippet>183</a>    }
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>    <span class="doccomment">/// Get whether `perfmap` is enabled or not.
+<a href=#186 id=186 data-nosnippet>186</a>    </span><span class="kw">fn </span>get_perfmap_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#187 id=187 data-nosnippet>187</a>        <span class="bool-val">false
+<a href=#188 id=188 data-nosnippet>188</a>    </span>}
+<a href=#189 id=189 data-nosnippet>189</a>}</code></pre></div></section></main></body></html>

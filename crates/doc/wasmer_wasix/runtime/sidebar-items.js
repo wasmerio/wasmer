@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TaintReason"],"fn":["load_module"],"mod":["module_cache","package_loader","resolver","task_manager"],"struct":["DefaultTty","OverriddenRuntime","PluggableRuntime"],"trait":["Runtime"],"type":["DynRuntime"]};
+window.SIDEBAR_ITEMS = {"enum":["ModuleInput","TaintReason"],"fn":["load_module"],"mod":["module_cache","package_loader","resolver","task_manager"],"struct":["DefaultTty","OverriddenRuntime","PluggableRuntime"],"trait":["Runtime"],"type":["DynRuntime"]};
