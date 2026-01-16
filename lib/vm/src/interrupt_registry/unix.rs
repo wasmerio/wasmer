@@ -221,3 +221,12 @@ pub(crate) fn on_interrupted() -> bool {
         current_active_store == current_signal_target_store
     })
 }
+
+/// Returns true if the store with the given ID has already been interrupted.
+pub fn is_interrupted(store_id: StoreId) -> bool {
+    let mut store_state_guard = STORE_INTERRUPT_STATE.lock().unwrap();
+    let Entry::Occupied(store_state_entry) = store_state_guard.entry(store_id) else {
+        return false;
+    };
+    store_state_entry.get().interrupted
+}
