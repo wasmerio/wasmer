@@ -487,7 +487,7 @@ impl<'ctx> Intrinsics<'ctx> {
             false,
         );
 
-        let add_function =
+        let add_function_with_attrs =
             |name: &str, ty: FunctionType<'ctx>, linkage: Option<Linkage>| -> FunctionValue<'ctx> {
                 let function = module.add_function(name, ty, linkage);
                 // https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
@@ -518,15 +518,15 @@ impl<'ctx> Intrinsics<'ctx> {
             };
 
         let intrinsics = Self {
-            ctlz_i32: add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
-            ctlz_i64: add_function("llvm.ctlz.i64", ret_i64_take_i64_i1, None),
+            ctlz_i32: add_function_with_attrs("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
+            ctlz_i64: add_function_with_attrs("llvm.ctlz.i64", ret_i64_take_i64_i1, None),
 
-            cttz_i32: add_function("llvm.cttz.i32", ret_i32_take_i32_i1, None),
-            cttz_i64: add_function("llvm.cttz.i64", ret_i64_take_i64_i1, None),
+            cttz_i32: add_function_with_attrs("llvm.cttz.i32", ret_i32_take_i32_i1, None),
+            cttz_i64: add_function_with_attrs("llvm.cttz.i64", ret_i64_take_i64_i1, None),
 
-            ctpop_i32: add_function("llvm.ctpop.i32", ret_i32_take_i32, None),
-            ctpop_i64: add_function("llvm.ctpop.i64", ret_i64_take_i64, None),
-            ctpop_i8x16: add_function("llvm.ctpop.v16i8", ret_i8x16_take_i8x16, None),
+            ctpop_i32: add_function_with_attrs("llvm.ctpop.i32", ret_i32_take_i32, None),
+            ctpop_i64: add_function_with_attrs("llvm.ctpop.i64", ret_i64_take_i64, None),
+            ctpop_i8x16: add_function_with_attrs("llvm.ctpop.v16i8", ret_i8x16_take_i8x16, None),
 
             fp_rounding_md: context.metadata_string("round.tonearest").into(),
             fp_exception_md: context.metadata_string("fpexcept.strict").into(),
@@ -535,181 +535,249 @@ impl<'ctx> Intrinsics<'ctx> {
             fp_olt_md: context.metadata_string("olt").into(),
             fp_uno_md: context.metadata_string("uno").into(),
 
-            sqrt_f32: add_function("llvm.sqrt.f32", ret_f32_take_f32, None),
-            sqrt_f64: add_function("llvm.sqrt.f64", ret_f64_take_f64, None),
-            sqrt_f32x4: add_function("llvm.sqrt.v4f32", ret_f32x4_take_f32x4, None),
-            sqrt_f64x2: add_function("llvm.sqrt.v2f64", ret_f64x2_take_f64x2, None),
+            sqrt_f32: add_function_with_attrs("llvm.sqrt.f32", ret_f32_take_f32, None),
+            sqrt_f64: add_function_with_attrs("llvm.sqrt.f64", ret_f64_take_f64, None),
+            sqrt_f32x4: add_function_with_attrs("llvm.sqrt.v4f32", ret_f32x4_take_f32x4, None),
+            sqrt_f64x2: add_function_with_attrs("llvm.sqrt.v2f64", ret_f64x2_take_f64x2, None),
 
-            ceil_f32: add_function("llvm.ceil.f32", ret_f32_take_f32, None),
-            ceil_f64: add_function("llvm.ceil.f64", ret_f64_take_f64, None),
-            ceil_f32x4: add_function("llvm.ceil.v4f32", ret_f32x4_take_f32x4, None),
-            ceil_f64x2: add_function("llvm.ceil.v2f64", ret_f64x2_take_f64x2, None),
+            ceil_f32: add_function_with_attrs("llvm.ceil.f32", ret_f32_take_f32, None),
+            ceil_f64: add_function_with_attrs("llvm.ceil.f64", ret_f64_take_f64, None),
+            ceil_f32x4: add_function_with_attrs("llvm.ceil.v4f32", ret_f32x4_take_f32x4, None),
+            ceil_f64x2: add_function_with_attrs("llvm.ceil.v2f64", ret_f64x2_take_f64x2, None),
 
-            floor_f32: add_function("llvm.floor.f32", ret_f32_take_f32, None),
-            floor_f64: add_function("llvm.floor.f64", ret_f64_take_f64, None),
-            floor_f32x4: add_function("llvm.floor.v4f32", ret_f32x4_take_f32x4, None),
-            floor_f64x2: add_function("llvm.floor.v2f64", ret_f64x2_take_f64x2, None),
+            floor_f32: add_function_with_attrs("llvm.floor.f32", ret_f32_take_f32, None),
+            floor_f64: add_function_with_attrs("llvm.floor.f64", ret_f64_take_f64, None),
+            floor_f32x4: add_function_with_attrs("llvm.floor.v4f32", ret_f32x4_take_f32x4, None),
+            floor_f64x2: add_function_with_attrs("llvm.floor.v2f64", ret_f64x2_take_f64x2, None),
 
-            trunc_f32: add_function("llvm.trunc.f32", ret_f32_take_f32, None),
-            trunc_f64: add_function("llvm.trunc.f64", ret_f64_take_f64, None),
-            trunc_f32x4: add_function("llvm.trunc.v4f32", ret_f32x4_take_f32x4, None),
-            trunc_f64x2: add_function("llvm.trunc.v2f64", ret_f64x2_take_f64x2, None),
+            trunc_f32: add_function_with_attrs("llvm.trunc.f32", ret_f32_take_f32, None),
+            trunc_f64: add_function_with_attrs("llvm.trunc.f64", ret_f64_take_f64, None),
+            trunc_f32x4: add_function_with_attrs("llvm.trunc.v4f32", ret_f32x4_take_f32x4, None),
+            trunc_f64x2: add_function_with_attrs("llvm.trunc.v2f64", ret_f64x2_take_f64x2, None),
 
-            nearbyint_f32: add_function("llvm.nearbyint.f32", ret_f32_take_f32, None),
-            nearbyint_f64: add_function("llvm.nearbyint.f64", ret_f64_take_f64, None),
-            nearbyint_f32x4: add_function("llvm.nearbyint.v4f32", ret_f32x4_take_f32x4, None),
-            nearbyint_f64x2: add_function("llvm.nearbyint.v2f64", ret_f64x2_take_f64x2, None),
+            nearbyint_f32: add_function_with_attrs("llvm.nearbyint.f32", ret_f32_take_f32, None),
+            nearbyint_f64: add_function_with_attrs("llvm.nearbyint.f64", ret_f64_take_f64, None),
+            nearbyint_f32x4: add_function_with_attrs(
+                "llvm.nearbyint.v4f32",
+                ret_f32x4_take_f32x4,
+                None,
+            ),
+            nearbyint_f64x2: add_function_with_attrs(
+                "llvm.nearbyint.v2f64",
+                ret_f64x2_take_f64x2,
+                None,
+            ),
 
-            add_f32: add_function(
+            add_f32: add_function_with_attrs(
                 "llvm.experimental.constrained.fadd.f32",
                 ret_f32_take_f32_f32_md_md,
                 None,
             ),
-            add_f64: add_function(
+            add_f64: add_function_with_attrs(
                 "llvm.experimental.constrained.fadd.f64",
                 ret_f64_take_f64_f64_md_md,
                 None,
             ),
-            add_f32x4: add_function(
+            add_f32x4: add_function_with_attrs(
                 "llvm.experimental.constrained.fadd.v4f32",
                 ret_f32x4_take_f32x4_f32x4_md_md,
                 None,
             ),
-            add_f64x2: add_function(
+            add_f64x2: add_function_with_attrs(
                 "llvm.experimental.constrained.fadd.v2f64",
                 ret_f64x2_take_f64x2_f64x2_md_md,
                 None,
             ),
 
-            sub_f32: add_function(
+            sub_f32: add_function_with_attrs(
                 "llvm.experimental.constrained.fsub.f32",
                 ret_f32_take_f32_f32_md_md,
                 None,
             ),
-            sub_f64: add_function(
+            sub_f64: add_function_with_attrs(
                 "llvm.experimental.constrained.fsub.f64",
                 ret_f64_take_f64_f64_md_md,
                 None,
             ),
-            sub_f32x4: add_function(
+            sub_f32x4: add_function_with_attrs(
                 "llvm.experimental.constrained.fsub.v4f32",
                 ret_f32x4_take_f32x4_f32x4_md_md,
                 None,
             ),
-            sub_f64x2: add_function(
+            sub_f64x2: add_function_with_attrs(
                 "llvm.experimental.constrained.fsub.v2f64",
                 ret_f64x2_take_f64x2_f64x2_md_md,
                 None,
             ),
 
-            mul_f32: add_function(
+            mul_f32: add_function_with_attrs(
                 "llvm.experimental.constrained.fmul.f32",
                 ret_f32_take_f32_f32_md_md,
                 None,
             ),
-            mul_f64: add_function(
+            mul_f64: add_function_with_attrs(
                 "llvm.experimental.constrained.fmul.f64",
                 ret_f64_take_f64_f64_md_md,
                 None,
             ),
-            mul_f32x4: add_function(
+            mul_f32x4: add_function_with_attrs(
                 "llvm.experimental.constrained.fmul.v4f32",
                 ret_f32x4_take_f32x4_f32x4_md_md,
                 None,
             ),
-            mul_f64x2: add_function(
+            mul_f64x2: add_function_with_attrs(
                 "llvm.experimental.constrained.fmul.v2f64",
                 ret_f64x2_take_f64x2_f64x2_md_md,
                 None,
             ),
 
-            div_f32: add_function(
+            div_f32: add_function_with_attrs(
                 "llvm.experimental.constrained.fdiv.f32",
                 ret_f32_take_f32_f32_md_md,
                 None,
             ),
-            div_f64: add_function(
+            div_f64: add_function_with_attrs(
                 "llvm.experimental.constrained.fdiv.f64",
                 ret_f64_take_f64_f64_md_md,
                 None,
             ),
-            div_f32x4: add_function(
+            div_f32x4: add_function_with_attrs(
                 "llvm.experimental.constrained.fdiv.v4f32",
                 ret_f32x4_take_f32x4_f32x4_md_md,
                 None,
             ),
-            div_f64x2: add_function(
+            div_f64x2: add_function_with_attrs(
                 "llvm.experimental.constrained.fdiv.v2f64",
                 ret_f64x2_take_f64x2_f64x2_md_md,
                 None,
             ),
 
-            cmp_f32: add_function(
+            cmp_f32: add_function_with_attrs(
                 "llvm.experimental.constrained.fcmp.f32",
                 ret_i1_take_f32_f32_md_md,
                 None,
             ),
-            cmp_f64: add_function(
+            cmp_f64: add_function_with_attrs(
                 "llvm.experimental.constrained.fcmp.f64",
                 ret_i1_take_f64_f64_md_md,
                 None,
             ),
-            cmp_f32x4: add_function(
+            cmp_f32x4: add_function_with_attrs(
                 "llvm.experimental.constrained.fcmp.v4f32",
                 ret_i1x4_take_f32x4_f32x4_md_md,
                 None,
             ),
-            cmp_f64x2: add_function(
+            cmp_f64x2: add_function_with_attrs(
                 "llvm.experimental.constrained.fcmp.v2f64",
                 ret_i1x2_take_f64x2_f64x2_md_md,
                 None,
             ),
 
-            minimum_f32: add_function("llvm.minimum.f32", ret_f32_take_f32_f32, None),
-            minimum_f64: add_function("llvm.minimum.f64", ret_f64_take_f64_f64, None),
-            minimum_f32x4: add_function("llvm.minimum.v4f32", ret_f32x4_take_f32x4_f32x4, None),
-            minimum_f64x2: add_function("llvm.minimum.v2f64", ret_f64x2_take_f64x2_f64x2, None),
+            minimum_f32: add_function_with_attrs("llvm.minimum.f32", ret_f32_take_f32_f32, None),
+            minimum_f64: add_function_with_attrs("llvm.minimum.f64", ret_f64_take_f64_f64, None),
+            minimum_f32x4: add_function_with_attrs(
+                "llvm.minimum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            minimum_f64x2: add_function_with_attrs(
+                "llvm.minimum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
 
-            maximum_f32: add_function("llvm.maximum.f32", ret_f32_take_f32_f32, None),
-            maximum_f64: add_function("llvm.maximum.f64", ret_f64_take_f64_f64, None),
-            maximum_f32x4: add_function("llvm.maximum.v4f32", ret_f32x4_take_f32x4_f32x4, None),
-            maximum_f64x2: add_function("llvm.maximum.v2f64", ret_f64x2_take_f64x2_f64x2, None),
+            maximum_f32: add_function_with_attrs("llvm.maximum.f32", ret_f32_take_f32_f32, None),
+            maximum_f64: add_function_with_attrs("llvm.maximum.f64", ret_f64_take_f64_f64, None),
+            maximum_f32x4: add_function_with_attrs(
+                "llvm.maximum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            maximum_f64x2: add_function_with_attrs(
+                "llvm.maximum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
 
-            fpext_f32: add_function(
+            fpext_f32: add_function_with_attrs(
                 "llvm.experimental.constrained.fpext.f64.f32",
                 ret_f64_take_f32_md,
                 None,
             ),
-            fptrunc_f64: add_function(
+            fptrunc_f64: add_function_with_attrs(
                 "llvm.experimental.constrained.fptrunc.f32.f64",
                 ret_f32_take_f64_md_md,
                 None,
             ),
 
-            fabs_f32: add_function("llvm.fabs.f32", ret_f32_take_f32, None),
-            fabs_f64: add_function("llvm.fabs.f64", ret_f64_take_f64, None),
-            fabs_f32x4: add_function("llvm.fabs.v4f32", ret_f32x4_take_f32x4, None),
-            fabs_f64x2: add_function("llvm.fabs.v2f64", ret_f64x2_take_f64x2, None),
+            fabs_f32: add_function_with_attrs("llvm.fabs.f32", ret_f32_take_f32, None),
+            fabs_f64: add_function_with_attrs("llvm.fabs.f64", ret_f64_take_f64, None),
+            fabs_f32x4: add_function_with_attrs("llvm.fabs.v4f32", ret_f32x4_take_f32x4, None),
+            fabs_f64x2: add_function_with_attrs("llvm.fabs.v2f64", ret_f64x2_take_f64x2, None),
 
-            copysign_f32: add_function("llvm.copysign.f32", ret_f32_take_f32_f32, None),
-            copysign_f64: add_function("llvm.copysign.f64", ret_f64_take_f64_f64, None),
-            copysign_f32x4: add_function("llvm.copysign.v4f32", ret_f32x4_take_f32x4_f32x4, None),
-            copysign_f64x2: add_function("llvm.copysign.v2f64", ret_f64x2_take_f64x2_f64x2, None),
+            copysign_f32: add_function_with_attrs("llvm.copysign.f32", ret_f32_take_f32_f32, None),
+            copysign_f64: add_function_with_attrs("llvm.copysign.f64", ret_f64_take_f64_f64, None),
+            copysign_f32x4: add_function_with_attrs(
+                "llvm.copysign.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            copysign_f64x2: add_function_with_attrs(
+                "llvm.copysign.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
 
-            sadd_sat_i8x16: add_function("llvm.sadd.sat.v16i8", ret_i8x16_take_i8x16_i8x16, None),
-            sadd_sat_i16x8: add_function("llvm.sadd.sat.v8i16", ret_i16x8_take_i16x8_i16x8, None),
-            uadd_sat_i8x16: add_function("llvm.uadd.sat.v16i8", ret_i8x16_take_i8x16_i8x16, None),
-            uadd_sat_i16x8: add_function("llvm.uadd.sat.v8i16", ret_i16x8_take_i16x8_i16x8, None),
+            sadd_sat_i8x16: add_function_with_attrs(
+                "llvm.sadd.sat.v16i8",
+                ret_i8x16_take_i8x16_i8x16,
+                None,
+            ),
+            sadd_sat_i16x8: add_function_with_attrs(
+                "llvm.sadd.sat.v8i16",
+                ret_i16x8_take_i16x8_i16x8,
+                None,
+            ),
+            uadd_sat_i8x16: add_function_with_attrs(
+                "llvm.uadd.sat.v16i8",
+                ret_i8x16_take_i8x16_i8x16,
+                None,
+            ),
+            uadd_sat_i16x8: add_function_with_attrs(
+                "llvm.uadd.sat.v8i16",
+                ret_i16x8_take_i16x8_i16x8,
+                None,
+            ),
 
-            ssub_sat_i8x16: add_function("llvm.ssub.sat.v16i8", ret_i8x16_take_i8x16_i8x16, None),
-            ssub_sat_i16x8: add_function("llvm.ssub.sat.v8i16", ret_i16x8_take_i16x8_i16x8, None),
-            usub_sat_i8x16: add_function("llvm.usub.sat.v16i8", ret_i8x16_take_i8x16_i8x16, None),
-            usub_sat_i16x8: add_function("llvm.usub.sat.v8i16", ret_i16x8_take_i16x8_i16x8, None),
+            ssub_sat_i8x16: add_function_with_attrs(
+                "llvm.ssub.sat.v16i8",
+                ret_i8x16_take_i8x16_i8x16,
+                None,
+            ),
+            ssub_sat_i16x8: add_function_with_attrs(
+                "llvm.ssub.sat.v8i16",
+                ret_i16x8_take_i16x8_i16x8,
+                None,
+            ),
+            usub_sat_i8x16: add_function_with_attrs(
+                "llvm.usub.sat.v16i8",
+                ret_i8x16_take_i8x16_i8x16,
+                None,
+            ),
+            usub_sat_i16x8: add_function_with_attrs(
+                "llvm.usub.sat.v8i16",
+                ret_i16x8_take_i16x8_i16x8,
+                None,
+            ),
 
-            expect_i1: add_function("llvm.expect.i1", ret_i1_take_i1_i1, None),
-            trap: add_function("llvm.trap", void_ty.fn_type(&[], false), None),
-            debug_trap: add_function("llvm.debugtrap", void_ty.fn_type(&[], false), None),
-            personality: add_function(
+            expect_i1: add_function_with_attrs("llvm.expect.i1", ret_i1_take_i1_i1, None),
+            trap: add_function_with_attrs("llvm.trap", void_ty.fn_type(&[], false), None),
+            debug_trap: add_function_with_attrs(
+                "llvm.debugtrap",
+                void_ty.fn_type(&[], false),
+                None,
+            ),
+            personality: add_function_with_attrs(
                 if matches!(binary_fmt, target_lexicon::BinaryFormat::Macho) {
                     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
                     // will generate things differently than "normal", wreaking havoc.
@@ -729,7 +797,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            personality2: add_function(
+            personality2: add_function_with_attrs(
                 "wasmer_eh_personality2",
                 i32_ty.fn_type(&[ptr_ty.into(), ptr_ty.into()], false),
                 None,
@@ -739,7 +807,7 @@ impl<'ctx> Intrinsics<'ctx> {
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
             uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id("uwtable"), 1),
             frame_pointer: context.create_string_attribute("frame-pointer", "non-leaf"),
-            chkstk: add_function("__chkstk", void_ty.fn_type(&[], false), None),
+            chkstk: add_function_with_attrs("__chkstk", void_ty.fn_type(&[], false), None),
             void_ty,
             i1_ty,
             i2_ty,
@@ -819,7 +887,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
 
             // VM libcalls.
-            table_copy: add_function(
+            table_copy: add_function_with_attrs(
                 "wasmer_vm_table_copy",
                 void_ty.fn_type(
                     &[
@@ -834,7 +902,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            table_init: add_function(
+            table_init: add_function_with_attrs(
                 "wasmer_vm_table_init",
                 void_ty.fn_type(
                     &[
@@ -849,7 +917,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            table_fill: add_function(
+            table_fill: add_function_with_attrs(
                 "wasmer_vm_table_fill",
                 void_ty.fn_type(
                     &[
@@ -863,17 +931,17 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            table_size: add_function(
+            table_size: add_function_with_attrs(
                 "wasmer_vm_table_size",
                 i32_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
-            imported_table_size: add_function(
+            imported_table_size: add_function_with_attrs(
                 "wasmer_vm_imported_table_size",
                 i32_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
-            table_get: add_function(
+            table_get: add_function_with_attrs(
                 "wasmer_vm_table_get",
                 anyref_ty.fn_type(
                     &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
@@ -881,7 +949,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            imported_table_get: add_function(
+            imported_table_get: add_function_with_attrs(
                 "wasmer_vm_imported_table_get",
                 anyref_ty.fn_type(
                     &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
@@ -889,7 +957,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            table_set: add_function(
+            table_set: add_function_with_attrs(
                 "wasmer_vm_table_set",
                 void_ty.fn_type(
                     &[
@@ -902,7 +970,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            imported_table_set: add_function(
+            imported_table_set: add_function_with_attrs(
                 "wasmer_vm_imported_table_set",
                 void_ty.fn_type(
                     &[
@@ -915,7 +983,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            table_grow: add_function(
+            table_grow: add_function_with_attrs(
                 "wasmer_vm_table_grow",
                 i32_ty.fn_type(
                     &[
@@ -928,7 +996,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            imported_table_grow: add_function(
+            imported_table_grow: add_function_with_attrs(
                 "wasmer_vm_imported_table_grow",
                 i32_ty.fn_type(
                     &[
@@ -941,7 +1009,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            memory_init: add_function(
+            memory_init: add_function_with_attrs(
                 "wasmer_vm_memory32_init",
                 void_ty.fn_type(
                     &[
@@ -956,7 +1024,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            memory_copy: add_function(
+            memory_copy: add_function_with_attrs(
                 "wasmer_vm_memory32_copy",
                 void_ty.fn_type(
                     &[
@@ -970,7 +1038,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            imported_memory_copy: add_function(
+            imported_memory_copy: add_function_with_attrs(
                 "wasmer_vm_imported_memory32_copy",
                 void_ty.fn_type(
                     &[
@@ -984,7 +1052,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            memory_fill: add_function(
+            memory_fill: add_function_with_attrs(
                 "wasmer_vm_memory32_fill",
                 void_ty.fn_type(
                     &[
@@ -998,7 +1066,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            imported_memory_fill: add_function(
+            imported_memory_fill: add_function_with_attrs(
                 "wasmer_vm_imported_memory32_fill",
                 void_ty.fn_type(
                     &[
@@ -1017,60 +1085,60 @@ impl<'ctx> Intrinsics<'ctx> {
                 &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                 false,
             ),
-            data_drop: add_function(
+            data_drop: add_function_with_attrs(
                 "wasmer_vm_data_drop",
                 void_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
-            func_ref: add_function(
+            func_ref: add_function_with_attrs(
                 "wasmer_vm_func_ref",
                 funcref_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
-            elem_drop: add_function(
+            elem_drop: add_function_with_attrs(
                 "wasmer_vm_elem_drop",
                 void_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
-            throw_trap: add_function(
+            throw_trap: add_function_with_attrs(
                 "wasmer_vm_raise_trap",
                 void_ty.fn_type(&[i32_ty_basic_md], false),
                 None,
             ),
 
-            throw: add_function(
+            throw: add_function_with_attrs(
                 "wasmer_vm_throw",
                 void_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
                 None,
             ),
-            alloc_exception: add_function(
+            alloc_exception: add_function_with_attrs(
                 "wasmer_vm_alloc_exception",
                 i32_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
                 None,
             ),
-            read_exnref: add_function(
+            read_exnref: add_function_with_attrs(
                 "wasmer_vm_read_exnref",
                 ptr_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
                 None,
             ),
-            exception_into_exnref: add_function(
+            exception_into_exnref: add_function_with_attrs(
                 "wasmer_vm_exception_into_exnref",
                 i32_ty.fn_type(&[ptr_ty.into()], false),
                 None,
             ),
             lpad_exception_ty: context.struct_type(&[ptr_ty.into(), i32_ty.into()], false),
 
-            debug_ptr: add_function(
+            debug_ptr: add_function_with_attrs(
                 "wasmer_vm_dbg_usize",
                 void_ty.fn_type(&[ptr_ty.into()], false),
                 None,
             ),
-            debug_str: add_function(
+            debug_str: add_function_with_attrs(
                 "wasmer_vm_dbg_str",
                 void_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
                 None,
             ),
-            memory_wait32: add_function(
+            memory_wait32: add_function_with_attrs(
                 "wasmer_vm_memory32_atomic_wait32",
                 i32_ty.fn_type(
                     &[
@@ -1094,7 +1162,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ],
                 false,
             ),
-            imported_memory_wait32: add_function(
+            imported_memory_wait32: add_function_with_attrs(
                 "wasmer_vm_imported_memory32_atomic_wait32",
                 i32_ty.fn_type(
                     &[
@@ -1108,7 +1176,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            memory_wait64: add_function(
+            memory_wait64: add_function_with_attrs(
                 "wasmer_vm_memory32_atomic_wait64",
                 i32_ty.fn_type(
                     &[
@@ -1132,7 +1200,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ],
                 false,
             ),
-            imported_memory_wait64: add_function(
+            imported_memory_wait64: add_function_with_attrs(
                 "wasmer_vm_imported_memory32_atomic_wait64",
                 i32_ty.fn_type(
                     &[
@@ -1146,7 +1214,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            memory_notify: add_function(
+            memory_notify: add_function_with_attrs(
                 "wasmer_vm_memory32_atomic_notify",
                 i32_ty.fn_type(
                     &[
@@ -1168,7 +1236,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 ],
                 false,
             ),
-            imported_memory_notify: add_function(
+            imported_memory_notify: add_function_with_attrs(
                 "wasmer_vm_imported_memory32_atomic_notify",
                 i32_ty.fn_type(
                     &[
