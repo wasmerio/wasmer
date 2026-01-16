@@ -3,7 +3,7 @@ use crate::BackendStore;
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 use wasmer_vm::TrapHandlerFn;
 use wasmer_vm::init_traps;
-pub use wasmer_vm::{StoreHandle, StoreObjects};
+pub use wasmer_vm::{Interrupter, StoreHandle, StoreObjects};
 
 mod obj;
 pub use obj::*;

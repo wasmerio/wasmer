@@ -8,6 +8,7 @@ use wasmer_types::{
     CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
     ModuleInfo, SerializeError,
 };
+use wasmer_vm::{Trap, TrapCode, interrupt_registry};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendModule, IntoBytes, StoreContext,
@@ -181,6 +182,15 @@ impl Module {
             )?;
 
             let store_id = objects.id();
+            let interrupt_guard = match interrupt_registry::install(store_id) {
+                Ok(x) => x,
+                Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
+                    return Err(InstantiationError::Start(
+                        Trap::lib(TrapCode::HostInterrupt).into(),
+                    ));
+                }
+            };
+
             let store_install_guard = StoreContext::ensure_installed(store_ptr);
 
             // After the instance handle is created, we need to initialize
@@ -191,6 +201,7 @@ impl Module {
             self.artifact
                 .finish_instantiation(config, signal_handler, &mut instance_handle)?;
 
+            drop(interrupt_guard);
             drop(store_install_guard);
 
             Ok(VMInstance::Sys(instance_handle))

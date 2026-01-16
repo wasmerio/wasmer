@@ -6,8 +6,11 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
-use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
+use crate::{
+    interrupt_registry,
+    vmcontext::{VMFunctionContext, VMTrampoline},
+};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
@@ -127,9 +130,10 @@ cfg_if::cfg_if! {
         static mut PREV_SIGBUS: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGILL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGFPE: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
+        static mut PREV_SIGUSR1: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 
         unsafe fn platform_init() { unsafe {
-            let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32| {
+            let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32, nodefer: bool| {
                 let mut handler: libc::sigaction = mem::zeroed();
                 // The flags here are relatively careful, and they are...
                 //
@@ -144,7 +148,10 @@ cfg_if::cfg_if! {
                 // SA_NODEFER allows us to reenter the signal handler if we
                 // crash while handling the signal, and fall through to the
                 // Breakpad handler by testing handlingSegFault.
-                handler.sa_flags = libc::SA_SIGINFO | libc::SA_NODEFER | libc::SA_ONSTACK;
+                handler.sa_flags = libc::SA_SIGINFO | libc::SA_ONSTACK;
+                if nodefer {
+                    handler.sa_flags |= libc::SA_NODEFER;
+                }
                 handler.sa_sigaction = trap_handler as *const () as usize;
                 libc::sigemptyset(&mut handler.sa_mask);
                 if libc::sigaction(signal, &handler, slot.as_mut_ptr()) != 0 {
@@ -156,20 +163,26 @@ cfg_if::cfg_if! {
             };
 
             // Allow handling OOB with signals on all architectures
-            register(&mut PREV_SIGSEGV, libc::SIGSEGV);
+            register(&mut PREV_SIGSEGV, libc::SIGSEGV, true);
 
             // Handle `unreachable` instructions which execute `ud2` right now
-            register(&mut PREV_SIGILL, libc::SIGILL);
+            register(&mut PREV_SIGILL, libc::SIGILL, true);
+
+            // SIGUSR1 is used to interrupt long-running WASM code.
+            // It doesn't use NODEFER since, if a second interruption
+            // request comes in while one is already being processed,
+            // there's nothing meaningful we can do.
+            register(&mut PREV_SIGUSR1, libc::SIGUSR1, false);
 
             // x86 uses SIGFPE to report division by zero
             if cfg!(target_arch = "x86") || cfg!(target_arch = "x86_64") {
-                register(&mut PREV_SIGFPE, libc::SIGFPE);
+                register(&mut PREV_SIGFPE, libc::SIGFPE, true);
             }
 
             // On ARM, handle Unaligned Accesses.
             // On Darwin, guard page accesses are raised as SIGBUS.
             if cfg!(target_arch = "arm") || cfg!(target_vendor = "apple") {
-                register(&mut PREV_SIGBUS, libc::SIGBUS);
+                register(&mut PREV_SIGBUS, libc::SIGBUS, true);
             }
 
             // This is necessary to support debugging under LLDB on Darwin.
@@ -220,6 +233,7 @@ cfg_if::cfg_if! {
                 libc::SIGBUS => &PREV_SIGBUS,
                 libc::SIGFPE => &PREV_SIGFPE,
                 libc::SIGILL => &PREV_SIGILL,
+                libc::SIGUSR1 => &PREV_SIGUSR1,
                 _ => panic!("unknown signal: {signum}"),
             };
             // We try to get the fault address associated to this signal
@@ -235,6 +249,14 @@ cfg_if::cfg_if! {
                     let addr = (*siginfo).si_addr() as usize;
                     process_illegal_op(addr)
                 }
+                libc::SIGUSR1 => {
+                    // If we're not running WASM code from the specific store for which
+                    // an interrupt was requested, there's nothing to do.
+                    if !interrupt_registry::on_interrupted() {
+                        return;
+                    }
+                    Some(TrapCode::HostInterrupt)
+                }
                 _ => None,
             };
             let ucontext = &mut *(context as *mut ucontext_t);
@@ -249,6 +271,12 @@ cfg_if::cfg_if! {
             );
 
             if handled {
+                return;
+            }
+
+            // If we're not running WASM code at all, there's nothing to
+            // do for an interrupt.
+            if signum == libc::SIGUSR1 {
                 return;
             }
 

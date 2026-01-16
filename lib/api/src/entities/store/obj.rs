@@ -99,4 +99,47 @@ impl StoreObjects {
             s.set_global_unchecked(idx, val)
         })
     }
+
+    #[cfg(unix)]
+    /// Builds an [`Interrupter`] for this store
+    pub fn interrupter(&self) -> Interrupter {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => Interrupter(InterrupterInner::Sys(
+                crate::backend::sys::store::Interrupter::new(s.id()),
+            )),
+            _ => panic!("Interrupters can only be built for stores from the sys backend"),
+        }
+    }
+}
+
+/// Allows embedders to interrupt a running WASM instance.
+#[cfg(unix)]
+pub struct Interrupter(InterrupterInner);
+
+#[cfg(unix)]
+impl Interrupter {
+    /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
+    pub fn interrupt(&self) {
+        self.0.interrupt()
+    }
+}
+
+/// Allows embedders to interrupt a running WASM instance.
+#[cfg(unix)]
+pub enum InterrupterInner {
+    #[cfg(feature = "sys")]
+    /// Interrupter for the `sys` runtime.
+    Sys(crate::backend::sys::store::Interrupter),
+}
+
+#[cfg(unix)]
+impl InterrupterInner {
+    /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
+    pub fn interrupt(&self) {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(i) => i.interrupt(),
+        }
+    }
 }

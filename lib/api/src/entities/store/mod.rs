@@ -131,6 +131,12 @@ impl Store {
         self.inner.objects.id()
     }
 
+    #[cfg(unix)]
+    /// Builds an [`Interrupter`] for this store
+    pub fn interrupter(&self) -> Interrupter {
+        self.inner.objects.interrupter()
+    }
+
     #[cfg(feature = "experimental-async")]
     /// Transforms this store into a [`StoreAsync`] which can be used
     /// to invoke [`Function::call_async`](crate::Function::call_async).

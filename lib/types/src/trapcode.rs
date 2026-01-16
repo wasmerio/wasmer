@@ -70,6 +70,9 @@ pub enum TrapCode {
     /// An async imported function tried to yield when not called
     /// via `Function::call_async`.
     YieldOutsideAsyncContext = 13,
+
+    /// Another host thread requested interruption of running WASM.
+    HostInterrupt = 14,
 }
 
 impl TrapCode {
@@ -92,6 +95,7 @@ impl TrapCode {
             Self::YieldOutsideAsyncContext => {
                 "async imported function yielded when not called via `Function::call_async`"
             }
+            Self::HostInterrupt => "interrupted by host",
         }
     }
 }
@@ -113,6 +117,7 @@ impl Display for TrapCode {
             Self::UncaughtException => "uncaught_exception",
             Self::UninitializedExnRef => "uninitialized_exnref",
             Self::YieldOutsideAsyncContext => "yield_outside_async_context",
+            Self::HostInterrupt => "host_interrupt",
         };
         f.write_str(identifier)
     }
@@ -137,6 +142,7 @@ impl FromStr for TrapCode {
             "uncaught_exception" => Ok(Self::UncaughtException),
             "uninitialized_exnref" => Ok(Self::UninitializedExnRef),
             "yield_outside_async_context" => Ok(Self::YieldOutsideAsyncContext),
+            "host_interrupt" => Ok(Self::HostInterrupt),
             _ => Err(()),
         }
     }

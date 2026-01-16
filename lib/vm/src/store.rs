@@ -340,3 +340,28 @@ where
         }
     }
 }
+
+/// Allows embedders to interrupt a running WASM instance.
+#[cfg(unix)]
+pub struct Interrupter {
+    store_id: StoreId,
+}
+
+#[cfg(unix)]
+impl Interrupter {
+    /// Builds a new interrupter.
+    pub fn new(store_id: StoreId) -> Self {
+        Self { store_id }
+    }
+
+    /// Interrupts running WASM instances from the owning `Store`.
+    pub fn interrupt(&self) {
+        // Even though `interrupt` reports whether it sent the signal successfully,
+        // there's nothing meaningful embedders can do with the result; a sent
+        // signal may not be processed in rare cases, and none of the error cases
+        // are hard errors in the sense that retrying the interrupt at a later
+        // point is *guaranteed* to fail again. Hence, we just discard the return
+        // value here.
+        _ = crate::interrupt_registry::interrupt(self.store_id);
+    }
+}

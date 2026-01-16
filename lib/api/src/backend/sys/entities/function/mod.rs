@@ -29,8 +29,8 @@ use wasmer_types::{NativeWasmType, RawValue, StoreId};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
     VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext,
-    VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap, raise_user_trap, resume_panic,
-    wasmer_call_trampoline,
+    VMFunctionKind, VMTrampoline, interrupt_registry, on_host_stack, raise_lib_trap,
+    raise_user_trap, resume_panic, wasmer_call_trampoline,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -513,6 +513,14 @@ impl Function {
         // Call the trampoline.
         let result = {
             let store_id = store.objects_mut().id();
+
+            let interrupt_guard = match interrupt_registry::install(store_id) {
+                Ok(x) => x,
+                Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
+                    return Err(Trap::lib(TrapCode::HostInterrupt).into());
+                }
+            };
+
             // Safety: the store context is uninstalled before we return, and the
             // store mut is valid for the duration of the call.
             let store_install_guard =
@@ -557,6 +565,7 @@ impl Function {
             }
 
             drop(store_install_guard);
+            drop(interrupt_guard);
 
             r
         };
