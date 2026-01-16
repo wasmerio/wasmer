@@ -340,40 +340,7 @@ impl Wasi {
                 .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
                 .build();
 
-            let mut mapped_dirs = Vec::new();
-
-            // Process the --volume flag.
-            let mut have_current_dir = false;
-            for MappedDirectory { host, guest } in self.all_volumes() {
-                let resolved_host = host.canonicalize().with_context(|| {
-                    format!(
-                        "could not canonicalize path for argument '--volume {}:{}'",
-                        host.display(),
-                        guest,
-                    )
-                })?;
-
-                let mapping = if guest == "." {
-                    if have_current_dir {
-                        bail!(
-                            "Cannot pre-open the current directory twice: '--volume=.' must only be specified once"
-                        );
-                    }
-                    have_current_dir = true;
-
-                    MappedDirectory {
-                        host: resolved_host,
-                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
-                    }
-                } else {
-                    MappedDirectory {
-                        host: resolved_host,
-                        guest: guest.clone(),
-                    }
-                };
-                mapped_dirs.push(mapping);
-            }
-
+            let (have_current_dir, mut mapped_dirs) = self.build_mapped_directories(false)?;
             if !mapped_dirs.is_empty() {
                 // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
@@ -506,6 +473,11 @@ impl Wasi {
                 }
                 have_current_dir = true;
 
+                let host = if host == Path::new(".") {
+                    std::env::current_dir().context("could not determine current directory")?
+                } else {
+                    host.clone()
+                };
                 MappedDirectory {
                     host: resolved_host,
                     guest: if is_wasix {
