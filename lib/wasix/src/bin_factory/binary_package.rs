@@ -62,6 +62,12 @@ impl BinaryPackageCommand {
         self.atom.clone()
     }
 
+    /// Get a reference to this [`BinaryPackageCommand`]'s atom as a cheap
+    /// clone of the internal OwnedBuffer.
+    pub fn atom_ref(&self) -> &SharedBytes {
+        &self.atom
+    }
+
     pub fn hash(&self) -> &ModuleHash {
         &self.hash
     }
