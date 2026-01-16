@@ -34,7 +34,7 @@ pub fn parse_volume(entry: &str) -> Result<MappedDirectory> {
         [entry] => retrieve_alias_pathbuf(entry, entry),
         [host_dir, guest_dir] => retrieve_alias_pathbuf(host_dir, guest_dir),
         _ => bail!(
-            "Directory mappings must consist of a single path, of two paths separate by a `:`. Found {}",
+            "Directory mappings must consist of a single path, or two paths separate by a `:`. Found {}",
             &entry
         ),
     }
@@ -48,7 +48,7 @@ pub fn parse_mapdir(entry: &str) -> Result<MappedDirectory> {
         // swapper order compared to the --volume option
         [guest_dir, host_dir] => retrieve_alias_pathbuf(host_dir, guest_dir),
         _ => bail!(
-            "Directory mappings must consist of a single path, of two paths separate by a `:`. Found {}",
+            "Directory mappings must consist of a single path, or two paths separate by a `:`. Found {}",
             &entry
         ),
     }
