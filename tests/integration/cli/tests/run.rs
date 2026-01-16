@@ -182,7 +182,7 @@ fn run_python_create_temp_dir_in_subprocess() {
         .arg("run")
         .arg("python/python")
         .arg("--volume")
-        .arg(format!("/code:{}", resources.display()))
+        .arg(format!("{}:/code", resources.display()))
         .arg("--")
         .arg("/code/main.py")
         .output()
