@@ -4,8 +4,8 @@ use bytes::Bytes;
 use rusty_jsc::{JSObject, JSValue};
 use tracing::warn;
 use wasmer_types::{
-    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
-    ImportType, ImportsIterator, ModuleInfo, SerializeError,
+    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
+    ModuleInfo, SerializeError,
 };
 
 use crate::{

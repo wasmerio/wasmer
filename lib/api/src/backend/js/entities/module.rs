@@ -5,9 +5,9 @@ use js_sys::{Reflect, Uint8Array, WebAssembly};
 use tracing::{debug, warn};
 use wasm_bindgen::{JsValue, prelude::*};
 use wasmer_types::{
-    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
-    ExternType, FunctionType, GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo,
-    Mutability, Pages, SerializeError, TableType, Type,
+    CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
+    GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
+    SerializeError, TableType, Type,
 };
 
 use crate::{

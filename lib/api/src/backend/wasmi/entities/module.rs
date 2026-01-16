@@ -10,9 +10,9 @@ use crate::{
 
 use bytes::Bytes;
 use wasmer_types::{
-    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
-    ExternType, FunctionType, GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo,
-    Mutability, Pages, SerializeError, TableType, Type,
+    CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
+    GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
+    SerializeError, TableType, Type,
 };
 pub(crate) struct ModuleHandle {
     pub(crate) inner: *mut wasm_module_t,
