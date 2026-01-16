@@ -224,13 +224,8 @@ impl Cranelift {
             .expect("should be a valid flag");
 
         // Invert cranelift's default-on verification to instead default off.
-        let enable_verifier = if self.enable_verifier {
-            "true"
-        } else {
-            "false"
-        };
         flags
-            .set("enable_verifier", enable_verifier)
+            .set("enable_verifier", &self.enable_verifier.to_string())
             .expect("should be valid flag");
 
         flags
@@ -244,13 +239,11 @@ impl Cranelift {
             )
             .expect("should be valid flag");
 
-        let enable_nan_canonicalization = if self.enable_nan_canonicalization {
-            "true"
-        } else {
-            "false"
-        };
         flags
-            .set("enable_nan_canonicalization", enable_nan_canonicalization)
+            .set(
+                "enable_nan_canonicalization",
+                &self.enable_nan_canonicalization.to_string(),
+            )
             .expect("should be valid flag");
 
         settings::Flags::new(flags)

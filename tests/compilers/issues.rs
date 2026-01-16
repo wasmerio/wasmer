@@ -697,3 +697,53 @@ fn issue_6004_exception(mut config: crate::Config) {
         .unwrap();
     assert_eq!(&Value::I32(42), result.first().unwrap());
 }
+
+#[cfg(not(target_os = "windows"))]
+#[compiler_test(issues)]
+fn issue_5719_shared_catch_clause_block(mut config: crate::Config) {
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+    (tag $err (param))
+    (tag $err2 (param))
+    (export "f" (func $f))
+    (func $f (result i32)
+        block
+            block
+                try_table (catch $err 0) (catch $err2 0)
+                    throw $err2
+                end
+                unreachable
+            end
+            i32.const 42
+            return
+        end
+        i32.const 13
+        return
+    )
+)
+"#
+        .as_bytes(),
+    )
+    .expect("wat2wasm must succeed");
+
+    let mut store = config.store();
+    let module = match Module::new(&store, wasm_bytes) {
+        Err(CompileError::Validate(message))
+            if message.contains("exceptions proposal not enabled") =>
+        {
+            // Skip the test in that case.
+            return;
+        }
+        Ok(module) => module,
+        _ => unreachable!(),
+    };
+    let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    let result = instance
+        .exports
+        .get_function("f")
+        .unwrap()
+        .call(&mut store, &[])
+        .unwrap();
+    assert_eq!(&Value::I32(42), result.first().unwrap());
+}
