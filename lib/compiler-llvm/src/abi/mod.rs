@@ -34,7 +34,9 @@ pub fn get_abi(target_machine: &TargetMachine) -> Box<dyn Abi> {
     if target_name.starts_with("aarch64") {
         Box::new(Aarch64SystemV {})
     } else if target_name.starts_with("riscv") {
-        Box::new(RiscvSystemV {})
+        Box::new(RiscvSystemV {
+            is_riscv64: target_name.starts_with("riscv64"),
+        })
     } else {
         Box::new(X86_64SystemV {})
     }

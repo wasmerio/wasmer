@@ -294,7 +294,7 @@ impl<'ctx> Intrinsics<'ctx> {
         target_triple: &TargetTriple,
         binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
-        let is_riscv_target = target_triple
+        let is_riscv64 = target_triple
             .as_str()
             .to_string_lossy()
             .starts_with("riscv");
@@ -494,7 +494,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
                 // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
                 // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
-                if is_riscv_target {
+                if is_riscv64 {
                     for (i, param) in ty.get_param_types().iter().enumerate() {
                         if param == &i32_ty_basic_md {
                             function.add_attribute(

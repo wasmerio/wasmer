@@ -74,7 +74,7 @@ pub struct FuncTranslator {
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
-    is_riscv: bool,
+    is_riscv64: bool,
 }
 
 impl FuncTranslator {
@@ -85,11 +85,11 @@ impl FuncTranslator {
         pointer_width: u8,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
-        let is_riscv = target_machine
+        let is_riscv64 = target_machine
             .get_triple()
             .as_str()
             .to_string_lossy()
-            .starts_with("riscv");
+            .starts_with("riscv64");
         Ok(Self {
             ctx: Context::create(),
             target_machine,
@@ -106,7 +106,7 @@ impl FuncTranslator {
             },
             binary_fmt,
             pointer_width,
-            is_riscv,
+            is_riscv64,
         })
     }
 
@@ -339,7 +339,7 @@ impl FuncTranslator {
             config,
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
-            is_riscv: self.is_riscv,
+            is_riscv64: self.is_riscv64,
         };
 
         fcg.ctx.add_func(
@@ -1930,7 +1930,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     config: &'a LLVM,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
-    is_riscv: bool,
+    is_riscv64: bool,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
@@ -12975,7 +12975,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
         // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
         // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
-        if self.is_riscv {
+        if self.is_riscv64 {
             for (i, param) in function.get_params().iter().enumerate() {
                 if param.get_type() == self.context.i32_type().into() {
                     call.add_attribute(

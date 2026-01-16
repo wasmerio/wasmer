@@ -18,8 +18,10 @@ use std::convert::TryInto;
 
 use super::G0M0FunctionKind;
 
-/// Implementation of the [`Abi`] trait for the AMD64 SystemV ABI.
-pub struct RiscvSystemV {}
+/// Implementation of the [`Abi`] trait for the RISC-V SystemV ABI.
+pub(crate) struct RiscvSystemV {
+    pub(crate) is_riscv64: bool,
+}
 
 impl Abi for RiscvSystemV {
     // Given a wasm function type, produce an llvm function declaration.
@@ -100,18 +102,25 @@ impl Abi for RiscvSystemV {
         )];
         attributes.append(&mut vmctx_attributes(1));
 
-        // TODO
-        for (i, ty) in sig.params().iter().enumerate() {
-            let i = (i + extra_params) as u32;
-            if matches!(ty, Type::I32) {
-                attributes.push((
-                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("signext"), 0),
-                    AttributeLoc::Param(i),
-                ));
-                attributes.push((
-                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
-                    AttributeLoc::Param(i),
-                ));
+        // https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
+        // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
+        // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
+        // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
+        if self.is_riscv64 {
+            for (i, ty) in sig.params().iter().enumerate() {
+                let i = (i + extra_params) as u32;
+                if matches!(ty, Type::I32) {
+                    attributes.push((
+                        context
+                            .create_enum_attribute(Attribute::get_named_enum_kind_id("signext"), 0),
+                        AttributeLoc::Param(i),
+                    ));
+                    attributes.push((
+                        context
+                            .create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
+                        AttributeLoc::Param(i),
+                    ));
+                }
             }
         }
 
