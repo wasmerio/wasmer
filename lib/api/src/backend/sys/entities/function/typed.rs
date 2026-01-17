@@ -1,6 +1,8 @@
+#[cfg(feature = "experimental-host-interrupt")]
+use crate::backend::sys::vm::interrupt_registry;
 use crate::backend::sys::{
     engine::NativeEngineExt,
-    vm::{Trap, TrapCode, interrupt_registry},
+    vm::{Trap, TrapCode},
 };
 use crate::{
     FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, StoreContext, TypedFunction,
@@ -57,6 +59,7 @@ macro_rules! impl_native_traits {
 
                 let store_id = store.objects_mut().id();
 
+                #[cfg(feature = "experimental-host-interrupt")]
                 let interrupt_guard = match interrupt_registry::install(store_id) {
                     Ok(x) => x,
                     Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
@@ -99,6 +102,7 @@ macro_rules! impl_native_traits {
                 }
 
                 drop(store_install_guard);
+                #[cfg(feature = "experimental-host-interrupt")]
                 drop(interrupt_guard);
 
                 r?;
@@ -192,6 +196,7 @@ macro_rules! impl_native_traits {
 
                 let store_id = store.objects_mut().id();
 
+                #[cfg(feature = "experimental-host-interrupt")]
                 let interrupt_guard = match interrupt_registry::install(store_id) {
                     Ok(x) => x,
                     Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
@@ -235,6 +240,7 @@ macro_rules! impl_native_traits {
                 }
 
                 drop(store_install_guard);
+                #[cfg(feature = "experimental-host-interrupt")]
                 drop(interrupt_guard);
 
                 r?;

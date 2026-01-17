@@ -131,7 +131,6 @@ impl Store {
         self.inner.objects.id()
     }
 
-    #[cfg(unix)]
     /// Builds an [`Interrupter`] for this store. Calling [`Interrupter::interrupt`]
     /// will cause running WASM code to terminate immediately with a
     /// [`HostInterrupt`](crate::backend::sys::vm::TrapCode::HostInterrupt) trap.
@@ -153,6 +152,7 @@ impl Store {
     /// to interrupt running imported functions. Embedders are expected to
     /// implement support for interruption of long-running or blocking
     /// imported functions separately.
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
     pub fn interrupter(&self) -> Interrupter {
         self.inner.objects.interrupter()
     }

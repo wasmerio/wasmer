@@ -1,4 +1,4 @@
-#![cfg(unix)]
+#![cfg(all(unix, feature = "experimental-host-interrupt"))]
 
 // TODO: tests for recursive function calls across different stores
 

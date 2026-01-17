@@ -26,11 +26,13 @@ use std::{
     pin::Pin, sync::Arc,
 };
 use wasmer_types::{NativeWasmType, RawValue, StoreId};
+#[cfg(feature = "experimental-host-interrupt")]
+use wasmer_vm::interrupt_registry;
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
     VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext,
-    VMFunctionKind, VMTrampoline, interrupt_registry, on_host_stack, raise_lib_trap,
-    raise_user_trap, resume_panic, wasmer_call_trampoline,
+    VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap, raise_user_trap, resume_panic,
+    wasmer_call_trampoline,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -514,6 +516,7 @@ impl Function {
         let result = {
             let store_id = store.objects_mut().id();
 
+            #[cfg(feature = "experimental-host-interrupt")]
             let interrupt_guard = match interrupt_registry::install(store_id) {
                 Ok(x) => x,
                 Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
@@ -565,6 +568,7 @@ impl Function {
             }
 
             drop(store_install_guard);
+            #[cfg(feature = "experimental-host-interrupt")]
             drop(interrupt_guard);
 
             r
@@ -866,6 +870,7 @@ where
                 // `get_current_transient`.
                 let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
                 let mut store = store_wrapper.as_mut().unwrap();
+                #[cfg(feature = "experimental-host-interrupt")]
                 if interrupt_registry::is_interrupted(store.objects.id()) {
                     raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                 }
@@ -877,6 +882,7 @@ where
                 // `is_interrupted`.
                 let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
                 let mut store = store_wrapper.as_mut().unwrap();
+                #[cfg(feature = "experimental-host-interrupt")]
                 if interrupt_registry::is_interrupted(store.objects.id()) {
                     raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                 }
@@ -991,6 +997,7 @@ macro_rules! impl_host_function {
                         // `into_c_struct` and `get_current_transient`.
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
+                        #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
                             raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                         }
@@ -1003,6 +1010,7 @@ macro_rules! impl_host_function {
                         // `is_interrupted`.
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
+                        #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
                             raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                         }
@@ -1093,6 +1101,7 @@ macro_rules! impl_host_function {
                         // `into_c_struct` and `get_current_transient`.
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
+                        #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
                             raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                         }
@@ -1105,6 +1114,7 @@ macro_rules! impl_host_function {
                         // `is_interrupted`.
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
+                        #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
                             raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                         }

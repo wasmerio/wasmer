@@ -100,7 +100,7 @@ impl StoreObjects {
         })
     }
 
-    #[cfg(unix)]
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
     /// Builds an [`Interrupter`] for this store
     pub fn interrupter(&self) -> Interrupter {
         match self {
@@ -114,10 +114,11 @@ impl StoreObjects {
 }
 
 /// Allows embedders to interrupt a running WASM instance.
-#[cfg(unix)]
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+#[derive(Clone)]
 pub struct Interrupter(InterrupterInner);
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
 impl Interrupter {
     /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
     pub fn interrupt(&self) {
@@ -126,14 +127,15 @@ impl Interrupter {
 }
 
 /// Allows embedders to interrupt a running WASM instance.
-#[cfg(unix)]
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+#[derive(Clone)]
 pub enum InterrupterInner {
     #[cfg(feature = "sys")]
     /// Interrupter for the `sys` runtime.
     Sys(crate::backend::sys::store::Interrupter),
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
 impl InterrupterInner {
     /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
     pub fn interrupt(&self) {

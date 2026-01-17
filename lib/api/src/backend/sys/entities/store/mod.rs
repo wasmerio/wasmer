@@ -101,12 +101,13 @@ impl crate::BackendStore {
 }
 
 /// Allows embedders to interrupt a running WASM instance.
-#[cfg(unix)]
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+#[derive(Clone)]
 pub struct Interrupter {
     store_id: StoreId,
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
 impl Interrupter {
     /// Builds a new interrupter.
     pub fn new(store_id: StoreId) -> Self {
@@ -125,9 +126,12 @@ impl Interrupter {
         // indication of success or failure to embedder code.
         match interrupt_registry::interrupt(self.store_id) {
             Err(interrupt_registry::InterruptError::StoreNotRunning) => (),
-            _ => crate::backend::sys::async_runtime::notify_pending_futures_of_interrupt(
-                self.store_id,
-            ),
+            _ => {
+                #[cfg(feature = "experimental-async")]
+                crate::backend::sys::async_runtime::notify_pending_futures_of_interrupt(
+                    self.store_id,
+                );
+            }
         }
     }
 }

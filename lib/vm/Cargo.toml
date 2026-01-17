@@ -62,5 +62,7 @@ enable-serde = ["serde", "indexmap/serde", "wasmer-types/enable-serde"]
 artifact-size = ["dep:loupe", "wasmer-types/artifact-size"]
 sanitizer = ["corosensei/sanitizer"]
 
+experimental-host-interrupt = []
+
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
