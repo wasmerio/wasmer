@@ -3656,22 +3656,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let shuffle_array = match op {
                     Operator::I16x8ExtMulLowI8x16S | Operator::I16x8ExtMulLowI8x16U => [
                         self.intrinsics.i32_consts[0],
+                        self.intrinsics.i32_consts[1],
                         self.intrinsics.i32_consts[2],
+                        self.intrinsics.i32_consts[3],
                         self.intrinsics.i32_consts[4],
+                        self.intrinsics.i32_consts[5],
                         self.intrinsics.i32_consts[6],
-                        self.intrinsics.i32_consts[8],
-                        self.intrinsics.i32_consts[10],
-                        self.intrinsics.i32_consts[12],
-                        self.intrinsics.i32_consts[14],
+                        self.intrinsics.i32_consts[7],
                     ],
                     Operator::I16x8ExtMulHighI8x16S | Operator::I16x8ExtMulHighI8x16U => [
-                        self.intrinsics.i32_consts[1],
-                        self.intrinsics.i32_consts[3],
-                        self.intrinsics.i32_consts[5],
-                        self.intrinsics.i32_consts[7],
+                        self.intrinsics.i32_consts[8],
                         self.intrinsics.i32_consts[9],
+                        self.intrinsics.i32_consts[10],
                         self.intrinsics.i32_consts[11],
+                        self.intrinsics.i32_consts[12],
                         self.intrinsics.i32_consts[13],
+                        self.intrinsics.i32_consts[14],
                         self.intrinsics.i32_consts[15],
                     ],
                     _ => unreachable!("Unhandled internal variant"),
@@ -3716,14 +3716,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let shuffle_array = match op {
                     Operator::I32x4ExtMulLowI16x8S | Operator::I32x4ExtMulLowI16x8U => [
                         self.intrinsics.i32_consts[0],
+                        self.intrinsics.i32_consts[1],
                         self.intrinsics.i32_consts[2],
-                        self.intrinsics.i32_consts[4],
-                        self.intrinsics.i32_consts[6],
+                        self.intrinsics.i32_consts[3],
                     ],
                     Operator::I32x4ExtMulHighI16x8S | Operator::I32x4ExtMulHighI16x8U => [
-                        self.intrinsics.i32_consts[1],
-                        self.intrinsics.i32_consts[3],
+                        self.intrinsics.i32_consts[4],
                         self.intrinsics.i32_consts[5],
+                        self.intrinsics.i32_consts[6],
                         self.intrinsics.i32_consts[7],
                     ],
                     _ => unreachable!("Unhandled internal variant"),
@@ -3767,10 +3767,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 };
                 let shuffle_array = match op {
                     Operator::I64x2ExtMulLowI32x4S | Operator::I64x2ExtMulLowI32x4U => {
-                        [self.intrinsics.i32_consts[0], self.intrinsics.i32_consts[2]]
+                        [self.intrinsics.i32_consts[0], self.intrinsics.i32_consts[1]]
                     }
                     Operator::I64x2ExtMulHighI32x4S | Operator::I64x2ExtMulHighI32x4U => {
-                        [self.intrinsics.i32_consts[1], self.intrinsics.i32_consts[3]]
+                        [self.intrinsics.i32_consts[2], self.intrinsics.i32_consts[3]]
                     }
                     _ => unreachable!("Unhandled internal variant"),
                 };
