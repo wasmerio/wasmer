@@ -2080,12 +2080,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ty,
                     "canonical_nan",
                 ));
-                let res = err!(self.builder.build_select(
-                    is_nan,
-                    canonical_nan,
-                    value,
-                    "canonical_nan",
-                ));
+                let res =
+                    err!(
+                        self.builder
+                            .build_select(is_nan, canonical_nan, value, "canonical_nan",)
+                    );
                 Ok((res, info))
             } else if is_f32x4 {
                 let value = value.into_vector_value();
