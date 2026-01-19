@@ -112,9 +112,9 @@ tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=7.0.0-alpha.2", path = "../api", default-features = false }
+wasmer = { version = "=7.0.0-alpha.2", path = "../api", default-features = false, features = ["singlepass"] }
 wasmer-compiler = { version = "=7.0.0-alpha.2", path = "../compiler", features = [
-	"compiler",
+	"compiler"
 ], optional = true }
 wasmer-compiler-cranelift = { version = "=7.0.0-alpha.2", path = "../compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=7.0.0-alpha.2", path = "../compiler-singlepass", optional = true }
