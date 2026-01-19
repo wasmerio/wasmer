@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    hash::Hash,
+};
 
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -59,6 +62,11 @@ impl ModuleHash {
     /// Get the raw hash.
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_slice()
+    }
+
+    /// Build a short hex representation of the hash (first 4 bytes).
+    pub fn short_hash(&self) -> String {
+        hex::encode_upper(&self.as_bytes()[..4])
     }
 }
 

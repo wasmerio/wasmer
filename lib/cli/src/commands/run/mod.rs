@@ -315,7 +315,7 @@ impl Run {
                             }
                         }
                     }
-                    self.execute_webc(&pkg, runtime.clone())
+                    self.execute_webc(&pkg, monitoring_runtime)
                 }
             }
         };

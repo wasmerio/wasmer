@@ -1,23 +1,26 @@
 use std::{fs, path::PathBuf};
 
+use anyhow::Result;
+
 use wasmer::{Engine, Module};
 use wasmer_types::Features;
 
-#[test]
-fn artifact_serialization_roundtrip() {
+#[compiler_test(artifact)]
+fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
     let file_names = ["bash.wasm", "cowsay.wasm", "python-3.11.3.wasm"];
 
     for file_name in file_names {
         let path = PathBuf::from("tests/integration/cli/tests/wasm").join(file_name);
         let wasm_module = fs::read(path).unwrap();
-        let engine = Engine::default();
-        let module = Module::new(&engine, wasm_module).unwrap();
+        let store = config.store();
+        let module = Module::new(&store, wasm_module).unwrap();
         let serialized_bytes = module.serialize().unwrap();
         let deserialized_module =
-            unsafe { Module::deserialize(&engine, serialized_bytes.clone()) }.unwrap();
+            unsafe { Module::deserialize(&store, serialized_bytes.clone()) }.unwrap();
         let reserialized_bytes = deserialized_module.serialize().unwrap();
         assert_eq!(serialized_bytes, reserialized_bytes);
     }
+    Ok(())
 }
 
 // This test is just here to update the compiled objects to their

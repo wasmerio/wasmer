@@ -34,10 +34,10 @@ use crate::object::{
 };
 
 use wasmer_types::{
-    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
-    DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SerializeError, SignatureIndex, TableIndex,
+    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompilationProgressCallback,
+    CompileError, DataInitializer, DataInitializerLike, DataInitializerLocation,
+    DataInitializerLocationLike, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex,
+    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -124,6 +124,7 @@ impl Artifact {
         engine: &Engine,
         data: &[u8],
         tunables: &dyn Tunables,
+        progress_callback: Option<CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
         let mut inner_engine = engine.inner_mut();
         let environ = ModuleEnvironment::new();
@@ -146,6 +147,7 @@ impl Artifact {
             engine.target(),
             memory_styles,
             table_styles,
+            progress_callback.as_ref(),
         )?;
 
         Self::from_parts(
@@ -1095,6 +1097,7 @@ impl Artifact {
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),
             function_body_inputs,
+            None,
         )?;
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 

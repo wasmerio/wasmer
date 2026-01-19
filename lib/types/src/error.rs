@@ -1,5 +1,5 @@
 //! The WebAssembly possible errors
-use crate::{ExternType, Pages};
+use crate::{ExternType, Pages, progress::UserAbort};
 use std::io;
 use thiserror::Error;
 
@@ -178,11 +178,21 @@ pub enum CompileError {
     /// Middleware error occurred.
     #[cfg_attr(feature = "std", error("Middleware error: {0}"))]
     MiddlewareError(String),
+
+    /// Compilation aborted by a user callback.
+    #[cfg_attr(feature = "std", error("Compilation aborted: {0}"))]
+    Aborted(UserAbort),
 }
 
 impl From<WasmError> for CompileError {
     fn from(original: WasmError) -> Self {
         Self::Wasm(original)
+    }
+}
+
+impl From<UserAbort> for CompileError {
+    fn from(abort: UserAbort) -> Self {
+        Self::Aborted(abort)
     }
 }
 

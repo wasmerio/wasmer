@@ -9,7 +9,7 @@ use crate::{Compiler, CompilerConfig};
 
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
-use wasmer_types::{CompileError, target::Target};
+use wasmer_types::{CompilationProgressCallback, CompileError, target::Target};
 
 #[cfg(not(target_arch = "wasm32"))]
 use shared_buffer::OwnedBuffer;
@@ -183,6 +183,22 @@ impl Engine {
             self,
             binary,
             self.tunables.as_ref(),
+            None,
+        )?))
+    }
+
+    /// Compile a WebAssembly binary with a progress callback.
+    #[cfg(feature = "compiler")]
+    pub fn compile_with_progress(
+        &self,
+        binary: &[u8],
+        progress_callback: Option<CompilationProgressCallback>,
+    ) -> Result<Arc<Artifact>, CompileError> {
+        Ok(Arc::new(Artifact::new(
+            self,
+            binary,
+            self.tunables.as_ref(),
+            progress_callback,
         )?))
     }
 

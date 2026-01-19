@@ -59,6 +59,7 @@ mod libcalls;
 mod memory;
 mod module;
 mod module_hash;
+mod progress;
 mod serialize;
 mod stack;
 mod store_id;
@@ -92,6 +93,7 @@ pub use crate::initializers::{
 pub use crate::memory::{Memory32, Memory64, MemorySize};
 pub use crate::module::{ExportsIterator, ImportKey, ImportsIterator, ModuleInfo};
 pub use crate::module_hash::ModuleHash;
+pub use crate::progress::{CompilationProgress, CompilationProgressCallback, UserAbort};
 pub use crate::types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, TagKind, TagType, Type, V128,

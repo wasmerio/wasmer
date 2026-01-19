@@ -31,7 +31,7 @@ use self_cell::self_cell;
 use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
 use wasmer_types::{
-    DeserializeError,
+    CompilationProgressCallback, DeserializeError,
     entity::{ArchivedPrimaryMap, PrimaryMap},
     target::CpuFeature,
 };
@@ -63,6 +63,7 @@ impl ArtifactBuild {
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: PrimaryMap<TableIndex, TableStyle>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
@@ -95,6 +96,7 @@ impl ArtifactBuild {
             // `module_translation_state`.
             translation.module_translation_state.as_ref().unwrap(),
             translation.function_body_inputs,
+            progress_callback,
         )?;
 
         let data_initializers = translation
