@@ -19,7 +19,7 @@ use inkwell::{
     values::{BasicMetadataValueEnum, FunctionValue},
 };
 use std::{cmp, convert::TryInto};
-use target_lexicon::BinaryFormat;
+use target_lexicon::{BinaryFormat, Triple};
 use wasmer_compiler::{
     misc::CompiledKind,
     types::{
@@ -37,6 +37,7 @@ use wasmer_vm::MemoryStyle;
 pub struct FuncTrampoline {
     ctx: Context,
     target_machine: TargetMachine,
+    target_triple: Triple,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
@@ -48,12 +49,14 @@ const FUNCTION_SECTION_MACHO: &str = "wasmer_trmpl"; // Needs to be between 1 an
 impl FuncTrampoline {
     pub fn new(
         target_machine: TargetMachine,
+        target_triple: Triple,
         binary_fmt: BinaryFormat,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
             target_machine,
+            target_triple,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -80,14 +83,14 @@ impl FuncTrampoline {
         let module = self.ctx.create_module("");
         let target_machine = &self.target_machine;
         let target_triple = target_machine.get_triple();
-        let target_data = target_machine.get_target_data();
+        let target_data: inkwell::targets::TargetData = target_machine.get_target_data();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
         let intrinsics = Intrinsics::declare(
             &module,
             &self.ctx,
             &target_data,
-            &target_machine,
+            &self.target_triple,
             &self.binary_fmt,
         );
 
@@ -261,7 +264,7 @@ impl FuncTrampoline {
             &module,
             &self.ctx,
             &target_data,
-            &target_machine,
+            &self.target_triple,
             &self.binary_fmt,
         );
 

@@ -9,8 +9,7 @@ use super::{
 };
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
-    attributes::Attribute,
-    attributes::AttributeLoc,
+    attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
@@ -25,13 +24,12 @@ use inkwell::{
 };
 use itertools::Itertools;
 use smallvec::SmallVec;
-use target_lexicon::{BinaryFormat, OperatingSystem, Triple};
+use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    misc::TargetMachineExt,
     object_file::{CompiledFunction, load_object_file},
 };
 use wasmer_compiler::{
@@ -75,18 +73,18 @@ pub struct FuncTranslator {
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
-    is_riscv64: bool,
+    target_triple: Triple,
 }
 
 impl FuncTranslator {
     pub fn new(
+        target_triple: Triple,
         target_machine: TargetMachine,
         target_machine_no_opt: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
-        let is_riscv64 = target_machine.is_riscv64();
         Ok(Self {
             ctx: Context::create(),
             target_machine,
@@ -103,7 +101,7 @@ impl FuncTranslator {
             },
             binary_fmt,
             pointer_width,
-            is_riscv64,
+            target_triple,
         })
     }
 
@@ -155,7 +153,7 @@ impl FuncTranslator {
             &module,
             &self.ctx,
             &target_data,
-            &target_machine,
+            &self.target_triple,
             &self.binary_fmt,
         );
         let (func_type, func_attrs) = self.abi.func_type_to_llvm(
@@ -336,7 +334,7 @@ impl FuncTranslator {
             config,
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
-            is_riscv64: self.is_riscv64,
+            target_triple: self.target_triple.clone(),
         };
 
         fcg.ctx.add_func(
@@ -1927,7 +1925,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     config: &'a LLVM,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
-    is_riscv64: bool,
+    target_triple: Triple,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
@@ -12972,7 +12970,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
         // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
         // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
-        if self.is_riscv64 {
+        if matches!(
+            self.target_triple.architecture,
+            Architecture::Riscv32(..) | Architecture::Riscv64(..)
+        ) {
             let param_types = function.get_type().get_param_types();
             for (i, ty) in param_types.into_iter().enumerate() {
                 if ty == self.context.i32_type().into() {

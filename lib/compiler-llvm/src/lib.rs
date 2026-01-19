@@ -18,7 +18,6 @@ mod abi;
 mod compiler;
 mod config;
 mod error;
-mod misc;
 mod object_file;
 mod trampoline;
 mod translator;

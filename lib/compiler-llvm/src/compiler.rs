@@ -185,6 +185,7 @@ impl LLVMCompiler {
                 let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
                 let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
+                    target.triple().clone(),
                     target_machine,
                     Some(target_machine_no_opt),
                     binary_format,
@@ -212,7 +213,7 @@ impl LLVMCompiler {
         let trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTrampoline::new(target_machine, binary_format).unwrap()
+                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format).unwrap()
             },
             |func_trampoline, (i, sig)| {
                 let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
@@ -231,7 +232,8 @@ impl LLVMCompiler {
                 || {
                     let target_machine = self.config().target_machine(target);
                     (
-                        FuncTrampoline::new(target_machine, binary_format).unwrap(),
+                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                            .unwrap(),
                         &compile_info.module.signatures,
                     )
                 },
@@ -407,6 +409,7 @@ impl Compiler for LLVMCompiler {
                             self.config().target_machine_with_opt(target, false);
                         let pointer_width = target.triple().pointer_width().unwrap().bytes();
                         FuncTranslator::new(
+                            target.triple().clone(),
                             target_machine,
                             Some(target_machine_no_opt),
                             binary_format,
@@ -518,7 +521,8 @@ impl Compiler for LLVMCompiler {
                 .map_init(
                     || {
                         let target_machine = self.config().target_machine(target);
-                        FuncTrampoline::new(target_machine, binary_format).unwrap()
+                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                            .unwrap()
                     },
                     |func_trampoline, sig| {
                         func_trampoline.trampoline(sig, self.config(), "", compile_info)
@@ -535,7 +539,9 @@ impl Compiler for LLVMCompiler {
         // enough dynamic trampolines to actually cause a noticeable performance degradation.
         let dynamic_function_trampolines = {
             let target_machine = self.config().target_machine(target);
-            let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
+            let func_trampoline =
+                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                    .unwrap();
             module
                 .imported_function_types()
                 .collect::<Vec<_>>()

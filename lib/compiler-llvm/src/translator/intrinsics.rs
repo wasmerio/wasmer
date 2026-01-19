@@ -7,8 +7,6 @@
 use crate::LLVM;
 use crate::abi::Abi;
 use crate::error::err;
-use crate::misc::TargetMachineExt;
-use inkwell::targets::TargetMachine;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
     AddressSpace,
@@ -27,6 +25,7 @@ use inkwell::{
     },
 };
 use std::collections::{HashMap, hash_map::Entry};
+use target_lexicon::{Architecture, Triple};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
@@ -292,10 +291,10 @@ impl<'ctx> Intrinsics<'ctx> {
         module: &Module<'ctx>,
         context: &'ctx Context,
         target_data: &TargetData,
-        target_machine: &TargetMachine,
+        target_triple: &Triple,
         binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
-        let is_riscv64 = target_machine.is_riscv64();
+        let is_riscv64 = matches!(target_triple.architecture, Architecture::Riscv64(..));
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
         let i2_ty = context.custom_width_int_type(2);
