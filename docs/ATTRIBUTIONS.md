@@ -65,6 +65,8 @@ The contents of [Test/spec](Test/spec) is covered by the license in [Test/spec/L
 [Source/ThirdParty/dtoa/dtoa.c](Source/ThirdParty/dtoa/dtoa.c) is covered by the license in that file.
 
 [Source/ThirdParty/libunwind](Source/ThirdParty/libunwind) is covered by the license in [Source/ThirdParty/libunwind/LICENSE.TXT](Source/ThirdParty/libunwind/LICENSE.TXT).
+
+[Source/ThirdParty/xxhash](Source/ThirdParty/xxhash) is covered by the license in [Source/ThirdParty/xxhash/LICENSE](Source/ThirdParty/xxhash/LICENSE).
 ```
 
 ### Greenwasm

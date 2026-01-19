@@ -318,6 +318,7 @@ web-time = "1.1"
 weezl = "^0.1"
 which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
+xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
 # Stick to a stable version due to #6039
 zip = { version = "6.0.0", default-features = false }
@@ -420,6 +421,8 @@ opt-level = 3
 [profile.dev.package.weezl]
 opt-level = 3
 [profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.xxhash-rust]
 opt-level = 3
 [profile.dev.package.digest]
 opt-level = 3
