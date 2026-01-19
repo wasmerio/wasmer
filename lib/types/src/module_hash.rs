@@ -22,46 +22,54 @@ use sha2::Digest;
     RkyvDeserialize,
     Archive,
 )]
-// SHA-256 Module hash type
-#[derive(Default)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[rkyv(derive(Debug))]
-pub struct ModuleHash([u8; 32]);
-// SHA-256 hash
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub enum ModuleHash {
+    /// xxhash
+    XXHash([u8; 8]),
+
+    /// sha256    ]
+    Sha256([u8; 32]),
+}
 
 #[cfg(feature = "artifact-size")]
 impl loupe::MemoryUsage for ModuleHash {
     fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
-        // TODO
-        8 * 32
+        match self {
+            Self::XXHash(_) => 8 * 8,
+            Self::Sha256(_) => 8 * 32,
+        }
     }
 }
 
 impl ModuleHash {
     /// Parse a Sha256 hash from a hex-encoded string.
     pub fn sha256_parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
-        let mut hash = Self::default();
-        hex::decode_to_slice(hex_str, &mut hash.0)?;
-        Ok(hash)
+        let mut hash = [0_u8; _];
+        hex::decode_to_slice(hex_str, &mut hash)?;
+        Ok(Self::Sha256(hash))
     }
 
     /// Generate a new [`ModuleHash`] based on the Sha256 hash of some bytes.
     pub fn new(wasm: impl AsRef<[u8]>) -> Self {
         let wasm = wasm.as_ref();
         let hash = sha2::Sha256::digest(wasm).into();
-        Self(hash)
+        Self::Sha256(hash)
     }
 
     /// Generate a random [`ModuleHash`]. For when you don't care about caches.
     pub fn random() -> Self {
-        let mut hash = Self::default();
-        getrandom::getrandom(&mut hash.0).unwrap();
-        hash
+        let mut bytes = [0_u8; _];
+        getrandom::getrandom(&mut bytes).unwrap();
+        Self::Sha256(bytes)
     }
 
     /// Get the raw hash.
     pub fn as_bytes(&self) -> &[u8] {
-        self.0.as_slice()
+        match self {
+            Self::XXHash(bytes) => bytes.as_slice(),
+            Self::Sha256(bytes) => bytes.as_slice(),
+        }
     }
 
     /// Build a short hex representation of the hash (first 4 bytes).
@@ -72,6 +80,6 @@ impl ModuleHash {
 
 impl Display for ModuleHash {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode_upper(self.0))
+        write!(f, "{}", hex::encode_upper(self.as_bytes()))
     }
 }
