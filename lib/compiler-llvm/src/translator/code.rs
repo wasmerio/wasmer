@@ -5610,8 +5610,26 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (info | ExtraInfo::pending_f32_nan())?);
+                let input = input.into_float_value();
+                let is_not_nan = err!(self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    input,
+                    input,
+                    "f32_is_not_nan",
+                ));
+                let canonical_nan_bits = self.intrinsics.i32_ty.const_int(0x7fc0_0000, false);
+                let canonical_nan = err!(self.builder.build_bit_cast(
+                    canonical_nan_bits,
+                    self.intrinsics.f32_ty,
+                    "canonical_nan_f32",
+                ));
+                let res = err!(self.builder.build_select(
+                    is_not_nan,
+                    res,
+                    canonical_nan,
+                    "floor_f32_canonical_nan",
+                ));
+                self.state.push1_extra(res, info);
             }
             Operator::F32x4Floor => {
                 let (v, i) = self.state.pop1_extra()?;
