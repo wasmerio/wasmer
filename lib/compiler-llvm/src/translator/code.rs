@@ -33,8 +33,12 @@ use crate::{
     object_file::{CompiledFunction, load_object_file},
 };
 use wasmer_compiler::{
-    FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, from_binaryreadererror_wasmerror,
+    CANONICAL_NAN_F32, CANONICAL_NAN_F64, FunctionBinaryReader, FunctionBodyData,
+    GEF32_LEQ_I32_MAX, GEF32_LEQ_I64_MAX, GEF32_LEQ_U32_MAX, GEF32_LEQ_U64_MAX, GEF64_LEQ_I32_MAX,
+    GEF64_LEQ_I64_MAX, GEF64_LEQ_U32_MAX, GEF64_LEQ_U64_MAX, LEF32_GEQ_I32_MIN, LEF32_GEQ_I64_MIN,
+    LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN, LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN,
+    LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror,
     misc::CompiledKind,
     types::{
         relocation::RelocationTarget,
@@ -67,13 +71,13 @@ const LLVMIR_LARGE_FUNCTION_THRESHOLD: usize = 100_000;
 
 pub struct FuncTranslator {
     ctx: Context,
+    target_triple: Triple,
     target_machine: TargetMachine,
     target_machine_no_opt: Option<TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
-    target_triple: Triple,
 }
 
 impl FuncTranslator {
@@ -87,6 +91,7 @@ impl FuncTranslator {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
+            target_triple,
             target_machine,
             target_machine_no_opt,
             abi,
@@ -101,7 +106,6 @@ impl FuncTranslator {
             },
             binary_fmt,
             pointer_width,
-            target_triple,
         })
     }
 
@@ -332,9 +336,9 @@ impl FuncTranslator {
             symbol_registry,
             abi: &*self.abi,
             config,
+            target_triple: self.target_triple.clone(),
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
-            target_triple: self.target_triple.clone(),
         };
 
         fcg.ctx.add_func(
@@ -1923,9 +1927,9 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
     config: &'a LLVM,
+    target_triple: Triple,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
-    target_triple: Triple,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
@@ -2049,6 +2053,123 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Ok(result.as_basic_value_enum())
         } else {
             Ok(value)
+        }
+    }
+
+    fn finalize_rounding_result(
+        &self,
+        value: BasicValueEnum<'ctx>,
+        info: ExtraInfo,
+    ) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CompileError> {
+        let ty = value.get_type();
+        let is_f32 = ty.eq(&self.intrinsics.f32_ty.as_basic_type_enum());
+        let is_f64 = ty.eq(&self.intrinsics.f64_ty.as_basic_type_enum());
+        let is_f32x4 = ty.eq(&self.intrinsics.f32x4_ty.as_basic_type_enum());
+        let is_f64x2 = ty.eq(&self.intrinsics.f64x2_ty.as_basic_type_enum());
+        debug_assert!(is_f32 || is_f64 || is_f32x4 || is_f64x2);
+
+        if matches!(
+            self.target_triple.architecture,
+            Architecture::Riscv32(..) | Architecture::Riscv64(..)
+        ) {
+            if is_f32 || is_f64 {
+                let input = value.into_float_value();
+                let is_nan = err!(self.builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    input,
+                    input,
+                    "res_is_nan",
+                ));
+                let canonical_nan_bits = if is_f32 {
+                    self.intrinsics
+                        .i32_ty
+                        .const_int(CANONICAL_NAN_F32 as _, false)
+                } else {
+                    self.intrinsics.i64_ty.const_int(CANONICAL_NAN_F64, false)
+                };
+                let canonical_nan = err!(self.builder.build_bit_cast(
+                    canonical_nan_bits,
+                    ty,
+                    "canonical_nan",
+                ));
+                let res =
+                    err!(
+                        self.builder
+                            .build_select(is_nan, canonical_nan, value, "canonical_nan",)
+                    );
+                Ok((res, info))
+            } else if is_f32x4 {
+                let value = value.into_vector_value();
+                let is_nan = err!(self.builder.build_call(
+                    self.intrinsics.cmp_f32x4,
+                    &[
+                        value.into(),
+                        value.into(),
+                        self.intrinsics.fp_uno_md,
+                        self.intrinsics.fp_exception_md,
+                    ],
+                    "",
+                ))
+                .try_as_basic_value()
+                .unwrap_basic()
+                .into_vector_value();
+                let canonical_nan_bits = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(CANONICAL_NAN_F32 as _, false);
+                let canonical_nan_bits = VectorType::const_vector(&[canonical_nan_bits; 4]);
+                let canonical_nan = err!(self.builder.build_bit_cast(
+                    canonical_nan_bits,
+                    self.intrinsics.f32x4_ty,
+                    "canonical_nan",
+                ));
+                let res = err!(self.builder.build_select(
+                    is_nan,
+                    canonical_nan.as_basic_value_enum(),
+                    value.as_basic_value_enum(),
+                    "canonical_nan",
+                ));
+                Ok((res, info))
+            } else {
+                let value = value.into_vector_value();
+                let is_nan = err!(self.builder.build_call(
+                    self.intrinsics.cmp_f64x2,
+                    &[
+                        value.into(),
+                        value.into(),
+                        self.intrinsics.fp_uno_md,
+                        self.intrinsics.fp_exception_md,
+                    ],
+                    "",
+                ))
+                .try_as_basic_value()
+                .unwrap_basic()
+                .into_vector_value();
+                let canonical_nan_bits = self.intrinsics.i64_ty.const_int(CANONICAL_NAN_F64, false);
+                let canonical_nan_bits = VectorType::const_vector(&[canonical_nan_bits; 2]);
+                let canonical_nan = err!(self.builder.build_bit_cast(
+                    canonical_nan_bits,
+                    self.intrinsics.f64x2_ty,
+                    "canonical_nan",
+                ));
+                let res = err!(self.builder.build_select(
+                    is_nan,
+                    canonical_nan.as_basic_value_enum(),
+                    value.as_basic_value_enum(),
+                    "canonical_nan",
+                ));
+                Ok((res, info))
+            }
+        } else {
+            Ok((
+                value,
+                (info
+                    | if is_f32 || is_f32x4 {
+                        ExtraInfo::pending_f32_nan()
+                    } else {
+                        ExtraInfo::pending_f64_nan()
+                    })?,
+            ))
         }
     }
 
@@ -3683,22 +3804,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let shuffle_array = match op {
                     Operator::I16x8ExtMulLowI8x16S | Operator::I16x8ExtMulLowI8x16U => [
                         self.intrinsics.i32_consts[0],
+                        self.intrinsics.i32_consts[1],
                         self.intrinsics.i32_consts[2],
+                        self.intrinsics.i32_consts[3],
                         self.intrinsics.i32_consts[4],
+                        self.intrinsics.i32_consts[5],
                         self.intrinsics.i32_consts[6],
-                        self.intrinsics.i32_consts[8],
-                        self.intrinsics.i32_consts[10],
-                        self.intrinsics.i32_consts[12],
-                        self.intrinsics.i32_consts[14],
+                        self.intrinsics.i32_consts[7],
                     ],
                     Operator::I16x8ExtMulHighI8x16S | Operator::I16x8ExtMulHighI8x16U => [
-                        self.intrinsics.i32_consts[1],
-                        self.intrinsics.i32_consts[3],
-                        self.intrinsics.i32_consts[5],
-                        self.intrinsics.i32_consts[7],
+                        self.intrinsics.i32_consts[8],
                         self.intrinsics.i32_consts[9],
+                        self.intrinsics.i32_consts[10],
                         self.intrinsics.i32_consts[11],
+                        self.intrinsics.i32_consts[12],
                         self.intrinsics.i32_consts[13],
+                        self.intrinsics.i32_consts[14],
                         self.intrinsics.i32_consts[15],
                     ],
                     _ => unreachable!("Unhandled internal variant"),
@@ -3743,14 +3864,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let shuffle_array = match op {
                     Operator::I32x4ExtMulLowI16x8S | Operator::I32x4ExtMulLowI16x8U => [
                         self.intrinsics.i32_consts[0],
+                        self.intrinsics.i32_consts[1],
                         self.intrinsics.i32_consts[2],
-                        self.intrinsics.i32_consts[4],
-                        self.intrinsics.i32_consts[6],
+                        self.intrinsics.i32_consts[3],
                     ],
                     Operator::I32x4ExtMulHighI16x8S | Operator::I32x4ExtMulHighI16x8U => [
-                        self.intrinsics.i32_consts[1],
-                        self.intrinsics.i32_consts[3],
+                        self.intrinsics.i32_consts[4],
                         self.intrinsics.i32_consts[5],
+                        self.intrinsics.i32_consts[6],
                         self.intrinsics.i32_consts[7],
                     ],
                     _ => unreachable!("Unhandled internal variant"),
@@ -3794,10 +3915,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 };
                 let shuffle_array = match op {
                     Operator::I64x2ExtMulLowI32x4S | Operator::I64x2ExtMulLowI32x4U => {
-                        [self.intrinsics.i32_consts[0], self.intrinsics.i32_consts[2]]
+                        [self.intrinsics.i32_consts[0], self.intrinsics.i32_consts[1]]
                     }
                     Operator::I64x2ExtMulHighI32x4S | Operator::I64x2ExtMulHighI32x4U => {
-                        [self.intrinsics.i32_consts[1], self.intrinsics.i32_consts[3]]
+                        [self.intrinsics.i32_consts[2], self.intrinsics.i32_consts[3]]
                     }
                     _ => unreachable!("Unhandled internal variant"),
                 };
@@ -5595,223 +5716,233 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F32Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
-                let res = self
-                    .build_call_with_param_attributes(
-                        self.intrinsics.ceil_f32,
-                        &[input.into()],
-                        "",
-                    )?
-                    .try_as_basic_value()
-                    .unwrap_basic();
-                self.state
-                    .push1_extra(res, (info | ExtraInfo::pending_f32_nan())?);
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.ceil_f32,
+                    &[input.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F32x4Ceil => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f32x4(v, i)?;
-                let res = self
-                    .build_call_with_param_attributes(self.intrinsics.ceil_f32x4, &[v.into()], "")?
-                    .try_as_basic_value()
-                    .unwrap_basic();
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.ceil_f32x4,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F64Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
-                let res = self
-                    .build_call_with_param_attributes(
-                        self.intrinsics.ceil_f64,
-                        &[input.into()],
-                        "",
-                    )?
-                    .try_as_basic_value()
-                    .unwrap_basic();
-                self.state
-                    .push1_extra(res, (info | ExtraInfo::pending_f64_nan())?);
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.ceil_f64,
+                    &[input.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2Ceil => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f64x2(v, i)?;
-                let res = self
-                    .build_call_with_param_attributes(self.intrinsics.ceil_f64x2, &[v.into()], "")?
-                    .try_as_basic_value()
-                    .unwrap_basic();
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.ceil_f64x2,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F32Floor => {
                 let (input, info) = self.state.pop1_extra()?;
-                let res = self
-                    .build_call_with_param_attributes(
-                        self.intrinsics.floor_f32,
-                        &[input.into()],
-                        "",
-                    )?
-                    .try_as_basic_value()
-                    .unwrap_basic();
-                self.state
-                    .push1_extra(res, (info | ExtraInfo::pending_f32_nan())?);
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.floor_f32,
+                    &[input.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F32x4Floor => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f32x4(v, i)?;
-                let res = self
-                    .build_call_with_param_attributes(self.intrinsics.floor_f32x4, &[v.into()], "")?
-                    .try_as_basic_value()
-                    .unwrap_basic();
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.floor_f32x4,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F64Floor => {
                 let (input, info) = self.state.pop1_extra()?;
-                let res = self
-                    .build_call_with_param_attributes(
-                        self.intrinsics.floor_f64,
-                        &[input.into()],
-                        "",
-                    )?
-                    .try_as_basic_value()
-                    .unwrap_basic();
-                self.state
-                    .push1_extra(res, (info | ExtraInfo::pending_f64_nan())?);
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.floor_f64,
+                    &[input.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2Floor => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f64x2(v, i)?;
-                let res = self
-                    .build_call_with_param_attributes(self.intrinsics.floor_f64x2, &[v.into()], "")?
-                    .try_as_basic_value()
-                    .unwrap_basic();
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.floor_f64x2,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F32Trunc => {
-                let (v, i) = self.state.pop1_extra()?;
+                let (v, info) = self.state.pop1_extra()?;
                 let res = err!(
                     self.builder
                         .build_call(self.intrinsics.trunc_f32, &[v.into()], "")
                 )
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F32x4Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f32x4(v, i)?;
-                let res = self
-                    .build_call_with_param_attributes(self.intrinsics.trunc_f32x4, &[v.into()], "")?
-                    .try_as_basic_value()
-                    .unwrap_basic();
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.trunc_f32x4,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F64Trunc => {
-                let (v, i) = self.state.pop1_extra()?;
+                let (v, info) = self.state.pop1_extra()?;
                 let res = err!(
                     self.builder
                         .build_call(self.intrinsics.trunc_f64, &[v.into()], "")
                 )
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f64x2(v, i)?;
-                let res = self
-                    .build_call_with_param_attributes(self.intrinsics.trunc_f64x2, &[v.into()], "")?
-                    .try_as_basic_value()
-                    .unwrap_basic();
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.trunc_f64x2,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F32Nearest => {
-                let (v, i) = self.state.pop1_extra()?;
-                let res = self
-                    .build_call_with_param_attributes(
-                        self.intrinsics.nearbyint_f32,
-                        &[v.into()],
-                        "",
-                    )?
-                    .try_as_basic_value()
-                    .unwrap_basic();
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                let (v, info) = self.state.pop1_extra()?;
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.nearbyint_f32,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F32x4Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f32x4(v, i)?;
-                let res = self
-                    .build_call_with_param_attributes(
-                        self.intrinsics.nearbyint_f32x4,
-                        &[v.into()],
-                        "",
-                    )?
-                    .try_as_basic_value()
-                    .unwrap_basic();
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.nearbyint_f32x4,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F64Nearest => {
-                let (v, i) = self.state.pop1_extra()?;
-                let res = self
-                    .build_call_with_param_attributes(
-                        self.intrinsics.nearbyint_f64,
-                        &[v.into()],
-                        "",
-                    )?
-                    .try_as_basic_value()
-                    .unwrap_basic();
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                let (v, info) = self.state.pop1_extra()?;
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.nearbyint_f64,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f64x2(v, i)?;
-                let res = self
-                    .build_call_with_param_attributes(
-                        self.intrinsics.nearbyint_f64x2,
-                        &[v.into()],
-                        "",
-                    )?
-                    .try_as_basic_value()
-                    .unwrap_basic();
+                let res = err!(self.build_call_with_param_attributes(
+                    self.intrinsics.nearbyint_f64x2,
+                    &[v.into()],
+                    ""
+                ))
+                .try_as_basic_value()
+                .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F32Abs => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -13006,42 +13137,3 @@ fn is_f64_arithmetic(bits: u64) -> bool {
     let bits = bits & 0x7FFF_FFFF_FFFF_FFFF;
     bits < 0x7FF8_0000_0000_0000
 }
-
-// Constants for the bounds of truncation operations. These are the least or
-// greatest exact floats in either f32 or f64 representation
-// greater-than-or-equal-to (for least) or less-than-or-equal-to (for greatest)
-// the i32 or i64 or u32 or u64 min (for least) or max (for greatest), when
-// rounding towards zero.
-
-/// Least Exact Float (32 bits) greater-than-or-equal-to i32::MIN when rounding towards zero.
-const LEF32_GEQ_I32_MIN: u64 = i32::MIN as u64;
-/// Greatest Exact Float (32 bits) less-than-or-equal-to i32::MAX when rounding towards zero.
-const GEF32_LEQ_I32_MAX: u64 = 2147483520; // bits as f32: 0x4eff_ffff
-/// Least Exact Float (64 bits) greater-than-or-equal-to i32::MIN when rounding towards zero.
-const LEF64_GEQ_I32_MIN: u64 = i32::MIN as u64;
-/// Greatest Exact Float (64 bits) less-than-or-equal-to i32::MAX when rounding towards zero.
-const GEF64_LEQ_I32_MAX: u64 = i32::MAX as u64;
-/// Least Exact Float (32 bits) greater-than-or-equal-to u32::MIN when rounding towards zero.
-const LEF32_GEQ_U32_MIN: u64 = u32::MIN as u64;
-/// Greatest Exact Float (32 bits) less-than-or-equal-to u32::MAX when rounding towards zero.
-const GEF32_LEQ_U32_MAX: u64 = 4294967040; // bits as f32: 0x4f7f_ffff
-/// Least Exact Float (64 bits) greater-than-or-equal-to u32::MIN when rounding towards zero.
-const LEF64_GEQ_U32_MIN: u64 = u32::MIN as u64;
-/// Greatest Exact Float (64 bits) less-than-or-equal-to u32::MAX when rounding towards zero.
-const GEF64_LEQ_U32_MAX: u64 = 4294967295; // bits as f64: 0x41ef_ffff_ffff_ffff
-/// Least Exact Float (32 bits) greater-than-or-equal-to i64::MIN when rounding towards zero.
-const LEF32_GEQ_I64_MIN: u64 = i64::MIN as u64;
-/// Greatest Exact Float (32 bits) less-than-or-equal-to i64::MAX when rounding towards zero.
-const GEF32_LEQ_I64_MAX: u64 = 9223371487098961920; // bits as f32: 0x5eff_ffff
-/// Least Exact Float (64 bits) greater-than-or-equal-to i64::MIN when rounding towards zero.
-const LEF64_GEQ_I64_MIN: u64 = i64::MIN as u64;
-/// Greatest Exact Float (64 bits) less-than-or-equal-to i64::MAX when rounding towards zero.
-const GEF64_LEQ_I64_MAX: u64 = 9223372036854774784; // bits as f64: 0x43df_ffff_ffff_ffff
-/// Least Exact Float (32 bits) greater-than-or-equal-to u64::MIN when rounding towards zero.
-const LEF32_GEQ_U64_MIN: u64 = u64::MIN;
-/// Greatest Exact Float (32 bits) less-than-or-equal-to u64::MAX when rounding towards zero.
-const GEF32_LEQ_U64_MAX: u64 = 18446742974197923840; // bits as f32: 0x5f7f_ffff
-/// Least Exact Float (64 bits) greater-than-or-equal-to u64::MIN when rounding towards zero.
-const LEF64_GEQ_U64_MIN: u64 = u64::MIN;
-/// Greatest Exact Float (64 bits) less-than-or-equal-to u64::MAX when rounding towards zero.
-const GEF64_LEQ_U64_MAX: u64 = 18446744073709549568; // bits as f64: 0x43ef_ffff_ffff_ffff

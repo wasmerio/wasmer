@@ -71,3 +71,6 @@ COPY build_openssl.sh /
 RUN /build_openssl.sh
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/openssl_riscv64/include
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/openssl_riscv64/lib
+
+RUN mkdir .cargo
+COPY config.toml .cargo/config.toml

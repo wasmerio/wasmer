@@ -10,7 +10,7 @@ use crate::{
 };
 use enumset::EnumSet;
 use wasmer_types::{
-    Features, LocalFunctionIndex,
+    CompilationProgressCallback, Features, LocalFunctionIndex,
     entity::PrimaryMap,
     error::CompileError,
     target::{CpuFeature, Target, UserCompilerOptimizations},
@@ -154,6 +154,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError>;
 
     /// Compiles a module into a native object file.

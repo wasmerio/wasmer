@@ -38,7 +38,7 @@ merge-streams.workspace = true
 
 # Subscriptions. 
 graphql-ws-client = { workspace = true, features = [
-	"tungstenite",
+	"tungstenite-0.28",
 	"client-cynic",
 ], optional = true }
 tokio-tungstenite = { workspace = true, features = [
