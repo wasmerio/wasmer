@@ -12,17 +12,17 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=6.1.0", path = "lib/api", default-features = false }
-wasmer-cache = { version = "=6.1.0", path = "lib/cache", optional = true }
-wasmer-compiler = { version = "=6.1.0", path = "lib/compiler", features = [
+wasmer = { version = "=7.0.0-alpha.2", path = "lib/api", default-features = false }
+wasmer-cache = { version = "=7.0.0-alpha.2", path = "lib/cache", optional = true }
+wasmer-compiler = { version = "=7.0.0-alpha.2", path = "lib/compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=6.1.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=6.1.0", path = "lib/compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=6.1.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=6.1.0", path = "lib/middlewares", optional = true }
-wasmer-types = { version = "=6.1.0", path = "lib/types" }
-wasmer-wast = { version = "=6.1.0", path = "tests/lib/wast", optional = true }
+wasmer-compiler-cranelift = { version = "=7.0.0-alpha.2", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=7.0.0-alpha.2", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=7.0.0-alpha.2", path = "lib/compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=7.0.0-alpha.2", path = "lib/middlewares", optional = true }
+wasmer-types = { version = "=7.0.0-alpha.2", path = "lib/types" }
+wasmer-wast = { version = "=7.0.0-alpha.2", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
@@ -81,11 +81,11 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.90"
-version = "6.1.0"
+version = "7.0.0-alpha.2"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.601.0", path = "lib/package" }
+wasmer-package = { version = "0.700.0-alpha.2", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
@@ -320,7 +320,8 @@ which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
-zip = { version = "7.0.0", default-features = false }
+# Stick to a stable version due to #6039
+zip = { version = "6.0.0", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -330,7 +331,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=6.1.0", path = "lib/api", features = [
+wasmer = { version = "=7.0.0-alpha.2", path = "lib/api", features = [
 	"compiler",
 	"singlepass",
 	"sys",

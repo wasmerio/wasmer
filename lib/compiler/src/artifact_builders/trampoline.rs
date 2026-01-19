@@ -40,6 +40,14 @@ const RISCV64_TRAMPOLINE: [u8; 24] = [
     0, 0, 0, 0,
 ];
 
+// AUIPC t1,0     17 03 00 00
+// LW t1, 12(t1)  03 a3 c2 00
+// JR t1          67 00 03 00
+// JMPADDR        00 00 00 00
+const RISCV32_TRAMPOLINE: [u8; 16] = [
+    0x17, 0x03, 0x00, 0x00, 0x03, 0xa3, 0xc2, 0x00, 0x67, 0x00, 0x03, 0x00, 0, 0, 0, 0,
+];
+
 // PCADDI r12, 0      0c 00 00 18
 // LD.D r12, r12, 16  8c 41 c0 28
 // JR r12             80 01 00 4c [00 00 00 00]
@@ -83,6 +91,15 @@ fn make_trampoline(
                 addend: 0,
             });
         }
+        Architecture::Riscv32(_) => {
+            code.extend(RISCV32_TRAMPOLINE);
+            relocations.push(Relocation {
+                kind: RelocationKind::Abs4,
+                reloc_target: RelocationTarget::LibCall(libcall),
+                offset: code.len() as u32 - 4,
+                addend: 0,
+            });
+        }
         Architecture::LoongArch64 => {
             code.extend(LOONGARCH64_TRAMPOLINE);
             relocations.push(Relocation {
@@ -102,6 +119,7 @@ pub fn libcall_trampoline_len(target: &Target) -> usize {
         Architecture::Aarch64(_) => AARCH64_TRAMPOLINE.len(),
         Architecture::X86_64 => X86_64_TRAMPOLINE.len(),
         Architecture::Riscv64(_) => RISCV64_TRAMPOLINE.len(),
+        Architecture::Riscv32(_) => RISCV32_TRAMPOLINE.len(),
         Architecture::LoongArch64 => LOONGARCH64_TRAMPOLINE.len(),
         arch => panic!("Unsupported architecture: {arch}"),
     }

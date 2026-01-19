@@ -63,8 +63,14 @@ ENV CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc
 
 RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.90-x86_64-unknown-linux-gnu
 
+# quickly install cargo nextest by using pre-built binary
+RUN curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+
 #compile libssl-dev for riscv64!
 COPY build_openssl.sh /
 RUN /build_openssl.sh
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/openssl_riscv64/include
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/openssl_riscv64/lib
+
+RUN mkdir .cargo
+COPY config.toml .cargo/config.toml

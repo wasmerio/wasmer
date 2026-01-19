@@ -36,10 +36,10 @@ use crate::object::{
 #[cfg(feature = "compiler")]
 use wasmer_types::HashAlgorithm;
 use wasmer_types::{
-    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
-    DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SerializeError, SignatureIndex, TableIndex,
+    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompilationProgressCallback,
+    CompileError, DataInitializer, DataInitializerLike, DataInitializerLocation,
+    DataInitializerLocationLike, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex,
+    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -127,6 +127,7 @@ impl Artifact {
         data: &[u8],
         tunables: &dyn Tunables,
         hash_algorithm: Option<HashAlgorithm>,
+        progress_callback: Option<CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
         let mut inner_engine = engine.inner_mut();
         let environ = ModuleEnvironment::new();
@@ -150,6 +151,7 @@ impl Artifact {
             memory_styles,
             table_styles,
             hash_algorithm,
+            progress_callback.as_ref(),
         )?;
 
         Self::from_parts(
@@ -1099,6 +1101,7 @@ impl Artifact {
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),
             function_body_inputs,
+            None,
         )?;
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
@@ -1121,11 +1124,13 @@ impl Artifact {
             _ => 1,
         };
 
+        // MetadataHeader::parse requires that metadata must be aligned
+        // by 8 bytes.
         let offset = emit_data(
             &mut obj,
             object_name.as_bytes(),
             metadata_builder.placeholder_data(),
-            default_align,
+            std::cmp::max(8, default_align),
         )
         .map_err(to_compile_error)?;
         metadata_builder.set_section_offset(offset);

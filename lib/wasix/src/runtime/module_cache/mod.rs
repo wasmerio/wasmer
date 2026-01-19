@@ -36,6 +36,7 @@ mod hashed_module;
 mod fallback;
 #[cfg(feature = "sys-thread")]
 mod filesystem;
+pub mod progress;
 mod shared;
 mod thread_local;
 mod types;

@@ -51,10 +51,10 @@ jobs:
           - build: linux-arm64
             os: ubuntu-22.04-arm
             artifact_name: "wasmer-linux-aarch64"
-            #llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             build_wasm: true
-            enable_llvm: false
+            enable_llvm: true
             enable_v8: false
             enable_wasmi: true
             enable_wamr: true
