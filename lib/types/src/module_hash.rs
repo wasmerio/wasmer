@@ -25,10 +25,10 @@ use sha2::Digest;
 #[rkyv(derive(Debug))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ModuleHash {
-    /// xxhash
+    /// Deprecated.
     XXHash([u8; 8]),
 
-    /// sha256    ]
+    /// sha256
     Sha256([u8; 32]),
 }
 
