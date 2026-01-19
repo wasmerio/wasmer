@@ -6,6 +6,7 @@ use std::{
 
 use crate::Result;
 use bincode::config;
+use bytes::Bytes;
 use futures_util::{Future, Sink, SinkExt, Stream, future::BoxFuture};
 #[cfg(feature = "hyper")]
 use hyper_util::rt::tokio::TokioIo;
@@ -113,8 +114,6 @@ where
             }
             #[cfg(feature = "hyper")]
             RemoteTx::HyperWebSocket { tx, format, .. } => {
-                use bytes::Bytes;
-
                 let data = match format {
                     crate::meta::FrameSerializationFormat::Bincode => {
                         bincode::serde::encode_to_vec(&req, config::legacy()).map_err(|err| {
@@ -136,8 +135,6 @@ where
             }
             #[cfg(feature = "tokio-tungstenite")]
             RemoteTx::TokioWebSocket { tx, format, .. } => {
-                use bytes::Bytes;
-
                 let data = match format {
                     crate::meta::FrameSerializationFormat::Bincode => {
                         bincode::serde::encode_to_vec(&req, config::legacy()).map_err(|err| {
@@ -240,8 +237,6 @@ where
                 };
 
                 let mut job = Box::pin(async move {
-                    use bytes::Bytes;
-
                     if let Err(err) = tx_guard
                         .send(hyper_tungstenite::tungstenite::Message::Binary(
                             Bytes::from_owner(data),
@@ -303,8 +298,6 @@ where
                 };
 
                 let mut job = Box::pin(async move {
-                    use bytes::Bytes;
-
                     if let Err(err) = tx_guard
                         .send(tokio_tungstenite::tungstenite::Message::Binary(
                             Bytes::from_owner(data),
@@ -403,8 +396,6 @@ where
                     Err(_) => {
                         let tx = tx.clone();
                         work.send(Box::pin(async move {
-                            use bytes::Bytes;
-
                             let mut tx_guard = tx.lock().await;
                             tx_guard
                                 .send(hyper_tungstenite::tungstenite::Message::Binary(
@@ -422,8 +413,6 @@ where
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
-                    use bytes::Bytes;
-
                     if let Err(err) = tx_guard
                         .send(hyper_tungstenite::tungstenite::Message::Binary(
                             Bytes::from_owner(data),
@@ -469,8 +458,6 @@ where
                     Err(_) => {
                         let tx = tx.clone();
                         work.send(Box::pin(async move {
-                            use bytes::Bytes;
-
                             let mut tx_guard = tx.lock().await;
                             tx_guard
                                 .send(tokio_tungstenite::tungstenite::Message::Binary(
@@ -488,8 +475,6 @@ where
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
-                    use bytes::Bytes;
-
                     if let Err(err) = tx_guard
                         .send(tokio_tungstenite::tungstenite::Message::Binary(
                             Bytes::from_owner(data),
