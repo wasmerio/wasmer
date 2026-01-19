@@ -2050,46 +2050,110 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         info: ExtraInfo,
     ) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CompileError> {
         let ty = value.get_type();
-        debug_assert!(
-            ty.eq(&self.intrinsics.f32_ty.as_basic_type_enum())
-                || ty.eq(&self.intrinsics.f64_ty.as_basic_type_enum())
-        );
-        let input = value.into_float_value();
         let is_f32 = ty.eq(&self.intrinsics.f32_ty.as_basic_type_enum());
+        let is_f64 = ty.eq(&self.intrinsics.f64_ty.as_basic_type_enum());
+        let is_f32x4 = ty.eq(&self.intrinsics.f32x4_ty.as_basic_type_enum());
+        let is_f64x2 = ty.eq(&self.intrinsics.f64x2_ty.as_basic_type_enum());
+        debug_assert!(is_f32 || is_f64 || is_f32x4 || is_f64x2);
 
         if matches!(
             self.target_triple.architecture,
             Architecture::Riscv32(..) | Architecture::Riscv64(..)
         ) {
-            let is_not_nan = err!(self.builder.build_float_compare(
-                FloatPredicate::OEQ,
-                input,
-                input,
-                "is_not_nan",
-            ));
-            let canonical_nan_bits = if is_f32 {
-                self.intrinsics
+            if is_f32 || is_f64 {
+                let input = value.into_float_value();
+                let is_nan = err!(self.builder.build_float_compare(
+                    FloatPredicate::UNO,
+                    input,
+                    input,
+                    "res_is_nan",
+                ));
+                let canonical_nan_bits = if is_f32 {
+                    self.intrinsics
+                        .i32_ty
+                        .const_int(CANONICAL_NAN_F32 as _, false)
+                } else {
+                    self.intrinsics.i64_ty.const_int(CANONICAL_NAN_F64, false)
+                };
+                let canonical_nan = err!(self.builder.build_bit_cast(
+                    canonical_nan_bits,
+                    ty,
+                    "canonical_nan",
+                ));
+                let res = err!(self.builder.build_select(
+                    is_nan,
+                    canonical_nan,
+                    value,
+                    "canonical_nan",
+                ));
+                Ok((res, info))
+            } else if is_f32x4 {
+                let value = value.into_vector_value();
+                let is_nan = err!(self.builder.build_call(
+                    self.intrinsics.cmp_f32x4,
+                    &[
+                        value.into(),
+                        value.into(),
+                        self.intrinsics.fp_uno_md,
+                        self.intrinsics.fp_exception_md,
+                    ],
+                    "",
+                ))
+                .try_as_basic_value()
+                .unwrap_basic()
+                .into_vector_value();
+                let canonical_nan_bits = self
+                    .intrinsics
                     .i32_ty
-                    .const_int(CANONICAL_NAN_F32 as _, false)
+                    .const_int(CANONICAL_NAN_F32 as _, false);
+                let canonical_nan_bits = VectorType::const_vector(&[canonical_nan_bits; 4]);
+                let canonical_nan = err!(self.builder.build_bit_cast(
+                    canonical_nan_bits,
+                    self.intrinsics.f32x4_ty,
+                    "canonical_nan",
+                ));
+                let res = err!(self.builder.build_select(
+                    is_nan,
+                    canonical_nan.as_basic_value_enum(),
+                    value.as_basic_value_enum(),
+                    "canonical_nan",
+                ));
+                Ok((res, info))
             } else {
-                self.intrinsics.i64_ty.const_int(CANONICAL_NAN_F64, false)
-            };
-            let canonical_nan = err!(self.builder.build_bit_cast(
-                canonical_nan_bits,
-                ty,
-                "canonical_nan",
-            ));
-            let res =
-                err!(
-                    self.builder
-                        .build_select(is_not_nan, value, canonical_nan, "canonical_nan",)
-                );
-            Ok((res, info))
+                let value = value.into_vector_value();
+                let is_nan = err!(self.builder.build_call(
+                    self.intrinsics.cmp_f64x2,
+                    &[
+                        value.into(),
+                        value.into(),
+                        self.intrinsics.fp_uno_md,
+                        self.intrinsics.fp_exception_md,
+                    ],
+                    "",
+                ))
+                .try_as_basic_value()
+                .unwrap_basic()
+                .into_vector_value();
+                let canonical_nan_bits = self.intrinsics.i64_ty.const_int(CANONICAL_NAN_F64, false);
+                let canonical_nan_bits = VectorType::const_vector(&[canonical_nan_bits; 2]);
+                let canonical_nan = err!(self.builder.build_bit_cast(
+                    canonical_nan_bits,
+                    self.intrinsics.f64x2_ty,
+                    "canonical_nan",
+                ));
+                let res = err!(self.builder.build_select(
+                    is_nan,
+                    canonical_nan.as_basic_value_enum(),
+                    value.as_basic_value_enum(),
+                    "canonical_nan",
+                ));
+                Ok((res, info))
+            }
         } else {
             Ok((
                 value,
                 (info
-                    | if is_f32 {
+                    | if is_f32 || is_f32x4 {
                         ExtraInfo::pending_f32_nan()
                     } else {
                         ExtraInfo::pending_f64_nan()
@@ -5628,12 +5692,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F64Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
@@ -5657,12 +5721,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F32Floor => {
                 let (input, info) = self.state.pop1_extra()?;
@@ -5686,12 +5750,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F64Floor => {
                 let (input, info) = self.state.pop1_extra()?;
@@ -5715,12 +5779,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F32Trunc => {
                 let (v, info) = self.state.pop1_extra()?;
@@ -5743,12 +5807,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F64Trunc => {
                 let (v, info) = self.state.pop1_extra()?;
@@ -5771,12 +5835,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F32Nearest => {
                 let (v, info) = self.state.pop1_extra()?;
@@ -5800,12 +5864,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F64Nearest => {
                 let (v, info) = self.state.pop1_extra()?;
@@ -5829,12 +5893,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
+                let (res, info) = self.finalize_rounding_result(res, i)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                self.state.push1_extra(res, info);
             }
             Operator::F32Abs => {
                 let (v, i) = self.state.pop1_extra()?;
