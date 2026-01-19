@@ -65,6 +65,7 @@ cfg_std_or_core! {
 
     pub mod misc;
     pub mod object;
+    pub mod progress;
     pub mod serialize;
     pub mod types;
 
