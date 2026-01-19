@@ -372,18 +372,19 @@ fn call_module(
             "vforked process returned from main without calling exec or exit - cleaning up resources"
         );
         
-        // Close all file descriptors in the child environment
+        // Close all file descriptors in the child environment before restoring parent
         block_on(
             unsafe { ctx.data(&store).get_memory_and_wasi_state(&store, 0) }
                 .1
                 .fs
-                .close_all(),
+                .close_all()
         );
         
         // Restore the WasiEnv to the point when we vforked (following proc_exit2 pattern)
         let mut parent_env = vfork.env;
-        ctx.data_mut(&mut store).swap_inner(parent_env.as_mut());
-        let mut child_env = std::mem::replace(ctx.data_mut(&mut store), *parent_env);
+        let ctx_data = ctx.data_mut(&mut store);
+        ctx_data.swap_inner(parent_env.as_mut());
+        let mut child_env = std::mem::replace(ctx_data, *parent_env);
         
         // Transfer thread handle ownership to child so it's properly cleaned up
         child_env.owned_handles.push(vfork.handle);
@@ -391,7 +392,8 @@ fn call_module(
         // Terminate the child process
         child_env.process.terminate(code);
         
-        // Continue cleanup with the restored parent environment
+        // The parent environment is now restored. The subsequent blocking_on_exit will
+        // clean up the parent's resources, not the child's (which were already closed above).
     }
 
     // Cleanup the environment
