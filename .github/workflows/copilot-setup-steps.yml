@@ -36,6 +36,20 @@ jobs:
           target: x86_64-unknown-linux-gnu
           components: rustc,cargo,rust-std,rust-src,clippy,rustfmt,rust-analyzer,rust-docs
 
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.wasmer/cache/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            ${{ runner.os }}-cargo-
+
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
 
