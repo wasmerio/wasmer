@@ -33,12 +33,12 @@ use crate::{
     object_file::{CompiledFunction, load_object_file},
 };
 use wasmer_compiler::{
-    GEF32_LEQ_I32_MAX, GEF32_LEQ_I64_MAX, GEF32_LEQ_U32_MAX, GEF32_LEQ_U64_MAX,
-    GEF64_LEQ_I32_MAX, GEF64_LEQ_I64_MAX, GEF64_LEQ_U32_MAX, GEF64_LEQ_U64_MAX,
-    LEF32_GEQ_I32_MIN, LEF32_GEQ_I64_MIN, LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN,
-    LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN, LEF64_GEQ_U64_MIN,
-    FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, from_binaryreadererror_wasmerror,
+    CANONICAL_NAN_F32, CANONICAL_NAN_F64, FunctionBinaryReader, FunctionBodyData,
+    GEF32_LEQ_I32_MAX, GEF32_LEQ_I64_MAX, GEF32_LEQ_U32_MAX, GEF32_LEQ_U64_MAX, GEF64_LEQ_I32_MAX,
+    GEF64_LEQ_I64_MAX, GEF64_LEQ_U32_MAX, GEF64_LEQ_U64_MAX, LEF32_GEQ_I32_MIN, LEF32_GEQ_I64_MIN,
+    LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN, LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN,
+    LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror,
     misc::CompiledKind,
     types::{
         relocation::RelocationTarget,
@@ -2067,11 +2067,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 input,
                 "is_not_nan",
             ));
-            // TODO: share constant with Singlepass
             let canonical_nan_bits = if is_f32 {
-                self.intrinsics.i32_ty.const_int(0x7fc00000, false)
+                self.intrinsics
+                    .i32_ty
+                    .const_int(CANONICAL_NAN_F32 as _, false)
             } else {
-                self.intrinsics.i64_ty.const_int(0x7ff8000000000000, false)
+                self.intrinsics.i64_ty.const_int(CANONICAL_NAN_F64, false)
             };
             let canonical_nan = err!(self.builder.build_bit_cast(
                 canonical_nan_bits,

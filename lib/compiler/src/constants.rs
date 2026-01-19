@@ -36,3 +36,8 @@ pub const GEF32_LEQ_U64_MAX: u64 = 18446742974197923840; // bits as f32: 0x5f7f_
 pub const LEF64_GEQ_U64_MIN: u64 = u64::MIN;
 /// Greatest Exact Float (64 bits) less-than-or-equal-to u64::MAX when rounding towards zero.
 pub const GEF64_LEQ_U64_MAX: u64 = 18446744073709549568; // bits as f64: 0x43ef_ffff_ffff_ffff
+
+/// Canonical NaN value for f32 type
+pub const CANONICAL_NAN_F32: u32 = 0x7fc00000;
+/// Canonical NaN value for f64 type
+pub const CANONICAL_NAN_F64: u64 = 0x7ff8000000000000;
