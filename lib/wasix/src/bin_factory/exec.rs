@@ -380,10 +380,10 @@ fn call_module(
                 .close_all(),
         );
         
-        // Restore the parent environment
-        vfork.env.swap_inner(ctx.data_mut(&mut store));
-        std::mem::swap(vfork.env.as_mut(), ctx.data_mut(&mut store));
-        let mut child_env = *vfork.env;
+        // Restore the WasiEnv to the point when we vforked (following proc_exit2 pattern)
+        let mut parent_env = vfork.env;
+        ctx.data_mut(&mut store).swap_inner(parent_env.as_mut());
+        let mut child_env = std::mem::replace(ctx.data_mut(&mut store), *parent_env);
         
         // Transfer thread handle ownership to child so it's properly cleaned up
         child_env.owned_handles.push(vfork.handle);
