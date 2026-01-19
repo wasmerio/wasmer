@@ -11,6 +11,7 @@ use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
 };
 use crate::machine_arm64::MachineARM64;
+use crate::machine_riscv::MachineRiscv;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
 use crate::unwind::{UnwindFrame, create_systemv_cie};
@@ -22,6 +23,7 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
+use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
@@ -34,8 +36,8 @@ use wasmer_compiler::{
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    TableIndex, TrapCode, TrapInformation, Type, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo, TableIndex, TrapCode, TrapInformation, Type, VMOffsets,
 };
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
@@ -61,11 +63,13 @@ impl SinglepassCompiler {
         target: &Target,
         compile_info: &CompileModuleInfo,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         let arch = target.triple().architecture;
         match arch {
             Architecture::X86_64 => {}
             Architecture::Aarch64(_) => {}
+            Architecture::Riscv64(_) => {}
             _ => {
                 return Err(CompileError::UnsupportedTarget(
                     target.triple().architecture.to_string(),
@@ -77,12 +81,25 @@ impl SinglepassCompiler {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
             Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
-            _ => {
-                return Err(CompileError::UnsupportedTarget(
-                    "Unsupported Calling convention for Singlepass compiler".to_string(),
-                ));
-            }
+            _ => match target.triple().architecture {
+                Architecture::Riscv64(_) => CallingConvention::SystemV,
+                _ => {
+                    return Err(CompileError::UnsupportedTarget(
+                        "Unsupported Calling convention for Singlepass compiler".to_string(),
+                    ));
+                }
+            },
         };
+
+        let module = &compile_info.module;
+        let total_functions = function_body_inputs.len() as u64;
+        let total_function_call_trampolines = module.signatures.len() as u64;
+        let total_dynamic_trampolines = module.num_imported_functions as u64;
+        let total_steps =
+            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
+        let progress = progress_callback
+            .cloned()
+            .map(|cb| ProgressContext::new(cb, total_steps, "singlepass::functions"));
 
         // Generate the frametable
         #[cfg(feature = "unwind")]
@@ -152,7 +169,7 @@ impl SinglepassCompiler {
                     }
                 }
 
-                match arch {
+                let res = match arch {
                     Architecture::X86_64 => {
                         let machine = MachineX86_64::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
@@ -195,8 +212,35 @@ impl SinglepassCompiler {
 
                         generator.finalize(input, arch)
                     }
+                    Architecture::Riscv64(_) => {
+                        let machine = MachineRiscv::new(Some(target.clone()))?;
+                        let mut generator = FuncGen::new(
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            memory_styles,
+                            table_styles,
+                            i,
+                            &locals,
+                            machine,
+                            calling_convention,
+                        )?;
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op)?;
+                        }
+
+                        generator.finalize(input, arch)
+                    }
                     _ => unimplemented!(),
+                }?;
+
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
                 }
+
+                Ok(res)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
@@ -220,6 +264,9 @@ impl SinglepassCompiler {
                         &body.body,
                         HashMap::new(),
                     )?;
+                }
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
                 }
 
                 Ok(body)
@@ -250,6 +297,9 @@ impl SinglepassCompiler {
                         &body.body,
                         HashMap::new(),
                     )?;
+                }
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
                 }
                 Ok(body)
             })
@@ -311,6 +361,7 @@ impl Compiler for SinglepassCompiler {
         compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         #[cfg(feature = "rayon")]
         {
@@ -323,13 +374,23 @@ impl Compiler for SinglepassCompiler {
                 })?;
 
             pool.install(|| {
-                self.compile_module_internal(target, compile_info, function_body_inputs)
+                self.compile_module_internal(
+                    target,
+                    compile_info,
+                    function_body_inputs,
+                    progress_callback,
+                )
             })
         }
 
         #[cfg(not(feature = "rayon"))]
         {
-            self.compile_module_internal(target, compile_info, function_body_inputs)
+            self.compile_module_internal(
+                target,
+                compile_info,
+                function_body_inputs,
+                progress_callback,
+            )
         }
     }
 
@@ -392,7 +453,7 @@ mod tests {
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&linux32, &info, &translation, inputs);
+        let result = compiler.compile_module(&linux32, &info, &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
             error => panic!("Unexpected error: {error:?}"),
@@ -401,7 +462,7 @@ mod tests {
         // Compile for win32
         let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win32, &info, &translation, inputs);
+        let result = compiler.compile_module(&win32, &info, &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {error:?}"),

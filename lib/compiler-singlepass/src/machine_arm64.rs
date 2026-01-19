@@ -511,7 +511,7 @@ impl MachineARM64 {
                     temps.push(tmp);
                 }
             }
-            _ => codegen_error!("singplass emit_relaxed_ldr64 unreachable"),
+            _ => codegen_error!("singlepass emit_relaxed_ldr64 unreachable"),
         }
         if dst != dest {
             self.move_location(sz, dest, dst)?;
@@ -8312,6 +8312,7 @@ impl Machine for MachineARM64 {
                     instruction_offset,
                     CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
+                UnwindOps::SubtractFP { .. } => unimplemented!(),
             }
         }
         Some(UnwindInstructions {

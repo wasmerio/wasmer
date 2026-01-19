@@ -11,8 +11,8 @@ use thiserror::Error;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
-    ModuleInfo, SerializeError,
+    CompilationProgress, CompilationProgressCallback, CompileError, DeserializeError, ExportType,
+    ExportsIterator, ImportType, ImportsIterator, ModuleInfo, SerializeError, UserAbort,
 };
 
 use crate::{AsEngineRef, macros::backend::match_rt, utils::IntoBytes};
