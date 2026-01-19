@@ -297,7 +297,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let is_riscv64 = target_triple
             .as_str()
             .to_string_lossy()
-            .starts_with("riscv");
+            .starts_with("riscv64");
 
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
