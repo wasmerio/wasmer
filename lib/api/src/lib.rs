@@ -456,7 +456,7 @@ compile_error!(
     ))
 ))]
 compile_error!(
-    "the `sys` feature requires enabling at least one compiler backend: `singlepass`, `cranelift`, or `llvm`."
+    "the `sys` feature requires enabling at least one compiler backend: `singlepass`, `cranelift`, `llvm`, or `headless`."
 );
 
 cfg_compiler! {
