@@ -24,7 +24,7 @@ use inkwell::{
 };
 use itertools::Itertools;
 use smallvec::SmallVec;
-use target_lexicon::{BinaryFormat, OperatingSystem, Triple};
+use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
@@ -67,6 +67,7 @@ const LLVMIR_LARGE_FUNCTION_THRESHOLD: usize = 100_000;
 
 pub struct FuncTranslator {
     ctx: Context,
+    target_triple: Triple,
     target_machine: TargetMachine,
     target_machine_no_opt: Option<TargetMachine>,
     abi: Box<dyn Abi>,
@@ -77,6 +78,7 @@ pub struct FuncTranslator {
 
 impl FuncTranslator {
     pub fn new(
+        target_triple: Triple,
         target_machine: TargetMachine,
         target_machine_no_opt: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
@@ -85,6 +87,7 @@ impl FuncTranslator {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
+            target_triple,
             target_machine,
             target_machine_no_opt,
             abi,
@@ -323,6 +326,7 @@ impl FuncTranslator {
             symbol_registry,
             abi: &*self.abi,
             config,
+            target_triple: self.target_triple.clone(),
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
         };
@@ -1909,6 +1913,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
     config: &'a LLVM,
+    target_triple: Triple,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
 }
@@ -2032,6 +2037,59 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Ok(result.as_basic_value_enum())
         } else {
             Ok(value)
+        }
+    }
+
+    fn finalize_ceil_trunc_result(
+        &self,
+        value: BasicValueEnum<'ctx>,
+        info: ExtraInfo,
+    ) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CompileError> {
+        let ty = value.get_type();
+        debug_assert!(
+            ty.eq(&self.intrinsics.f32_ty.as_basic_type_enum())
+                || ty.eq(&self.intrinsics.f64_ty.as_basic_type_enum())
+        );
+        let input = value.into_float_value();
+        let is_f32 = ty.eq(&self.intrinsics.f32_ty.as_basic_type_enum());
+
+        if matches!(
+            self.target_triple.architecture,
+            Architecture::Riscv32(..) | Architecture::Riscv64(..)
+        ) {
+            let is_not_nan = err!(self.builder.build_float_compare(
+                FloatPredicate::OEQ,
+                input,
+                input,
+                "is_not_nan",
+            ));
+            // TODO: share constant with Singlepass
+            let canonical_nan_bits = if is_f32 {
+                self.intrinsics.i32_ty.const_int(0x7fc00000, false)
+            } else {
+                self.intrinsics.i64_ty.const_int(0x7ff8000000000000, false)
+            };
+            let canonical_nan = err!(self.builder.build_bit_cast(
+                canonical_nan_bits,
+                ty,
+                "canonical_nan",
+            ));
+            let res =
+                err!(
+                    self.builder
+                        .build_select(is_not_nan, value, canonical_nan, "canonical_nan",)
+                );
+            Ok((res, info))
+        } else {
+            Ok((
+                value,
+                (info
+                    | if is_f32 {
+                        ExtraInfo::pending_f32_nan()
+                    } else {
+                        ExtraInfo::pending_f64_nan()
+                    })?,
+            ))
         }
     }
 
@@ -5552,8 +5610,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (info | ExtraInfo::pending_f32_nan())?);
+                let (res, info) = self.finalize_ceil_trunc_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F32x4Ceil => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5581,8 +5639,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (info | ExtraInfo::pending_f64_nan())?);
+                let (res, info) = self.finalize_ceil_trunc_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2Ceil => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5610,25 +5668,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                let input = input.into_float_value();
-                let is_not_nan = err!(self.builder.build_float_compare(
-                    FloatPredicate::OEQ,
-                    input,
-                    input,
-                    "f32_is_not_nan",
-                ));
-                let canonical_nan_bits = self.intrinsics.i32_ty.const_int(0x7fc0_0000, false);
-                let canonical_nan = err!(self.builder.build_bit_cast(
-                    canonical_nan_bits,
-                    self.intrinsics.f32_ty,
-                    "canonical_nan_f32",
-                ));
-                let res = err!(self.builder.build_select(
-                    is_not_nan,
-                    res,
-                    canonical_nan,
-                    "floor_f32_canonical_nan",
-                ));
+                let (res, info) = self.finalize_ceil_trunc_result(res, info)?;
                 self.state.push1_extra(res, info);
             }
             Operator::F32x4Floor => {
@@ -5657,8 +5697,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (info | ExtraInfo::pending_f64_nan())?);
+                let (res, info) = self.finalize_ceil_trunc_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2Floor => {
                 let (v, i) = self.state.pop1_extra()?;
