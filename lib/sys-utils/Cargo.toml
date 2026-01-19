@@ -12,7 +12,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=7.0.0-alpha.2", default-features = false, features = ["sys", "compiler", "singlepass"] }
+wasmer = { path = "../api", version = "=7.0.0-alpha.2", default-features = false, features = ["sys", "compiler", "headless"] }
 wasmer-vm = { path = "../vm", version = "=7.0.0-alpha.2" }
 wasmer-types = { path = "../types", version = "=7.0.0-alpha.2" }
 region.workspace = true

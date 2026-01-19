@@ -423,7 +423,8 @@ macro_rules! cfg_compiler {
                 feature = "jsc",
                 feature = "wamr",
                 feature = "v8",
-                feature = "wasmi"
+                feature = "wasmi",
+                feature = "headless"
             ))]
             $item
         )*
@@ -438,15 +439,21 @@ macro_rules! cfg_compiler {
     feature = "wasmi",
     feature = "v8",
     feature = "js",
-    feature = "jsc"
+    feature = "jsc",
+    feature = "headless",
 )))]
 compile_error!(
-    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `wamr`, `wasmi`, `v8`, `js`, or `jsc`."
+    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `wamr`, `wasmi`, `v8`, `js`, `jsc` or `headless`."
 );
 
 #[cfg(all(
     feature = "sys",
-    not(any(feature = "singlepass", feature = "cranelift", feature = "llvm"))
+    not(any(
+        feature = "singlepass",
+        feature = "cranelift",
+        feature = "llvm",
+        feature = "headless"
+    ))
 ))]
 compile_error!(
     "the `sys` feature requires enabling at least one compiler backend: `singlepass`, `cranelift`, or `llvm`."
@@ -473,7 +480,8 @@ cfg_compiler! {
     feature = "jsc",
     feature = "wamr",
     feature = "v8",
-    feature = "wasmi"
+    feature = "wasmi",
+    feature = "headless",
 ))]
 mod entities;
 
