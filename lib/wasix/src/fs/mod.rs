@@ -32,6 +32,7 @@ use crate::{
 use futures::{Future, TryStreamExt, future::BoxFuture};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
+use sha2::Digest;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{
@@ -121,7 +122,13 @@ impl Inode {
     }
 
     pub fn from_path(str: &str) -> Self {
-        Inode(xxhash_rust::xxh64::xxh64(str.as_bytes(), 0))
+        let digest = sha2::Sha256::digest(str.as_bytes());
+        // SAFETY: we take only 1/4 of the output digest
+        Inode(u64::from_ne_bytes(
+            digest[..8]
+                .try_into()
+                .expect("digest must be greater or equal to 8 bytes"),
+        ))
     }
 }
 

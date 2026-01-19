@@ -42,7 +42,6 @@ hyper = { workspace = true, features = ["server"], optional = true }
 derive_more.workspace = true
 wasm-encoder.workspace = true
 
-xxhash-rust = { workspace = true, features = ["xxh64"] }
 rusty_pool = { workspace = true, optional = true }
 cfg-if.workspace = true
 thiserror.workspace = true
