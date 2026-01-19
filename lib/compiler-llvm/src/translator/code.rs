@@ -2040,7 +2040,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
     }
 
-    fn finalize_ceil_trunc_result(
+    fn finalize_rounding_result(
         &self,
         value: BasicValueEnum<'ctx>,
         info: ExtraInfo,
@@ -5610,7 +5610,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                let (res, info) = self.finalize_ceil_trunc_result(res, info)?;
+                let (res, info) = self.finalize_rounding_result(res, info)?;
                 self.state.push1_extra(res, info);
             }
             Operator::F32x4Ceil => {
@@ -5639,7 +5639,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                let (res, info) = self.finalize_ceil_trunc_result(res, info)?;
+                let (res, info) = self.finalize_rounding_result(res, info)?;
                 self.state.push1_extra(res, info);
             }
             Operator::F64x2Ceil => {
@@ -5668,7 +5668,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                let (res, info) = self.finalize_ceil_trunc_result(res, info)?;
+                let (res, info) = self.finalize_rounding_result(res, info)?;
                 self.state.push1_extra(res, info);
             }
             Operator::F32x4Floor => {
@@ -5697,7 +5697,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                let (res, info) = self.finalize_ceil_trunc_result(res, info)?;
+                let (res, info) = self.finalize_rounding_result(res, info)?;
                 self.state.push1_extra(res, info);
             }
             Operator::F64x2Floor => {
@@ -5718,15 +5718,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F32Trunc => {
-                let (v, i) = self.state.pop1_extra()?;
+                let (v, info) = self.state.pop1_extra()?;
                 let res = err!(
                     self.builder
                         .build_call(self.intrinsics.trunc_f32, &[v.into()], "")
                 )
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F32x4Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5746,15 +5746,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F64Trunc => {
-                let (v, i) = self.state.pop1_extra()?;
+                let (v, info) = self.state.pop1_extra()?;
                 let res = err!(
                     self.builder
                         .build_call(self.intrinsics.trunc_f64, &[v.into()], "")
                 )
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5774,7 +5774,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F32Nearest => {
-                let (v, i) = self.state.pop1_extra()?;
+                let (v, info) = self.state.pop1_extra()?;
                 let res = err!(self.builder.build_call(
                     self.intrinsics.nearbyint_f32,
                     &[v.into()],
@@ -5782,8 +5782,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F32x4Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5803,7 +5803,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F64Nearest => {
-                let (v, i) = self.state.pop1_extra()?;
+                let (v, info) = self.state.pop1_extra()?;
                 let res = err!(self.builder.build_call(
                     self.intrinsics.nearbyint_f64,
                     &[v.into()],
@@ -5811,8 +5811,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .try_as_basic_value()
                 .unwrap_basic();
-                self.state
-                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
+                let (res, info) = self.finalize_rounding_result(res, info)?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
