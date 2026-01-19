@@ -31,6 +31,7 @@ use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
     config::LLVM,
     error::{err, err_nt},
+    misc::TargetMachineExt,
     object_file::{CompiledFunction, load_object_file},
 };
 use wasmer_compiler::{
@@ -85,11 +86,7 @@ impl FuncTranslator {
         pointer_width: u8,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
-        let is_riscv64 = target_machine
-            .get_triple()
-            .as_str()
-            .to_string_lossy()
-            .starts_with("riscv64");
+        let is_riscv64 = target_machine.is_riscv64();
         Ok(Self {
             ctx: Context::create(),
             target_machine,
@@ -158,7 +155,7 @@ impl FuncTranslator {
             &module,
             &self.ctx,
             &target_data,
-            &target_triple,
+            &target_machine,
             &self.binary_fmt,
         );
         let (func_type, func_attrs) = self.abi.func_type_to_llvm(

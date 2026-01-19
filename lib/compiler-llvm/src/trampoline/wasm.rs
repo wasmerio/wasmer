@@ -87,7 +87,7 @@ impl FuncTrampoline {
             &module,
             &self.ctx,
             &target_data,
-            &target_triple,
+            &target_machine,
             &self.binary_fmt,
         );
 
@@ -261,7 +261,7 @@ impl FuncTrampoline {
             &module,
             &self.ctx,
             &target_data,
-            &target_triple,
+            &target_machine,
             &self.binary_fmt,
         );
 

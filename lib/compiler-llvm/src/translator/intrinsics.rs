@@ -7,7 +7,8 @@
 use crate::LLVM;
 use crate::abi::Abi;
 use crate::error::err;
-use inkwell::targets::TargetTriple;
+use crate::misc::TargetMachineExt;
+use inkwell::targets::TargetMachine;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
     AddressSpace,
@@ -291,14 +292,10 @@ impl<'ctx> Intrinsics<'ctx> {
         module: &Module<'ctx>,
         context: &'ctx Context,
         target_data: &TargetData,
-        target_triple: &TargetTriple,
+        target_machine: &TargetMachine,
         binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
-        let is_riscv64 = target_triple
-            .as_str()
-            .to_string_lossy()
-            .starts_with("riscv64");
-
+        let is_riscv64 = target_machine.is_riscv64();
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
         let i2_ty = context.custom_width_int_type(2);
