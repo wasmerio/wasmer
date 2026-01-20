@@ -1052,10 +1052,9 @@ impl WasiFs {
         }
 
         let path: &Path = Path::new(path_str);
-        let n_components = path.components().count();
 
         // TODO: rights checks
-        'path_iter: for (i, component) in path.components().enumerate() {
+        'path_iter: for component in path.components() {
             // Since we're resolving the path against the given inode, we want to
             // assume '/a/b' to be the same as `a/b` relative to the inode, so
             // we skip over the RootDir component.
@@ -1063,8 +1062,6 @@ impl WasiFs {
                 continue;
             }
 
-            // used to terminate symlink resolution properly
-            let last_component = i + 1 == n_components;
             // for each component traverse file structure
             // loading inodes as necessary
             'symlink_resolution: while symlink_count < MAX_SYMLINKS {
@@ -1096,6 +1093,13 @@ impl WasiFs {
                             entries.get(component.as_os_str().to_string_lossy().as_ref())
                         {
                             cur_inode = entry.clone();
+                            if follow_symlinks {
+                                let entry_guard = entry.read();
+                                if matches!(entry_guard.deref(), Kind::Symlink { .. }) {
+                                    loop_for_symlink = true;
+                                    symlink_count += 1;
+                                }
+                            }
                         } else {
                             let file = {
                                 let mut cd = path.clone();
@@ -1228,10 +1232,10 @@ impl WasiFs {
                             }
                             cur_inode = new_inode;
 
-                            if loop_for_symlink && follow_symlinks {
-                                debug!("Following symlink to {:?}", cur_inode);
-                                continue 'symlink_resolution;
-                            }
+                        }
+                        if loop_for_symlink && follow_symlinks {
+                            debug!("Following symlink to {:?}", cur_inode);
+                            continue 'symlink_resolution;
                         }
                     }
                     Kind::Root { entries } => {
@@ -1294,16 +1298,8 @@ impl WasiFs {
                             follow_symlinks,
                         )?;
                         cur_inode = symlink_inode;
-                        // if we're at the very end and we found a file, then we're done
-                        // TODO: figure out if this should also happen for directories?
-                        let guard = cur_inode.read();
-                        if let Kind::File { .. } = guard.deref() {
-                            // check if on last step
-                            if last_component {
-                                break 'symlink_resolution;
-                            }
-                        }
-                        continue 'symlink_resolution;
+                        // Resolved the symlink target for this component.
+                        break 'symlink_resolution;
                     }
                 }
                 break 'symlink_resolution;
@@ -2155,37 +2151,12 @@ impl WasiFs {
                 .root_fs
                 .metadata(path)
                 .map_err(fs_error_into_wasi_err)?,
-            Kind::Symlink {
-                base_po_dir,
-                path_to_symlink,
-                ..
-            } => {
-                let guard = self.fd_map.read().unwrap();
-                let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
-                let guard = base_po_inode.read();
-                match guard.deref() {
-                    Kind::Root { .. } => self
-                        .root_fs
-                        .symlink_metadata(path_to_symlink)
-                        .map_err(fs_error_into_wasi_err)?,
-                    Kind::Dir { path, .. } => {
-                        let mut real_path = path.clone();
-                        // PHASE 1: ignore all possible symlinks in `relative_path`
-                        // TODO: walk the segments of `relative_path` via the entries of the Dir
-                        //       use helper function to avoid duplicating this logic (walking this will require
-                        //       &self to be &mut sel
-                        // TODO: adjust size of symlink, too
-                        //      for all paths adjusted think about this
-                        real_path.push(path_to_symlink);
-                        self.root_fs
-                            .symlink_metadata(&real_path)
-                            .map_err(fs_error_into_wasi_err)?
-                    }
-                    // if this triggers, there's a bug in the symlink code
-                    _ => unreachable!(
-                        "Symlink pointing to something that's not a directory as its base preopened directory"
-                    ),
-                }
+            Kind::Symlink { relative_path, .. } => {
+                return Ok(Filestat {
+                    st_filetype: Filetype::SymbolicLink,
+                    st_size: relative_path.as_os_str().len() as u64,
+                    ..Filestat::default()
+                });
             }
             _ => return Err(Errno::Io),
         };

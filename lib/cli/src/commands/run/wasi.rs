@@ -407,7 +407,7 @@ impl Wasi {
                 // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new_arc(default_fs_backing()));
-                for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
+                for MappedDirectory { host, guest } in mapped_dirs {
                     let host = if !host.is_absolute() {
                         Path::new("/").join(host)
                     } else {
@@ -431,10 +431,12 @@ impl Wasi {
                 .unwrap();
 
             if have_current_dir {
-                builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+                builder = builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?;
             } else {
-                builder.map_dir(".", "/")?
+                builder = builder.map_dir(".", "/")?;
             }
+
+            builder
         };
 
         *builder.capabilities_mut() = self.capabilities();

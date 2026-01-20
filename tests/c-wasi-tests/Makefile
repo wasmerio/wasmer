@@ -228,7 +228,40 @@ random_get.wasm: random_get.c
 	  --no-export-dynamic \
 	  -o $@
 
-install: libside1.so libside2.so dlopen.wasm dylink-needed.wasm proc_id.wasm thread_id.wasm fd_tell.wasm random_get.wasm sched_yield.wasm closure_free.wasm fd_fdstat_get.wasm fd_fdflags_get.wasm
+getcwd.wasm: getcwd.c
+	clang-19 \
+	  --target=wasm32-wasi --sysroot=${WASIX_SYSROOT_PIC} \
+	  -matomics -mbulk-memory -mmutable-globals -pthread \
+	  -mthread-model posix -ftls-model=local-exec \
+      -fno-trapping-math -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_SIGNAL \
+	  -D_WASI_EMULATED_PROCESS_CLOCKS \
+      -g -flto -O0 \
+	  -fPIC \
+      -c $< -o $(patsubst %.wasm, %.o, $@)
+
+	wasm-ld-19 \
+	  -L${WASIX_SYSROOT_PIC}/lib \
+	  -L${WASIX_SYSROOT_PIC}/lib/wasm32-wasi \
+	  --whole-archive --export-all \
+	  $(patsubst %.wasm, %.o, $@) \
+	  ${WASIX_SYSROOT_PIC}/lib/wasm32-wasi/crt1.o \
+	  -lc -lresolv -lrt -lm -lpthread \
+	  -lwasi-emulated-mman \
+	  ${WASIX_SYSROOT_PIC}/lib/wasm32-wasi/libclang_rt.builtins-wasm32.a \
+	  --max-memory=4294967296 --import-memory --shared-memory \
+	  --extra-features=atomics,bulk-memory,mutable-globals \
+	  --export=__wasm_signal --export=__tls_size --export=__tls_align \
+	  --export=__tls_base --export=__wasm_call_ctors --export-if-defined=__wasm_apply_data_relocs \
+	  --experimental-pic \
+	  --allow-undefined \
+	  -pie \
+	  --no-export-dynamic \
+	  -o $@
+
+run-getcwd: getcwd.wasm
+	../../target/release/wasmer run --dir=. --enable-threads getcwd.wasm
+
+install: libside1.so libside2.so dlopen.wasm dylink-needed.wasm proc_id.wasm thread_id.wasm fd_tell.wasm random_get.wasm sched_yield.wasm closure_free.wasm fd_fdstat_get.wasm fd_fdflags_get.wasm getcwd.wasm
 	cp -f $^ ../integration/cli/tests/wasm
 
 clean:
@@ -351,4 +384,3 @@ fd_fdflags_get.wasm: fd_fdflags_get.c
 	  -pie \
 	  --no-export-dynamic \
 	  -o $@
-
