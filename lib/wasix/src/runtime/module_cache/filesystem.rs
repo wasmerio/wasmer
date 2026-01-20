@@ -244,7 +244,7 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let key = ModuleHash::new([0; 8]);
+        let key = ModuleHash::from_bytes([0; _]);
         let expected_path = cache.path(key, &engine.deterministic_id());
 
         cache.save(key, &engine, &module).await.unwrap();
@@ -260,7 +260,7 @@ mod tests {
         let cache_dir = temp.path().join("this").join("doesn't").join("exist");
         assert!(!cache_dir.exists());
         let cache = FileSystemCache::new(&cache_dir, create_tokio_task_manager());
-        let key = ModuleHash::new([0; 8]);
+        let key = ModuleHash::from_bytes([0; _]);
 
         cache.save(key, &engine, &module).await.unwrap();
 
@@ -271,7 +271,7 @@ mod tests {
     async fn missing_file() {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
-        let key = ModuleHash::new([0; 8]);
+        let key = ModuleHash::from_bytes([0; _]);
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
 
         let err = cache.load(key, &engine).await.unwrap_err();
@@ -284,7 +284,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::new([0; 8]);
+        let key = ModuleHash::from_bytes([0; _]);
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         let expected_path = cache.path(key, &engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
@@ -307,7 +307,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::new([0; 8]);
+        let key = ModuleHash::from_bytes([0; _]);
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         let expected_path = cache.path(key, &engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();

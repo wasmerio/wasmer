@@ -57,6 +57,20 @@ impl ModuleHash {
         Self::Sha256(hash)
     }
 
+    /// Generate a new [`ModuleHash`] based on the Sha256 hash of some bytes.
+    pub fn sha256(wasm: impl AsRef<[u8]>) -> Self {
+        let wasm = wasm.as_ref();
+
+        let hash: [u8; 32] = sha2::Sha256::digest(wasm).into();
+
+        Self::Sha256(hash)
+    }
+
+    /// Create a new [`ModuleHash`] from the raw sha256 hash.
+    pub fn from_bytes(hash: [u8; 32]) -> Self {
+        Self::Sha256(hash)
+    }
+
     /// Generate a random [`ModuleHash`]. For when you don't care about caches.
     pub fn random() -> Self {
         let mut bytes = [0_u8; _];

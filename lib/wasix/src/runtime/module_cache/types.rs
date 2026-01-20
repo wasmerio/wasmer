@@ -167,7 +167,10 @@ mod tests {
     #[test]
     fn module_hash_is_just_sha_256() {
         let wasm = b"\0asm...";
-        let raw = [0x0c, 0xc7, 0x88, 0x60, 0xd4, 0x14, 0x71, 0x4c];
+        let raw = [
+            90, 57, 254, 239, 82, 229, 59, 143, 254, 223, 215, 5, 21, 86, 236, 16, 94, 216, 105,
+            130, 241, 34, 160, 93, 39, 40, 217, 103, 120, 228, 235, 150,
+        ];
 
         let hash = ModuleHash::new(wasm);
 
