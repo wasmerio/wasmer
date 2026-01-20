@@ -13,8 +13,9 @@ use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {
-    registrations: Vec<usize>,
     published: bool,
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    registrations: Vec<usize>,
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     compact_unwind_mgr: compact_unwind::CompactUnwindManager,
 }
@@ -99,9 +100,21 @@ fn using_libunwind() -> bool {
 impl UnwindRegistry {
     /// Creates a new unwind registry with the given base address.
     pub fn new() -> Self {
+        // Register atexit handler that will tell us if exit has been called.
+        static INIT: Once = Once::new();
+        INIT.call_once(|| unsafe {
+            let result = libc::atexit(atexit_handler);
+            assert_eq!(result, 0, "libc::atexit must succeed");
+        });
+        assert!(
+            !EXIT_CALLED.load(Ordering::SeqCst),
+            "Cannot register unwind information during the process exit"
+        );
+
         Self {
-            registrations: Vec::new(),
             published: false,
+            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            registrations: Vec::new(),
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             compact_unwind_mgr: Default::default(),
         }
@@ -122,24 +135,15 @@ impl UnwindRegistry {
         Ok(())
     }
 
-    /// Publishes all registered functions.
-    pub fn publish(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
+    /// Publishes all registered functions (coming from .eh_frame sections).
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    pub fn publish_eh_frame(&mut self, eh_frame: &[u8]) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
         }
 
-        if let Some(eh_frame) = eh_frame {
-            unsafe {
-                self.register_frames(eh_frame);
-            }
-        }
-
-        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-        {
-            self.compact_unwind_mgr
-                .finalize()
-                .map_err(|v| v.to_string())?;
-            self.compact_unwind_mgr.register();
+        unsafe {
+            self.register_eh_frames(eh_frame);
         }
 
         self.published = true;
@@ -148,30 +152,8 @@ impl UnwindRegistry {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
-        // Register atexit handler that will tell us if exit has been called.
-        static INIT: Once = Once::new();
-        INIT.call_once(|| unsafe {
-            let result = libc::atexit(atexit_handler);
-            assert_eq!(result, 0, "libc::atexit must succeed");
-        });
-
-        assert!(
-            !EXIT_CALLED.load(Ordering::SeqCst),
-            "Cannot register unwind information during the process exit"
-        );
-
-        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-        {
-            // Special call for macOS on aarch64 to register the `.eh_frame` section.
-            // TODO: I am not 100% sure if it's correct to never deregister the `.eh_frame` section. It was this way before
-            // I started working on this, so I kept it that way.
-            unsafe {
-                compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() as usize);
-            }
-        }
-
-        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    unsafe fn register_eh_frames(&mut self, eh_frame: &[u8]) {
         {
             // Validate that the `.eh_frame` is well-formed before registering it.
             // See https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html for more details.
@@ -234,27 +216,29 @@ impl UnwindRegistry {
         }
     }
 
-    pub(crate) fn register_compact_unwind(
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn publish_compact_unwind(
         &mut self,
-        compact_unwind: Option<&[u8]>,
+        compact_unwind: &[u8],
         eh_personality_addr_in_got: Option<usize>,
     ) -> Result<(), String> {
-        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-        unsafe {
-            if let Some(slice) = compact_unwind {
-                self.compact_unwind_mgr.read_compact_unwind_section(
-                    slice.as_ptr() as _,
-                    slice.len(),
-                    eh_personality_addr_in_got,
-                )?;
-            }
+        if self.published {
+            return Err("unwind registry has already been published".to_string());
         }
 
-        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-        {
-            _ = compact_unwind;
-            _ = eh_personality_addr_in_got;
+        unsafe {
+            self.compact_unwind_mgr.read_compact_unwind_section(
+                compact_unwind.as_ptr() as _,
+                compact_unwind.len(),
+                eh_personality_addr_in_got,
+            )?;
+            self.compact_unwind_mgr
+                .finalize()
+                .map_err(|v| v.to_string())?;
+            self.compact_unwind_mgr.register();
         }
+
+        self.published = true;
         Ok(())
     }
 }
@@ -272,34 +256,31 @@ extern "C" fn atexit_handler() {
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
         if self.published {
-            unsafe {
-                // libgcc stores the frame entries as a linked list in decreasing sort order
-                // based on the PC value of the registered entry.
-                //
-                // As we store the registrations in increasing order, it would be O(N^2) to
-                // deregister in that order.
-                //
-                // To ensure that we just pop off the first element in the list upon every
-                // deregistration, walk our list of registrations backwards.
-                for registration in self.registrations.iter().rev() {
-                    // We don't want to deregister frames in UnwindRegistry::Drop as that could be called during
-                    // program shutdown and can collide with release_registered_frames and lead to
-                    // crashes.
-                    if EXIT_CALLED.load(Ordering::SeqCst) {
-                        return;
-                    }
-
-                    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-                    {
-                        compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
-                        self.compact_unwind_mgr.deregister();
-                    }
-
-                    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-                    {
-                        __deregister_frame(*registration as *const _);
-                    }
+            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            // libgcc stores the frame entries as a linked list in decreasing sort order
+            // based on the PC value of the registered entry.
+            //
+            // As we store the registrations in increasing order, it would be O(N^2) to
+            // deregister in that order.
+            //
+            // To ensure that we just pop off the first element in the list upon every
+            // deregistration, walk our list of registrations backwards.
+            for registration in self.registrations.iter().rev() {
+                // We don't want to deregister frames in UnwindRegistry::Drop as that could be called during
+                // program shutdown and can collide with release_registered_frames and lead to
+                // crashes.
+                if EXIT_CALLED.load(Ordering::SeqCst) {
+                    return;
                 }
+
+                unsafe {
+                    __deregister_frame(*registration as *const _);
+                }
+            }
+
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            {
+                self.compact_unwind_mgr.deregister();
             }
         }
     }

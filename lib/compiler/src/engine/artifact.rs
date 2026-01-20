@@ -418,6 +418,7 @@ impl Artifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
+        #[allow(unused_variables)]
         let eh_frame = match &artifact {
             ArtifactBuildVariant::Plain(p) => p.get_unwind_info().eh_frame.map(|v| unsafe {
                 std::slice::from_raw_parts(
@@ -432,7 +433,7 @@ impl Artifact {
                 )
             }),
         };
-
+        #[allow(unused_variables)]
         let compact_unwind = match &artifact {
             ArtifactBuildVariant::Plain(p) => p.get_unwind_info().compact_unwind.map(|v| unsafe {
                 std::slice::from_raw_parts(
@@ -450,12 +451,6 @@ impl Artifact {
             }
         };
 
-        // This needs to be called before publishing the `eh_frame`.
-        engine_inner.register_compact_unwind(
-            compact_unwind,
-            get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
-        )?;
-
         #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
         {
             engine_inner.register_perfmap(&finished_functions, module_info)?;
@@ -464,7 +459,17 @@ impl Artifact {
         // Make all code compiled thus far executable.
         engine_inner.publish_compiled_code();
 
-        engine_inner.publish_eh_frame(eh_frame)?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        if let Some(compact_unwind) = compact_unwind {
+            engine_inner.publish_compact_unwind(
+                compact_unwind,
+                get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
+            )?;
+        }
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        if let Some(eh_frame) = eh_frame {
+            engine_inner.publish_eh_frame(eh_frame)?;
+        }
 
         drop(get_got_address);
 
