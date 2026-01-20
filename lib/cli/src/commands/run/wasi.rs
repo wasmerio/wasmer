@@ -377,10 +377,12 @@ impl Wasi {
                 .unwrap();
 
             if have_current_dir {
-                builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+                builder = builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?;
             } else {
-                builder.map_dir(".", "/")?
+                builder = builder.map_dir(".", "/")?;
             }
+
+            builder
         };
 
         *builder.capabilities_mut() = self.capabilities();
