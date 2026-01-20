@@ -43,3 +43,8 @@
 - Build the cli: `cargo build -p wasmer-cli --features cranelift,llvm,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load`
 - Test the cli: `cargo test -p wasmer-cli --features cranelift,llvm,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load`
 - Test WASIX: `cargo test -p wasmer-wasix --features sys`
+- Convert a wasm module to wat (always limit the output with head/grep/tail): `wasm-tools print file.wasm`
+- Convert a wat module to wasm: `wasm-tools parse file.wat -o file.wasm`
+- For really hard debugging, creduce is available
+- Optimize a wasm module and strip debug info: `wasm-opt -O3 file.wasm -o file.opt.wasm`
+- Compile a C file to a WASIX module: `WASIXCC_WASM_EXCEPTIONS=1 WASIXCC_PIC=1 wasixcc -g -O0 file.c -o file.wasm`
