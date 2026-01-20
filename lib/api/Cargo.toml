@@ -132,6 +132,8 @@ artifact-size = [
 sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
 sys-default = ["sys", "wat", "cranelift"]
 
+headless = []
+
 # Experimental concurrent execution support
 experimental-async = ["dep:futures", "dep:corosensei"]
 

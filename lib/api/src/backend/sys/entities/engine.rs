@@ -4,7 +4,9 @@ use std::{path::Path, sync::Arc};
 
 use shared_buffer::OwnedBuffer;
 pub use wasmer_compiler::{Artifact, BaseTunables, Engine, EngineBuilder, Tunables};
-use wasmer_types::{DeserializeError, Features, HashAlgorithm, target::Target};
+use wasmer_types::{
+    CompilationProgressCallback, DeserializeError, Features, HashAlgorithm, target::Target,
+};
 
 use crate::{BackendEngine, BackendModule};
 
@@ -86,6 +88,24 @@ pub trait NativeEngineExt {
     /// Get a reference to attached Tunable of this engine
     fn tunables(&self) -> &dyn Tunables;
 
+    /// Compile a module from bytes with a progress callback.
+    ///
+    /// The callback is invoked with progress updates during the compilation process.
+    /// The callback also may return an error to abort the compilation.
+    ///
+    /// Signature of the callback function: `Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static`
+    ///
+    /// # Aborting compilation
+    ///
+    /// The callback has to return a `Result<(), UserAbort>`.
+    ///
+    /// If the callback returns an error, the compilation will fail with a `CompileError::Aborted`.
+    fn new_module_with_progress(
+        &self,
+        bytes: &[u8],
+        on_progress: CompilationProgressCallback,
+    ) -> Result<crate::Module, wasmer_types::CompileError>;
+
     /// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
     ///
     /// NOTE: you should almost always prefer [`Self::deserialize_from_mmapped_file`].
@@ -146,6 +166,14 @@ impl NativeEngineExt for crate::engine::Engine {
             BackendEngine::Sys(ref s) => s.tunables(),
             _ => panic!("Not a `sys` engine!"),
         }
+    }
+
+    fn new_module_with_progress(
+        &self,
+        bytes: &[u8],
+        on_progress: CompilationProgressCallback,
+    ) -> Result<crate::Module, wasmer_types::CompileError> {
+        crate::BackendModule::new_with_progress(self, bytes, on_progress).map(crate::Module)
     }
 
     unsafe fn deserialize_from_mmapped_file_unchecked(

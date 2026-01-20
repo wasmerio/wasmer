@@ -3609,6 +3609,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.machine.emit_function_epilog()?;
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
+                    #[allow(clippy::collapsible_if, reason = "hard to read otherwise")]
                     if let Ok(&return_type) = self.signature.results().iter().exactly_one()
                         && (return_type == Type::F32 || return_type == Type::F64)
                     {
