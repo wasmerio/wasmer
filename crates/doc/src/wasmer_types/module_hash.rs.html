@@ -118,18 +118,14 @@
 <a href=#118 id=118 data-nosnippet>118</a><span class="kw">impl </span>Display <span class="kw">for </span>ModuleHash {
 <a href=#119 id=119 data-nosnippet>119</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 <a href=#120 id=120 data-nosnippet>120</a>        <span class="kw">fn </span>format&lt;<span class="kw">const </span>N: usize&gt;(f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">'_</span>&gt;, bytes: <span class="kw-2">&amp;</span>[u8; N]) -&gt; fmt::Result {
-<a href=#121 id=121 data-nosnippet>121</a>            <span class="kw">for </span>byte <span class="kw">in </span>bytes {
-<a href=#122 id=122 data-nosnippet>122</a>                <span class="macro">write!</span>(f, <span class="string">"{byte:02X}"</span>)<span class="question-mark">?</span>;
-<a href=#123 id=123 data-nosnippet>123</a>            }
-<a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a>            <span class="prelude-val">Ok</span>(())
-<a href=#126 id=126 data-nosnippet>126</a>        }
-<a href=#127 id=127 data-nosnippet>127</a>
-<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#129 id=129 data-nosnippet>129</a>            <span class="self">Self</span>::XXHash(bytes) =&gt; format(f, bytes)<span class="question-mark">?</span>,
-<a href=#130 id=130 data-nosnippet>130</a>            <span class="self">Self</span>::Sha256(bytes) =&gt; format(f, bytes)<span class="question-mark">?</span>,
-<a href=#131 id=131 data-nosnippet>131</a>        }
-<a href=#132 id=132 data-nosnippet>132</a>
-<a href=#133 id=133 data-nosnippet>133</a>        <span class="prelude-val">Ok</span>(())
-<a href=#134 id=134 data-nosnippet>134</a>    }
-<a href=#135 id=135 data-nosnippet>135</a>}</code></pre></div></section></main></body></html>
+<a href=#121 id=121 data-nosnippet>121</a>            <span class="macro">write!</span>(f, <span class="string">"{}"</span>, hex::encode_upper(bytes))
+<a href=#122 id=122 data-nosnippet>122</a>        }
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#125 id=125 data-nosnippet>125</a>            <span class="self">Self</span>::XXHash(bytes) =&gt; format(f, bytes)<span class="question-mark">?</span>,
+<a href=#126 id=126 data-nosnippet>126</a>            <span class="self">Self</span>::Sha256(bytes) =&gt; format(f, bytes)<span class="question-mark">?</span>,
+<a href=#127 id=127 data-nosnippet>127</a>        }
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a>        <span class="prelude-val">Ok</span>(())
+<a href=#130 id=130 data-nosnippet>130</a>    }
+<a href=#131 id=131 data-nosnippet>131</a>}</code></pre></div></section></main></body></html>

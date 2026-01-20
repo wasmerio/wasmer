@@ -350,15 +350,11 @@
 <a href=#350 id=350 data-nosnippet>350</a>
 <a href=#351 id=351 data-nosnippet>351</a><span class="kw">impl </span>Display <span class="kw">for </span>WebcHash {
 <a href=#352 id=352 data-nosnippet>352</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-<a href=#353 id=353 data-nosnippet>353</a>        <span class="kw">for </span>byte <span class="kw">in </span><span class="self">self</span>.<span class="number">0 </span>{
-<a href=#354 id=354 data-nosnippet>354</a>            <span class="macro">write!</span>(f, <span class="string">"{byte:02X}"</span>)<span class="question-mark">?</span>;
-<a href=#355 id=355 data-nosnippet>355</a>        }
+<a href=#353 id=353 data-nosnippet>353</a>        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, hex::encode_upper(<span class="self">self</span>.<span class="number">0</span>))
+<a href=#354 id=354 data-nosnippet>354</a>    }
+<a href=#355 id=355 data-nosnippet>355</a>}
 <a href=#356 id=356 data-nosnippet>356</a>
-<a href=#357 id=357 data-nosnippet>357</a>        <span class="prelude-val">Ok</span>(())
-<a href=#358 id=358 data-nosnippet>358</a>    }
-<a href=#359 id=359 data-nosnippet>359</a>}
-<a href=#360 id=360 data-nosnippet>360</a>
-<a href=#361 id=361 data-nosnippet>361</a><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-<a href=#362 id=362 data-nosnippet>362</a></span><span class="kw">pub struct </span>Command {
-<a href=#363 id=363 data-nosnippet>363</a>    <span class="kw">pub </span>name: String,
-<a href=#364 id=364 data-nosnippet>364</a>}</code></pre></div></section></main></body></html>
+<a href=#357 id=357 data-nosnippet>357</a><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<a href=#358 id=358 data-nosnippet>358</a></span><span class="kw">pub struct </span>Command {
+<a href=#359 id=359 data-nosnippet>359</a>    <span class="kw">pub </span>name: String,
+<a href=#360 id=360 data-nosnippet>360</a>}</code></pre></div></section></main></body></html>
