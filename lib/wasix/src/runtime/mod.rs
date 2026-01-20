@@ -7,9 +7,13 @@ use self::module_cache::CacheError;
 pub use self::task_manager::{SpawnType, VirtualTaskManager};
 use module_cache::HashedModuleData;
 use wasmer_config::package::SuggestedCompilerOptimizations;
-use wasmer_types::target::UserCompilerOptimizations as WasmerSuggestedCompilerOptimizations;
+use wasmer_types::{
+    CompilationProgressCallback, ModuleHash,
+    target::UserCompilerOptimizations as WasmerSuggestedCompilerOptimizations,
+};
 
 use std::{
+    borrow::Cow,
     fmt,
     ops::Deref,
     sync::{Arc, Mutex},
@@ -29,7 +33,10 @@ use crate::{
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
     runtime::{
-        module_cache::{ModuleCache, ThreadLocalCache},
+        module_cache::{
+            ModuleCache, ThreadLocalCache,
+            progress::{ModuleLoadProgress, ModuleLoadProgressReporter},
+        },
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{BackendSource, MultiSource, Source},
     },
@@ -41,6 +48,74 @@ pub enum TaintReason {
     NonZeroExitCode(ExitCode),
     RuntimeError(RuntimeError),
     DlSymbolResolutionFailed(String),
+}
+
+/// The input to load a module.
+///
+/// Exists because the semantics for resolving modules can vary between
+/// different sources.
+///
+/// All variants are wrapped in `Cow` to allow for zero-copy usage when possible.
+pub enum ModuleInput<'a> {
+    /// Raw bytes.
+    Bytes(Cow<'a, [u8]>),
+    /// Pre-hashed module data.
+    Hashed(Cow<'a, HashedModuleData>),
+    /// A binary package command.
+    Command(Cow<'a, BinaryPackageCommand>),
+}
+
+impl<'a> ModuleInput<'a> {
+    /// Convert to an owned version of the module input.
+    pub fn to_owned(&'a self) -> ModuleInput<'static> {
+        // The manual code below is needed due to compiler issues with the lifetime.
+        match self {
+            Self::Bytes(Cow::Borrowed(b)) => {
+                let v: Vec<u8> = (*b).to_owned();
+                let c: Cow<'static, [u8]> = Cow::from(v);
+                ModuleInput::Bytes(c)
+            }
+            Self::Bytes(Cow::Owned(b)) => ModuleInput::Bytes(Cow::Owned((*b).clone())),
+            Self::Hashed(Cow::Borrowed(h)) => ModuleInput::Hashed(Cow::Owned((*h).clone())),
+            Self::Hashed(Cow::Owned(h)) => ModuleInput::Hashed(Cow::Owned(h.clone())),
+            Self::Command(Cow::Borrowed(c)) => ModuleInput::Command(Cow::Owned((*c).clone())),
+            Self::Command(Cow::Owned(c)) => ModuleInput::Command(Cow::Owned(c.clone())),
+        }
+    }
+
+    /// Get the module hash.
+    ///
+    /// NOTE: may be expensive, depending on the variant.
+    pub fn hash(&self) -> ModuleHash {
+        match self {
+            Self::Bytes(b) => {
+                // Hash on the fly
+                ModuleHash::sha256(b)
+            }
+            Self::Hashed(hashed) => *hashed.hash(),
+            Self::Command(cmd) => *cmd.hash(),
+        }
+    }
+
+    /// Get the raw WebAssembly bytes.
+    pub fn wasm(&self) -> &[u8] {
+        match self {
+            Self::Bytes(b) => b,
+            Self::Hashed(hashed) => hashed.wasm().as_ref(),
+            Self::Command(cmd) => cmd.atom_ref().as_ref(),
+        }
+    }
+
+    /// Convert to a `HashedModuleData`.
+    ///
+    /// May involve cloning and hashing.
+    pub fn to_hashed(&self) -> HashedModuleData {
+        match self {
+            Self::Bytes(b) => HashedModuleData::new(b.as_ref()),
+            Self::Hashed(hashed) => hashed.as_ref().clone(),
+            Self::Command(cmd) => HashedModuleData::from_command(cmd),
+        }
+    }
 }
 
 /// Runtime components used when running WebAssembly programs.
@@ -113,54 +188,86 @@ where
         None
     }
 
+    /// The primary way to load a module given a module input.
+    ///
+    /// The engine to use can be optionally provided, otherwise the most appropriate engine
+    /// should be selected.
+    ///
+    /// An optional progress reporter callback can be provided to report progress during module loading.
+    fn resolve_module<'a>(
+        &'a self,
+        input: ModuleInput<'a>,
+        engine: Option<&Engine>,
+        on_progress: Option<ModuleLoadProgressReporter>,
+    ) -> BoxFuture<'a, Result<Module, SpawnError>> {
+        let data = input.to_hashed();
+
+        let engine = if let Some(e) = engine {
+            e.clone()
+        } else {
+            match &input {
+                ModuleInput::Bytes(_) => self.engine(),
+                ModuleInput::Hashed(_) => self.engine(),
+                ModuleInput::Command(cmd) => {
+                    match self
+                        .engine_with_suggested_opts(&cmd.as_ref().suggested_compiler_optimizations)
+                    {
+                        Ok(engine) => engine,
+                        Err(error) => {
+                            return Box::pin(async move {
+                                Err(SpawnError::CompileError {
+                                    module_hash: *data.hash(),
+                                    error,
+                                })
+                            });
+                        }
+                    }
+                }
+            }
+        };
+
+        let module_cache = self.module_cache();
+
+        let task = async move { load_module(&engine, &module_cache, input, on_progress).await };
+        Box::pin(task)
+    }
+
+    /// Sync variant of [`Self::resolve_module`].
+    fn resolve_module_sync(
+        &self,
+        input: ModuleInput<'_>,
+        engine: Option<&Engine>,
+        on_progress: Option<ModuleLoadProgressReporter>,
+    ) -> Result<Module, SpawnError> {
+        block_on(self.resolve_module(input, engine, on_progress))
+    }
+
     /// Load the module for a command.
     ///
     /// Will load the module from the cache if possible, otherwise will compile.
     ///
     /// NOTE: This always be preferred over [`Self::load_module`] to avoid
     /// re-hashing the module!
+    #[deprecated(since = "0.601.0", note = "Use `resolve_module` instead")]
     fn load_command_module(
         &self,
         cmd: &BinaryPackageCommand,
     ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        let module_cache = self.module_cache();
-        let data = HashedModuleData::from_command(cmd);
-
-        let engine = match self.engine_with_suggested_opts(&cmd.suggested_compiler_optimizations) {
-            Ok(engine) => engine,
-            Err(error) => {
-                return Box::pin(async move {
-                    Err(SpawnError::CompileError {
-                        module_hash: *data.hash(),
-                        error,
-                    })
-                });
-            }
-        };
-
-        let task = async move { load_module(&engine, &module_cache, &data).await };
-
-        Box::pin(task)
+        self.resolve_module(ModuleInput::Command(Cow::Owned(cmd.clone())), None, None)
     }
 
     /// Sync version of [`Self::load_command_module`].
+    #[deprecated(since = "0.601.0", note = "Use `resolve_module_sync` instead")]
     fn load_command_module_sync(&self, cmd: &BinaryPackageCommand) -> Result<Module, SpawnError> {
-        block_on(self.load_command_module(cmd))
+        block_on(self.resolve_module(ModuleInput::Command(Cow::Borrowed(cmd)), None, None))
     }
 
     /// Load a WebAssembly module from raw bytes.
     ///
     /// Will load the module from the cache if possible, otherwise will compile.
-    #[deprecated(
-        since = "0.601.0",
-        note = "Use `load_command_module` or `load_hashed_module` instead - this method can have high overhead"
-    )]
+    #[deprecated(since = "0.601.0", note = "Use `resolve_module` instead")]
     fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
-        let engine = self.engine();
-        let module_cache = self.module_cache();
-        let data = HashedModuleData::new(wasm.to_vec());
-        let task = async move { load_module(&engine, &module_cache, &data).await };
-        Box::pin(task)
+        self.resolve_module(ModuleInput::Bytes(Cow::Borrowed(wasm)), None, None)
     }
 
     /// Synchronous version of [`Self::load_module`].
@@ -169,8 +276,7 @@ where
         note = "Use `load_command_module` or `load_hashed_module` instead - this method can have high overhead"
     )]
     fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
-        #[allow(deprecated)]
-        block_on(self.load_module(wasm))
+        block_on(self.resolve_module(ModuleInput::Bytes(Cow::Borrowed(wasm)), None, None))
     }
 
     /// Load a WebAssembly module from pre-hashed data.
@@ -181,10 +287,7 @@ where
         module: HashedModuleData,
         engine: Option<&Engine>,
     ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        let engine = engine.cloned().unwrap_or_else(|| self.engine());
-        let module_cache = self.module_cache();
-        let task = async move { load_module(&engine, &module_cache, &module).await };
-        Box::pin(task)
+        self.resolve_module(ModuleInput::Hashed(Cow::Owned(module)), engine, None)
     }
 
     /// Synchronous version of [`Self::load_hashed_module`].
@@ -193,7 +296,7 @@ where
         wasm: HashedModuleData,
         engine: Option<&Engine>,
     ) -> Result<Module, SpawnError> {
-        block_on(self.load_hashed_module(wasm, engine))
+        block_on(self.resolve_module(ModuleInput::Hashed(Cow::Owned(wasm)), engine, None))
     }
 
     /// Callback thats invokes whenever the instance is tainted, tainting can occur
@@ -231,10 +334,18 @@ pub type DynRuntime = dyn Runtime + Send + Sync;
 pub async fn load_module(
     engine: &Engine,
     module_cache: &(dyn ModuleCache + Send + Sync),
-    module: &HashedModuleData,
+    input: ModuleInput<'_>,
+    on_progress: Option<ModuleLoadProgressReporter>,
 ) -> Result<Module, crate::SpawnError> {
-    let wasm_hash = *module.hash();
-    let result = module_cache.load(wasm_hash, engine).await;
+    let wasm_hash = input.hash();
+
+    let result = if let Some(on_progress) = &on_progress {
+        module_cache
+            .load_with_progress(wasm_hash, engine, on_progress.clone())
+            .await
+    } else {
+        module_cache.load(wasm_hash, engine).await
+    };
 
     match result {
         Ok(module) => return Ok(module),
@@ -248,11 +359,28 @@ pub async fn load_module(
         }
     }
 
-    let module =
-        Module::new(&engine, module.wasm()).map_err(|err| crate::SpawnError::CompileError {
-            module_hash: wasm_hash,
-            error: err,
-        })?;
+    let res = if let Some(progress) = on_progress {
+        #[allow(unused_variables)]
+        let p = CompilationProgressCallback::new(move |p| {
+            progress.notify(ModuleLoadProgress::CompilingModule(p))
+        });
+        #[cfg(feature = "sys-default")]
+        {
+            use wasmer::sys::NativeEngineExt;
+            engine.new_module_with_progress(input.wasm(), p)
+        }
+        #[cfg(not(feature = "sys-default"))]
+        {
+            Module::new(&engine, input.wasm())
+        }
+    } else {
+        Module::new(&engine, input.wasm())
+    };
+
+    let module = res.map_err(|err| crate::SpawnError::CompileError {
+        module_hash: wasm_hash,
+        error: err,
+    })?;
 
     // TODO: pass a [`HashedModule`] struct that is safe by construction.
     if let Err(e) = module_cache.save(wasm_hash, engine, &module).await {
@@ -649,55 +777,6 @@ impl Runtime for OverriddenRuntime {
             journals.iter().last().map(|a| a.as_ref())
         } else {
             self.inner.active_journal()
-        }
-    }
-
-    fn load_module<'a>(&'a self, data: &[u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
-        #[allow(deprecated)]
-        if let (Some(engine), Some(module_cache)) = (&self.engine, self.module_cache.clone()) {
-            let engine = engine.clone();
-            let hashed_data = HashedModuleData::new(data.to_vec());
-            let task = async move { load_module(&engine, &module_cache, &hashed_data).await };
-            Box::pin(task)
-        } else {
-            let data = data.to_vec();
-            Box::pin(async move { self.inner.load_module(&data).await })
-        }
-    }
-
-    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
-        #[allow(deprecated)]
-        if self.engine.is_some() || self.module_cache.is_some() {
-            block_on(self.load_module(wasm))
-        } else {
-            self.inner.load_module_sync(wasm)
-        }
-    }
-
-    fn load_hashed_module(
-        &self,
-        data: HashedModuleData,
-        engine: Option<&Engine>,
-    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        if self.engine.is_some() || self.module_cache.is_some() {
-            let engine = self.engine();
-            let module_cache = self.module_cache();
-            let task = async move { load_module(&engine, &module_cache, &data).await };
-            Box::pin(task)
-        } else {
-            self.inner.load_hashed_module(data, engine)
-        }
-    }
-
-    fn load_hashed_module_sync(
-        &self,
-        wasm: HashedModuleData,
-        engine: Option<&Engine>,
-    ) -> Result<Module, SpawnError> {
-        if self.engine.is_some() || self.module_cache.is_some() {
-            block_on(self.load_hashed_module(wasm, engine))
-        } else {
-            self.inner.load_hashed_module_sync(wasm, engine)
         }
     }
 }

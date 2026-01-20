@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-backend-api"
-version = "0.601.0"
+version = "0.700.0-alpha.2"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-backend-api"
@@ -15,7 +15,7 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 # Wasmer dependencies.
-wasmer-config = { version = "0.601.0", path = "../config" }
+wasmer-config = { version = "0.700.0-alpha.2", path = "../config" }
 wasmer-package.workspace = true
 webc.workspace = true
 
@@ -38,7 +38,7 @@ merge-streams.workspace = true
 
 # Subscriptions. 
 graphql-ws-client = { workspace = true, features = [
-	"tungstenite",
+	"tungstenite-0.28",
 	"client-cynic",
 ], optional = true }
 tokio-tungstenite = { workspace = true, features = [

@@ -6,6 +6,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{self, Write},
+    num::NonZero,
     path::PathBuf,
     sync::Arc,
 };
@@ -64,6 +65,9 @@ pub struct Singlepass {
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 
     pub(crate) callbacks: Option<SinglepassCallbacks>,
+
+    /// The number of threads to use for compilation.
+    pub num_threads: NonZero<usize>,
 }
 
 impl Singlepass {
@@ -74,6 +78,7 @@ impl Singlepass {
             enable_nan_canonicalization: true,
             middlewares: vec![],
             callbacks: None,
+            num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
     }
 
@@ -86,6 +91,12 @@ impl Singlepass {
     /// phases in Singlepass.
     pub fn callbacks(&mut self, callbacks: Option<SinglepassCallbacks>) -> &mut Self {
         self.callbacks = callbacks;
+        self
+    }
+
+    /// Set the number of threads to use for compilation.
+    pub fn num_threads(&mut self, num_threads: NonZero<usize>) -> &mut Self {
+        self.num_threads = num_threads;
         self
     }
 }

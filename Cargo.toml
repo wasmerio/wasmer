@@ -12,17 +12,17 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=6.1.0", path = "lib/api", default-features = false }
-wasmer-cache = { version = "=6.1.0", path = "lib/cache", optional = true }
-wasmer-compiler = { version = "=6.1.0", path = "lib/compiler", features = [
+wasmer = { version = "=7.0.0-alpha.2", path = "lib/api", default-features = false }
+wasmer-cache = { version = "=7.0.0-alpha.2", path = "lib/cache", optional = true }
+wasmer-compiler = { version = "=7.0.0-alpha.2", path = "lib/compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=6.1.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=6.1.0", path = "lib/compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=6.1.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=6.1.0", path = "lib/middlewares", optional = true }
-wasmer-types = { version = "=6.1.0", path = "lib/types" }
-wasmer-wast = { version = "=6.1.0", path = "tests/lib/wast", optional = true }
+wasmer-compiler-cranelift = { version = "=7.0.0-alpha.2", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=7.0.0-alpha.2", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=7.0.0-alpha.2", path = "lib/compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=7.0.0-alpha.2", path = "lib/middlewares", optional = true }
+wasmer-types = { version = "=7.0.0-alpha.2", path = "lib/types" }
+wasmer-wast = { version = "=7.0.0-alpha.2", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
@@ -81,11 +81,11 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.90"
-version = "6.1.0"
+version = "7.0.0-alpha.2"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.601.0", path = "lib/package" }
+wasmer-package = { version = "0.700.0-alpha.2", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
@@ -100,7 +100,7 @@ anyhow = "1.0"
 assert-panic = "1.0.1"
 assert_cmd = "2.1.1"
 async-trait = "0.1.68"
-async-tungstenite = "0.28.0"
+async-tungstenite = "0.32.1"
 axum = { version = "=0.6.9", default-features = false }
 backtrace = "0.3"
 base64 = "0.22.1"
@@ -134,9 +134,9 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "^5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.127.1", default-features = false }
-cranelift-entity = { version = "=0.127.1", default-features = false }
-cranelift-frontend = { version = "=0.127.1", default-features = false }
+cranelift-codegen = { version = "=0.127.2", default-features = false }
+cranelift-entity = { version = "=0.127.2", default-features = false }
+cranelift-frontend = { version = "=0.127.2", default-features = false }
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
 crossbeam-queue = "0.3.8"
@@ -164,7 +164,7 @@ getrandom = "0.2"
 gimli = { version = "0.32.3" }
 git-version = "0.3.9"
 glob = "0.3"
-graphql-ws-client = "0.11.0"
+graphql-ws-client = "0.12.0"
 gumdrop = "0.8"
 harsh = "0.2.2"
 hashbrown = "0.16.1"
@@ -175,7 +175,7 @@ http = "1.4.0"
 http-body-util = "0.1.1"
 humantime = "2.1.0"
 hyper = "1.8.1"
-hyper-tungstenite = "0.13"
+hyper-tungstenite = "0.19"
 hyper-util = "0.1.5"
 ignore = "0.4"
 indicatif = "0.18.3"
@@ -268,7 +268,7 @@ time = { version = "0.3.44", default-features = false }
 tokio = { version = "1.39.0", default-features = false }
 tokio-serde = "0.9"
 tokio-stream = "0.1"
-tokio-tungstenite = { version = "0.24.0" }
+tokio-tungstenite = { version = "0.28.0" }
 tokio-util = "0.7.8"
 toml = { version = "0.9.8", features = ["preserve_order"] }
 tower = "0.5.2"
@@ -320,7 +320,8 @@ which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
-zip = { version = "7.0.0", default-features = false }
+# Stick to a stable version due to #6039
+zip = { version = "6.0.0", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -330,7 +331,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=6.1.0", path = "lib/api", features = [
+wasmer = { version = "=7.0.0-alpha.2", path = "lib/api", features = [
 	"compiler",
 	"singlepass",
 	"sys",

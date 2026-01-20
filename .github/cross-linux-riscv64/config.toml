@@ -1,0 +1,3 @@
+[target.riscv64gc-unknown-linux-gnu]
+linker = "riscv64-linux-gnu-gcc"
+runner = "qemu-riscv64 -L /usr/riscv64-linux-gnu/"
