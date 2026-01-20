@@ -514,32 +514,31 @@ impl EngineInner {
         self.code_memory.last_mut().unwrap().publish();
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     /// Register DWARF-type exception handling information associated with the code.
-    pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
+    pub(crate) fn publish_eh_frame(&mut self, eh_frame: &[u8]) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()
             .unwind_registry_mut()
-            .publish(eh_frame)
+            .publish_eh_frame(eh_frame)
             .map_err(|e| {
                 CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
             })?;
         Ok(())
     }
-
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     /// Register macos-specific exception handling information associated with the code.
-    pub(crate) fn register_compact_unwind(
+    pub(crate) fn publish_compact_unwind(
         &mut self,
-        compact_unwind: Option<&[u8]>,
+        compact_unwind: &[u8],
         eh_personality_addr_in_got: Option<usize>,
     ) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()
             .unwind_registry_mut()
-            .register_compact_unwind(compact_unwind, eh_personality_addr_in_got)
+            .publish_compact_unwind(compact_unwind, eh_personality_addr_in_got)
             .map_err(|e| {
                 CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
             })?;
