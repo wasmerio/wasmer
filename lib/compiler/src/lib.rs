@@ -82,6 +82,11 @@ mod compiler;
 #[cfg(feature = "compiler")]
 pub use crate::compiler::{Compiler, CompilerConfig};
 
+#[cfg(feature = "compiler")]
+mod constants;
+#[cfg(feature = "compiler")]
+pub use crate::constants::*;
+
 #[cfg(feature = "translator")]
 #[macro_use]
 mod translator;

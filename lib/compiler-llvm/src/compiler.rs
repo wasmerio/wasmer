@@ -191,6 +191,7 @@ impl LLVMCompiler {
                 let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
                 let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
+                    target.triple().clone(),
                     target_machine,
                     Some(target_machine_no_opt),
                     binary_format,
@@ -423,6 +424,7 @@ impl Compiler for LLVMCompiler {
                             self.config().target_machine_with_opt(target, false);
                         let pointer_width = target.triple().pointer_width().unwrap().bytes();
                         FuncTranslator::new(
+                            target.triple().clone(),
                             target_machine,
                             Some(target_machine_no_opt),
                             binary_format,
