@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6
-          sudo apt-get install --reinstall g++
+          sudo apt-get install -y --reinstall g++
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -74,9 +74,26 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
 
+      - name: Install wasm-tools
+        run: |
+          cargo install --locked wasm-tools
+
       - name: Ensure the setup works
         run: |
           # Check rustfmt is installed
           cargo fmt --version
           # Check clippy is installed
           cargo clippy --version
+          # Check wasm-tools is installed
+          wasm-tools --version
+          # Check wasixcc is installed
+          wasixcc --version
+          # Check wasm-opt is available
+          wasm-opt --version
+
+      # For debugging the setup locally, you can uncomment this step and run
+      # `act -P ubuntu-22.04=catthehacker/ubuntu:full-22.04 -W ./.github/workflows/copilot-setup-steps.yml`
+      # - name: Setup upterm session
+      #   uses: owenthereal/action-upterm@v1
+      #   with:
+      #     limit-access-to-users: zebreus
