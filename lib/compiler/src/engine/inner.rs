@@ -517,7 +517,7 @@ impl EngineInner {
     #[cfg(not(target_arch = "wasm32"))]
     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     /// Register DWARF-type exception handling information associated with the code.
-    pub(crate) fn publish_eh_frame(&mut self, eh_frame: &[u8]) -> Result<(), CompileError> {
+    pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()

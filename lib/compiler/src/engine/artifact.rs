@@ -467,9 +467,7 @@ impl Artifact {
             )?;
         }
         #[cfg(any(target_os = "linux", all(windows, target_arch = "x86_64")))]
-        if let Some(eh_frame) = eh_frame {
-            engine_inner.publish_eh_frame(eh_frame)?;
-        }
+        engine_inner.publish_eh_frame(eh_frame)?;
 
         drop(get_got_address);
 

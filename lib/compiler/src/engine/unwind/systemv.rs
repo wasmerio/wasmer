@@ -137,13 +137,15 @@ impl UnwindRegistry {
 
     /// Publishes all registered functions (coming from .eh_frame sections).
     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-    pub fn publish_eh_frame(&mut self, eh_frame: &[u8]) -> Result<(), String> {
+    pub fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
         }
 
         unsafe {
-            self.register_eh_frames(eh_frame);
+            if let Some(eh_frame) = eh_frame {
+                self.register_eh_frames(eh_frame);
+            }
         }
 
         self.published = true;
