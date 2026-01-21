@@ -69,7 +69,7 @@ pub struct Wasi {
     )]
     volumes: Vec<MappedDirectory>,
 
-    /// Legacy option
+    // Legacy option
     #[clap(long = "dir", group = "wasi", hide = true)]
     pub(crate) pre_opened_directories: Vec<PathBuf>,
 
