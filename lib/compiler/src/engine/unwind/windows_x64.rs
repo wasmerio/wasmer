@@ -57,7 +57,7 @@ impl UnwindRegistry {
     }
 
     /// Publishes all registered functions.
-    pub fn publish(&mut self, _eh_frame: Option<&[u8]>) -> Result<(), String> {
+    pub fn publish_eh_frame(&mut self, _eh_frame: &[u8]) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
         }
