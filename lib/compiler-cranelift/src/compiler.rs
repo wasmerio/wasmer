@@ -453,7 +453,7 @@ impl CraneliftCompiler {
                     target.triple().architecture,
                     cx,
                     sig,
-                    &module_hash
+                    &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
                     progress.notify()?;

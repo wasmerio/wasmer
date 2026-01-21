@@ -593,7 +593,7 @@ impl Compiler for LLVMCompiler {
                         &mut eh_frame_section_relocations,
                         &mut compact_unwind_section_bytes,
                         &mut compact_unwind_section_relocations,
-                        &module_hash
+                        &module_hash,
                     )?;
                     if let Some(progress) = progress.as_ref() {
                         progress.notify()?;
