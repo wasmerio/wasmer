@@ -267,9 +267,9 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.28.2"
+version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c348fb0b6d132c596eca3dcd941df48fb597aafcb07a738ec41c004b087dc99"
+checksum = "8acc405d38be14342132609f06f02acaf825ddccfe76c4824a69281e0458ebd4"
 dependencies = [
  "atomic-waker",
  "futures-core",
@@ -282,7 +282,7 @@ dependencies = [
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
- "tungstenite 0.24.0",
+ "tungstenite",
 ]
 
 [[package]]
@@ -1042,42 +1042,42 @@ dependencies = [
 
 [[package]]
 name = "cranelift-assembler-x64"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff9edf1a79ff137b5c9bc74aff5d8467a8bea67722d9f4a2a0dc555504e8dc66"
+checksum = "d958a04d546618ce1e5aa4396cc13acd00fcb233f35c91a387f0842f0cc815dd"
 dependencies = [
  "cranelift-assembler-x64-meta",
 ]
 
 [[package]]
 name = "cranelift-assembler-x64-meta"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ed408aad286cb6433f3e361268b588566ac138dc0d8cf1c22af822c004250ad"
+checksum = "1df96ea1694da9c09e54b9838837a287e55312666ed0bdd84ba6883f099d35d3"
 dependencies = [
  "cranelift-srcgen",
 ]
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efddb47bd7fc6fb0fe9387a82c4cf1987b7402fefa694f73be1f3ae2b26663ab"
+checksum = "cb23a65a258700dc1893646806cbec19638a7601e42fba7f2590ed15e069cc34"
 dependencies = [
  "cranelift-entity",
 ]
 
 [[package]]
 name = "cranelift-bitset"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2922de888b20fedaff065be5a4044f5c3c13cb1132db8f1f56f7a5c03a768c81"
+checksum = "42b1ed69fc07ec013f50e8dc9ff019a2cc0bcfcb913bfc57783c0b446ef814d2"
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d3172ca7ba0bf31cae6dd4dffbfc33e0afe5994eb3ec29608d0ab14bcb674cb"
+checksum = "be0b3ba4d6a80dfcd1988b1bc225a65a4323890a5e1e65653691d489f51fcd16"
 dependencies = [
  "bumpalo",
  "cranelift-assembler-x64",
@@ -1102,9 +1102,9 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2bad8d14320124ea673cb11b7db0176470279b7ec1d0f201f79a7c0213f52f6"
+checksum = "d2957b02290035506bba6bfc4c725ac732fa5a3a2b7186d45c62a5ae230521a4"
 dependencies = [
  "cranelift-assembler-x64-meta",
  "cranelift-codegen-shared",
@@ -1115,33 +1115,33 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-shared"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c414fe1c62e61d269a928594bd0f10fb6fa707e112b433fc19cc8d5aeaf08fda"
+checksum = "79bfcbc8b59cc4f54771a093baf2fce0fce0d17081f80f5ceeb1e886a215f4da"
 
 [[package]]
 name = "cranelift-control"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fac90ac0e9a0dd900a880ee6b56f36e37ca5017af9f7d1390805dcb6f35e4064"
+checksum = "84b59bcd91bf292dfe8bafb3be8f5bc1eab95e409903b85ce706d665ee415a5e"
 dependencies = [
  "arbitrary",
 ]
 
 [[package]]
 name = "cranelift-entity"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c63209c9b060b3048b2cc6483bdba85e93118268d14b3ce1452615e7cb42010"
+checksum = "98532e7e8eea8ae2c9ba8bad5a6f11fa08ea910e97573a34349d68549d913ffc"
 dependencies = [
  "cranelift-bitset",
 ]
 
 [[package]]
 name = "cranelift-frontend"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e42ad0eeaa7f2c365a06ec50580ff6820f1ef45de1c784e8080f5b24bbe3a634"
+checksum = "1f048c86453f52282e752e1b93ab62b26d5c020d4051cf39d4de0dd8b577689e"
 dependencies = [
  "cranelift-codegen",
  "hashbrown 0.15.5",
@@ -1152,15 +1152,15 @@ dependencies = [
 
 [[package]]
 name = "cranelift-isle"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "316dd3048717d1ad577d23fb2773671bc4fe633b651bb0d41be79d1a2dd0121b"
+checksum = "f94115221ff3bdeb280b08816886a1a2df71233ac00151ab17c79df1bef712d3"
 
 [[package]]
 name = "cranelift-srcgen"
-version = "0.127.1"
+version = "0.127.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a628782eefce8d87340a08f635d19e55e2900a77706f56b75cf73f1efc880a3"
+checksum = "9d74f0410de8bc760d0c4d6892a7da693b5ffc61d6ed02411fe39e3a20aca388"
 
 [[package]]
 name = "crc"
@@ -2247,9 +2247,9 @@ dependencies = [
 
 [[package]]
 name = "graphql-ws-client"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aa2e818b9e62654f2039d524c92a19495fcc2b0139ffc0354956865b3c7e939"
+checksum = "a7c12b734aef65c081d988163f5a3b8991f4193c837aa5bfdcad96630e4f2385"
 dependencies = [
  "async-channel",
  "cynic",
@@ -2260,8 +2260,8 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
- "tungstenite 0.24.0",
+ "thiserror 2.0.17",
+ "tungstenite",
 ]
 
 [[package]]
@@ -2591,17 +2591,17 @@ dependencies = [
 
 [[package]]
 name = "hyper-tungstenite"
-version = "0.13.0"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a343d17fe7885302ed7252767dc7bb83609a874b6ff581142241ec4b73957ad"
+checksum = "bc778da281a749ed28d2be73a9f2cd13030680a1574bc729debd1195e44f00e9"
 dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
  "pin-project-lite",
  "tokio",
- "tokio-tungstenite 0.21.0",
- "tungstenite 0.21.0",
+ "tokio-tungstenite",
+ "tungstenite",
 ]
 
 [[package]]
@@ -4147,9 +4147,9 @@ dependencies = [
 
 [[package]]
 name = "pulley-interpreter"
-version = "40.0.1"
+version = "40.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "004fcd8704734dbfe832bccd4577f0bf5a4fee9b3240e5afd966ab9e6f6718a2"
+checksum = "e510ebe67be0f8219da929801e90dded74119bcfbb3bd1cd003c08339f53af10"
 dependencies = [
  "cranelift-bitset",
  "log",
@@ -4158,9 +4158,9 @@ dependencies = [
 
 [[package]]
 name = "pulley-macros"
-version = "40.0.1"
+version = "40.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a39353997967faac3a65893dd956bc982b5fb16c5e435f221298b67d08d1124"
+checksum = "f9d0ca9daaef432bb7fc18c7a66dce68bae3aa37282231aab022fb18b386a5c0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5621,21 +5621,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
-version = "0.21.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c83b561d025642014097b66e6c1bb422783339e0909e4429cde4749d1990bc38"
-dependencies = [
- "futures-util",
- "log",
- "tokio",
- "tungstenite 0.21.0",
-]
-
-[[package]]
-name = "tokio-tungstenite"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
+checksum = "d25a406cddcc431a75d3d9afc6a7c0f7428d4891dd973e4d54c56b46127bf857"
 dependencies = [
  "futures-util",
  "log",
@@ -5644,7 +5632,7 @@ dependencies = [
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
- "tungstenite 0.24.0",
+ "tungstenite",
  "webpki-roots 0.26.11",
 ]
 
@@ -5937,40 +5925,20 @@ dependencies = [
 
 [[package]]
 name = "tungstenite"
-version = "0.21.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ef1a641ea34f399a848dea702823bbecfb4c486f911735368f1f137cb8257e1"
+checksum = "8628dcc84e5a09eb3d8423d6cb682965dea9133204e8fb3efee74c2a0c259442"
 dependencies = [
- "byteorder",
  "bytes",
  "data-encoding",
  "http",
  "httparse",
  "log",
- "rand 0.8.5",
- "sha1",
- "thiserror 1.0.69",
- "url",
- "utf-8",
-]
-
-[[package]]
-name = "tungstenite"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18e5b8366ee7a95b16d32197d0b2604b43a0be89dc5fac9f8e96ccafbaedda8a"
-dependencies = [
- "byteorder",
- "bytes",
- "data-encoding",
- "http",
- "httparse",
- "log",
- "rand 0.8.5",
+ "rand 0.9.2",
  "rustls",
  "rustls-pki-types",
  "sha1",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "utf-8",
 ]
 
@@ -6394,7 +6362,7 @@ dependencies = [
  "thiserror 2.0.17",
  "tokio",
  "tokio-serde",
- "tokio-tungstenite 0.24.0",
+ "tokio-tungstenite",
  "tokio-util",
  "tracing",
  "tracing-test",
@@ -6826,7 +6794,7 @@ dependencies = [
  "serde_path_to_error",
  "time",
  "tokio",
- "tokio-tungstenite 0.24.0",
+ "tokio-tungstenite",
  "tracing",
  "url",
  "uuid",
@@ -6984,7 +6952,7 @@ dependencies = [
  "thiserror 2.0.17",
  "time",
  "tokio",
- "tokio-tungstenite 0.24.0",
+ "tokio-tungstenite",
  "toml",
  "tracing",
  "tracing-subscriber",
@@ -7645,9 +7613,9 @@ dependencies = [
 
 [[package]]
 name = "wasmtime-internal-math"
-version = "40.0.1"
+version = "40.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50a77e2f3f9009c5af4abb0c2875f64ab5f7c04875b3bcb8a8a120e22cdffe70"
+checksum = "1c598554e38cc33d96ec2411fe11e82fa624c72049b151f0f34363e9eece4864"
 dependencies = [
  "libm",
 ]

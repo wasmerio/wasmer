@@ -227,11 +227,11 @@ impl PackageDownload {
             .unwrap_or_default();
 
         if webc_total_size == 0 {
-            bail!("Package is empty");
+            // This can happen with Transfer-Encoding: Chunked!
+        } else {
+            // Set the length of the progress bar
+            pb.set_length(webc_total_size);
         }
-
-        // Set the length of the progress bar
-        pb.set_length(webc_total_size);
 
         let mut tmpfile = NamedTempFile::new_in(&out_dir)?;
         let accepted_contenttypes = vec![
