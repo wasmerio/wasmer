@@ -466,7 +466,7 @@ impl Artifact {
                 get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
             )?;
         }
-        #[cfg(any(unix, all(windows, target_arch = "x86_64")))]
+        #[cfg(any(target_os = "linux", all(windows, target_arch = "x86_64")))]
         if let Some(eh_frame) = eh_frame {
             engine_inner.publish_eh_frame(eh_frame)?;
         }
