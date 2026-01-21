@@ -39,7 +39,8 @@ fn save_wasm_file(data: &[u8]) {
     if let Ok(path) = std::env::var("DUMP_TESTCASE") {
         use std::fs::File;
         use std::io::Write;
-        let mut file = File::create(path).unwrap();
+        let mut file = File::create(&path).unwrap();
+        eprintln!("Saving fuzzed WASM file to: {path:?}");
         file.write_all(data).unwrap();
     }
 }
@@ -74,6 +75,7 @@ fuzz_target!(|module: SinglePassFuzzModule| {
             if error_message.starts_with("RuntimeError: out of bounds")
                 || error_message.starts_with("RuntimeError: call stack exhausted")
                 || error_message.starts_with("RuntimeError: undefined element: out of bounds")
+                || error_message.starts_with("RuntimeError: unreachable")
             {
                 return;
             }
