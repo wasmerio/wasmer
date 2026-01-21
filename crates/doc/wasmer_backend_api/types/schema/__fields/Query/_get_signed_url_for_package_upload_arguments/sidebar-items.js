@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["expiresAfterSeconds","filename","name","version"]};
+window.SIDEBAR_ITEMS = {"struct":["expiresAfterSeconds","filename","method","name","version"]};

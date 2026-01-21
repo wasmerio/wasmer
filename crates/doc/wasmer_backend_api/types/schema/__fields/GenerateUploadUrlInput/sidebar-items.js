@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","expiresAfterSeconds","filename","name","version"]};
+window.SIDEBAR_ITEMS = {"struct":["clientMutationId","expiresAfterSeconds","filename","method","name","version"]};
