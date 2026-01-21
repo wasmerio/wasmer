@@ -106,7 +106,7 @@ pub struct CompactUnwindManager {
     maybe_eh_personality_addr_in_got: Option<usize>,
 }
 
-static mut UNWIND_INFO: LazyLock<Mutex<Option<UnwindInfo>>> = LazyLock::new(|| Mutex::new(None));
+static UNWIND_INFO: LazyLock<Mutex<UnwindInfo>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 type UnwindInfo = HashMap<Range<usize>, UnwindInfoEntry>;
 
@@ -117,14 +117,6 @@ struct UnwindInfoEntry {
     section_len: usize,
 }
 
-fn reset_unwind_sections(info: &mut UnwDynamicUnwindSections) {
-    info.compact_unwind_section = 0;
-    info.compact_unwind_section_length = 0;
-    info.dwarf_section = 0;
-    info.dwarf_section_length = 0;
-    info.dso_base = 0;
-}
-
 unsafe extern "C" fn find_dynamic_unwind_sections(
     addr: usize,
     info: *mut UnwDynamicUnwindSections,
@@ -133,33 +125,29 @@ unsafe extern "C" fn find_dynamic_unwind_sections(
         return 0;
     };
 
-    // TODO: refactor to not use static mut
-    #[allow(
-        static_mut_refs,
-        reason = "existing behaviour that was disallowed by edition 2024"
-    )]
-    let guard_result = unsafe { UNWIND_INFO.try_lock() };
-    if let Ok(uw_info_guard) = guard_result {
-        if let Some(uw_info) = uw_info_guard.as_ref() {
-            for (range, entry) in uw_info.iter() {
-                if range.contains(&addr) {
-                    info.compact_unwind_section = entry.section_ptr as u64;
-                    info.compact_unwind_section_length = entry.section_len as u64;
-                    info.dwarf_section = 0;
-                    info.dwarf_section_length = 0;
-                    info.dso_base = entry.dso_base as u64;
+    // TODO: use more efficient data structure
+    if let Some((_, entry)) = UNWIND_INFO
+        .lock()
+        .expect("cannot lock UNWIND_INFO")
+        .iter()
+        .find(|(range, _)| range.contains(&addr))
+    {
+        info.compact_unwind_section = entry.section_ptr as u64;
+        info.compact_unwind_section_length = entry.section_len as u64;
+        info.dwarf_section = 0;
+        info.dwarf_section_length = 0;
+        info.dso_base = entry.dso_base as u64;
 
-                    return 1;
-                }
-            }
-        } else {
-            reset_unwind_sections(info);
-            return 0;
-        }
+        1
+    } else {
+        info.compact_unwind_section = 0;
+        info.compact_unwind_section_length = 0;
+        info.dwarf_section = 0;
+        info.dwarf_section_length = 0;
+        info.dso_base = 0;
+
+        0
     }
-
-    reset_unwind_sections(info);
-    0
 }
 
 impl CompactUnwindManager {
@@ -254,44 +242,16 @@ impl CompactUnwindManager {
         let section_len = data.len();
         let dso_base = self.dso_base;
 
-        unsafe {
-            // TODO: refactor to not use static mut
-            #[allow(
-                static_mut_refs,
-                reason = "existing behaviour that was disallowed by edition 2024"
-            )]
-            let mut uw_info = UNWIND_INFO.lock().map_err(|_| {
-                CompileError::Codegen("Failed to acquire lock for UnwindInfo!".into())
-            })?;
-
-            match uw_info.as_mut() {
-                Some(r) => {
-                    for range in ranges {
-                        r.insert(
-                            range,
-                            UnwindInfoEntry {
-                                dso_base,
-                                section_ptr,
-                                section_len,
-                            },
-                        );
-                    }
-                }
-                None => {
-                    let mut map = HashMap::new();
-                    for range in ranges {
-                        map.insert(
-                            range,
-                            UnwindInfoEntry {
-                                dso_base,
-                                section_ptr,
-                                section_len,
-                            },
-                        );
-                    }
-                    _ = uw_info.insert(map);
-                }
-            }
+        let mut uw_info = UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO");
+        for range in ranges {
+            (*uw_info).insert(
+                range,
+                UnwindInfoEntry {
+                    dso_base,
+                    section_ptr,
+                    section_len,
+                },
+            );
         }
 
         Ok(())
@@ -564,7 +524,15 @@ impl CompactUnwindManager {
 
     pub(crate) fn deregister(&self) {
         if self.dso_base != 0 {
-            unsafe { __unw_remove_find_dynamic_unwind_sections(find_dynamic_unwind_sections) };
+            let ranges: Vec<Range<usize>> = self
+                .compact_unwind_entries
+                .iter()
+                .map(|v| v.function_addr..v.function_addr + (v.length as usize))
+                .collect();
+            let mut uw_info = UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO");
+            for range in ranges {
+                assert!((*uw_info).remove(&range).is_some());
+            }
         }
     }
 
