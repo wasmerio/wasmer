@@ -43,13 +43,6 @@ impl loupe::MemoryUsage for ModuleHash {
 }
 
 impl ModuleHash {
-    /// Parse a Sha256 hash from a hex-encoded string.
-    pub fn sha256_parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
-        let mut hash = [0_u8; _];
-        hex::decode_to_slice(hex_str, &mut hash)?;
-        Ok(Self::Sha256(hash))
-    }
-
     /// Generate a new [`ModuleHash`] based on the Sha256 hash of some bytes.
     pub fn new(wasm: impl AsRef<[u8]>) -> Self {
         let wasm = wasm.as_ref();
