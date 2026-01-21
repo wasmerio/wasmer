@@ -4,10 +4,7 @@ mod cu_entry;
 use core::ops::Range;
 pub(crate) use cu_entry::CompactUnwindEntry;
 use rangemap::RangeMap;
-use std::{
-    collections::HashMap,
-    sync::{LazyLock, Mutex},
-};
+use std::sync::{LazyLock, Mutex};
 use wasmer_types::CompileError;
 
 type CUResult<T> = Result<T, CompileError>;

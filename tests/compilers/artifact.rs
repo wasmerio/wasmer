@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::Result;
 
-use wasmer::{Engine, Module};
+use wasmer::Module;
 use wasmer_types::Features;
 
 #[compiler_test(artifact)]
@@ -82,7 +82,7 @@ fn artifact_deserialization_roundtrip() {
     for file_name in file_names {
         let path = PathBuf::from(base_path).join(file_name);
         let wasm_module_bytes = fs::read(path).unwrap();
-        let engine = Engine::default();
+        let engine = wasmer::Engine::default();
         let module = unsafe { Module::deserialize(&engine, wasm_module_bytes.clone()) }.unwrap();
         let reserialized_bytes = module.serialize().unwrap();
         assert_eq!(wasm_module_bytes.to_vec(), reserialized_bytes);
