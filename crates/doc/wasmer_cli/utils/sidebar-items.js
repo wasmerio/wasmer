@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_PACKAGE_MANIFEST_FILE"],"fn":["load_package_manifest","merge_yaml_values","parse_envvar","parse_mapdir","retrieve_alias_pathbuf"],"mod":["package_wizard","prompts","render","timestamp","unpack"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_PACKAGE_MANIFEST_FILE"],"fn":["load_package_manifest","merge_yaml_values","parse_envvar","parse_mapdir","parse_volume","retrieve_alias_pathbuf"],"mod":["package_wizard","prompts","render","timestamp","unpack"]};
