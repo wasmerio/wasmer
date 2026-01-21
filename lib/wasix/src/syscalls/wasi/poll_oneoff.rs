@@ -64,12 +64,12 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     // An empty subscription list would otherwise block forever in the poll loop.
     if nsubscriptions == M::ZERO {
         return Ok(Errno::Inval);
     }
-
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
