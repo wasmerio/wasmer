@@ -500,31 +500,31 @@
 <a href=#500 id=500 data-nosnippet>500</a>    }
 <a href=#501 id=501 data-nosnippet>501</a>
 <a href=#502 id=502 data-nosnippet>502</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#503 id=503 data-nosnippet>503</a>    </span><span class="doccomment">/// Register DWARF-type exception handling information associated with the code.
-<a href=#504 id=504 data-nosnippet>504</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>publish_eh_frame(<span class="kw-2">&amp;mut </span><span class="self">self</span>, eh_frame: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#505 id=505 data-nosnippet>505</a>        <span class="self">self</span>.code_memory
-<a href=#506 id=506 data-nosnippet>506</a>            .last_mut()
-<a href=#507 id=507 data-nosnippet>507</a>            .unwrap()
-<a href=#508 id=508 data-nosnippet>508</a>            .unwind_registry_mut()
-<a href=#509 id=509 data-nosnippet>509</a>            .publish(eh_frame)
-<a href=#510 id=510 data-nosnippet>510</a>            .map_err(|e| {
-<a href=#511 id=511 data-nosnippet>511</a>                CompileError::Resource(<span class="macro">format!</span>(<span class="string">"Error while publishing the unwind code: {e}"</span>))
-<a href=#512 id=512 data-nosnippet>512</a>            })<span class="question-mark">?</span>;
-<a href=#513 id=513 data-nosnippet>513</a>        <span class="prelude-val">Ok</span>(())
-<a href=#514 id=514 data-nosnippet>514</a>    }
-<a href=#515 id=515 data-nosnippet>515</a>
-<a href=#516 id=516 data-nosnippet>516</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#503 id=503 data-nosnippet>503</a>    #[cfg(not(all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>)))]
+<a href=#504 id=504 data-nosnippet>504</a>    </span><span class="doccomment">/// Register DWARF-type exception handling information associated with the code.
+<a href=#505 id=505 data-nosnippet>505</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>publish_eh_frame(<span class="kw-2">&amp;mut </span><span class="self">self</span>, eh_frame: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#506 id=506 data-nosnippet>506</a>        <span class="self">self</span>.code_memory
+<a href=#507 id=507 data-nosnippet>507</a>            .last_mut()
+<a href=#508 id=508 data-nosnippet>508</a>            .unwrap()
+<a href=#509 id=509 data-nosnippet>509</a>            .unwind_registry_mut()
+<a href=#510 id=510 data-nosnippet>510</a>            .publish_eh_frame(eh_frame)
+<a href=#511 id=511 data-nosnippet>511</a>            .map_err(|e| {
+<a href=#512 id=512 data-nosnippet>512</a>                CompileError::Resource(<span class="macro">format!</span>(<span class="string">"Error while publishing the unwind code: {e}"</span>))
+<a href=#513 id=513 data-nosnippet>513</a>            })<span class="question-mark">?</span>;
+<a href=#514 id=514 data-nosnippet>514</a>        <span class="prelude-val">Ok</span>(())
+<a href=#515 id=515 data-nosnippet>515</a>    }
+<a href=#516 id=516 data-nosnippet>516</a>    <span class="attr">#[cfg(all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>))]
 <a href=#517 id=517 data-nosnippet>517</a>    </span><span class="doccomment">/// Register macos-specific exception handling information associated with the code.
-<a href=#518 id=518 data-nosnippet>518</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_compact_unwind(
+<a href=#518 id=518 data-nosnippet>518</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>publish_compact_unwind(
 <a href=#519 id=519 data-nosnippet>519</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#520 id=520 data-nosnippet>520</a>        compact_unwind: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
+<a href=#520 id=520 data-nosnippet>520</a>        compact_unwind: <span class="kw-2">&amp;</span>[u8],
 <a href=#521 id=521 data-nosnippet>521</a>        eh_personality_addr_in_got: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 <a href=#522 id=522 data-nosnippet>522</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
 <a href=#523 id=523 data-nosnippet>523</a>        <span class="self">self</span>.code_memory
 <a href=#524 id=524 data-nosnippet>524</a>            .last_mut()
 <a href=#525 id=525 data-nosnippet>525</a>            .unwrap()
 <a href=#526 id=526 data-nosnippet>526</a>            .unwind_registry_mut()
-<a href=#527 id=527 data-nosnippet>527</a>            .register_compact_unwind(compact_unwind, eh_personality_addr_in_got)
+<a href=#527 id=527 data-nosnippet>527</a>            .publish_compact_unwind(compact_unwind, eh_personality_addr_in_got)
 <a href=#528 id=528 data-nosnippet>528</a>            .map_err(|e| {
 <a href=#529 id=529 data-nosnippet>529</a>                CompileError::Resource(<span class="macro">format!</span>(<span class="string">"Error while publishing the unwind code: {e}"</span>))
 <a href=#530 id=530 data-nosnippet>530</a>            })<span class="question-mark">?</span>;
