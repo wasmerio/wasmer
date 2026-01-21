@@ -9,7 +9,7 @@ use crate::{Compiler, CompilerConfig};
 
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
-use wasmer_types::{CompilationProgressCallback, CompileError, HashAlgorithm, target::Target};
+use wasmer_types::{CompilationProgressCallback, CompileError, target::Target};
 
 #[cfg(not(target_arch = "wasm32"))]
 use shared_buffer::OwnedBuffer;
@@ -50,7 +50,6 @@ pub struct Engine {
     #[cfg(not(target_arch = "wasm32"))]
     tunables: Arc<dyn Tunables + Send + Sync>,
     name: String,
-    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Engine {
@@ -79,23 +78,12 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name,
-            hash_algorithm: None,
         }
     }
 
     /// Returns the name of this engine
     pub fn name(&self) -> &str {
         self.name.as_str()
-    }
-
-    /// Sets the hash algorithm
-    pub fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>) {
-        self.hash_algorithm = hash_algorithm;
-    }
-
-    /// Returns the hash algorithm
-    pub fn hash_algorithm(&self) -> Option<HashAlgorithm> {
-        self.hash_algorithm
     }
 
     /// Returns the deterministic id of this engine
@@ -149,7 +137,6 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name: "engine-headless".to_string(),
-            hash_algorithm: None,
         }
     }
 
@@ -196,7 +183,6 @@ impl Engine {
             self,
             binary,
             self.tunables.as_ref(),
-            self.hash_algorithm,
             None,
         )?))
     }
@@ -212,7 +198,6 @@ impl Engine {
             self,
             binary,
             self.tunables.as_ref(),
-            self.hash_algorithm,
             progress_callback,
         )?))
     }
@@ -514,9 +499,10 @@ impl EngineInner {
         self.code_memory.last_mut().unwrap().publish();
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     /// Register DWARF-type exception handling information associated with the code.
-    pub(crate) fn publish_eh_frame(&mut self, eh_frame: &[u8]) -> Result<(), CompileError> {
+    pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()

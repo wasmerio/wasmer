@@ -104,7 +104,7 @@ pub struct CompactUnwindManager {
     maybe_eh_personality_addr_in_got: Option<usize>,
 }
 
-static UNWIND_INFO: LazyLock<Mutex<UnwindInfo>> = LazyLock::new(|| Mutex::new(RangeMap::new()));
+static UNWIND_INFO: LazyLock<Mutex<UnwindInfo>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 type UnwindInfo = RangeMap<usize, UnwindInfoEntry>;
 

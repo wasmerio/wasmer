@@ -584,6 +584,7 @@ mod queries {
         pub filename: Option<&'a str>,
         pub name: Option<&'a str>,
         pub version: Option<&'a str>,
+        pub method: Option<&'a str>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -592,7 +593,7 @@ mod queries {
         variables = "GetSignedUrlForPackageUploadVariables"
     )]
     pub struct GetSignedUrlForPackageUpload {
-        #[arguments(name: $name, version: $version, filename: $filename, expiresAfterSeconds: $expires_after_seconds)]
+        #[arguments(name: $name, version: $version, filename: $filename, expiresAfterSeconds: $expires_after_seconds, method: $method)]
         pub get_signed_url_for_package_upload: Option<SignedUrl>,
     }
 
@@ -607,12 +608,13 @@ mod queries {
         pub filename: &'a str,
         pub name: Option<&'a str>,
         pub version: Option<&'a str>,
+        pub method: Option<&'a str>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Mutation", variables = "GenerateUploadUrlVariables")]
     pub struct GenerateUploadUrl {
-        #[arguments(input: { expiresAfterSeconds: $expires_after_seconds, filename: $filename, name: $name, version: $version })]
+        #[arguments(input: { expiresAfterSeconds: $expires_after_seconds, filename: $filename, name: $name, version: $version, method: $method })]
         pub generate_upload_url: Option<GenerateUploadUrlPayload>,
     }
 
@@ -620,6 +622,7 @@ mod queries {
     pub struct GenerateUploadUrlPayload {
         #[cynic(rename = "signedUrl")]
         pub signed_url: SignedUrl,
+        pub method: String,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
