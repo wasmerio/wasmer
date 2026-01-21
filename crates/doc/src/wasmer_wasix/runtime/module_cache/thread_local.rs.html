@@ -76,7 +76,7 @@
 <a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">let </span>engine = Engine::default();
 <a href=#77 id=77 data-nosnippet>77</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
 <a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">let </span>cache = ThreadLocalCache::default();
-<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#80 id=80 data-nosnippet>80</a>
 <a href=#81 id=81 data-nosnippet>81</a>        cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
 <a href=#82 id=82 data-nosnippet>82</a>        <span class="kw">let </span>round_tripped = cache.load(key, <span class="kw-2">&amp;</span>engine).<span class="kw">await</span>.unwrap();

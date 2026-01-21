@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["HashAlgorithm"],"fn":["normalize_path"],"struct":["WasmFeatures"]};
+window.SIDEBAR_ITEMS = {"fn":["normalize_path"],"struct":["WasmFeatures"]};

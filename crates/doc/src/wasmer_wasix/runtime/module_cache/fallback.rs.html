@@ -191,7 +191,7 @@
 <a href=#191 id=191 data-nosnippet>191</a>    </span><span class="kw">async fn </span>load_from_primary() {
 <a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">let </span>engine = Engine::default();
 <a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-<a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span>primary = SharedCache::default();
 <a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">let </span>fallback = SharedCache::default();
 <a href=#197 id=197 data-nosnippet>197</a>        primary.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
@@ -216,7 +216,7 @@
 <a href=#216 id=216 data-nosnippet>216</a>    </span><span class="kw">async fn </span>loading_from_fallback_also_populates_primary() {
 <a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>engine = Engine::default();
 <a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-<a href=#219 id=219 data-nosnippet>219</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">let </span>primary = SharedCache::default();
 <a href=#221 id=221 data-nosnippet>221</a>        <span class="kw">let </span>fallback = SharedCache::default();
 <a href=#222 id=222 data-nosnippet>222</a>        fallback.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
@@ -242,7 +242,7 @@
 <a href=#242 id=242 data-nosnippet>242</a>    </span><span class="kw">async fn </span>saving_will_update_both() {
 <a href=#243 id=243 data-nosnippet>243</a>        <span class="kw">let </span>engine = Engine::default();
 <a href=#244 id=244 data-nosnippet>244</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-<a href=#245 id=245 data-nosnippet>245</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#245 id=245 data-nosnippet>245</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#246 id=246 data-nosnippet>246</a>        <span class="kw">let </span>primary = SharedCache::default();
 <a href=#247 id=247 data-nosnippet>247</a>        <span class="kw">let </span>fallback = SharedCache::default();
 <a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>cache = FallbackCache::new(<span class="kw-2">&amp;</span>primary, <span class="kw-2">&amp;</span>fallback);

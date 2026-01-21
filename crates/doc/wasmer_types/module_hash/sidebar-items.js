@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ArchivedModuleHash","HashAlgorithm","ModuleHash","ModuleHashResolver"]};
+window.SIDEBAR_ITEMS = {"enum":["ArchivedModuleHash","ModuleHash","ModuleHashResolver"]};

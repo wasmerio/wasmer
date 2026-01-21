@@ -244,7 +244,7 @@
 <a href=#244 id=244 data-nosnippet>244</a>        <span class="kw">let </span>engine = Engine::default();
 <a href=#245 id=245 data-nosnippet>245</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
 <a href=#246 id=246 data-nosnippet>246</a>        <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-<a href=#247 id=247 data-nosnippet>247</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#247 id=247 data-nosnippet>247</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>expected_path = cache.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
 <a href=#249 id=249 data-nosnippet>249</a>
 <a href=#250 id=250 data-nosnippet>250</a>        cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
@@ -260,7 +260,7 @@
 <a href=#260 id=260 data-nosnippet>260</a>        <span class="kw">let </span>cache_dir = temp.path().join(<span class="string">"this"</span>).join(<span class="string">"doesn't"</span>).join(<span class="string">"exist"</span>);
 <a href=#261 id=261 data-nosnippet>261</a>        <span class="macro">assert!</span>(!cache_dir.exists());
 <a href=#262 id=262 data-nosnippet>262</a>        <span class="kw">let </span>cache = FileSystemCache::new(<span class="kw-2">&amp;</span>cache_dir, create_tokio_task_manager());
-<a href=#263 id=263 data-nosnippet>263</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#263 id=263 data-nosnippet>263</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#264 id=264 data-nosnippet>264</a>
 <a href=#265 id=265 data-nosnippet>265</a>        cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
 <a href=#266 id=266 data-nosnippet>266</a>
@@ -271,7 +271,7 @@
 <a href=#271 id=271 data-nosnippet>271</a>    </span><span class="kw">async fn </span>missing_file() {
 <a href=#272 id=272 data-nosnippet>272</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
 <a href=#273 id=273 data-nosnippet>273</a>        <span class="kw">let </span>engine = Engine::default();
-<a href=#274 id=274 data-nosnippet>274</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#274 id=274 data-nosnippet>274</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#275 id=275 data-nosnippet>275</a>        <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
 <a href=#276 id=276 data-nosnippet>276</a>
 <a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">let </span>err = cache.load(key, <span class="kw-2">&amp;</span>engine).<span class="kw">await</span>.unwrap_err();
@@ -284,7 +284,7 @@
 <a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
 <a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">let </span>engine = Engine::default();
 <a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
 <a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">let </span>expected_path = cache.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
 <a href=#290 id=290 data-nosnippet>290</a>        std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
@@ -307,7 +307,7 @@
 <a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
 <a href=#308 id=308 data-nosnippet>308</a>        <span class="kw">let </span>engine = Engine::default();
 <a href=#309 id=309 data-nosnippet>309</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-<a href=#310 id=310 data-nosnippet>310</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
+<a href=#310 id=310 data-nosnippet>310</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="kw">_</span>]);
 <a href=#311 id=311 data-nosnippet>311</a>        <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
 <a href=#312 id=312 data-nosnippet>312</a>        <span class="kw">let </span>expected_path = cache.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
 <a href=#313 id=313 data-nosnippet>313</a>        std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();

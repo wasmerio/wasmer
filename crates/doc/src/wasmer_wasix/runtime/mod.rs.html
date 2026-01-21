@@ -90,7 +90,7 @@
 <a href=#90 id=90 data-nosnippet>90</a>        <span class="kw">match </span><span class="self">self </span>{
 <a href=#91 id=91 data-nosnippet>91</a>            <span class="self">Self</span>::Bytes(b) =&gt; {
 <a href=#92 id=92 data-nosnippet>92</a>                <span class="comment">// Hash on the fly
-<a href=#93 id=93 data-nosnippet>93</a>                </span>ModuleHash::sha256(b)
+<a href=#93 id=93 data-nosnippet>93</a>                </span>ModuleHash::new(b)
 <a href=#94 id=94 data-nosnippet>94</a>            }
 <a href=#95 id=95 data-nosnippet>95</a>            <span class="self">Self</span>::Hashed(hashed) =&gt; <span class="kw-2">*</span>hashed.hash(),
 <a href=#96 id=96 data-nosnippet>96</a>            <span class="self">Self</span>::Command(cmd) =&gt; <span class="kw-2">*</span>cmd.hash(),

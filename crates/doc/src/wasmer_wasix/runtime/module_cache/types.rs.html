@@ -157,20 +157,30 @@
 <a href=#157 id=157 data-nosnippet>157</a>
 <a href=#158 id=158 data-nosnippet>158</a>    <span class="attr">#[test]
 <a href=#159 id=159 data-nosnippet>159</a>    </span><span class="kw">fn </span>key_is_displayed_as_hex() {
-<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0x00</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="number">0x03</span>, <span class="number">0x04</span>, <span class="number">0x05</span>, <span class="number">0x06</span>, <span class="number">0x07</span>]);
-<a href=#161 id=161 data-nosnippet>161</a>
-<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>repr = key.to_string();
-<a href=#163 id=163 data-nosnippet>163</a>
-<a href=#164 id=164 data-nosnippet>164</a>        <span class="macro">assert_eq!</span>(repr, <span class="string">"0001020304050607"</span>);
-<a href=#165 id=165 data-nosnippet>165</a>    }
-<a href=#166 id=166 data-nosnippet>166</a>
-<a href=#167 id=167 data-nosnippet>167</a>    <span class="attr">#[test]
-<a href=#168 id=168 data-nosnippet>168</a>    </span><span class="kw">fn </span>module_hash_is_just_sha_256() {
-<a href=#169 id=169 data-nosnippet>169</a>        <span class="kw">let </span>wasm = <span class="string">b"\0asm..."</span>;
-<a href=#170 id=170 data-nosnippet>170</a>        <span class="kw">let </span>raw = [<span class="number">0x0c</span>, <span class="number">0xc7</span>, <span class="number">0x88</span>, <span class="number">0x60</span>, <span class="number">0xd4</span>, <span class="number">0x14</span>, <span class="number">0x71</span>, <span class="number">0x4c</span>];
-<a href=#171 id=171 data-nosnippet>171</a>
-<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span>hash = ModuleHash::xxhash(wasm);
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw">let </span>key = ModuleHash::from_bytes([
+<a href=#161 id=161 data-nosnippet>161</a>            <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="number">0x03</span>, <span class="number">0x04</span>, <span class="number">0x05</span>, <span class="number">0x06</span>, <span class="number">0x07</span>, <span class="number">0x08</span>, <span class="number">0x09</span>, <span class="number">0x0A</span>, <span class="number">0x0B</span>, <span class="number">0x0C</span>, <span class="number">0x0D</span>,
+<a href=#162 id=162 data-nosnippet>162</a>            <span class="number">0x0E</span>, <span class="number">0x0F</span>, <span class="number">0x10</span>, <span class="number">0x11</span>, <span class="number">0x12</span>, <span class="number">0x13</span>, <span class="number">0x14</span>, <span class="number">0x15</span>, <span class="number">0x16</span>, <span class="number">0x17</span>, <span class="number">0x18</span>, <span class="number">0x19</span>, <span class="number">0x1A</span>, <span class="number">0x1B</span>,
+<a href=#163 id=163 data-nosnippet>163</a>            <span class="number">0x1C</span>, <span class="number">0x1D</span>, <span class="number">0x1E</span>, <span class="number">0x1F</span>,
+<a href=#164 id=164 data-nosnippet>164</a>        ]);
+<a href=#165 id=165 data-nosnippet>165</a>
+<a href=#166 id=166 data-nosnippet>166</a>        <span class="kw">let </span>repr = key.to_string();
+<a href=#167 id=167 data-nosnippet>167</a>
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="macro">assert_eq!</span>(
+<a href=#169 id=169 data-nosnippet>169</a>            repr,
+<a href=#170 id=170 data-nosnippet>170</a>            <span class="string">"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
+<a href=#171 id=171 data-nosnippet>171</a>        </span>);
+<a href=#172 id=172 data-nosnippet>172</a>    }
 <a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a>        <span class="macro">assert_eq!</span>(hash.as_bytes(), raw);
-<a href=#175 id=175 data-nosnippet>175</a>    }
-<a href=#176 id=176 data-nosnippet>176</a>}</code></pre></div></section></main></body></html>
+<a href=#174 id=174 data-nosnippet>174</a>    <span class="attr">#[test]
+<a href=#175 id=175 data-nosnippet>175</a>    </span><span class="kw">fn </span>module_hash_is_just_sha_256() {
+<a href=#176 id=176 data-nosnippet>176</a>        <span class="kw">let </span>wasm = <span class="string">b"\0asm..."</span>;
+<a href=#177 id=177 data-nosnippet>177</a>        <span class="kw">let </span>raw = [
+<a href=#178 id=178 data-nosnippet>178</a>            <span class="number">90</span>, <span class="number">57</span>, <span class="number">254</span>, <span class="number">239</span>, <span class="number">82</span>, <span class="number">229</span>, <span class="number">59</span>, <span class="number">143</span>, <span class="number">254</span>, <span class="number">223</span>, <span class="number">215</span>, <span class="number">5</span>, <span class="number">21</span>, <span class="number">86</span>, <span class="number">236</span>, <span class="number">16</span>, <span class="number">94</span>, <span class="number">216</span>, <span class="number">105</span>,
+<a href=#179 id=179 data-nosnippet>179</a>            <span class="number">130</span>, <span class="number">241</span>, <span class="number">34</span>, <span class="number">160</span>, <span class="number">93</span>, <span class="number">39</span>, <span class="number">40</span>, <span class="number">217</span>, <span class="number">103</span>, <span class="number">120</span>, <span class="number">228</span>, <span class="number">235</span>, <span class="number">150</span>,
+<a href=#180 id=180 data-nosnippet>180</a>        ];
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a>        <span class="kw">let </span>hash = ModuleHash::new(wasm);
+<a href=#183 id=183 data-nosnippet>183</a>
+<a href=#184 id=184 data-nosnippet>184</a>        <span class="macro">assert_eq!</span>(hash.as_bytes(), raw);
+<a href=#185 id=185 data-nosnippet>185</a>    }
+<a href=#186 id=186 data-nosnippet>186</a>}</code></pre></div></section></main></body></html>

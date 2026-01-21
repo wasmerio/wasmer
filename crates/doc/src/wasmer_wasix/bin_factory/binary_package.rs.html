@@ -245,7 +245,7 @@
 <a href=#245 id=245 data-nosnippet>245</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = <span class="self">self</span>.get_entrypoint_command() {
 <a href=#246 id=246 data-nosnippet>246</a>                cmd.hash
 <a href=#247 id=247 data-nosnippet>247</a>            } <span class="kw">else </span>{
-<a href=#248 id=248 data-nosnippet>248</a>                ModuleHash::xxhash(<span class="self">self</span>.id.to_string())
+<a href=#248 id=248 data-nosnippet>248</a>                ModuleHash::new(<span class="self">self</span>.id.to_string())
 <a href=#249 id=249 data-nosnippet>249</a>            }
 <a href=#250 id=250 data-nosnippet>250</a>        })
 <a href=#251 id=251 data-nosnippet>251</a>    }
@@ -389,8 +389,8 @@
 <a href=#389 id=389 data-nosnippet>389</a>
 <a href=#390 id=390 data-nosnippet>390</a>        <span class="macro">assert_eq!</span>(pkg.commands.len(), <span class="number">1</span>);
 <a href=#391 id=391 data-nosnippet>391</a>        <span class="kw">let </span>command = pkg.get_command(<span class="string">"cmd"</span>).unwrap();
-<a href=#392 id=392 data-nosnippet>392</a>        <span class="kw">let </span>atom_sha256_hash: [u8; <span class="number">32</span>] = sha2::Sha256::digest(webc.get_atom(<span class="string">"foo"</span>).unwrap()).into();
-<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">let </span>module_hash = ModuleHash::sha256_from_bytes(atom_sha256_hash);
+<a href=#392 id=392 data-nosnippet>392</a>        <span class="kw">let </span>atom_sha256_hash = sha2::Sha256::digest(webc.get_atom(<span class="string">"foo"</span>).unwrap()).into();
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">let </span>module_hash = ModuleHash::from_bytes(atom_sha256_hash);
 <a href=#394 id=394 data-nosnippet>394</a>        <span class="macro">assert_eq!</span>(command.hash(), <span class="kw-2">&amp;</span>module_hash);
 <a href=#395 id=395 data-nosnippet>395</a>    }
 <a href=#396 id=396 data-nosnippet>396</a>}</code></pre></div></section></main></body></html>

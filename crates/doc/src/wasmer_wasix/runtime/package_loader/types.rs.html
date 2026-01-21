@@ -10,7 +10,7 @@
 <a href=#10 id=10 data-nosnippet>10</a>
 <a href=#11 id=11 data-nosnippet>11</a><span class="kw">pub fn </span>to_module_hash(value: webc::metadata::AtomSignature) -&gt; wasmer_types::ModuleHash {
 <a href=#12 id=12 data-nosnippet>12</a>    <span class="kw">match </span>value {
-<a href=#13 id=13 data-nosnippet>13</a>        webc::metadata::AtomSignature::Sha256(bytes) =&gt; wasmer_types::ModuleHash::Sha256(bytes),
+<a href=#13 id=13 data-nosnippet>13</a>        webc::metadata::AtomSignature::Sha256(bytes) =&gt; wasmer_types::ModuleHash::from_bytes(bytes),
 <a href=#14 id=14 data-nosnippet>14</a>    }
 <a href=#15 id=15 data-nosnippet>15</a>}
 <a href=#16 id=16 data-nosnippet>16</a>
