@@ -322,10 +322,10 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     }
 
     for mount in &spec.mounts {
-        cmd.arg("--mapdir").arg(format!(
+        cmd.arg("--volume").arg(format!(
             "{}:{}",
-            mount.0.to_str().unwrap(),
-            mount.1.to_str().unwrap()
+            mount.1.to_str().unwrap(),
+            mount.0.to_str().unwrap()
         ));
     }
 

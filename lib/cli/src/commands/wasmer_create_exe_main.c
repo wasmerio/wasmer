@@ -44,6 +44,8 @@ static void pass_mapdir_arg(wasi_config_t *wasi_config, char *mapdir) {
   free(dir);
 }
 
+// TODO: port to new --volume option if we want to use it in the future
+
 // We try to parse out `--dir` and `--mapdir` ahead of time and process those
 // specially. All other arguments are passed to the guest program.
 static void handle_arguments(
