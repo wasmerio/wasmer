@@ -380,11 +380,7 @@ impl FuncTranslator {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.postopt_ir(
-                &function,
-                &wasm_module.hash().map(|m| m.to_string()),
-                &module,
-            );
+            callbacks.postopt_ir(&function, &wasm_module.hash_string(), &module);
         }
 
         Ok(module)

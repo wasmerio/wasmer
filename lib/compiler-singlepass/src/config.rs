@@ -38,7 +38,8 @@ impl SinglepassCallbacks {
         if let Some(hash) = module_hash {
             path.push(hash);
         }
-        std::fs::create_dir_all(&path).expect("cannot create debug directory: {path}");
+        std::fs::create_dir_all(&path)
+            .unwrap_or_else(|_| panic!("cannot create debug directory: {}", path.display()));
         path
     }
 

@@ -167,8 +167,8 @@ impl FuncTrampoline {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            let module_hash = compile_info.module.hash().map(|m| m.to_string());
-            callbacks.obj_memory_buffer(&function, &module_hash.clone(), &memory_buffer);
+            let module_hash = compile_info.module.hash_string();
+            callbacks.obj_memory_buffer(&function, &module_hash, &memory_buffer);
             let asm_buffer = target_machine
                 .write_to_memory_buffer(&module, FileType::Assembly)
                 .unwrap();
