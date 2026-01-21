@@ -227,11 +227,11 @@
 <a href=#227 id=227 data-nosnippet>227</a>            .unwrap_or_default();
 <a href=#228 id=228 data-nosnippet>228</a>
 <a href=#229 id=229 data-nosnippet>229</a>        <span class="kw">if </span>webc_total_size == <span class="number">0 </span>{
-<a href=#230 id=230 data-nosnippet>230</a>            <span class="macro">bail!</span>(<span class="string">"Package is empty"</span>);
-<a href=#231 id=231 data-nosnippet>231</a>        }
-<a href=#232 id=232 data-nosnippet>232</a>
-<a href=#233 id=233 data-nosnippet>233</a>        <span class="comment">// Set the length of the progress bar
-<a href=#234 id=234 data-nosnippet>234</a>        </span>pb.set_length(webc_total_size);
+<a href=#230 id=230 data-nosnippet>230</a>            <span class="comment">// This can happen with Transfer-Encoding: Chunked!
+<a href=#231 id=231 data-nosnippet>231</a>        </span>} <span class="kw">else </span>{
+<a href=#232 id=232 data-nosnippet>232</a>            <span class="comment">// Set the length of the progress bar
+<a href=#233 id=233 data-nosnippet>233</a>            </span>pb.set_length(webc_total_size);
+<a href=#234 id=234 data-nosnippet>234</a>        }
 <a href=#235 id=235 data-nosnippet>235</a>
 <a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">let </span><span class="kw-2">mut </span>tmpfile = NamedTempFile::new_in(<span class="kw-2">&amp;</span>out_dir)<span class="question-mark">?</span>;
 <a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">let </span>accepted_contenttypes = <span class="macro">vec!</span>[
