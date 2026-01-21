@@ -3,6 +3,7 @@ mod cu_entry;
 
 use core::ops::Range;
 pub(crate) use cu_entry::CompactUnwindEntry;
+use rangemap::RangeMap;
 use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
@@ -106,11 +107,11 @@ pub struct CompactUnwindManager {
     maybe_eh_personality_addr_in_got: Option<usize>,
 }
 
-static UNWIND_INFO: LazyLock<Mutex<UnwindInfo>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static UNWIND_INFO: LazyLock<Mutex<UnwindInfo>> = LazyLock::new(|| Mutex::new(RangeMap::new()));
 
-type UnwindInfo = HashMap<Range<usize>, UnwindInfoEntry>;
+type UnwindInfo = RangeMap<usize, UnwindInfoEntry>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 struct UnwindInfoEntry {
     dso_base: usize,
     section_ptr: usize,
@@ -125,12 +126,10 @@ unsafe extern "C" fn find_dynamic_unwind_sections(
         return 0;
     };
 
-    // TODO: use more efficient data structure
-    if let Some((_, entry)) = UNWIND_INFO
+    if let Some(entry) = UNWIND_INFO
         .lock()
         .expect("cannot lock UNWIND_INFO")
-        .iter()
-        .find(|(range, _)| range.contains(&addr))
+        .get(&addr)
     {
         info.compact_unwind_section = entry.section_ptr as u64;
         info.compact_unwind_section_length = entry.section_len as u64;
@@ -531,7 +530,7 @@ impl CompactUnwindManager {
                 .collect();
             let mut uw_info = UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO");
             for range in ranges {
-                assert!((*uw_info).remove(&range).is_some());
+                (*uw_info).remove(range);
             }
         }
     }
