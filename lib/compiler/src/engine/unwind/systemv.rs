@@ -280,6 +280,9 @@ impl Drop for UnwindRegistry {
 
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             {
+                if EXIT_CALLED.load(Ordering::SeqCst) {
+                    return;
+                }
                 self.compact_unwind_mgr.deregister();
             }
         }
