@@ -223,9 +223,7 @@ impl CompactUnwindManager {
         }
         self.dso_base = info.dli_fbase as usize;
 
-        unsafe {
-            self.write_unwind_info()?;
-        }
+        self.write_unwind_info()?;
 
         let ranges: Vec<Range<usize>> = self
             .compact_unwind_entries
@@ -295,10 +293,8 @@ impl CompactUnwindManager {
         Ok(())
     }
 
-    unsafe fn write_unwind_info(&mut self) -> CUResult<()> {
-        unsafe {
-            self.write_header()?;
-        }
+    fn write_unwind_info(&mut self) -> CUResult<()> {
+        self.write_header()?;
         self.write_personalities()?;
         self.write_indices()?;
         self.write_lsdas()?;
@@ -351,7 +347,7 @@ impl CompactUnwindManager {
         Ok(())
     }
 
-    unsafe fn write_header(&mut self) -> CUResult<()> {
+    fn write_header(&mut self) -> CUResult<()> {
         //#[derive(Debug, Default)]
         //#[repr(C)]
         //#[allow(non_snake_case, non_camel_case_types)]
