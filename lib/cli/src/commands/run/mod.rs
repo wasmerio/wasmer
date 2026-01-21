@@ -21,6 +21,7 @@ use std::{
 
 use anyhow::{Context, Error, anyhow, bail};
 use clap::{Parser, ValueEnum};
+use colored::Colorize;
 use futures::future::BoxFuture;
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
@@ -120,6 +121,8 @@ impl Run {
 
     #[tracing::instrument(level = "debug", name = "wasmer_run", skip_all)]
     fn execute_inner(mut self, output: Output) -> Result<(), Error> {
+        self.print_option_warnings();
+
         let pb = ProgressBar::new_spinner();
         pb.set_draw_target(output.draw_target());
         pb.enable_steady_tick(TICK);
@@ -247,7 +250,7 @@ impl Run {
 
         if let ExecutableTarget::Package(ref pkg) = target {
             self.wasi
-                .mapped_dirs
+                .all_volumes()
                 .extend(pkg.additional_host_mapped_directories.clone());
         }
 
@@ -323,7 +326,7 @@ impl Run {
                             }
                         }
                     }
-                    self.execute_webc(&pkg, runtime.clone())
+                    self.execute_webc(&pkg, monitoring_runtime)
                 }
             }
         };
@@ -449,7 +452,7 @@ impl Run {
             .args(self.args.clone())
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.clone())
+            .map_directories(self.wasi.all_volumes())
             .callbacks(Callbacks::new(self.wcgi.addr))
             .inject_packages(uses);
         *config.capabilities() = self.wasi.capabilities();
@@ -646,6 +649,25 @@ impl Run {
                 error = &*e as &dyn std::error::Error,
                 coredump_path=%coredump.display(),
                 "Unable to generate a coredump",
+            );
+        }
+    }
+
+    fn print_option_warnings(&self) {
+        if !self.wasi.mapped_dirs.is_empty() {
+            eprintln!(
+                "{}The `{}` option is deprecated and will be removed in the next major release. Please use `{}` instead.",
+                "warning: ".yellow(),
+                "--mapdir".yellow(),
+                "--volume".green()
+            );
+        }
+        if !self.wasi.pre_opened_directories.is_empty() {
+            eprintln!(
+                "{}The `{}` option is deprecated and will be removed in the next major release. Please use `{}` instead.",
+                "warning: ".yellow(),
+                "--dir".yellow(),
+                "--volume".green()
             );
         }
     }

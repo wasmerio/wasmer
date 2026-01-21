@@ -455,21 +455,28 @@ where
                     0,
                 ) => RelocationKind::Arm64Movw3,
                 (
-                    object::Architecture::Riscv64,
+                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_64,
+                    },
+                    64,
+                ) => RelocationKind::Abs8,
+                (
+                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_CALL_PLT,
                     },
                     0,
                 ) => RelocationKind::RiscvCall,
                 (
-                    object::Architecture::Riscv64,
+                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_PCREL_HI20,
                     },
                     0,
                 ) => RelocationKind::RiscvPCRelHi20,
                 (
-                    object::Architecture::Riscv64,
+                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_PCREL_LO12_I,
                     },
@@ -573,13 +580,6 @@ where
                     },
                     32,
                 ) => RelocationKind::Abs4,
-                (
-                    object::Architecture::Riscv64,
-                    object::RelocationFlags::Elf {
-                        r_type: object::elf::R_RISCV_64,
-                    },
-                    64,
-                ) => RelocationKind::Abs8,
                 (
                     object::Architecture::Riscv64,
                     object::RelocationFlags::Elf {

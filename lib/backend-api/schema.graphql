@@ -3036,7 +3036,7 @@ type Query {
   getCommand(name: String!): Command
   getCommands(names: [String!]!): [Command]
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
-  getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
+  getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60, method: String): SignedUrl
   getSignedUrl(filename: String, expiresAfterSeconds: Int = 60): SignedUrl
   getPackageHash(name: String, hash: String!): PackageWebc
   getPackageRelease(hash: String): PackageWebc
@@ -5876,6 +5876,7 @@ input MakePackagePublicInput {
 
 type GenerateUploadUrlPayload {
   signedUrl: SignedUrl!
+  method: String!
   clientMutationId: String
 }
 
@@ -5884,6 +5885,7 @@ input GenerateUploadUrlInput {
   version: String = "latest"
   filename: String
   expiresAfterSeconds: Int = 60
+  method: String
   clientMutationId: String
 }
 

@@ -440,7 +440,7 @@ and mapped directories to serve HTTP content.
 
 ```sh
 cd ../../cli
-cargo run --features compiler,cranelift,debug -- --enable-threads --mapdir /public:/prog/deploy/wasmer-web/public ../wasix/tests/web-server.wasm -- --port 8080 --log-level trace
+cargo run --features compiler,cranelift,debug -- --enable-threads --volume /prog/deploy/wasmer-web/public:/public ../wasix/tests/web-server.wasm -- --port 8080 --log-level trace
 ```
 
 Note: This requires that a curl command be made to the HTTP server asynchronously

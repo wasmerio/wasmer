@@ -12,7 +12,7 @@ version.workspace = true
 wasmer_lib = ["dep:wasmer"]
 
 [dependencies]
-wasmer = { version = "6.1.0", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
+wasmer = { version = "7.0.0-alpha.2", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
 indicatif.workspace = true
 anyhow.workspace = true
 log.workspace = true

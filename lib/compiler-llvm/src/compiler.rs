@@ -9,10 +9,13 @@ use inkwell::targets::FileType;
 use rayon::ThreadPoolBuilder;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use wasmer_compiler::misc::CompiledKind;
+use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
@@ -26,7 +29,10 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
-use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex};
+use wasmer_types::{
+    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
+    SignatureIndex,
+};
 use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
@@ -183,8 +189,15 @@ impl LLVMCompiler {
             || {
                 let target_machine = self.config().target_machine(target);
                 let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
-                FuncTranslator::new(target_machine, Some(target_machine_no_opt), binary_format)
-                    .unwrap()
+                let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                FuncTranslator::new(
+                    target.triple().clone(),
+                    target_machine,
+                    Some(target_machine_no_opt),
+                    binary_format,
+                    pointer_width,
+                )
+                .unwrap()
             },
             |func_translator, (i, input)| {
                 let module = func_translator.translate_to_module(
@@ -364,6 +377,7 @@ impl Compiler for LLVMCompiler {
         compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
 
@@ -373,6 +387,14 @@ impl Compiler for LLVMCompiler {
 
         let module = &compile_info.module;
         let module_hash = module.hash_string();
+        let total_functions = function_body_inputs.len() as u64;
+        let total_function_call_trampolines = module.signatures.len() as u64;
+        let total_dynamic_trampolines = module.num_imported_functions as u64;
+        let total_steps =
+            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
+        let progress = progress_callback
+            .cloned()
+            .map(|cb| ProgressContext::new(cb, total_steps, "Compiling functions"));
 
         // TODO: merge constants in sections.
 
@@ -395,6 +417,7 @@ impl Compiler for LLVMCompiler {
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
 
+        let progress = progress.clone();
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
             .build()
@@ -409,10 +432,13 @@ impl Compiler for LLVMCompiler {
                         let target_machine = self.config().target_machine_with_opt(target, true);
                         let target_machine_no_opt =
                             self.config().target_machine_with_opt(target, false);
+                        let pointer_width = target.triple().pointer_width().unwrap().bytes();
                         FuncTranslator::new(
+                            target.triple().clone(),
                             target_machine,
                             Some(target_machine_no_opt),
                             binary_format,
+                            pointer_width,
                         )
                         .unwrap()
                     },
@@ -420,7 +446,7 @@ impl Compiler for LLVMCompiler {
                         // TODO: remove (to serialize)
                         //let _data = data.lock().unwrap();
 
-                        func_translator.translate(
+                        let translated = func_translator.translate(
                             module,
                             module_translation,
                             i,
@@ -430,7 +456,13 @@ impl Compiler for LLVMCompiler {
                             table_styles,
                             &symbol_registry,
                             target.triple(),
-                        )
+                        );
+
+                        if let Some(progress) = progress.as_ref() {
+                            progress.notify()?;
+                        }
+
+                        translated
                     },
                 )
                 .collect::<Result<Vec<_>, CompileError>>()
@@ -511,6 +543,7 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
+        let progress = progress.clone();
         let function_call_trampolines = pool.install(|| {
             module
                 .signatures
@@ -523,7 +556,12 @@ impl Compiler for LLVMCompiler {
                         FuncTrampoline::new(target_machine, binary_format).unwrap()
                     },
                     |func_trampoline, sig| {
-                        func_trampoline.trampoline(sig, self.config(), "", compile_info)
+                        let trampoline =
+                            func_trampoline.trampoline(sig, self.config(), "", compile_info);
+                        if let Some(progress) = progress.as_ref() {
+                            progress.notify()?;
+                        }
+                        trampoline
                     },
                 )
                 .collect::<Vec<_>>()
@@ -536,6 +574,7 @@ impl Compiler for LLVMCompiler {
         // We can move that logic out and re-enable parallel processing. Hopefully, there aren't
         // enough dynamic trampolines to actually cause a noticeable performance degradation.
         let dynamic_function_trampolines = {
+            let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
             let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
             module
@@ -544,7 +583,7 @@ impl Compiler for LLVMCompiler {
                 .into_iter()
                 .enumerate()
                 .map(|(index, func_type)| {
-                    func_trampoline.dynamic_trampoline(
+                    let trampoline = func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
                         "",
@@ -554,8 +593,12 @@ impl Compiler for LLVMCompiler {
                         &mut eh_frame_section_relocations,
                         &mut compact_unwind_section_bytes,
                         &mut compact_unwind_section_relocations,
-                        &module_hash,
-                    )
+                        &module_hash
+                    )?;
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify()?;
+                    }
+                    Ok(trampoline)
                 })
                 .collect::<Vec<_>>()
                 .into_iter()

@@ -4,9 +4,136 @@
 
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
-Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
-
 ## **Unreleased**
+
+## 7.0.0-alpha.2 - 13/01/2026
+
+## Added
+
+
+## Changed
+
+
+## Fixed
+
+  - [#6046](https://github.com/wasmerio/wasmer/pull/6046) chore: fix publish issue
+  - [#6045](https://github.com/wasmerio/wasmer/pull/6045) fix(make-release): use full pull
+  - [#6007](https://github.com/wasmerio/wasmer/pull/6007) Enable riscv32 target in LLVM compiler & relocations fixes
+
+
+
+## 7.0.0-alpha.1 - 12/01/2026
+
+## Added
+
+  - [#6020](https://github.com/wasmerio/wasmer/pull/6020) fix(loongarch64,riscv64gc,aarch64): add missing relocations and fix EH
+  - [#5984](https://github.com/wasmerio/wasmer/pull/5984) CI: add Cache step for more runs
+  - [#5967](https://github.com/wasmerio/wasmer/pull/5967) cli: add short options for the compilers
+  - [#5963](https://github.com/wasmerio/wasmer/pull/5963) CI: run WASIX tests on Cranelift and exception test added
+  - [#5965](https://github.com/wasmerio/wasmer/pull/5965) Add -q flag to WASMER_RUN in WASIX test suite
+  - [#5848](https://github.com/wasmerio/wasmer/pull/5848) feature(singlepass): add --debug-dir for assembly output
+  - [#5894](https://github.com/wasmerio/wasmer/pull/5894) Documentation to add second R integration WIP package
+  - [#5916](https://github.com/wasmerio/wasmer/pull/5916) CI: add posix-compatible TAR for alpine
+  - [#5910](https://github.com/wasmerio/wasmer/pull/5910) Add Wasmer LinkedIn link to README
+
+## Changed
+
+  - [#6041](https://github.com/wasmerio/wasmer/pull/6041) CI: disable v8 for linux-arm64 target
+  - [#6018](https://github.com/wasmerio/wasmer/pull/6018) CI(aarch64-linux): include into testing matrix
+  - [#6027](https://github.com/wasmerio/wasmer/pull/6027) deps: bump used crates
+  - [#6023](https://github.com/wasmerio/wasmer/pull/6023) chore: always use Rayon thread pool (even for one thread)
+  - [#6025](https://github.com/wasmerio/wasmer/pull/6025) deps(inkwell): bump to 0.8.0
+  - [#5475](https://github.com/wasmerio/wasmer/pull/5475) Disallow mounting folders on the guest's root for WASIX modules
+  - [#6021](https://github.com/wasmerio/wasmer/pull/6021) deps: allow bincode in cargo-deny (RUSTSEC-2025-0141)
+  - [#6016](https://github.com/wasmerio/wasmer/pull/6016) Remove ucontext_t definition for FreeBSD for aarch64
+  - [#5994](https://github.com/wasmerio/wasmer/pull/5994) deps: bump wasm-smith and enable fuzzers
+  - [#5997](https://github.com/wasmerio/wasmer/pull/5997) feat(LLVM): use no-opt for extremely large functions
+  - [#5980](https://github.com/wasmerio/wasmer/pull/5980) setjmp/longjmp based vforking
+  - [#6001](https://github.com/wasmerio/wasmer/pull/6001) deps: bump cranelift to 0.127.0
+  - [#5996](https://github.com/wasmerio/wasmer/pull/5996) deps: bump crates
+  - [#5987](https://github.com/wasmerio/wasmer/pull/5987) chore: cleanup
+  - [#5989](https://github.com/wasmerio/wasmer/pull/5989) deps: bump `wasmparser` crate and port to it
+  - [#5986](https://github.com/wasmerio/wasmer/pull/5986) CI: include Bearer + retry for getting LLVM tarball release
+  - [#5985](https://github.com/wasmerio/wasmer/pull/5985) chore: don't call Features::detect_from_wasm if enable all option is on
+  - [#5983](https://github.com/wasmerio/wasmer/pull/5983) chore: simplify rounding up (align up) logic - use std library
+  - [#5973](https://github.com/wasmerio/wasmer/pull/5973) chore: drop dead code available with `--compiler-debug-dir`
+  - [#5978](https://github.com/wasmerio/wasmer/pull/5978) Make all WASIX interop enums non_exhaustive to prevent UB in case of …
+  - [#5979](https://github.com/wasmerio/wasmer/pull/5979) Prevent failure due to rate limits when installing `wasixcc`
+  - [#5975](https://github.com/wasmerio/wasmer/pull/5975) chore: drop non top-level Cargo.lock files
+  - [#5881](https://github.com/wasmerio/wasmer/pull/5881) Implement WASIX context switching API
+  - [#5972](https://github.com/wasmerio/wasmer/pull/5972) feat: drop mounting of a journal feature (fuse feature)
+  - [#5720](https://github.com/wasmerio/wasmer/pull/5720) Give variables in find_eh_action more descriptive names
+  - [#5968](https://github.com/wasmerio/wasmer/pull/5968) chore: resolve build warnings with all features enabled
+  - [#5969](https://github.com/wasmerio/wasmer/pull/5969) deps: bump wasm-coredump-builder crate
+  - [#5970](https://github.com/wasmerio/wasmer/pull/5970) deps: bump bincode to 2.0
+  - [#5964](https://github.com/wasmerio/wasmer/pull/5964) chore: use EH-related `Gimli` crate constants
+  - [#5966](https://github.com/wasmerio/wasmer/pull/5966) deps: bump wasmi crate
+  - [#5962](https://github.com/wasmerio/wasmer/pull/5962) Support EH for Cranelift compiler
+  - [#5957](https://github.com/wasmerio/wasmer/pull/5957) feature: disable crate-exe and create-obj subcommands
+  - [#5913](https://github.com/wasmerio/wasmer/pull/5913) CI: drop unused sccache and handle GH workflow issues
+  - [#5944](https://github.com/wasmerio/wasmer/pull/5944) deps: sort crate depedencies alphabetically
+  - [#5959](https://github.com/wasmerio/wasmer/pull/5959) Pin wasix libc version in CI
+  - [#5938](https://github.com/wasmerio/wasmer/pull/5938) CI: shorten job names for UI purpose
+  - [#5956](https://github.com/wasmerio/wasmer/pull/5956) chore: simplify logic in UnwindRegistry
+  - [#5950](https://github.com/wasmerio/wasmer/pull/5950) Bump MSRV to 1.90
+  - [#5953](https://github.com/wasmerio/wasmer/pull/5953) Prevent crashes during exit due to deregistering frames on exit (v3)
+  - [#5926](https://github.com/wasmerio/wasmer/pull/5926) CI: run macos-15-intel only on main (not in PRs)
+  - [#5762](https://github.com/wasmerio/wasmer/pull/5762) Port to powerpc64 Linux
+  - [#5920](https://github.com/wasmerio/wasmer/pull/5920) Async execution API + concurrent execution support, take 2
+  - [#5925](https://github.com/wasmerio/wasmer/pull/5925) deps: bump crates (part 1)
+  - [#5917](https://github.com/wasmerio/wasmer/pull/5917) chore(singlepass): simplify arch_supports_x
+  - [#5940](https://github.com/wasmerio/wasmer/pull/5940) CI: disable multi-value (host fn) tests as it's borked on Windows for LLVM compiler
+  - [#5935](https://github.com/wasmerio/wasmer/pull/5935) CI: move Alpine to edge and use LLVM 21
+  - [#5936](https://github.com/wasmerio/wasmer/pull/5936) CI(LLVM): port mvr_test and enable them for LLVM compiler
+  - [#5937](https://github.com/wasmerio/wasmer/pull/5937) CI(LLVM): enable tests on Windows
+  - [#5892](https://github.com/wasmerio/wasmer/pull/5892) feat: Use macos (arm) 14 via depot runners
+  - [#5865](https://github.com/wasmerio/wasmer/pull/5865) build: move dependency declarations to top-level Cargo.toml
+  - [#5921](https://github.com/wasmerio/wasmer/pull/5921) CI: move back to working actions-cache-s3@v2
+  - [#5911](https://github.com/wasmerio/wasmer/pull/5911) build: use nightly for docs and port to it
+  - [#5919](https://github.com/wasmerio/wasmer/pull/5919) chore(singlepass): expect only register args in get_simple_param_location
+  - [#5914](https://github.com/wasmerio/wasmer/pull/5914) CI: leave MacOS 13 for x86_64 target.
+  - [#5909](https://github.com/wasmerio/wasmer/pull/5909) build(LLVM): drop unused code
+  - [#5900](https://github.com/wasmerio/wasmer/pull/5900) deps: bump Cranelift to 0.126.0
+  - [#5901](https://github.com/wasmerio/wasmer/pull/5901) Singlepass refactoring
+  - [#5897](https://github.com/wasmerio/wasmer/pull/5897) ci: bump actions-cache-s3
+  - [#5899](https://github.com/wasmerio/wasmer/pull/5899) CI: migrate workflows to checkout v6
+  - [#5896](https://github.com/wasmerio/wasmer/pull/5896) chore(cranelift): unify rayon and non-rayon code with closure
+  - [#5889](https://github.com/wasmerio/wasmer/pull/5889) build: switch to LLVM 21
+
+## Fixed
+
+  - [#6040](https://github.com/wasmerio/wasmer/pull/6040) fix: downgrade zip crate and run generate-lockfile
+  - [#6008](https://github.com/wasmerio/wasmer/pull/6008) Fix/linker crash tls symbol without tls base
+  - [#6022](https://github.com/wasmerio/wasmer/pull/6022) fix: include endpoint URL in response cache location
+  - [#6026](https://github.com/wasmerio/wasmer/pull/6026) fix(_Unwind_RaiseException): ignore return value as it's unreliable
+  - [#5990](https://github.com/wasmerio/wasmer/pull/5990) fix: provide unique function names
+  - [#6019](https://github.com/wasmerio/wasmer/pull/6019) Fix typo in CompileError doc comment
+  - [#6014](https://github.com/wasmerio/wasmer/pull/6014) CI(cranelift): fix macos x64
+  - [#6015](https://github.com/wasmerio/wasmer/pull/6015) Fix trap handler for FreeBSD for aarch64
+  - [#6010](https://github.com/wasmerio/wasmer/pull/6010) fix(cranelift): EH: ensure CatchAll is always present at the end of an action linked list
+  - [#6012](https://github.com/wasmerio/wasmer/pull/6012) Fix relative_path_to_absolute
+  - [#5999](https://github.com/wasmerio/wasmer/pull/5999) fix(build): Update webkit in flake.nix
+  - [#6009](https://github.com/wasmerio/wasmer/pull/6009) fix(wasix): Fix wasip1 preopen handling for Go compatibility
+  - [#6013](https://github.com/wasmerio/wasmer/pull/6013) deps(rkyv): fix RUSTSEC-2026-0001
+  - [#5992](https://github.com/wasmerio/wasmer/pull/5992) fix: properly report size after memory.reset
+  - [#5995](https://github.com/wasmerio/wasmer/pull/5995) CI: fix and rename jobs on main
+  - [#5767](https://github.com/wasmerio/wasmer/pull/5767) fix(build): Meaningful compilation errors when no backend feature enabled
+  - [#5982](https://github.com/wasmerio/wasmer/pull/5982) fix: do not call `detect_features_from_wasm` with WAT content
+  - [#5981](https://github.com/wasmerio/wasmer/pull/5981) Fixed proc spawn2 when duplicating stdio fds
+  - [#5971](https://github.com/wasmerio/wasmer/pull/5971) CI: re-enable test due to fixed rustc +nightly
+  - [#5974](https://github.com/wasmerio/wasmer/pull/5974) fix: do not create folders for cache/queries entries
+  - [#5826](https://github.com/wasmerio/wasmer/pull/5826) chore(build): fix compilation warnings
+  - [#5960](https://github.com/wasmerio/wasmer/pull/5960) CI: fix failing CI jobs (failing FYI test, out of disk space with Cache)
+  - [#5945](https://github.com/wasmerio/wasmer/pull/5945) fix: Set LLVM target machine's ABI in a portable way
+  - [#5924](https://github.com/wasmerio/wasmer/pull/5924) fix(backend-api): Update GraphQL schema
+  - [#5799](https://github.com/wasmerio/wasmer/pull/5799) fix(wasix): Prevent recursive merge fallback when mounting packages
+  - [#5796](https://github.com/wasmerio/wasmer/pull/5796) fix(llvm): use llvm.minimum/maximum intrinsics and refactor NaN canonicalization
+  - [#5918](https://github.com/wasmerio/wasmer/pull/5918) fix(singlepass): properly align stack slots in deallocation
+  - [#5882](https://github.com/wasmerio/wasmer/pull/5882) fix(LLVM): fix compiler error on aarch64 target
+  - [#5902](https://github.com/wasmerio/wasmer/pull/5902) fix(cicd): Swap to new organizational ciuser token
+  - [#5888](https://github.com/wasmerio/wasmer/pull/5888) fix(cranelift): fix get_function_name reference lookup
+
+
 
 ## 6.1.0 - 08/10/2025
 
