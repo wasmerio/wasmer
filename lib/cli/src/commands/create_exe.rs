@@ -2,11 +2,7 @@
 
 use self::utils::normalize_atom_name;
 use super::CliCommand;
-use crate::{
-    backend::RuntimeOptions,
-    common::{HashAlgorithm, normalize_path},
-    config::WasmerEnv,
-};
+use crate::{backend::RuntimeOptions, common::normalize_path, config::WasmerEnv};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::Parser;
 use object::ObjectSection;
@@ -102,10 +98,6 @@ pub struct CreateExe {
 
     #[clap(flatten)]
     compiler: RuntimeOptions,
-
-    /// Hashing algorithm to be used for module hash
-    #[clap(long, value_enum)]
-    hash_algorithm: Option<HashAlgorithm>,
 }
 
 /// Url or version to download the release from
@@ -237,10 +229,7 @@ impl CliCommand for CreateExe {
         }
 
         let _backends = self.compiler.get_available_backends()?;
-        let mut engine = self.compiler.get_engine(&target)?;
-
-        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
-        engine.set_hash_algorithm(Some(hash_algorithm));
+        let engine = self.compiler.get_engine(&target)?;
 
         println!("Compiler: {}", engine.deterministic_id());
         println!("Target: {}", target.triple());
