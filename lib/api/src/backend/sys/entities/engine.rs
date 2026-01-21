@@ -4,9 +4,7 @@ use std::{path::Path, sync::Arc};
 
 use shared_buffer::OwnedBuffer;
 pub use wasmer_compiler::{Artifact, BaseTunables, Engine, EngineBuilder, Tunables};
-use wasmer_types::{
-    CompilationProgressCallback, DeserializeError, Features, HashAlgorithm, target::Target,
-};
+use wasmer_types::{CompilationProgressCallback, DeserializeError, Features, target::Target};
 
 use crate::{BackendEngine, BackendModule};
 
@@ -60,9 +58,6 @@ pub trait NativeEngineExt {
         target: Target,
         features: Features,
     ) -> Self;
-
-    /// Sets the hash algorithm
-    fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>);
 
     /// Create a headless `Engine`
     ///
@@ -200,13 +195,6 @@ impl NativeEngineExt for crate::engine::Engine {
         Ok(crate::Module(BackendModule::Sys(
             super::module::Module::from_artifact(artifact),
         )))
-    }
-
-    fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>) {
-        match self.be {
-            BackendEngine::Sys(ref mut s) => s.set_hash_algorithm(hash_algorithm),
-            _ => panic!("Not a `sys` engine!"),
-        }
     }
 }
 

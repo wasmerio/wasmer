@@ -23,7 +23,6 @@ enum-iterator.workspace = true
 target-lexicon = { workspace = true}
 enumset.workspace = true
 bytecheck.workspace = true
-xxhash-rust = { workspace = true, features = ["xxh64"] }
 sha2.workspace = true
 hex.workspace = true
 loupe = { workspace = true, optional = true }

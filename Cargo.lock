@@ -7035,7 +7035,6 @@ dependencies = [
  "wasmparser 0.244.0",
  "which",
  "windows-sys 0.61.2",
- "xxhash-rust",
 ]
 
 [[package]]
@@ -7340,7 +7339,6 @@ dependencies = [
  "target-lexicon 0.13.4",
  "thiserror 2.0.17",
  "wasmparser 0.244.0",
- "xxhash-rust",
 ]
 
 [[package]]

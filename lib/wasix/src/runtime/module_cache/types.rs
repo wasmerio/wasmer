@@ -157,19 +157,29 @@ mod tests {
 
     #[test]
     fn key_is_displayed_as_hex() {
-        let key = ModuleHash::xxhash_from_bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+        let key = ModuleHash::from_bytes([
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+            0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B,
+            0x1C, 0x1D, 0x1E, 0x1F,
+        ]);
 
         let repr = key.to_string();
 
-        assert_eq!(repr, "0001020304050607");
+        assert_eq!(
+            repr,
+            "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
+        );
     }
 
     #[test]
     fn module_hash_is_just_sha_256() {
         let wasm = b"\0asm...";
-        let raw = [0x0c, 0xc7, 0x88, 0x60, 0xd4, 0x14, 0x71, 0x4c];
+        let raw = [
+            90, 57, 254, 239, 82, 229, 59, 143, 254, 223, 215, 5, 21, 86, 236, 16, 94, 216, 105,
+            130, 241, 34, 160, 93, 39, 40, 217, 103, 120, 228, 235, 150,
+        ];
 
-        let hash = ModuleHash::xxhash(wasm);
+        let hash = ModuleHash::new(wasm);
 
         assert_eq!(hash.as_bytes(), raw);
     }
