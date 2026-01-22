@@ -1,11 +1,11 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Utilities for formatting and printing `String`s."><title>wasmer_compiler::lib::std::fmt - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0 (1159e78c4 2025-09-14)" data-channel="1.90.0" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-68b7e25d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-eebb9057.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../wasmer_compiler/index.html">wasmer_<wbr>compiler</a><span class="version">7.0.0-alpha.2</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module fmt</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#usage" title="Usage">Usage</a><ul><li><a href="#positional-parameters" title="Positional parameters">Positional parameters</a></li><li><a href="#named-parameters" title="Named parameters">Named parameters</a></li></ul></li><li><a href="#formatting-parameters" title="Formatting Parameters">Formatting Parameters</a><ul><li><a href="#width" title="Width">Width</a></li><li><a href="#fillalignment" title="Fill/Alignment">Fill/Alignment</a></li><li><a href="#sign0" title="Sign/`#`/`0`">Sign/<code>#</code>/<code>0</code></a></li><li><a href="#precision" title="Precision">Precision</a></li><li><a href="#localization" title="Localization">Localization</a></li></ul></li><li><a href="#escaping" title="Escaping">Escaping</a></li><li><a href="#syntax" title="Syntax">Syntax</a></li><li><a href="#formatting-traits" title="Formatting traits">Formatting traits</a><ul><li><a href="#fmtdisplay-vs-fmtdebug" title="`fmt::Display` vs `fmt::Debug`"><code>fmt::Display</code> vs <code>fmt::Debug</code></a></li></ul></li><li><a href="#related-macros" title="Related macros">Related macros</a><ul><li><a href="#write" title="`write!`"><code>write!</code></a></li><li><a href="#print" title="`print!`"><code>print!</code></a></li><li><a href="#eprint" title="`eprint!`"><code>eprint!</code></a></li><li><a href="#format_args" title="`format_args!`"><code>format_args!</code></a></li></ul></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In wasmer_<wbr>compiler::<wbr>lib::<wbr>std</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">wasmer_compiler</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a></div><h1>Module <span>fmt</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.90.0/src/alloc/lib.rs.html#223">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Utilities for formatting and printing <code>String</code>s.</p>
-<p>This module contains the runtime support for the <a href="https://doc.rust-lang.org/1.90.0/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> syntax extension.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Utilities for formatting and printing `String`s."><title>wasmer_compiler::lib::std::fmt - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module fmt</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../wasmer_compiler/index.html">wasmer_<wbr>compiler</a><span class="version">7.0.0-alpha.2</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module fmt</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#usage" title="Usage">Usage</a><ul><li><a href="#positional-parameters" title="Positional parameters">Positional parameters</a></li><li><a href="#named-parameters" title="Named parameters">Named parameters</a></li></ul></li><li><a href="#formatting-parameters" title="Formatting Parameters">Formatting Parameters</a><ul><li><a href="#width" title="Width">Width</a></li><li><a href="#fillalignment" title="Fill/Alignment">Fill/Alignment</a></li><li><a href="#sign0" title="Sign/`#`/`0`">Sign/<code>#</code>/<code>0</code></a></li><li><a href="#precision" title="Precision">Precision</a></li><li><a href="#localization" title="Localization">Localization</a></li></ul></li><li><a href="#escaping" title="Escaping">Escaping</a></li><li><a href="#syntax" title="Syntax">Syntax</a></li><li><a href="#formatting-traits" title="Formatting traits">Formatting traits</a><ul><li><a href="#fmtdisplay-vs-fmtdebug" title="`fmt::Display` vs `fmt::Debug`"><code>fmt::Display</code> vs <code>fmt::Debug</code></a></li></ul></li><li><a href="#related-macros" title="Related macros">Related macros</a><ul><li><a href="#write" title="`write!`"><code>write!</code></a></li><li><a href="#print" title="`print!`"><code>print!</code></a></li><li><a href="#eprint" title="`eprint!`"><code>eprint!</code></a></li><li><a href="#format_args" title="`format_args!`"><code>format_args!</code></a></li></ul></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In wasmer_<wbr>compiler::<wbr>lib::<wbr>std</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">wasmer_compiler</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a></div><h1>Module <span>fmt</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.91.1/src/alloc/lib.rs.html#226">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Utilities for formatting and printing <code>String</code>s.</p>
+<p>This module contains the runtime support for the <a href="https://doc.rust-lang.org/1.91.1/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> syntax extension.
 This macro is implemented in the compiler to emit calls to this module in
 order to format arguments at runtime into strings.</p>
 <h2 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h2>
-<p>The <a href="https://doc.rust-lang.org/1.90.0/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> macro is intended to be familiar to those coming from C’s
+<p>The <a href="https://doc.rust-lang.org/1.91.1/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> macro is intended to be familiar to those coming from C’s
 <code>printf</code>/<code>fprintf</code> functions or Python’s <code>str.format</code> function.</p>
-<p>Some examples of the <a href="https://doc.rust-lang.org/1.90.0/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> extension are:</p>
+<p>Some examples of the <a href="https://doc.rust-lang.org/1.91.1/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> extension are:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">format!</span>(<span class="string">"Hello"</span>);                 <span class="comment">// =&gt; "Hello"
 </span><span class="macro">format!</span>(<span class="string">"Hello, {}!"</span>, <span class="string">"world"</span>);   <span class="comment">// =&gt; "Hello, world!"
@@ -49,11 +49,11 @@ compile-time error. You may refer to the same argument more than once in the
 format string.</p>
 <h3 id="named-parameters"><a class="doc-anchor" href="#named-parameters">§</a>Named parameters</h3>
 <p>Rust itself does not have a Python-like equivalent of named parameters to a
-function, but the <a href="https://doc.rust-lang.org/1.90.0/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> macro is a syntax extension that allows it to
+function, but the <a href="https://doc.rust-lang.org/1.91.1/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> macro is a syntax extension that allows it to
 leverage named parameters. Named parameters are listed at the end of the
 argument list and have the syntax:</p>
 <div class="example-wrap"><pre class="language-text"><code>identifier &#39;=&#39; expression</code></pre></div>
-<p>For example, the following <a href="https://doc.rust-lang.org/1.90.0/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> expressions all use named arguments:</p>
+<p>For example, the following <a href="https://doc.rust-lang.org/1.91.1/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> expressions all use named arguments:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">format!</span>(<span class="string">"{argument}"</span>, argument = <span class="string">"test"</span>);   <span class="comment">// =&gt; "test"
 </span><span class="macro">format!</span>(<span class="string">"{name} {}"</span>, <span class="number">1</span>, name = <span class="number">2</span>);          <span class="comment">// =&gt; "2 1"
@@ -81,8 +81,7 @@ introduces the options.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>a = <span class="number">5</span>;
 <span class="kw">let </span>b = <span class="kw-2">&amp;</span>a;
-<span class="macro">println!</span>(<span class="string">"{a:e} {b:p}"</span>); <span class="comment">// =&gt; 5e0 0x7ffe37b7273c</span></code></pre></div>
-<h3 id="width"><a class="doc-anchor" href="#width">§</a>Width</h3>
+<span class="macro">println!</span>(<span class="string">"{a:e} {b:p}"</span>); <span class="comment">// =&gt; 5e0 0x7ffe37b7273c</span></code></pre></div><h3 id="width"><a class="doc-anchor" href="#width">§</a>Width</h3>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// All of these print "Hello x    !"
 </span><span class="macro">println!</span>(<span class="string">"Hello {:5}!"</span>, <span class="string">"x"</span>);
 <span class="macro">println!</span>(<span class="string">"Hello {:1$}!"</span>, <span class="string">"x"</span>, <span class="number">5</span>);
@@ -94,9 +93,9 @@ introduces the options.</p>
 If the value’s string does not fill up this many characters, then the
 padding specified by fill/alignment will be used to take up the required
 space (see below).</p>
-<p>The value for the width can also be provided as a <a href="https://doc.rust-lang.org/1.90.0/std/primitive.usize.html" title="primitive usize"><code>usize</code></a> in the list of
+<p>The value for the width can also be provided as a <a href="https://doc.rust-lang.org/1.91.1/std/primitive.usize.html" title="primitive usize"><code>usize</code></a> in the list of
 parameters by adding a postfix <code>$</code>, indicating that the second argument is
-a <a href="https://doc.rust-lang.org/1.90.0/std/primitive.usize.html" title="primitive usize"><code>usize</code></a> specifying the width.</p>
+a <a href="https://doc.rust-lang.org/1.91.1/std/primitive.usize.html" title="primitive usize"><code>usize</code></a> specifying the width.</p>
 <p>Referring to an argument with the dollar syntax does not affect the “next
 argument” counter, so it’s usually a good idea to refer to arguments by
 position, or use named arguments.</p>
@@ -125,8 +124,7 @@ is not generally implemented for the <code>Debug</code> trait.  A good way to en
 padding is applied is to format your input, then pad this resulting string
 to obtain your output:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">println!</span>(<span class="string">"Hello {:^15}!"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, <span class="prelude-val">Some</span>(<span class="string">"hi"</span>))); <span class="comment">// =&gt; "Hello   Some("hi")   !"</span></code></pre></div>
-<h3 id="sign0"><a class="doc-anchor" href="#sign0">§</a>Sign/<code>#</code>/<code>0</code></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">println!</span>(<span class="string">"Hello {:^15}!"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, <span class="prelude-val">Some</span>(<span class="string">"hi"</span>))); <span class="comment">// =&gt; "Hello   Some("hi")   !"</span></code></pre></div><h3 id="sign0"><a class="doc-anchor" href="#sign0">§</a>Sign/<code>#</code>/<code>0</code></h3>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"Hello {:+}!"</span>, <span class="number">5</span>), <span class="string">"Hello +5!"</span>);
 <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{:#x}!"</span>, <span class="number">27</span>), <span class="string">"0x1b!"</span>);
 <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"Hello {:05}!"</span>, <span class="number">5</span>),  <span class="string">"Hello 00005!"</span>);
@@ -250,15 +248,13 @@ configuration.</p>
 <p>For example, the following code will always print <code>1.5</code> even if the system
 locale uses a decimal separator other than a dot.</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">println!</span>(<span class="string">"The value is {}"</span>, <span class="number">1.5</span>);</code></pre></div>
-<h2 id="escaping"><a class="doc-anchor" href="#escaping">§</a>Escaping</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">println!</span>(<span class="string">"The value is {}"</span>, <span class="number">1.5</span>);</code></pre></div><h2 id="escaping"><a class="doc-anchor" href="#escaping">§</a>Escaping</h2>
 <p>The literal characters <code>{</code> and <code>}</code> may be included in a string by preceding
 them with the same character. For example, the <code>{</code> character is escaped with
 <code>{{</code> and the <code>}</code> character is escaped with <code>}}</code>.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"Hello {{}}"</span>), <span class="string">"Hello {}"</span>);
-<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{{ Hello"</span>), <span class="string">"{ Hello"</span>);</code></pre></div>
-<h2 id="syntax"><a class="doc-anchor" href="#syntax">§</a>Syntax</h2>
+<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{{ Hello"</span>), <span class="string">"{ Hello"</span>);</code></pre></div><h2 id="syntax"><a class="doc-anchor" href="#syntax">§</a>Syntax</h2>
 <p>To summarize, here you can find the full grammar of format strings.
 The syntax for the formatting language used is drawn from other languages,
 so it should not be too alien. Arguments are formatted with Python-like
@@ -275,13 +271,13 @@ align := &#39;&lt;&#39; | &#39;^&#39; | &#39;&gt;&#39;
 sign := &#39;+&#39; | &#39;-&#39;
 width := count
 precision := count | &#39;*&#39;
-type := &#39;?&#39; | &#39;x?&#39; | &#39;X?&#39; | identifier
+type := &#39;?&#39; | &#39;x?&#39; | &#39;X?&#39; | &#39;o&#39; | &#39;x&#39; | &#39;X&#39; | &#39;p&#39; | &#39;b&#39; | &#39;e&#39; | &#39;E&#39;
 count := parameter | integer
 parameter := argument &#39;$&#39;</code></pre></div>
 <p>In the above grammar,</p>
 <ul>
 <li><code>text</code> must not contain any <code>'{'</code> or <code>'}'</code> characters,</li>
-<li><code>ws</code> is any character for which <a href="https://doc.rust-lang.org/1.90.0/std/primitive.char.html#method.is_whitespace" title="method char::is_whitespace"><code>char::is_whitespace</code></a> returns <code>true</code>, has no semantic
+<li><code>ws</code> is any character for which <a href="https://doc.rust-lang.org/1.91.1/std/primitive.char.html#method.is_whitespace" title="method char::is_whitespace"><code>char::is_whitespace</code></a> returns <code>true</code>, has no semantic
 meaning and is completely optional,</li>
 <li><code>integer</code> is a decimal integer that may contain leading zeroes and must fit into an <code>usize</code> and</li>
 <li><code>identifier</code> is an <code>IDENTIFIER_OR_KEYWORD</code> (not an <code>IDENTIFIER</code>) as defined by the <a href="https://doc.rust-lang.org/reference/identifiers.html">Rust language reference</a>.</li>
@@ -289,8 +285,8 @@ meaning and is completely optional,</li>
 <h2 id="formatting-traits"><a class="doc-anchor" href="#formatting-traits">§</a>Formatting traits</h2>
 <p>When requesting that an argument be formatted with a particular type, you
 are actually requesting that an argument ascribes to a particular trait.
-This allows multiple actual types to be formatted via <code>{:x}</code> (like <a href="https://doc.rust-lang.org/1.90.0/std/primitive.i8.html" title="primitive i8"><code>i8</code></a> as
-well as <a href="https://doc.rust-lang.org/1.90.0/std/primitive.isize.html" title="primitive isize"><code>isize</code></a>). The current mapping of types to traits is:</p>
+This allows multiple actual types to be formatted via <code>{:x}</code> (like <a href="https://doc.rust-lang.org/1.91.1/std/primitive.i8.html" title="primitive i8"><code>i8</code></a> as
+well as <a href="https://doc.rust-lang.org/1.91.1/std/primitive.isize.html" title="primitive isize"><code>isize</code></a>). The current mapping of types to traits is:</p>
 <ul>
 <li><em>nothing</em> ⇒ <a href="trait.Display.html" title="trait wasmer_compiler::lib::std::fmt::Display"><code>Display</code></a></li>
 <li><code>?</code> ⇒ <a href="trait.Debug.html" title="trait wasmer_compiler::lib::std::fmt::Debug"><code>Debug</code></a></li>
@@ -320,9 +316,9 @@ The values of these parameters can be accessed with methods of the
 <a href="struct.Formatter.html" title="struct wasmer_compiler::lib::std::fmt::Formatter"><code>Formatter</code></a> struct. In order to help with this, the <a href="struct.Formatter.html" title="struct wasmer_compiler::lib::std::fmt::Formatter"><code>Formatter</code></a> struct also
 provides some helper methods.</p>
 <p>Additionally, the return value of this function is <a href="type.Result.html" title="fmt::Result"><code>fmt::Result</code></a> which is a
-type alias of <code><a href="https://doc.rust-lang.org/1.90.0/core/result/enum.Result.html" title="std::result::Result">Result</a>&lt;(), <a href="struct.Error.html" title="fmt::Error">std::fmt::Error</a>&gt;</code>. Formatting implementations
+type alias of <code><a href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="std::result::Result">Result</a>&lt;(), <a href="struct.Error.html" title="fmt::Error">std::fmt::Error</a>&gt;</code>. Formatting implementations
 should ensure that they propagate errors from the <a href="struct.Formatter.html" title="struct wasmer_compiler::lib::std::fmt::Formatter"><code>Formatter</code></a> (e.g., when
-calling <a href="https://doc.rust-lang.org/1.90.0/core/macro.write.html" title="macro core::write"><code>write!</code></a>). However, they should never return errors spuriously. That
+calling <a href="https://doc.rust-lang.org/1.91.1/core/macro.write.html" title="macro core::write"><code>write!</code></a>). However, they should never return errors spuriously. That
 is, a formatting implementation must and may only return an error if the
 passed-in <a href="struct.Formatter.html" title="struct wasmer_compiler::lib::std::fmt::Formatter"><code>Formatter</code></a> returns an error. This is because, contrary to what
 the function signature might suggest, string formatting is an infallible
@@ -372,8 +368,7 @@ like:</p>
     <span class="macro">println!</span>(<span class="string">"{myvector}"</span>);       <span class="comment">// =&gt; "(3, 4)"
     </span><span class="macro">println!</span>(<span class="string">"{myvector:?}"</span>);     <span class="comment">// =&gt; "Vector2D {x: 3, y:4}"
     </span><span class="macro">println!</span>(<span class="string">"{myvector:10.3b}"</span>); <span class="comment">// =&gt; "     5.000"
-</span>}</code></pre></div>
-<h4 id="fmtdisplay-vs-fmtdebug"><a class="doc-anchor" href="#fmtdisplay-vs-fmtdebug">§</a><code>fmt::Display</code> vs <code>fmt::Debug</code></h4>
+</span>}</code></pre></div><h4 id="fmtdisplay-vs-fmtdebug"><a class="doc-anchor" href="#fmtdisplay-vs-fmtdebug">§</a><code>fmt::Display</code> vs <code>fmt::Debug</code></h4>
 <p>These two formatting traits have distinct purposes:</p>
 <ul>
 <li><a href="trait.Display.html" title="trait wasmer_compiler::lib::std::fmt::Display"><code>fmt::Display</code></a> implementations assert that the type can be faithfully
@@ -388,9 +383,8 @@ most cases, using <code>#[derive(Debug)]</code> is sufficient and recommended.</
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{} {:?}"</span>, <span class="number">3</span>, <span class="number">4</span>), <span class="string">"3 4"</span>);
 <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{} {:?}"</span>, <span class="string">'a'</span>, <span class="string">'b'</span>), <span class="string">"a 'b'"</span>);
-<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{} {:?}"</span>, <span class="string">"foo\n"</span>, <span class="string">"bar\n"</span>), <span class="string">"foo\n \"bar\\n\""</span>);</code></pre></div>
-<h2 id="related-macros"><a class="doc-anchor" href="#related-macros">§</a>Related macros</h2>
-<p>There are a number of related macros in the <a href="https://doc.rust-lang.org/1.90.0/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> family. The ones that
+<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{} {:?}"</span>, <span class="string">"foo\n"</span>, <span class="string">"bar\n"</span>), <span class="string">"foo\n \"bar\\n\""</span>);</code></pre></div><h2 id="related-macros"><a class="doc-anchor" href="#related-macros">§</a>Related macros</h2>
+<p>There are a number of related macros in the <a href="https://doc.rust-lang.org/1.91.1/alloc/macro.format.html" title="macro alloc::format"><code>format!</code></a> family. The ones that
 are currently implemented are:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">format!</span>      <span class="comment">// described above
@@ -400,9 +394,8 @@ are currently implemented are:</p>
 </span><span class="macro">println!</span>     <span class="comment">// same as print but appends a newline
 </span><span class="macro">eprint!</span>      <span class="comment">// the format string is printed to the standard error
 </span><span class="macro">eprintln!</span>    <span class="comment">// same as eprint but appends a newline
-</span><span class="macro">format_args!</span> <span class="comment">// described below.</span></code></pre></div>
-<h4 id="write"><a class="doc-anchor" href="#write">§</a><code>write!</code></h4>
-<p><a href="https://doc.rust-lang.org/1.90.0/core/macro.write.html" title="macro core::write"><code>write!</code></a> and <a href="https://doc.rust-lang.org/1.90.0/core/macro.writeln.html" title="macro core::writeln"><code>writeln!</code></a> are two macros which are used to emit the format string
+</span><span class="macro">format_args!</span> <span class="comment">// described below.</span></code></pre></div><h4 id="write"><a class="doc-anchor" href="#write">§</a><code>write!</code></h4>
+<p><a href="https://doc.rust-lang.org/1.91.1/core/macro.write.html" title="macro core::write"><code>write!</code></a> and <a href="https://doc.rust-lang.org/1.91.1/core/macro.writeln.html" title="macro core::writeln"><code>writeln!</code></a> are two macros which are used to emit the format string
 to a specified stream. This is used to prevent intermediate allocations of
 format strings and instead directly write the output. Under the hood, this
 function is actually invoking the <a href="../../std/io/trait.Write.html#method.write_fmt"><code>write_fmt</code></a> function defined on the
@@ -410,15 +403,13 @@ function is actually invoking the <a href="../../std/io/trait.Write.html#method.
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::io::Write;
 <span class="kw">let </span><span class="kw-2">mut </span>w = Vec::new();
-<span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>w, <span class="string">"Hello {}!"</span>, <span class="string">"world"</span>);</code></pre></div>
-<h4 id="print"><a class="doc-anchor" href="#print">§</a><code>print!</code></h4>
-<p>This and <a href="../../std/macro.println.html" title="println!"><code>println!</code></a> emit their output to stdout. Similarly to the <a href="https://doc.rust-lang.org/1.90.0/core/macro.write.html" title="macro core::write"><code>write!</code></a>
+<span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>w, <span class="string">"Hello {}!"</span>, <span class="string">"world"</span>);</code></pre></div><h4 id="print"><a class="doc-anchor" href="#print">§</a><code>print!</code></h4>
+<p>This and <a href="../../std/macro.println.html" title="println!"><code>println!</code></a> emit their output to stdout. Similarly to the <a href="https://doc.rust-lang.org/1.91.1/core/macro.write.html" title="macro core::write"><code>write!</code></a>
 macro, the goal of these macros is to avoid intermediate allocations when
 printing output. Example usage is:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">print!</span>(<span class="string">"Hello {}!"</span>, <span class="string">"world"</span>);
-<span class="macro">println!</span>(<span class="string">"I have a newline {}"</span>, <span class="string">"character at the end"</span>);</code></pre></div>
-<h4 id="eprint"><a class="doc-anchor" href="#eprint">§</a><code>eprint!</code></h4>
+<span class="macro">println!</span>(<span class="string">"I have a newline {}"</span>, <span class="string">"character at the end"</span>);</code></pre></div><h4 id="eprint"><a class="doc-anchor" href="#eprint">§</a><code>eprint!</code></h4>
 <p>The <a href="../../std/macro.eprint.html" title="eprint!"><code>eprint!</code></a> and <a href="../../std/macro.eprintln.html" title="eprintln!"><code>eprintln!</code></a> macros are identical to
 <a href="../../std/macro.print.html" title="print!"><code>print!</code></a> and <a href="../../std/macro.println.html" title="println!"><code>println!</code></a>, respectively, except they emit their
 output to stderr.</p>

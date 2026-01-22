@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/mem_fs/filesystem.rs`."><title>filesystem.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0 (1159e78c4 2025-09-14)" data-channel="1.90.0" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-68b7e25d.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-eebb9057.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">virtual_fs/mem_fs/</div>filesystem.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/mem_fs/filesystem.rs`."><title>filesystem.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">virtual_fs/mem_fs/</div>filesystem.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadBackingStore;
 <a href=#4 id=4 data-nosnippet>4</a>
@@ -1769,7 +1769,7 @@
 <a href=#1769 id=1769 data-nosnippet>1769</a>                    path,
 <a href=#1770 id=1770 data-nosnippet>1770</a>                    metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
 <a href=#1771 id=1771 data-nosnippet>1771</a>                }))
-<a href=#1772 id=1772 data-nosnippet>1772</a>                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/foo"</span>) &amp;&amp; ft.is_dir()
+<a href=#1772 id=1772 data-nosnippet>1772</a>                    <span class="kw">if </span>path.as_path() == <span class="macro">path!</span>(<span class="string">"/foo"</span>) &amp;&amp; ft.is_dir()
 <a href=#1773 id=1773 data-nosnippet>1773</a>            ),
 <a href=#1774 id=1774 data-nosnippet>1774</a>            <span class="string">"checking entry #1"</span>,
 <a href=#1775 id=1775 data-nosnippet>1775</a>        );
@@ -1780,7 +1780,7 @@
 <a href=#1780 id=1780 data-nosnippet>1780</a>                    path,
 <a href=#1781 id=1781 data-nosnippet>1781</a>                    metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
 <a href=#1782 id=1782 data-nosnippet>1782</a>                }))
-<a href=#1783 id=1783 data-nosnippet>1783</a>                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/bar"</span>) &amp;&amp; ft.is_dir()
+<a href=#1783 id=1783 data-nosnippet>1783</a>                    <span class="kw">if </span>path.as_path() == <span class="macro">path!</span>(<span class="string">"/bar"</span>) &amp;&amp; ft.is_dir()
 <a href=#1784 id=1784 data-nosnippet>1784</a>            ),
 <a href=#1785 id=1785 data-nosnippet>1785</a>            <span class="string">"checking entry #2"</span>,
 <a href=#1786 id=1786 data-nosnippet>1786</a>        );
@@ -1791,7 +1791,7 @@
 <a href=#1791 id=1791 data-nosnippet>1791</a>                    path,
 <a href=#1792 id=1792 data-nosnippet>1792</a>                    metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
 <a href=#1793 id=1793 data-nosnippet>1793</a>                }))
-<a href=#1794 id=1794 data-nosnippet>1794</a>                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/baz"</span>) &amp;&amp; ft.is_dir()
+<a href=#1794 id=1794 data-nosnippet>1794</a>                    <span class="kw">if </span>path.as_path() == <span class="macro">path!</span>(<span class="string">"/baz"</span>) &amp;&amp; ft.is_dir()
 <a href=#1795 id=1795 data-nosnippet>1795</a>            ),
 <a href=#1796 id=1796 data-nosnippet>1796</a>            <span class="string">"checking entry #3"</span>,
 <a href=#1797 id=1797 data-nosnippet>1797</a>        );
@@ -1802,7 +1802,7 @@
 <a href=#1802 id=1802 data-nosnippet>1802</a>                    path,
 <a href=#1803 id=1803 data-nosnippet>1803</a>                    metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
 <a href=#1804 id=1804 data-nosnippet>1804</a>                }))
-<a href=#1805 id=1805 data-nosnippet>1805</a>                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/a.txt"</span>) &amp;&amp; ft.is_file()
+<a href=#1805 id=1805 data-nosnippet>1805</a>                    <span class="kw">if </span>path.as_path() == <span class="macro">path!</span>(<span class="string">"/a.txt"</span>) &amp;&amp; ft.is_file()
 <a href=#1806 id=1806 data-nosnippet>1806</a>            ),
 <a href=#1807 id=1807 data-nosnippet>1807</a>            <span class="string">"checking entry #4"</span>,
 <a href=#1808 id=1808 data-nosnippet>1808</a>        );
@@ -1813,7 +1813,7 @@
 <a href=#1813 id=1813 data-nosnippet>1813</a>                    path,
 <a href=#1814 id=1814 data-nosnippet>1814</a>                    metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
 <a href=#1815 id=1815 data-nosnippet>1815</a>                }))
-<a href=#1816 id=1816 data-nosnippet>1816</a>                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/b.txt"</span>) &amp;&amp; ft.is_file()
+<a href=#1816 id=1816 data-nosnippet>1816</a>                    <span class="kw">if </span>path.as_path() == <span class="macro">path!</span>(<span class="string">"/b.txt"</span>) &amp;&amp; ft.is_file()
 <a href=#1817 id=1817 data-nosnippet>1817</a>            ),
 <a href=#1818 id=1818 data-nosnippet>1818</a>            <span class="string">"checking entry #5"</span>,
 <a href=#1819 id=1819 data-nosnippet>1819</a>        );
