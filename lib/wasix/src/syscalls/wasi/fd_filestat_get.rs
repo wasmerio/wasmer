@@ -29,7 +29,9 @@ pub fn fd_filestat_get<M: MemorySize>(
     let env = ctx.data();
     let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let buf = buf.deref(&memory);
-    wasi_try_mem_ok!(buf.write(stat));
+    if buf.write(stat).is_err() {
+        return Ok(Errno::Fault);
+    }
 
     Ok(Errno::Success)
 }
@@ -90,7 +92,9 @@ pub fn fd_filestat_get_old<M: MemorySize>(
     };
 
     let buf = buf.deref(&memory);
-    wasi_try_mem!(buf.write(old_stat));
+    if buf.write(old_stat).is_err() {
+        return Errno::Fault;
+    }
 
     Errno::Success
 }

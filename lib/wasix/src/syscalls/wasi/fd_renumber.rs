@@ -66,7 +66,6 @@ pub(crate) fn fd_renumber_internal(
     let old_fd;
     {
         let mut fd_map = state.fs.fd_map.write().unwrap();
-
         // Validate the source first. If `from` is invalid we must not mutate `to`.
         let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
 
@@ -101,6 +100,8 @@ pub(crate) fn fd_renumber_internal(
         if !fd_map.insert(true, to, new_fd_entry) {
             panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
         }
+
+        fd_map.remove(from);
     }
     // Flush and drop the old FD outside the lock. The flush is best-effort:
     // failures are intentionally ignored so fd_renumber result depends only on
