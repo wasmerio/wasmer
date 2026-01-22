@@ -30,6 +30,7 @@ pub fn make_trampoline_function_call(
     arch: Architecture,
     fn_builder_ctx: &mut FunctionBuilderContext,
     func_type: &FunctionType,
+    module_hash: &Option<String>,
 ) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
@@ -111,6 +112,7 @@ pub fn make_trampoline_function_call(
     if let Some(callbacks) = callbacks.as_ref() {
         callbacks.preopt_ir(
             &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+            module_hash,
             context.func.display().to_string().as_bytes(),
         );
     }
@@ -125,10 +127,12 @@ pub fn make_trampoline_function_call(
     if let Some(callbacks) = callbacks.as_ref() {
         callbacks.obj_memory_buffer(
             &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+            module_hash,
             &code_buf,
         );
         callbacks.asm_memory_buffer(
             &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+            module_hash,
             arch,
             &code_buf,
         )?;

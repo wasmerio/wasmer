@@ -5852,10 +5852,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if let Some(callbacks) = self.config.callbacks.as_ref() {
             callbacks.obj_memory_buffer(
                 &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &self.module.hash_string(),
                 &body,
             );
             callbacks.asm_memory_buffer(
                 &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &self.module.hash_string(),
                 arch,
                 &body,
                 assembly_comments,
