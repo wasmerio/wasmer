@@ -197,7 +197,7 @@ tar.workspace = true
 ureq = { workspace = true, optional = true }
 which = { workspace = true, optional = true }
 xz = { workspace = true, optional = true }
-zip = { workspace = true, optional = true, default-features = true }
+zip = { workspace = true, optional = true, features = ["deflate"] }
 
 [target.'cfg(target_env = "musl")'.build-dependencies]
 bindgen = { workspace = true, default-features = false, features = [
@@ -223,3 +223,4 @@ features = [
 	"wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]
+cargo-args = ["--no-deps"]

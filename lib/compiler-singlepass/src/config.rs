@@ -34,9 +34,24 @@ impl SinglepassCallbacks {
         Ok(Self { debug_dir })
     }
 
-    /// Writes the object file memory buffer to a debug file.
-    pub fn obj_memory_buffer(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
+    fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
+        if let Some(hash) = module_hash {
+            path.push(hash);
+        }
+        std::fs::create_dir_all(&path)
+            .unwrap_or_else(|_| panic!("cannot create debug directory: {}", path.display()));
+        path
+    }
+
+    /// Writes the object file memory buffer to a debug file.
+    pub fn obj_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        mem_buffer: &[u8],
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".o"));
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift object");
@@ -47,11 +62,12 @@ impl SinglepassCallbacks {
     pub fn asm_memory_buffer(
         &self,
         kind: &CompiledKind,
+        module_hash: &Option<String>,
         arch: Architecture,
         mem_buffer: &[u8],
         assembly_comments: HashMap<usize, AssemblyComment>,
     ) -> Result<(), wasmer_types::CompileError> {
-        let mut path = self.debug_dir.clone();
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".s"));
         save_assembly_to_file(arch, path, mem_buffer, assembly_comments)
     }
