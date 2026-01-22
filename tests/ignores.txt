@@ -58,7 +58,7 @@ llvm+riscv64      spec::simd::simd_f64x2_rounding::llvm::universal
 llvm+riscv64      wasmer::nan_canonicalization::llvm::universal
 
 #6032
-llvm+riscv64          wasmer::stack_overflow_sret::llvm
+llvm+riscv64      wasmer::stack_overflow_sret::llvm
 llvm+loongarch64      wasmer::stack_overflow_sret::llvm
 
 # riscv support on Cranelift is also very young

@@ -13,7 +13,7 @@ fn compile_and_compare(config: crate::Config, wasm: &[u8]) -> Result<()> {
             return Ok(());
         }
         Ok(module) => module,
-        _ => unreachable!(),
+        Err(e) => return Err(e.into()),
     };
     let first = module.serialize()?;
 
