@@ -1,6 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
+mod misc;
+use misc::save_wasm_file;
 use wasmer::{Instance, Module, Store, imports};
 use wasmer_compiler::EngineBuilder;
 use wasmer_compiler_singlepass::Singlepass;
@@ -32,16 +34,6 @@ impl Arbitrary<'_> for SinglePassFuzzModule {
 impl std::fmt::Debug for SinglePassFuzzModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&wasmprinter::print_bytes(self.0.to_bytes()).unwrap())
-    }
-}
-
-fn save_wasm_file(data: &[u8]) {
-    if let Ok(path) = std::env::var("DUMP_TESTCASE") {
-        use std::fs::File;
-        use std::io::Write;
-        let mut file = File::create(&path).unwrap();
-        eprintln!("Saving fuzzed WASM file to: {path:?}");
-        file.write_all(data).unwrap();
     }
 }
 
