@@ -1170,7 +1170,7 @@
 <a href=#1170 id=1170 data-nosnippet>1170</a>                <span class="kw-2">&amp;</span>wasi_env.state,
 <a href=#1171 id=1171 data-nosnippet>1171</a>                runtime_path.as_ref(),
 <a href=#1172 id=1172 data-nosnippet>1172</a>                <span class="comment">// HACK: The main module doesn't have to exist in the virtual FS at all; e.g.
-<a href=#1173 id=1173 data-nosnippet>1173</a>                // if one runs `wasmer ../module.wasm --dir .`, we won't have access to the
+<a href=#1173 id=1173 data-nosnippet>1173</a>                // if one runs `wasmer ../module.wasm --volume .`, we won't have access to the
 <a href=#1174 id=1174 data-nosnippet>1174</a>                // main module's folder within the virtual FS. This is why we're picking PWD
 <a href=#1175 id=1175 data-nosnippet>1175</a>                // as the $ORIGIN of the main module, which should at least be slightly
 <a href=#1176 id=1176 data-nosnippet>1176</a>                // sensible. The `main.wasm` file name will be stripped and only the `./`
