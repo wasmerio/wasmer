@@ -5852,72 +5852,74 @@
 <a href=#5852 id=5852 data-nosnippet>5852</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
 <a href=#5853 id=5853 data-nosnippet>5853</a>            callbacks.obj_memory_buffer(
 <a href=#5854 id=5854 data-nosnippet>5854</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
-<a href=#5855 id=5855 data-nosnippet>5855</a>                <span class="kw-2">&amp;</span>body,
-<a href=#5856 id=5856 data-nosnippet>5856</a>            );
-<a href=#5857 id=5857 data-nosnippet>5857</a>            callbacks.asm_memory_buffer(
-<a href=#5858 id=5858 data-nosnippet>5858</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
-<a href=#5859 id=5859 data-nosnippet>5859</a>                arch,
-<a href=#5860 id=5860 data-nosnippet>5860</a>                <span class="kw-2">&amp;</span>body,
-<a href=#5861 id=5861 data-nosnippet>5861</a>                assembly_comments,
-<a href=#5862 id=5862 data-nosnippet>5862</a>            )<span class="question-mark">?</span>;
-<a href=#5863 id=5863 data-nosnippet>5863</a>        }
-<a href=#5864 id=5864 data-nosnippet>5864</a>
-<a href=#5865 id=5865 data-nosnippet>5865</a>        <span class="prelude-val">Ok</span>((
-<a href=#5866 id=5866 data-nosnippet>5866</a>            CompiledFunction {
-<a href=#5867 id=5867 data-nosnippet>5867</a>                body: FunctionBody { body, unwind_info },
-<a href=#5868 id=5868 data-nosnippet>5868</a>                relocations: <span class="self">self</span>.relocations.clone(),
-<a href=#5869 id=5869 data-nosnippet>5869</a>                frame_info: CompiledFunctionFrameInfo { traps, address_map },
-<a href=#5870 id=5870 data-nosnippet>5870</a>            },
-<a href=#5871 id=5871 data-nosnippet>5871</a>            fde,
-<a href=#5872 id=5872 data-nosnippet>5872</a>        ))
-<a href=#5873 id=5873 data-nosnippet>5873</a>    }
-<a href=#5874 id=5874 data-nosnippet>5874</a>    <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
-<a href=#5875 id=5875 data-nosnippet>5875</a>    // at call place.
-<a href=#5876 id=5876 data-nosnippet>5876</a>    </span><span class="attr">#[allow(clippy::type_complexity)]
-<a href=#5877 id=5877 data-nosnippet>5877</a>    </span><span class="kw">fn </span>sort_call_movs(movs: <span class="kw-2">&amp;mut </span>[(Location&lt;M::GPR, M::SIMD&gt;, M::GPR)]) {
-<a href=#5878 id=5878 data-nosnippet>5878</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..movs.len() {
-<a href=#5879 id=5879 data-nosnippet>5879</a>            <span class="kw">for </span>j <span class="kw">in </span>(i + <span class="number">1</span>)..movs.len() {
-<a href=#5880 id=5880 data-nosnippet>5880</a>                <span class="kw">if let </span>Location::GPR(src_gpr) = movs[j].<span class="number">0
-<a href=#5881 id=5881 data-nosnippet>5881</a>                    </span>&amp;&amp; src_gpr == movs[i].<span class="number">1
-<a href=#5882 id=5882 data-nosnippet>5882</a>                </span>{
-<a href=#5883 id=5883 data-nosnippet>5883</a>                    movs.swap(i, j);
-<a href=#5884 id=5884 data-nosnippet>5884</a>                }
-<a href=#5885 id=5885 data-nosnippet>5885</a>            }
-<a href=#5886 id=5886 data-nosnippet>5886</a>        }
-<a href=#5887 id=5887 data-nosnippet>5887</a>    }
-<a href=#5888 id=5888 data-nosnippet>5888</a>
-<a href=#5889 id=5889 data-nosnippet>5889</a>    <span class="comment">// Cycle detector. Uncomment this to debug possibly incorrect call-mov sequences.
-<a href=#5890 id=5890 data-nosnippet>5890</a>    /*
-<a href=#5891 id=5891 data-nosnippet>5891</a>    {
-<a href=#5892 id=5892 data-nosnippet>5892</a>        use std::collections::{HashMap, HashSet, VecDeque};
-<a href=#5893 id=5893 data-nosnippet>5893</a>        let mut mov_map: HashMap&lt;GPR, HashSet&lt;GPR&gt;&gt; = HashMap::new();
-<a href=#5894 id=5894 data-nosnippet>5894</a>        for mov in movs.iter() {
-<a href=#5895 id=5895 data-nosnippet>5895</a>            if let Location::GPR(src_gpr) = mov.0 {
-<a href=#5896 id=5896 data-nosnippet>5896</a>                if src_gpr != mov.1 {
-<a href=#5897 id=5897 data-nosnippet>5897</a>                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
-<a href=#5898 id=5898 data-nosnippet>5898</a>                }
-<a href=#5899 id=5899 data-nosnippet>5899</a>            }
-<a href=#5900 id=5900 data-nosnippet>5900</a>        }
-<a href=#5901 id=5901 data-nosnippet>5901</a>
-<a href=#5902 id=5902 data-nosnippet>5902</a>        for (start, _) in mov_map.iter() {
-<a href=#5903 id=5903 data-nosnippet>5903</a>            let mut q: VecDeque&lt;GPR&gt; = VecDeque::new();
-<a href=#5904 id=5904 data-nosnippet>5904</a>            let mut black: HashSet&lt;GPR&gt; = HashSet::new();
-<a href=#5905 id=5905 data-nosnippet>5905</a>
-<a href=#5906 id=5906 data-nosnippet>5906</a>            q.push_back(*start);
-<a href=#5907 id=5907 data-nosnippet>5907</a>            black.insert(*start);
-<a href=#5908 id=5908 data-nosnippet>5908</a>
-<a href=#5909 id=5909 data-nosnippet>5909</a>            while q.len() &gt; 0 {
-<a href=#5910 id=5910 data-nosnippet>5910</a>                let reg = q.pop_front().unwrap();
-<a href=#5911 id=5911 data-nosnippet>5911</a>                let empty_set = HashSet::new();
-<a href=#5912 id=5912 data-nosnippet>5912</a>                for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
-<a href=#5913 id=5913 data-nosnippet>5913</a>                    if black.contains(x) {
-<a href=#5914 id=5914 data-nosnippet>5914</a>                        panic!("cycle detected");
-<a href=#5915 id=5915 data-nosnippet>5915</a>                    }
-<a href=#5916 id=5916 data-nosnippet>5916</a>                    q.push_back(*x);
-<a href=#5917 id=5917 data-nosnippet>5917</a>                    black.insert(*x);
-<a href=#5918 id=5918 data-nosnippet>5918</a>                }
-<a href=#5919 id=5919 data-nosnippet>5919</a>            }
-<a href=#5920 id=5920 data-nosnippet>5920</a>        }
-<a href=#5921 id=5921 data-nosnippet>5921</a>    }
-<a href=#5922 id=5922 data-nosnippet>5922</a>    */
-<a href=#5923 id=5923 data-nosnippet>5923</a></span>}</code></pre></div></section></main></body></html>
+<a href=#5855 id=5855 data-nosnippet>5855</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#5856 id=5856 data-nosnippet>5856</a>                <span class="kw-2">&amp;</span>body,
+<a href=#5857 id=5857 data-nosnippet>5857</a>            );
+<a href=#5858 id=5858 data-nosnippet>5858</a>            callbacks.asm_memory_buffer(
+<a href=#5859 id=5859 data-nosnippet>5859</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
+<a href=#5860 id=5860 data-nosnippet>5860</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#5861 id=5861 data-nosnippet>5861</a>                arch,
+<a href=#5862 id=5862 data-nosnippet>5862</a>                <span class="kw-2">&amp;</span>body,
+<a href=#5863 id=5863 data-nosnippet>5863</a>                assembly_comments,
+<a href=#5864 id=5864 data-nosnippet>5864</a>            )<span class="question-mark">?</span>;
+<a href=#5865 id=5865 data-nosnippet>5865</a>        }
+<a href=#5866 id=5866 data-nosnippet>5866</a>
+<a href=#5867 id=5867 data-nosnippet>5867</a>        <span class="prelude-val">Ok</span>((
+<a href=#5868 id=5868 data-nosnippet>5868</a>            CompiledFunction {
+<a href=#5869 id=5869 data-nosnippet>5869</a>                body: FunctionBody { body, unwind_info },
+<a href=#5870 id=5870 data-nosnippet>5870</a>                relocations: <span class="self">self</span>.relocations.clone(),
+<a href=#5871 id=5871 data-nosnippet>5871</a>                frame_info: CompiledFunctionFrameInfo { traps, address_map },
+<a href=#5872 id=5872 data-nosnippet>5872</a>            },
+<a href=#5873 id=5873 data-nosnippet>5873</a>            fde,
+<a href=#5874 id=5874 data-nosnippet>5874</a>        ))
+<a href=#5875 id=5875 data-nosnippet>5875</a>    }
+<a href=#5876 id=5876 data-nosnippet>5876</a>    <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
+<a href=#5877 id=5877 data-nosnippet>5877</a>    // at call place.
+<a href=#5878 id=5878 data-nosnippet>5878</a>    </span><span class="attr">#[allow(clippy::type_complexity)]
+<a href=#5879 id=5879 data-nosnippet>5879</a>    </span><span class="kw">fn </span>sort_call_movs(movs: <span class="kw-2">&amp;mut </span>[(Location&lt;M::GPR, M::SIMD&gt;, M::GPR)]) {
+<a href=#5880 id=5880 data-nosnippet>5880</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..movs.len() {
+<a href=#5881 id=5881 data-nosnippet>5881</a>            <span class="kw">for </span>j <span class="kw">in </span>(i + <span class="number">1</span>)..movs.len() {
+<a href=#5882 id=5882 data-nosnippet>5882</a>                <span class="kw">if let </span>Location::GPR(src_gpr) = movs[j].<span class="number">0
+<a href=#5883 id=5883 data-nosnippet>5883</a>                    </span>&amp;&amp; src_gpr == movs[i].<span class="number">1
+<a href=#5884 id=5884 data-nosnippet>5884</a>                </span>{
+<a href=#5885 id=5885 data-nosnippet>5885</a>                    movs.swap(i, j);
+<a href=#5886 id=5886 data-nosnippet>5886</a>                }
+<a href=#5887 id=5887 data-nosnippet>5887</a>            }
+<a href=#5888 id=5888 data-nosnippet>5888</a>        }
+<a href=#5889 id=5889 data-nosnippet>5889</a>    }
+<a href=#5890 id=5890 data-nosnippet>5890</a>
+<a href=#5891 id=5891 data-nosnippet>5891</a>    <span class="comment">// Cycle detector. Uncomment this to debug possibly incorrect call-mov sequences.
+<a href=#5892 id=5892 data-nosnippet>5892</a>    /*
+<a href=#5893 id=5893 data-nosnippet>5893</a>    {
+<a href=#5894 id=5894 data-nosnippet>5894</a>        use std::collections::{HashMap, HashSet, VecDeque};
+<a href=#5895 id=5895 data-nosnippet>5895</a>        let mut mov_map: HashMap&lt;GPR, HashSet&lt;GPR&gt;&gt; = HashMap::new();
+<a href=#5896 id=5896 data-nosnippet>5896</a>        for mov in movs.iter() {
+<a href=#5897 id=5897 data-nosnippet>5897</a>            if let Location::GPR(src_gpr) = mov.0 {
+<a href=#5898 id=5898 data-nosnippet>5898</a>                if src_gpr != mov.1 {
+<a href=#5899 id=5899 data-nosnippet>5899</a>                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
+<a href=#5900 id=5900 data-nosnippet>5900</a>                }
+<a href=#5901 id=5901 data-nosnippet>5901</a>            }
+<a href=#5902 id=5902 data-nosnippet>5902</a>        }
+<a href=#5903 id=5903 data-nosnippet>5903</a>
+<a href=#5904 id=5904 data-nosnippet>5904</a>        for (start, _) in mov_map.iter() {
+<a href=#5905 id=5905 data-nosnippet>5905</a>            let mut q: VecDeque&lt;GPR&gt; = VecDeque::new();
+<a href=#5906 id=5906 data-nosnippet>5906</a>            let mut black: HashSet&lt;GPR&gt; = HashSet::new();
+<a href=#5907 id=5907 data-nosnippet>5907</a>
+<a href=#5908 id=5908 data-nosnippet>5908</a>            q.push_back(*start);
+<a href=#5909 id=5909 data-nosnippet>5909</a>            black.insert(*start);
+<a href=#5910 id=5910 data-nosnippet>5910</a>
+<a href=#5911 id=5911 data-nosnippet>5911</a>            while q.len() &gt; 0 {
+<a href=#5912 id=5912 data-nosnippet>5912</a>                let reg = q.pop_front().unwrap();
+<a href=#5913 id=5913 data-nosnippet>5913</a>                let empty_set = HashSet::new();
+<a href=#5914 id=5914 data-nosnippet>5914</a>                for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
+<a href=#5915 id=5915 data-nosnippet>5915</a>                    if black.contains(x) {
+<a href=#5916 id=5916 data-nosnippet>5916</a>                        panic!("cycle detected");
+<a href=#5917 id=5917 data-nosnippet>5917</a>                    }
+<a href=#5918 id=5918 data-nosnippet>5918</a>                    q.push_back(*x);
+<a href=#5919 id=5919 data-nosnippet>5919</a>                    black.insert(*x);
+<a href=#5920 id=5920 data-nosnippet>5920</a>                }
+<a href=#5921 id=5921 data-nosnippet>5921</a>            }
+<a href=#5922 id=5922 data-nosnippet>5922</a>        }
+<a href=#5923 id=5923 data-nosnippet>5923</a>    }
+<a href=#5924 id=5924 data-nosnippet>5924</a>    */
+<a href=#5925 id=5925 data-nosnippet>5925</a></span>}</code></pre></div></section></main></body></html>
