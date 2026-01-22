@@ -56,13 +56,16 @@ llvm+riscv64      spec::simd::simd_align::llvm::universal
 llvm+riscv64      spec::simd::simd_f32x4_rounding::llvm::universal
 llvm+riscv64      spec::simd::simd_f64x2_rounding::llvm::universal
 llvm+riscv64      wasmer::nan_canonicalization::llvm::universal
-llvm+riscv64      wasmer::stack_overflow_sret::llvm::universal
+
+#6032
+llvm+riscv64      wasmer::stack_overflow_sret::llvm
+llvm+loongarch64      wasmer::stack_overflow_sret::llvm
 
 # riscv support on Cranelift is also very young
-cranelift+riscv64 spec::align::cranelift::universal
-cranelift+riscv64 spec::memory_copy::cranelift::universal
-cranelift+riscv64 spec::memory_trap::cranelift::universal
-cranelift+riscv64 spec::r#if::cranelift::universal
+cranelift+riscv64 spec::align::cranelift
+cranelift+riscv64 spec::memory_copy::cranelift
+cranelift+riscv64 spec::memory_trap::cranelift
+cranelift+riscv64 spec::r#if::cranelift
 
 # no SIMD on riscv, Cranelift will not handle them
 cranelift+riscv64 spec::simd
