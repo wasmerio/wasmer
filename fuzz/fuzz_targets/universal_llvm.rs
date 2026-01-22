@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
 mod misc;
-use misc::{ignore_runtime_error, save_wasm_file};
+use misc::{ignore_compilation_error, ignore_runtime_error, save_wasm_file};
 use wasmer::{Instance, Module, Store, imports};
 use wasmer_compiler::{CompilerConfig, EngineBuilder};
 use wasmer_compiler_llvm::LLVM;
@@ -46,11 +46,7 @@ fuzz_target!(|module: LLVMPassFuzzModule| {
 
     let module = match Module::new(&store, &wasm_bytes) {
         Err(e) => {
-            let error_message = format!("{}", e);
-            if error_message.starts_with("Validation error: constant expression required")
-                // TODO: fix
-                || error_message.starts_with("WebAssembly translation error: Unsupported feature: `ref.null T` that is not a `funcref` or an `externref`: Exn")
-                || error_message.starts_with("WebAssembly translation error: Unsupported feature: unsupported element type in element section: exnref") {
+            if ignore_compilation_error(&e.to_string()) {
                 return;
             }
             save_wasm_file(&wasm_bytes);

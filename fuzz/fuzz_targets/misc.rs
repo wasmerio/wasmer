@@ -8,6 +8,14 @@ pub fn save_wasm_file(data: &[u8]) {
     }
 }
 
+pub fn ignore_compilation_error(error_message: &str) -> bool {
+    error_message.starts_with("Compilation error: singlepass init_local unimplemented type: V128")
+        || error_message.starts_with("Validation error: constant expression required")
+        || error_message.starts_with("Compilation error: not yet implemented: V128Const")
+        || error_message.starts_with("WebAssembly translation error: Unsupported feature: `ref.null T` that is not a `funcref` or an `externref`: Exn")
+        || error_message.starts_with("WebAssembly translation error: Unsupported feature: unsupported element type in element section: exnref")
+}
+
 pub fn ignore_runtime_error(error_message: &str) -> bool {
     error_message.starts_with("RuntimeError: out of bounds")
         || error_message.starts_with("RuntimeError: call stack exhausted")

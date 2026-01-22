@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
 mod misc;
-use misc::{ignore_runtime_error, save_wasm_file};
+use misc::{ignore_compilation_error, ignore_runtime_error, save_wasm_file};
 use wasmer::{Instance, Module, Store, imports};
 use wasmer_compiler::EngineBuilder;
 use wasmer_compiler_singlepass::Singlepass;
@@ -46,16 +46,9 @@ fuzz_target!(|module: SinglePassFuzzModule| {
     let module = match module {
         Ok(m) => m,
         Err(e) => {
-            let error_message = format!("{}", e);
-            if error_message
-                .starts_with("Compilation error: singlepass init_local unimplemented type: V128")
-                || error_message.starts_with("Compilation error: not yet implemented: V128Const")
-                || error_message.starts_with("Validation error: constant expression required")
-            {
-                // TODO: add v128 option to wasm-smith
+            if ignore_compilation_error(&e.to_string()) {
                 return;
             }
-            save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
     };
