@@ -233,6 +233,7 @@ impl LLVMCompiler {
             },
         );
 
+        let module_hash = compile_info.module.hash_string();
         let dynamic_trampolines_bitcode =
             compile_info.module.functions.iter().par_bridge().map_init(
                 || {
@@ -246,8 +247,12 @@ impl LLVMCompiler {
                 |(func_trampoline, signatures), (i, sig)| {
                     let sig = &signatures[*sig];
                     let name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(i));
-                    let module =
-                        func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
+                    let module = func_trampoline.dynamic_trampoline_to_module(
+                        sig,
+                        self.config(),
+                        &name,
+                        &module_hash,
+                    )?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
             );
@@ -299,7 +304,11 @@ impl LLVMCompiler {
             .write_to_memory_buffer(&merged_module, FileType::Object)
             .unwrap();
         if let Some(ref callbacks) = self.config.callbacks {
-            callbacks.obj_memory_buffer(&CompiledKind::Module, &memory_buffer);
+            callbacks.obj_memory_buffer(
+                &CompiledKind::Module,
+                &compile_info.module.hash_string(),
+                &memory_buffer,
+            );
         }
 
         tracing::trace!("Finished compling the module!");
@@ -378,6 +387,7 @@ impl Compiler for LLVMCompiler {
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
+        let module_hash = module.hash_string();
         let total_functions = function_body_inputs.len() as u64;
         let total_function_call_trampolines = module.signatures.len() as u64;
         let total_dynamic_trampolines = module.num_imported_functions as u64;
@@ -587,6 +597,7 @@ impl Compiler for LLVMCompiler {
                         &mut eh_frame_section_relocations,
                         &mut compact_unwind_section_bytes,
                         &mut compact_unwind_section_relocations,
+                        &module_hash,
                     )?;
                     if let Some(progress) = progress.as_ref() {
                         progress.notify()?;

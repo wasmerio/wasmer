@@ -37,22 +37,47 @@ impl LLVMCallbacks {
         Ok(Self { debug_dir })
     }
 
-    pub fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
+    fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
+        if let Some(hash) = module_hash {
+            path.push(hash);
+        }
+        std::fs::create_dir_all(&path)
+            .unwrap_or_else(|_| panic!("cannot create debug directory: {}", path.display()));
+        path
+    }
+
+    pub fn preopt_ir(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        module: &InkwellModule,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".preopt.ll"));
         module
             .print_to_file(&path)
             .expect("Error while dumping pre optimized LLVM IR");
     }
-    pub fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
-        let mut path = self.debug_dir.clone();
+    pub fn postopt_ir(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        module: &InkwellModule,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".postopt.ll"));
         module
             .print_to_file(&path)
             .expect("Error while dumping post optimized LLVM IR");
     }
-    pub fn obj_memory_buffer(&self, kind: &CompiledKind, memory_buffer: &InkwellMemoryBuffer) {
-        let mut path = self.debug_dir.clone();
+    pub fn obj_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        memory_buffer: &InkwellMemoryBuffer,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".o"));
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file =
@@ -60,8 +85,13 @@ impl LLVMCallbacks {
         file.write_all(mem_buf_slice).unwrap();
     }
 
-    pub fn asm_memory_buffer(&self, kind: &CompiledKind, asm_memory_buffer: &InkwellMemoryBuffer) {
-        let mut path = self.debug_dir.clone();
+    pub fn asm_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        asm_memory_buffer: &InkwellMemoryBuffer,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".s"));
         let mem_buf_slice = asm_memory_buffer.as_slice();
         let mut file =
