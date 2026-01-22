@@ -947,7 +947,8 @@ jobs:
         shell: bash
         run: make ${{ matrix.stage.make }}
         # For MacOS x64 - run tests only on main or release branches
-        if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-') || matrix.metadata.os != 'macos-15-intel'
+        #  || matrix.metadata.os != 'macos-15-intel'
+        if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
