@@ -1,4 +1,5 @@
 use super::*;
+use crate::fs::Kind;
 use crate::syscalls::*;
 
 /// ### `fd_fdstat_set_flags()`
@@ -42,6 +43,12 @@ pub(crate) fn fd_fdstat_set_flags_internal(
         let (_, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
         let fd_map = state.fs.fd_map.read().unwrap();
         let fd_entry = wasi_try_ok!(fd_map.get(fd).ok_or(Errno::Badf));
+        {
+            let guard = fd_entry.inode.read();
+            if matches!(&*guard, Kind::Dir { .. } | Kind::Root { .. }) {
+                return Ok(Errno::Badf);
+            }
+        }
 
         if !fd_entry.inner.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
             return Ok(Errno::Access);
