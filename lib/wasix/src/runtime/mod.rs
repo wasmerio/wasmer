@@ -90,7 +90,7 @@ impl<'a> ModuleInput<'a> {
         match self {
             Self::Bytes(b) => {
                 // Hash on the fly
-                ModuleHash::sha256(b)
+                ModuleHash::new(b)
             }
             Self::Hashed(hashed) => *hashed.hash(),
             Self::Command(cmd) => *cmd.hash(),

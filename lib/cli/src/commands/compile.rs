@@ -2,12 +2,9 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
-use wasmer::{
-    sys::{engine::NativeEngineExt, *},
-    *,
-};
+use wasmer::{sys::*, *};
 
-use crate::{backend::RuntimeOptions, common::HashAlgorithm, warning};
+use crate::{backend::RuntimeOptions, warning};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand
@@ -29,10 +26,6 @@ pub struct Compile {
 
     #[clap(short = 'm')]
     cpu_features: Vec<CpuFeature>,
-
-    /// Hashing algorithm to be used for module hash
-    #[clap(long, value_enum)]
-    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Compile {
@@ -66,10 +59,7 @@ impl Compile {
             bail!("`wasmer compile` only compiles WebAssembly files");
         }
 
-        let mut engine = self.rt.get_engine_for_module(&module_contents, &target)?;
-
-        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
-        engine.set_hash_algorithm(Some(hash_algorithm));
+        let engine = self.rt.get_engine_for_module(&module_contents, &target)?;
 
         let output_filename = self
             .output

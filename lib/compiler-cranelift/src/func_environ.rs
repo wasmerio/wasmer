@@ -1580,6 +1580,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             name,
             signature,
             colocated: true,
+            patchable: false,
         }))
     }
 

@@ -21,7 +21,6 @@ serde = { workspace = true, optional = true }
 thiserror.workspace = true
 serde_bytes = { workspace = true, optional = true }
 smallvec.workspace = true
-xxhash-rust = { workspace = true, features = ["xxh64"] }
 loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
@@ -44,6 +43,7 @@ target-lexicon.workspace = true
 object = { workspace = true, features = ["write"] }
 itertools.workspace = true
 tempfile.workspace = true
+rangemap.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-vm = { path = "../vm", version = "=7.0.0-alpha.2" }

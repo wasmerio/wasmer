@@ -134,10 +134,10 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "^5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.127.2", default-features = false }
-cranelift-entity = { version = "=0.127.2", default-features = false }
-cranelift-frontend = { version = "=0.127.2", default-features = false }
-criterion = { version = "0.7", default-features = false }
+cranelift-codegen = { version = "=0.128.0", default-features = false }
+cranelift-entity = { version = "=0.128.0", default-features = false }
+cranelift-frontend = { version = "=0.128.0", default-features = false }
+criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
 crossbeam-queue = "0.3.8"
 cynic = { version = "3.7.2", default-features = false }
@@ -226,6 +226,7 @@ proc-macro-error2 = "2.0.1"
 proc-macro2 = "1"
 quote = "1.0.20"
 rand = "0.9.2"
+rangemap = "1.7.1"
 rayon = "1.7.0"
 regex = "1.11"
 region = "3.0"
@@ -320,8 +321,7 @@ which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
-# Stick to a stable version due to #6039
-zip = { version = "6.0.0", default-features = false }
+zip = { version = "7.2.0", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
