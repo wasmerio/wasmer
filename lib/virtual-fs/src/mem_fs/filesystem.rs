@@ -1769,7 +1769,7 @@ mod test_filesystem {
                     path,
                     metadata: Ok(Metadata { ft, .. }),
                 }))
-                    if path == path!(buf "/foo") && ft.is_dir()
+                    if path.as_path() == path!("/foo") && ft.is_dir()
             ),
             "checking entry #1",
         );
@@ -1780,7 +1780,7 @@ mod test_filesystem {
                     path,
                     metadata: Ok(Metadata { ft, .. }),
                 }))
-                    if path == path!(buf "/bar") && ft.is_dir()
+                    if path.as_path() == path!("/bar") && ft.is_dir()
             ),
             "checking entry #2",
         );
@@ -1791,7 +1791,7 @@ mod test_filesystem {
                     path,
                     metadata: Ok(Metadata { ft, .. }),
                 }))
-                    if path == path!(buf "/baz") && ft.is_dir()
+                    if path.as_path() == path!("/baz") && ft.is_dir()
             ),
             "checking entry #3",
         );
@@ -1802,7 +1802,7 @@ mod test_filesystem {
                     path,
                     metadata: Ok(Metadata { ft, .. }),
                 }))
-                    if path == path!(buf "/a.txt") && ft.is_file()
+                    if path.as_path() == path!("/a.txt") && ft.is_file()
             ),
             "checking entry #4",
         );
@@ -1813,7 +1813,7 @@ mod test_filesystem {
                     path,
                     metadata: Ok(Metadata { ft, .. }),
                 }))
-                    if path == path!(buf "/b.txt") && ft.is_file()
+                    if path.as_path() == path!("/b.txt") && ft.is_file()
             ),
             "checking entry #5",
         );
