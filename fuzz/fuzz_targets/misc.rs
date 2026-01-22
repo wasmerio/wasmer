@@ -7,3 +7,11 @@ pub fn save_wasm_file(data: &[u8]) {
         file.write_all(data).unwrap();
     }
 }
+
+pub fn ignore_runtime_error(error_message: &str) -> bool {
+    error_message.starts_with("RuntimeError: out of bounds")
+        || error_message.starts_with("RuntimeError: call stack exhausted")
+        || error_message.starts_with("RuntimeError: undefined element: out of bounds")
+        || error_message.starts_with("RuntimeError: unreachable")
+        || error_message.starts_with("Insufficient resources: tables of types other than funcref or externref (ExceptionRef)")
+}
