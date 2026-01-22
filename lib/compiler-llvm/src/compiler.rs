@@ -219,7 +219,7 @@ impl LLVMCompiler {
         let trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTrampoline::new(target_machine, binary_format).unwrap()
+                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format).unwrap()
             },
             |func_trampoline, (i, sig)| {
                 let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
@@ -238,7 +238,8 @@ impl LLVMCompiler {
                 || {
                     let target_machine = self.config().target_machine(target);
                     (
-                        FuncTrampoline::new(target_machine, binary_format).unwrap(),
+                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                            .unwrap(),
                         &compile_info.module.signatures,
                     )
                 },
@@ -543,7 +544,8 @@ impl Compiler for LLVMCompiler {
                 .map_init(
                     || {
                         let target_machine = self.config().target_machine(target);
-                        FuncTrampoline::new(target_machine, binary_format).unwrap()
+                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                            .unwrap()
                     },
                     |func_trampoline, sig| {
                         let trampoline =
@@ -566,7 +568,9 @@ impl Compiler for LLVMCompiler {
         let dynamic_function_trampolines = {
             let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
-            let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
+            let func_trampoline =
+                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                    .unwrap();
             module
                 .imported_function_types()
                 .collect::<Vec<_>>()

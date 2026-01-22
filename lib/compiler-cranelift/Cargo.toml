@@ -62,3 +62,4 @@ enable-serde = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
+cargo-args = ["--no-deps"]

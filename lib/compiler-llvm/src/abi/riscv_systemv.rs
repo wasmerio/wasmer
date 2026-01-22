@@ -1,14 +1,13 @@
 use crate::abi::Abi;
 use crate::error::{err, err_nt};
 use crate::translator::intrinsics::{Intrinsics, type_to_llvm};
-use inkwell::values::BasicValue;
 use inkwell::{
     AddressSpace,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     types::{AnyType, BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
-    values::{BasicValueEnum, CallSiteValue, FloatValue, IntValue, VectorValue},
+    values::{BasicValue, BasicValueEnum, CallSiteValue, FloatValue, IntValue, VectorValue},
 };
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
@@ -17,10 +16,12 @@ use std::convert::TryInto;
 
 use super::G0M0FunctionKind;
 
-/// Implementation of the [`Abi`] trait for the AMD64 SystemV ABI.
-pub struct X86_64SystemV {}
+/// Implementation of the [`Abi`] trait for the RISC-V SystemV ABI.
+pub(crate) struct RiscvSystemV {
+    pub(crate) is_riscv64: bool,
+}
 
-impl Abi for X86_64SystemV {
+impl Abi for RiscvSystemV {
     // Given a wasm function type, produce an llvm function declaration.
     fn func_type_to_llvm<'ctx>(
         &self,
@@ -40,6 +41,7 @@ impl Abi for X86_64SystemV {
             param_types.push(Ok(intrinsics.ptr_ty.as_basic_type_enum()));
         }
 
+        let mut extra_params = param_types.len();
         let param_types = param_types.into_iter().chain(user_param_types);
 
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
@@ -84,7 +86,7 @@ impl Abi for X86_64SystemV {
             })
             .collect::<Vec<i32>>();
 
-        Ok(match sig_returns_bitwidths.as_slice() {
+        let (fn_type, mut attributes) = match sig_returns_bitwidths.as_slice() {
             [] => (
                 intrinsics.void_ty.fn_type(
                     param_types
@@ -256,6 +258,7 @@ impl Abi for X86_64SystemV {
 
                 let param_types =
                     std::iter::once(Ok(sret_ptr.as_basic_type_enum())).chain(param_types);
+                extra_params += 1;
 
                 let mut attributes = vec![(
                     context.create_type_attribute(
@@ -277,7 +280,31 @@ impl Abi for X86_64SystemV {
                     attributes,
                 )
             }
-        })
+        };
+
+        // https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
+        // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
+        // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
+        // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
+        if self.is_riscv64 {
+            for (i, ty) in sig.params().iter().enumerate() {
+                let i = (i + extra_params) as u32;
+                if matches!(ty, Type::I32) {
+                    attributes.push((
+                        context
+                            .create_enum_attribute(Attribute::get_named_enum_kind_id("signext"), 0),
+                        AttributeLoc::Param(i),
+                    ));
+                    attributes.push((
+                        context
+                            .create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
+                        AttributeLoc::Param(i),
+                    ));
+                }
+            }
+        }
+
+        Ok((fn_type, attributes))
     }
 
     // Given a CallSite, extract the returned values and return them in a Vec.
