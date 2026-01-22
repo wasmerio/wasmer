@@ -1,0 +1,32 @@
+# 
+# [todo] xdoardo (2024/10/17): 
+#
+#  We updated our MSRV and llvm, so we need to open a pr here
+#  https://github.com/google/oss-fuzz/blob/fb88de8bd2d220662271aabbe19427dc24134bf6/projects/wasmer/build.sh
+#  before re-enabling this.
+#
+#
+# name: CIFuzz
+# on: [pull_request]
+# jobs:
+#  Fuzzing:
+#    runs-on: ubuntu-latest
+#    steps:
+#    - name: Build Fuzzers
+#      id: build
+#      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
+#      with:
+#        oss-fuzz-project-name: 'wasmer'
+#        language: rust
+#    - name: Run Fuzzers
+#      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
+#      with:
+#        oss-fuzz-project-name: 'wasmer'
+#        language: rust
+#        fuzz-seconds: 300
+#    - name: Upload Crash
+#      uses: actions/upload-artifact@v4
+#      if: failure() && steps.build.outcome == 'success'
+#      with:
+#        name: artifacts
+#        path: ./out/artifacts
