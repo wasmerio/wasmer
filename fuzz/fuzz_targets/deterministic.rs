@@ -7,16 +7,28 @@ use wasmer_compiler::{CompilerConfig, EngineBuilder};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_llvm::LLVM;
 use wasmer_compiler_singlepass::Singlepass;
+mod misc;
+use misc::{SinglePassFuzzModule, ignore_compilation_error, save_wasm_file};
 
-fn compile_and_compare(name: &str, engine: Engine, wasm: &[u8]) {
+fn compile_and_compare(name: &str, engine: Engine, wasm_bytes: &[u8]) {
     let store = Store::new(engine);
 
     // compile for first time
-    let module = Module::new(&store, wasm).unwrap();
+    let module = Module::new(&store, wasm_bytes);
+    let module = match module {
+        Ok(m) => m,
+        Err(e) => {
+            if ignore_compilation_error(&e.to_string()) {
+                return;
+            }
+            save_wasm_file(wasm_bytes);
+            panic!("{}", e);
+        }
+    };
     let first = module.serialize().unwrap();
 
     // compile for second time
-    let module = Module::new(&store, wasm).unwrap();
+    let module = Module::new(&store, wasm_bytes).unwrap();
     let second = module.serialize().unwrap();
 
     if first != second {
@@ -24,8 +36,8 @@ fn compile_and_compare(name: &str, engine: Engine, wasm: &[u8]) {
     }
 }
 
-fuzz_target!(|module: wasm_smith::Module| {
-    let wasm_bytes = module.to_bytes();
+fuzz_target!(|module: SinglePassFuzzModule| {
+    let wasm_bytes = module.0.to_bytes();
 
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true);
