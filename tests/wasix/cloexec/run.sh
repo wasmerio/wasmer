@@ -4,4 +4,4 @@ set -e
 $WASMER_RUN main.wasm -- flag_tests
 
 # step 2: tests involving exec
-$WASMER_RUN main.wasm --dir . -- exec_tests
+$WASMER_RUN main.wasm --volume . -- exec_tests

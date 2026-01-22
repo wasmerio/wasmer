@@ -1,3 +1,3 @@
 set -e
 
-$WASMER_RUN main.wasm --dir .
+$WASMER_RUN main.wasm --volume .
