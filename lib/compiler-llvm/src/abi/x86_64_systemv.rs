@@ -77,10 +77,10 @@ impl Abi for X86_64SystemV {
             .results()
             .iter()
             .map(|ty| match ty {
-                Type::I32 | Type::F32 => 32,
+                Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                 Type::I64 | Type::F64 => 64,
                 Type::V128 => 128,
-                Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+                Type::ExternRef | Type::FuncRef => 64, /* pointer */
             })
             .collect::<Vec<i32>>();
 
@@ -317,7 +317,7 @@ impl Abi for X86_64SystemV {
         let casted =
             |value: BasicValueEnum<'ctx>, ty: Type| -> Result<BasicValueEnum<'ctx>, CompileError> {
                 match ty {
-                    Type::I32 => {
+                    Type::I32 | Type::ExceptionRef => {
                         assert!(
                             value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
                                 || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
@@ -358,10 +358,10 @@ impl Abi for X86_64SystemV {
                     .results()
                     .iter()
                     .map(|ty| match ty {
-                        Type::I32 | Type::F32 => 32,
+                        Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 

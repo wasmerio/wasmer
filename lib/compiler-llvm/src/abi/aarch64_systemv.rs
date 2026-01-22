@@ -154,8 +154,10 @@ impl Abi for Aarch64SystemV {
                 )
             }
             [t1, t2]
-                if matches!(t1, Type::I32 | Type::I64 | Type::F32 | Type::F64)
-                    && matches!(t2, Type::FuncRef | Type::ExternRef | Type::ExceptionRef) =>
+                if matches!(
+                    t1,
+                    Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::ExceptionRef
+                ) && matches!(t2, Type::FuncRef | Type::ExternRef) =>
             {
                 let t1 = type_to_llvm(intrinsics, *t1).unwrap();
                 let t2 = type_to_llvm(intrinsics, *t2).unwrap();
@@ -177,10 +179,10 @@ impl Abi for Aarch64SystemV {
                     .results()
                     .iter()
                     .map(|ty| match ty {
-                        Type::I32 | Type::F32 => 32,
+                        Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
                 match sig_returns_bitwidths.as_slice() {
@@ -273,7 +275,7 @@ impl Abi for Aarch64SystemV {
         let casted =
             |value: BasicValueEnum<'ctx>, ty: Type| -> Result<BasicValueEnum<'ctx>, CompileError> {
                 match ty {
-                    Type::I32 => {
+                    Type::I32 | Type::ExceptionRef => {
                         assert!(
                             value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
                                 || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
@@ -305,7 +307,7 @@ impl Abi for Aarch64SystemV {
                         assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
                         Ok(value)
                     }
-                    Type::ExternRef | Type::FuncRef | Type::ExceptionRef => {
+                    Type::ExternRef | Type::FuncRef => {
                         assert!(value.get_type() == intrinsics.ptr_ty.as_basic_type_enum());
                         Ok(value)
                     }
@@ -341,10 +343,10 @@ impl Abi for Aarch64SystemV {
                     .results()
                     .iter()
                     .map(|ty| match ty {
-                        Type::I32 | Type::F32 => 32,
+                        Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 

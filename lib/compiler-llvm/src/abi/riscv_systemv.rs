@@ -79,10 +79,10 @@ impl Abi for RiscvSystemV {
             .results()
             .iter()
             .map(|ty| match ty {
-                Type::I32 | Type::F32 => 32,
+                Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                 Type::I64 | Type::F64 => 64,
                 Type::V128 => 128,
-                Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+                Type::ExternRef | Type::FuncRef => 64, /* pointer */
             })
             .collect::<Vec<i32>>();
 
@@ -385,10 +385,10 @@ impl Abi for RiscvSystemV {
                     .results()
                     .iter()
                     .map(|ty| match ty {
-                        Type::I32 | Type::F32 => 32,
+                        Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 
