@@ -3,10 +3,8 @@ mod cu_entry;
 
 use core::ops::Range;
 pub(crate) use cu_entry::CompactUnwindEntry;
-use std::{
-    collections::HashMap,
-    sync::{LazyLock, Mutex},
-};
+use rangemap::RangeMap;
+use std::sync::{LazyLock, Mutex};
 use wasmer_types::CompileError;
 
 type CUResult<T> = Result<T, CompileError>;
@@ -106,11 +104,10 @@ pub struct CompactUnwindManager {
     maybe_eh_personality_addr_in_got: Option<usize>,
 }
 
-static UNWIND_INFO: LazyLock<Mutex<UnwindInfo>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static UNWIND_INFO: LazyLock<Mutex<RangeMap<usize, UnwindInfoEntry>>> =
+    LazyLock::new(|| Mutex::new(RangeMap::new()));
 
-type UnwindInfo = HashMap<Range<usize>, UnwindInfoEntry>;
-
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 struct UnwindInfoEntry {
     dso_base: usize,
     section_ptr: usize,
@@ -125,12 +122,10 @@ unsafe extern "C" fn find_dynamic_unwind_sections(
         return 0;
     };
 
-    // TODO: use more efficient data structure
-    if let Some((_, entry)) = UNWIND_INFO
+    if let Some(entry) = UNWIND_INFO
         .lock()
         .expect("cannot lock UNWIND_INFO")
-        .iter()
-        .find(|(range, _)| range.contains(&addr))
+        .get(&addr)
     {
         info.compact_unwind_section = entry.section_ptr as u64;
         info.compact_unwind_section_length = entry.section_len as u64;
@@ -227,9 +222,7 @@ impl CompactUnwindManager {
         }
         self.dso_base = info.dli_fbase as usize;
 
-        unsafe {
-            self.write_unwind_info()?;
-        }
+        self.write_unwind_info()?;
 
         let ranges: Vec<Range<usize>> = self
             .compact_unwind_entries
@@ -299,10 +292,8 @@ impl CompactUnwindManager {
         Ok(())
     }
 
-    unsafe fn write_unwind_info(&mut self) -> CUResult<()> {
-        unsafe {
-            self.write_header()?;
-        }
+    fn write_unwind_info(&mut self) -> CUResult<()> {
+        self.write_header()?;
         self.write_personalities()?;
         self.write_indices()?;
         self.write_lsdas()?;
@@ -355,7 +346,7 @@ impl CompactUnwindManager {
         Ok(())
     }
 
-    unsafe fn write_header(&mut self) -> CUResult<()> {
+    fn write_header(&mut self) -> CUResult<()> {
         //#[derive(Debug, Default)]
         //#[repr(C)]
         //#[allow(non_snake_case, non_camel_case_types)]
@@ -531,7 +522,7 @@ impl CompactUnwindManager {
                 .collect();
             let mut uw_info = UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO");
             for range in ranges {
-                assert!((*uw_info).remove(&range).is_some());
+                (*uw_info).remove(range);
             }
         }
     }
