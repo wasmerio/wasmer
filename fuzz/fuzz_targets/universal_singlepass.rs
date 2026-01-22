@@ -1,6 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
+mod misc;
+use misc::{ignore_compilation_error, ignore_runtime_error, save_wasm_file};
 use wasmer::{Instance, Module, Store, imports};
 use wasmer_compiler::EngineBuilder;
 use wasmer_compiler_singlepass::Singlepass;
@@ -35,15 +37,6 @@ impl std::fmt::Debug for SinglePassFuzzModule {
     }
 }
 
-fn save_wasm_file(data: &[u8]) {
-    if let Ok(path) = std::env::var("DUMP_TESTCASE") {
-        use std::fs::File;
-        use std::io::Write;
-        let mut file = File::create(path).unwrap();
-        file.write_all(data).unwrap();
-    }
-}
-
 fuzz_target!(|module: SinglePassFuzzModule| {
     let wasm_bytes = module.0.to_bytes();
 
@@ -53,13 +46,7 @@ fuzz_target!(|module: SinglePassFuzzModule| {
     let module = match module {
         Ok(m) => m,
         Err(e) => {
-            let error_message = format!("{}", e);
-            if error_message
-                .starts_with("Compilation error: singlepass init_local unimplemented type: V128")
-                || error_message.starts_with("Compilation error: not yet implemented: V128Const")
-                || error_message.starts_with("Validation error: constant expression required")
-            {
-                // TODO: add v128 option to wasm-smith
+            if ignore_compilation_error(&e.to_string()) {
                 return;
             }
             save_wasm_file(&wasm_bytes);
@@ -70,14 +57,9 @@ fuzz_target!(|module: SinglePassFuzzModule| {
     match Instance::new(&mut store, &module, &imports! {}) {
         Ok(_) => {}
         Err(e) => {
-            let error_message = format!("{}", e);
-            if error_message.starts_with("RuntimeError: out of bounds")
-                || error_message.starts_with("RuntimeError: call stack exhausted")
-                || error_message.starts_with("RuntimeError: undefined element: out of bounds")
-            {
+            if ignore_runtime_error(&e.to_string()) {
                 return;
             }
-
             save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
