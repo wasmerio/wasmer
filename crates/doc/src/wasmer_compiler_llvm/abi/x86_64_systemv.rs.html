@@ -77,10 +77,10 @@
 <a href=#77 id=77 data-nosnippet>77</a>            .results()
 <a href=#78 id=78 data-nosnippet>78</a>            .iter()
 <a href=#79 id=79 data-nosnippet>79</a>            .map(|ty| <span class="kw">match </span>ty {
-<a href=#80 id=80 data-nosnippet>80</a>                Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
+<a href=#80 id=80 data-nosnippet>80</a>                Type::I32 | Type::F32 | Type::ExceptionRef =&gt; <span class="number">32</span>,
 <a href=#81 id=81 data-nosnippet>81</a>                Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
 <a href=#82 id=82 data-nosnippet>82</a>                Type::V128 =&gt; <span class="number">128</span>,
-<a href=#83 id=83 data-nosnippet>83</a>                Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+<a href=#83 id=83 data-nosnippet>83</a>                Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
 <a href=#84 id=84 data-nosnippet>84</a>            </span>})
 <a href=#85 id=85 data-nosnippet>85</a>            .collect::&lt;Vec&lt;i32&gt;&gt;();
 <a href=#86 id=86 data-nosnippet>86</a>
@@ -317,7 +317,7 @@
 <a href=#317 id=317 data-nosnippet>317</a>        <span class="kw">let </span>casted =
 <a href=#318 id=318 data-nosnippet>318</a>            |value: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;, ty: Type| -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
 <a href=#319 id=319 data-nosnippet>319</a>                <span class="kw">match </span>ty {
-<a href=#320 id=320 data-nosnippet>320</a>                    Type::I32 =&gt; {
+<a href=#320 id=320 data-nosnippet>320</a>                    Type::I32 | Type::ExceptionRef =&gt; {
 <a href=#321 id=321 data-nosnippet>321</a>                        <span class="macro">assert!</span>(
 <a href=#322 id=322 data-nosnippet>322</a>                            value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
 <a href=#323 id=323 data-nosnippet>323</a>                                || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
@@ -358,10 +358,10 @@
 <a href=#358 id=358 data-nosnippet>358</a>                    .results()
 <a href=#359 id=359 data-nosnippet>359</a>                    .iter()
 <a href=#360 id=360 data-nosnippet>360</a>                    .map(|ty| <span class="kw">match </span>ty {
-<a href=#361 id=361 data-nosnippet>361</a>                        Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
+<a href=#361 id=361 data-nosnippet>361</a>                        Type::I32 | Type::F32 | Type::ExceptionRef =&gt; <span class="number">32</span>,
 <a href=#362 id=362 data-nosnippet>362</a>                        Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
 <a href=#363 id=363 data-nosnippet>363</a>                        Type::V128 =&gt; <span class="number">128</span>,
-<a href=#364 id=364 data-nosnippet>364</a>                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+<a href=#364 id=364 data-nosnippet>364</a>                        Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
 <a href=#365 id=365 data-nosnippet>365</a>                    </span>})
 <a href=#366 id=366 data-nosnippet>366</a>                    .collect::&lt;Vec&lt;i32&gt;&gt;();
 <a href=#367 id=367 data-nosnippet>367</a>

@@ -79,10 +79,10 @@
 <a href=#79 id=79 data-nosnippet>79</a>            .results()
 <a href=#80 id=80 data-nosnippet>80</a>            .iter()
 <a href=#81 id=81 data-nosnippet>81</a>            .map(|ty| <span class="kw">match </span>ty {
-<a href=#82 id=82 data-nosnippet>82</a>                Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
+<a href=#82 id=82 data-nosnippet>82</a>                Type::I32 | Type::F32 | Type::ExceptionRef =&gt; <span class="number">32</span>,
 <a href=#83 id=83 data-nosnippet>83</a>                Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
 <a href=#84 id=84 data-nosnippet>84</a>                Type::V128 =&gt; <span class="number">128</span>,
-<a href=#85 id=85 data-nosnippet>85</a>                Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+<a href=#85 id=85 data-nosnippet>85</a>                Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
 <a href=#86 id=86 data-nosnippet>86</a>            </span>})
 <a href=#87 id=87 data-nosnippet>87</a>            .collect::&lt;Vec&lt;i32&gt;&gt;();
 <a href=#88 id=88 data-nosnippet>88</a>
@@ -385,10 +385,10 @@
 <a href=#385 id=385 data-nosnippet>385</a>                    .results()
 <a href=#386 id=386 data-nosnippet>386</a>                    .iter()
 <a href=#387 id=387 data-nosnippet>387</a>                    .map(|ty| <span class="kw">match </span>ty {
-<a href=#388 id=388 data-nosnippet>388</a>                        Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
+<a href=#388 id=388 data-nosnippet>388</a>                        Type::I32 | Type::F32 | Type::ExceptionRef =&gt; <span class="number">32</span>,
 <a href=#389 id=389 data-nosnippet>389</a>                        Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
 <a href=#390 id=390 data-nosnippet>390</a>                        Type::V128 =&gt; <span class="number">128</span>,
-<a href=#391 id=391 data-nosnippet>391</a>                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+<a href=#391 id=391 data-nosnippet>391</a>                        Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
 <a href=#392 id=392 data-nosnippet>392</a>                    </span>})
 <a href=#393 id=393 data-nosnippet>393</a>                    .collect::&lt;Vec&lt;i32&gt;&gt;();
 <a href=#394 id=394 data-nosnippet>394</a>
