@@ -43,6 +43,7 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "nearbyint" => LibCall::NearestF64,
     "truncf" => LibCall::TruncF32,
     "trunc" => LibCall::TruncF64,
+    "__chkstk" => LibCall::Probestack,
     "wasmer_vm_f32_ceil" => LibCall::CeilF32,
     "wasmer_vm_f64_ceil" => LibCall::CeilF64,
     "wasmer_vm_f32_floor" => LibCall::FloorF32,
