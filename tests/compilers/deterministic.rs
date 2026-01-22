@@ -1,11 +1,20 @@
 use anyhow::Result;
-use wasmer::{Module, wat2wasm};
+use wasmer::{CompileError, Module, wat2wasm};
 
 fn compile_and_compare(config: crate::Config, wasm: &[u8]) -> Result<()> {
     let store = config.store();
 
     // compile for first time
-    let module = Module::new(&store, wasm)?;
+    let module = match Module::new(&store, wasm) {
+        Err(CompileError::Validate(message))
+            if message.contains("construct Cranelift ISA for triple: Unsupported") =>
+        {
+            // Skip the test in that case.
+            return Ok(());
+        }
+        Ok(module) => module,
+        _ => unreachable!(),
+    };
     let first = module.serialize()?;
 
     // compile for second time
