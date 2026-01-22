@@ -34,3 +34,4 @@ maintenance = { status = "actively-developed" }
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
 features = ["wasmer/cranelift"]
+cargo-args = ["--no-deps"]
