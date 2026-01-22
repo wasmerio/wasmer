@@ -49,6 +49,7 @@ fuzz_target!(|module: SinglePassFuzzModule| {
             if ignore_compilation_error(&e.to_string()) {
                 return;
             }
+            save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
     };
