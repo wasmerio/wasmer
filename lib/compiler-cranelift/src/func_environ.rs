@@ -1370,12 +1370,18 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(match ty {
             HeapType::Abstract { ty, .. } => match ty {
                 wasmer_compiler::wasmparser::AbstractHeapType::Func
-                | wasmer_compiler::wasmparser::AbstractHeapType::Extern => {
-                    pos.ins().iconst(self.reference_type(), 0)
-                }
+                | wasmer_compiler::wasmparser::AbstractHeapType::Extern
+                | wasmer_compiler::wasmparser::AbstractHeapType::Exn => pos.ins().iconst(
+                    if matches!(ty, wasmer_compiler::wasmparser::AbstractHeapType::Exn) {
+                        I32
+                    } else {
+                        self.reference_type()
+                    },
+                    0,
+                ),
                 _ => {
                     return Err(WasmError::Unsupported(format!(
-                        "`ref.null T` that is not a `funcref` or an `externref`: {ty:?}"
+                        "`ref.null T` that is not a `funcref`, an `externref` or an `exn`: {ty:?}"
                     )));
                 }
             },
