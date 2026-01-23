@@ -11,7 +11,6 @@ on:
 
 env:
   RUST_BACKTRACE: 1
-  MSRV: "1.90"
 
 jobs:
   # The job MUST be called `copilot-setup-steps`
@@ -28,12 +27,19 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install -y --reinstall g++
-          sudo apt-get install -y creduce 
+          sudo apt-get install -y creduce
+
+      - name: Read rust version
+        id: read_rust_version
+        run: |
+          rust_toolchain=$(head -n1 rust-toolchain | tr -d '\n')
+          echo "MSRV=$rust_toolchain" >> $GITHUB_ENV
+          echo "MSRV=$rust_toolchain" >> $GITHUB_OUTPUT
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.read_rust_version.outputs.MSRV }}
           target: x86_64-unknown-linux-gnu
           components: rustc,cargo,rust-std,rust-src,clippy,rustfmt,rust-analyzer,rust-docs
 
