@@ -6,12 +6,13 @@ import json
 import statistics
 from pathlib import Path
 import matplotlib.pyplot as plt
+import shutil
 
 RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
-
 WASMER_CONFIGS = ("wasmer-3.3", "wasmer-5", "wasmer-6.1", "wasmer-7")
+CACHE_DIR = Path("/home/marxin/.wasmer/cache")
 
 
 def parse_report(report):
@@ -40,15 +41,15 @@ def benchmark_wasmer(wasmer_binary):
 
     runtime_report = {}
     for benchmark_module in benchmark_modules:
+        shutil.rmtree(CACHE_DIR, ignore_errors=True)
         start = time.perf_counter()
         subprocess.check_output(
-            f"{wasmer_binary} run --disable-cache {benchmark_module} -- --help",
+            f"{wasmer_binary} run {benchmark_module} -- --help",
             shell=True,
             encoding="utf8",
         )
         elapsed = time.perf_counter() - start
-        print(benchmark_module)
-        print(elapsed)
+        print((wasmer_binary, benchmark_module, elapsed))
 
         data = subprocess.check_output(
             f"{wasmer_binary} run {benchmark_module} -- run",
