@@ -465,6 +465,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-buffer"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96eb4cdd6cf1b31d671e9efe75c5d1ec614776856cefbe109ca373554a6d514f"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
 name = "bstr"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -947,6 +956,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "const-oid"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
+
+[[package]]
 name = "constant_time_eq"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1278,6 +1293,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto-common"
+version = "0.2.0-rc.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6dcdb44f2c3ee25689ca12a4c19e664fd09f97aeae0bc5043b2dbab6389e308"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
 name = "csv"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1587,8 +1611,19 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
- "block-buffer",
- "crypto-common",
+ "block-buffer 0.10.4",
+ "crypto-common 0.1.7",
+]
+
+[[package]]
+name = "digest"
+version = "0.11.0-rc.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca14c221bd9052fd2da7c34a2eeb5ae54732db28be47c35937be71793d675422"
+dependencies = [
+ "block-buffer 0.11.0",
+ "const-oid",
+ "crypto-common 0.2.0-rc.12",
 ]
 
 [[package]]
@@ -2479,6 +2514,15 @@ name = "humantime"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135b12329e5e3ce057a9f972339ea52bc954fe1e9358ef27f95e89716fbc5424"
+
+[[package]]
+name = "hybrid-array"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b41fb3dc24fe72c2e3a4685eed55917c2fb228851257f4a8f2d985da9443c3e5"
+dependencies = [
+ "typenum",
+]
 
 [[package]]
 name = "hyper"
@@ -3762,7 +3806,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "602113b5b5e8621770cfd490cfd90b9f84ab29bd2b0e49ad83eb6d186cef2365"
 dependencies = [
  "pest",
- "sha2",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -5017,7 +5061,7 @@ checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "digest",
+ "digest 0.10.7",
 ]
 
 [[package]]
@@ -5028,7 +5072,18 @@ checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "digest",
+ "digest 0.10.7",
+]
+
+[[package]]
+name = "sha2"
+version = "0.11.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19d43dc0354d88b791216bb5c1bfbb60c0814460cc653ae0ebd71f286d0bd927"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest 0.11.0-rc.7",
 ]
 
 [[package]]
@@ -6893,7 +6948,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "shared-buffer",
  "tar",
  "target-lexicon 0.13.4",
@@ -7179,7 +7234,7 @@ dependencies = [
  "semver 1.0.27",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "shared-buffer",
  "tar",
  "tempfile",
@@ -7206,7 +7261,7 @@ dependencies = [
  "semver 1.0.27",
  "serde",
  "serde_yaml",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -7264,7 +7319,7 @@ dependencies = [
  "rkyv",
  "serde",
  "serde_bytes",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "target-lexicon 0.13.4",
  "thiserror 2.0.18",
  "wasmparser 0.244.0",
@@ -7351,7 +7406,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "serde_yaml",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "shared-buffer",
  "tempfile",
  "terminal_size",
@@ -7659,7 +7714,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.10.9",
  "shared-buffer",
  "thiserror 1.0.69",
  "url",
