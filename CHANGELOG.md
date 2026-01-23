@@ -10,7 +10,7 @@
 
 This release adds:
 - New WASIX Context switching API (green threads).
-- New (experimental) Async API.
+- New (experimental) Async API (enable it using the `experimental-async` feature in wasmer)
 - Full support for Dynamic Linking in WASIX.
 - Wasmer compilation progress bar.
 - Improved debugging experience via `--compiler-debug-dir`.
