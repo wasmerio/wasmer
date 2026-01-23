@@ -135,7 +135,7 @@ else:
             color=color,
         )
 
-    ax.set_title("Runtime vs Native (native = 100%)")
+    ax.set_title("rustc-perf: Wasmer vs Native")
     ax.set_ylabel("runtime as percent of native (%)")
     ax.set_xticks(list(x))
     ax.set_xticklabels(common_benchmarks, rotation=45, ha="right")
@@ -143,6 +143,6 @@ else:
     ax.grid(axis="y", linestyle="--", alpha=0.4)
     fig.tight_layout()
 
-    output_path = Path("benchmark_comparison.svg")
+    output_path = Path("rustc_perf_runtime.svg")
     fig.savefig(output_path)
     print(f"Saved plot to {output_path}")
