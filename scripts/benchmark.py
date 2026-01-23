@@ -11,7 +11,7 @@ RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
 
-WASMER_BINARY = "wasmer-3.3"
+WASMER_CONFIGS = ("wasmer-3.3", "wasmer-7")
 
 
 def parse_report(report):
@@ -28,6 +28,35 @@ def parse_report(report):
         if benchmark_name != "hashmap_find_misses_1m":
             results[benchmark_name] = statistics.geometric_mean(wall_times)
     return results
+
+
+def benchmark_wasmer(wasmer_binary):
+    benchmark_modules = []
+    for root, dirs, files in RUSTC_PEFT_PATH.walk():
+        for file in files:
+            module_path = root / file
+            if module_path.suffix == ".wasm" and "deps" not in str(module_path):
+                benchmark_modules.append(module_path)
+
+    runtime_report = {}
+    for benchmark_module in benchmark_modules:
+        start = time.perf_counter()
+        subprocess.check_output(
+            f"{wasmer_binary} run --disable-cache {benchmark_module} -- --help",
+            shell=True,
+            encoding="utf8",
+        )
+        elapsed = time.perf_counter() - start
+        print(benchmark_module)
+        print(elapsed)
+
+        data = subprocess.check_output(
+            f"{wasmer_binary} run {benchmark_module} -- run",
+            shell=True,
+            encoding="utf8",
+        )
+        runtime_report |= parse_report(data)
+    return runtime_report
 
 
 # 1) native run
@@ -49,70 +78,54 @@ for benchmark_dir in RUSTC_PEFT_PATH.iterdir():
             "cargo b -r --target=wasm32-wasip1", shell=True, cwd=benchmark_dir
         )
 
-# 3) find all the benchmarks
-benchmark_modules = []
-for root, dirs, files in RUSTC_PEFT_PATH.walk():
-    for file in files:
-        module_path = root / file
-        if module_path.suffix == ".wasm" and "deps" not in str(module_path):
-            benchmark_modules.append(module_path)
-
-# 4) benchmark modules
-runtime_report = {}
-for benchmark_module in benchmark_modules:
-    start = time.perf_counter()
-    subprocess.check_output(
-        f"{WASMER_BINARY} run --disable-cache {benchmark_module} -- --help",
-        shell=True,
-        encoding="utf8",
-    )
-    elapsed = time.perf_counter() - start
-    print(benchmark_module)
-    print(elapsed)
-
-    data = subprocess.check_output(
-        f"{WASMER_BINARY} run {benchmark_module} -- run",
-        shell=True,
-        encoding="utf8",
-    )
-    runtime_report |= parse_report(data)
-
-print(runtime_report)
+# 3) benchmark multiple wasmer binaries
+wasmer_runtime_reports = {
+    wasmer_binary: benchmark_wasmer(wasmer_binary) for wasmer_binary in WASMER_CONFIGS
+}
 
 # 5) plot comparison
-common_benchmarks = sorted(
-    set(native_runtime_report.keys()) & set(runtime_report.keys())
-)
+native_keys = set(native_runtime_report.keys())
+for label, report in wasmer_runtime_reports.items():
+    report_keys = set(report.keys())
+    missing = native_keys - report_keys
+    extra = report_keys - native_keys
+    assert not missing and not extra, (
+        f"Benchmark key mismatch for {label}: "
+        f"missing={sorted(missing)}, extra={sorted(extra)}"
+    )
+
+common_benchmarks = sorted(native_keys)
 
 if not common_benchmarks:
     print("No common benchmarks found between native and runtime reports.")
 else:
-    native_times = [native_runtime_report[name] for name in common_benchmarks]
-    runtime_times = [runtime_report[name] for name in common_benchmarks]
-    runtime_pct = [
-        (runtime / native) * 100 if native else 0.0
-        for runtime, native in zip(runtime_times, native_times)
-    ]
-    native_pct = [100.0 for _ in native_times]
+    native_pct = [100.0 for _ in common_benchmarks]
+    series = {"native": native_pct}
+    for label, report in wasmer_runtime_reports.items():
+        pct = []
+        for name in common_benchmarks:
+            native = native_runtime_report[name]
+            runtime = report[name]
+            pct.append((runtime / native) * 100 if native else 0.0)
+        series[label] = pct
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    x = range(len(common_benchmarks))
-    width = 0.4
+    x = list(range(len(common_benchmarks)))
+    series_labels = list(series.keys())
+    total_series = len(series_labels)
+    width = 0.8 / total_series
+    base_offset = -((total_series - 1) / 2) * width
 
-    ax.bar(
-        [i - width / 2 for i in x],
-        native_pct,
-        width,
-        label="native",
-    )
-    ax.bar(
-        [i + width / 2 for i in x],
-        runtime_pct,
-        width,
-        label="wasmer",
-    )
+    for idx, label in enumerate(series_labels):
+        offset = base_offset + idx * width
+        ax.bar(
+            [i + offset for i in x],
+            series[label],
+            width,
+            label=label,
+        )
 
-    ax.set_title("Runtime vs Native")
+    ax.set_title("Runtime vs Native (native = 100%)")
     ax.set_ylabel("runtime as percent of native (%)")
     ax.set_xticks(list(x))
     ax.set_xticklabels(common_benchmarks, rotation=45, ha="right")
