@@ -89,6 +89,6 @@ ax.set_xticklabels(benchmarks)
 ax.legend()
 ax.grid(axis="y", linestyle="--", alpha=0.4)
 
-output_path = Path("runtime_benchmark2.svg")
+output_path = Path("interpreters_runtime_benchmark.svg")
 fig.savefig(output_path)
 print(f"Saved plot to {output_path}")
