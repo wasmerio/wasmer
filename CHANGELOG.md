@@ -8,6 +8,21 @@
 
 ## 7.0.0-rc.1 - 23/01/2026
 
+This release adds:
+- New WASIX Context switching API (green threads).
+- New (experimental) Async API.
+- Full support for Dynamic Linking in WASIX.
+- Wasmer compilation progress bar.
+- Improved debugging experience via `--compiler-debug-dir`.
+- Singlepass: RISC-V (64-bit) support.
+- Singlepass: Multi-value support.
+- Cranelift: Exception handling support.
+- LLVM: Updated backend from LLVM 18 → LLVM 21.
+- LLVM: New target support for RISC-V (32-bit).
+- LLVM: Disabled optimizations for huge functions (e.g. Python compile time ~90s → ~10s).
+- Many secondary platform fixes and improvements for `aarch64-linux`, `riscv64gc-linux`, and `loongarch64-linux`.
+- Many bugfixes and improvements.
+
 ## Added
 
   - [#6051](https://github.com/wasmerio/wasmer/pull/6051) Add Rust tools to Nix development environment
