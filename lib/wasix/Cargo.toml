@@ -276,4 +276,3 @@ features = [
 	"sys-default",
 ]
 rustc-args = ["--cfg", "docsrs"]
-cargo-args = ["--no-deps"]

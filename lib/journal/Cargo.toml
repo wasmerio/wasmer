@@ -48,4 +48,3 @@ tempfile.workspace = true
 [package.metadata.docs.rs]
 features = ["wasmer/sys", "wasmer/compiler"]
 rustc-args = ["--cfg", "docsrs"]
-cargo-args = ["--no-deps"]

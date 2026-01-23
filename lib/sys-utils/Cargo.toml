@@ -30,7 +30,6 @@ tracing.workspace = true
 [package.metadata.docs.rs]
 features = ["wasmer/cranelift"]
 rustc-args = ["--cfg", "docsrs"]
-cargo-args = ["--no-deps"]
 
 [features]
 default = []
