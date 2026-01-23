@@ -9,6 +9,7 @@ runs:
   steps:
     - name: Load toolchain
       id: load_toolchain
+      shell: sh
       run: |
         # TODO: Actually parse this from Cargo.toml
         rust_toolchain=$(head -n1 rust-toolchain | tr -d '\n')
