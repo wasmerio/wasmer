@@ -53,7 +53,10 @@
 
 
             # Rust tooling
-            rust-toolchain
+            (rust-toolchain.override {
+              targets = [ "wasm32-unknown-unknown" ];
+              extensions = [ "clippy" "rustfmt" "rust-analyzer" "rust-src" ];
+            })
 
             # Snapshot testing
             # https://github.com/mitsuhiko/insta
