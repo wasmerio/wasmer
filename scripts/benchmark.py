@@ -11,7 +11,7 @@ RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
 
-WASMER_CONFIGS = ("wasmer-3.3", "wasmer-7")
+WASMER_CONFIGS = ("wasmer-3.3", "wasmer-5", "wasmer-6.1", "wasmer-7")
 
 
 def parse_report(report):
@@ -115,14 +115,23 @@ else:
     total_series = len(series_labels)
     width = 0.8 / total_series
     base_offset = -((total_series - 1) / 2) * width
+    purple_palette = plt.cm.Purples
+    wasmer_labels = [label for label in series_labels if label != "native"]
+    native_color = "#1b7f3a"
+    wasmer_colors = {
+        label: purple_palette(0.45 + (i / max(1, len(wasmer_labels) - 1)) * 0.45)
+        for i, label in enumerate(wasmer_labels)
+    }
 
     for idx, label in enumerate(series_labels):
         offset = base_offset + idx * width
+        color = native_color if label == "native" else wasmer_colors[label]
         ax.bar(
             [i + offset for i in x],
             series[label],
             width,
             label=label,
+            color=color,
         )
 
     ax.set_title("Runtime vs Native (native = 100%)")
