@@ -9,7 +9,7 @@
 ## 7.0.0-rc.1 - 23/01/2026
 
 This release adds:
-- New Context switching API (green threads).
+- New WASIX Context switching API (green threads).
 - New (experimental) Async API.
 - Full support for Dynamic Linking in WASIX.
 - Wasmer compilation progress bar.
