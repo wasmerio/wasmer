@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from itertools import takewhile
 import os
 import time
 import sys
@@ -63,7 +64,7 @@ def make_release(version):
     if not (gh_logged_in):
         raise Exception("please log in")
 
-    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir = tempfile.TemporaryDirectory(prefix="wasmer-git-")
     print(temp_dir.name)
     if (
         os.system(
@@ -76,8 +77,11 @@ def make_release(version):
     ):
         raise Exception("could not clone github repo")
 
+    # As of now, GH CLI cannot list more items!
+    GH_LISTING_LIMIT = 1000
+
     # generate changelog
-    proc = subprocess.Popen(
+    listed_prs = subprocess.check_output(
         [
             "gh",
             "search",
@@ -86,31 +90,26 @@ def make_release(version):
             "wasmerio/wasmer",
             "--merged",
             "--limit",
-            "100",
+            str(GH_LISTING_LIMIT),
             "--sort",
             "updated",
         ],
-        stdout=subprocess.PIPE,
+        encoding="utf-8",
         cwd=temp_dir.name,
-    )
-    proc.wait()
-    if proc.returncode != 0:
-        print(proc.stdout)
-        raise Exception("could not run gh search prs")
+    ).splitlines()
 
-    lines = []
-    for line in proc.stdout:
-        line = line.decode("utf-8").rstrip()
-        if "Release" in line:
-            break
-        lines.append(line)
+    listed_prs = list(takewhile(lambda line: "Release " not in line, listed_prs))
+    print(f"Listed {len(listed_prs)} merged PRs since the latest release")
+
+    # Make sure we listed all the merged PRs since the last release!
+    assert len(listed_prs) < GH_LISTING_LIMIT
 
     changed = []
     added = []
     fixed = []
     release_notes_changed = []
 
-    for line in lines:
+    for line in listed_prs:
         fields = line.split("\t")
         pr_number = fields[1]
         pr_text = fields[3]
