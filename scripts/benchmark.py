@@ -11,7 +11,11 @@ import shutil
 RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
-WASMER_CONFIGS = ("wasmer-3.3", "wasmer-5", "wasmer-6.1", "wasmer-7")
+WASMER_CONFIGS = (
+    ("Wasmer LLVM", "-l"),
+    ("Wasmer LLVM pass-params", "-l --enable-pass-params-opt"),
+    ("Wasmer Cranelift", "-c"),
+)
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
 
 
@@ -31,7 +35,7 @@ def parse_report(report):
     return results
 
 
-def benchmark_wasmer(wasmer_binary):
+def benchmark_wasmer(wasmer_cmd_args):
     benchmark_modules = []
     for root, dirs, files in RUSTC_PEFT_PATH.walk():
         for file in files:
@@ -44,15 +48,15 @@ def benchmark_wasmer(wasmer_binary):
         shutil.rmtree(CACHE_DIR, ignore_errors=True)
         start = time.perf_counter()
         subprocess.check_output(
-            f"{wasmer_binary} run {benchmark_module} -- --help",
+            f"wasmer-7 run {wasmer_cmd_args} {benchmark_module} -- --help",
             shell=True,
             encoding="utf8",
         )
         elapsed = time.perf_counter() - start
-        print((wasmer_binary, benchmark_module, elapsed))
+        print((benchmark_module, elapsed))
 
         data = subprocess.check_output(
-            f"{wasmer_binary} run {benchmark_module} -- run",
+            f"wasmer-7 run {wasmer_cmd_args} {benchmark_module} -- run",
             shell=True,
             encoding="utf8",
         )
@@ -81,7 +85,8 @@ for benchmark_dir in RUSTC_PEFT_PATH.iterdir():
 
 # 3) benchmark multiple wasmer binaries
 wasmer_runtime_reports = {
-    wasmer_binary: benchmark_wasmer(wasmer_binary) for wasmer_binary in WASMER_CONFIGS
+    label: benchmark_wasmer(wasmer_command)
+    for (label, wasmer_command) in WASMER_CONFIGS
 }
 
 # 5) plot comparison
@@ -118,21 +123,14 @@ else:
     base_offset = -((total_series - 1) / 2) * width
     purple_palette = plt.cm.Purples
     wasmer_labels = [label for label in series_labels if label != "native"]
-    native_color = "#1b7f3a"
-    wasmer_colors = {
-        label: purple_palette(0.45 + (i / max(1, len(wasmer_labels) - 1)) * 0.45)
-        for i, label in enumerate(wasmer_labels)
-    }
 
     for idx, label in enumerate(series_labels):
         offset = base_offset + idx * width
-        color = native_color if label == "native" else wasmer_colors[label]
         ax.bar(
             [i + offset for i in x],
             series[label],
             width,
             label=label,
-            color=color,
         )
 
     ax.set_title("rustc-perf: Wasmer vs Native")
@@ -143,6 +141,6 @@ else:
     ax.grid(axis="y", linestyle="--", alpha=0.4)
     fig.tight_layout()
 
-    output_path = Path("rustc_perf_runtime.svg")
+    output_path = Path("rustc_perf_runtime2.svg")
     fig.savefig(output_path)
     print(f"Saved plot to {output_path}")
