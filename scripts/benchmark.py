@@ -61,6 +61,7 @@ def benchmark_wasmer(wasmer_cmd_args):
             encoding="utf8",
         )
         runtime_report |= parse_report(data)
+    print()
     return runtime_report
 
 
@@ -114,6 +115,17 @@ else:
             runtime = report[name]
             pct.append((runtime / native) * 100 if native else 0.0)
         series[label] = pct
+
+    for label, pct in list(series.items()):
+        if label == "native":
+            series[label] = pct + [100.0]
+            continue
+        pct_nonzero = [value for value in pct if value > 0.0]
+        geomean = statistics.geometric_mean(pct_nonzero) if pct_nonzero else 0.0
+        print(f"{label} geomean: {geomean:.2f} %")
+        series[label] = pct + [geomean]
+
+    common_benchmarks = common_benchmarks + ["GEOMEAN"]
 
     fig, ax = plt.subplots(figsize=(12, 6))
     x = list(range(len(common_benchmarks)))
