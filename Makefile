@@ -625,9 +625,9 @@ build-capi-headless-ios:
 #
 #####
 
-# test compilers
+# test compilers (intentionally not using nextest as it runs tests in separate processes)
 test-stage-0-wast:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
 
 # test packages
 test-stage-1-test-all:

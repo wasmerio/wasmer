@@ -21,20 +21,8 @@ pub struct HashedModuleData {
 
 impl HashedModuleData {
     pub fn new(bytes: impl Into<OwnedBuffer>) -> Self {
-        Self::new_sha256(bytes)
-    }
-
-    pub fn new_sha256(bytes: impl Into<OwnedBuffer>) -> Self {
         let wasm = bytes.into();
-        let hash = ModuleHash::sha256(&wasm);
-        Self { hash, wasm }
-    }
-
-    /// Create new [`HashedModuleData`] from the given bytes, hashing the
-    /// the bytes into a [`ModuleHash`] with xxhash.
-    pub fn new_xxhash(bytes: impl Into<OwnedBuffer>) -> Self {
-        let wasm = bytes.into();
-        let hash = ModuleHash::xxhash(&wasm);
+        let hash = ModuleHash::new(&wasm);
         Self { hash, wasm }
     }
 

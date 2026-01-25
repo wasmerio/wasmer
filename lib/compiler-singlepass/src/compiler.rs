@@ -23,6 +23,7 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
+use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
@@ -35,8 +36,8 @@ use wasmer_compiler::{
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    TableIndex, TrapCode, TrapInformation, Type, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo, TableIndex, TrapCode, TrapInformation, Type, VMOffsets,
 };
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
@@ -62,6 +63,7 @@ impl SinglepassCompiler {
         target: &Target,
         compile_info: &CompileModuleInfo,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         let arch = target.triple().architecture;
         match arch {
@@ -88,6 +90,16 @@ impl SinglepassCompiler {
                 }
             },
         };
+
+        let module = &compile_info.module;
+        let total_functions = function_body_inputs.len() as u64;
+        let total_function_call_trampolines = module.signatures.len() as u64;
+        let total_dynamic_trampolines = module.num_imported_functions as u64;
+        let total_steps =
+            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
+        let progress = progress_callback
+            .cloned()
+            .map(|cb| ProgressContext::new(cb, total_steps, "singlepass::functions"));
 
         // Generate the frametable
         #[cfg(feature = "unwind")]
@@ -157,7 +169,7 @@ impl SinglepassCompiler {
                     }
                 }
 
-                match arch {
+                let res = match arch {
                     Architecture::X86_64 => {
                         let machine = MachineX86_64::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
@@ -222,12 +234,19 @@ impl SinglepassCompiler {
                         generator.finalize(input, arch)
                     }
                     _ => unimplemented!(),
+                }?;
+
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
                 }
+
+                Ok(res)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .unzip();
 
+        let module_hash = module.hash_string();
         let function_call_trampolines = module
             .signatures
             .values()
@@ -238,14 +257,19 @@ impl SinglepassCompiler {
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
                     callbacks.obj_memory_buffer(
                         &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        &module_hash,
                         &body.body,
                     );
                     callbacks.asm_memory_buffer(
                         &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        &module_hash,
                         arch,
                         &body.body,
                         HashMap::new(),
                     )?;
+                }
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
                 }
 
                 Ok(body)
@@ -268,14 +292,19 @@ impl SinglepassCompiler {
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
                     callbacks.obj_memory_buffer(
                         &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &module_hash,
                         &body.body,
                     );
                     callbacks.asm_memory_buffer(
                         &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &module_hash,
                         arch,
                         &body.body,
                         HashMap::new(),
                     )?;
+                }
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
                 }
                 Ok(body)
             })
@@ -337,6 +366,7 @@ impl Compiler for SinglepassCompiler {
         compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         #[cfg(feature = "rayon")]
         {
@@ -349,13 +379,23 @@ impl Compiler for SinglepassCompiler {
                 })?;
 
             pool.install(|| {
-                self.compile_module_internal(target, compile_info, function_body_inputs)
+                self.compile_module_internal(
+                    target,
+                    compile_info,
+                    function_body_inputs,
+                    progress_callback,
+                )
             })
         }
 
         #[cfg(not(feature = "rayon"))]
         {
-            self.compile_module_internal(target, compile_info, function_body_inputs)
+            self.compile_module_internal(
+                target,
+                compile_info,
+                function_body_inputs,
+                progress_callback,
+            )
         }
     }
 
@@ -418,7 +458,7 @@ mod tests {
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&linux32, &info, &translation, inputs);
+        let result = compiler.compile_module(&linux32, &info, &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
             error => panic!("Unexpected error: {error:?}"),
@@ -427,7 +467,7 @@ mod tests {
         // Compile for win32
         let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win32, &info, &translation, inputs);
+        let result = compiler.compile_module(&win32, &info, &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {error:?}"),

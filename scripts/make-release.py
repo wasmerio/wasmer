@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from itertools import takewhile
 import os
 import time
 import sys
@@ -63,11 +64,11 @@ def make_release(version):
     if not (gh_logged_in):
         raise Exception("please log in")
 
-    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir = tempfile.TemporaryDirectory(prefix="wasmer-git-")
     print(temp_dir.name)
     if (
         os.system(
-            "git clone https://github.com/wasmerio/wasmer --branch "
+            "git clone git@github.com:wasmerio/wasmer.git --branch "
             + TAG
             + " --depth 1 "
             + temp_dir.name
@@ -76,8 +77,11 @@ def make_release(version):
     ):
         raise Exception("could not clone github repo")
 
+    # As of now, GH CLI cannot list more items!
+    GH_LISTING_LIMIT = 1000
+
     # generate changelog
-    proc = subprocess.Popen(
+    listed_prs = subprocess.check_output(
         [
             "gh",
             "search",
@@ -86,31 +90,26 @@ def make_release(version):
             "wasmerio/wasmer",
             "--merged",
             "--limit",
-            "100",
+            str(GH_LISTING_LIMIT),
             "--sort",
             "updated",
         ],
-        stdout=subprocess.PIPE,
+        encoding="utf-8",
         cwd=temp_dir.name,
-    )
-    proc.wait()
-    if proc.returncode != 0:
-        print(proc.stdout)
-        raise Exception("could not run gh search prs")
+    ).splitlines()
 
-    lines = []
-    for line in proc.stdout:
-        line = line.decode("utf-8").rstrip()
-        if "Release" in line:
-            break
-        lines.append(line)
+    listed_prs = list(takewhile(lambda line: "Release " not in line, listed_prs))
+    print(f"Listed {len(listed_prs)} merged PRs since the latest release")
+
+    # Make sure we listed all the merged PRs since the last release!
+    assert len(listed_prs) < GH_LISTING_LIMIT
 
     changed = []
     added = []
     fixed = []
     release_notes_changed = []
 
-    for line in lines:
+    for line in listed_prs:
         fields = line.split("\t")
         pr_number = fields[1]
         pr_text = fields[3]
@@ -259,19 +258,19 @@ def make_release(version):
         update_version_py = get_file_string(
             temp_dir.name + "/scripts/update-version.py"
         )
-        previous_version = re.search("NEXT_VERSION='(.*)'", update_version_py).groups(
+        previous_version = re.search('NEXT_VERSION = "(.*)"', update_version_py).groups(
             1
         )[0]
         next_version = RELEASE_VERSION
         print("updating version " + previous_version + " -> " + next_version)
         update_version_py = re.sub(
-            "PREVIOUS_VERSION='.*'",
-            "PREVIOUS_VERSION='" + previous_version + "'",
+            'PREVIOUS_VERSION = ".*"',
+            f'PREVIOUS_VERSION = "{previous_version}"',
             update_version_py,
         )
         update_version_py = re.sub(
-            "NEXT_VERSION='.*'",
-            "NEXT_VERSION='" + next_version + "'",
+            'NEXT_VERSION = ".*"',
+            f'NEXT_VERSION = "{next_version}"',
             update_version_py,
         )
         write_file_string(
@@ -630,13 +629,7 @@ def make_release(version):
     )
     proc.wait()
 
-    raise Exception("script done and merged")
+    print("Script done and merged 🎉🎉🎉")
 
 
-try:
-    make_release(RELEASE_VERSION)
-except Exception as err:
-    while True:
-        print(str(err))
-        if os.system("say " + str(err)) != 0:
-            sys.exit()
+make_release(RELEASE_VERSION)

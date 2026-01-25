@@ -55,15 +55,15 @@ derive_more = { workspace = true, features = ["from", "debug"] }
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "=7.0.0-alpha.2", optional = true }
-wasmer-compiler = { path = "../compiler", version = "=7.0.0-alpha.2", optional = true }
-wasmer-derive = { path = "../derive", version = "=7.0.0-alpha.2" }
-wasmer-types = { path = "../types", version = "=7.0.0-alpha.2" }
+wasmer-vm = { path = "../vm", version = "=7.0.0-rc.1", optional = true }
+wasmer-compiler = { path = "../compiler", version = "=7.0.0-rc.1", optional = true }
+wasmer-derive = { path = "../derive", version = "=7.0.0-rc.1" }
+wasmer-types = { path = "../types", version = "=7.0.0-rc.1" }
 target-lexicon = { workspace = true, default-features = false }
 # - Optional dependencies for `sys`.
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=7.0.0-alpha.2", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=7.0.0-alpha.2", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=7.0.0-alpha.2", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=7.0.0-rc.1", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=7.0.0-rc.1", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=7.0.0-rc.1", optional = true }
 corosensei = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 
@@ -80,20 +80,20 @@ windows-sys.workspace = true
 wat.workspace = true
 tempfile.workspace = true
 anyhow.workspace = true
-macro-wasmer-universal-test = { version = "7.0.0-alpha.2", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "7.0.0-rc.1", path = "./macro-wasmer-universal-test" }
 futures = "0.3"
 tokio = { workspace = true, features = ["full"] }
 
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "=7.0.0-alpha.2", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=7.0.0-rc.1", default-features = false, features = [
 	"std",
 ] }
 wasm-bindgen.workspace = true
 js-sys.workspace = true
-wasmer-derive = { path = "../derive", version = "=7.0.0-alpha.2" }
-wasmer-compiler = { path = "../compiler", version = "=7.0.0-alpha.2" }
+wasmer-derive = { path = "../derive", version = "=7.0.0-rc.1" }
+wasmer-compiler = { path = "../compiler", version = "=7.0.0-rc.1" }
 # - Optional dependencies for `js`.
 wasmparser = { workspace = true, default-features = false, optional = true }
 hashbrown = { workspace = true, optional = true }
@@ -106,7 +106,7 @@ target-lexicon.workspace = true
 wat.workspace = true
 anyhow.workspace = true
 wasm-bindgen-test.workspace = true
-macro-wasmer-universal-test = { version = "7.0.0-alpha.2", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "7.0.0-rc.1", path = "./macro-wasmer-universal-test" }
 
 # Specific to `js`.
 #
@@ -131,6 +131,8 @@ artifact-size = [
 # Features for `sys`.
 sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
 sys-default = ["sys", "wat", "cranelift"]
+
+headless = []
 
 # Experimental concurrent execution support
 experimental-async = ["dep:futures", "dep:corosensei"]
@@ -195,7 +197,7 @@ tar.workspace = true
 ureq = { workspace = true, optional = true }
 which = { workspace = true, optional = true }
 xz = { workspace = true, optional = true }
-zip = { workspace = true, optional = true, default-features = true }
+zip = { workspace = true, optional = true, features = ["deflate"] }
 
 [target.'cfg(target_env = "musl")'.build-dependencies]
 bindgen = { workspace = true, default-features = false, features = [
@@ -221,3 +223,4 @@ features = [
 	"wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]
+cargo-args = ["--no-deps"]

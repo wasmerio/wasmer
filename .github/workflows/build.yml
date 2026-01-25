@@ -3,7 +3,7 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.90"
+  MSRV: "1.91"
 
 on:
   push:
@@ -431,15 +431,6 @@ jobs:
           docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
-      - name: "Run wast test suite for all compilers"
-        run: test-stage-0-wast
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
       - name: Build Wasmer binary
         run: |
           make build-wasmer

@@ -12,7 +12,6 @@ pub use crate::{
     machine::{Label, Offset},
     riscv_decl::{FPR, GPR},
 };
-use dynasm::dynasm;
 use dynasmrt::{DynasmApi, DynasmLabelApi, VecAssembler, riscv::RiscvRelocation};
 use wasmer_compiler::types::{
     function::FunctionBody,

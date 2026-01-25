@@ -37,6 +37,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
 use wasmer_compiler::{
@@ -57,8 +58,8 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::target::Target;
 use wasmer_types::{
-    CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode,
-    TrapInformation,
+    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
+    SignatureIndex, TrapCode, TrapInformation,
 };
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
@@ -87,6 +88,7 @@ impl CraneliftCompiler {
         compile_info: &CompileModuleInfo,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         let isa = self
             .config()
@@ -103,6 +105,15 @@ impl CraneliftCompiler {
             .iter()
             .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
+
+        let total_functions = function_body_inputs.len() as u64;
+        let total_function_call_trampolines = module.signatures.len() as u64;
+        let total_dynamic_trampolines = module.num_imported_functions as u64;
+        let total_steps =
+            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
+        let progress = progress_callback
+            .cloned()
+            .map(|cb| ProgressContext::new(cb, total_steps, "cranelift::functions"));
 
         // Generate the frametable
         #[cfg(feature = "unwind")]
@@ -134,6 +145,8 @@ impl CraneliftCompiler {
             }
         };
 
+        // The `compile_function` closure is used for both the sequential and
+        // parallel compilation paths to avoid code duplication.
         let compile_function =
             |func_translator: &mut FuncTranslator,
              (i, input): (&LocalFunctionIndex, &FunctionBodyData)| {
@@ -184,6 +197,7 @@ impl CraneliftCompiler {
 
                     callbacks.preopt_ir(
                         &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                        &compile_info.module.hash_string(),
                         context.func.display().to_string().as_bytes(),
                     );
                 }
@@ -201,10 +215,12 @@ impl CraneliftCompiler {
 
                     callbacks.obj_memory_buffer(
                         &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                        &compile_info.module.hash_string(),
                         &code_buf,
                     );
                     callbacks.asm_memory_buffer(
                         &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                        &compile_info.module.hash_string(),
                         target.triple().architecture,
                         &code_buf,
                     )?;
@@ -267,6 +283,10 @@ impl CraneliftCompiler {
 
                 let range = reader.range();
                 let address_map = get_function_address_map(&context, range, code_buf.len());
+
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
 
                 Ok((
                     CompiledFunction {
@@ -390,6 +410,8 @@ impl CraneliftCompiler {
             unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1));
         };
 
+        let module_hash = module.hash_string();
+
         #[cfg(not(feature = "unwind"))]
         let _ = fdes;
 
@@ -403,13 +425,18 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .into_iter()
             .map(|sig| {
-                make_trampoline_function_call(
+                let trampoline = make_trampoline_function_call(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
                     &mut cx,
                     sig,
-                )
+                    &module_hash,
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
@@ -421,13 +448,18 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, sig| {
-                make_trampoline_function_call(
+                let trampoline = make_trampoline_function_call(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
                     cx,
                     sig,
-                )
+                    &module_hash,
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
@@ -444,14 +476,19 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .into_iter()
             .map(|func_type| {
-                make_trampoline_dynamic_function(
+                let trampoline = make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
                     &offsets,
                     &mut cx,
                     &func_type,
-                )
+                    &module_hash,
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
@@ -462,14 +499,19 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, func_type| {
-                make_trampoline_dynamic_function(
+                let trampoline = make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
                     &offsets,
                     cx,
                     func_type,
-                )
+                    &module_hash,
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
@@ -514,6 +556,7 @@ impl Compiler for CraneliftCompiler {
         compile_info: &CompileModuleInfo,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         #[cfg(feature = "rayon")]
         {
@@ -529,6 +572,7 @@ impl Compiler for CraneliftCompiler {
                     compile_info,
                     module_translation_state,
                     function_body_inputs,
+                    progress_callback,
                 )
             })
         }
@@ -540,6 +584,7 @@ impl Compiler for CraneliftCompiler {
                 compile_info,
                 module_translation_state,
                 function_body_inputs,
+                progress_callback,
             )
         }
     }

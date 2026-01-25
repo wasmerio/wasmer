@@ -3609,6 +3609,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.machine.emit_function_epilog()?;
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
+                    #[allow(clippy::collapsible_if, reason = "hard to read otherwise")]
                     if let Ok(&return_type) = self.signature.results().iter().exactly_one()
                         && (return_type == Type::F32 || return_type == Type::F64)
                     {
@@ -5851,10 +5852,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if let Some(callbacks) = self.config.callbacks.as_ref() {
             callbacks.obj_memory_buffer(
                 &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &self.module.hash_string(),
                 &body,
             );
             callbacks.asm_memory_buffer(
                 &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &self.module.hash_string(),
                 arch,
                 &body,
                 assembly_comments,

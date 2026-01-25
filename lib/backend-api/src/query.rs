@@ -841,6 +841,20 @@ pub fn fetch_all_app_template_frameworks(
     )
 }
 
+/// Upload method.
+#[derive(Debug)]
+pub enum UploadMethod {
+    R2,
+}
+
+impl UploadMethod {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UploadMethod::R2 => "R2",
+        }
+    }
+}
+
 /// Get a signed URL to upload packages.
 pub async fn get_signed_url_for_package_upload(
     client: &WasmerClient,
@@ -848,6 +862,7 @@ pub async fn get_signed_url_for_package_upload(
     filename: Option<&str>,
     name: Option<&str>,
     version: Option<&str>,
+    method: Option<UploadMethod>,
 ) -> Result<Option<SignedUrl>, anyhow::Error> {
     client
         .run_graphql_strict(types::GetSignedUrlForPackageUpload::build(
@@ -856,6 +871,7 @@ pub async fn get_signed_url_for_package_upload(
                 filename,
                 name,
                 version,
+                method: method.map(|m| m.as_str()),
             },
         ))
         .await
@@ -869,6 +885,7 @@ pub async fn generate_upload_url(
     name: Option<&str>,
     version: Option<&str>,
     expires_after_seconds: Option<i32>,
+    method: Option<UploadMethod>,
 ) -> Result<SignedUrl, anyhow::Error> {
     let payload = client
         .run_graphql_strict(types::GenerateUploadUrl::build(
@@ -877,6 +894,7 @@ pub async fn generate_upload_url(
                 filename,
                 name,
                 version,
+                method: method.map(|m| m.as_str()),
             },
         ))
         .await

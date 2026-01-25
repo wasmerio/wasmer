@@ -13,16 +13,18 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=7.0.0-alpha.2", default-features = false, features = [
+wasmer = { path = "../api", version = "=7.0.0-rc.1", default-features = false, features = [
 	"compiler",
 	"wasmparser",
+	"headless"
 ] }
-wasmer-types = { path = "../types", version = "=7.0.0-alpha.2" }
-wasmer-vm = { path = "../vm", version = "=7.0.0-alpha.2" }
+wasmer-types = { path = "../types", version = "=7.0.0-rc.1" }
+wasmer-vm = { path = "../vm", version = "=7.0.0-rc.1" }
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=7.0.0-alpha.2", features = [
+wasmer = { path = "../api", version = "=7.0.0-rc.1", features = [
 	"compiler",
+	"singlepass",
 	"wasmparser",
 ] }
 
@@ -32,3 +34,4 @@ maintenance = { status = "actively-developed" }
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
 features = ["wasmer/cranelift"]
+cargo-args = ["--no-deps"]

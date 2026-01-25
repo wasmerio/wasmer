@@ -1,6 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
+mod misc;
+use misc::{ignore_compilation_error, ignore_runtime_error, save_wasm_file};
 use wasmer::{Instance, Module, Store, imports};
 use wasmer_compiler::{CompilerConfig, EngineBuilder};
 use wasmer_compiler_cranelift::Cranelift;
@@ -34,15 +36,6 @@ impl std::fmt::Debug for CraneliftPassFuzzModule {
     }
 }
 
-fn save_wasm_file(data: &[u8]) {
-    if let Ok(path) = std::env::var("DUMP_TESTCASE") {
-        use std::fs::File;
-        use std::io::Write;
-        let mut file = File::create(path).unwrap();
-        file.write_all(data).unwrap();
-    }
-}
-
 fuzz_target!(|module: CraneliftPassFuzzModule| {
     let wasm_bytes = module.0.to_bytes();
 
@@ -54,11 +47,7 @@ fuzz_target!(|module: CraneliftPassFuzzModule| {
     let module = match module {
         Ok(m) => m,
         Err(e) => {
-            let error_message = format!("{}", e);
-            if error_message.starts_with("Validation error: constant expression required")
-                // TODO: fix
-                || error_message.starts_with("WebAssembly translation error: Unsupported feature: `ref.null T` that is not a `funcref` or an `externref`: Exn")
-                || error_message.starts_with("WebAssembly translation error: Unsupported feature: unsupported element type in element section: exnref") {
+            if ignore_compilation_error(&e.to_string()) {
                 return;
             }
             save_wasm_file(&wasm_bytes);
@@ -69,12 +58,7 @@ fuzz_target!(|module: CraneliftPassFuzzModule| {
     match Instance::new(&mut store, &module, &imports! {}) {
         Ok(_) => {}
         Err(e) => {
-            let error_message = format!("{}", e);
-            if (error_message.starts_with("RuntimeError: ") && error_message.contains("out of bounds"))
-                // TODO: handle
-                || error_message.starts_with("Insufficient resources: tables of types other than funcref or externref (ExceptionRef)")
-                || error_message.starts_with("RuntimeError: unreachable")
-            {
+            if ignore_runtime_error(&e.to_string()) {
                 return;
             }
             save_wasm_file(&wasm_bytes);

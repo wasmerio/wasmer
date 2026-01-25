@@ -1,11 +1,20 @@
 use anyhow::Result;
-use wasmer::{Module, Store, wat2wasm};
+use wasmer::{CompileError, Module, wat2wasm};
 
-fn compile_and_compare(wasm: &[u8]) -> Result<()> {
-    let store = Store::default();
+fn compile_and_compare(config: crate::Config, wasm: &[u8]) -> Result<()> {
+    let store = config.store();
 
     // compile for first time
-    let module = Module::new(&store, wasm)?;
+    let module = match Module::new(&store, wasm) {
+        Err(CompileError::Validate(message))
+            if message.contains("construct Cranelift ISA for triple: Unsupported") =>
+        {
+            // Skip the test in that case.
+            return Ok(());
+        }
+        Ok(module) => module,
+        Err(e) => return Err(e.into()),
+    };
     let first = module.serialize()?;
 
     // compile for second time
@@ -17,19 +26,19 @@ fn compile_and_compare(wasm: &[u8]) -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn deterministic_empty() -> Result<()> {
+#[compiler_test(deterministic)]
+fn deterministic_empty(config: crate::Config) -> Result<()> {
     let wasm_bytes = wat2wasm(
         br#"
     (module)
     "#,
     )?;
 
-    compile_and_compare(&wasm_bytes)
+    compile_and_compare(config, &wasm_bytes)
 }
 
-#[test]
-fn deterministic_table() -> Result<()> {
+#[compiler_test(deterministic)]
+fn deterministic_table(config: crate::Config) -> Result<()> {
     let wasm_bytes = wat2wasm(
         br#"
 (module
@@ -40,5 +49,5 @@ fn deterministic_table() -> Result<()> {
 "#,
     )?;
 
-    compile_and_compare(&wasm_bytes)
+    compile_and_compare(config, &wasm_bytes)
 }

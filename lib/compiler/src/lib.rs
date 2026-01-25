@@ -65,6 +65,7 @@ cfg_std_or_core! {
 
     pub mod misc;
     pub mod object;
+    pub mod progress;
     pub mod serialize;
     pub mod types;
 
@@ -80,6 +81,11 @@ cfg_std_or_core! {
 mod compiler;
 #[cfg(feature = "compiler")]
 pub use crate::compiler::{Compiler, CompilerConfig};
+
+#[cfg(feature = "compiler")]
+mod constants;
+#[cfg(feature = "compiler")]
+pub use crate::constants::*;
 
 #[cfg(feature = "translator")]
 #[macro_use]

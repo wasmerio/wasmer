@@ -1,23 +1,26 @@
 use std::{fs, path::PathBuf};
 
-use wasmer::{Engine, Module};
+use anyhow::Result;
+
+use wasmer::Module;
 use wasmer_types::Features;
 
-#[test]
-fn artifact_serialization_roundtrip() {
+#[compiler_test(artifact)]
+fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
     let file_names = ["bash.wasm", "cowsay.wasm", "python-3.11.3.wasm"];
 
     for file_name in file_names {
         let path = PathBuf::from("tests/integration/cli/tests/wasm").join(file_name);
         let wasm_module = fs::read(path).unwrap();
-        let engine = Engine::default();
-        let module = Module::new(&engine, wasm_module).unwrap();
+        let store = config.store();
+        let module = Module::new(&store, wasm_module).unwrap();
         let serialized_bytes = module.serialize().unwrap();
         let deserialized_module =
-            unsafe { Module::deserialize(&engine, serialized_bytes.clone()) }.unwrap();
+            unsafe { Module::deserialize(&store, serialized_bytes.clone()) }.unwrap();
         let reserialized_bytes = deserialized_module.serialize().unwrap();
         assert_eq!(serialized_bytes, reserialized_bytes);
     }
+    Ok(())
 }
 
 // This test is just here to update the compiled objects to their
@@ -47,9 +50,7 @@ fn artifact_serialization_build() {
             let path = PathBuf::from("tests/integration/cli/tests/wasm").join(file_name);
             let wasm_module = fs::read(path).unwrap();
             let config = get_default_compiler_config().unwrap();
-            let mut engine = Engine::new(config, target.clone(), Features::default());
-
-            engine.set_hash_algorithm(Some(wasmer_types::HashAlgorithm::Sha256));
+            let engine = Engine::new(config, target.clone(), Features::default());
 
             let module = Module::new(&engine, wasm_module).unwrap();
             let serialized_bytes = module.serialize().unwrap();
@@ -79,7 +80,7 @@ fn artifact_deserialization_roundtrip() {
     for file_name in file_names {
         let path = PathBuf::from(base_path).join(file_name);
         let wasm_module_bytes = fs::read(path).unwrap();
-        let engine = Engine::default();
+        let engine = wasmer::Engine::default();
         let module = unsafe { Module::deserialize(&engine, wasm_module_bytes.clone()) }.unwrap();
         let reserialized_bytes = module.serialize().unwrap();
         assert_eq!(wasm_module_bytes.to_vec(), reserialized_bytes);

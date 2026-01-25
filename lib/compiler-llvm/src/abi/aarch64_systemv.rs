@@ -1,13 +1,14 @@
 use crate::abi::Abi;
 use crate::error::{err, err_nt};
 use crate::translator::intrinsics::{Intrinsics, type_to_llvm};
+use inkwell::values::BasicValue;
 use inkwell::{
     AddressSpace,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     types::{AnyType, BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
-    values::{BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
+    values::{BasicValueEnum, CallSiteValue, IntValue},
 };
 use wasmer_types::CompileError;
 use wasmer_types::{FunctionType as FuncSig, Type};
@@ -15,67 +16,12 @@ use wasmer_vm::VMOffsets;
 
 use std::convert::TryInto;
 
-use super::{G0M0FunctionKind, LocalFunctionG0M0params};
+use super::G0M0FunctionKind;
 
 /// Implementation of the [`Abi`] trait for the Aarch64 ABI on Linux.
 pub struct Aarch64SystemV {}
 
 impl Abi for Aarch64SystemV {
-    // Given a function definition, retrieve the parameter that is the vmctx pointer.
-    fn get_vmctx_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
-        let param = func_value
-            .get_nth_param(u32::from(
-                func_value
-                    .get_enum_attribute(
-                        AttributeLoc::Param(0),
-                        Attribute::get_named_enum_kind_id("sret"),
-                    )
-                    .is_some(),
-            ))
-            .unwrap();
-        //param.set_name("vmctx");
-
-        param.into_pointer_value()
-    }
-
-    /// Given a function definition, retrieve the parameter that is the pointer to the first --
-    /// number 0 -- local global.
-    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> IntValue<'ctx> {
-        // g0 is always after the vmctx.
-        let vmctx_idx = u32::from(
-            func_value
-                .get_enum_attribute(
-                    AttributeLoc::Param(0),
-                    Attribute::get_named_enum_kind_id("sret"),
-                )
-                .is_some(),
-        );
-
-        let param = func_value.get_nth_param(vmctx_idx + 1).unwrap();
-        param.set_name("g0");
-
-        param.into_int_value()
-    }
-
-    /// Given a function definition, retrieve the parameter that is the pointer to the first --
-    /// number 0 -- local memory.
-    fn get_m0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
-        // m0 is always after g0.
-        let vmctx_idx = u32::from(
-            func_value
-                .get_enum_attribute(
-                    AttributeLoc::Param(0),
-                    Attribute::get_named_enum_kind_id("sret"),
-                )
-                .is_some(),
-        );
-
-        let param = func_value.get_nth_param(vmctx_idx + 2).unwrap();
-        param.set_name("m0_base_ptr");
-
-        param.into_pointer_value()
-    }
-
     // Given a wasm function type, produce an llvm function declaration.
     fn func_type_to_llvm<'ctx>(
         &self,
@@ -208,8 +154,10 @@ impl Abi for Aarch64SystemV {
                 )
             }
             [t1, t2]
-                if matches!(t1, Type::I32 | Type::I64 | Type::F32 | Type::F64)
-                    && matches!(t2, Type::FuncRef | Type::ExternRef | Type::ExceptionRef) =>
+                if matches!(
+                    t1,
+                    Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::ExceptionRef
+                ) && matches!(t2, Type::FuncRef | Type::ExternRef) =>
             {
                 let t1 = type_to_llvm(intrinsics, *t1).unwrap();
                 let t2 = type_to_llvm(intrinsics, *t2).unwrap();
@@ -231,10 +179,10 @@ impl Abi for Aarch64SystemV {
                     .results()
                     .iter()
                     .map(|ty| match ty {
-                        Type::I32 | Type::F32 => 32,
+                        Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
                 match sig_returns_bitwidths.as_slice() {
@@ -302,52 +250,6 @@ impl Abi for Aarch64SystemV {
         })
     }
 
-    // Marshall wasm stack values into function parameters.
-    fn args_to_call<'ctx>(
-        &self,
-        alloca_builder: &Builder<'ctx>,
-        func_sig: &FuncSig,
-        llvm_fn_ty: &FunctionType<'ctx>,
-        ctx_ptr: PointerValue<'ctx>,
-        values: &[BasicValueEnum<'ctx>],
-        intrinsics: &Intrinsics<'ctx>,
-        g0m0: LocalFunctionG0M0params<'ctx>,
-    ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
-        // If it's an sret, allocate the return space.
-        let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {
-            let llvm_params: Vec<_> = func_sig
-                .results()
-                .iter()
-                .map(|x| type_to_llvm(intrinsics, *x).unwrap())
-                .collect();
-            let llvm_params = llvm_fn_ty
-                .get_context()
-                .struct_type(llvm_params.as_slice(), false);
-            Some(err!(alloca_builder.build_alloca(llvm_params, "sret")))
-        } else {
-            None
-        };
-
-        let mut args = vec![ctx_ptr.as_basic_value_enum()];
-
-        if let Some((g0, m0)) = g0m0 {
-            args.push(g0.into());
-            args.push(m0.into());
-        }
-
-        let args = args.into_iter().chain(values.iter().copied());
-
-        let ret = if let Some(sret) = sret {
-            std::iter::once(sret.as_basic_value_enum())
-                .chain(args)
-                .collect()
-        } else {
-            args.collect()
-        };
-
-        Ok(ret)
-    }
-
     // Given a CallSite, extract the returned values and return them in a Vec.
     fn rets_from_call<'ctx>(
         &self,
@@ -373,7 +275,7 @@ impl Abi for Aarch64SystemV {
         let casted =
             |value: BasicValueEnum<'ctx>, ty: Type| -> Result<BasicValueEnum<'ctx>, CompileError> {
                 match ty {
-                    Type::I32 => {
+                    Type::I32 | Type::ExceptionRef => {
                         assert!(
                             value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
                                 || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
@@ -405,7 +307,7 @@ impl Abi for Aarch64SystemV {
                         assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
                         Ok(value)
                     }
-                    Type::ExternRef | Type::FuncRef | Type::ExceptionRef => {
+                    Type::ExternRef | Type::FuncRef => {
                         assert!(value.get_type() == intrinsics.ptr_ty.as_basic_type_enum());
                         Ok(value)
                     }
@@ -441,10 +343,10 @@ impl Abi for Aarch64SystemV {
                     .results()
                     .iter()
                     .map(|ty| match ty {
-                        Type::I32 | Type::F32 => 32,
+                        Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 
@@ -544,32 +446,6 @@ impl Abi for Aarch64SystemV {
                 Ok(vec![])
             }
         }
-    }
-
-    fn is_sret(&self, func_sig: &FuncSig) -> Result<bool, CompileError> {
-        let func_sig_returns_bitwidths = func_sig
-            .results()
-            .iter()
-            .map(|ty| match ty {
-                Type::I32 | Type::F32 => 32,
-                Type::I64 | Type::F64 => 64,
-                Type::V128 => 128,
-                Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
-            })
-            .collect::<Vec<i32>>();
-
-        Ok(!matches!(
-            func_sig_returns_bitwidths.as_slice(),
-            [] | [_]
-                | [32, 32]
-                | [32, 64]
-                | [64, 32]
-                | [64, 64]
-                | [32, 32, 32]
-                | [32, 32, 64]
-                | [64, 32, 32]
-                | [32, 32, 32, 32]
-        ))
     }
 
     fn pack_values_for_register_return<'ctx>(
