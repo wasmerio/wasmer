@@ -203,82 +203,83 @@
 <a href=#203 id=203 data-nosnippet>203</a>        Ref(ty) =&gt; {
 <a href=#204 id=204 data-nosnippet>204</a>            <span class="kw">if </span>ty.is_func_ref() || ty.is_extern_ref() {
 <a href=#205 id=205 data-nosnippet>205</a>                builder.ins().iconst(environ.reference_type(), <span class="number">0</span>)
-<a href=#206 id=206 data-nosnippet>206</a>            } <span class="kw">else if </span>ty == RefType::EXNREF {
-<a href=#207 id=207 data-nosnippet>207</a>                builder.ins().iconst(EXN_REF_TYPE, <span class="number">0</span>)
-<a href=#208 id=208 data-nosnippet>208</a>            } <span class="kw">else </span>{
-<a href=#209 id=209 data-nosnippet>209</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"unsupported reference type: {:?}"</span>, ty));
-<a href=#210 id=210 data-nosnippet>210</a>            }
-<a href=#211 id=211 data-nosnippet>211</a>        }
-<a href=#212 id=212 data-nosnippet>212</a>    };
-<a href=#213 id=213 data-nosnippet>213</a>
-<a href=#214 id=214 data-nosnippet>214</a>    <span class="kw">let </span>wasmer_ty = wptype_to_type(wasm_type).unwrap();
-<a href=#215 id=215 data-nosnippet>215</a>    <span class="kw">let </span>ty = builder.func.dfg.value_type(zeroval);
-<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">for _ in </span><span class="number">0</span>..count {
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>local = builder.declare_var(ty);
-<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>local_index = local.index();
-<a href=#219 id=219 data-nosnippet>219</a>        <span class="macro">debug_assert_eq!</span>(local_index, <span class="kw-2">*</span>next_local);
-<a href=#220 id=220 data-nosnippet>220</a>        <span class="macro">debug_assert!</span>(u32::try_from(local_index).is_ok());
-<a href=#221 id=221 data-nosnippet>221</a>        builder.def_var(local, zeroval);
-<a href=#222 id=222 data-nosnippet>222</a>        builder.set_val_label(zeroval, ValueLabel::new(<span class="kw-2">*</span>next_local));
-<a href=#223 id=223 data-nosnippet>223</a>        environ.push_local_decl_on_stack(wasmer_ty);
-<a href=#224 id=224 data-nosnippet>224</a>        <span class="kw-2">*</span>next_local += <span class="number">1</span>;
-<a href=#225 id=225 data-nosnippet>225</a>    }
-<a href=#226 id=226 data-nosnippet>226</a>    <span class="prelude-val">Ok</span>(())
-<a href=#227 id=227 data-nosnippet>227</a>}
-<a href=#228 id=228 data-nosnippet>228</a>
-<a href=#229 id=229 data-nosnippet>229</a><span class="doccomment">/// Parse the function body in `reader`.
-<a href=#230 id=230 data-nosnippet>230</a>///
-<a href=#231 id=231 data-nosnippet>231</a>/// This assumes that the local variable declarations have already been parsed and function
-<a href=#232 id=232 data-nosnippet>232</a>/// arguments and locals are declared in the builder.
-<a href=#233 id=233 data-nosnippet>233</a></span><span class="kw">fn </span>parse_function_body&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
-<a href=#234 id=234 data-nosnippet>234</a>    module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#235 id=235 data-nosnippet>235</a>    reader: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionBinaryReader,
-<a href=#236 id=236 data-nosnippet>236</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#237 id=237 data-nosnippet>237</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#238 id=238 data-nosnippet>238</a>    environ: <span class="kw-2">&amp;mut </span>FE,
-<a href=#239 id=239 data-nosnippet>239</a>) -&gt; WasmResult&lt;()&gt; {
-<a href=#240 id=240 data-nosnippet>240</a>    <span class="comment">// The control stack is initialized with a single block representing the whole function.
-<a href=#241 id=241 data-nosnippet>241</a>    </span><span class="macro">debug_assert_eq!</span>(state.control_stack.len(), <span class="number">1</span>, <span class="string">"State not initialized"</span>);
-<a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a>    <span class="comment">// Keep going until the final `End` operator which pops the outermost block.
-<a href=#244 id=244 data-nosnippet>244</a>    </span><span class="kw">while </span>!state.control_stack.is_empty() {
-<a href=#245 id=245 data-nosnippet>245</a>        builder.set_srcloc(cur_srcloc(reader));
-<a href=#246 id=246 data-nosnippet>246</a>        <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
-<a href=#247 id=247 data-nosnippet>247</a>        environ.before_translate_operator(<span class="kw-2">&amp;</span>op, builder, state)<span class="question-mark">?</span>;
-<a href=#248 id=248 data-nosnippet>248</a>        translate_operator(module_translation_state, <span class="kw-2">&amp;</span>op, builder, state, environ)<span class="question-mark">?</span>;
-<a href=#249 id=249 data-nosnippet>249</a>        environ.after_translate_operator(<span class="kw-2">&amp;</span>op, builder, state)<span class="question-mark">?</span>;
-<a href=#250 id=250 data-nosnippet>250</a>    }
-<a href=#251 id=251 data-nosnippet>251</a>
-<a href=#252 id=252 data-nosnippet>252</a>    <span class="comment">// The final `End` operator left us in the exit block where we need to manually add a return
-<a href=#253 id=253 data-nosnippet>253</a>    // instruction.
-<a href=#254 id=254 data-nosnippet>254</a>    //
-<a href=#255 id=255 data-nosnippet>255</a>    // If the exit block is unreachable, it may not have the correct arguments, so we would
-<a href=#256 id=256 data-nosnippet>256</a>    // generate a return instruction that doesn't match the signature.
-<a href=#257 id=257 data-nosnippet>257</a>    </span><span class="kw">if </span>state.reachable {
-<a href=#258 id=258 data-nosnippet>258</a>        <span class="comment">//debug_assert!(builder.is_pristine());
-<a href=#259 id=259 data-nosnippet>259</a>        </span><span class="kw">if </span>!builder.is_unreachable() {
-<a href=#260 id=260 data-nosnippet>260</a>            <span class="kw">match </span>environ.return_mode() {
-<a href=#261 id=261 data-nosnippet>261</a>                ReturnMode::NormalReturns =&gt; {
-<a href=#262 id=262 data-nosnippet>262</a>                    bitcast_wasm_returns(environ, <span class="kw-2">&amp;mut </span>state.stack, builder);
-<a href=#263 id=263 data-nosnippet>263</a>                    builder.ins().return_(<span class="kw-2">&amp;</span>state.stack)
-<a href=#264 id=264 data-nosnippet>264</a>                }
-<a href=#265 id=265 data-nosnippet>265</a>            };
-<a href=#266 id=266 data-nosnippet>266</a>        }
-<a href=#267 id=267 data-nosnippet>267</a>    }
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>    <span class="comment">// Discard any remaining values on the stack. Either we just returned them,
-<a href=#270 id=270 data-nosnippet>270</a>    // or the end of the function is unreachable.
-<a href=#271 id=271 data-nosnippet>271</a>    </span>state.stack.clear();
-<a href=#272 id=272 data-nosnippet>272</a>    <span class="comment">//state.metadata_stack.clear();
-<a href=#273 id=273 data-nosnippet>273</a>
-<a href=#274 id=274 data-nosnippet>274</a>    </span><span class="macro">debug_assert!</span>(reader.eof());
-<a href=#275 id=275 data-nosnippet>275</a>
-<a href=#276 id=276 data-nosnippet>276</a>    <span class="prelude-val">Ok</span>(())
-<a href=#277 id=277 data-nosnippet>277</a>}
-<a href=#278 id=278 data-nosnippet>278</a>
-<a href=#279 id=279 data-nosnippet>279</a><span class="doccomment">/// Get the current source location from a reader.
-<a href=#280 id=280 data-nosnippet>280</a></span><span class="kw">fn </span>cur_srcloc(reader: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FunctionBinaryReader) -&gt; ir::SourceLoc {
-<a href=#281 id=281 data-nosnippet>281</a>    <span class="comment">// We record source locations as byte code offsets relative to the beginning of the file.
-<a href=#282 id=282 data-nosnippet>282</a>    // This will wrap around if byte code is larger than 4 GB.
-<a href=#283 id=283 data-nosnippet>283</a>    </span>ir::SourceLoc::new(reader.original_position() <span class="kw">as </span>u32)
-<a href=#284 id=284 data-nosnippet>284</a>}</code></pre></div></section></main></body></html>
+<a href=#206 id=206 data-nosnippet>206</a>            } <span class="kw">else if </span>ty == RefType::EXNREF || ty == RefType::EXN {
+<a href=#207 id=207 data-nosnippet>207</a>                <span class="comment">// no `.is_exnref` yet
+<a href=#208 id=208 data-nosnippet>208</a>                </span>builder.ins().iconst(EXN_REF_TYPE, <span class="number">0</span>)
+<a href=#209 id=209 data-nosnippet>209</a>            } <span class="kw">else </span>{
+<a href=#210 id=210 data-nosnippet>210</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"unsupported reference type: {:?}"</span>, ty));
+<a href=#211 id=211 data-nosnippet>211</a>            }
+<a href=#212 id=212 data-nosnippet>212</a>        }
+<a href=#213 id=213 data-nosnippet>213</a>    };
+<a href=#214 id=214 data-nosnippet>214</a>
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="kw">let </span>wasmer_ty = wptype_to_type(wasm_type).unwrap();
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">let </span>ty = builder.func.dfg.value_type(zeroval);
+<a href=#217 id=217 data-nosnippet>217</a>    <span class="kw">for _ in </span><span class="number">0</span>..count {
+<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>local = builder.declare_var(ty);
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="kw">let </span>local_index = local.index();
+<a href=#220 id=220 data-nosnippet>220</a>        <span class="macro">debug_assert_eq!</span>(local_index, <span class="kw-2">*</span>next_local);
+<a href=#221 id=221 data-nosnippet>221</a>        <span class="macro">debug_assert!</span>(u32::try_from(local_index).is_ok());
+<a href=#222 id=222 data-nosnippet>222</a>        builder.def_var(local, zeroval);
+<a href=#223 id=223 data-nosnippet>223</a>        builder.set_val_label(zeroval, ValueLabel::new(<span class="kw-2">*</span>next_local));
+<a href=#224 id=224 data-nosnippet>224</a>        environ.push_local_decl_on_stack(wasmer_ty);
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="kw-2">*</span>next_local += <span class="number">1</span>;
+<a href=#226 id=226 data-nosnippet>226</a>    }
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="prelude-val">Ok</span>(())
+<a href=#228 id=228 data-nosnippet>228</a>}
+<a href=#229 id=229 data-nosnippet>229</a>
+<a href=#230 id=230 data-nosnippet>230</a><span class="doccomment">/// Parse the function body in `reader`.
+<a href=#231 id=231 data-nosnippet>231</a>///
+<a href=#232 id=232 data-nosnippet>232</a>/// This assumes that the local variable declarations have already been parsed and function
+<a href=#233 id=233 data-nosnippet>233</a>/// arguments and locals are declared in the builder.
+<a href=#234 id=234 data-nosnippet>234</a></span><span class="kw">fn </span>parse_function_body&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+<a href=#235 id=235 data-nosnippet>235</a>    module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#236 id=236 data-nosnippet>236</a>    reader: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionBinaryReader,
+<a href=#237 id=237 data-nosnippet>237</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#238 id=238 data-nosnippet>238</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#239 id=239 data-nosnippet>239</a>    environ: <span class="kw-2">&amp;mut </span>FE,
+<a href=#240 id=240 data-nosnippet>240</a>) -&gt; WasmResult&lt;()&gt; {
+<a href=#241 id=241 data-nosnippet>241</a>    <span class="comment">// The control stack is initialized with a single block representing the whole function.
+<a href=#242 id=242 data-nosnippet>242</a>    </span><span class="macro">debug_assert_eq!</span>(state.control_stack.len(), <span class="number">1</span>, <span class="string">"State not initialized"</span>);
+<a href=#243 id=243 data-nosnippet>243</a>
+<a href=#244 id=244 data-nosnippet>244</a>    <span class="comment">// Keep going until the final `End` operator which pops the outermost block.
+<a href=#245 id=245 data-nosnippet>245</a>    </span><span class="kw">while </span>!state.control_stack.is_empty() {
+<a href=#246 id=246 data-nosnippet>246</a>        builder.set_srcloc(cur_srcloc(reader));
+<a href=#247 id=247 data-nosnippet>247</a>        <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
+<a href=#248 id=248 data-nosnippet>248</a>        environ.before_translate_operator(<span class="kw-2">&amp;</span>op, builder, state)<span class="question-mark">?</span>;
+<a href=#249 id=249 data-nosnippet>249</a>        translate_operator(module_translation_state, <span class="kw-2">&amp;</span>op, builder, state, environ)<span class="question-mark">?</span>;
+<a href=#250 id=250 data-nosnippet>250</a>        environ.after_translate_operator(<span class="kw-2">&amp;</span>op, builder, state)<span class="question-mark">?</span>;
+<a href=#251 id=251 data-nosnippet>251</a>    }
+<a href=#252 id=252 data-nosnippet>252</a>
+<a href=#253 id=253 data-nosnippet>253</a>    <span class="comment">// The final `End` operator left us in the exit block where we need to manually add a return
+<a href=#254 id=254 data-nosnippet>254</a>    // instruction.
+<a href=#255 id=255 data-nosnippet>255</a>    //
+<a href=#256 id=256 data-nosnippet>256</a>    // If the exit block is unreachable, it may not have the correct arguments, so we would
+<a href=#257 id=257 data-nosnippet>257</a>    // generate a return instruction that doesn't match the signature.
+<a href=#258 id=258 data-nosnippet>258</a>    </span><span class="kw">if </span>state.reachable {
+<a href=#259 id=259 data-nosnippet>259</a>        <span class="comment">//debug_assert!(builder.is_pristine());
+<a href=#260 id=260 data-nosnippet>260</a>        </span><span class="kw">if </span>!builder.is_unreachable() {
+<a href=#261 id=261 data-nosnippet>261</a>            <span class="kw">match </span>environ.return_mode() {
+<a href=#262 id=262 data-nosnippet>262</a>                ReturnMode::NormalReturns =&gt; {
+<a href=#263 id=263 data-nosnippet>263</a>                    bitcast_wasm_returns(environ, <span class="kw-2">&amp;mut </span>state.stack, builder);
+<a href=#264 id=264 data-nosnippet>264</a>                    builder.ins().return_(<span class="kw-2">&amp;</span>state.stack)
+<a href=#265 id=265 data-nosnippet>265</a>                }
+<a href=#266 id=266 data-nosnippet>266</a>            };
+<a href=#267 id=267 data-nosnippet>267</a>        }
+<a href=#268 id=268 data-nosnippet>268</a>    }
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="comment">// Discard any remaining values on the stack. Either we just returned them,
+<a href=#271 id=271 data-nosnippet>271</a>    // or the end of the function is unreachable.
+<a href=#272 id=272 data-nosnippet>272</a>    </span>state.stack.clear();
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="comment">//state.metadata_stack.clear();
+<a href=#274 id=274 data-nosnippet>274</a>
+<a href=#275 id=275 data-nosnippet>275</a>    </span><span class="macro">debug_assert!</span>(reader.eof());
+<a href=#276 id=276 data-nosnippet>276</a>
+<a href=#277 id=277 data-nosnippet>277</a>    <span class="prelude-val">Ok</span>(())
+<a href=#278 id=278 data-nosnippet>278</a>}
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a><span class="doccomment">/// Get the current source location from a reader.
+<a href=#281 id=281 data-nosnippet>281</a></span><span class="kw">fn </span>cur_srcloc(reader: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FunctionBinaryReader) -&gt; ir::SourceLoc {
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="comment">// We record source locations as byte code offsets relative to the beginning of the file.
+<a href=#283 id=283 data-nosnippet>283</a>    // This will wrap around if byte code is larger than 4 GB.
+<a href=#284 id=284 data-nosnippet>284</a>    </span>ir::SourceLoc::new(reader.original_position() <span class="kw">as </span>u32)
+<a href=#285 id=285 data-nosnippet>285</a>}</code></pre></div></section></main></body></html>
