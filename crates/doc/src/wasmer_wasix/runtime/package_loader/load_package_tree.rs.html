@@ -581,153 +581,240 @@
 <a href=#581 id=581 data-nosnippet>581</a>            <span class="macro">format!</span>(<span class="string">"The \"{package}\" package doesn't have a \"{volume_name}\" volume"</span>)
 <a href=#582 id=582 data-nosnippet>582</a>        })<span class="question-mark">?</span>;
 <a href=#583 id=583 data-nosnippet>583</a>
-<a href=#584 id=584 data-nosnippet>584</a>        <span class="kw">let </span>mount_path_clone = mount_path.clone();
-<a href=#585 id=585 data-nosnippet>585</a>        <span class="comment">// Get a filesystem which will map "$mount_dir/some-path" to
-<a href=#586 id=586 data-nosnippet>586</a>        // "$original_path/some-path" on the original volume
+<a href=#584 id=584 data-nosnippet>584</a>        <span class="comment">// UnionFileSystem strips the mount point before forwarding paths to the
+<a href=#585 id=585 data-nosnippet>585</a>        // mounted filesystem. That means paths are already relative to the
+<a href=#586 id=586 data-nosnippet>586</a>        // mount root and shouldn't be stripped by mount_path.
 <a href=#587 id=587 data-nosnippet>587</a>        </span><span class="kw">let </span>fs = <span class="kw">if let </span><span class="prelude-val">Some</span>(original) = original_path {
 <a href=#588 id=588 data-nosnippet>588</a>            <span class="kw">let </span>original = PathBuf::from(original);
 <a href=#589 id=589 data-nosnippet>589</a>
 <a href=#590 id=590 data-nosnippet>590</a>            MappedPathFileSystem::new(
 <a href=#591 id=591 data-nosnippet>591</a>                WebcVolumeFileSystem::new(volume.clone()),
-<a href=#592 id=592 data-nosnippet>592</a>                Box::new(<span class="kw">move </span>|path: <span class="kw-2">&amp;</span>Path| {
-<a href=#593 id=593 data-nosnippet>593</a>                    <span class="kw">let </span>without_mount_dir = path
-<a href=#594 id=594 data-nosnippet>594</a>                        .strip_prefix(<span class="kw-2">&amp;</span>mount_path_clone)
-<a href=#595 id=595 data-nosnippet>595</a>                        .map_err(|<span class="kw">_</span>| virtual_fs::FsError::BaseNotDirectory)<span class="question-mark">?</span>;
-<a href=#596 id=596 data-nosnippet>596</a>                    <span class="prelude-val">Ok</span>(original.join(without_mount_dir))
-<a href=#597 id=597 data-nosnippet>597</a>                }) <span class="kw">as </span>DynPathMapper,
-<a href=#598 id=598 data-nosnippet>598</a>            )
-<a href=#599 id=599 data-nosnippet>599</a>        } <span class="kw">else </span>{
-<a href=#600 id=600 data-nosnippet>600</a>            MappedPathFileSystem::new(
-<a href=#601 id=601 data-nosnippet>601</a>                WebcVolumeFileSystem::new(volume.clone()),
-<a href=#602 id=602 data-nosnippet>602</a>                Box::new(<span class="kw">move </span>|path: <span class="kw-2">&amp;</span>Path| {
-<a href=#603 id=603 data-nosnippet>603</a>                    <span class="kw">let </span>without_mount_dir = path
-<a href=#604 id=604 data-nosnippet>604</a>                        .strip_prefix(<span class="kw-2">&amp;</span>mount_path_clone)
-<a href=#605 id=605 data-nosnippet>605</a>                        .map_err(|<span class="kw">_</span>| virtual_fs::FsError::BaseNotDirectory)<span class="question-mark">?</span>;
-<a href=#606 id=606 data-nosnippet>606</a>                    <span class="prelude-val">Ok</span>(without_mount_dir.to_owned())
-<a href=#607 id=607 data-nosnippet>607</a>                }) <span class="kw">as </span>DynPathMapper,
-<a href=#608 id=608 data-nosnippet>608</a>            )
-<a href=#609 id=609 data-nosnippet>609</a>        };
-<a href=#610 id=610 data-nosnippet>610</a>
-<a href=#611 id=611 data-nosnippet>611</a>        union_fs.mount(volume_name.clone(), mount_path, Box::new(fs))<span class="question-mark">?</span>;
-<a href=#612 id=612 data-nosnippet>612</a>    }
+<a href=#592 id=592 data-nosnippet>592</a>                Box::new(<span class="kw">move </span>|path: <span class="kw-2">&amp;</span>Path| <span class="prelude-val">Ok</span>(original.join(strip_root_prefix(path))))
+<a href=#593 id=593 data-nosnippet>593</a>                    <span class="kw">as </span>DynPathMapper,
+<a href=#594 id=594 data-nosnippet>594</a>            )
+<a href=#595 id=595 data-nosnippet>595</a>        } <span class="kw">else </span>{
+<a href=#596 id=596 data-nosnippet>596</a>            MappedPathFileSystem::new(
+<a href=#597 id=597 data-nosnippet>597</a>                WebcVolumeFileSystem::new(volume.clone()),
+<a href=#598 id=598 data-nosnippet>598</a>                Box::new(<span class="kw">move </span>|path: <span class="kw-2">&amp;</span>Path| <span class="prelude-val">Ok</span>(strip_root_prefix(path))) <span class="kw">as </span>DynPathMapper,
+<a href=#599 id=599 data-nosnippet>599</a>            )
+<a href=#600 id=600 data-nosnippet>600</a>        };
+<a href=#601 id=601 data-nosnippet>601</a>
+<a href=#602 id=602 data-nosnippet>602</a>        union_fs.mount(volume_name.clone(), mount_path, Box::new(fs))<span class="question-mark">?</span>;
+<a href=#603 id=603 data-nosnippet>603</a>    }
+<a href=#604 id=604 data-nosnippet>604</a>
+<a href=#605 id=605 data-nosnippet>605</a>    <span class="prelude-val">Ok</span>(union_fs)
+<a href=#606 id=606 data-nosnippet>606</a>}
+<a href=#607 id=607 data-nosnippet>607</a>
+<a href=#608 id=608 data-nosnippet>608</a><span class="kw">fn </span>strip_root_prefix(path: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+<a href=#609 id=609 data-nosnippet>609</a>    path.strip_prefix(<span class="string">"/"</span>).unwrap_or(path).to_owned()
+<a href=#610 id=610 data-nosnippet>610</a>}
+<a href=#611 id=611 data-nosnippet>611</a>
+<a href=#612 id=612 data-nosnippet>612</a><span class="kw">type </span>DynPathMapper = Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync&gt;;
 <a href=#613 id=613 data-nosnippet>613</a>
-<a href=#614 id=614 data-nosnippet>614</a>    <span class="prelude-val">Ok</span>(union_fs)
-<a href=#615 id=615 data-nosnippet>615</a>}
-<a href=#616 id=616 data-nosnippet>616</a>
-<a href=#617 id=617 data-nosnippet>617</a><span class="kw">type </span>DynPathMapper = Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync&gt;;
+<a href=#614 id=614 data-nosnippet>614</a><span class="kw">struct </span>MappedPathFileSystem&lt;F, M&gt; {
+<a href=#615 id=615 data-nosnippet>615</a>    inner: F,
+<a href=#616 id=616 data-nosnippet>616</a>    map: M,
+<a href=#617 id=617 data-nosnippet>617</a>}
 <a href=#618 id=618 data-nosnippet>618</a>
-<a href=#619 id=619 data-nosnippet>619</a><span class="kw">struct </span>MappedPathFileSystem&lt;F, M&gt; {
-<a href=#620 id=620 data-nosnippet>620</a>    inner: F,
-<a href=#621 id=621 data-nosnippet>621</a>    map: M,
-<a href=#622 id=622 data-nosnippet>622</a>}
-<a href=#623 id=623 data-nosnippet>623</a>
-<a href=#624 id=624 data-nosnippet>624</a><span class="kw">impl</span>&lt;F, M&gt; MappedPathFileSystem&lt;F, M&gt;
-<a href=#625 id=625 data-nosnippet>625</a><span class="kw">where
-<a href=#626 id=626 data-nosnippet>626</a>    </span>M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#627 id=627 data-nosnippet>627</a>{
-<a href=#628 id=628 data-nosnippet>628</a>    <span class="kw">fn </span>new(inner: F, map: M) -&gt; <span class="self">Self </span>{
-<a href=#629 id=629 data-nosnippet>629</a>        MappedPathFileSystem { inner, map }
-<a href=#630 id=630 data-nosnippet>630</a>    }
-<a href=#631 id=631 data-nosnippet>631</a>
-<a href=#632 id=632 data-nosnippet>632</a>    <span class="kw">fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; {
-<a href=#633 id=633 data-nosnippet>633</a>        <span class="kw">let </span>path = (<span class="self">self</span>.map)(path)<span class="question-mark">?</span>;
+<a href=#619 id=619 data-nosnippet>619</a><span class="kw">impl</span>&lt;F, M&gt; MappedPathFileSystem&lt;F, M&gt;
+<a href=#620 id=620 data-nosnippet>620</a><span class="kw">where
+<a href=#621 id=621 data-nosnippet>621</a>    </span>M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#622 id=622 data-nosnippet>622</a>{
+<a href=#623 id=623 data-nosnippet>623</a>    <span class="kw">fn </span>new(inner: F, map: M) -&gt; <span class="self">Self </span>{
+<a href=#624 id=624 data-nosnippet>624</a>        MappedPathFileSystem { inner, map }
+<a href=#625 id=625 data-nosnippet>625</a>    }
+<a href=#626 id=626 data-nosnippet>626</a>
+<a href=#627 id=627 data-nosnippet>627</a>    <span class="kw">fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; {
+<a href=#628 id=628 data-nosnippet>628</a>        <span class="kw">let </span>path = (<span class="self">self</span>.map)(path)<span class="question-mark">?</span>;
+<a href=#629 id=629 data-nosnippet>629</a>
+<a href=#630 id=630 data-nosnippet>630</a>        <span class="comment">// Don't forget to make the path absolute again.
+<a href=#631 id=631 data-nosnippet>631</a>        </span><span class="prelude-val">Ok</span>(Path::new(<span class="string">"/"</span>).join(path))
+<a href=#632 id=632 data-nosnippet>632</a>    }
+<a href=#633 id=633 data-nosnippet>633</a>}
 <a href=#634 id=634 data-nosnippet>634</a>
-<a href=#635 id=635 data-nosnippet>635</a>        <span class="comment">// Don't forget to make the path absolute again.
-<a href=#636 id=636 data-nosnippet>636</a>        </span><span class="prelude-val">Ok</span>(Path::new(<span class="string">"/"</span>).join(path))
-<a href=#637 id=637 data-nosnippet>637</a>    }
-<a href=#638 id=638 data-nosnippet>638</a>}
-<a href=#639 id=639 data-nosnippet>639</a>
-<a href=#640 id=640 data-nosnippet>640</a><span class="kw">impl</span>&lt;M, F&gt; FileSystem <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
-<a href=#641 id=641 data-nosnippet>641</a><span class="kw">where
-<a href=#642 id=642 data-nosnippet>642</a>    </span>F: FileSystem,
-<a href=#643 id=643 data-nosnippet>643</a>    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#644 id=644 data-nosnippet>644</a>{
-<a href=#645 id=645 data-nosnippet>645</a>    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;PathBuf&gt; {
+<a href=#635 id=635 data-nosnippet>635</a><span class="kw">impl</span>&lt;M, F&gt; FileSystem <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
+<a href=#636 id=636 data-nosnippet>636</a><span class="kw">where
+<a href=#637 id=637 data-nosnippet>637</a>    </span>F: FileSystem,
+<a href=#638 id=638 data-nosnippet>638</a>    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#639 id=639 data-nosnippet>639</a>{
+<a href=#640 id=640 data-nosnippet>640</a>    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;PathBuf&gt; {
+<a href=#641 id=641 data-nosnippet>641</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
+<a href=#642 id=642 data-nosnippet>642</a>        <span class="self">self</span>.inner.readlink(<span class="kw-2">&amp;</span>path)
+<a href=#643 id=643 data-nosnippet>643</a>    }
+<a href=#644 id=644 data-nosnippet>644</a>
+<a href=#645 id=645 data-nosnippet>645</a>    <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::ReadDir&gt; {
 <a href=#646 id=646 data-nosnippet>646</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#647 id=647 data-nosnippet>647</a>        <span class="self">self</span>.inner.readlink(<span class="kw-2">&amp;</span>path)
+<a href=#647 id=647 data-nosnippet>647</a>        <span class="self">self</span>.inner.read_dir(<span class="kw-2">&amp;</span>path)
 <a href=#648 id=648 data-nosnippet>648</a>    }
 <a href=#649 id=649 data-nosnippet>649</a>
-<a href=#650 id=650 data-nosnippet>650</a>    <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::ReadDir&gt; {
+<a href=#650 id=650 data-nosnippet>650</a>    <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
 <a href=#651 id=651 data-nosnippet>651</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#652 id=652 data-nosnippet>652</a>        <span class="self">self</span>.inner.read_dir(<span class="kw-2">&amp;</span>path)
+<a href=#652 id=652 data-nosnippet>652</a>        <span class="self">self</span>.inner.create_dir(<span class="kw-2">&amp;</span>path)
 <a href=#653 id=653 data-nosnippet>653</a>    }
 <a href=#654 id=654 data-nosnippet>654</a>
-<a href=#655 id=655 data-nosnippet>655</a>    <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
+<a href=#655 id=655 data-nosnippet>655</a>    <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
 <a href=#656 id=656 data-nosnippet>656</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#657 id=657 data-nosnippet>657</a>        <span class="self">self</span>.inner.create_dir(<span class="kw-2">&amp;</span>path)
+<a href=#657 id=657 data-nosnippet>657</a>        <span class="self">self</span>.inner.remove_dir(<span class="kw-2">&amp;</span>path)
 <a href=#658 id=658 data-nosnippet>658</a>    }
 <a href=#659 id=659 data-nosnippet>659</a>
-<a href=#660 id=660 data-nosnippet>660</a>    <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
-<a href=#661 id=661 data-nosnippet>661</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#662 id=662 data-nosnippet>662</a>        <span class="self">self</span>.inner.remove_dir(<span class="kw-2">&amp;</span>path)
-<a href=#663 id=663 data-nosnippet>663</a>    }
-<a href=#664 id=664 data-nosnippet>664</a>
-<a href=#665 id=665 data-nosnippet>665</a>    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, virtual_fs::Result&lt;()&gt;&gt; {
-<a href=#666 id=666 data-nosnippet>666</a>        <span class="kw">let </span>from = from.to_owned();
-<a href=#667 id=667 data-nosnippet>667</a>        <span class="kw">let </span>to = to.to_owned();
-<a href=#668 id=668 data-nosnippet>668</a>        Box::pin(<span class="kw">async move </span>{
-<a href=#669 id=669 data-nosnippet>669</a>            <span class="kw">let </span>from = <span class="self">self</span>.path(<span class="kw-2">&amp;</span>from)<span class="question-mark">?</span>;
-<a href=#670 id=670 data-nosnippet>670</a>            <span class="kw">let </span>to = <span class="self">self</span>.path(<span class="kw-2">&amp;</span>to)<span class="question-mark">?</span>;
-<a href=#671 id=671 data-nosnippet>671</a>            <span class="self">self</span>.inner.rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).<span class="kw">await
-<a href=#672 id=672 data-nosnippet>672</a>        </span>})
+<a href=#660 id=660 data-nosnippet>660</a>    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, virtual_fs::Result&lt;()&gt;&gt; {
+<a href=#661 id=661 data-nosnippet>661</a>        <span class="kw">let </span>from = from.to_owned();
+<a href=#662 id=662 data-nosnippet>662</a>        <span class="kw">let </span>to = to.to_owned();
+<a href=#663 id=663 data-nosnippet>663</a>        Box::pin(<span class="kw">async move </span>{
+<a href=#664 id=664 data-nosnippet>664</a>            <span class="kw">let </span>from = <span class="self">self</span>.path(<span class="kw-2">&amp;</span>from)<span class="question-mark">?</span>;
+<a href=#665 id=665 data-nosnippet>665</a>            <span class="kw">let </span>to = <span class="self">self</span>.path(<span class="kw-2">&amp;</span>to)<span class="question-mark">?</span>;
+<a href=#666 id=666 data-nosnippet>666</a>            <span class="self">self</span>.inner.rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).<span class="kw">await
+<a href=#667 id=667 data-nosnippet>667</a>        </span>})
+<a href=#668 id=668 data-nosnippet>668</a>    }
+<a href=#669 id=669 data-nosnippet>669</a>
+<a href=#670 id=670 data-nosnippet>670</a>    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::Metadata&gt; {
+<a href=#671 id=671 data-nosnippet>671</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
+<a href=#672 id=672 data-nosnippet>672</a>        <span class="self">self</span>.inner.metadata(<span class="kw-2">&amp;</span>path)
 <a href=#673 id=673 data-nosnippet>673</a>    }
 <a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a>    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::Metadata&gt; {
+<a href=#675 id=675 data-nosnippet>675</a>    <span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::Metadata&gt; {
 <a href=#676 id=676 data-nosnippet>676</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#677 id=677 data-nosnippet>677</a>        <span class="self">self</span>.inner.metadata(<span class="kw-2">&amp;</span>path)
+<a href=#677 id=677 data-nosnippet>677</a>        <span class="self">self</span>.inner.symlink_metadata(<span class="kw-2">&amp;</span>path)
 <a href=#678 id=678 data-nosnippet>678</a>    }
 <a href=#679 id=679 data-nosnippet>679</a>
-<a href=#680 id=680 data-nosnippet>680</a>    <span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::Metadata&gt; {
+<a href=#680 id=680 data-nosnippet>680</a>    <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
 <a href=#681 id=681 data-nosnippet>681</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#682 id=682 data-nosnippet>682</a>        <span class="self">self</span>.inner.symlink_metadata(<span class="kw-2">&amp;</span>path)
+<a href=#682 id=682 data-nosnippet>682</a>        <span class="self">self</span>.inner.remove_file(<span class="kw-2">&amp;</span>path)
 <a href=#683 id=683 data-nosnippet>683</a>    }
 <a href=#684 id=684 data-nosnippet>684</a>
-<a href=#685 id=685 data-nosnippet>685</a>    <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
-<a href=#686 id=686 data-nosnippet>686</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#687 id=687 data-nosnippet>687</a>        <span class="self">self</span>.inner.remove_file(<span class="kw-2">&amp;</span>path)
-<a href=#688 id=688 data-nosnippet>688</a>    }
-<a href=#689 id=689 data-nosnippet>689</a>
-<a href=#690 id=690 data-nosnippet>690</a>    <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; virtual_fs::OpenOptions&lt;<span class="lifetime">'_</span>&gt; {
-<a href=#691 id=691 data-nosnippet>691</a>        virtual_fs::OpenOptions::new(<span class="self">self</span>)
-<a href=#692 id=692 data-nosnippet>692</a>    }
-<a href=#693 id=693 data-nosnippet>693</a>
-<a href=#694 id=694 data-nosnippet>694</a>    <span class="kw">fn </span>mount(
-<a href=#695 id=695 data-nosnippet>695</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#696 id=696 data-nosnippet>696</a>        name: String,
-<a href=#697 id=697 data-nosnippet>697</a>        path: <span class="kw-2">&amp;</span>Path,
-<a href=#698 id=698 data-nosnippet>698</a>        fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
-<a href=#699 id=699 data-nosnippet>699</a>    ) -&gt; virtual_fs::Result&lt;()&gt; {
-<a href=#700 id=700 data-nosnippet>700</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#701 id=701 data-nosnippet>701</a>        <span class="self">self</span>.inner.mount(name, path.as_path(), fs)
-<a href=#702 id=702 data-nosnippet>702</a>    }
-<a href=#703 id=703 data-nosnippet>703</a>}
-<a href=#704 id=704 data-nosnippet>704</a>
-<a href=#705 id=705 data-nosnippet>705</a><span class="kw">impl</span>&lt;F, M&gt; virtual_fs::FileOpener <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
-<a href=#706 id=706 data-nosnippet>706</a><span class="kw">where
-<a href=#707 id=707 data-nosnippet>707</a>    </span>F: FileSystem,
-<a href=#708 id=708 data-nosnippet>708</a>    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#709 id=709 data-nosnippet>709</a>{
-<a href=#710 id=710 data-nosnippet>710</a>    <span class="kw">fn </span>open(
-<a href=#711 id=711 data-nosnippet>711</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#712 id=712 data-nosnippet>712</a>        path: <span class="kw-2">&amp;</span>Path,
-<a href=#713 id=713 data-nosnippet>713</a>        conf: <span class="kw-2">&amp;</span>virtual_fs::OpenOptionsConfig,
-<a href=#714 id=714 data-nosnippet>714</a>    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
-<a href=#715 id=715 data-nosnippet>715</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#716 id=716 data-nosnippet>716</a>        <span class="self">self</span>.inner
-<a href=#717 id=717 data-nosnippet>717</a>            .new_open_options()
-<a href=#718 id=718 data-nosnippet>718</a>            .options(conf.clone())
-<a href=#719 id=719 data-nosnippet>719</a>            .open(path)
-<a href=#720 id=720 data-nosnippet>720</a>    }
-<a href=#721 id=721 data-nosnippet>721</a>}
-<a href=#722 id=722 data-nosnippet>722</a>
-<a href=#723 id=723 data-nosnippet>723</a><span class="kw">impl</span>&lt;F, M&gt; Debug <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
-<a href=#724 id=724 data-nosnippet>724</a><span class="kw">where
-<a href=#725 id=725 data-nosnippet>725</a>    </span>F: Debug,
-<a href=#726 id=726 data-nosnippet>726</a>{
-<a href=#727 id=727 data-nosnippet>727</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-<a href=#728 id=728 data-nosnippet>728</a>        f.debug_struct(<span class="string">"MappedPathFileSystem"</span>)
-<a href=#729 id=729 data-nosnippet>729</a>            .field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner)
-<a href=#730 id=730 data-nosnippet>730</a>            .field(<span class="string">"map"</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;M&gt;())
-<a href=#731 id=731 data-nosnippet>731</a>            .finish()
-<a href=#732 id=732 data-nosnippet>732</a>    }
-<a href=#733 id=733 data-nosnippet>733</a>}</code></pre></div></section></main></body></html>
+<a href=#685 id=685 data-nosnippet>685</a>    <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; virtual_fs::OpenOptions&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#686 id=686 data-nosnippet>686</a>        virtual_fs::OpenOptions::new(<span class="self">self</span>)
+<a href=#687 id=687 data-nosnippet>687</a>    }
+<a href=#688 id=688 data-nosnippet>688</a>
+<a href=#689 id=689 data-nosnippet>689</a>    <span class="kw">fn </span>mount(
+<a href=#690 id=690 data-nosnippet>690</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#691 id=691 data-nosnippet>691</a>        name: String,
+<a href=#692 id=692 data-nosnippet>692</a>        path: <span class="kw-2">&amp;</span>Path,
+<a href=#693 id=693 data-nosnippet>693</a>        fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+<a href=#694 id=694 data-nosnippet>694</a>    ) -&gt; virtual_fs::Result&lt;()&gt; {
+<a href=#695 id=695 data-nosnippet>695</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
+<a href=#696 id=696 data-nosnippet>696</a>        <span class="self">self</span>.inner.mount(name, path.as_path(), fs)
+<a href=#697 id=697 data-nosnippet>697</a>    }
+<a href=#698 id=698 data-nosnippet>698</a>}
+<a href=#699 id=699 data-nosnippet>699</a>
+<a href=#700 id=700 data-nosnippet>700</a><span class="attr">#[cfg(test)]
+<a href=#701 id=701 data-nosnippet>701</a></span><span class="kw">mod </span>tests {
+<a href=#702 id=702 data-nosnippet>702</a>    <span class="kw">use </span>std::{
+<a href=#703 id=703 data-nosnippet>703</a>        collections::{BTreeMap, HashMap},
+<a href=#704 id=704 data-nosnippet>704</a>        path::{Path, PathBuf},
+<a href=#705 id=705 data-nosnippet>705</a>    };
+<a href=#706 id=706 data-nosnippet>706</a>
+<a href=#707 id=707 data-nosnippet>707</a>    <span class="kw">use </span>ciborium::value::Value;
+<a href=#708 id=708 data-nosnippet>708</a>    <span class="kw">use </span>virtual_fs::FileSystem;
+<a href=#709 id=709 data-nosnippet>709</a>    <span class="kw">use </span>wasmer_config::package::PackageId;
+<a href=#710 id=710 data-nosnippet>710</a>    <span class="kw">use </span>webc::{
+<a href=#711 id=711 data-nosnippet>711</a>        Container,
+<a href=#712 id=712 data-nosnippet>712</a>        indexmap::IndexMap,
+<a href=#713 id=713 data-nosnippet>713</a>        metadata::{
+<a href=#714 id=714 data-nosnippet>714</a>            Manifest,
+<a href=#715 id=715 data-nosnippet>715</a>            annotations::{FileSystemMapping, FileSystemMappings},
+<a href=#716 id=716 data-nosnippet>716</a>        },
+<a href=#717 id=717 data-nosnippet>717</a>        v2::{
+<a href=#718 id=718 data-nosnippet>718</a>            SignatureAlgorithm,
+<a href=#719 id=719 data-nosnippet>719</a>            read::OwnedReader,
+<a href=#720 id=720 data-nosnippet>720</a>            write::{DirEntry, Directory, FileEntry, Writer},
+<a href=#721 id=721 data-nosnippet>721</a>        },
+<a href=#722 id=722 data-nosnippet>722</a>    };
+<a href=#723 id=723 data-nosnippet>723</a>
+<a href=#724 id=724 data-nosnippet>724</a>    <span class="kw">use super</span>::{ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2};
+<a href=#725 id=725 data-nosnippet>725</a>
+<a href=#726 id=726 data-nosnippet>726</a>    <span class="attr">#[test]
+<a href=#727 id=727 data-nosnippet>727</a>    </span><span class="kw">fn </span>v2_filesystem_mapping_resolves_mount_paths() {
+<a href=#728 id=728 data-nosnippet>728</a>        <span class="comment">// Regression test: v2 fs mounts are already relative to the mount root,
+<a href=#729 id=729 data-nosnippet>729</a>        // so stripping the mount path again breaks lookups like /public.
+<a href=#730 id=730 data-nosnippet>730</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>manifest = Manifest::default();
+<a href=#731 id=731 data-nosnippet>731</a>        <span class="kw">let </span>fs = FileSystemMappings(<span class="macro">vec!</span>[FileSystemMapping {
+<a href=#732 id=732 data-nosnippet>732</a>            from: <span class="prelude-val">None</span>,
+<a href=#733 id=733 data-nosnippet>733</a>            volume_name: <span class="string">"atom"</span>.to_string(),
+<a href=#734 id=734 data-nosnippet>734</a>            host_path: <span class="prelude-val">Some</span>(<span class="string">"/public"</span>.to_string()),
+<a href=#735 id=735 data-nosnippet>735</a>            mount_path: <span class="string">"/public"</span>.to_string(),
+<a href=#736 id=736 data-nosnippet>736</a>        }]);
+<a href=#737 id=737 data-nosnippet>737</a>        <span class="kw">let </span><span class="kw-2">mut </span>package = IndexMap::new();
+<a href=#738 id=738 data-nosnippet>738</a>        package.insert(
+<a href=#739 id=739 data-nosnippet>739</a>            FileSystemMappings::KEY.to_string(),
+<a href=#740 id=740 data-nosnippet>740</a>            Value::serialized(<span class="kw-2">&amp;</span>fs).unwrap(),
+<a href=#741 id=741 data-nosnippet>741</a>        );
+<a href=#742 id=742 data-nosnippet>742</a>        manifest.package = package;
+<a href=#743 id=743 data-nosnippet>743</a>
+<a href=#744 id=744 data-nosnippet>744</a>        <span class="kw">let </span><span class="kw-2">mut </span>public_children = BTreeMap::new();
+<a href=#745 id=745 data-nosnippet>745</a>        public_children.insert(
+<a href=#746 id=746 data-nosnippet>746</a>            <span class="string">"index.html"</span>.parse().unwrap(),
+<a href=#747 id=747 data-nosnippet>747</a>            DirEntry::File(FileEntry::from(<span class="string">b"ok"</span>.as_slice())),
+<a href=#748 id=748 data-nosnippet>748</a>        );
+<a href=#749 id=749 data-nosnippet>749</a>        <span class="kw">let </span>public_dir = Directory {
+<a href=#750 id=750 data-nosnippet>750</a>            children: public_children,
+<a href=#751 id=751 data-nosnippet>751</a>        };
+<a href=#752 id=752 data-nosnippet>752</a>        <span class="kw">let </span><span class="kw-2">mut </span>root_children = BTreeMap::new();
+<a href=#753 id=753 data-nosnippet>753</a>        root_children.insert(<span class="string">"public"</span>.parse().unwrap(), DirEntry::Dir(public_dir));
+<a href=#754 id=754 data-nosnippet>754</a>        <span class="kw">let </span>atom_dir = Directory {
+<a href=#755 id=755 data-nosnippet>755</a>            children: root_children,
+<a href=#756 id=756 data-nosnippet>756</a>        };
+<a href=#757 id=757 data-nosnippet>757</a>
+<a href=#758 id=758 data-nosnippet>758</a>        <span class="kw">let </span>writer = Writer::default().write_manifest(<span class="kw-2">&amp;</span>manifest).unwrap();
+<a href=#759 id=759 data-nosnippet>759</a>        <span class="kw">let </span>writer = writer.write_atoms(BTreeMap::new()).unwrap();
+<a href=#760 id=760 data-nosnippet>760</a>        <span class="kw">let </span>writer = writer.with_volume(<span class="string">"atom"</span>, atom_dir).unwrap();
+<a href=#761 id=761 data-nosnippet>761</a>        <span class="kw">let </span>bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+<a href=#762 id=762 data-nosnippet>762</a>
+<a href=#763 id=763 data-nosnippet>763</a>        <span class="kw">let </span>reader = OwnedReader::parse(bytes).unwrap();
+<a href=#764 id=764 data-nosnippet>764</a>        <span class="kw">let </span>container = Container::from(reader);
+<a href=#765 id=765 data-nosnippet>765</a>
+<a href=#766 id=766 data-nosnippet>766</a>        <span class="kw">let </span>pkg_id = PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"0.1.0"</span>.parse().unwrap());
+<a href=#767 id=767 data-nosnippet>767</a>        <span class="kw">let </span><span class="kw-2">mut </span>packages = HashMap::new();
+<a href=#768 id=768 data-nosnippet>768</a>        packages.insert(pkg_id.clone(), container);
+<a href=#769 id=769 data-nosnippet>769</a>
+<a href=#770 id=770 data-nosnippet>770</a>        <span class="kw">let </span>pkg = ResolvedPackage {
+<a href=#771 id=771 data-nosnippet>771</a>            root_package: pkg_id.clone(),
+<a href=#772 id=772 data-nosnippet>772</a>            commands: BTreeMap::new(),
+<a href=#773 id=773 data-nosnippet>773</a>            entrypoint: <span class="prelude-val">None</span>,
+<a href=#774 id=774 data-nosnippet>774</a>            filesystem: <span class="macro">vec!</span>[ResolvedFileSystemMapping {
+<a href=#775 id=775 data-nosnippet>775</a>                mount_path: PathBuf::from(<span class="string">"/public"</span>),
+<a href=#776 id=776 data-nosnippet>776</a>                volume_name: <span class="string">"atom"</span>.to_string(),
+<a href=#777 id=777 data-nosnippet>777</a>                original_path: <span class="prelude-val">Some</span>(<span class="string">"/public"</span>.to_string()),
+<a href=#778 id=778 data-nosnippet>778</a>                package: pkg_id,
+<a href=#779 id=779 data-nosnippet>779</a>            }],
+<a href=#780 id=780 data-nosnippet>780</a>        };
+<a href=#781 id=781 data-nosnippet>781</a>
+<a href=#782 id=782 data-nosnippet>782</a>        <span class="kw">let </span>union_fs = filesystem_v2(<span class="kw-2">&amp;</span>packages, <span class="kw-2">&amp;</span>pkg, <span class="bool-val">false</span>).unwrap();
+<a href=#783 id=783 data-nosnippet>783</a>        <span class="macro">assert!</span>(union_fs.metadata(Path::new(<span class="string">"/public"</span>)).unwrap().is_dir());
+<a href=#784 id=784 data-nosnippet>784</a>        <span class="macro">assert!</span>(
+<a href=#785 id=785 data-nosnippet>785</a>            union_fs
+<a href=#786 id=786 data-nosnippet>786</a>                .metadata(Path::new(<span class="string">"/public/index.html"</span>))
+<a href=#787 id=787 data-nosnippet>787</a>                .unwrap()
+<a href=#788 id=788 data-nosnippet>788</a>                .is_file()
+<a href=#789 id=789 data-nosnippet>789</a>        );
+<a href=#790 id=790 data-nosnippet>790</a>    }
+<a href=#791 id=791 data-nosnippet>791</a>}
+<a href=#792 id=792 data-nosnippet>792</a><span class="kw">impl</span>&lt;F, M&gt; virtual_fs::FileOpener <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
+<a href=#793 id=793 data-nosnippet>793</a><span class="kw">where
+<a href=#794 id=794 data-nosnippet>794</a>    </span>F: FileSystem,
+<a href=#795 id=795 data-nosnippet>795</a>    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#796 id=796 data-nosnippet>796</a>{
+<a href=#797 id=797 data-nosnippet>797</a>    <span class="kw">fn </span>open(
+<a href=#798 id=798 data-nosnippet>798</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#799 id=799 data-nosnippet>799</a>        path: <span class="kw-2">&amp;</span>Path,
+<a href=#800 id=800 data-nosnippet>800</a>        conf: <span class="kw-2">&amp;</span>virtual_fs::OpenOptionsConfig,
+<a href=#801 id=801 data-nosnippet>801</a>    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
+<a href=#802 id=802 data-nosnippet>802</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
+<a href=#803 id=803 data-nosnippet>803</a>        <span class="self">self</span>.inner
+<a href=#804 id=804 data-nosnippet>804</a>            .new_open_options()
+<a href=#805 id=805 data-nosnippet>805</a>            .options(conf.clone())
+<a href=#806 id=806 data-nosnippet>806</a>            .open(path)
+<a href=#807 id=807 data-nosnippet>807</a>    }
+<a href=#808 id=808 data-nosnippet>808</a>}
+<a href=#809 id=809 data-nosnippet>809</a>
+<a href=#810 id=810 data-nosnippet>810</a><span class="kw">impl</span>&lt;F, M&gt; Debug <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
+<a href=#811 id=811 data-nosnippet>811</a><span class="kw">where
+<a href=#812 id=812 data-nosnippet>812</a>    </span>F: Debug,
+<a href=#813 id=813 data-nosnippet>813</a>{
+<a href=#814 id=814 data-nosnippet>814</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href=#815 id=815 data-nosnippet>815</a>        f.debug_struct(<span class="string">"MappedPathFileSystem"</span>)
+<a href=#816 id=816 data-nosnippet>816</a>            .field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner)
+<a href=#817 id=817 data-nosnippet>817</a>            .field(<span class="string">"map"</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;M&gt;())
+<a href=#818 id=818 data-nosnippet>818</a>            .finish()
+<a href=#819 id=819 data-nosnippet>819</a>    }
+<a href=#820 id=820 data-nosnippet>820</a>}</code></pre></div></section></main></body></html>
