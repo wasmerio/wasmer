@@ -200,10 +200,10 @@
 <a href=#200 id=200 data-nosnippet>200</a>            .results()
 <a href=#201 id=201 data-nosnippet>201</a>            .iter()
 <a href=#202 id=202 data-nosnippet>202</a>            .map(|ty| <span class="kw">match </span>ty {
-<a href=#203 id=203 data-nosnippet>203</a>                Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
+<a href=#203 id=203 data-nosnippet>203</a>                Type::I32 | Type::F32 | Type::ExceptionRef =&gt; <span class="number">32</span>,
 <a href=#204 id=204 data-nosnippet>204</a>                Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
 <a href=#205 id=205 data-nosnippet>205</a>                Type::V128 =&gt; <span class="number">128</span>,
-<a href=#206 id=206 data-nosnippet>206</a>                Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+<a href=#206 id=206 data-nosnippet>206</a>                Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
 <a href=#207 id=207 data-nosnippet>207</a>            </span>})
 <a href=#208 id=208 data-nosnippet>208</a>            .collect::&lt;Vec&lt;i32&gt;&gt;();
 <a href=#209 id=209 data-nosnippet>209</a>
