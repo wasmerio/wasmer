@@ -461,7 +461,8 @@ impl Abi for Aarch64SystemV {
                     && value.into_float_value().get_type() == intrinsics.f32_ty)
         };
         let is_64 = |value: BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
+            value.is_pointer_value()
+                || (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
                 || (value.is_float_value()
                     && value.into_float_value().get_type() == intrinsics.f64_ty)
         };
