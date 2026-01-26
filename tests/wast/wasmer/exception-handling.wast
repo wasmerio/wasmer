@@ -17,4 +17,4 @@
     )
     i64.const 42)
 )
-(assert_return (invoke "return_42") (i32.const 42))
+(assert_return (invoke "return_42") (i64.const 42))
