@@ -71,6 +71,7 @@ cranelift+riscv64 spec::r#if::cranelift
 cranelift+riscv64 spec::simd
 # 6078
 cranelift+riscv64 wasmer::simd_generated_ext_ops
+cranelift+riscv64 wasmer::simd
 
 # loongarch64 support is still early, function call ABI needs some work
 llvm+loongarch64  static_function::llvm::universal
