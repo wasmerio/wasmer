@@ -12,11 +12,26 @@ RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
 WASMER_CONFIGS = (
-    ("Wasmer LLVM", "-l"),
-    ("Wasmer LLVM pass-params", "-l --enable-pass-params-opt"),
-    ("Wasmer Cranelift", "-c"),
+    # ("Wasmer LLVM", "/home/marxin/Programming/testcases/wasmer-default", "-l"),
+    (
+        "Wasmer LLVM pass-params",
+        "/home/marxin/Programming/testcases/wasmer-default",
+        "-l --enable-pass-params-opt",
+    ),
+    (
+        "Wasmer LLVM pass-params O2",
+        "/home/marxin/Programming/testcases/wasmer-O2",
+        "-l --enable-pass-params-opt",
+    ),
+    (
+        "Wasmer LLVM pass-params O3",
+        "/home/marxin/Programming/testcases/wasmer-O3",
+        "-l --enable-pass-params-opt",
+    ),
+    # ("Wasmer Cranelift", "-c"),
 )
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
+ITERATIONS = 20
 
 
 def parse_report(report):
@@ -35,7 +50,7 @@ def parse_report(report):
     return results
 
 
-def benchmark_wasmer(wasmer_cmd_args):
+def benchmark_wasmer(wasmer_binary, wasmer_cmd_args):
     benchmark_modules = []
     for root, dirs, files in RUSTC_PEFT_PATH.walk():
         for file in files:
@@ -48,7 +63,7 @@ def benchmark_wasmer(wasmer_cmd_args):
         shutil.rmtree(CACHE_DIR, ignore_errors=True)
         start = time.perf_counter()
         subprocess.check_output(
-            f"wasmer-7 run {wasmer_cmd_args} {benchmark_module} -- --help",
+            f"{wasmer_binary} run {wasmer_cmd_args} {benchmark_module} -- --help",
             shell=True,
             encoding="utf8",
         )
@@ -56,7 +71,7 @@ def benchmark_wasmer(wasmer_cmd_args):
         print((benchmark_module, elapsed))
 
         data = subprocess.check_output(
-            f"wasmer-7 run {wasmer_cmd_args} {benchmark_module} -- run",
+            f"{wasmer_binary} run {wasmer_cmd_args} {benchmark_module} -- run --iterations={ITERATIONS}",
             shell=True,
             encoding="utf8",
         )
@@ -71,7 +86,9 @@ for benchmark_dir in RUSTC_PEFT_PATH.iterdir():
     if benchmark_dir.is_dir() and (benchmark_dir / "Cargo.toml").exists():
         print(benchmark_dir)
         data = subprocess.check_output(
-            "cargo r -r -- run", shell=True, cwd=benchmark_dir
+            f"cargo r -r -- run --iterations={ITERATIONS}",
+            shell=True,
+            cwd=benchmark_dir,
         )
         native_runtime_report |= parse_report(data)
 print(native_runtime_report)
@@ -86,8 +103,8 @@ for benchmark_dir in RUSTC_PEFT_PATH.iterdir():
 
 # 3) benchmark multiple wasmer binaries
 wasmer_runtime_reports = {
-    label: benchmark_wasmer(wasmer_command)
-    for (label, wasmer_command) in WASMER_CONFIGS
+    label: benchmark_wasmer(wasmer_binary, wasmer_command)
+    for (label, wasmer_binary, wasmer_command) in WASMER_CONFIGS
 }
 
 # 5) plot comparison
