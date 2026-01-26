@@ -335,9 +335,11 @@ impl LLVM {
         if let Architecture::Riscv64(_) = triple.architecture {
             llvm_target_machine_options = llvm_target_machine_options.set_abi("lp64d");
         }
-        llvm_target
+        let target_machine = llvm_target
             .create_target_machine_from_options(&target_triple, llvm_target_machine_options)
-            .unwrap()
+            .unwrap();
+        target_machine.set_asm_verbosity(true);
+        target_machine
     }
 }
 
