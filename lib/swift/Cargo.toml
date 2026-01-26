@@ -35,4 +35,3 @@ uniffi = { workspace = true, features = ["build"] }
 [package.metadata.docs.rs]
 features = ["wasmer/sys", "wasmer/cranelift"]
 rustc-args = ["--cfg", "docsrs"]
-cargo-args = ["--no-deps"]

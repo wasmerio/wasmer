@@ -252,7 +252,7 @@ serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
 serde_yaml = { version = "0.9.34" }
 serial_test = { version = "3.2.0", default-features = false }
-sha2 = "0.10"
+sha2 = "0.11.0-rc.3"
 slab = "0.4"
 smallvec = "1.6"
 smoltcp = { version = "0.12.0", default-features = false }
