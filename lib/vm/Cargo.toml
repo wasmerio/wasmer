@@ -15,7 +15,7 @@ version.workspace = true
 [dependencies]
 memoffset.workspace = true
 dashmap.workspace = true
-wasmer-types = { path = "../types", version = "=7.0.0-alpha.2" }
+wasmer-types = { path = "../types", version = "=7.0.0-rc.1" }
 libc.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
@@ -64,4 +64,3 @@ sanitizer = ["corosensei/sanitizer"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
-cargo-args = ["--no-deps"]

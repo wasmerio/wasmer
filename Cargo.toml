@@ -12,17 +12,17 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=7.0.0-alpha.2", path = "lib/api", default-features = false }
-wasmer-cache = { version = "=7.0.0-alpha.2", path = "lib/cache", optional = true }
-wasmer-compiler = { version = "=7.0.0-alpha.2", path = "lib/compiler", features = [
+wasmer = { version = "=7.0.0-rc.1", path = "lib/api", default-features = false }
+wasmer-cache = { version = "=7.0.0-rc.1", path = "lib/cache", optional = true }
+wasmer-compiler = { version = "=7.0.0-rc.1", path = "lib/compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=7.0.0-alpha.2", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=7.0.0-alpha.2", path = "lib/compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=7.0.0-alpha.2", path = "lib/compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=7.0.0-alpha.2", path = "lib/middlewares", optional = true }
-wasmer-types = { version = "=7.0.0-alpha.2", path = "lib/types" }
-wasmer-wast = { version = "=7.0.0-alpha.2", path = "tests/lib/wast", optional = true }
+wasmer-compiler-cranelift = { version = "=7.0.0-rc.1", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=7.0.0-rc.1", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=7.0.0-rc.1", path = "lib/compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=7.0.0-rc.1", path = "lib/middlewares", optional = true }
+wasmer-types = { version = "=7.0.0-rc.1", path = "lib/types" }
+wasmer-wast = { version = "=7.0.0-rc.1", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
@@ -81,11 +81,11 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.91"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.700.0-alpha.2", path = "lib/package" }
+wasmer-package = { version = "0.700.0-rc.1", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
@@ -252,7 +252,7 @@ serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
 serde_yaml = { version = "0.9.34" }
 serial_test = { version = "3.2.0", default-features = false }
-sha2 = "0.10"
+sha2 = "0.11.0-rc.3"
 slab = "0.4"
 smallvec = "1.6"
 smoltcp = { version = "0.12.0", default-features = false }
@@ -332,7 +332,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=7.0.0-alpha.2", path = "lib/api", features = [
+wasmer = { version = "=7.0.0-rc.1", path = "lib/api", features = [
 	"compiler",
 	"singlepass",
 	"sys",

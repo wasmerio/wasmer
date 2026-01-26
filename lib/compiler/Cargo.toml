@@ -13,7 +13,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=7.0.0-alpha.2", default-features = false }
+wasmer-types = { path = "../types", version = "=7.0.0-rc.1", default-features = false }
 wasmparser = { workspace = true, default-features = false, optional = true }
 enumset.workspace = true
 hashbrown = { workspace = true, optional = true }
@@ -46,7 +46,7 @@ tempfile.workspace = true
 rangemap.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-vm = { path = "../vm", version = "=7.0.0-alpha.2" }
+wasmer-vm = { path = "../vm", version = "=7.0.0-rc.1" }
 region.workspace = true
 which.workspace = true
 
@@ -85,4 +85,3 @@ features = [
 	"wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]
-cargo-args = ["--no-deps"]

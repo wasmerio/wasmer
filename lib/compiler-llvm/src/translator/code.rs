@@ -2185,7 +2185,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             match op {
                 Operator::Block { blockty: _ }
                 | Operator::Loop { blockty: _ }
-                | Operator::If { blockty: _ } => {
+                | Operator::If { blockty: _ }
+                | Operator::TryTable { .. } => {
                     self.unreachable_depth += 1;
                     return Ok(());
                 }

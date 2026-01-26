@@ -42,14 +42,14 @@ fuzz_target!(|module: LLVMPassFuzzModule| {
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
     let mut store = Store::new(EngineBuilder::new(compiler));
-    // save_wasm_file(&wasm_bytes);
+    // Save early (and always) as we might hit a crash or a validation error in the LLVM library.
+    save_wasm_file(&wasm_bytes);
 
     let module = match Module::new(&store, &wasm_bytes) {
         Err(e) => {
             if ignore_compilation_error(&e.to_string()) {
                 return;
             }
-            save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
         Ok(module) => module,
@@ -61,7 +61,6 @@ fuzz_target!(|module: LLVMPassFuzzModule| {
             if ignore_runtime_error(&e.to_string()) {
                 return;
             }
-            save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
     }

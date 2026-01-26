@@ -465,6 +465,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-buffer"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96eb4cdd6cf1b31d671e9efe75c5d1ec614776856cefbe109ca373554a6d514f"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
 name = "bstr"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -644,9 +653,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.53"
+version = "1.2.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "755d2fce177175ffca841e9a06afdb2c4ab0f593d53b4dee48147dfaade85932"
+checksum = "6354c81bbfd62d9cfa9cb3c773c2b7b2a3a482d569de977fd0e961f6e7c00583"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -945,6 +954,12 @@ dependencies = [
  "tracing-core",
  "tracing-subscriber",
 ]
+
+[[package]]
+name = "const-oid"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "constant_time_eq"
@@ -1278,6 +1293,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto-common"
+version = "0.2.0-rc.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6dcdb44f2c3ee25689ca12a4c19e664fd09f97aeae0bc5043b2dbab6389e308"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
 name = "csv"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1587,8 +1611,19 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
- "block-buffer",
- "crypto-common",
+ "block-buffer 0.10.4",
+ "crypto-common 0.1.7",
+]
+
+[[package]]
+name = "digest"
+version = "0.11.0-rc.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca14c221bd9052fd2da7c34a2eeb5ae54732db28be47c35937be71793d675422"
+dependencies = [
+ "block-buffer 0.11.0",
+ "const-oid",
+ "crypto-common 0.2.0-rc.12",
 ]
 
 [[package]]
@@ -2481,6 +2516,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135b12329e5e3ce057a9f972339ea52bc954fe1e9358ef27f95e89716fbc5424"
 
 [[package]]
+name = "hybrid-array"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b41fb3dc24fe72c2e3a4685eed55917c2fb228851257f4a8f2d985da9443c3e5"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
 name = "hyper"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3217,7 +3261,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3762,7 +3806,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "602113b5b5e8621770cfd490cfd90b9f84ab29bd2b0e49ad83eb6d186cef2365"
 dependencies = [
  "pest",
- "sha2",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -3991,9 +4035,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.105"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "535d180e0ecab6268a3e718bb9fd44db66bbbc256257165fc699dadf70d16fe7"
+checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
 ]
@@ -4159,9 +4203,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.43"
+version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc74d9a594b72ae6656596548f56f667211f8a97b3d4c3d467150794690dc40a"
+checksum = "21b2ebcf727b7760c461f091f9f0f539b77b8e87f2fd88131e7f1b433b3cece4"
 dependencies = [
  "proc-macro2",
 ]
@@ -5017,7 +5061,7 @@ checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "digest",
+ "digest 0.10.7",
 ]
 
 [[package]]
@@ -5028,7 +5072,18 @@ checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "digest",
+ "digest 0.10.7",
+]
+
+[[package]]
+name = "sha2"
+version = "0.11.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19d43dc0354d88b791216bb5c1bfbb60c0814460cc653ae0ebd71f286d0bd927"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest 0.11.0-rc.7",
 ]
 
 [[package]]
@@ -5885,9 +5940,9 @@ checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
 
 [[package]]
 name = "typed-path"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7922f2cdc51280d47b491af9eafc41eb0cdab85eabcb390c854412fcbf26dbe8"
+checksum = "e43ffa54726cdc9ea78392023ffe9fe9cf9ac779e1c6fcb0d23f9862e3879d20"
 
 [[package]]
 name = "typeid"
@@ -6228,7 +6283,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6262,7 +6317,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6277,7 +6332,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6382,7 +6437,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6461,7 +6516,7 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasi-test-generator"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "glob",
  "gumdrop",
@@ -6651,7 +6706,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -6700,7 +6755,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-argus"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6725,7 +6780,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-backend-api"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -6770,7 +6825,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "cbindgen",
  "cfg-if",
@@ -6799,7 +6854,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "cc",
  "regex",
@@ -6809,7 +6864,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "blake3",
  "clap",
@@ -6827,7 +6882,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "cc",
  "regex",
@@ -6837,7 +6892,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "anyhow",
  "assert_cmd 2.1.2",
@@ -6893,7 +6948,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "shared-buffer",
  "tar",
  "target-lexicon 0.13.4",
@@ -6932,7 +6987,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "backtrace",
  "bytes",
@@ -6968,7 +7023,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -6989,7 +7044,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -7012,7 +7067,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -7032,7 +7087,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7055,7 +7110,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error2",
@@ -7095,7 +7150,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "anyhow",
  "assert_cmd 2.1.2",
@@ -7122,11 +7177,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7154,7 +7209,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -7163,7 +7218,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7179,7 +7234,7 @@ dependencies = [
  "semver 1.0.27",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "shared-buffer",
  "tar",
  "tempfile",
@@ -7194,7 +7249,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sdk"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7206,7 +7261,7 @@ dependencies = [
  "semver 1.0.27",
  "serde",
  "serde_yaml",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -7222,7 +7277,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "thiserror 2.0.18",
  "tokio",
@@ -7236,7 +7291,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "libc",
  "region",
@@ -7250,7 +7305,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -7264,7 +7319,7 @@ dependencies = [
  "rkyv",
  "serde",
  "serde_bytes",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "target-lexicon 0.13.4",
  "thiserror 2.0.18",
  "wasmparser 0.244.0",
@@ -7272,7 +7327,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "backtrace",
  "cc",
@@ -7303,7 +7358,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "assert-panic",
@@ -7316,6 +7371,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "chrono",
+ "ciborium",
  "cooked-waker",
  "crossbeam-channel",
  "dashmap",
@@ -7351,7 +7407,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "serde_yaml",
- "sha2",
+ "sha2 0.11.0-rc.3",
  "shared-buffer",
  "tempfile",
  "terminal_size",
@@ -7396,7 +7452,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.700.0-alpha.2"
+version = "0.700.0-rc.1"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
@@ -7419,7 +7475,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "anyhow",
  "fs_extra",
@@ -7437,7 +7493,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "7.0.0-alpha.2"
+version = "7.0.0-rc.1"
 dependencies = [
  "anyhow",
  "build-deps",
@@ -7659,7 +7715,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.10.9",
  "shared-buffer",
  "thiserror 1.0.69",
  "url",
