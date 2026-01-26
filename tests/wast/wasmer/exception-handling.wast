@@ -8,3 +8,13 @@
 )
 
 (assert_return (invoke "main") (i32.const 42))
+
+(module
+  (func (export "return_42") (result i64)
+    (block
+        br 0
+        (try_table)
+    )
+    i64.const 42)
+)
+(assert_return (invoke "return_42") (i32.const 42))
