@@ -26,6 +26,7 @@ impl Arbitrary<'_> for CraneliftPassFuzzModule {
         config.max_memories = 1;
         config.tail_call_enabled = false;
         config.simd_enabled = false;
+        config.relaxed_simd_enabled = false;
         Ok(Self(wasm_smith::Module::new(config, u)?))
     }
 }
@@ -43,6 +44,8 @@ fuzz_target!(|module: CraneliftPassFuzzModule| {
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
     let mut store = Store::new(EngineBuilder::new(compiler));
+    // Save early (and always) as we might hit a crash or a validation error.
+    save_wasm_file(&wasm_bytes);
     let module = Module::new(&store, &wasm_bytes);
     let module = match module {
         Ok(m) => m,
@@ -50,7 +53,6 @@ fuzz_target!(|module: CraneliftPassFuzzModule| {
             if ignore_compilation_error(&e.to_string()) {
                 return;
             }
-            save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
     };
@@ -61,7 +63,6 @@ fuzz_target!(|module: CraneliftPassFuzzModule| {
             if ignore_runtime_error(&e.to_string()) {
                 return;
             }
-            save_wasm_file(&wasm_bytes);
             panic!("{}", e);
         }
     }
