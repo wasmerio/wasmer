@@ -514,12 +514,14 @@ impl Abi for RiscvSystemV {
         func_type: &FunctionType<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let is_32 = |value: BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i32_ty)
+            (value.is_pointer_value() && !self.is_riscv64)
+                || (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i32_ty)
                 || (value.is_float_value()
                     && value.into_float_value().get_type() == intrinsics.f32_ty)
         };
         let is_64 = |value: BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
+            (value.is_pointer_value() && self.is_riscv64)
+                || (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
                 || (value.is_float_value()
                     && value.into_float_value().get_type() == intrinsics.f64_ty)
         };
