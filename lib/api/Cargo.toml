@@ -223,4 +223,3 @@ features = [
 	"wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]
-cargo-args = ["--no-deps"]

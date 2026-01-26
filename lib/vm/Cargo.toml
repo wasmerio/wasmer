@@ -64,4 +64,3 @@ sanitizer = ["corosensei/sanitizer"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
-cargo-args = ["--no-deps"]
