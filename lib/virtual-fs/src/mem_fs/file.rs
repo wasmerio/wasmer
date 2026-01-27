@@ -231,7 +231,7 @@ impl VirtualFile for FileHandle {
         let filesystem = self.filesystem.clone();
         let inode = self.inode;
 
-        let (inode_of_parent, position, _inode_of_file) = {
+        let (inode_of_parent, position) = {
             // Read lock.
             let fs = filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
@@ -258,7 +258,7 @@ impl VirtualFile for FileHandle {
                 })
                 .ok_or(FsError::BaseNotDirectory)?;
 
-            (inode_of_parent, position, inode_of_file)
+            (inode_of_parent, position)
         };
 
         {
@@ -764,7 +764,9 @@ mod test_virtual_file {
         );
 
         // Verify we can read the data back
-        let _ = file.seek(SeekFrom::Start(0)).await;
+        file.seek(SeekFrom::Start(0))
+            .await
+            .expect("seeking to start of file should succeed");
         let mut read_buf = Vec::new();
         let bytes_read = file.read_to_end(&mut read_buf).await.unwrap();
         assert_eq!(
