@@ -63,16 +63,17 @@ jobs:
       - name: Install LLVM
         shell: bash
         run: |
+          cd $HOME
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf ${{ env.LLVM_URL }} -L -o llvm.tar.xz
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          LLVM_DIR=$HOME/.llvm
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_211_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          cd -
         env:
-          LLVM_DIR: .llvm
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz
 
       - name: Install wasixcc
@@ -97,6 +98,11 @@ jobs:
           wasixcc --version
           # Check wasm-opt is available
           wasm-opt --version
+          # Check that the repo exists
+          git status --porcelain
+          # Check that the repo is clean
+          test -z "$(git status --porcelain)"
+
 
       # For debugging the setup locally, you can uncomment this step and run
       # `act -P ubuntu-22.04=catthehacker/ubuntu:full-22.04 -W ./.github/workflows/copilot-setup-steps.yml`
