@@ -54,6 +54,7 @@ define build_shared
 endef
 
 TESTS := \
+  chdir \
   clock_time_get \
   closure_free \
   dlopen \
@@ -61,9 +62,11 @@ TESTS := \
   fd_advise \
   fd_close \
   fd_datasync \
+  fd_dup2 \
   fd_fdstat_get \
   fd_fdstat_set_flags \
   fd_fdflags_get \
+  fd_fdflags_set \
   fd_filestat_get \
   fd_renumber \
   fd_sync \
@@ -79,10 +82,14 @@ TESTS := \
   proc_exit_code_126 \
   proc_exit_hello \
   proc_exit_fpr \
+  port_mac \
+  reflect_signature \
   random_get \
   sched_yield \
+  sock_addr_peer \
   thread_id \
-  thread_parallelism
+  thread_parallelism \
+  tty_get
 
 BUILD_TARGETS := libside1.so libside2.so $(addsuffix .wasm,$(TESTS))
 
@@ -126,6 +133,8 @@ run: $(BUILD_TARGETS)
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
 			dlopen|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
+			port_mac) flags="$$flags --net" ;; \
+			sock_addr_peer) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \
 		if [ $$rc -ne $$expected ]; then \

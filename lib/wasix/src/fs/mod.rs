@@ -1016,12 +1016,14 @@ impl WasiFs {
             guard.clone()
         };
         let cur_inode = self.get_fd_inode(base)?;
+        let mut seen_symlinks = HashSet::new();
         let inode = self.get_inode_at_path_inner(
             inodes,
             cur_inode,
             current_dir.as_str(),
             symlink_count,
             true,
+            &mut seen_symlinks,
         )?;
         Ok((inode, current_dir))
     }
@@ -1046,8 +1048,9 @@ impl WasiFs {
         path_str: &str,
         mut symlink_count: u32,
         follow_symlinks: bool,
+        seen_symlinks: &mut HashSet<Inode>,
     ) -> Result<InodeGuard, Errno> {
-        if symlink_count > MAX_SYMLINKS {
+        if symlink_count >= MAX_SYMLINKS {
             return Err(Errno::Mlink);
         }
 
@@ -1098,6 +1101,9 @@ impl WasiFs {
                                 if matches!(entry_guard.deref(), Kind::Symlink { .. }) {
                                     loop_for_symlink = true;
                                     symlink_count += 1;
+                                    if symlink_count >= MAX_SYMLINKS {
+                                        return Err(Errno::Mlink);
+                                    }
                                 }
                             }
                         } else {
@@ -1146,6 +1152,9 @@ impl WasiFs {
                                 };
                                 loop_for_symlink = true;
                                 symlink_count += 1;
+                                if symlink_count >= MAX_SYMLINKS {
+                                    return Err(Errno::Mlink);
+                                }
                                 Kind::Symlink {
                                     base_po_dir: pre_open_dir_fd,
                                     path_to_symlink: relative_path.to_owned(),
@@ -1290,13 +1299,20 @@ impl WasiFs {
                         };
                         debug!("Following symlink recursively");
                         drop(guard);
+                        let symlink_ino = cur_inode.ino();
+                        if !seen_symlinks.insert(symlink_ino) {
+                            return Err(Errno::Loop);
+                        }
                         let symlink_inode = self.get_inode_at_path_inner(
                             inodes,
                             new_base_inode,
                             &new_path,
                             symlink_count + 1,
                             follow_symlinks,
-                        )?;
+                            seen_symlinks,
+                        );
+                        seen_symlinks.remove(&symlink_ino);
+                        let symlink_inode = symlink_inode?;
                         cur_inode = symlink_inode;
                         // Resolved the symlink target for this component.
                         break 'symlink_resolution;
@@ -1419,7 +1435,15 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
-        self.get_inode_at_path_inner(inodes, base_inode, path, 0, follow_symlinks)
+        let mut seen_symlinks = HashSet::new();
+        self.get_inode_at_path_inner(
+            inodes,
+            base_inode,
+            path,
+            0,
+            follow_symlinks,
+            &mut seen_symlinks,
+        )
     }
 
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
