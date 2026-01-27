@@ -87,6 +87,7 @@ jobs:
           cargo install --locked wasm-tools
 
       - name: Ensure the setup works
+        shell: bash
         run: |
           # Check rustfmt is installed
           cargo fmt --version
@@ -102,7 +103,14 @@ jobs:
           git status --porcelain
           # Check that the repo is clean
           test -z "$(git status --porcelain)"
-
+          # Check that clang is installed
+          clang --version
+          # Check that clang comes from the LLVM we installed
+          clang_path=$(which clang)
+          echo "Clang path: $clang_path"
+          [[ "$clang_path" == *".llvm"* ]]
+          # Check that creduce is installed
+          creduce --version
 
       # For debugging the setup locally, you can uncomment this step and run
       # `act -P ubuntu-22.04=catthehacker/ubuntu:full-22.04 -W ./.github/workflows/copilot-setup-steps.yml`
