@@ -308,8 +308,12 @@ impl Abi for Aarch64SystemV {
                         Ok(value)
                     }
                     Type::ExternRef | Type::FuncRef => {
-                        assert!(value.get_type() == intrinsics.ptr_ty.as_basic_type_enum());
-                        Ok(value)
+                        assert!(value.get_type() == intrinsics.i64_ty.as_basic_type_enum());
+                        err_nt!(
+                            builder
+                                .build_int_to_ptr(value.into_int_value(), intrinsics.ptr_ty, "")
+                                .map(|ptr| ptr.as_basic_value_enum())
+                        )
                     }
                 }
             };
@@ -461,7 +465,8 @@ impl Abi for Aarch64SystemV {
                     && value.into_float_value().get_type() == intrinsics.f32_ty)
         };
         let is_64 = |value: BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
+            value.is_pointer_value()
+                || (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
                 || (value.is_float_value()
                     && value.into_float_value().get_type() == intrinsics.f64_ty)
         };
@@ -493,6 +498,10 @@ impl Abi for Aarch64SystemV {
                     let v = err!(builder.build_bit_cast(v, intrinsics.i64_ty, ""));
                     Ok(v.as_basic_value_enum())
                 }
+            } else if v.is_pointer_value() {
+                let v =
+                    err!(builder.build_ptr_to_int(v.into_pointer_value(), intrinsics.i64_ty, "",));
+                Ok(v.as_basic_value_enum())
             } else {
                 let v = v.into_int_value();
                 if v.get_type() == intrinsics.i32_ty {
