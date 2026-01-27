@@ -13,11 +13,6 @@
 )
 
 (module
-  (type (func (result exnref exnref v128)))
-  (func (type 0) ref.null exn ref.null exn v128.const i32x4 0 0 0 0)
-)
-
-(module
   (func (export "return_42") (result i64)
     (block
         br 0
@@ -26,3 +21,10 @@
     i64.const 42)
 )
 (assert_return (invoke "return_42") (i64.const 42))
+
+(module
+  (func (result funcref exnref i32)
+    ref.null func
+    ref.null exn
+    i32.const 0)
+)

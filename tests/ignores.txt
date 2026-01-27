@@ -1,6 +1,7 @@
 # Compilers
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 singlepass wasmer::simd_generated_ext_ops
+singlepass wasmer::simd
 singlepass spec::exception_handling # Singlepass doesn't support EH yet (no one asked for this feature)
 singlepass wasmer::exception_handling
 windows spec::exception_handling # No EH support on Windows yet
@@ -65,12 +66,12 @@ cranelift+riscv64 spec::align::cranelift
 cranelift+riscv64 spec::memory_copy::cranelift
 cranelift+riscv64 spec::memory_trap::cranelift
 cranelift+riscv64 spec::r#if::cranelift
-cranelift+riscv64 wasmer::exception_handling
 
 # no SIMD on riscv, Cranelift will not handle them
 cranelift+riscv64 spec::simd
 # 6078
 cranelift+riscv64 wasmer::simd_generated_ext_ops
+cranelift+riscv64 wasmer::simd
 
 # loongarch64 support is still early, function call ABI needs some work
 llvm+loongarch64  static_function::llvm::universal
