@@ -516,6 +516,7 @@ impl RuntimeOptions {
                 if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
+                    config.verbose_asm(true);
                 }
                 if self.enable_verifier {
                     config.enable_verifier();
@@ -658,6 +659,7 @@ impl BackendType {
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
+                    config.verbose_asm(true);
                 }
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
