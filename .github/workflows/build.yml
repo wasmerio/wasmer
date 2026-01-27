@@ -3,7 +3,6 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.91"
 
 on:
   push:
@@ -148,10 +147,12 @@ jobs:
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: startsWith(matrix.build, 'windows-')
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.target }}      
       - name: Install LLVM (macOS Intel)
         if: matrix.os == 'macos-15-intel' && !matrix.llvm_url
