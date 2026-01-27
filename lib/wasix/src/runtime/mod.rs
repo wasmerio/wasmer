@@ -366,8 +366,12 @@ pub async fn load_module(
         });
         #[cfg(feature = "sys-default")]
         {
-            use wasmer::sys::NativeEngineExt;
-            engine.new_module_with_progress(input.wasm(), p)
+            if engine.is_sys() {
+                use wasmer::sys::NativeEngineExt;
+                engine.new_module_with_progress(input.wasm(), p)
+            } else {
+                Module::new(&engine, input.wasm())
+            }
         }
         #[cfg(not(feature = "sys-default"))]
         {

@@ -7,19 +7,18 @@ on:
     paths:
       - "lib/**"
 
-env:
-  MSRV: "1.91"
-
 jobs:
   documentation:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
       - name: Install LLVM
         shell: bash
         run: |

@@ -203,7 +203,8 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
         Ref(ty) => {
             if ty.is_func_ref() || ty.is_extern_ref() {
                 builder.ins().iconst(environ.reference_type(), 0)
-            } else if ty == RefType::EXNREF {
+            } else if ty == RefType::EXNREF || ty == RefType::EXN {
+                // no `.is_exnref` yet
                 builder.ins().iconst(EXN_REF_TYPE, 0)
             } else {
                 return Err(wasm_unsupported!("unsupported reference type: {:?}", ty));
