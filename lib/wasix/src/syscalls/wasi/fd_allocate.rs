@@ -48,19 +48,28 @@ pub(crate) fn fd_allocate_internal(
         return Err(Errno::Access);
     }
     let new_size = offset.checked_add(len).ok_or(Errno::Inval)?;
+    let mut current_size = new_size;
     {
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
                     let mut handle = handle.write().unwrap();
-                    handle.set_len(new_size).map_err(fs_error_into_wasi_err)?;
+                    current_size = handle.size();
+                    if new_size > current_size {
+                        handle.set_len(new_size).map_err(fs_error_into_wasi_err)?;
+                        current_size = new_size;
+                    }
                 } else {
                     return Err(Errno::Badf);
                 }
             }
             Kind::Buffer { buffer } => {
-                buffer.resize(new_size as usize, 0);
+                current_size = buffer.len() as u64;
+                if new_size > current_size {
+                    buffer.resize(new_size as usize, 0);
+                    current_size = new_size;
+                }
             }
             Kind::Socket { .. }
             | Kind::PipeRx { .. }
@@ -72,7 +81,7 @@ pub(crate) fn fd_allocate_internal(
             Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
         }
     }
-    inode.stat.write().unwrap().st_size = new_size;
+    inode.stat.write().unwrap().st_size = current_size;
     debug!(%new_size);
 
     Ok(())
