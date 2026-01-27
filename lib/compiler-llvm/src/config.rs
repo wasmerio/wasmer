@@ -113,6 +113,7 @@ pub struct LLVM {
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     /// Number of threads to use when compiling a module.
     pub(crate) num_threads: NonZero<usize>,
+    pub(crate) verbose_asm: bool,
 }
 
 impl LLVM {
@@ -128,6 +129,7 @@ impl LLVM {
             callbacks: None,
             middlewares: vec![],
             enable_g0m0_opt: false,
+            verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
     }
@@ -148,6 +150,11 @@ impl LLVM {
 
     pub fn num_threads(&mut self, num_threads: NonZero<usize>) -> &mut Self {
         self.num_threads = num_threads;
+        self
+    }
+
+    pub fn verbose_asm(&mut self, verbose_asm: bool) -> &mut Self {
+        self.verbose_asm = verbose_asm;
         self
     }
 
@@ -338,7 +345,7 @@ impl LLVM {
         let target_machine = llvm_target
             .create_target_machine_from_options(&target_triple, llvm_target_machine_options)
             .unwrap();
-        target_machine.set_asm_verbosity(true);
+        target_machine.set_asm_verbosity(self.verbose_asm);
         target_machine
     }
 }
