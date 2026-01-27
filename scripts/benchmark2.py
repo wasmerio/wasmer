@@ -1,19 +1,35 @@
 #!/usr/bin/env python3
 
-import time
 import subprocess
 from pathlib import Path
 import matplotlib.pyplot as plt
+import shutil
+import statistics
 
 BENCH_ROOT = Path("/home/marxin/Programming/benchmarks")
+CACHE_DIR = Path("/home/marxin/.wasmer/cache")
+
+shutil.rmtree(CACHE_DIR, ignore_errors=True)
 
 
-def run_timed(cmd, warmup=True):
-    if warmup:
-        subprocess.check_call(cmd, shell=True)
-    start = time.perf_counter()
-    subprocess.check_call(cmd, shell=True)
-    return time.perf_counter() - start
+def run_timed_one(cmd):
+    output = subprocess.check_output(
+        cmd, shell=True, stderr=subprocess.STDOUT, encoding="utf8"
+    )
+    duration = None
+    for line in output.splitlines():
+        if "Total time" in line:
+            duration = float(line.split()[-2])
+            break
+        elif "time for" in line:
+            duration = float(line.split()[-1])
+            break
+    print((cmd, duration))
+    return duration
+
+
+def run_timed(cmd):
+    return statistics.geometric_mean([run_timed_one(cmd) for _ in range(10)])
 
 
 def wasmer_cmd(engine_args, module, args):
@@ -39,24 +55,26 @@ php_wasmer_base = run_timed(
         "php-benchmark.php",
     )
 )
-php_native = run_timed(native_cmd(f"php {BENCH_ROOT}/php-benchmark.php"), warmup=False)
+php_native = run_timed(native_cmd(f"php {BENCH_ROOT}/php-benchmark.php"))
+
+PYSTONE_ITERATIONS = 100000
 
 python_wasmer_pass = run_timed(
     wasmer_cmd(
         ["--llvm", "--enable-pass-params-opt"],
-        "python/python",
-        "pystone.py 1000000",
+        "python/python@=3.13.3",
+        f"pystone.py {PYSTONE_ITERATIONS}",
     )
 )
 python_wasmer_base = run_timed(
     wasmer_cmd(
         ["--llvm"],
-        "python/python",
-        "pystone.py 1000000",
+        "python/python@=3.13.3",
+        f"pystone.py {PYSTONE_ITERATIONS}",
     )
 )
 python_native = run_timed(
-    native_cmd(f"python3 {BENCH_ROOT}/pystone.py 1000000"), warmup=False
+    native_cmd(f"python3 {BENCH_ROOT}/pystone.py {PYSTONE_ITERATIONS}")
 )
 
 benchmarks = ["php-benchmark", "pystone"]
