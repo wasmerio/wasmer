@@ -34,10 +34,17 @@ pub(super) struct FileHandle {
     append_mode: bool,
     cursor: u64,
     arc_file: Option<Result<Box<dyn VirtualFile + Send + Sync + 'static>>>,
+    ref_count: Option<Arc<AtomicUsize>>,
+    is_unlinked: Option<Arc<AtomicBool>>,
 }
 
 impl Clone for FileHandle {
     fn clone(&self) -> Self {
+        // Increment reference count when cloning
+        if let Some(ref_count) = &self.ref_count {
+            ref_count.fetch_add(1, Ordering::SeqCst);
+        }
+
         Self {
             inode: self.inode,
             filesystem: self.filesystem.clone(),
@@ -46,6 +53,24 @@ impl Clone for FileHandle {
             append_mode: self.append_mode,
             cursor: self.cursor,
             arc_file: None,
+            ref_count: self.ref_count.clone(),
+            is_unlinked: self.is_unlinked.clone(),
+        }
+    }
+}
+
+impl Drop for FileHandle {
+    fn drop(&mut self) {
+        if let (Some(ref_count), Some(is_unlinked)) = (&self.ref_count, &self.is_unlinked) {
+            // Decrement reference count
+            let prev_count = ref_count.fetch_sub(1, Ordering::SeqCst);
+
+            // If this was the last reference and the file is unlinked, remove from storage
+            if prev_count == 1 && is_unlinked.load(Ordering::SeqCst) {
+                if let Ok(mut fs) = self.filesystem.inner.write() {
+                    fs.storage.remove(self.inode);
+                }
+            }
         }
     }
 }
@@ -59,6 +84,50 @@ impl FileHandle {
         append_mode: bool,
         cursor: u64,
     ) -> Self {
+        // Extract reference counting info from the node
+        let (ref_count, is_unlinked) = {
+            if let Ok(fs) = filesystem.inner.read() {
+                if let Some(node) = fs.storage.get(inode) {
+                    match node {
+                        Node::File(FileNode {
+                            ref_count,
+                            is_unlinked,
+                            ..
+                        })
+                        | Node::ReadOnlyFile(ReadOnlyFileNode {
+                            ref_count,
+                            is_unlinked,
+                            ..
+                        })
+                        | Node::OffloadedFile(OffloadedFileNode {
+                            ref_count,
+                            is_unlinked,
+                            ..
+                        })
+                        | Node::ArcFile(ArcFileNode {
+                            ref_count,
+                            is_unlinked,
+                            ..
+                        })
+                        | Node::CustomFile(CustomFileNode {
+                            ref_count,
+                            is_unlinked,
+                            ..
+                        }) => {
+                            // Increment reference count when creating a new handle
+                            ref_count.fetch_add(1, Ordering::SeqCst);
+                            (Some(ref_count.clone()), Some(is_unlinked.clone()))
+                        }
+                        _ => (None, None),
+                    }
+                } else {
+                    (None, None)
+                }
+            } else {
+                (None, None)
+            }
+        };
+
         Self {
             inode,
             filesystem,
@@ -67,6 +136,8 @@ impl FileHandle {
             append_mode,
             cursor,
             arc_file: None,
+            ref_count,
+            is_unlinked,
         }
     }
 
@@ -265,13 +336,48 @@ impl VirtualFile for FileHandle {
             // Write lock.
             let mut fs = filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
-            // Remove the file from the storage.
-            // NOTE: We do NOT remove the inode from storage here to match POSIX behavior.
+            // Mark the file as unlinked so it will be deleted when the last handle closes.
             // In POSIX, an unlinked file remains accessible through open file descriptors
-            // until all file descriptors are closed. By keeping the inode in storage,
-            // open file handles can continue to read/write the file even after it's unlinked.
-            // The file is only removed from the parent directory's children list.
-            // fs.storage.remove(inode_of_file);
+            // until all file descriptors are closed. We mark it as unlinked here, and
+            // the Drop implementation of FileHandle will remove it from storage when
+            // the reference count reaches 0.
+            if let Some(node) = fs.storage.get_mut(inode) {
+                match node {
+                    Node::File(FileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::ReadOnlyFile(ReadOnlyFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::OffloadedFile(OffloadedFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::ArcFile(ArcFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::CustomFile(CustomFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    }) => {
+                        is_unlinked.store(true, Ordering::SeqCst);
+
+                        // If ref_count is 0, remove immediately (no open handles)
+                        if ref_count.load(Ordering::SeqCst) == 0 {
+                            fs.storage.remove(inode);
+                        }
+                    }
+                    _ => {}
+                }
+            }
 
             // Remove the child from the parent directory.
             fs.remove_child_from_node(inode_of_parent, position)?;
@@ -339,6 +445,8 @@ impl VirtualFile for FileHandle {
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
                         metadata,
+                        ref_count: Arc::new(AtomicUsize::new(0)),
+                        is_unlinked: Arc::new(AtomicBool::new(false)),
                     });
                     Ok(())
                 }
@@ -371,6 +479,8 @@ impl VirtualFile for FileHandle {
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: ReadOnlyFile { buffer: src },
                         metadata,
+                        ref_count: Arc::new(AtomicUsize::new(0)),
+                        is_unlinked: Arc::new(AtomicBool::new(false)),
                     });
                     Ok(())
                 }
@@ -776,6 +886,53 @@ mod test_virtual_file {
         );
         assert_eq!(&read_buf[0..13], small_data, "small data matches");
         assert_eq!(&read_buf[13..], &large_data[..], "large data matches");
+    }
+
+    #[tokio::test]
+    async fn test_unlinked_file_deleted_when_no_references() {
+        // This test verifies that an unlinked file is actually deleted from storage
+        // when there are no more file handles referencing it.
+        let fs = FileSystem::default();
+
+        {
+            let mut file = fs
+                .new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path!("/foo.txt"))
+                .expect("failed to create a new file");
+
+            // Unlink the file while it's still open
+            assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+
+            // File should still be in storage while handle exists
+            {
+                let fs_inner = fs.inner.read().unwrap();
+                assert_eq!(
+                    fs_inner.storage.len(),
+                    2,
+                    "storage still has the file while handle exists"
+                );
+            }
+
+            // Write some data to verify it still works
+            assert!(
+                matches!(file.write(b"test").await, Ok(4)),
+                "writing to unlinked file succeeds while handle exists"
+            );
+
+            // file goes out of scope here, dropping the last reference
+        }
+
+        // Now that all file handles are closed, the file should be deleted from storage
+        {
+            let fs_inner = fs.inner.read().unwrap();
+            assert_eq!(
+                fs_inner.storage.len(),
+                1,
+                "storage no longer has the file after all handles are closed"
+            );
+        }
     }
 }
 

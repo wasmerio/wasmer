@@ -51,6 +51,8 @@ impl FileSystem {
                             len: file_len,
                         }
                     },
+                    ref_count: Arc::new(AtomicUsize::new(0)),
+                    is_unlinked: Arc::new(AtomicBool::new(false)),
                 }));
 
                 assert_eq!(
@@ -121,6 +123,8 @@ impl FileSystem {
                     fs,
                     path: source_path,
                     metadata: meta,
+                    ref_count: Arc::new(AtomicUsize::new(0)),
+                    is_unlinked: Arc::new(AtomicBool::new(false)),
                 }));
 
                 assert_eq!(
@@ -267,6 +271,8 @@ impl FileSystem {
                     len: 0,
                 }
             },
+            ref_count: Arc::new(AtomicUsize::new(0)),
+            is_unlinked: Arc::new(AtomicBool::new(false)),
         }));
 
         assert_eq!(
@@ -510,6 +516,8 @@ impl crate::FileOpener for FileSystem {
                             name: name_of_file,
                             file,
                             metadata,
+                            ref_count: Arc::new(AtomicUsize::new(0)),
+                            is_unlinked: Arc::new(AtomicBool::new(false)),
                         })
                     }
                     _ => {
@@ -519,6 +527,8 @@ impl crate::FileOpener for FileSystem {
                             name: name_of_file,
                             file,
                             metadata,
+                            ref_count: Arc::new(AtomicUsize::new(0)),
+                            is_unlinked: Arc::new(AtomicBool::new(false)),
                         })
                     }
                 };
