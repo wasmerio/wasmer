@@ -6,7 +6,7 @@
 
 ## **Unreleased**
 
-## 7.0.0-rc.1 - 23/01/2026
+## 7.0.0-rc.2 - 27/01/2026
 
 This release adds:
 - New WASIX Context switching API (green threads).
@@ -22,6 +22,32 @@ This release adds:
 - LLVM: Disabled optimizations for huge functions (e.g. Python compile time ~90s → ~10s).
 - Many secondary platform fixes and improvements for `aarch64-linux`, `riscv64gc-linux`, and `loongarch64-linux`.
 - Many bugfixes and improvements.
+
+## Added
+
+  - [#6066](https://github.com/wasmerio/wasmer/pull/6066) Add a better setup for copilot
+
+## Changed
+
+  - [#6119](https://github.com/wasmerio/wasmer/pull/6119) feat(LLVM): use verbose asm output for debug output
+  - [#6120](https://github.com/wasmerio/wasmer/pull/6120) chore(fuzzing): tweak options and save file early
+  - [#6107](https://github.com/wasmerio/wasmer/pull/6107) Remove hardcoded MSRV in github actions
+  - [#6115](https://github.com/wasmerio/wasmer/pull/6115) chore(fuzzing): small refactor
+  - [#6096](https://github.com/wasmerio/wasmer/pull/6096) build: Switch back to plain rust-toolchain file
+
+## Fixed
+
+  - [#6118](https://github.com/wasmerio/wasmer/pull/6118) fix(LLVM): fix ABI related to pointer type
+  - [#6123](https://github.com/wasmerio/wasmer/pull/6123) fix: do not use engine.new_module_with_progress for non-sys Engines
+  - [#6117](https://github.com/wasmerio/wasmer/pull/6117) fix(LLVM): record try_table in unreachable_depth
+  - [#6114](https://github.com/wasmerio/wasmer/pull/6114) fix(LLVM): fixed ABI issues noticed while fuzzing
+  - [#6109](https://github.com/wasmerio/wasmer/pull/6109) fix(cranelift): support ::Exn (fix php/php-32 compilation)
+  - [#6108](https://github.com/wasmerio/wasmer/pull/6108) fix(docs.rs): fix documentation build (RC version of `sha2` crate)
+  - [#6112](https://github.com/wasmerio/wasmer/pull/6112) fix(wasix): Restore proper webc v2 mount handling
+
+
+
+## 7.0.0-rc.1 - 23/01/2026
 
 ## Added
 
