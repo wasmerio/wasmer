@@ -231,7 +231,7 @@ impl VirtualFile for FileHandle {
         let filesystem = self.filesystem.clone();
         let inode = self.inode;
 
-        let (inode_of_parent, position, inode_of_file) = {
+        let (inode_of_parent, position, _inode_of_file) = {
             // Read lock.
             let fs = filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
@@ -266,7 +266,12 @@ impl VirtualFile for FileHandle {
             let mut fs = filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
             // Remove the file from the storage.
-            fs.storage.remove(inode_of_file);
+            // NOTE: We do NOT remove the inode from storage here to match POSIX behavior.
+            // In POSIX, an unlinked file remains accessible through open file descriptors
+            // until all file descriptors are closed. By keeping the inode in storage,
+            // open file handles can continue to read/write the file even after it's unlinked.
+            // The file is only removed from the parent directory's children list.
+            // fs.storage.remove(inode_of_file);
 
             // Remove the child from the parent directory.
             fs.remove_child_from_node(inode_of_parent, position)?;
@@ -526,9 +531,11 @@ impl VirtualFile for FileHandle {
 
 #[cfg(test)]
 mod test_virtual_file {
-    use crate::{FileSystem as FS, mem_fs::*};
+    use crate::{FileSystem as FS, FsError, mem_fs::*};
+    use std::io::SeekFrom;
     use std::thread::sleep;
     use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     macro_rules! path {
         ($path:expr) => {
@@ -680,10 +687,12 @@ mod test_virtual_file {
         {
             let fs_inner = fs.inner.read().unwrap();
 
+            // NOTE: After the fix for unlinked file writes, the file remains in storage
+            // to match POSIX behavior. The file is only removed from the parent directory.
             assert_eq!(
                 fs_inner.storage.len(),
-                1,
-                "storage no longer has the new file"
+                2,
+                "storage still has the file (POSIX behavior)"
             );
             assert!(
                 matches!(
@@ -695,9 +704,76 @@ mod test_virtual_file {
                         ..
                     })) if name == "/" && children.is_empty()
                 ),
-                "`/` is empty",
+                "`/` is empty (file removed from directory)",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(1),
+                    Some(Node::File(FileNode {
+                        inode: 1,
+                        name,
+                        ..
+                    })) if name == "foo.txt"
+                ),
+                "`foo.txt` still exists in storage (POSIX behavior)",
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_write_to_unlinked_file() {
+        // This test verifies that writing to an unlinked file works correctly
+        // matching POSIX behavior. In POSIX, a file that has been unlinked can
+        // still be accessed through open file descriptors until all descriptors
+        // are closed.
+        let fs = FileSystem::default();
+
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to create a new file");
+
+        // Unlink the file
+        assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+
+        // Verify the file is no longer accessible by path
+        assert!(
+            matches!(
+                fs.new_open_options().read(true).open(path!("/foo.txt")),
+                Err(FsError::EntryNotFound)
+            ),
+            "file is not accessible by path after unlink"
+        );
+
+        // Write a small amount of data (less than 1024 bytes)
+        let small_data = b"Hello, World!";
+        assert!(
+            matches!(file.write(small_data).await, Ok(13)),
+            "writing small data to unlinked file succeeds"
+        );
+
+        // Write a large amount of data (more than 1024 bytes)
+        // This specifically tests the bug fix where writes > 1024 bytes were failing
+        let large_data = vec![0u8; 2048];
+        assert!(
+            matches!(file.write(&large_data).await, Ok(2048)),
+            "writing large data (>1024 bytes) to unlinked file succeeds"
+        );
+
+        // Verify we can read the data back
+        let _ = file.seek(SeekFrom::Start(0)).await;
+        let mut read_buf = Vec::new();
+        let bytes_read = file.read_to_end(&mut read_buf).await.unwrap();
+        assert_eq!(
+            bytes_read,
+            13 + 2048,
+            "can read all data from unlinked file"
+        );
+        assert_eq!(&read_buf[0..13], small_data, "small data matches");
+        assert_eq!(&read_buf[13..], &large_data[..], "large data matches");
     }
 }
 
