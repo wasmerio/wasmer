@@ -737,9 +737,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.54"
+version = "4.5.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6e6ff9dcd79cff5cd969a17a545d79e84ab086e444102a591e288a8aa3ce394"
+checksum = "3e34525d5bbbd55da2bb745d34b36121baac88d07619a9a09cfcf4a6c0832785"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -747,9 +747,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.54"
+version = "4.5.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa42cf4d2b7a41bc8f663a7cab4031ebafa1bf3875705bfaf8466dc60ab52c00"
+checksum = "59a20016a20a3da95bef50ec7238dbd09baeef4311dcdd38ec15aba69812fb61"
 dependencies = [
  "anstream",
  "anstyle",
@@ -768,9 +768,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.49"
+version = "4.5.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a0b5487afeab2deb2ff4e03a807ad1a03ac532ff5a2cee5d86884440c7f7671"
+checksum = "a92793da1a46a5f2a02a6f4c46c6496b28c43638adea8306fcb0caa1634f24e5"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -3261,7 +3261,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5940,9 +5940,9 @@ checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
 
 [[package]]
 name = "typed-path"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e43ffa54726cdc9ea78392023ffe9fe9cf9ac779e1c6fcb0d23f9862e3879d20"
+checksum = "3015e6ce46d5ad8751e4a772543a30c7511468070e98e64e20165f8f81155b64"
 
 [[package]]
 name = "typeid"
@@ -6283,7 +6283,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6317,7 +6317,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6332,7 +6332,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6437,7 +6437,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6516,7 +6516,7 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasi-test-generator"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "glob",
  "gumdrop",
@@ -6706,7 +6706,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -6755,7 +6755,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-argus"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6780,7 +6780,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-backend-api"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -6825,7 +6825,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "cbindgen",
  "cfg-if",
@@ -6854,7 +6854,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "cc",
  "regex",
@@ -6864,7 +6864,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "blake3",
  "clap",
@@ -6882,7 +6882,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "cc",
  "regex",
@@ -6892,7 +6892,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.1.2",
@@ -6987,7 +6987,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "backtrace",
  "bytes",
@@ -7023,7 +7023,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -7044,7 +7044,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -7067,7 +7067,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -7087,7 +7087,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7110,7 +7110,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error2",
@@ -7150,7 +7150,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.1.2",
@@ -7177,11 +7177,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7209,7 +7209,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -7218,7 +7218,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7249,7 +7249,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sdk"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7277,7 +7277,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "thiserror 2.0.18",
  "tokio",
@@ -7291,7 +7291,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "libc",
  "region",
@@ -7305,7 +7305,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -7327,7 +7327,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "backtrace",
  "cc",
@@ -7358,7 +7358,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "assert-panic",
@@ -7452,7 +7452,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
@@ -7475,7 +7475,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "anyhow",
  "fs_extra",
@@ -7493,7 +7493,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 dependencies = [
  "anyhow",
  "build-deps",
@@ -8112,18 +8112,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.34"
+version = "0.8.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71ddd76bcebeed25db614f82bf31a9f4222d3fbba300e6fb6c00afa26cbd4d9d"
+checksum = "fdea86ddd5568519879b8187e1cf04e24fce28f7fe046ceecbce472ff19a2572"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.34"
+version = "0.8.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8187381b52e32220d50b255276aa16a084ec0a9017a0ca2152a1f55c539758d"
+checksum = "0c15e1b46eff7c6c91195752e0eeed8ef040e391cdece7c25376957d5f15df22"
 dependencies = [
  "proc-macro2",
  "quote",

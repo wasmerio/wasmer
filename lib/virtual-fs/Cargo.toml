@@ -1,6 +1,6 @@
 [package]
 name = "virtual-fs"
-version = "0.700.0-rc.2"
+version = "0.700.0"
 description = "Wasmer Virtual FileSystem"
 authors.workspace = true
 edition.workspace = true
@@ -11,7 +11,7 @@ rust-version.workspace = true
 
 [dependencies]
 wasmer-package.workspace = true
-virtual-mio = { path = "../virtual-io", version = "0.700.0-rc.2", default-features = false }
+virtual-mio = { path = "../virtual-io", version = "0.700.0", default-features = false }
 dashmap.workspace = true
 derive_more.workspace = true
 dunce.workspace = true
