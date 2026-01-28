@@ -42,6 +42,10 @@ pub fn get_abi(target_machine: &TargetMachine) -> Box<dyn Abi> {
     }
 }
 
+/// The G0M0 optimization passes extra arguments to each local function:
+/// - G0: Pointer to the first global variable (typically `__stack_pointer`)
+/// - M0: Pointer to the first module linear memory
+
 #[derive(Debug)]
 pub(crate) enum G0M0FunctionKind {
     Local,
