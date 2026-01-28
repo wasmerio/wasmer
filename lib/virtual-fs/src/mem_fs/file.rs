@@ -66,10 +66,12 @@ impl Drop for FileHandle {
             let prev_count = ref_count.fetch_sub(1, Ordering::SeqCst);
 
             // If this was the last reference and the file is unlinked, remove from storage
-            if prev_count == 1 && is_unlinked.load(Ordering::SeqCst)
-                && let Ok(mut fs) = self.filesystem.inner.write() {
-                    fs.storage.remove(self.inode);
-                }
+            if prev_count == 1
+                && is_unlinked.load(Ordering::SeqCst)
+                && let Ok(mut fs) = self.filesystem.inner.write()
+            {
+                fs.storage.remove(self.inode);
+            }
         }
     }
 }
@@ -340,41 +342,39 @@ impl VirtualFile for FileHandle {
             // until all file descriptors are closed. We mark it as unlinked here, and
             // the Drop implementation of FileHandle will remove it from storage when
             // the reference count reaches 0.
-            if let Some(node) = fs.storage.get_mut(inode) {
-                match node {
-                    Node::File(FileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    })
-                    | Node::ReadOnlyFile(ReadOnlyFileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    })
-                    | Node::OffloadedFile(OffloadedFileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    })
-                    | Node::ArcFile(ArcFileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    })
-                    | Node::CustomFile(CustomFileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    }) => {
-                        is_unlinked.store(true, Ordering::SeqCst);
+            if let Some(
+                Node::File(FileNode {
+                    is_unlinked,
+                    ref_count,
+                    ..
+                })
+                | Node::ReadOnlyFile(ReadOnlyFileNode {
+                    is_unlinked,
+                    ref_count,
+                    ..
+                })
+                | Node::OffloadedFile(OffloadedFileNode {
+                    is_unlinked,
+                    ref_count,
+                    ..
+                })
+                | Node::ArcFile(ArcFileNode {
+                    is_unlinked,
+                    ref_count,
+                    ..
+                })
+                | Node::CustomFile(CustomFileNode {
+                    is_unlinked,
+                    ref_count,
+                    ..
+                }),
+            ) = fs.storage.get_mut(inode)
+            {
+                is_unlinked.store(true, Ordering::SeqCst);
 
-                        // If ref_count is 0, remove immediately (no open handles)
-                        if ref_count.load(Ordering::SeqCst) == 0 {
-                            fs.storage.remove(inode);
-                        }
-                    }
-                    _ => {}
+                // If ref_count is 0, remove immediately (no open handles)
+                if ref_count.load(Ordering::SeqCst) == 0 {
+                    fs.storage.remove(inode);
                 }
             }
 
