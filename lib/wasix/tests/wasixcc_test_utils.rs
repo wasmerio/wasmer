@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -314,9 +315,16 @@ pub fn run_wasm_with_result(
                 tokio_task_manager,
             ));
 
-        let module = wasmer_wasix::runtime::load_module(&engine, &module_cache, &module_data)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))?;
+        let arc_cache = Arc::new(module_cache);
+
+        let module = wasmer_wasix::runtime::load_module(
+            &engine,
+            &arc_cache,
+            wasmer_wasix::runtime::ModuleInput::Hashed(Cow::Borrowed(&module_data)),
+            None,
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))?;
 
         tokio::task::block_in_place(move || {
             // Run the WASM module using WasiRunner
