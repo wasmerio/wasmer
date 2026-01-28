@@ -66,11 +66,10 @@ impl Drop for FileHandle {
             let prev_count = ref_count.fetch_sub(1, Ordering::SeqCst);
 
             // If this was the last reference and the file is unlinked, remove from storage
-            if prev_count == 1 && is_unlinked.load(Ordering::SeqCst) {
-                if let Ok(mut fs) = self.filesystem.inner.write() {
+            if prev_count == 1 && is_unlinked.load(Ordering::SeqCst)
+                && let Ok(mut fs) = self.filesystem.inner.write() {
                     fs.storage.remove(self.inode);
                 }
-            }
         }
     }
 }
