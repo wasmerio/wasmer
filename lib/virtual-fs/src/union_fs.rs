@@ -620,7 +620,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_remove_dir() {
+    async fn test_unlink_dir() {
         let fs = gen_filesystem();
 
         assert_eq!(

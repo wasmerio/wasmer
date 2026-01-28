@@ -75,7 +75,7 @@ pub(crate) fn path_remove_directory_internal(
                     return Err(Errno::Notempty);
                 }
 
-                if let Err(e) = state.fs_remove_dir(child_path) {
+                if let Err(e) = state.fs_unlink(child_path) {
                     tracing::warn!(path = ?child_path, error = ?e, "failed to remove directory");
                     return Err(e);
                 }

@@ -413,14 +413,6 @@ impl FileSystem for WasiFsRoot {
         }
     }
 
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        match self {
-            Self::Sandbox(fs) => fs.remove_dir(path),
-            Self::Overlay(overlay) => overlay.remove_dir(path),
-            Self::Backing(fs) => fs.remove_dir(path),
-        }
-    }
-
     fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
         let from = from.to_owned();
         let to = to.to_owned();
@@ -2275,9 +2267,6 @@ impl FileSystem for FallbackFileSystem {
         Self::fail();
     }
     fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
-        Self::fail();
-    }
-    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
     fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> BoxFuture<'a, Result<(), FsError>> {

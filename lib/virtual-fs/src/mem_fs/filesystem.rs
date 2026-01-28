@@ -1300,7 +1300,7 @@ mod test_filesystem {
     }
 
     #[tokio::test]
-    async fn test_remove_dir() {
+    async fn test_unlink_dir() {
         let fs = FileSystem::default();
 
         assert_eq!(

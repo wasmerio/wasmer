@@ -1521,7 +1521,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_secondary_fs_files_remove_dir() {
+    async fn open_secondary_fs_files_unlink_dir() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
         ops::create_dir_all(&secondary, "/secondary").unwrap();
