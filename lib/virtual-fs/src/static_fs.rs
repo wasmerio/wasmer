@@ -321,16 +321,13 @@ impl FileSystem for StaticFileSystem {
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
         let result = self.memory.unlink(Path::new(&path));
+        // Only check for files in volumes, not directories
+        // This matches the previous remove_file behavior
         if self
             .volumes
             .values()
             .find_map(|v| v.get_file_entry(&path).ok())
             .is_some()
-            || self
-                .volumes
-                .values()
-                .find_map(|v| v.read_dir(&path).ok())
-                .is_some()
         {
             Ok(())
         } else {

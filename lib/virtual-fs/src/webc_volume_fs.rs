@@ -130,21 +130,10 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
-        // Check if entry exists
-        let meta = self.metadata(path)?;
+        // Check if entry exists - metadata will return appropriate error if not found
+        let _meta = self.metadata(path)?;
 
-        // For directories, check they are directories
-        if meta.is_dir() {
-            // Would need to check if empty, but we're readonly anyway
-            return Err(FsError::PermissionDenied);
-        }
-
-        // For files
-        if !meta.is_file() {
-            return Err(FsError::NotAFile);
-        }
-
-        // But we are a readonly filesystem, so you can't modify anything
+        // We are a readonly filesystem, so you can't modify anything
         Err(FsError::PermissionDenied)
     }
 
