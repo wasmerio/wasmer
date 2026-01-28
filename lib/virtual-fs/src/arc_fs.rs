@@ -30,10 +30,6 @@ impl FileSystem for ArcFileSystem {
         self.fs.create_dir(path)
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
-        self.fs.remove_dir(path)
-    }
-
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async { self.fs.rename(from, to).await })
     }
@@ -46,8 +42,8 @@ impl FileSystem for ArcFileSystem {
         self.fs.symlink_metadata(path)
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        self.fs.remove_file(path)
+    fn unlink(&self, path: &Path) -> Result<()> {
+        self.fs.unlink(path)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {

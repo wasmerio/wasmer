@@ -211,18 +211,6 @@ impl FileSystem for UnionFileSystem {
             }
         }
     }
-    fn remove_dir(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
-
-        if path.as_os_str().is_empty() {
-            Err(FsError::PermissionDenied)
-        } else {
-            match self.find_mount(path.to_owned()) {
-                Some((_, path, fs)) => fs.remove_dir(&path),
-                _ => Err(FsError::EntryNotFound),
-            }
-        }
-    }
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
             let from = self.prepare_path(from);
@@ -280,14 +268,14 @@ impl FileSystem for UnionFileSystem {
             }
         }
     }
-    fn remove_file(&self, path: &Path) -> Result<()> {
+    fn unlink(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path);
 
         if path.as_os_str().is_empty() {
-            Err(FsError::NotAFile)
+            Err(FsError::PermissionDenied)
         } else {
             match self.find_mount(path.to_owned()) {
-                Some((_, path, fs)) => fs.remove_file(&path),
+                Some((_, path, fs)) => fs.unlink(&path),
                 _ => Err(FsError::EntryNotFound),
             }
         }
@@ -636,13 +624,13 @@ mod tests {
         let fs = gen_filesystem();
 
         assert_eq!(
-            fs.remove_dir(Path::new("/")),
+            fs.unlink(Path::new("/")),
             Err(FsError::PermissionDenied),
             "cannot remove the root directory",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/foo")),
+            fs.unlink(Path::new("/foo")),
             Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
@@ -667,19 +655,19 @@ mod tests {
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo")),
+            fs.unlink(Path::new("/test_remove_dir/foo")),
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo/bar")),
+            fs.unlink(Path::new("/test_remove_dir/foo/bar")),
             Ok(()),
             "removing a sub-directory",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo")),
+            fs.unlink(Path::new("/test_remove_dir/foo")),
             Ok(()),
             "removing a directory",
         );
@@ -924,7 +912,7 @@ mod tests {
         assert!(read_dir_names(&fs, "/test_remove_file").contains(&"foo.txt".to_string()));
 
         assert_eq!(
-            fs.remove_file(Path::new("/test_remove_file/foo.txt")),
+            fs.unlink(Path::new("/test_remove_file/foo.txt")),
             Ok(()),
             "removing a file that exists",
         );
@@ -932,7 +920,7 @@ mod tests {
         assert!(!read_dir_names(&fs, "/test_remove_file").contains(&"foo.txt".to_string()));
 
         assert_eq!(
-            fs.remove_file(Path::new("/test_remove_file/foo.txt")),
+            fs.unlink(Path::new("/test_remove_file/foo.txt")),
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );

@@ -95,7 +95,7 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
-    
+
     /// Remove a file or empty directory at the specified path.
     /// This matches POSIX unlink semantics:
     /// - For files: removes the directory entry and decrements link count
@@ -138,10 +138,6 @@ where
         (**self).create_dir(path)
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
-        (**self).remove_dir(path)
-    }
-
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async { (**self).rename(from, to).await })
     }
@@ -154,8 +150,8 @@ where
         (**self).symlink_metadata(path)
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        (**self).remove_file(path)
+    fn unlink(&self, path: &Path) -> Result<()> {
+        (**self).unlink(path)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {

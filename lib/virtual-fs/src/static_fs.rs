@@ -275,20 +275,6 @@ impl FileSystem for StaticFileSystem {
         let path = normalizes_path(path);
         self.memory.create_dir(Path::new(&path))
     }
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
-        let path = normalizes_path(path);
-        let result = self.memory.remove_dir(Path::new(&path));
-        if self
-            .volumes
-            .values()
-            .find_map(|v| v.get_file_entry(&path).ok())
-            .is_some()
-        {
-            Ok(())
-        } else {
-            result
-        }
-    }
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async {
             let from = normalizes_path(from);
@@ -332,14 +318,19 @@ impl FileSystem for StaticFileSystem {
             self.memory.metadata(Path::new(&path))
         }
     }
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+    fn unlink(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        let result = self.memory.remove_file(Path::new(&path));
+        let result = self.memory.unlink(Path::new(&path));
         if self
             .volumes
             .values()
             .find_map(|v| v.get_file_entry(&path).ok())
             .is_some()
+            || self
+                .volumes
+                .values()
+                .find_map(|v| v.read_dir(&path).ok())
+                .is_some()
         {
             Ok(())
         } else {

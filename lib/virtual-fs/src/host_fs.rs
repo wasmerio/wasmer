@@ -137,19 +137,26 @@ impl crate::FileSystem for FileSystem {
         fs::create_dir(path).map_err(Into::into)
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
+    fn unlink(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path);
 
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
 
-        // https://github.com/rust-lang/rust/issues/86442
-        // DirectoryNotEmpty is not implemented consistently
-        if path.is_dir() && self.read_dir(&path).map(|s| !s.is_empty()).unwrap_or(false) {
-            return Err(FsError::DirectoryNotEmpty);
+        // Check if it's a directory or file
+        let metadata = fs::metadata(&path).map_err(|_| FsError::EntryNotFound)?;
+
+        if metadata.is_dir() {
+            // For directories, check if empty
+            if self.read_dir(&path).map(|s| !s.is_empty()).unwrap_or(false) {
+                return Err(FsError::DirectoryNotEmpty);
+            }
+            fs::remove_dir(path).map_err(Into::into)
+        } else {
+            // For files
+            fs::remove_file(path).map_err(Into::into)
         }
-        fs::remove_dir(path).map_err(Into::into)
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
@@ -204,16 +211,6 @@ impl crate::FileSystem for FileSystem {
             let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
             result
         })
-    }
-
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
-
-        if path.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-
-        fs::remove_file(path).map_err(Into::into)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -1119,7 +1116,7 @@ mod tests {
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
         assert_eq!(
-            fs.remove_dir(Path::new("/foo")),
+            fs.unlink(Path::new("/foo")),
             Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
@@ -1139,22 +1136,18 @@ mod tests {
         assert!(temp.path().join("foo/bar").exists(), "./foo/bar exists");
 
         assert_eq!(
-            fs.remove_dir(Path::new("foo")),
+            fs.unlink(Path::new("foo")),
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("foo/bar")),
+            fs.unlink(Path::new("foo/bar")),
             Ok(()),
             "removing a sub-directory",
         );
 
-        assert_eq!(
-            fs.remove_dir(Path::new("foo")),
-            Ok(()),
-            "removing a directory",
-        );
+        assert_eq!(fs.unlink(Path::new("foo")), Ok(()), "removing a directory",);
 
         let cur_dir = read_dir_names(&fs, "/");
 
@@ -1376,7 +1369,7 @@ mod tests {
         assert!(temp.path().join("foo.txt").is_file());
 
         assert_eq!(
-            fs.remove_file(Path::new("foo.txt")),
+            fs.unlink(Path::new("foo.txt")),
             Ok(()),
             "removing a file that exists",
         );
@@ -1384,7 +1377,7 @@ mod tests {
         assert!(!temp.path().join("foo.txt").exists());
 
         assert_eq!(
-            fs.remove_file(Path::new("foo.txt")),
+            fs.unlink(Path::new("foo.txt")),
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );
