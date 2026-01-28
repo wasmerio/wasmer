@@ -10,7 +10,7 @@ publish = false
 [dev-dependencies]
 rand.workspace = true
 target-lexicon.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["derive"] }
 insta = { workspace = true, features = ["json"] }
 md5.workspace = true
 hex.workspace = true

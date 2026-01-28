@@ -38,7 +38,7 @@ fn docker_file_is_up_to_date() {
 #[test]
 fn rust_toolchain_file_is_up_to_date() {
     let pattern = Regex::new(r"1\.\d\d").unwrap();
-    let rust_toolchain = project_root().join("rust-toolchain");
+    let rust_toolchain = project_root().join("rust-toolchain.toml");
 
     let contents = std::fs::read_to_string(&rust_toolchain).unwrap();
     let expected = pattern.replace_all(&contents, MSRV.as_str());
