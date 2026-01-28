@@ -28,7 +28,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if fd == VIRTUAL_ROOT_FD {
-            ctx.data().state.fs.root_fs.remove_file(Path::new(path))?;
+            ctx.data().state.fs.root_fs.unlink(Path::new(path))?;
         } else {
             let ret = crate::syscalls::path_unlink_file_internal(ctx, fd, path)?;
             if ret != Errno::Success {

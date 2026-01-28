@@ -1673,7 +1673,7 @@ mod test_filesystem {
     }
 
     #[tokio::test]
-    async fn test_remove_file() {
+    async fn test_unlink() {
         let fs = FileSystem::default();
 
         assert!(

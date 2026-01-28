@@ -1351,7 +1351,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_remove_file() {
+    async fn test_unlink() {
         let temp = TempDir::new().unwrap();
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 

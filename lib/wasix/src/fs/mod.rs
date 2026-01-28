@@ -450,11 +450,11 @@ impl FileSystem for WasiFsRoot {
         }
     }
 
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+    fn unlink(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
-            Self::Sandbox(fs) => fs.remove_file(path),
-            Self::Overlay(overlay) => overlay.remove_file(path),
-            Self::Backing(fs) => fs.remove_file(path),
+            Self::Sandbox(fs) => fs.unlink(path),
+            Self::Overlay(overlay) => overlay.unlink(path),
+            Self::Backing(fs) => fs.unlink(path),
         }
     }
 
@@ -2289,7 +2289,7 @@ impl FileSystem for FallbackFileSystem {
     fn symlink_metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
         Self::fail();
     }
-    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
+    fn unlink(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
     fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {

@@ -677,9 +677,9 @@ where
         self.inner.symlink_metadata(&path)
     }
 
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+    fn unlink(&self, path: &Path) -> virtual_fs::Result<()> {
         let path = self.path(path)?;
-        self.inner.remove_file(&path)
+        self.inner.unlink(&path)
     }
 
     fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {

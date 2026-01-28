@@ -419,7 +419,7 @@ mod tests {
         union
             .mount(
                 "mem_fs_6".to_string(),
-                PathBuf::from("/test_remove_file").as_path(),
+                PathBuf::from("/test_unlink").as_path(),
                 Box::new(f),
             )
             .unwrap();
@@ -897,35 +897,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_remove_file() {
+    async fn test_unlink() {
         let fs = gen_filesystem();
 
         assert!(
             fs.new_open_options()
                 .write(true)
                 .create_new(true)
-                .open(Path::new("/test_remove_file/foo.txt"))
+                .open(Path::new("/test_unlink/foo.txt"))
                 .is_ok(),
             "creating a new file",
         );
 
-        assert!(read_dir_names(&fs, "/test_remove_file").contains(&"foo.txt".to_string()));
+        assert!(read_dir_names(&fs, "/test_unlink").contains(&"foo.txt".to_string()));
 
         assert_eq!(
-            fs.unlink(Path::new("/test_remove_file/foo.txt")),
+            fs.unlink(Path::new("/test_unlink/foo.txt")),
             Ok(()),
             "removing a file that exists",
         );
 
-        assert!(!read_dir_names(&fs, "/test_remove_file").contains(&"foo.txt".to_string()));
+        assert!(!read_dir_names(&fs, "/test_unlink").contains(&"foo.txt".to_string()));
 
         assert_eq!(
-            fs.unlink(Path::new("/test_remove_file/foo.txt")),
+            fs.unlink(Path::new("/test_unlink/foo.txt")),
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );
 
-        let _ = fs_extra::remove_items(&["./test_remove_file"]);
+        let _ = fs_extra::remove_items(&["./test_unlink"]);
     }
 
     #[tokio::test]

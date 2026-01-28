@@ -99,7 +99,7 @@ pub(crate) fn path_unlink_file_internal(
                         // drop mutable borrow on `path`
                         let path = path.clone();
                         drop(guard);
-                        wasi_try_ok!(state.fs_remove_file(path));
+                        wasi_try_ok!(state.fs_unlink(path));
                     }
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(Errno::Isdir),
