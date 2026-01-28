@@ -133,6 +133,43 @@ impl std::io::Seek for CaptureFile {
     }
 }
 
+fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
+    if let Ok(sysroot) = std::env::var("WASIXCC_SYSROOT") {
+        if !Path::new(&sysroot).exists() {
+            anyhow::bail!("WASIXCC_SYSROOT is set but does not exist: {}", sysroot);
+        }
+        return Ok(sysroot);
+    }
+
+    if let Ok(sysroot) = std::env::var("WASIXCC_PYTHON_SYSROOT") {
+        if !Path::new(&sysroot).exists() {
+            anyhow::bail!(
+                "WASIXCC_PYTHON_SYSROOT is set but does not exist: {}",
+                sysroot
+            );
+        }
+        return Ok(sysroot);
+    }
+
+    // Try to find a build-scripts style sysroot in common locations
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+
+    // A wasix-clang sysroot should
+    let sysroot = format!("{}/.wasix-clang/wasix-sysroot", home);
+    if Path::new(&sysroot).exists() {
+        return Ok(sysroot);
+    }
+
+    let sysroot = format!("{}/.build-scripts/pkgs", home);
+    if Path::new(&sysroot).exists() {
+        return Ok(sysroot);
+    }
+
+    anyhow::bail!(
+        "Could not find a sysroot compatible with the wasix tests. Use the following command to download a compatible sysroot from build-scripts into the correct location:\ncurl -sSfL https://raw.githubusercontent.com/wasix-org/build-scripts/refs/heads/main/assemble-pkgs.sh | bash -s -- -i wasix-libc -i libcxx -i compiler-rt -i libffi -o ~/.build-scripts/pkgs"
+    );
+}
+
 /// Run a build.sh script for a test directory.
 ///
 /// This function locates the test directory based on the test file path,
@@ -159,11 +196,7 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
     let build_script = test_path.join("build.sh");
 
     // Use wasixcc environment variables if available, otherwise use defaults
-    let sysroot = std::env::var("WASIXCC_SYSROOT").unwrap_or_else(|_| {
-        // Try to find sysroot in common locations
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        format!("{home}/.wasix-clang/wasix-sysroot")
-    });
+    let sysroot = find_compatible_sysroot()?;
 
     let compiler_flags = std::env::var("WASIXCC_COMPILER_FLAGS")
         .unwrap_or_else(|_| format!(
