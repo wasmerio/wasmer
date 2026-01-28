@@ -1971,4 +1971,107 @@ mod test_filesystem {
 
         assert_eq!(buf, b"a");
     }
+
+    #[tokio::test]
+    async fn test_unlink_file() {
+        // Test that unlinking a file works
+        let fs = FileSystem::default();
+        
+        // Create a file
+        fs.new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/test.txt"))
+            .unwrap();
+        
+        // Verify file exists
+        assert!(fs.metadata(Path::new("/test.txt")).is_ok());
+        
+        // Unlink the file using remove_file (will be replaced with unlink)
+        assert!(fs.remove_file(Path::new("/test.txt")).is_ok());
+        
+        // Verify file no longer exists
+        assert!(matches!(
+            fs.metadata(Path::new("/test.txt")),
+            Err(FsError::EntryNotFound)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_unlink_empty_directory() {
+        // Test that unlinking an empty directory works
+        let fs = FileSystem::default();
+        
+        // Create a directory
+        fs.create_dir(Path::new("/testdir")).unwrap();
+        
+        // Verify directory exists
+        assert!(fs.metadata(Path::new("/testdir")).is_ok());
+        
+        // Unlink the directory using remove_dir (will be replaced with unlink)
+        assert!(fs.remove_dir(Path::new("/testdir")).is_ok());
+        
+        // Verify directory no longer exists
+        assert!(matches!(
+            fs.metadata(Path::new("/testdir")),
+            Err(FsError::EntryNotFound)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_unlink_nonempty_directory_fails() {
+        // Test that unlinking a non-empty directory fails
+        let fs = FileSystem::default();
+        
+        // Create a directory with a file
+        fs.create_dir(Path::new("/testdir")).unwrap();
+        fs.new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/testdir/file.txt"))
+            .unwrap();
+        
+        // Try to unlink the directory - should fail because it's not empty
+        assert!(matches!(
+            fs.remove_dir(Path::new("/testdir")),
+            Err(FsError::DirectoryNotEmpty)
+        ));
+        
+        // Directory should still exist
+        assert!(fs.metadata(Path::new("/testdir")).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_unlink_file_with_remove_dir_fails() {
+        // Test that trying to unlink a file with remove_dir fails
+        let fs = FileSystem::default();
+        
+        // Create a file
+        fs.new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/test.txt"))
+            .unwrap();
+        
+        // Try to remove file using remove_dir - should fail
+        assert!(fs.remove_dir(Path::new("/test.txt")).is_err());
+        
+        // File should still exist
+        assert!(fs.metadata(Path::new("/test.txt")).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_unlink_directory_with_remove_file_fails() {
+        // Test that trying to unlink a directory with remove_file fails
+        let fs = FileSystem::default();
+        
+        // Create a directory
+        fs.create_dir(Path::new("/testdir")).unwrap();
+        
+        // Try to remove directory using remove_file - should fail
+        assert!(fs.remove_file(Path::new("/testdir")).is_err());
+        
+        // Directory should still exist
+        assert!(fs.metadata(Path::new("/testdir")).is_ok());
+    }
 }
