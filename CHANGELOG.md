@@ -6,6 +6,22 @@
 
 ## **Unreleased**
 
+## 7.0.0 - 28/01/2026
+
+## Added
+
+
+## Changed
+
+  - [#6125](https://github.com/wasmerio/wasmer/pull/6125) build(v8): disable in the official tarballs
+
+## Fixed
+
+  - [#6127](https://github.com/wasmerio/wasmer/pull/6127) fix(virtual-fs): Fix read_dir missing mount prefix
+  - [#6130](https://github.com/wasmerio/wasmer/pull/6130) Fix copilot setup
+
+
+
 ## 7.0.0-rc.2 - 27/01/2026
 
 This release adds:
