@@ -45,6 +45,16 @@ pub(crate) fn path_remove_directory_internal(
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let working_dir = state.fs.get_fd(fd)?;
+    if !working_dir
+        .inner
+        .rights
+        .contains(Rights::PATH_REMOVE_DIRECTORY)
+    {
+        return Err(Errno::Access);
+    }
+    if path == "." {
+        return Err(Errno::Inval);
+    }
 
     let (parent_inode, dir_name) =
         state
@@ -55,10 +65,31 @@ pub(crate) fn path_remove_directory_internal(
     match guard.deref_mut() {
         Kind::Dir {
             entries: parent_entries,
+            path: parent_path,
             ..
         } => {
-            let Some(child_inode) = parent_entries.get(&dir_name) else {
-                return Err(Errno::Noent);
+            let child_inode = if let Some(child_inode) = parent_entries.get(&dir_name) {
+                child_inode.clone()
+            } else {
+                let mut child_path = parent_path.clone();
+                child_path.push(&dir_name);
+                let metadata = state
+                    .fs
+                    .root_fs
+                    .symlink_metadata(&child_path)
+                    .map_err(fs_error_into_wasi_err)?;
+                if !metadata.is_dir() {
+                    return Err(Errno::Notdir);
+                }
+                if let Err(e) = state.fs_remove_dir(&child_path) {
+                    tracing::warn!(
+                        path = ?child_path,
+                        error = ?e,
+                        "failed to remove directory"
+                    );
+                    return Err(e);
+                }
+                return Ok(());
             };
 
             {

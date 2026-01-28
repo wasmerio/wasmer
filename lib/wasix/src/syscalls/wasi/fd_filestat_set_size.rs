@@ -48,6 +48,10 @@ pub(crate) fn fd_filestat_set_size_internal(
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::File { handle, .. } => {
+                if fd_entry.open_flags & crate::fs::Fd::WRITE == 0 {
+                    // Match Linux ftruncate behavior on read-only fds.
+                    return Err(Errno::Inval);
+                }
                 if let Some(handle) = handle {
                     let mut handle = handle.write().unwrap();
                     handle.set_len(st_size).map_err(fs_error_into_wasi_err)?;
@@ -56,6 +60,10 @@ pub(crate) fn fd_filestat_set_size_internal(
                 }
             }
             Kind::Buffer { buffer } => {
+                if fd_entry.open_flags & crate::fs::Fd::WRITE == 0 {
+                    // Match Linux ftruncate behavior on read-only fds.
+                    return Err(Errno::Inval);
+                }
                 buffer.resize(st_size as usize, 0);
             }
             Kind::Socket { .. }
@@ -65,7 +73,7 @@ pub(crate) fn fd_filestat_set_size_internal(
             | Kind::Symlink { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Err(Errno::Badf),
-            Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
+            Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Badf),
         }
     }
     inode.stat.write().unwrap().st_size = st_size;

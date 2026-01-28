@@ -1,5 +1,6 @@
 use super::*;
 use crate::syscalls::*;
+use virtual_fs::FsError;
 
 /// ### `path_symlink()`
 /// Create a symlink
@@ -67,6 +68,10 @@ pub fn path_symlink_internal(
         return Err(Errno::Access);
     }
 
+    if std::path::Path::new(old_path).is_absolute() {
+        return Err(Errno::Notsup);
+    }
+
     // get the depth of the parent + 1 (UNDER INVESTIGATION HMMMMMMMM THINK FISH ^ THINK FISH)
     let old_path_path = std::path::Path::new(old_path);
     let (source_inode, _) = state
@@ -85,14 +90,52 @@ pub fn path_symlink_internal(
         state
             .fs
             .get_parent_inode_at_path(inodes, fd, new_path_path, true)?;
+    let trailing_slash = new_path.as_bytes().last() == Some(&b'/');
+
+    if trailing_slash {
+        let guard = target_parent_inode.read();
+        match guard.deref() {
+            Kind::Dir { entries, path, .. } => {
+                if let Some(child_inode) = entries.get(&entry_name) {
+                    let child_guard = child_inode.read();
+                    return if matches!(child_guard.deref(), Kind::Dir { .. }) {
+                        Err(Errno::Exist)
+                    } else {
+                        Err(Errno::Notdir)
+                    };
+                }
+                let mut child_path = path.clone();
+                child_path.push(&entry_name);
+                return match state.fs.root_fs.symlink_metadata(&child_path) {
+                    Ok(metadata) => {
+                        if metadata.is_dir() {
+                            Err(Errno::Exist)
+                        } else {
+                            Err(Errno::Notdir)
+                        }
+                    }
+                    Err(err) => Err(fs_error_into_wasi_err(err)),
+                };
+            }
+            Kind::Root { .. } => return Err(Errno::Notcapable),
+            _ => return Err(Errno::Notdir),
+        }
+    }
 
     // short circuit if anything is wrong, before we create an inode
     {
         let guard = target_parent_inode.read();
         match guard.deref() {
-            Kind::Dir { entries, .. } => {
+            Kind::Dir { entries, path, .. } => {
                 if entries.contains_key(&entry_name) {
                     return Err(Errno::Exist);
+                }
+                let mut child_path = path.clone();
+                child_path.push(&entry_name);
+                match state.fs.root_fs.symlink_metadata(&child_path) {
+                    Ok(_) => return Err(Errno::Exist),
+                    Err(FsError::EntryNotFound) => {}
+                    Err(err) => return Err(fs_error_into_wasi_err(err)),
                 }
             }
             Kind::Root { .. } => return Err(Errno::Notcapable),
@@ -103,7 +146,7 @@ pub fn path_symlink_internal(
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Err(Errno::Inval),
             Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => {
-                unreachable!("get_parent_inode_at_path returned something other than a Dir or Root")
+                return Err(Errno::Notdir);
             }
         }
     }

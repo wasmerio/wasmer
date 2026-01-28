@@ -1051,7 +1051,7 @@ impl WasiFs {
         seen_symlinks: &mut HashSet<Inode>,
     ) -> Result<InodeGuard, Errno> {
         if symlink_count >= MAX_SYMLINKS {
-            return Err(Errno::Mlink);
+            return Err(Errno::Loop);
         }
 
         let path: &Path = Path::new(path_str);
@@ -1102,7 +1102,7 @@ impl WasiFs {
                                     loop_for_symlink = true;
                                     symlink_count += 1;
                                     if symlink_count >= MAX_SYMLINKS {
-                                        return Err(Errno::Mlink);
+                                        return Err(Errno::Loop);
                                     }
                                 }
                             }
@@ -1153,7 +1153,7 @@ impl WasiFs {
                                 loop_for_symlink = true;
                                 symlink_count += 1;
                                 if symlink_count >= MAX_SYMLINKS {
-                                    return Err(Errno::Mlink);
+                                    return Err(Errno::Loop);
                                 }
                                 Kind::Symlink {
                                     base_po_dir: pre_open_dir_fd,
