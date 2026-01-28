@@ -1,5 +1,6 @@
 use libfuzzer_sys::arbitrary::Arbitrary;
 
+#[allow(dead_code)]
 pub(crate) struct SinglePassFuzzModule(pub(crate) wasm_smith::Module);
 
 impl Arbitrary<'_> for SinglePassFuzzModule {
@@ -20,6 +21,7 @@ impl Arbitrary<'_> for SinglePassFuzzModule {
         config.max_memories = 1;
         config.tail_call_enabled = false;
         config.simd_enabled = false;
+        config.relaxed_simd_enabled = false;
         Ok(Self(wasm_smith::Module::new(config, u)?))
     }
 }
@@ -36,7 +38,6 @@ pub(crate) fn save_wasm_file(data: &[u8]) {
         use std::fs::File;
         use std::io::Write;
         let mut file = File::create(&path).unwrap();
-        eprintln!("Saving fuzzed WASM file to: {path:?}");
         file.write_all(data).unwrap();
     }
 }

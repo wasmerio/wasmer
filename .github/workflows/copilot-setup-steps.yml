@@ -1,0 +1,120 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  # The job MUST be called `copilot-setup-steps`
+  copilot-setup-steps:
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up libstdc++ on Linux
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6
+          sudo apt-get install -y --reinstall g++
+          sudo apt-get install -y creduce
+
+      - name: Read rust version
+        id: read_rust_version
+        run: |
+          rust_toolchain=$(head -n1 rust-toolchain | tr -d '\n')
+          echo "MSRV=$rust_toolchain" >> $GITHUB_ENV
+          echo "MSRV=$rust_toolchain" >> $GITHUB_OUTPUT
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.read_rust_version.outputs.MSRV }}
+          target: x86_64-unknown-linux-gnu
+          components: rustc,cargo,rust-std,rust-src,clippy,rustfmt,rust-analyzer,rust-docs
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.wasmer/cache/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            ${{ runner.os }}-cargo-
+
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Install LLVM
+        shell: bash
+        run: |
+          cd $HOME
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf ${{ env.LLVM_URL }} -L -o llvm.tar.xz
+          LLVM_DIR=$HOME/.llvm
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_211_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          cd -
+        env:
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz
+
+      - name: Install wasixcc
+        uses: wasix-org/wasixcc@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          sysroot-tag: v2025-12-22.1
+
+      - name: Install wasm-tools
+        run: |
+          cargo install --locked wasm-tools
+
+      - name: Ensure the setup works
+        shell: bash
+        run: |
+          # Check rustfmt is installed
+          cargo fmt --version
+          # Check clippy is installed
+          cargo clippy --version
+          # Check wasm-tools is installed
+          wasm-tools --version
+          # Check wasixcc is installed
+          wasixcc --version
+          # Check wasm-opt is available
+          wasm-opt --version
+          # Check that the repo exists
+          git status --porcelain
+          # Check that the repo is clean
+          test -z "$(git status --porcelain)"
+          # Check that clang is installed
+          clang --version
+          # Check that clang comes from the LLVM we installed
+          clang_path=$(which clang)
+          echo "Clang path: $clang_path"
+          [[ "$clang_path" == *".llvm"* ]]
+          # Check that creduce is installed
+          creduce --version
+
+      # For debugging the setup locally, you can uncomment this step and run
+      # `act -P ubuntu-22.04=catthehacker/ubuntu:full-22.04 -W ./.github/workflows/copilot-setup-steps.yml`
+      # - name: Setup upterm session
+      #   uses: owenthereal/action-upterm@v1
+      #   with:
+      #     limit-access-to-users: zebreus

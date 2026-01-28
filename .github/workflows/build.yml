@@ -3,7 +3,6 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.91"
 
 on:
   push:
@@ -65,7 +64,8 @@ jobs:
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             build_wasm: true
             enable_llvm: true
-            enable_v8: true
+            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
+            enable_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: macos-x64
@@ -75,7 +75,8 @@ jobs:
             cross_compilation_artifact_name: "cross_compiled_from_mac"
             build_wasm: false
             enable_llvm: true
-            enable_v8: true
+            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
+            enable_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: macos-arm64
@@ -85,7 +86,8 @@ jobs:
             build_wasm: false
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz"
             enable_llvm: true
-            enable_v8: true
+            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
+            enable_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: windows-x64
@@ -104,7 +106,7 @@ jobs:
             #  container: alpine:latest
             #  build_wasm: true
             #  enable_llvm: false
-            #  enable_v8: true
+            #  enable_v8: false
             #  enable_wasmi: true
             #  enable_wamr: false
 
@@ -148,10 +150,12 @@ jobs:
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: startsWith(matrix.build, 'windows-')
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.target }}      
       - name: Install LLVM (macOS Intel)
         if: matrix.os == 'macos-15-intel' && !matrix.llvm_url

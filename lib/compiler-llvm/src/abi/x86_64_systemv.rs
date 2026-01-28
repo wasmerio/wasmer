@@ -146,25 +146,27 @@ impl Abi for X86_64SystemV {
                 ),
                 vmctx_attributes(0),
             ),
-            [32, 32, _] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
-                context
-                    .struct_type(
-                        &[
-                            intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
-                            type_to_llvm(intrinsics, sig.results()[2])?,
-                        ],
-                        false,
-                    )
-                    .fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
-                vmctx_attributes(0),
-            ),
-            [32, 32, _] => (
+            [32, 32, 32 | 64] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => {
+                (
+                    context
+                        .struct_type(
+                            &[
+                                intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
+                                type_to_llvm(intrinsics, sig.results()[2])?,
+                            ],
+                            false,
+                        )
+                        .fn_type(
+                            param_types
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                                .as_slice(),
+                            false,
+                        ),
+                    vmctx_attributes(0),
+                )
+            }
+            [32, 32, 32 | 64] => (
                 context
                     .struct_type(
                         &[
@@ -490,7 +492,8 @@ impl Abi for X86_64SystemV {
                     && value.into_float_value().get_type() == intrinsics.f32_ty)
         };
         let is_64 = |value: BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
+            value.is_pointer_value()
+                || (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
                 || (value.is_float_value()
                     && value.into_float_value().get_type() == intrinsics.f64_ty)
         };

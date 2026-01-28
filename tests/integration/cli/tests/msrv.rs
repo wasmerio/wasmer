@@ -46,22 +46,6 @@ fn rust_toolchain_file_is_up_to_date() {
     ensure_file_contents(rust_toolchain, expected);
 }
 
-#[test]
-fn ci_files_are_up_to_date() {
-    let pattern = Regex::new(r#"MSRV:\s*"\d+\.\d+""#).unwrap();
-    let replacement = format!("MSRV: \"{}\"", MSRV.as_str());
-    let workflows = project_root().join(".github").join("workflows");
-
-    for result in workflows.read_dir().unwrap() {
-        let path = result.unwrap().path();
-
-        let contents = std::fs::read_to_string(&path).unwrap();
-        let expected = pattern.replace_all(&contents, &replacement);
-
-        ensure_file_contents(path, expected);
-    }
-}
-
 /// Get the root directory for this repository.
 fn project_root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))

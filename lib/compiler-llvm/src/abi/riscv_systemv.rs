@@ -82,7 +82,13 @@ impl Abi for RiscvSystemV {
                 Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                 Type::I64 | Type::F64 => 64,
                 Type::V128 => 128,
-                Type::ExternRef | Type::FuncRef => 64, /* pointer */
+                Type::ExternRef | Type::FuncRef => {
+                    if self.is_riscv64 {
+                        64
+                    } else {
+                        32
+                    }
+                } /* pointer */
             })
             .collect::<Vec<i32>>();
 
@@ -148,25 +154,27 @@ impl Abi for RiscvSystemV {
                 ),
                 vmctx_attributes(0),
             ),
-            [32, 32, _] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
-                context
-                    .struct_type(
-                        &[
-                            intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
-                            type_to_llvm(intrinsics, sig.results()[2])?,
-                        ],
-                        false,
-                    )
-                    .fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
-                vmctx_attributes(0),
-            ),
-            [32, 32, _] => (
+            [32, 32, 32 | 64] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => {
+                (
+                    context
+                        .struct_type(
+                            &[
+                                intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
+                                type_to_llvm(intrinsics, sig.results()[2])?,
+                            ],
+                            false,
+                        )
+                        .fn_type(
+                            param_types
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                                .as_slice(),
+                            false,
+                        ),
+                    vmctx_attributes(0),
+                )
+            }
+            [32, 32, 32 | 64] => (
                 context
                     .struct_type(
                         &[
@@ -388,7 +396,13 @@ impl Abi for RiscvSystemV {
                         Type::I32 | Type::F32 | Type::ExceptionRef => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef => {
+                            if self.is_riscv64 {
+                                64
+                            } else {
+                                32
+                            }
+                        } /* pointer */
                     })
                     .collect::<Vec<i32>>();
 
@@ -512,12 +526,14 @@ impl Abi for RiscvSystemV {
         func_type: &FunctionType<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let is_32 = |value: BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i32_ty)
+            (value.is_pointer_value() && !self.is_riscv64)
+                || (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i32_ty)
                 || (value.is_float_value()
                     && value.into_float_value().get_type() == intrinsics.f32_ty)
         };
         let is_64 = |value: BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
+            (value.is_pointer_value() && self.is_riscv64)
+                || (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
                 || (value.is_float_value()
                     && value.into_float_value().get_type() == intrinsics.f64_ty)
         };
