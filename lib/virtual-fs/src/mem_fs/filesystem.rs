@@ -11,7 +11,7 @@ use std::convert::identity;
 use std::ffi::OsString;
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, atomic::Ordering};
 
 /// The in-memory file system!
 ///
@@ -381,6 +381,108 @@ impl crate::FileSystem for FileSystem {
 
             // Adding the new directory to its parent.
             fs.add_child_to_node(inode_of_parent, inode_of_directory)?;
+        }
+
+        Ok(())
+    }
+
+    fn unlink(&self, path: &Path) -> Result<()> {
+        // Unified unlink implementation that handles both files and directories
+        // This matches POSIX unlink semantics
+        let (inode_of_parent, position, inode_to_unlink, is_directory) = {
+            // Read lock.
+            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+            // Canonicalize the path.
+            let path = guard.canonicalize_without_inode(path)?;
+
+            // Check the path has a parent.
+            let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
+
+            // Check the entry name.
+            let name_of_entry = path
+                .file_name()
+                .ok_or(FsError::InvalidInput)?
+                .to_os_string();
+
+            // Find the parent inode.
+            let inode_of_parent = match guard.inode_of_parent(parent_of_path)? {
+                InodeResolution::Found(a) => a,
+                InodeResolution::Redirect(fs, mut parent_path) => {
+                    drop(guard);
+                    parent_path.push(name_of_entry);
+                    return fs.unlink(parent_path.as_path());
+                }
+            };
+
+            // Try to find the entry as either a file or directory
+            // First try as a file
+            if let Some((position, inode_resolution)) =
+                guard.as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_entry)?
+            {
+                let inode = match inode_resolution {
+                    InodeResolution::Found(a) => a,
+                    InodeResolution::Redirect(fs, path) => {
+                        drop(guard);
+                        return fs.unlink(path.as_path());
+                    }
+                };
+                (inode_of_parent, position, inode, false)
+            } else {
+                // Try as a directory
+                let (position, inode_resolution) = guard
+                    .as_parent_get_position_and_inode_of_directory(
+                        inode_of_parent,
+                        &name_of_entry,
+                        DirectoryMustBeEmpty::Yes,
+                    )?;
+
+                let inode = match inode_resolution {
+                    InodeResolution::Found(a) => a,
+                    InodeResolution::Redirect(fs, path) => {
+                        drop(guard);
+                        return fs.unlink(path.as_path());
+                    }
+                };
+                (inode_of_parent, position, inode, true)
+            }
+        };
+
+        {
+            // Write lock.
+            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+            if is_directory {
+                // For directories, just remove from storage
+                fs.storage.remove(inode_to_unlink);
+            } else {
+                // For files, handle reference counting for open handles
+                if let Some(node) = fs.storage.get_mut(inode_to_unlink) {
+                    match node {
+                        Node::File(FileNode { is_unlinked, ref_count, .. })
+                        | Node::ReadOnlyFile(ReadOnlyFileNode { is_unlinked, ref_count, .. })
+                        | Node::OffloadedFile(OffloadedFileNode { is_unlinked, ref_count, .. })
+                        | Node::ArcFile(ArcFileNode { is_unlinked, ref_count, .. })
+                        | Node::CustomFile(CustomFileNode { is_unlinked, ref_count, .. }) => {
+                            is_unlinked.store(true, Ordering::SeqCst);
+                            
+                            // If ref_count is 0, remove immediately (no open handles)
+                            if ref_count.load(Ordering::SeqCst) == 0 {
+                                fs.storage.remove(inode_to_unlink);
+                            }
+                        }
+                        _ => {
+                            // For other types (shouldn't happen for files), just remove
+                            fs.storage.remove(inode_to_unlink);
+                        }
+                    }
+                } else {
+                    // If node doesn't exist (shouldn't happen), that's ok
+                }
+            }
+
+            // Remove the child from the parent directory.
+            fs.remove_child_from_node(inode_of_parent, position)?;
         }
 
         Ok(())
@@ -1987,8 +2089,8 @@ mod test_filesystem {
         // Verify file exists
         assert!(fs.metadata(Path::new("/test.txt")).is_ok());
         
-        // Unlink the file using remove_file (will be replaced with unlink)
-        assert!(fs.remove_file(Path::new("/test.txt")).is_ok());
+        // Unlink the file
+        assert!(fs.unlink(Path::new("/test.txt")).is_ok());
         
         // Verify file no longer exists
         assert!(matches!(
@@ -2008,8 +2110,8 @@ mod test_filesystem {
         // Verify directory exists
         assert!(fs.metadata(Path::new("/testdir")).is_ok());
         
-        // Unlink the directory using remove_dir (will be replaced with unlink)
-        assert!(fs.remove_dir(Path::new("/testdir")).is_ok());
+        // Unlink the directory
+        assert!(fs.unlink(Path::new("/testdir")).is_ok());
         
         // Verify directory no longer exists
         assert!(matches!(
@@ -2033,7 +2135,7 @@ mod test_filesystem {
         
         // Try to unlink the directory - should fail because it's not empty
         assert!(matches!(
-            fs.remove_dir(Path::new("/testdir")),
+            fs.unlink(Path::new("/testdir")),
             Err(FsError::DirectoryNotEmpty)
         ));
         
