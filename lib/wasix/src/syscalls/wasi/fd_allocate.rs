@@ -47,17 +47,25 @@ pub(crate) fn fd_allocate_internal(
     if !fd_entry.inner.rights.contains(Rights::FD_ALLOCATE) {
         return Err(Errno::Access);
     }
+    if len == 0 {
+        return Err(Errno::Inval);
+    }
     let new_size = offset.checked_add(len).ok_or(Errno::Inval)?;
-    let mut current_size;
+    let mut current_size = inode.stat.read().unwrap().st_size;
+    let mut resized = false;
     {
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
                     let mut handle = handle.write().unwrap();
-                    current_size = handle.size();
+                    let handle_size = handle.size();
+                    if handle_size > current_size {
+                        current_size = handle_size;
+                    }
                     if new_size > current_size {
                         handle.set_len(new_size).map_err(fs_error_into_wasi_err)?;
+                        resized = true;
                         current_size = new_size;
                     }
                 } else {
@@ -65,10 +73,15 @@ pub(crate) fn fd_allocate_internal(
                 }
             }
             Kind::Buffer { buffer } => {
-                current_size = buffer.len() as u64;
+                let buffer_size = buffer.len() as u64;
+                if buffer_size > current_size {
+                    current_size = buffer_size;
+                }
                 if new_size > current_size {
-                    buffer.resize(new_size as usize, 0);
-                    current_size = new_size;
+                    let new_size: usize = new_size.try_into().map_err(|_| Errno::Inval)?;
+                    buffer.resize(new_size, 0);
+                    resized = true;
+                    current_size = new_size as u64;
                 }
             }
             Kind::Socket { .. }
@@ -81,8 +94,15 @@ pub(crate) fn fd_allocate_internal(
             Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
         }
     }
-    inode.stat.write().unwrap().st_size = current_size;
-    debug!(%new_size);
+    {
+        let mut stat = inode.stat.write().unwrap();
+        if stat.st_size != current_size {
+            stat.st_size = current_size;
+        }
+    }
+    if resized {
+        debug!(%new_size);
+    }
 
     Ok(())
 }

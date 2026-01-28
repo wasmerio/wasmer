@@ -36,6 +36,10 @@ pub fn clock_time_set_internal(
     clock_id: Snapshot0Clockid,
     time: Timestamp,
 ) -> Errno {
+    if clock_id != Snapshot0Clockid::Realtime {
+        return Errno::Inval;
+    }
+
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 

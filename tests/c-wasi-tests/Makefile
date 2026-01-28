@@ -56,22 +56,37 @@ endef
 TESTS := \
   chdir \
   clock_time_get \
+  clock_time_set \
+  closure_allocate \
   closure_free \
+  context_destroy \
   dlopen \
   dylink-needed \
+  epoll_create \
   fd_advise \
+  fd_allocate \
   fd_close \
   fd_datasync \
   fd_dup2 \
   fd_fdstat_get \
+  fd_fdstat_set_rights \
   fd_fdstat_set_flags \
   fd_fdflags_get \
   fd_fdflags_set \
+  fd_filestat_set_size \
+  fd_filestat_set_times \
   fd_filestat_get \
+  fd_seek \
   fd_renumber \
   fd_sync \
   fd_tell \
   getcwd \
+  path_create_directory \
+  path_filestat_get \
+  path_readlink \
+  path_remove_directory \
+  path_symlink \
+  path_unlink_file \
   proc_id \
   proc_parent \
   proc_signals_sizes_get \

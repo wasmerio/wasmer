@@ -29,6 +29,6 @@ pub fn closure_allocate<M: MemorySize>(
 
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
-    closure.write(&memory, function_id);
+    wasi_try_mem_ok!(closure.write(&memory, function_id));
     return Ok(Errno::Success);
 }

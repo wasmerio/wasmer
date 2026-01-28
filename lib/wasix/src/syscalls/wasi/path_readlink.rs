@@ -46,19 +46,22 @@ pub fn path_readlink<M: MemorySize>(
         if let Kind::Symlink { relative_path, .. } = guard.deref() {
             let rel_path_str = relative_path.to_string_lossy();
             let buf_len: u64 = buf_len.into();
-            let bytes = rel_path_str.bytes();
-            if bytes.len() as u64 >= buf_len {
-                return Ok(Errno::Overflow);
+            if buf_len == 0 {
+                return Ok(Errno::Inval);
             }
-            let bytes: Vec<_> = bytes.collect();
+            let bytes = rel_path_str.as_bytes();
+            let write_len = std::cmp::min(bytes.len(), buf_len as usize);
 
-            let out =
-                wasi_try_mem_ok!(buf.slice(&memory, wasi_try_ok!(to_offset::<M>(bytes.len()))));
-            wasi_try_mem_ok!(out.write_slice(&bytes));
+            let out = wasi_try_mem_ok!(
+                buf.slice(&memory, wasi_try_ok!(to_offset::<M>(write_len)))
+            );
+            if write_len > 0 {
+                wasi_try_mem_ok!(out.write_slice(&bytes[..write_len]));
+            }
             // should we null terminate this?
 
             let bytes_len: M::Offset =
-                wasi_try_ok!(bytes.len().try_into().map_err(|_| Errno::Overflow));
+                wasi_try_ok!(write_len.try_into().map_err(|_| Errno::Overflow));
             wasi_try_mem_ok!(buf_used.deref(&memory).write(bytes_len));
         } else {
             return Ok(Errno::Inval);

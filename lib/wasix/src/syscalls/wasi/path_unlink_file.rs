@@ -19,6 +19,10 @@ pub fn path_unlink_file<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
+    if path_len == M::ZERO {
+        return Ok(Errno::Noent);
+    }
+
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
@@ -52,10 +56,51 @@ pub(crate) fn path_unlink_file_internal(
     fd: WasiFd,
     path: &str,
 ) -> Result<Errno, WasiError> {
+    if path.is_empty() {
+        return Ok(Errno::Noent);
+    }
+
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
+    for component in std::path::Path::new(path).components() {
+        if let std::path::Component::Normal(name) = component {
+            if name.to_string_lossy().len() > 255 {
+                return Ok(Errno::Nametoolong);
+            }
+        }
+    }
+
+    if let Some(base_path) = path.strip_suffix("/.") {
+        let base_inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, base_path, false));
+        let guard = base_inode.read();
+        return Ok(if matches!(guard.deref(), Kind::Dir { .. } | Kind::Root { .. }) {
+            Errno::Isdir
+        } else {
+            Errno::Notdir
+        });
+    }
+    if let Some(base_path) = path.strip_suffix("/..") {
+        let base_inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, base_path, false));
+        let guard = base_inode.read();
+        return Ok(if matches!(guard.deref(), Kind::Dir { .. } | Kind::Root { .. }) {
+            Errno::Isdir
+        } else {
+            Errno::Notdir
+        });
+    }
+
     let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
+    let trailing_slash = path.as_bytes().last() == Some(&b'/');
+    {
+        let guard = inode.read();
+        if matches!(guard.deref(), Kind::Dir { .. } | Kind::Root { .. }) {
+            return Ok(Errno::Isdir);
+        }
+    }
+    if trailing_slash {
+        return Ok(Errno::Notdir);
+    }
     let (parent_inode, childs_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         fd,

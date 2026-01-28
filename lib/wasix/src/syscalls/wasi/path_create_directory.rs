@@ -28,6 +28,10 @@ pub fn path_create_directory<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
+    if path_len == M::ZERO {
+        return Ok(Errno::Noent);
+    }
+
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
@@ -53,6 +57,9 @@ pub(crate) fn path_create_directory_internal(
     fd: WasiFd,
     path: &str,
 ) -> Result<(), Errno> {
+    if path.is_empty() {
+        return Err(Errno::Noent);
+    }
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let working_dir = state.fs.get_fd(fd)?;

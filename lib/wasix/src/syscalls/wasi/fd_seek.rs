@@ -58,11 +58,17 @@ pub(crate) fn fd_seek_internal(
     let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
 
+    match fd_entry.inode.read().deref() {
+        Kind::Dir { .. } | Kind::Root { .. } => {
+            return Ok(Err(Errno::Badf));
+        }
+        _ => {}
+    }
+
     if !fd_entry.inner.rights.contains(Rights::FD_SEEK) {
         return Ok(Err(Errno::Access));
     }
 
-    // TODO: handle case if fd is a dir?
     let new_offset = match whence {
         Whence::Cur => {
             let fd_offset = &fd_entry.inner.offset;
@@ -125,7 +131,7 @@ pub(crate) fn fd_seek_internal(
                 | Kind::EventNotifications { .. }
                 | Kind::Epoll { .. } => {
                     // TODO: check this
-                    return Ok(Err(Errno::Inval));
+                    return Ok(Err(Errno::Badf));
                 }
                 Kind::Buffer { .. } => {
                     // seeking buffers probably makes sense

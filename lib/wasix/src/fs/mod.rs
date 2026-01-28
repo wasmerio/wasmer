@@ -1143,7 +1143,7 @@ impl WasiFs {
         seen_symlinks: &mut HashSet<Inode>,
     ) -> Result<InodeGuard, Errno> {
         if symlink_count >= MAX_SYMLINKS {
-            return Err(Errno::Mlink);
+            return Err(Errno::Loop);
         }
 
         // Absolute root paths should resolve to the mounted "/" inode when present.
@@ -1205,7 +1205,7 @@ impl WasiFs {
                                     loop_for_symlink = true;
                                     symlink_count += 1;
                                     if symlink_count >= MAX_SYMLINKS {
-                                        return Err(Errno::Mlink);
+                                        return Err(Errno::Loop);
                                     }
                                 }
                             }
@@ -1228,7 +1228,7 @@ impl WasiFs {
                                 loop_for_symlink = true;
                                 symlink_count += 1;
                                 if symlink_count >= MAX_SYMLINKS {
-                                    return Err(Errno::Mlink);
+                                    return Err(Errno::Loop);
                                 }
                                 Kind::Symlink {
                                     base_po_dir,

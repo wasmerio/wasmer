@@ -264,6 +264,13 @@ pub(crate) fn path_open_internal(
                     *file =
                         wasi_try_ok_ok!(open_options.open(&path).map_err(fs_error_into_wasi_err));
                 }
+                open_flags &= !(Fd::READ | Fd::WRITE);
+                if fs_rights_base.contains(Rights::FD_READ) {
+                    open_flags |= Fd::READ;
+                }
+                if fs_rights_base.contains(Rights::FD_WRITE) {
+                    open_flags |= Fd::WRITE;
+                }
 
                 if let Some(handle) = handle {
                     let handle = handle.read().unwrap();
@@ -387,6 +394,13 @@ pub(crate) fn path_open_internal(
                 }
                 if minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
+                }
+                open_flags &= !(Fd::READ | Fd::WRITE);
+                if fs_rights_base.contains(Rights::FD_READ) {
+                    open_flags |= Fd::READ;
+                }
+                if fs_rights_base.contains(Rights::FD_WRITE) {
+                    open_flags |= Fd::WRITE;
                 }
 
                 match open_options.open(&new_file_host_path) {
