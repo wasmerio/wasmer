@@ -518,7 +518,7 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    println!("wasmer {}", env!("CARGO_PKG_VERSION"),);
+    println!("wasmer {}", env!("CARGO_PKG_VERSION"));
     println!("binary: {}", env!("CARGO_PKG_NAME"));
     println!(
         "commit-hash: {}",
