@@ -1,3 +1,4 @@
+#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Exit tests from wasix-tests directory
 //!
 //! These tests verify various exit scenarios:
@@ -8,6 +9,7 @@
 //! - exit-*-in-fficall-thread: Exit from FFI callback in thread
 
 mod wasixcc_test_utils;
+
 use wasixcc_test_utils::{run_build_script, run_wasm};
 
 #[test]

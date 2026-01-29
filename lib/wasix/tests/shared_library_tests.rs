@@ -1,3 +1,4 @@
+#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Shared library tests from wasix-tests directory
 //!
 //! These tests verify that shared libraries (.so) work correctly:
@@ -6,6 +7,7 @@
 //! - simple-exceptions-in-shared-lib: C++ exceptions in shared libraries
 
 mod wasixcc_test_utils;
+
 use wasixcc_test_utils::{run_build_script, run_wasm};
 
 #[test]

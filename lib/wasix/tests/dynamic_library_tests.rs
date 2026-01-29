@@ -1,3 +1,4 @@
+#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Dynamic library tests
 //!
 //! These tests verify dynamic library loading and unloading functionality using dlopen/dlsym/dlclose.
