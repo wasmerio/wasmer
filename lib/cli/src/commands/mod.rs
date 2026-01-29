@@ -269,7 +269,11 @@ impl WasmerCmd {
                     true
                 })
                 .collect::<Vec<_>>();
-            if !current_dir.starts_with("/home") {
+            if mount_paths
+                .iter()
+                .all(|path| !current_dir.starts_with(path))
+            {
+                // Mount the current dir if it is not already covered by a common path
                 mount_paths.push(current_dir.as_str());
             }
 
