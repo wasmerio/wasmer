@@ -251,10 +251,16 @@ jobs:
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
       - name: Wasmer CLI smoke tests
+        shell: bash
         run: |
-          ./target/release/wasmer run --llvm cowsay "I like LLVM compiler"
-          ./target/release/wasmer run --cranelift cowsay "Crane-what?"
-          ./target/release/wasmer run --singlepass cowsay "What is Singlepass?"
+          WASMER_BIN=./target/release/wasmer
+          if [ "${RUNNER_OS}" = "Windows" ] && [ -x "${WASMER_BIN}.exe" ]; then
+            WASMER_BIN="${WASMER_BIN}.exe"
+          fi
+
+          "${WASMER_BIN}" run --llvm cowsay "I like LLVM compiler"
+          "${WASMER_BIN}" run --cranelift cowsay "Crane-what?"
+          "${WASMER_BIN}" run --singlepass cowsay "What is Singlepass?"
       #- name: Build Wasmer binary on Wasm32-WASI without LLVM
       #  if: matrix.build_wasm
       #  shell: bash
