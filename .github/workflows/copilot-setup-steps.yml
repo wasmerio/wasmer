@@ -32,7 +32,7 @@ jobs:
       - name: Read rust version
         id: read_rust_version
         run: |
-          rust_toolchain=$(head -n1 rust-toolchain | tr -d '\n')
+          rust_toolchain=$(grep channel rust-toolchain.toml | cut -f2 -d'"')
           echo "MSRV=$rust_toolchain" >> $GITHUB_ENV
           echo "MSRV=$rust_toolchain" >> $GITHUB_OUTPUT
 
