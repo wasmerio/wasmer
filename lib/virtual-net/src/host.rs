@@ -8,7 +8,7 @@ use crate::{
 };
 use crate::{VirtualIoSource, io_err_into_net_error};
 use bytes::{Buf, BytesMut};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::io::{self, Read, Write};
 use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
@@ -28,6 +28,37 @@ use tracing::{debug, error, info, trace, warn};
 use virtual_mio::{
     HandlerGuardState, InterestGuard, InterestHandler, InterestType, Selector, state_as_waker_map,
 };
+
+fn prefix_from_mask(ip: IpAddr, mask: Option<SocketAddr>) -> u8 {
+    let default_prefix = match ip {
+        IpAddr::V4(_) => 32,
+        IpAddr::V6(_) => 128,
+    };
+    let Some(mask) = mask else {
+        return default_prefix;
+    };
+
+    match (ip, mask.ip()) {
+        (IpAddr::V4(_), IpAddr::V4(m)) => {
+            let bits = u32::from_be_bytes(m.octets()).count_ones();
+            bits as u8
+        }
+        (IpAddr::V6(_), IpAddr::V6(m)) => {
+            let bits: u32 = m.octets().iter().map(|b| b.count_ones()).sum();
+            bits as u8
+        }
+        _ => default_prefix,
+    }
+}
+
+fn default_loopback_cidrs() -> Vec<IpCidr> {
+    vec![
+        IpCidr {
+            ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            prefix: 8,
+        },
+    ]
+}
 
 #[derive(Debug)]
 pub struct LocalNetworking {
@@ -69,6 +100,44 @@ impl Default for LocalNetworking {
 #[async_trait::async_trait]
 #[allow(unused_variables)]
 impl VirtualNetworking for LocalNetworking {
+    async fn ip_list(&self) -> Result<Vec<IpCidr>> {
+        let mut cidrs = HashSet::new();
+        if let Ok(ifaces) = interfaces::Interface::get_all() {
+            for iface in ifaces {
+                for addr in iface.addresses.iter() {
+                    if let Some(sock) = addr.addr {
+                        let ip = sock.ip();
+                        if ip.is_ipv6() {
+                            continue;
+                        }
+                        let prefix = prefix_from_mask(ip, addr.mask);
+                        cidrs.insert(IpCidr { ip, prefix });
+                    }
+                }
+            }
+        }
+
+        let mut cidrs: Vec<IpCidr> = cidrs.into_iter().collect();
+        if cidrs.is_empty() {
+            cidrs = default_loopback_cidrs();
+        }
+        Ok(cidrs)
+    }
+
+    async fn route_list(&self) -> Result<Vec<IpRoute>> {
+        let cidrs = self.ip_list().await?;
+        let routes = cidrs
+            .into_iter()
+            .map(|cidr| IpRoute {
+                cidr,
+                via_router: cidr.ip,
+                preferred_until: None,
+                expires_at: None,
+            })
+            .collect();
+        Ok(routes)
+    }
+
     async fn listen_tcp(
         &self,
         addr: SocketAddr,

@@ -6381,6 +6381,7 @@ dependencies = [
  "hyper",
  "hyper-tungstenite",
  "hyper-util",
+ "interfaces",
  "ipnet",
  "iprange",
  "libc",
