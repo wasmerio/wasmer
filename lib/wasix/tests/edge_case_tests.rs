@@ -1,3 +1,4 @@
+#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Edge case tests
 //!
 //! These tests verify various edge cases and corner cases in WASM/WASIX functionality,

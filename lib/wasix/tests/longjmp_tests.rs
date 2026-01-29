@@ -1,3 +1,4 @@
+#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Longjmp tests
 //!
 //! These tests verify setjmp/longjmp functionality within and across module boundaries.

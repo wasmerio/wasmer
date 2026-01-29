@@ -1,3 +1,4 @@
+#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 use std::borrow::Cow;
 use std::io::Write;
 use std::path::{Path, PathBuf};

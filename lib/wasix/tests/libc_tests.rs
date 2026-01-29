@@ -1,3 +1,4 @@
+#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Libc function tests
 //!
 //! These tests verify various libc functions work correctly in WASIX.
