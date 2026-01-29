@@ -518,15 +518,7 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    println!(
-        "wasmer {} ({} {})",
-        env!("CARGO_PKG_VERSION"),
-        git_version!(
-            args = ["--abbrev=8", "--always", "--dirty=-modified", "--exclude=*"],
-            fallback = ""
-        ),
-        env!("WASMER_BUILD_DATE")
-    );
+    println!("wasmer {}", env!("CARGO_PKG_VERSION"),);
     println!("binary: {}", env!("CARGO_PKG_NAME"));
     println!(
         "commit-hash: {}",
@@ -540,23 +532,25 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
             fallback = "",
         ),
     );
-    println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
+    if !env!("WASMER_REPRODUCIBLE_BUILD")
+        .parse::<bool>()
+        .expect("build-time variable expected")
+    {
+        println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
+    }
     println!("host: {}", target_lexicon::HOST);
 
     let cpu_features = {
         let feats = wasmer_types::target::CpuFeature::for_host();
         let all = wasmer_types::target::CpuFeature::all();
         all.iter()
-            .map(|f| {
-                let available = feats.contains(f);
-                format!("{}={}", f, if available { "true" } else { "false" })
-            })
+            .map(|f| format!("{}={}", f, feats.contains(f)))
             .collect::<Vec<_>>()
             .join(",")
     };
     println!("cpu: {cpu_features}");
 
-    let mut runtimes = Vec::<&'static str>::new();
+    let mut runtimes = Vec::new();
     if cfg!(feature = "singlepass") {
         runtimes.push("singlepass");
     }
@@ -566,15 +560,12 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     if cfg!(feature = "llvm") {
         runtimes.push("llvm");
     }
-
     if cfg!(feature = "wamr") {
         runtimes.push("wamr");
     }
-
     if cfg!(feature = "wasmi") {
         runtimes.push("wasmi");
     }
-
     if cfg!(feature = "v8") {
         runtimes.push("v8");
     }
