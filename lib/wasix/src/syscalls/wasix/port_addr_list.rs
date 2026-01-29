@@ -26,6 +26,18 @@ pub fn port_addr_list<M: MemorySize>(
     let mut memory = unsafe { env.memory_view(&ctx) };
     let max_addrs = wasi_try_mem_ok!(naddrs_ptr.read(&memory));
     let max_addrs: u64 = max_addrs.into();
+    if max_addrs > 0 {
+        let addrs_bytes = wasi_try_ok!(max_addrs
+            .checked_mul(28)
+            .ok_or(Errno::Overflow));
+        let base: u64 = addrs_ptr.offset().into();
+        let end = wasi_try_ok!(base
+            .checked_add(addrs_bytes)
+            .ok_or(Errno::Overflow));
+        if end > memory.data_size() {
+            return Ok(Errno::Memviolation);
+        }
+    }
 
     let net = env.net().clone();
     let addrs = wasi_try_ok!(__asyncify(&mut ctx, None, async {
@@ -41,12 +53,19 @@ pub fn port_addr_list<M: MemorySize>(
         return Ok(Errno::Overflow);
     }
 
-    let ref_addrs = wasi_try_mem_ok!(
-        addrs_ptr.slice(&memory, wasi_try_ok!(to_offset::<M>(max_addrs as usize)))
-    );
     for n in 0..addrs.len() {
-        let nip = ref_addrs.index(n as u64);
-        crate::net::write_cidr(&memory, nip.as_ptr::<M>(), *addrs.get(n).unwrap());
+        let base: u64 = addrs_ptr.offset().into();
+        let elem_offset = wasi_try_ok!(base
+            .checked_add((n as u64) * 28)
+            .ok_or(Errno::Overflow));
+        let ptr = WasmPtr::<__wasi_cidr_t, M>::new(
+            wasi_try_ok!(M::Offset::try_from(elem_offset).map_err(|_| Errno::Overflow)),
+        );
+        wasi_try_ok!(crate::net::write_cidr(
+            &memory,
+            ptr,
+            *addrs.get(n).unwrap()
+        ));
     }
 
     Ok(Errno::Success)
