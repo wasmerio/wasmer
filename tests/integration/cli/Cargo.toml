@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-integration-tests-cli"
-version = "7.0.0-rc.2"
+version = "7.0.0"
 description = "CLI integration tests"
 authors.workspace = true
 repository.workspace = true
@@ -10,7 +10,7 @@ publish = false
 [dev-dependencies]
 rand.workspace = true
 target-lexicon.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["derive"] }
 insta = { workspace = true, features = ["json"] }
 md5.workspace = true
 hex.workspace = true
