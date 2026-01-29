@@ -97,6 +97,8 @@ TESTS := \
   proc_exit_code_126 \
   proc_exit_hello \
   proc_exit_fpr \
+  port_addr_list \
+  port_route_list \
   port_mac \
   reflect_signature \
   random_get \
@@ -148,8 +150,7 @@ run: $(BUILD_TARGETS)
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
 			dlopen|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
-			port_mac) flags="$$flags --net" ;; \
-			sock_addr_peer) flags="$$flags --net" ;; \
+			port_addr_list|port_route_list|port_mac|sock_addr_peer) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \
 		if [ $$rc -ne $$expected ]; then \

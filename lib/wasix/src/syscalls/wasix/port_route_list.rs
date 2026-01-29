@@ -27,8 +27,18 @@ pub fn port_route_list<M: MemorySize>(
             .map_err(|_| Errno::Inval)
     );
     Span::current().record("max_routes", max_routes);
-    let ref_routes =
-        wasi_try_mem_ok!(routes_ptr.slice(&memory, wasi_try_ok!(to_offset::<M>(max_routes))));
+    if max_routes > 0 {
+        let routes_bytes = wasi_try_ok!(max_routes
+            .checked_mul(176)
+            .ok_or(Errno::Overflow));
+        let start: u64 = routes_ptr.offset().into();
+        let end = wasi_try_ok!(start
+            .checked_add(routes_bytes as u64)
+            .ok_or(Errno::Overflow));
+        if end > memory.data_size() {
+            return Ok(Errno::Memviolation);
+        }
+    }
 
     let net = env.net().clone();
     let routes = wasi_try_ok!(__asyncify(&mut ctx, None, async {
@@ -46,15 +56,19 @@ pub fn port_route_list<M: MemorySize>(
         return Ok(Errno::Overflow);
     }
 
-    let ref_routes =
-        wasi_try_mem_ok!(routes_ptr.slice(&memory, wasi_try_ok!(to_offset::<M>(max_routes))));
     for n in 0..routes.len() {
-        let nroute = ref_routes.index(n as u64);
-        crate::net::write_route(
-            &memory,
-            nroute.as_ptr::<M>(),
-            routes.get(n).unwrap().clone(),
+        let base: u64 = routes_ptr.offset().into();
+        let elem_offset = wasi_try_ok!(base
+            .checked_add((n as u64) * 176)
+            .ok_or(Errno::Overflow));
+        let ptr = WasmPtr::<Route, M>::new(
+            wasi_try_ok!(M::Offset::try_from(elem_offset).map_err(|_| Errno::Overflow)),
         );
+        wasi_try_ok!(crate::net::write_route(
+            &memory,
+            ptr,
+            routes.get(n).unwrap().clone(),
+        ));
     }
 
     Ok(Errno::Success)
