@@ -380,6 +380,7 @@ pub fn run_wasm_with_result(
 }
 
 /// Run a compiled WASM file using WasiRunner
+#[allow(unused)]
 pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
     let result = run_wasm_with_result(wasm_path, dir)?;
 
