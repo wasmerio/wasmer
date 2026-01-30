@@ -31,6 +31,7 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
+use itertools::Itertools;
 use std::ffi::OsString;
 use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
@@ -241,7 +242,7 @@ impl WasmerCmd {
 
         let args = args_os.next().into_iter();
 
-        let mut binfmt_args: Vec<OsString> = Vec::new();
+        let mut binfmt_args = Vec::new();
         if is_binfmt_interpreter() {
             // In case of binfmt misc the first argument is wasmer-binfmt-interpreter, the second is the full path to the executable
             // and the third is the original string for the executable as originally called by the user.
@@ -250,22 +251,21 @@ impl WasmerCmd {
             // Ideally we would use the real path to load the file and the original name to pass it as argv[0] to the wasm module.
 
             let current_dir = std::env::current_dir().unwrap();
-            let mut mount_paths: Vec<std::path::PathBuf> =
-                vec!["/home", "/etc", "/tmp", "/var", "/nix", "/opt", "/root"]
-                    .into_iter()
-                    .map(std::path::PathBuf::from)
-                    .filter(|path| {
-                        if !path.is_dir() {
-                            // Not a directory
-                            return false;
-                        }
-                        if std::fs::read_dir(path).is_err() {
-                            // No permissions
-                            return false;
-                        }
-                        true
-                    })
-                    .collect();
+            let mut mount_paths = ["/home", "/etc", "/tmp", "/var", "/nix", "/opt", "/root"]
+                .into_iter()
+                .map(std::path::PathBuf::from)
+                .filter(|path| {
+                    if !path.is_dir() {
+                        // Not a directory
+                        return false;
+                    }
+                    if std::fs::read_dir(path).is_err() {
+                        // No permissions
+                        return false;
+                    }
+                    true
+                })
+                .collect_vec();
             if mount_paths
                 .iter()
                 .all(|path| !current_dir.starts_with(path))
@@ -278,7 +278,7 @@ impl WasmerCmd {
             binfmt_args.push("--net".into());
             // TODO: This does not seem to work, needs further investigation.
             binfmt_args.push("--forward-host-env".into());
-            for mount_path in &mount_paths {
+            for mount_path in mount_paths {
                 if let Some(mount_path_str) = mount_path.to_str() {
                     binfmt_args.push(format!("--mapdir={mount_path_str}:{mount_path_str}").into());
                 }
@@ -291,7 +291,7 @@ impl WasmerCmd {
             binfmt_args.push(args_os.next().unwrap());
             args_os.next().unwrap();
         };
-        let args_vec = args.chain(binfmt_args).chain(args_os).collect::<Vec<_>>();
+        let args_vec = args.chain(binfmt_args).chain(args_os).collect_vec();
 
         match WasmerCmd::try_parse_from(args_vec.iter()) {
             Ok(args) => args.execute(),
