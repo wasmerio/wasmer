@@ -148,6 +148,7 @@ webc.workspace = true
 wasmer-backend-api = { version = "=0.700.0", path = "../backend-api" }
 wasmer-sdk = { version = "=7.0.0", path = "../sdk" }
 wasmer-config = { version = "0.700.0", path = "../config" }
+wasmer-js-runtime = { path = "../js-runtime", version = "0.1.0" }
 
 shared-buffer = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }

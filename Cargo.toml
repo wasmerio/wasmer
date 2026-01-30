@@ -50,6 +50,7 @@ members = [
 	"lib/compiler-singlepass",
 	"lib/compiler",
 	"lib/config",
+	"lib/deno-telemetry",
 	"lib/derive",
 	"lib/sys-utils",
 	"lib/types",
@@ -73,6 +74,9 @@ members = [
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
+
+# [patch.crates-io]
+# deno_telemetry = { path = "lib/deno-telemetry" }
 
 [workspace.package]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -173,6 +177,7 @@ heapless = "0.9.2"
 hex = "0.4"
 hexdump = "0.1.2"
 http = "1.4.0"
+http-body = "1.0.0"
 http-body-util = "0.1.1"
 humantime = "2.1.0"
 hyper = "1.8.1"

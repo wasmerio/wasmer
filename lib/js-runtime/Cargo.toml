@@ -1,0 +1,38 @@
+[package]
+name = "wasmer-js-runtime"
+version = "0.1.0"
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+http.workspace = true
+http-body.workspace = true
+http-body-util.workspace = true
+hyper-util.workspace = true
+parking_lot.workspace = true
+rustls-tokio-stream = "=0.8.0"
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "rt", "rt-multi-thread", "sync"] }
+virtual-fs = { path = "../virtual-fs", version = "0.700.0", default-features = false, features = ["webc-fs"] }
+virtual-net = { path = "../virtual-net", version = "0.700.0", default-features = false, features = ["host-net", "tokio"] }
+wasmer-wasix.workspace = true
+
+deno_core = "0.380"
+deno_runtime = { version = "0.236.0", features = ["transpile"] }
+deno_maybe_sync = "0.15.0"
+deno_error = "0.7.1"
+deno_package_json = "0.30.0"
+async-trait = "0.1.87"
+sys_traits = "0.1.22"
+deno_resolver = "0.59.0"
+node_resolver = "0.66.0"

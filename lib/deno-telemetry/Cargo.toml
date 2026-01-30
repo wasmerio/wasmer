@@ -1,0 +1,9 @@
+[package]
+name = "deno_telemetry"
+version = "0.50.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+deno_core = "0.380.1"
+serde = { version = "1", features = ["derive"] }

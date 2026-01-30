@@ -8,6 +8,7 @@ mod wasi;
 
 use std::{
     collections::{BTreeMap, hash_map::DefaultHasher},
+    convert::Infallible,
     fmt::{Binary, Display},
     fs::File,
     hash::{BuildHasherDefault, Hash, Hasher},
@@ -23,9 +24,14 @@ use anyhow::{Context, Error, anyhow, bail};
 use clap::{Parser, ValueEnum};
 use colored::Colorize;
 use futures::future::BoxFuture;
+use futures_util::StreamExt as _;
+use http_body_util::BodyStream;
+use hyper::{server::conn::http1::Builder, service::service_fn};
+use hyper_util::rt::TokioIo;
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
+use tokio::net::TcpListener;
 use url::Url;
 #[cfg(feature = "sys")]
 use wasmer::sys::NativeEngineExt;
@@ -42,6 +48,9 @@ use wasmer_config::package::PackageSource;
 use wasmer_package::utils::from_disk;
 use wasmer_types::ModuleHash;
 
+use wasmer_js_runtime::{
+    JsBody, JsRunner, body_from_data, body_from_stream, can_run_command as can_run_js_command,
+};
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
@@ -372,6 +381,8 @@ impl Run {
             self.run_dcgi(id, pkg, uses, runtime)
         } else if DProxyRunner::can_run_command(cmd.metadata())? {
             self.run_dproxy(id, pkg, runtime)
+        } else if can_run_js_command(cmd) {
+            self.run_js(id, pkg)
         } else if WcgiRunner::can_run_command(cmd.metadata())? {
             self.run_wcgi(id, pkg, uses, runtime)
         } else if WasiRunner::can_run_command(cmd.metadata())? {
@@ -421,6 +432,112 @@ impl Run {
         // Assume webcs are always WASIX
         let mut runner = self.build_wasi_runner(&runtime, true)?;
         Runner::run_command(&mut runner, command_name, pkg, runtime)
+    }
+
+    fn run_js(&self, command_name: &str, pkg: &BinaryPackage) -> Result<(), Error> {
+        let runner = JsRunner::new();
+        let addr = self.wcgi.addr;
+        let pkg = Arc::new(pkg.clone());
+        let command_name = command_name.to_string();
+
+        tokio::runtime::Handle::current().block_on(async move {
+            let listener = TcpListener::bind(addr).await?;
+            println!("JS Server running at http://{}/", addr);
+
+            loop {
+                tokio::select! {
+                    accept = listener.accept() => {
+                        let (stream, _) = accept?;
+                        let io = TokioIo::new(stream);
+                        let runner = runner.clone();
+                        let pkg = pkg.clone();
+                        let command_name = command_name.clone();
+                        let service = service_fn(move |req| {
+                            let runner = runner.clone();
+                            let pkg = pkg.clone();
+                            let command_name = command_name.clone();
+                            async move {
+                                let response = Self::handle_js_request(
+                                    runner,
+                                    pkg.as_ref(),
+                                    &command_name,
+                                    addr,
+                                    req,
+                                )
+                                .await;
+                                Ok::<_, Infallible>(response)
+                            }
+                        });
+                        let http = Builder::new();
+                        tokio::task::spawn(async move {
+                            if let Err(err) = http.serve_connection(io, service).await {
+                                tracing::debug!("js server connection error: {err}");
+                            }
+                        });
+                    }
+                    _ = tokio::signal::ctrl_c() => break,
+                }
+            }
+
+            Ok::<(), Error>(())
+        })
+    }
+
+    async fn handle_js_request(
+        runner: JsRunner,
+        pkg: &BinaryPackage,
+        command_name: &str,
+        addr: SocketAddr,
+        request: hyper::Request<hyper::body::Incoming>,
+    ) -> http::Response<JsBody> {
+        let request = match Self::build_js_request(request, addr) {
+            Ok(request) => request,
+            Err(err) => {
+                tracing::warn!("js server request rejected: {err}");
+                return http::Response::builder()
+                    .status(http::StatusCode::BAD_REQUEST)
+                    .body(body_from_data(bytes::Bytes::new()))
+                    .expect("response builder should succeed");
+            }
+        };
+
+        match runner.handle_request(pkg, command_name, request).await {
+            Ok(response) => response,
+            Err(err) => {
+                tracing::warn!("js runner failed to handle request: {err}");
+                http::Response::builder()
+                    .status(http::StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(body_from_data(bytes::Bytes::new()))
+                    .expect("response builder should succeed")
+            }
+        }
+    }
+
+    fn build_js_request(
+        request: hyper::Request<hyper::body::Incoming>,
+        addr: SocketAddr,
+    ) -> Result<http::Request<JsBody>, Error> {
+        let (mut parts, body) = request.into_parts();
+        if parts.uri.scheme().is_none() {
+            let host = parts
+                .headers
+                .get(http::header::HOST)
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_string)
+                .unwrap_or_else(|| addr.to_string());
+            let path = parts
+                .uri
+                .path_and_query()
+                .map(|pq| pq.as_str())
+                .unwrap_or("/");
+            let uri = format!("http://{host}{path}");
+            parts.uri = uri.parse().context("invalid request uri")?;
+        }
+
+        let stream =
+            BodyStream::new(body).map(|frame| frame.map_err(|err| anyhow!(err.to_string())));
+        let body = body_from_stream(stream);
+        Ok(http::Request::from_parts(parts, body))
     }
 
     fn run_wcgi(
