@@ -19,12 +19,20 @@ This plan is written as a step‑by‑step implementation roadmap aimed at junio
 - If problems are unclear: rerun with `cargo check --quiet` for fuller diagnostics.
 
 - Each phase must have a small, testable acceptance criteria section so work can be handed off cleanly.
+- prefer to only check the crates you have modified , or the vfs crates that are affected
+- make sure crate sources are well-structured and split into small modules for readability
+  no huge files!
+- when a step is done, update the plan!
+  if you deviated from the plan for some reason or left gaps,
+  document it!
 
 ---
 
 ## Phase 1 – Architecture and Crate Boundaries
 
 ### 1.1 Create new crate structure
+=> DONE
+
 - **Deliverables**:
   - `vfs/core/` (new; core types, mount table, path walker, common traits)
   - `vfs/mem/` (new; in-memory POSIX-ish filesystem backend, used as reference backend)
