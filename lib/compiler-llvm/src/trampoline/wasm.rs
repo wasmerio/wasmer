@@ -3,6 +3,7 @@
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, get_abi},
+    compiler::g0m0_enabled_for_module,
     config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
@@ -94,7 +95,8 @@ impl FuncTrampoline {
             &self.binary_fmt,
         );
 
-        let func_kind = if config.enable_g0m0_opt {
+        let g0m0_enabled = g0m0_enabled_for_module(config, &compile_info.module);
+        let func_kind = if g0m0_enabled {
             Some(G0M0FunctionKind::Local)
         } else {
             None
@@ -471,12 +473,12 @@ impl FuncTrampoline {
                 }
             };
 
-        let mut args_vec: Vec<BasicMetadataValueEnum> =
-            Vec::with_capacity(if config.enable_g0m0_opt {
-                func_sig.params().len() + 3
-            } else {
-                func_sig.params().len() + 1
-            });
+        let g0m0_enabled = g0m0_enabled_for_module(config, &compile_info.module);
+        let mut args_vec: Vec<BasicMetadataValueEnum> = Vec::with_capacity(if g0m0_enabled {
+            func_sig.params().len() + 3
+        } else {
+            func_sig.params().len() + 1
+        });
 
         if self.abi.is_sret(func_sig)? {
             let basic_types: Vec<_> = func_sig
@@ -491,7 +493,7 @@ impl FuncTrampoline {
 
         args_vec.push(callee_vmctx_ptr.into());
 
-        if config.enable_g0m0_opt {
+        if g0m0_enabled {
             let wasm_module = &compile_info.module;
             let memory_styles = &compile_info.memory_styles;
             let callee_vmctx_ptr_value = callee_vmctx_ptr.into_pointer_value();

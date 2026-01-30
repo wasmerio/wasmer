@@ -30,8 +30,8 @@ use wasmer_compiler::{
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
-    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
-    SignatureIndex,
+    CompilationProgressCallback, CompileError, FunctionIndex, GlobalIndex, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo, SignatureIndex, Type,
 };
 use wasmer_vm::LibCall;
 
@@ -695,4 +695,16 @@ impl Compiler for LLVMCompiler {
         }
         Ok(())
     }
+}
+
+pub(crate) fn g0m0_enabled_for_module(config: &LLVM, module: &ModuleInfo) -> bool {
+    if !config.enable_g0m0_opt {
+        return false;
+    }
+
+    module.memories.get(MemoryIndex::from_u32(0)).is_some()
+        && module
+            .globals
+            .get(GlobalIndex::from_u32(0))
+            .is_some_and(|g| g.ty == Type::I32)
 }

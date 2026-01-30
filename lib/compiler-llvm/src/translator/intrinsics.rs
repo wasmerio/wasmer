@@ -6,6 +6,7 @@
 
 use crate::LLVM;
 use crate::abi::Abi;
+use crate::compiler::g0m0_enabled_for_module;
 use crate::error::err;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
@@ -1805,7 +1806,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     intrinsics,
                     Some(offsets),
                     func_type,
-                    if self.config.enable_g0m0_opt {
+                    if g0m0_enabled_for_module(self.config, self.wasm_module) {
                         Some(crate::abi::G0M0FunctionKind::Local)
                     } else {
                         None

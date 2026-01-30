@@ -26,6 +26,7 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 
+use crate::compiler::g0m0_enabled_for_module;
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
     config::LLVM,
@@ -129,7 +130,7 @@ impl FuncTranslator {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
-        let g0m0_is_enabled = config.enable_g0m0_opt;
+        let g0m0_is_enabled = g0m0_enabled_for_module(config, wasm_module);
         let func_kind = if g0m0_is_enabled {
             Some(G0M0FunctionKind::Local)
         } else {
