@@ -697,124 +697,125 @@
 <a href=#697 id=697 data-nosnippet>697</a>    }
 <a href=#698 id=698 data-nosnippet>698</a>}
 <a href=#699 id=699 data-nosnippet>699</a>
-<a href=#700 id=700 data-nosnippet>700</a><span class="attr">#[cfg(test)]
-<a href=#701 id=701 data-nosnippet>701</a></span><span class="kw">mod </span>tests {
-<a href=#702 id=702 data-nosnippet>702</a>    <span class="kw">use </span>std::{
-<a href=#703 id=703 data-nosnippet>703</a>        collections::{BTreeMap, HashMap},
-<a href=#704 id=704 data-nosnippet>704</a>        path::{Path, PathBuf},
-<a href=#705 id=705 data-nosnippet>705</a>    };
-<a href=#706 id=706 data-nosnippet>706</a>
-<a href=#707 id=707 data-nosnippet>707</a>    <span class="kw">use </span>ciborium::value::Value;
-<a href=#708 id=708 data-nosnippet>708</a>    <span class="kw">use </span>virtual_fs::FileSystem;
-<a href=#709 id=709 data-nosnippet>709</a>    <span class="kw">use </span>wasmer_config::package::PackageId;
-<a href=#710 id=710 data-nosnippet>710</a>    <span class="kw">use </span>webc::{
-<a href=#711 id=711 data-nosnippet>711</a>        Container,
-<a href=#712 id=712 data-nosnippet>712</a>        indexmap::IndexMap,
-<a href=#713 id=713 data-nosnippet>713</a>        metadata::{
-<a href=#714 id=714 data-nosnippet>714</a>            Manifest,
-<a href=#715 id=715 data-nosnippet>715</a>            annotations::{FileSystemMapping, FileSystemMappings},
-<a href=#716 id=716 data-nosnippet>716</a>        },
-<a href=#717 id=717 data-nosnippet>717</a>        v2::{
-<a href=#718 id=718 data-nosnippet>718</a>            SignatureAlgorithm,
-<a href=#719 id=719 data-nosnippet>719</a>            read::OwnedReader,
-<a href=#720 id=720 data-nosnippet>720</a>            write::{DirEntry, Directory, FileEntry, Writer},
-<a href=#721 id=721 data-nosnippet>721</a>        },
-<a href=#722 id=722 data-nosnippet>722</a>    };
-<a href=#723 id=723 data-nosnippet>723</a>
-<a href=#724 id=724 data-nosnippet>724</a>    <span class="kw">use super</span>::{ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2};
-<a href=#725 id=725 data-nosnippet>725</a>
-<a href=#726 id=726 data-nosnippet>726</a>    <span class="attr">#[test]
-<a href=#727 id=727 data-nosnippet>727</a>    </span><span class="kw">fn </span>v2_filesystem_mapping_resolves_mount_paths() {
-<a href=#728 id=728 data-nosnippet>728</a>        <span class="comment">// Regression test: v2 fs mounts are already relative to the mount root,
-<a href=#729 id=729 data-nosnippet>729</a>        // so stripping the mount path again breaks lookups like /public.
-<a href=#730 id=730 data-nosnippet>730</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>manifest = Manifest::default();
-<a href=#731 id=731 data-nosnippet>731</a>        <span class="kw">let </span>fs = FileSystemMappings(<span class="macro">vec!</span>[FileSystemMapping {
-<a href=#732 id=732 data-nosnippet>732</a>            from: <span class="prelude-val">None</span>,
-<a href=#733 id=733 data-nosnippet>733</a>            volume_name: <span class="string">"atom"</span>.to_string(),
-<a href=#734 id=734 data-nosnippet>734</a>            host_path: <span class="prelude-val">Some</span>(<span class="string">"/public"</span>.to_string()),
-<a href=#735 id=735 data-nosnippet>735</a>            mount_path: <span class="string">"/public"</span>.to_string(),
-<a href=#736 id=736 data-nosnippet>736</a>        }]);
-<a href=#737 id=737 data-nosnippet>737</a>        <span class="kw">let </span><span class="kw-2">mut </span>package = IndexMap::new();
-<a href=#738 id=738 data-nosnippet>738</a>        package.insert(
-<a href=#739 id=739 data-nosnippet>739</a>            FileSystemMappings::KEY.to_string(),
-<a href=#740 id=740 data-nosnippet>740</a>            Value::serialized(<span class="kw-2">&amp;</span>fs).unwrap(),
-<a href=#741 id=741 data-nosnippet>741</a>        );
-<a href=#742 id=742 data-nosnippet>742</a>        manifest.package = package;
-<a href=#743 id=743 data-nosnippet>743</a>
-<a href=#744 id=744 data-nosnippet>744</a>        <span class="kw">let </span><span class="kw-2">mut </span>public_children = BTreeMap::new();
-<a href=#745 id=745 data-nosnippet>745</a>        public_children.insert(
-<a href=#746 id=746 data-nosnippet>746</a>            <span class="string">"index.html"</span>.parse().unwrap(),
-<a href=#747 id=747 data-nosnippet>747</a>            DirEntry::File(FileEntry::from(<span class="string">b"ok"</span>.as_slice())),
-<a href=#748 id=748 data-nosnippet>748</a>        );
-<a href=#749 id=749 data-nosnippet>749</a>        <span class="kw">let </span>public_dir = Directory {
-<a href=#750 id=750 data-nosnippet>750</a>            children: public_children,
-<a href=#751 id=751 data-nosnippet>751</a>        };
-<a href=#752 id=752 data-nosnippet>752</a>        <span class="kw">let </span><span class="kw-2">mut </span>root_children = BTreeMap::new();
-<a href=#753 id=753 data-nosnippet>753</a>        root_children.insert(<span class="string">"public"</span>.parse().unwrap(), DirEntry::Dir(public_dir));
-<a href=#754 id=754 data-nosnippet>754</a>        <span class="kw">let </span>atom_dir = Directory {
-<a href=#755 id=755 data-nosnippet>755</a>            children: root_children,
-<a href=#756 id=756 data-nosnippet>756</a>        };
-<a href=#757 id=757 data-nosnippet>757</a>
-<a href=#758 id=758 data-nosnippet>758</a>        <span class="kw">let </span>writer = Writer::default().write_manifest(<span class="kw-2">&amp;</span>manifest).unwrap();
-<a href=#759 id=759 data-nosnippet>759</a>        <span class="kw">let </span>writer = writer.write_atoms(BTreeMap::new()).unwrap();
-<a href=#760 id=760 data-nosnippet>760</a>        <span class="kw">let </span>writer = writer.with_volume(<span class="string">"atom"</span>, atom_dir).unwrap();
-<a href=#761 id=761 data-nosnippet>761</a>        <span class="kw">let </span>bytes = writer.finish(SignatureAlgorithm::None).unwrap();
-<a href=#762 id=762 data-nosnippet>762</a>
-<a href=#763 id=763 data-nosnippet>763</a>        <span class="kw">let </span>reader = OwnedReader::parse(bytes).unwrap();
-<a href=#764 id=764 data-nosnippet>764</a>        <span class="kw">let </span>container = Container::from(reader);
-<a href=#765 id=765 data-nosnippet>765</a>
-<a href=#766 id=766 data-nosnippet>766</a>        <span class="kw">let </span>pkg_id = PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"0.1.0"</span>.parse().unwrap());
-<a href=#767 id=767 data-nosnippet>767</a>        <span class="kw">let </span><span class="kw-2">mut </span>packages = HashMap::new();
-<a href=#768 id=768 data-nosnippet>768</a>        packages.insert(pkg_id.clone(), container);
-<a href=#769 id=769 data-nosnippet>769</a>
-<a href=#770 id=770 data-nosnippet>770</a>        <span class="kw">let </span>pkg = ResolvedPackage {
-<a href=#771 id=771 data-nosnippet>771</a>            root_package: pkg_id.clone(),
-<a href=#772 id=772 data-nosnippet>772</a>            commands: BTreeMap::new(),
-<a href=#773 id=773 data-nosnippet>773</a>            entrypoint: <span class="prelude-val">None</span>,
-<a href=#774 id=774 data-nosnippet>774</a>            filesystem: <span class="macro">vec!</span>[ResolvedFileSystemMapping {
-<a href=#775 id=775 data-nosnippet>775</a>                mount_path: PathBuf::from(<span class="string">"/public"</span>),
-<a href=#776 id=776 data-nosnippet>776</a>                volume_name: <span class="string">"atom"</span>.to_string(),
-<a href=#777 id=777 data-nosnippet>777</a>                original_path: <span class="prelude-val">Some</span>(<span class="string">"/public"</span>.to_string()),
-<a href=#778 id=778 data-nosnippet>778</a>                package: pkg_id,
-<a href=#779 id=779 data-nosnippet>779</a>            }],
-<a href=#780 id=780 data-nosnippet>780</a>        };
-<a href=#781 id=781 data-nosnippet>781</a>
-<a href=#782 id=782 data-nosnippet>782</a>        <span class="kw">let </span>union_fs = filesystem_v2(<span class="kw-2">&amp;</span>packages, <span class="kw-2">&amp;</span>pkg, <span class="bool-val">false</span>).unwrap();
-<a href=#783 id=783 data-nosnippet>783</a>        <span class="macro">assert!</span>(union_fs.metadata(Path::new(<span class="string">"/public"</span>)).unwrap().is_dir());
-<a href=#784 id=784 data-nosnippet>784</a>        <span class="macro">assert!</span>(
-<a href=#785 id=785 data-nosnippet>785</a>            union_fs
-<a href=#786 id=786 data-nosnippet>786</a>                .metadata(Path::new(<span class="string">"/public/index.html"</span>))
-<a href=#787 id=787 data-nosnippet>787</a>                .unwrap()
-<a href=#788 id=788 data-nosnippet>788</a>                .is_file()
-<a href=#789 id=789 data-nosnippet>789</a>        );
-<a href=#790 id=790 data-nosnippet>790</a>    }
-<a href=#791 id=791 data-nosnippet>791</a>}
-<a href=#792 id=792 data-nosnippet>792</a><span class="kw">impl</span>&lt;F, M&gt; virtual_fs::FileOpener <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
-<a href=#793 id=793 data-nosnippet>793</a><span class="kw">where
-<a href=#794 id=794 data-nosnippet>794</a>    </span>F: FileSystem,
-<a href=#795 id=795 data-nosnippet>795</a>    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#796 id=796 data-nosnippet>796</a>{
-<a href=#797 id=797 data-nosnippet>797</a>    <span class="kw">fn </span>open(
-<a href=#798 id=798 data-nosnippet>798</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#799 id=799 data-nosnippet>799</a>        path: <span class="kw-2">&amp;</span>Path,
-<a href=#800 id=800 data-nosnippet>800</a>        conf: <span class="kw-2">&amp;</span>virtual_fs::OpenOptionsConfig,
-<a href=#801 id=801 data-nosnippet>801</a>    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
-<a href=#802 id=802 data-nosnippet>802</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
-<a href=#803 id=803 data-nosnippet>803</a>        <span class="self">self</span>.inner
-<a href=#804 id=804 data-nosnippet>804</a>            .new_open_options()
-<a href=#805 id=805 data-nosnippet>805</a>            .options(conf.clone())
-<a href=#806 id=806 data-nosnippet>806</a>            .open(path)
-<a href=#807 id=807 data-nosnippet>807</a>    }
-<a href=#808 id=808 data-nosnippet>808</a>}
-<a href=#809 id=809 data-nosnippet>809</a>
-<a href=#810 id=810 data-nosnippet>810</a><span class="kw">impl</span>&lt;F, M&gt; Debug <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
-<a href=#811 id=811 data-nosnippet>811</a><span class="kw">where
-<a href=#812 id=812 data-nosnippet>812</a>    </span>F: Debug,
-<a href=#813 id=813 data-nosnippet>813</a>{
-<a href=#814 id=814 data-nosnippet>814</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-<a href=#815 id=815 data-nosnippet>815</a>        f.debug_struct(<span class="string">"MappedPathFileSystem"</span>)
-<a href=#816 id=816 data-nosnippet>816</a>            .field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner)
-<a href=#817 id=817 data-nosnippet>817</a>            .field(<span class="string">"map"</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;M&gt;())
-<a href=#818 id=818 data-nosnippet>818</a>            .finish()
-<a href=#819 id=819 data-nosnippet>819</a>    }
-<a href=#820 id=820 data-nosnippet>820</a>}</code></pre></div></section></main></body></html>
+<a href=#700 id=700 data-nosnippet>700</a><span class="kw">impl</span>&lt;F, M&gt; virtual_fs::FileOpener <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
+<a href=#701 id=701 data-nosnippet>701</a><span class="kw">where
+<a href=#702 id=702 data-nosnippet>702</a>    </span>F: FileSystem,
+<a href=#703 id=703 data-nosnippet>703</a>    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#704 id=704 data-nosnippet>704</a>{
+<a href=#705 id=705 data-nosnippet>705</a>    <span class="kw">fn </span>open(
+<a href=#706 id=706 data-nosnippet>706</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#707 id=707 data-nosnippet>707</a>        path: <span class="kw-2">&amp;</span>Path,
+<a href=#708 id=708 data-nosnippet>708</a>        conf: <span class="kw-2">&amp;</span>virtual_fs::OpenOptionsConfig,
+<a href=#709 id=709 data-nosnippet>709</a>    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
+<a href=#710 id=710 data-nosnippet>710</a>        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
+<a href=#711 id=711 data-nosnippet>711</a>        <span class="self">self</span>.inner
+<a href=#712 id=712 data-nosnippet>712</a>            .new_open_options()
+<a href=#713 id=713 data-nosnippet>713</a>            .options(conf.clone())
+<a href=#714 id=714 data-nosnippet>714</a>            .open(path)
+<a href=#715 id=715 data-nosnippet>715</a>    }
+<a href=#716 id=716 data-nosnippet>716</a>}
+<a href=#717 id=717 data-nosnippet>717</a>
+<a href=#718 id=718 data-nosnippet>718</a><span class="kw">impl</span>&lt;F, M&gt; Debug <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
+<a href=#719 id=719 data-nosnippet>719</a><span class="kw">where
+<a href=#720 id=720 data-nosnippet>720</a>    </span>F: Debug,
+<a href=#721 id=721 data-nosnippet>721</a>{
+<a href=#722 id=722 data-nosnippet>722</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href=#723 id=723 data-nosnippet>723</a>        f.debug_struct(<span class="string">"MappedPathFileSystem"</span>)
+<a href=#724 id=724 data-nosnippet>724</a>            .field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner)
+<a href=#725 id=725 data-nosnippet>725</a>            .field(<span class="string">"map"</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;M&gt;())
+<a href=#726 id=726 data-nosnippet>726</a>            .finish()
+<a href=#727 id=727 data-nosnippet>727</a>    }
+<a href=#728 id=728 data-nosnippet>728</a>}
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a><span class="attr">#[cfg(test)]
+<a href=#731 id=731 data-nosnippet>731</a></span><span class="kw">mod </span>tests {
+<a href=#732 id=732 data-nosnippet>732</a>    <span class="kw">use </span>std::{
+<a href=#733 id=733 data-nosnippet>733</a>        collections::{BTreeMap, HashMap},
+<a href=#734 id=734 data-nosnippet>734</a>        path::{Path, PathBuf},
+<a href=#735 id=735 data-nosnippet>735</a>    };
+<a href=#736 id=736 data-nosnippet>736</a>
+<a href=#737 id=737 data-nosnippet>737</a>    <span class="kw">use </span>ciborium::value::Value;
+<a href=#738 id=738 data-nosnippet>738</a>    <span class="kw">use </span>virtual_fs::FileSystem;
+<a href=#739 id=739 data-nosnippet>739</a>    <span class="kw">use </span>wasmer_config::package::PackageId;
+<a href=#740 id=740 data-nosnippet>740</a>    <span class="kw">use </span>webc::{
+<a href=#741 id=741 data-nosnippet>741</a>        Container,
+<a href=#742 id=742 data-nosnippet>742</a>        indexmap::IndexMap,
+<a href=#743 id=743 data-nosnippet>743</a>        metadata::{
+<a href=#744 id=744 data-nosnippet>744</a>            Manifest,
+<a href=#745 id=745 data-nosnippet>745</a>            annotations::{FileSystemMapping, FileSystemMappings},
+<a href=#746 id=746 data-nosnippet>746</a>        },
+<a href=#747 id=747 data-nosnippet>747</a>        v2::{
+<a href=#748 id=748 data-nosnippet>748</a>            SignatureAlgorithm,
+<a href=#749 id=749 data-nosnippet>749</a>            read::OwnedReader,
+<a href=#750 id=750 data-nosnippet>750</a>            write::{DirEntry, Directory, FileEntry, Writer},
+<a href=#751 id=751 data-nosnippet>751</a>        },
+<a href=#752 id=752 data-nosnippet>752</a>    };
+<a href=#753 id=753 data-nosnippet>753</a>
+<a href=#754 id=754 data-nosnippet>754</a>    <span class="kw">use super</span>::{ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2};
+<a href=#755 id=755 data-nosnippet>755</a>
+<a href=#756 id=756 data-nosnippet>756</a>    <span class="attr">#[test]
+<a href=#757 id=757 data-nosnippet>757</a>    </span><span class="kw">fn </span>v2_filesystem_mapping_resolves_mount_paths() {
+<a href=#758 id=758 data-nosnippet>758</a>        <span class="comment">// Regression test: v2 fs mounts are already relative to the mount root,
+<a href=#759 id=759 data-nosnippet>759</a>        // so stripping the mount path again breaks lookups like /public.
+<a href=#760 id=760 data-nosnippet>760</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>manifest = Manifest::default();
+<a href=#761 id=761 data-nosnippet>761</a>        <span class="kw">let </span>fs = FileSystemMappings(<span class="macro">vec!</span>[FileSystemMapping {
+<a href=#762 id=762 data-nosnippet>762</a>            from: <span class="prelude-val">None</span>,
+<a href=#763 id=763 data-nosnippet>763</a>            volume_name: <span class="string">"atom"</span>.to_string(),
+<a href=#764 id=764 data-nosnippet>764</a>            host_path: <span class="prelude-val">Some</span>(<span class="string">"/public"</span>.to_string()),
+<a href=#765 id=765 data-nosnippet>765</a>            mount_path: <span class="string">"/public"</span>.to_string(),
+<a href=#766 id=766 data-nosnippet>766</a>        }]);
+<a href=#767 id=767 data-nosnippet>767</a>        <span class="kw">let </span><span class="kw-2">mut </span>package = IndexMap::new();
+<a href=#768 id=768 data-nosnippet>768</a>        package.insert(
+<a href=#769 id=769 data-nosnippet>769</a>            FileSystemMappings::KEY.to_string(),
+<a href=#770 id=770 data-nosnippet>770</a>            Value::serialized(<span class="kw-2">&amp;</span>fs).unwrap(),
+<a href=#771 id=771 data-nosnippet>771</a>        );
+<a href=#772 id=772 data-nosnippet>772</a>        manifest.package = package;
+<a href=#773 id=773 data-nosnippet>773</a>
+<a href=#774 id=774 data-nosnippet>774</a>        <span class="kw">let </span><span class="kw-2">mut </span>public_children = BTreeMap::new();
+<a href=#775 id=775 data-nosnippet>775</a>        public_children.insert(
+<a href=#776 id=776 data-nosnippet>776</a>            <span class="string">"index.html"</span>.parse().unwrap(),
+<a href=#777 id=777 data-nosnippet>777</a>            DirEntry::File(FileEntry::from(<span class="string">b"ok"</span>.as_slice())),
+<a href=#778 id=778 data-nosnippet>778</a>        );
+<a href=#779 id=779 data-nosnippet>779</a>        <span class="kw">let </span>public_dir = Directory {
+<a href=#780 id=780 data-nosnippet>780</a>            children: public_children,
+<a href=#781 id=781 data-nosnippet>781</a>        };
+<a href=#782 id=782 data-nosnippet>782</a>        <span class="kw">let </span><span class="kw-2">mut </span>root_children = BTreeMap::new();
+<a href=#783 id=783 data-nosnippet>783</a>        root_children.insert(<span class="string">"public"</span>.parse().unwrap(), DirEntry::Dir(public_dir));
+<a href=#784 id=784 data-nosnippet>784</a>        <span class="kw">let </span>atom_dir = Directory {
+<a href=#785 id=785 data-nosnippet>785</a>            children: root_children,
+<a href=#786 id=786 data-nosnippet>786</a>        };
+<a href=#787 id=787 data-nosnippet>787</a>
+<a href=#788 id=788 data-nosnippet>788</a>        <span class="kw">let </span>writer = Writer::default().write_manifest(<span class="kw-2">&amp;</span>manifest).unwrap();
+<a href=#789 id=789 data-nosnippet>789</a>        <span class="kw">let </span>writer = writer.write_atoms(BTreeMap::new()).unwrap();
+<a href=#790 id=790 data-nosnippet>790</a>        <span class="kw">let </span>writer = writer.with_volume(<span class="string">"atom"</span>, atom_dir).unwrap();
+<a href=#791 id=791 data-nosnippet>791</a>        <span class="kw">let </span>bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+<a href=#792 id=792 data-nosnippet>792</a>
+<a href=#793 id=793 data-nosnippet>793</a>        <span class="kw">let </span>reader = OwnedReader::parse(bytes).unwrap();
+<a href=#794 id=794 data-nosnippet>794</a>        <span class="kw">let </span>container = Container::from(reader);
+<a href=#795 id=795 data-nosnippet>795</a>
+<a href=#796 id=796 data-nosnippet>796</a>        <span class="kw">let </span>pkg_id = PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"0.1.0"</span>.parse().unwrap());
+<a href=#797 id=797 data-nosnippet>797</a>        <span class="kw">let </span><span class="kw-2">mut </span>packages = HashMap::new();
+<a href=#798 id=798 data-nosnippet>798</a>        packages.insert(pkg_id.clone(), container);
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a>        <span class="kw">let </span>pkg = ResolvedPackage {
+<a href=#801 id=801 data-nosnippet>801</a>            root_package: pkg_id.clone(),
+<a href=#802 id=802 data-nosnippet>802</a>            commands: BTreeMap::new(),
+<a href=#803 id=803 data-nosnippet>803</a>            entrypoint: <span class="prelude-val">None</span>,
+<a href=#804 id=804 data-nosnippet>804</a>            filesystem: <span class="macro">vec!</span>[ResolvedFileSystemMapping {
+<a href=#805 id=805 data-nosnippet>805</a>                mount_path: PathBuf::from(<span class="string">"/public"</span>),
+<a href=#806 id=806 data-nosnippet>806</a>                volume_name: <span class="string">"atom"</span>.to_string(),
+<a href=#807 id=807 data-nosnippet>807</a>                original_path: <span class="prelude-val">Some</span>(<span class="string">"/public"</span>.to_string()),
+<a href=#808 id=808 data-nosnippet>808</a>                package: pkg_id,
+<a href=#809 id=809 data-nosnippet>809</a>            }],
+<a href=#810 id=810 data-nosnippet>810</a>        };
+<a href=#811 id=811 data-nosnippet>811</a>
+<a href=#812 id=812 data-nosnippet>812</a>        <span class="kw">let </span>union_fs = filesystem_v2(<span class="kw-2">&amp;</span>packages, <span class="kw-2">&amp;</span>pkg, <span class="bool-val">false</span>).unwrap();
+<a href=#813 id=813 data-nosnippet>813</a>        <span class="macro">assert!</span>(union_fs.metadata(Path::new(<span class="string">"/public"</span>)).unwrap().is_dir());
+<a href=#814 id=814 data-nosnippet>814</a>        <span class="macro">assert!</span>(
+<a href=#815 id=815 data-nosnippet>815</a>            union_fs
+<a href=#816 id=816 data-nosnippet>816</a>                .metadata(Path::new(<span class="string">"/public/index.html"</span>))
+<a href=#817 id=817 data-nosnippet>817</a>                .unwrap()
+<a href=#818 id=818 data-nosnippet>818</a>                .is_file()
+<a href=#819 id=819 data-nosnippet>819</a>        );
+<a href=#820 id=820 data-nosnippet>820</a>    }
+<a href=#821 id=821 data-nosnippet>821</a>}</code></pre></div></section></main></body></html>
