@@ -11561,6 +11561,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "vfs-core"
+version = "7.0.0"
+dependencies = [
+ "async-trait",
+ "bitflags 2.10.0",
+]
+
+[[package]]
+name = "vfs-host"
+version = "7.0.0"
+
+[[package]]
+name = "vfs-mem"
+version = "7.0.0"
+
+[[package]]
+name = "vfs-overlay"
+version = "7.0.0"
+
+[[package]]
+name = "vfs-rt"
+version = "7.0.0"
+
+[[package]]
+name = "vfs-unix"
+version = "7.0.0"
+
+[[package]]
 name = "virtual-fs"
 version = "0.700.0"
 dependencies = [

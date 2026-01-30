@@ -1,0 +1,13 @@
+[package]
+name = "vfs-core"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+bitflags.workspace = true

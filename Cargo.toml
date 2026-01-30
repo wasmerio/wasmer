@@ -71,6 +71,8 @@ members = [
 	"tests/lib/wast",
 	"tests/wasi-wast",
 	"tests/wasmer-argus",
+
+	"vfs/*",
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
