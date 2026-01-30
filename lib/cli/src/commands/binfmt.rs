@@ -85,6 +85,10 @@ impl Binfmt {
                         bin_path.to_string_lossy()
                     )
                 })?;
+                // The binfmt flags are documented here:
+                // https://docs.kernel.org/admin-guide/binfmt-misc.html
+                // We use the 'F' flag to guarantee the binary exists at registration time,
+                // not necessarily at execution time (hence the temporary folder).
                 Some([
                     [
                         b":wasm32:M::\\x00asm\\x01\\x00\\x00::".as_ref(),
