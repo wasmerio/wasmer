@@ -279,7 +279,7 @@ impl WasmerCmd {
             binfmt_args.push("--forward-host-env".into());
             for mount_path in mount_paths {
                 if let Some(mount_path_str) = mount_path.to_str() {
-                    binfmt_args.push(format!("--mapdir={mount_path_str}:{mount_path_str}").into());
+                    binfmt_args.push(format!("--volume={mount_path_str}:{mount_path_str}").into());
                 }
             }
             if let Some(current_dir_str) = current_dir.to_str() {
