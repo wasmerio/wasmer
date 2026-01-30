@@ -32,7 +32,6 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 use itertools::Itertools;
-use std::ffi::OsString;
 use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
 
