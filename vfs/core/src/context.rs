@@ -2,6 +2,7 @@ use crate::policy::VfsPolicy;
 use crate::{VfsDirHandle, VfsGid, VfsHandleId, VfsUid};
 use smallvec::SmallVec;
 use std::sync::Arc;
+use vfs_ratelimit::RateLimiter;
 
 #[derive(Clone, Debug)]
 pub struct VfsConfig {
@@ -46,6 +47,7 @@ pub struct VfsContext {
     pub cwd: VfsDirHandle,
     pub config: Arc<VfsConfig>,
     pub policy: Arc<dyn VfsPolicy>,
+    pub rate_limiter: Option<Arc<dyn RateLimiter>>,
 }
 
 impl VfsContext {
@@ -60,6 +62,7 @@ impl VfsContext {
             cwd,
             config,
             policy,
+            rate_limiter: None,
         }
     }
 

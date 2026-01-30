@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use vfs_core::provider::{config_downcast_ref, FsProvider, MountRequest, ProviderConfig};
+use vfs_core::provider::{FsProvider, MountRequest, ProviderConfig, config_downcast_ref};
 use vfs_core::{Fs, FsProviderRegistry, VfsError, VfsErrorKind, VfsResult};
 
 use crate::fs::OverlayFs;

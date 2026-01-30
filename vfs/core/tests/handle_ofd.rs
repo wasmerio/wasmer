@@ -9,6 +9,7 @@ use vfs_core::{
     BackendInodeId, MountId, VfsError, VfsErrorKind, VfsFileMode, VfsFileType, VfsHandle,
     VfsHandleId, VfsMetadata, VfsResult, VfsTimespec,
 };
+use vfs_ratelimit::LimiterChain;
 
 struct MemHandle {
     inode: BackendInodeId,
@@ -235,6 +236,7 @@ fn make_handle(handle_id: u64, open_flags: vfs_core::OpenFlags) -> VfsHandle {
         VfsFileType::RegularFile,
         backend,
         open_flags,
+        LimiterChain::default(),
     )
 }
 

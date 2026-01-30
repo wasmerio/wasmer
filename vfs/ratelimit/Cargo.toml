@@ -1,5 +1,5 @@
 [package]
-name = "vfs-core"
+name = "vfs-ratelimit"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -9,8 +9,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-async-trait.workspace = true
-bitflags.workspace = true
 parking_lot.workspace = true
-smallvec.workspace = true
-vfs-ratelimit = { path = "../ratelimit" }
+
+[dev-dependencies]
+pretty_assertions.workspace = true

@@ -10,8 +10,8 @@ use vfs_core::node::{
 };
 use vfs_core::path_types::{VfsName, VfsNameBuf, VfsPath, VfsPathBuf};
 use vfs_core::{
-    BackendInodeId, Fs, MountId, VfsCapabilities, VfsError, VfsErrorKind, VfsFileMode,
-    VfsFileType, VfsInodeId, VfsMetadata, VfsResult, VfsTimespec,
+    BackendInodeId, Fs, MountId, VfsCapabilities, VfsError, VfsErrorKind, VfsFileMode, VfsFileType,
+    VfsInodeId, VfsMetadata, VfsResult, VfsTimespec,
 };
 
 #[derive(Debug)]
@@ -91,9 +91,15 @@ impl Default for MemMetadata {
 
 #[derive(Debug)]
 enum MemNodeKind {
-    File { data: RwLock<Vec<u8>> },
-    Dir { children: RwLock<BTreeMap<Vec<u8>, Arc<MemNode>>> },
-    Symlink { target: VfsPathBuf },
+    File {
+        data: RwLock<Vec<u8>>,
+    },
+    Dir {
+        children: RwLock<BTreeMap<Vec<u8>, Arc<MemNode>>>,
+    },
+    Symlink {
+        target: VfsPathBuf,
+    },
 }
 
 #[derive(Debug)]
@@ -157,10 +163,9 @@ impl MemNode {
     }
 
     fn arc_self(&self) -> VfsResult<Arc<MemNode>> {
-        self.self_ref.upgrade().ok_or(VfsError::new(
-            VfsErrorKind::Internal,
-            "memfs.arc_self",
-        ))
+        self.self_ref
+            .upgrade()
+            .ok_or(VfsError::new(VfsErrorKind::Internal, "memfs.arc_self"))
     }
 }
 
@@ -290,10 +295,7 @@ impl FsNode for MemNode {
         self.ensure_dir()?;
         let mut children = self.dir_children()?.write().expect("lock");
         if children.contains_key(name.as_bytes()) {
-            return Err(VfsError::new(
-                VfsErrorKind::AlreadyExists,
-                "memfs.mkdir",
-            ));
+            return Err(VfsError::new(VfsErrorKind::AlreadyExists, "memfs.mkdir"));
         }
         let node = MemNode::new_child(
             self.fs.clone(),
@@ -400,10 +402,7 @@ impl FsNode for MemNode {
         if dst_children.contains_key(new_name.as_bytes()) {
             if opts.noreplace {
                 src_children.insert(old_name.as_bytes().to_vec(), node);
-                return Err(VfsError::new(
-                    VfsErrorKind::AlreadyExists,
-                    "memfs.rename",
-                ));
+                return Err(VfsError::new(VfsErrorKind::AlreadyExists, "memfs.rename"));
             }
             let existing = dst_children.remove(new_name.as_bytes()).expect("exists");
             if existing.file_type() == VfsFileType::Directory {
@@ -411,10 +410,7 @@ impl FsNode for MemNode {
                     if !MemNode::empty_dir(&children.read().expect("lock")) {
                         src_children.insert(old_name.as_bytes().to_vec(), node);
                         dst_children.insert(new_name.as_bytes().to_vec(), existing);
-                        return Err(VfsError::new(
-                            VfsErrorKind::DirNotEmpty,
-                            "memfs.rename",
-                        ));
+                        return Err(VfsError::new(VfsErrorKind::DirNotEmpty, "memfs.rename"));
                     }
                 }
             }
@@ -431,10 +427,7 @@ impl FsNode for MemNode {
         self.ensure_dir()?;
         let mut children = self.dir_children()?.write().expect("lock");
         if children.contains_key(new_name.as_bytes()) {
-            return Err(VfsError::new(
-                VfsErrorKind::AlreadyExists,
-                "memfs.symlink",
-            ));
+            return Err(VfsError::new(VfsErrorKind::AlreadyExists, "memfs.symlink"));
         }
         let node = MemNode::new_child(
             self.fs.clone(),

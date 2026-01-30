@@ -9,6 +9,8 @@ use parking_lot::Mutex;
 use std::io::SeekFrom;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use vfs_ratelimit::rt::StdSyncWait;
+use vfs_ratelimit::{AcquireError, AcquireOptions, IoClass, IoCost, LimiterChain, LimiterKey};
 
 pub struct OFDState {
     backend: Arc<dyn FsHandle>,
@@ -49,6 +51,7 @@ pub struct VfsHandle {
     file_type: VfsFileType,
     access: HandleAccess,
     state: Arc<OFDState>,
+    rate_limiters: LimiterChain,
 }
 
 impl VfsHandle {
@@ -59,6 +62,7 @@ impl VfsHandle {
         file_type: VfsFileType,
         inner: Arc<dyn FsHandle>,
         flags: OpenFlags,
+        rate_limiters: LimiterChain,
     ) -> Self {
         let access = HandleAccess::from_open_flags(flags);
         Self {
@@ -68,6 +72,7 @@ impl VfsHandle {
             file_type,
             access,
             state: Arc::new(OFDState::new(inner, flags)),
+            rate_limiters,
         }
     }
 
@@ -113,6 +118,7 @@ impl VfsHandle {
         if self.file_type == VfsFileType::Directory {
             return Err(VfsError::new(VfsErrorKind::IsDir, "handle.read"));
         }
+        self.apply_rate_limit(IoClass::Read, buf.len() as u64)?;
 
         let _guard = self.state.io_lock.lock();
         let offset = self.state.offset.load(Ordering::Acquire);
@@ -128,6 +134,7 @@ impl VfsHandle {
         if self.file_type == VfsFileType::Directory {
             return Err(VfsError::new(VfsErrorKind::IsDir, "handle.write"));
         }
+        self.apply_rate_limit(IoClass::Write, buf.len() as u64)?;
 
         let _guard = self.state.io_lock.lock();
         if self.status_flags().contains(HandleStatusFlags::APPEND) {
@@ -152,6 +159,7 @@ impl VfsHandle {
         if self.file_type == VfsFileType::Directory {
             return Err(VfsError::new(VfsErrorKind::IsDir, "handle.pread"));
         }
+        self.apply_rate_limit(IoClass::Read, buf.len() as u64)?;
         self.state.backend.read_at(offset, buf)
     }
 
@@ -160,6 +168,7 @@ impl VfsHandle {
         if self.file_type == VfsFileType::Directory {
             return Err(VfsError::new(VfsErrorKind::IsDir, "handle.pwrite"));
         }
+        self.apply_rate_limit(IoClass::Write, buf.len() as u64)?;
         self.state.backend.write_at(offset, buf)
     }
 
@@ -223,6 +232,35 @@ impl VfsHandle {
         } else {
             Err(VfsError::new(VfsErrorKind::BadHandle, context))
         }
+    }
+
+    fn apply_rate_limit(&self, class: IoClass, bytes: u64) -> VfsResult<()> {
+        if self.rate_limiters.is_empty() {
+            return Ok(());
+        }
+        let opts = AcquireOptions {
+            nonblocking: self.status_flags().contains(HandleStatusFlags::NONBLOCK),
+            timeout: None,
+            key: Some(LimiterKey::Handle(self.id.0)),
+        };
+        let cost = IoCost {
+            class,
+            ops: 1,
+            bytes,
+        };
+        let wait = StdSyncWait;
+        self.rate_limiters
+            .acquire_blocking(cost, &opts, &wait)
+            .map_err(|err| VfsError::new(map_acquire_error(err), "handle.ratelimit"))
+    }
+}
+
+fn map_acquire_error(err: AcquireError) -> VfsErrorKind {
+    match err {
+        AcquireError::WouldBlock => VfsErrorKind::WouldBlock,
+        AcquireError::TimedOut => VfsErrorKind::WouldBlock,
+        AcquireError::Cancelled => VfsErrorKind::Interrupted,
+        AcquireError::Misconfigured => VfsErrorKind::InvalidInput,
     }
 }
 

@@ -11568,6 +11568,7 @@ dependencies = [
  "bitflags 2.10.0",
  "parking_lot",
  "smallvec",
+ "vfs-ratelimit",
 ]
 
 [[package]]
@@ -11588,6 +11589,14 @@ dependencies = [
  "smallvec",
  "vfs-core",
  "vfs-mem",
+]
+
+[[package]]
+name = "vfs-ratelimit"
+version = "7.0.0"
+dependencies = [
+ "parking_lot",
+ "pretty_assertions",
 ]
 
 [[package]]

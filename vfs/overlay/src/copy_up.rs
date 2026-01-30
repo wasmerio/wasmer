@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
+use vfs_core::VfsResult;
 use vfs_core::flags::{OpenFlags, OpenOptions, ResolveFlags};
 use vfs_core::node::{CreateFile, FsHandle, FsNode, MkdirOptions, SetMetadata};
 use vfs_core::path_types::{VfsName, VfsPathBuf};
-use vfs_core::VfsResult;
 
 use crate::config::OverlayOptions;
 

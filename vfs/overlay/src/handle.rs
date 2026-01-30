@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use vfs_core::node::FsHandle;
 use vfs_core::VfsResult;
+use vfs_core::node::FsHandle;
 
 pub struct OverlayHandle {
     inner: Arc<dyn FsHandle>,

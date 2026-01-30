@@ -131,10 +131,9 @@ impl OverlayNode {
     }
 
     fn require_name(&self) -> VfsResult<VfsNameBuf> {
-        self.name.clone().ok_or(VfsError::new(
-            VfsErrorKind::InvalidInput,
-            "overlay.name",
-        ))
+        self.name
+            .clone()
+            .ok_or(VfsError::new(VfsErrorKind::InvalidInput, "overlay.name"))
     }
 
     fn active_node(&self) -> VfsResult<Arc<dyn FsNode>> {
@@ -177,7 +176,10 @@ impl OverlayNode {
             return Ok(upper);
         }
         if !self.is_dir() {
-            return Err(VfsError::new(VfsErrorKind::NotDir, "overlay.ensure_upper_dir"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotDir,
+                "overlay.ensure_upper_dir",
+            ));
         }
         let parent = self.parent().ok_or(VfsError::new(
             VfsErrorKind::InvalidInput,
@@ -193,10 +195,7 @@ impl OverlayNode {
                 if let Some(lower) = self.primary_lower() {
                     copy_up_dir(&*parent_upper, &vfs_name, &*lower.node)?
                 } else {
-                    parent_upper.mkdir(
-                        &vfs_name,
-                        MkdirOptions { mode: None },
-                    )?
+                    parent_upper.mkdir(&vfs_name, MkdirOptions { mode: None })?
                 }
             }
             Err(err) => return Err(err),
@@ -271,7 +270,7 @@ impl OverlayNode {
                     return Ok(Some(LowerNode {
                         layer: lower.layer,
                         node,
-                    }))
+                    }));
                 }
                 Err(err) if err.kind() == VfsErrorKind::NotFound => continue,
                 Err(err) => return Err(err),
@@ -372,7 +371,10 @@ impl FsNode for OverlayNode {
 
     fn lookup(&self, name: &VfsName) -> VfsResult<Arc<dyn FsNode>> {
         if is_reserved_name(name) {
-            return Err(VfsError::new(VfsErrorKind::NotFound, "overlay.lookup.reserved"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotFound,
+                "overlay.lookup.reserved",
+            ));
         }
         if let Some(upper) = self.upper() {
             if let Ok(child) = upper.lookup(name) {
@@ -393,12 +395,18 @@ impl FsNode for OverlayNode {
                 return Ok(node);
             }
             if self.has_whiteout(name)? {
-                return Err(VfsError::new(VfsErrorKind::NotFound, "overlay.lookup.whiteout"));
+                return Err(VfsError::new(
+                    VfsErrorKind::NotFound,
+                    "overlay.lookup.whiteout",
+                ));
             }
         }
 
         if self.is_opaque()? {
-            return Err(VfsError::new(VfsErrorKind::NotFound, "overlay.lookup.opaque"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotFound,
+                "overlay.lookup.opaque",
+            ));
         }
 
         if let Some(lower) = self.lookup_lower_first(name)? {
@@ -406,13 +414,9 @@ impl FsNode for OverlayNode {
             let mut lowers = SmallVec::new();
             lowers.push(lower);
             let child_name = VfsNameBuf::new(name.as_bytes().to_vec())?;
-            let node = self.fs.make_node(
-                Some(child_name),
-                Some(self.weak_self()),
-                kind,
-                None,
-                lowers,
-            );
+            let node =
+                self.fs
+                    .make_node(Some(child_name), Some(self.weak_self()), kind, None, lowers);
             return Ok(node);
         }
         Err(VfsError::new(VfsErrorKind::NotFound, "overlay.lookup.miss"))
@@ -450,7 +454,10 @@ impl FsNode for OverlayNode {
 
     fn unlink(&self, name: &VfsName, opts: UnlinkOptions) -> VfsResult<()> {
         if is_reserved_name(name) {
-            return Err(VfsError::new(VfsErrorKind::NotFound, "overlay.unlink.reserved"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotFound,
+                "overlay.unlink.reserved",
+            ));
         }
         let upper = self.upper();
         let lower_exists = self.lower_entry_exists(name)?;
@@ -485,7 +492,10 @@ impl FsNode for OverlayNode {
 
     fn rmdir(&self, name: &VfsName) -> VfsResult<()> {
         if is_reserved_name(name) {
-            return Err(VfsError::new(VfsErrorKind::NotFound, "overlay.rmdir.reserved"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotFound,
+                "overlay.rmdir.reserved",
+            ));
         }
         let upper = self.upper();
         let lower_exists = self.lower_entry_exists(name)?;
@@ -677,7 +687,10 @@ impl FsNode for OverlayNode {
             .downcast_ref::<OverlayNode>()
             .ok_or(VfsError::new(VfsErrorKind::CrossDevice, "overlay.link"))?;
         if existing.kind == OverlayNodeKind::Dir {
-            return Err(VfsError::new(VfsErrorKind::NotSupported, "overlay.link.dir"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotSupported,
+                "overlay.link.dir",
+            ));
         }
         let upper_existing = match existing.kind {
             OverlayNodeKind::File => existing.ensure_upper_file()?,

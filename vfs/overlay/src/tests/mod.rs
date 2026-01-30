@@ -104,7 +104,10 @@ fn merged_readdir() {
         .iter()
         .map(|e| String::from_utf8_lossy(e.name.as_bytes()).to_string())
         .collect();
-    assert_eq!(names, vec!["a".to_string(), "c".to_string(), "b".to_string()]);
+    assert_eq!(
+        names,
+        vec!["a".to_string(), "c".to_string(), "b".to_string()]
+    );
 }
 
 #[test]
@@ -117,8 +120,11 @@ fn whiteout_hides_lower() {
         .build()
         .unwrap();
     let root = overlay.root();
-    root.unlink(&VfsName::new(b"x").unwrap(), UnlinkOptions { must_be_dir: false })
-        .unwrap();
+    root.unlink(
+        &VfsName::new(b"x").unwrap(),
+        UnlinkOptions { must_be_dir: false },
+    )
+    .unwrap();
 
     let err = lookup_path(root.clone(), "/x")
         .err()
@@ -234,7 +240,9 @@ fn inode_stable_across_copy_up() {
     let lower = Arc::new(MemFs::new());
     ensure_dir(lower.root(), "/mp").unwrap();
 
-    let overlay = OverlayBuilder::new(upper.clone(), vec![lower]).build().unwrap();
+    let overlay = OverlayBuilder::new(upper.clone(), vec![lower])
+        .build()
+        .unwrap();
     let root = overlay.root();
     let mp = lookup_path(root.clone(), "/mp").unwrap();
     let inode_before = mp.inode();

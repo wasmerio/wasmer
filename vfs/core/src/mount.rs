@@ -7,6 +7,7 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
+use vfs_ratelimit::RateLimiter;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MountState {
@@ -35,6 +36,8 @@ pub struct MountEntry {
     pub mountpoint: Option<VfsInodeId>,
     pub root_inode: VfsInodeId,
     pub fs: Arc<dyn Fs>,
+    pub mount_limiter: Option<Arc<dyn RateLimiter>>,
+    pub fs_limiter: Option<Arc<dyn RateLimiter>>,
     pub flags: MountFlags,
     state: AtomicU8,
     open_count: AtomicU64,
@@ -47,6 +50,8 @@ impl MountEntry {
         mountpoint: Option<VfsInodeId>,
         root_inode: VfsInodeId,
         fs: Arc<dyn Fs>,
+        mount_limiter: Option<Arc<dyn RateLimiter>>,
+        fs_limiter: Option<Arc<dyn RateLimiter>>,
         flags: MountFlags,
     ) -> Self {
         Self {
@@ -55,6 +60,8 @@ impl MountEntry {
             mountpoint,
             root_inode,
             fs,
+            mount_limiter,
+            fs_limiter,
             flags,
             state: AtomicU8::new(MountState::Active as u8),
             open_count: AtomicU64::new(0),
@@ -102,6 +109,8 @@ impl MountTable {
             None,
             root_inode,
             root_fs,
+            None,
+            None,
             MountFlags::empty(),
         ))));
 
@@ -176,6 +185,27 @@ impl MountTable {
         root_inode: BackendInodeId,
         flags: MountFlags,
     ) -> VfsResult<MountId> {
+        self.mount_with_limiters(
+            parent_mount,
+            mountpoint_inode,
+            fs,
+            root_inode,
+            flags,
+            None,
+            None,
+        )
+    }
+
+    pub fn mount_with_limiters(
+        &self,
+        parent_mount: MountId,
+        mountpoint_inode: VfsInodeId,
+        fs: Arc<dyn Fs>,
+        root_inode: BackendInodeId,
+        flags: MountFlags,
+        mount_limiter: Option<Arc<dyn RateLimiter>>,
+        fs_limiter: Option<Arc<dyn RateLimiter>>,
+    ) -> VfsResult<MountId> {
         if mountpoint_inode.mount != parent_mount {
             return Err(VfsError::new(
                 VfsErrorKind::InvalidInput,
@@ -223,6 +253,8 @@ impl MountTable {
                 Some(mountpoint_inode),
                 root_inode,
                 fs,
+                mount_limiter,
+                fs_limiter,
                 flags,
             ));
             (id, entry)

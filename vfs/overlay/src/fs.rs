@@ -16,7 +16,11 @@ pub struct OverlayFs {
 }
 
 impl OverlayFs {
-    pub fn new(upper: Arc<dyn Fs>, lowers: Vec<Arc<dyn Fs>>, opts: OverlayOptions) -> VfsResult<Self> {
+    pub fn new(
+        upper: Arc<dyn Fs>,
+        lowers: Vec<Arc<dyn Fs>>,
+        opts: OverlayOptions,
+    ) -> VfsResult<Self> {
         if lowers.is_empty() {
             return Err(VfsError::new(
                 VfsErrorKind::InvalidInput,
@@ -47,10 +51,7 @@ impl OverlayFs {
                 self.inodes.overlay_id_for(key)
             }
             None => {
-                let primary = lowers
-                    .first()
-                    .expect("lower node required")
-                    .to_key();
+                let primary = lowers.first().expect("lower node required").to_key();
                 self.inodes.overlay_id_for(primary)
             }
         };
@@ -77,13 +78,7 @@ impl OverlayFs {
                 });
             }
         }
-        self.make_node(
-            None,
-            None,
-            OverlayNodeKind::Dir,
-            Some(upper_root),
-            lowers,
-        )
+        self.make_node(None, None, OverlayNodeKind::Dir, Some(upper_root), lowers)
     }
 }
 
