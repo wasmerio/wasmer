@@ -11577,10 +11577,18 @@ version = "7.0.0"
 [[package]]
 name = "vfs-mem"
 version = "7.0.0"
+dependencies = [
+ "vfs-core",
+]
 
 [[package]]
 name = "vfs-overlay"
 version = "7.0.0"
+dependencies = [
+ "smallvec",
+ "vfs-core",
+ "vfs-mem",
+]
 
 [[package]]
 name = "vfs-rt"

@@ -9,3 +9,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+smallvec.workspace = true
+vfs-core = { path = "../core" }
+
+[dev-dependencies]
+vfs-mem = { path = "../mem" }

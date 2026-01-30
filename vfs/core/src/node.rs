@@ -14,6 +14,7 @@ use crate::{
 use async_trait::async_trait;
 use smallvec::SmallVec;
 use std::sync::Arc;
+use std::any::Any;
 
 /// Minimal node type classification (alias for now).
 pub type VfsNodeKind = VfsFileType;
@@ -138,7 +139,21 @@ pub trait FsHandleAsync: Send + Sync + 'static {
     }
 }
 
-pub trait FsNode: Send + Sync + 'static {
+pub trait AsAny {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T> AsAny for T
+where
+    T: Any,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+pub trait FsNode: Send + Sync + 'static + AsAny {
+
     fn inode(&self) -> BackendInodeId;
     fn file_type(&self) -> VfsFileType;
 

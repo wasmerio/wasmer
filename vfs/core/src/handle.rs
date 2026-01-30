@@ -44,7 +44,7 @@ impl OFDState {
 #[derive(Clone)]
 pub struct VfsHandle {
     id: VfsHandleId,
-    mount_guard: MountGuard,
+    _mount_guard: MountGuard,
     inode: VfsInodeId,
     file_type: VfsFileType,
     access: HandleAccess,
@@ -63,7 +63,7 @@ impl VfsHandle {
         let access = HandleAccess::from_open_flags(flags);
         Self {
             id,
-            mount_guard,
+            _mount_guard: mount_guard,
             inode,
             file_type,
             access,
@@ -254,7 +254,7 @@ pub struct VfsDirHandle {
 
 struct DirHandleInner {
     id: VfsHandleId,
-    mount_guard: MountGuard,
+    _mount_guard: MountGuard,
     inode: VfsInodeId,
     node: Arc<dyn crate::node::FsNode>,
     parent: Option<crate::inode::NodeRef>,
@@ -271,7 +271,7 @@ impl VfsDirHandle {
         Self {
             inner: Arc::new(DirHandleInner {
                 id,
-                mount_guard,
+                _mount_guard: mount_guard,
                 inode,
                 node,
                 parent,
@@ -302,6 +302,7 @@ pub struct DirStreamHandle {
 }
 
 impl DirStreamHandle {
+    #[allow(dead_code)]
     pub(crate) fn new(id: VfsHandleId) -> Self {
         Self { id }
     }

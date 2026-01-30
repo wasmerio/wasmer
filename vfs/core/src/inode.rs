@@ -55,7 +55,7 @@ impl NodeRef {
         make_vfs_inode(self.inner.mount, self.inner.node.inode())
     }
 
-    pub fn downgrade(&self) -> Weak<NodeRefInner> {
+    pub(crate) fn downgrade(&self) -> Weak<NodeRefInner> {
         Arc::downgrade(&self.inner)
     }
 }

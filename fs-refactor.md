@@ -297,16 +297,18 @@ This section is non-negotiable. It exists to prevent filesystem semantics from b
 NOTE: limits and quotas are optional and not required
 there should be a no/zero cost flow if no limits/quotas are configured.
 
-- **Deliverable**: `vfs/core/src/limits.rs` (optional for initial pass)
+- **Deliverable**: `vfs/core/src/limits.rs`
 - Add per‑Fs and per‑mount limit configuration:
-  - Max bytes, max inodes, max file size, max directory entries, max path length.
+  - Max used bytes, max inodes, max directory entries, max path length.
+    each should be optional
   - Optional per‑uid/gid quotas for multi‑tenant use.
 - Add global accounting to enforce limits consistently across overlay layers.
 - For overlay mounts, enforce limits in the upper (writable) layer to prevent unbounded in‑memory growth.
 - Expose limit configuration via provider config and mount flags.
+- expose a hook to have shared accounting across multiple Fs instances, or even across domains (e.g. network + FS + other resources)
 
 ### 3.7 IO rate limiting (IOPS/throughput)
-- **Deliverable**: `vfs/ratelimit/` (optional; only build if a concrete Wasix requirement exists)
+- **Deliverable**: `vfs/ratelimit/`
 - Provide a standalone limiter abstraction usable across subsystems:
   - `RateLimiter` trait with sync + async interfaces.
   - Pluggable implementations (token‑bucket, leaky‑bucket, fair‑queue).

@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Vfs {
-    inner: Arc<VfsInner>,
+    _inner: Arc<VfsInner>,
 }
 
 struct VfsInner;
@@ -20,7 +20,7 @@ struct VfsInner;
 impl Default for Vfs {
     fn default() -> Self {
         Self {
-            inner: Arc::new(VfsInner),
+            _inner: Arc::new(VfsInner),
         }
     }
 }
