@@ -1695,7 +1695,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 func_type,
                 func_ptr,
                 Some(G0M0FunctionKind::Imported),
-                Some((g0_value.into_int_value(), m0)),
+                None,
             )?;
             self.abi
                 .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
