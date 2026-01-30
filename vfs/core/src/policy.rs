@@ -1,28 +1,37 @@
-//! Policy hooks (allow/deny, confinement, etc.).
+//! Policy hooks (allow/deny, confinement, permissions).
+//!
+//! Phase 2.5 will implement POSIX permissions and confinement semantics using this interface.
 
-use crate::VfsResult;
+use crate::{OpenOptions, VfsContext, VfsInodeId, VfsMetadata, VfsResult};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum VfsOperation {
-    PathResolve,
-    Open,
-    Stat,
-    ReadDir,
+pub enum VfsOp {
     Read,
     Write,
+    Exec,
     Create,
-    Unlink,
-    Rmdir,
-    Mkdir,
-    Rename,
-    Link,
-    Symlink,
-    Readlink,
-    SetMetadata,
+    Delete,
+    Metadata,
 }
 
 pub trait VfsPolicy: Send + Sync + 'static {
-    fn check(&self, _op: VfsOperation) -> VfsResult<()> {
+    fn check_path_op(
+        &self,
+        _ctx: &VfsContext,
+        _op: VfsOp,
+        _target: &VfsInodeId,
+        _meta: Option<&VfsMetadata>,
+    ) -> VfsResult<()> {
+        Ok(())
+    }
+
+    fn check_open(
+        &self,
+        _ctx: &VfsContext,
+        _target: &VfsInodeId,
+        _opts: &OpenOptions,
+        _meta: Option<&VfsMetadata>,
+    ) -> VfsResult<()> {
         Ok(())
     }
 }

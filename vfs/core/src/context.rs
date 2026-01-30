@@ -1,0 +1,70 @@
+use crate::{VfsDirHandle, VfsHandleId};
+use crate::policy::VfsPolicy;
+use smallvec::SmallVec;
+use std::sync::Arc;
+
+#[derive(Clone, Debug)]
+pub struct VfsConfig {
+    pub max_symlinks: u16,
+    pub max_path_len: usize,
+    pub max_name_len: usize,
+}
+
+impl Default for VfsConfig {
+    fn default() -> Self {
+        Self {
+            max_symlinks: 40,
+            max_path_len: 4096,
+            max_name_len: 255,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct VfsCred {
+    pub uid: u32,
+    pub gid: u32,
+    pub groups: SmallVec<[u32; 8]>,
+    pub umask: u32,
+}
+
+impl VfsCred {
+    pub fn root() -> Self {
+        Self {
+            uid: 0,
+            gid: 0,
+            groups: SmallVec::new(),
+            umask: 0,
+        }
+    }
+}
+
+/// Per-call context.
+#[derive(Clone)]
+pub struct VfsContext {
+    pub cred: VfsCred,
+    pub cwd: VfsDirHandle,
+    pub config: Arc<VfsConfig>,
+    pub policy: Arc<dyn VfsPolicy>,
+}
+
+impl VfsContext {
+    pub fn new(
+        cred: VfsCred,
+        cwd: VfsDirHandle,
+        config: Arc<VfsConfig>,
+        policy: Arc<dyn VfsPolicy>,
+    ) -> Self {
+        Self {
+            cred,
+            cwd,
+            config,
+            policy,
+        }
+    }
+
+    pub fn cwd_handle_id(&self) -> VfsHandleId {
+        self.cwd.id()
+    }
+}
+

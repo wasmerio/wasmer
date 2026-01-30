@@ -5,8 +5,8 @@
 //! - [`Fs`]: a mounted filesystem instance (superblock-like).
 //! - `Mount`: the binding of an [`Fs`] into the VFS namespace (implemented later in `mount.rs`).
 
-use crate::path::{VfsPath, VfsPathBuf};
-use crate::{Fs, VfsError, VfsResult};
+use crate::path_types::{VfsPath, VfsPathBuf};
+use crate::{Fs, VfsError, VfsErrorKind, VfsResult};
 use bitflags::bitflags;
 use std::any::Any;
 use std::collections::HashMap;
@@ -93,10 +93,13 @@ impl FsProviderRegistry {
         let mut providers = self
             .providers
             .write()
-            .map_err(|_| VfsError::message("provider registry lock poisoned"))?;
+            .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
 
         if providers.contains_key(&name) {
-            return Err(VfsError::AlreadyExists);
+            return Err(VfsError::new(
+                VfsErrorKind::AlreadyExists,
+                "provider_registry.register",
+            ));
         }
 
         providers.insert(name, provider);
@@ -127,7 +130,9 @@ impl FsProviderRegistry {
         target_path: &VfsPath,
         flags: MountFlags,
     ) -> VfsResult<Arc<dyn Fs>> {
-        let provider = self.get(provider_name).ok_or(VfsError::NotFound)?;
+        let provider = self
+            .get(provider_name)
+            .ok_or(VfsError::new(VfsErrorKind::NotFound, "provider_registry.get"))?;
 
         provider.mount(MountRequest {
             target_path,

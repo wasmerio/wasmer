@@ -74,7 +74,7 @@ members = [
 
 	"vfs/*",
 ]
-exclude = ["./lib/cli/tests/packages/axum"]
+exclude = ["./lib/cli/tests/packages/axum", "vfs/docs"]
 resolver = "2"
 
 # [patch.crates-io]
