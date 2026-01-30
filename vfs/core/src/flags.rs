@@ -27,6 +27,11 @@ bitflags! {
     }
 }
 
+impl OpenFlags {
+    pub const STATUS_MASK: OpenFlags =
+        OpenFlags::APPEND | OpenFlags::NONBLOCK | OpenFlags::SYNC | OpenFlags::DSYNC;
+}
+
 bitflags! {
     /// Path resolution flags.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

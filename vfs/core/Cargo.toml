@@ -11,4 +11,5 @@ version.workspace = true
 [dependencies]
 async-trait.workspace = true
 bitflags.workspace = true
+parking_lot.workspace = true
 smallvec.workspace = true

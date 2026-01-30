@@ -11566,6 +11566,7 @@ version = "7.0.0"
 dependencies = [
  "async-trait",
  "bitflags 2.10.0",
+ "parking_lot",
  "smallvec",
 ]
 

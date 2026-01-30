@@ -1,9 +1,4 @@
 
-Got it – you want an immediate response. I've updated the task accordingly.
-
-
-Below is a **drop‑in replacement / expansion for Phase 1, Step 1.2** that’s detailed enough to drive implementation and avoid later semantic drift. It’s written to **respect every “Layering contract” rule** and the later‑phase requirements (mounts, overlays, sync+async, FD/OFD correctness, capability truthfulness, confinement, performance).
-
 ---
 
 ## 1.2 Define core VFS responsibilities
