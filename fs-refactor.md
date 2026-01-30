@@ -294,6 +294,9 @@ This section is non-negotiable. It exists to prevent filesystem semantics from b
   - `tmpfs`‑style in‑memory FS.
 
 ### 3.6 Filesystem usage limits and quotas
+NOTE: limits and quotas are optional and not required
+there should be a no/zero cost flow if no limits/quotas are configured.
+
 - **Deliverable**: `vfs/core/src/limits.rs` (optional for initial pass)
 - Add per‑Fs and per‑mount limit configuration:
   - Max bytes, max inodes, max file size, max directory entries, max path length.
@@ -440,13 +443,14 @@ Async implementation rule: all async traits in `vfs/*` use `async-trait` to rema
 ### 6.3 Network filesystem providers
 - Defer to a later milestone. The provider APIs must not preclude this, but the initial pass should not be blocked on SMB/NFS.
 
-### 6.4 Object store provider (S3, etc.)
-- **Deliverable**: `vfs/object-store/` (optional; only build when needed)
-- Use an object store crate (e.g. `object_store` or `opendal`) under a directory abstraction.
-- Implement pseudo‑directories by prefix matching.
-- Enforce immutable/append semantics and eventual consistency. Expose limitations via capabilities and return `ENOTSUP` where appropriate.
-- Provide a synthetic inode mapping cache for objects.
-- Provide a polling‑based watcher with configurable interval and incremental listing for change detection.
+DEFERRED
+<!-- ### 6.4 Object store provider (S3, etc.) -->
+<!-- - **Deliverable**: `vfs/object-store/` (optional; only build when needed) -->
+<!-- - Use an object store crate (e.g. `object_store` or `opendal`) under a directory abstraction. -->
+<!-- - Implement pseudo‑directories by prefix matching. -->
+<!-- - Enforce immutable/append semantics and eventual consistency. Expose limitations via capabilities and return `ENOTSUP` where appropriate. -->
+<!-- - Provide a synthetic inode mapping cache for objects. -->
+<!-- - Provide a polling‑based watcher with configurable interval and incremental listing for change detection. -->
 
 ### 6.5 Overlay + union provider
 - **Deliverable**: `vfs/overlay/src/lib.rs`

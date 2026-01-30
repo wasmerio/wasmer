@@ -1,4 +1,4 @@
-use crate::{VfsDirHandle, VfsHandleId};
+use crate::{VfsDirHandle, VfsGid, VfsHandleId, VfsUid};
 use crate::policy::VfsPolicy;
 use smallvec::SmallVec;
 use std::sync::Arc;
@@ -22,9 +22,9 @@ impl Default for VfsConfig {
 
 #[derive(Clone, Debug)]
 pub struct VfsCred {
-    pub uid: u32,
-    pub gid: u32,
-    pub groups: SmallVec<[u32; 8]>,
+    pub uid: VfsUid,
+    pub gid: VfsGid,
+    pub groups: SmallVec<[VfsGid; 8]>,
     pub umask: u32,
 }
 

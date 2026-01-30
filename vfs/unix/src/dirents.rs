@@ -4,7 +4,7 @@
 //! Callers must not reimplement this packing logic elsewhere.
 
 use crate::filetype::vfs_filetype_to_wasi;
-use vfs_core::{BackendInodeId, VfsDirEntry, VfsFileType, VfsInodeId};
+use vfs_core::{BackendInodeId, VfsDirEntry, VfsFileType};
 
 /// WASI dirent header alignment in bytes.
 pub const WASI_DIRENT_ALIGN: usize = 8;
@@ -85,14 +85,12 @@ fn vfs_dirent_type(ft: Option<VfsFileType>) -> u8 {
         .unwrap_or(wasmer_wasix_types::wasi::Filetype::Unknown) as u8
 }
 
-fn vfs_inode_to_u64(inode: Option<VfsInodeId>) -> u64 {
-    inode
-        .map(|id| inode_backend_to_u64(id.backend))
-        .unwrap_or(0)
+fn vfs_inode_to_u64(inode: Option<BackendInodeId>) -> u64 {
+    inode.map(inode_backend_to_u64).unwrap_or(0)
 }
 
 fn inode_backend_to_u64(id: BackendInodeId) -> u64 {
-    id.0
+    id.get()
 }
 
 fn align_up(value: usize, align: usize) -> usize {

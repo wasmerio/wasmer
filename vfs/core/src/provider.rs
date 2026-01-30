@@ -110,9 +110,12 @@ pub trait VfsRuntime: Send + Sync {
     fn spawn_blocking<F, R>(&self, f: F) -> Pin<Box<dyn Future<Output = R> + Send>>
     where
         F: FnOnce() -> R + Send + 'static,
-        R: Send + 'static;
+        R: Send + 'static,
+        Self: Sized;
 
-    fn block_on<F: Future>(&self, fut: F) -> F::Output;
+    fn block_on<F: Future>(&self, fut: F) -> F::Output
+    where
+        Self: Sized;
 }
 
 pub struct AsyncAdapter<T> {
@@ -230,7 +233,7 @@ mod tests {
 
     impl FsNode for DummyNode {
         fn inode(&self) -> BackendInodeId {
-            BackendInodeId(1)
+            BackendInodeId::new(1).expect("non-zero inode")
         }
 
         fn file_type(&self) -> VfsFileType {
@@ -240,19 +243,20 @@ mod tests {
         fn metadata(&self) -> VfsResult<crate::VfsMetadata> {
             Ok(crate::VfsMetadata {
                 inode: VfsInodeId {
-                    mount: MountId(0),
-                    backend: BackendInodeId(1),
+                    mount: MountId::from_index(0),
+                    backend: BackendInodeId::new(1).expect("non-zero inode"),
                 },
                 file_type: VfsFileType::Directory,
-                mode: 0,
+                mode: crate::VfsFileMode(0),
                 uid: 0,
                 gid: 0,
                 nlink: 1,
                 size: 0,
-                atime: None,
-                mtime: None,
-                ctime: None,
-                rdev: 0,
+                atime: crate::VfsTimespec { secs: 0, nanos: 0 },
+                mtime: crate::VfsTimespec { secs: 0, nanos: 0 },
+                ctime: crate::VfsTimespec { secs: 0, nanos: 0 },
+                rdev_major: 0,
+                rdev_minor: 0,
             })
         }
 
@@ -419,9 +423,15 @@ mod tests {
             .register_provider("dummy", provider)
             .expect("register should succeed");
 
-        let err = registry
-            .mount_with_provider("dummy", &OtherConfig, VfsPath::new(b"/"), MountFlags::empty())
-            .expect_err("mount should fail");
+        let err = match registry.mount_with_provider(
+            "dummy",
+            &OtherConfig,
+            VfsPath::new(b"/"),
+            MountFlags::empty(),
+        ) {
+            Ok(_) => panic!("mount should fail"),
+            Err(err) => err,
+        };
         assert_eq!(err.kind(), VfsErrorKind::InvalidInput);
     }
 }

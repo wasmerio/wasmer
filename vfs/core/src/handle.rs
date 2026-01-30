@@ -1,36 +1,43 @@
 //! VFS handle types and OFD semantics.
 
-use crate::flags::OpenFlags;
+use crate::flags::{HandleStatusFlags, OpenFlags};
 use crate::mount::MountGuard;
 use crate::node::FsHandle;
 use crate::{VfsError, VfsErrorKind, VfsFileType, VfsHandleId, VfsInodeId, VfsResult};
+use bitflags::bitflags;
 use parking_lot::Mutex;
 use std::io::SeekFrom;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
-#[derive(Debug)]
 pub struct OFDState {
-    offset: Mutex<u64>,
+    backend: Arc<dyn FsHandle>,
+    offset: AtomicU64,
     status_flags: AtomicU32,
+    io_lock: Mutex<()>,
 }
 
 impl OFDState {
-    pub fn new(flags: OpenFlags) -> Self {
-        let status = flags & OpenFlags::STATUS_MASK;
+    pub fn new(backend: Arc<dyn FsHandle>, flags: OpenFlags) -> Self {
+        let status = flags.status_flags();
         Self {
-            offset: Mutex::new(0),
+            backend,
+            offset: AtomicU64::new(0),
             status_flags: AtomicU32::new(status.bits()),
+            io_lock: Mutex::new(()),
         }
     }
 
-    pub fn status_flags(&self) -> OpenFlags {
-        OpenFlags::from_bits_truncate(self.status_flags.load(Ordering::Acquire))
+    pub fn status_flags(&self) -> HandleStatusFlags {
+        HandleStatusFlags::from_bits_truncate(self.status_flags.load(Ordering::Acquire))
     }
 
-    pub fn set_status_flags(&self, flags: OpenFlags) {
-        let status = flags & OpenFlags::STATUS_MASK;
-        self.status_flags.store(status.bits(), Ordering::Release);
+    pub fn set_status_flags(&self, flags: HandleStatusFlags) {
+        self.status_flags.store(flags.bits(), Ordering::Release);
+    }
+
+    pub fn offset(&self) -> u64 {
+        self.offset.load(Ordering::Acquire)
     }
 }
 
@@ -40,8 +47,8 @@ pub struct VfsHandle {
     mount_guard: MountGuard,
     inode: VfsInodeId,
     file_type: VfsFileType,
+    access: HandleAccess,
     state: Arc<OFDState>,
-    inner: Arc<dyn FsHandle>,
 }
 
 impl VfsHandle {
@@ -53,13 +60,14 @@ impl VfsHandle {
         inner: Arc<dyn FsHandle>,
         flags: OpenFlags,
     ) -> Self {
+        let access = HandleAccess::from_open_flags(flags);
         Self {
             id,
             mount_guard,
             inode,
             file_type,
-            state: Arc::new(OFDState::new(flags)),
-            inner,
+            access,
+            state: Arc::new(OFDState::new(inner, flags)),
         }
     }
 
@@ -75,70 +83,115 @@ impl VfsHandle {
         self.file_type
     }
 
-    pub fn status_flags(&self) -> OpenFlags {
+    pub fn status_flags(&self) -> HandleStatusFlags {
         self.state.status_flags()
     }
 
-    pub fn set_status_flags(&self, flags: OpenFlags) {
+    pub fn set_status_flags(&self, flags: HandleStatusFlags) -> VfsResult<()> {
         self.state.set_status_flags(flags);
+        Ok(())
+    }
+
+    pub fn tell(&self) -> u64 {
+        self.state.offset()
+    }
+
+    pub fn get_metadata(&self) -> VfsResult<crate::VfsMetadata> {
+        self.state.backend.get_metadata()
+    }
+
+    pub fn set_len(&self, new_len: u64) -> VfsResult<()> {
+        self.require_access(HandleAccess::WRITE, "handle.set_len")?;
+        if self.file_type == VfsFileType::Directory {
+            return Err(VfsError::new(VfsErrorKind::IsDir, "handle.set_len"));
+        }
+        self.state.backend.set_len(new_len)
     }
 
     pub fn read(&self, buf: &mut [u8]) -> VfsResult<usize> {
-        let mut offset = self.state.offset.lock();
-        let read = self.inner.read_at(*offset, buf)?;
-        *offset = offset.saturating_add(read as u64);
+        self.require_access(HandleAccess::READ, "handle.read")?;
+        if self.file_type == VfsFileType::Directory {
+            return Err(VfsError::new(VfsErrorKind::IsDir, "handle.read"));
+        }
+
+        let _guard = self.state.io_lock.lock();
+        let offset = self.state.offset.load(Ordering::Acquire);
+        let read = self.state.backend.read_at(offset, buf)?;
+        self.state
+            .offset
+            .store(offset.saturating_add(read as u64), Ordering::Release);
         Ok(read)
     }
 
     pub fn write(&self, buf: &[u8]) -> VfsResult<usize> {
-        if self.status_flags().contains(OpenFlags::APPEND) {
-            if let Some(written) = self.inner.append(buf)? {
-                let mut offset = self.state.offset.lock();
-                if let Ok(len) = self.inner.len() {
-                    *offset = len;
-                } else {
-                    *offset = offset.saturating_add(written as u64);
-                }
-                return Ok(written);
-            }
+        self.require_access(HandleAccess::WRITE, "handle.write")?;
+        if self.file_type == VfsFileType::Directory {
+            return Err(VfsError::new(VfsErrorKind::IsDir, "handle.write"));
+        }
 
-            let len = self.inner.len()?;
-            let written = self.inner.write_at(len, buf)?;
-            let mut offset = self.state.offset.lock();
-            *offset = len.saturating_add(written as u64);
+        let _guard = self.state.io_lock.lock();
+        if self.status_flags().contains(HandleStatusFlags::APPEND) {
+            let end = self.state.backend.get_metadata()?.size;
+            let written = self.state.backend.write_at(end, buf)?;
+            self.state
+                .offset
+                .store(end.saturating_add(written as u64), Ordering::Release);
             return Ok(written);
         }
 
-        let mut offset = self.state.offset.lock();
-        let written = self.inner.write_at(*offset, buf)?;
-        *offset = offset.saturating_add(written as u64);
+        let offset = self.state.offset.load(Ordering::Acquire);
+        let written = self.state.backend.write_at(offset, buf)?;
+        self.state
+            .offset
+            .store(offset.saturating_add(written as u64), Ordering::Release);
         Ok(written)
     }
 
+    pub fn pread_at(&self, offset: u64, buf: &mut [u8]) -> VfsResult<usize> {
+        self.require_access(HandleAccess::READ, "handle.pread")?;
+        if self.file_type == VfsFileType::Directory {
+            return Err(VfsError::new(VfsErrorKind::IsDir, "handle.pread"));
+        }
+        self.state.backend.read_at(offset, buf)
+    }
+
+    pub fn pwrite_at(&self, offset: u64, buf: &[u8]) -> VfsResult<usize> {
+        self.require_access(HandleAccess::WRITE, "handle.pwrite")?;
+        if self.file_type == VfsFileType::Directory {
+            return Err(VfsError::new(VfsErrorKind::IsDir, "handle.pwrite"));
+        }
+        self.state.backend.write_at(offset, buf)
+    }
+
     pub fn pread(&self, offset: u64, buf: &mut [u8]) -> VfsResult<usize> {
-        self.inner.read_at(offset, buf)
+        self.pread_at(offset, buf)
     }
 
     pub fn pwrite(&self, offset: u64, buf: &[u8]) -> VfsResult<usize> {
-        self.inner.write_at(offset, buf)
+        self.pwrite_at(offset, buf)
     }
 
     pub fn seek(&self, pos: SeekFrom) -> VfsResult<u64> {
-        let mut offset = self.state.offset.lock();
+        if !self.state.backend.is_seekable() {
+            return Err(VfsError::new(VfsErrorKind::NotSupported, "handle.seek"));
+        }
+
+        let _guard = self.state.io_lock.lock();
+        let current = self.state.offset.load(Ordering::Acquire);
         let new = match pos {
             SeekFrom::Start(val) => val,
             SeekFrom::Current(delta) => {
                 if delta >= 0 {
-                    offset.saturating_add(delta as u64)
+                    current.saturating_add(delta as u64)
                 } else {
                     let neg = (-delta) as u64;
-                    offset.checked_sub(neg).ok_or_else(|| {
+                    current.checked_sub(neg).ok_or_else(|| {
                         VfsError::new(VfsErrorKind::InvalidInput, "handle.seek")
                     })?
                 }
             }
             SeekFrom::End(delta) => {
-                let len = self.inner.len()?;
+                let len = self.state.backend.get_metadata()?.size;
                 if delta >= 0 {
                     len.saturating_add(delta as u64)
                 } else {
@@ -149,32 +202,49 @@ impl VfsHandle {
                 }
             }
         };
-        *offset = new;
+        self.state.offset.store(new, Ordering::Release);
         Ok(new)
     }
 
     pub fn flush(&self) -> VfsResult<()> {
-        self.inner.flush()
+        self.state.backend.flush()
     }
 
     pub fn fsync(&self) -> VfsResult<()> {
-        self.inner.fsync()
+        self.state.backend.fsync()
     }
 
     pub fn dup(&self) -> VfsResult<Arc<VfsHandle>> {
-        let inner = if let Some(dup) = self.inner.dup()? {
-            dup
+        Ok(Arc::new(self.clone()))
+    }
+
+    fn require_access(&self, access: HandleAccess, context: &'static str) -> VfsResult<()> {
+        if self.access.contains(access) {
+            Ok(())
         } else {
-            self.inner.clone()
-        };
-        Ok(Arc::new(Self {
-            id: self.id,
-            mount_guard: self.mount_guard.clone(),
-            inode: self.inode,
-            file_type: self.file_type,
-            state: self.state.clone(),
-            inner,
-        }))
+            Err(VfsError::new(VfsErrorKind::BadHandle, context))
+        }
+    }
+}
+
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct HandleAccess: u8 {
+        const READ = 1 << 0;
+        const WRITE = 1 << 1;
+    }
+}
+
+impl HandleAccess {
+    pub fn from_open_flags(flags: OpenFlags) -> Self {
+        let mut access = HandleAccess::empty();
+        if flags.contains(OpenFlags::READ) {
+            access |= HandleAccess::READ;
+        }
+        if flags.contains(OpenFlags::WRITE) {
+            access |= HandleAccess::WRITE;
+        }
+        access
     }
 }
 

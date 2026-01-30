@@ -28,8 +28,27 @@ bitflags! {
 }
 
 impl OpenFlags {
-    pub const STATUS_MASK: OpenFlags =
-        OpenFlags::APPEND | OpenFlags::NONBLOCK | OpenFlags::SYNC | OpenFlags::DSYNC;
+    pub const STATUS_MASK: OpenFlags = OpenFlags::from_bits_truncate(
+        OpenFlags::APPEND.bits()
+            | OpenFlags::NONBLOCK.bits()
+            | OpenFlags::SYNC.bits()
+            | OpenFlags::DSYNC.bits(),
+    );
+
+    pub fn status_flags(self) -> HandleStatusFlags {
+        HandleStatusFlags::from_bits_truncate((self & OpenFlags::STATUS_MASK).bits())
+    }
+}
+
+bitflags! {
+    /// OFD-scoped status flags.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct HandleStatusFlags: u32 {
+        const APPEND = 1 << 2;
+        const NONBLOCK = 1 << 8;
+        const SYNC = 1 << 9;
+        const DSYNC = 1 << 10;
+    }
 }
 
 bitflags! {

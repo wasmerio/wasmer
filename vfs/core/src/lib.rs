@@ -57,7 +57,9 @@ pub use handle::{DirStreamHandle, VfsDirHandle, VfsHandle};
 pub use ids::{BackendInodeId, MountId, VfsHandleId, VfsInodeId};
 pub use inode::{make_vfs_inode, split, InodeCache, NodeRef};
 pub use path_walker::{PathWalker, ResolutionRequest, Resolved, ResolvedParent, WalkFlags};
-pub use metadata::VfsMetadata;
-pub use policy::{AllowAllPolicy, VfsOp, VfsPolicy};
+pub use metadata::{
+    VfsAccess, VfsFileMode, VfsGid, VfsMetadata, VfsSetMetadata, VfsTimestamp, VfsUid,
+};
+pub use policy::{AllowAllPolicy, PosixPolicy, VfsMutationOp, VfsPolicy};
 pub use time::VfsTimespec;
 pub use vfs::{Vfs, VfsBaseDir};

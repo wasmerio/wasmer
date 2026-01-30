@@ -1,10 +1,10 @@
 //! Directory entry types.
 
-use crate::{VfsFileType, VfsInodeId, VfsNameBuf};
+use crate::{BackendInodeId, VfsFileType, VfsNameBuf};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VfsDirEntry {
     pub name: VfsNameBuf,
-    pub inode: Option<VfsInodeId>,
+    pub inode: Option<BackendInodeId>,
     pub file_type: Option<VfsFileType>,
 }

@@ -1,14 +1,11 @@
 use crate::{encode_wasi_dirents, WASI_DIRENT_ALIGN, WASI_DIRENT_HEADER_SIZE};
-use vfs_core::{BackendInodeId, MountId, VfsDirEntry, VfsFileType, VfsInodeId, VfsNameBuf};
+use vfs_core::{BackendInodeId, VfsDirEntry, VfsFileType, VfsNameBuf};
 
 #[test]
 fn encodes_dirents_without_partial_write() {
     let entry = VfsDirEntry {
         name: VfsNameBuf::new(b"a".to_vec()).expect("valid name"),
-        inode: Some(VfsInodeId {
-            mount: MountId(7),
-            backend: BackendInodeId(2),
-        }),
+        inode: Some(BackendInodeId::new(2).expect("non-zero inode")),
         file_type: Some(VfsFileType::Directory),
     };
 
@@ -40,10 +37,7 @@ fn encodes_dirents_without_partial_write() {
 fn honors_start_cookie() {
     let entry = VfsDirEntry {
         name: VfsNameBuf::new(b"a".to_vec()).expect("valid name"),
-        inode: Some(VfsInodeId {
-            mount: MountId(7),
-            backend: BackendInodeId(2),
-        }),
+        inode: Some(BackendInodeId::new(2).expect("non-zero inode")),
         file_type: Some(VfsFileType::Directory),
     };
 
