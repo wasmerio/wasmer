@@ -2,6 +2,7 @@
 //!
 //! Backend-facing `FsNode` trait for mount-agnostic VFS operations.
 
+use crate::VfsFileType;
 use crate::dir::VfsDirEntry;
 use crate::flags::OpenOptions;
 use crate::inode::make_vfs_inode;
@@ -10,7 +11,6 @@ use crate::{
     BackendInodeId, MountId, VfsError, VfsErrorKind, VfsInodeId, VfsMetadata, VfsResult,
     VfsSetMetadata,
 };
-use crate::VfsFileType;
 use async_trait::async_trait;
 use smallvec::SmallVec;
 use std::sync::Arc;
@@ -69,7 +69,10 @@ pub trait FsHandle: Send + Sync + 'static {
     }
 
     fn set_len(&self, _len: u64) -> VfsResult<()> {
-        Err(VfsError::new(VfsErrorKind::NotSupported, "fs_handle.set_len"))
+        Err(VfsError::new(
+            VfsErrorKind::NotSupported,
+            "fs_handle.set_len",
+        ))
     }
 
     fn len(&self) -> VfsResult<u64> {
@@ -109,11 +112,17 @@ pub trait FsHandleAsync: Send + Sync + 'static {
     }
 
     async fn set_len(&self, _len: u64) -> VfsResult<()> {
-        Err(VfsError::new(VfsErrorKind::NotSupported, "fs_handle_async.set_len"))
+        Err(VfsError::new(
+            VfsErrorKind::NotSupported,
+            "fs_handle_async.set_len",
+        ))
     }
 
     async fn len(&self) -> VfsResult<u64> {
-        Err(VfsError::new(VfsErrorKind::NotSupported, "fs_handle_async.len"))
+        Err(VfsError::new(
+            VfsErrorKind::NotSupported,
+            "fs_handle_async.len",
+        ))
     }
 
     async fn append(&self, _buf: &[u8]) -> VfsResult<Option<usize>> {
@@ -160,7 +169,10 @@ pub trait FsNode: Send + Sync + 'static {
     }
 
     fn readlink(&self) -> VfsResult<VfsPathBuf> {
-        Err(VfsError::new(VfsErrorKind::NotSupported, "fs_node.readlink"))
+        Err(VfsError::new(
+            VfsErrorKind::NotSupported,
+            "fs_node.readlink",
+        ))
     }
 
     fn open(&self, opts: OpenOptions) -> VfsResult<Arc<dyn FsHandle>>;
@@ -179,7 +191,11 @@ pub trait FsNodeAsync: Send + Sync + 'static {
     async fn set_metadata(&self, set: SetMetadata) -> VfsResult<()>;
 
     async fn lookup(&self, name: &VfsName) -> VfsResult<Arc<dyn FsNodeAsync>>;
-    async fn create_file(&self, name: &VfsName, opts: CreateFile) -> VfsResult<Arc<dyn FsNodeAsync>>;
+    async fn create_file(
+        &self,
+        name: &VfsName,
+        opts: CreateFile,
+    ) -> VfsResult<Arc<dyn FsNodeAsync>>;
     async fn mkdir(&self, name: &VfsName, opts: MkdirOptions) -> VfsResult<Arc<dyn FsNodeAsync>>;
     async fn unlink(&self, name: &VfsName, opts: UnlinkOptions) -> VfsResult<()>;
     async fn rmdir(&self, name: &VfsName) -> VfsResult<()>;
@@ -194,15 +210,24 @@ pub trait FsNodeAsync: Send + Sync + 'static {
     ) -> VfsResult<()>;
 
     async fn link(&self, _existing: &dyn FsNodeAsync, _new_name: &VfsName) -> VfsResult<()> {
-        Err(VfsError::new(VfsErrorKind::NotSupported, "fs_node_async.link"))
+        Err(VfsError::new(
+            VfsErrorKind::NotSupported,
+            "fs_node_async.link",
+        ))
     }
 
     async fn symlink(&self, _new_name: &VfsName, _target: &VfsPath) -> VfsResult<()> {
-        Err(VfsError::new(VfsErrorKind::NotSupported, "fs_node_async.symlink"))
+        Err(VfsError::new(
+            VfsErrorKind::NotSupported,
+            "fs_node_async.symlink",
+        ))
     }
 
     async fn readlink(&self) -> VfsResult<VfsPathBuf> {
-        Err(VfsError::new(VfsErrorKind::NotSupported, "fs_node_async.readlink"))
+        Err(VfsError::new(
+            VfsErrorKind::NotSupported,
+            "fs_node_async.readlink",
+        ))
     }
 
     async fn open(&self, opts: OpenOptions) -> VfsResult<Arc<dyn FsHandleAsync>>;

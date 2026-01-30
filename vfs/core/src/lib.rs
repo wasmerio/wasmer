@@ -25,41 +25,41 @@ pub mod capabilities;
 pub mod context;
 pub mod dir;
 pub mod error;
-pub mod flags;
 pub mod file_type;
+pub mod flags;
 pub mod fs;
 pub mod handle;
-pub mod inode;
 pub mod ids;
+pub mod inode;
 pub mod metadata;
 pub mod mount;
-pub mod path;
-pub mod path_walker;
-pub mod path_types;
 pub mod node;
+pub mod path;
+pub mod path_types;
+pub mod path_walker;
 pub mod policy;
 pub mod provider;
+pub mod provider_registry;
 pub mod time;
 pub mod vfs;
 
 pub use error::{VfsError, VfsErrorKind, VfsResult};
 pub use fs::Fs;
-pub use path_types::{
-    VfsComponent, VfsComponents, VfsName, VfsNameBuf, VfsPath, VfsPathBuf,
-};
+pub use path_types::{VfsComponent, VfsComponents, VfsName, VfsNameBuf, VfsPath, VfsPathBuf};
 
 pub use capabilities::VfsCapabilities;
 pub use context::{VfsConfig, VfsContext, VfsCred};
 pub use dir::VfsDirEntry;
-pub use flags::*;
 pub use file_type::VfsFileType;
+pub use flags::*;
 pub use handle::{DirStreamHandle, VfsDirHandle, VfsHandle};
 pub use ids::{BackendInodeId, MountId, VfsHandleId, VfsInodeId};
-pub use inode::{make_vfs_inode, split, InodeCache, NodeRef};
-pub use path_walker::{PathWalker, ResolutionRequest, Resolved, ResolvedParent, WalkFlags};
+pub use inode::{InodeCache, NodeRef, make_vfs_inode, split};
 pub use metadata::{
     VfsAccess, VfsFileMode, VfsGid, VfsMetadata, VfsSetMetadata, VfsTimestamp, VfsUid,
 };
+pub use path_walker::{PathWalker, ResolutionRequest, Resolved, ResolvedParent, WalkFlags};
 pub use policy::{AllowAllPolicy, PosixPolicy, VfsMutationOp, VfsPolicy};
+pub use provider_registry::FsProviderRegistry;
 pub use time::VfsTimespec;
 pub use vfs::{Vfs, VfsBaseDir};

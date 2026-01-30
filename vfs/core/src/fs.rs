@@ -1,4 +1,4 @@
-use crate::{node::FsNode, BackendInodeId, VfsCapabilities};
+use crate::{BackendInodeId, VfsCapabilities, node::FsNode};
 use std::sync::Arc;
 
 pub trait Fs: Send + Sync + 'static {

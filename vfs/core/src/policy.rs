@@ -1,8 +1,6 @@
 //! Policy hooks (allow/deny, confinement, permissions).
 
-use crate::{
-    OpenFlags, VfsAccess, VfsContext, VfsError, VfsErrorKind, VfsMetadata, VfsResult,
-};
+use crate::{OpenFlags, VfsAccess, VfsContext, VfsError, VfsErrorKind, VfsMetadata, VfsResult};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VfsMutationOp {
@@ -62,7 +60,12 @@ impl PosixPolicy {
         }
     }
 
-    fn check_access(&self, ctx: &VfsContext, meta: &VfsMetadata, access: VfsAccess) -> VfsResult<()> {
+    fn check_access(
+        &self,
+        ctx: &VfsContext,
+        meta: &VfsMetadata,
+        access: VfsAccess,
+    ) -> VfsResult<()> {
         if !self.enforce || access.is_empty() {
             return Ok(());
         }

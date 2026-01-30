@@ -157,7 +157,9 @@ impl VfsPathBuf {
 
     #[inline]
     pub fn from_bytes(bytes: impl Into<Vec<u8>>) -> Self {
-        Self { inner: bytes.into() }
+        Self {
+            inner: bytes.into(),
+        }
     }
 
     #[inline]

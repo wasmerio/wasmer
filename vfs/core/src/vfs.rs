@@ -89,7 +89,10 @@ impl Vfs {
         _path: &VfsPath,
         _opts: ReadlinkOptions,
     ) -> VfsResult<VfsPathBuf> {
-        Err(VfsError::new(VfsErrorKind::NotImplemented, "vfs.readlinkat"))
+        Err(VfsError::new(
+            VfsErrorKind::NotImplemented,
+            "vfs.readlinkat",
+        ))
     }
 
     pub fn symlinkat(
@@ -120,4 +123,3 @@ pub enum VfsBaseDir<'a> {
     /// Resolve relative paths against this directory handle.
     Handle(&'a VfsDirHandle),
 }
-

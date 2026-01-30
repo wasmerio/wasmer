@@ -1,4 +1,4 @@
-use crate::{encode_wasi_dirents, WASI_DIRENT_ALIGN, WASI_DIRENT_HEADER_SIZE};
+use crate::{WASI_DIRENT_ALIGN, WASI_DIRENT_HEADER_SIZE, encode_wasi_dirents};
 use vfs_core::{BackendInodeId, VfsDirEntry, VfsFileType, VfsNameBuf};
 
 #[test]

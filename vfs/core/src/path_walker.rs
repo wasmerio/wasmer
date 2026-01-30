@@ -1,12 +1,10 @@
 //! Mount-aware path traversal and resolution.
 
-use crate::inode::{make_vfs_inode, NodeRef};
+use crate::inode::{NodeRef, make_vfs_inode};
 use crate::mount::MountTable;
 use crate::node::FsNode;
 use crate::path_types::{VfsComponent, VfsName, VfsNameBuf, VfsPath, VfsPathBuf};
-use crate::{
-    VfsBaseDir, VfsContext, VfsError, VfsErrorKind, VfsFileType, VfsInodeId, VfsResult,
-};
+use crate::{VfsBaseDir, VfsContext, VfsError, VfsErrorKind, VfsFileType, VfsInodeId, VfsResult};
 use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -75,27 +73,34 @@ impl PathWalker {
     }
 
     pub fn resolve(&self, req: ResolutionRequest<'_>) -> VfsResult<Resolved> {
-        let ResolveOutcome::Final(resolved) = self.resolve_internal(req, ResolveMode::Final)? else {
+        let ResolveOutcome::Final(resolved) = self.resolve_internal(req, ResolveMode::Final)?
+        else {
             return Err(VfsError::new(VfsErrorKind::Internal, "path.resolve.final"));
         };
         Ok(resolved)
     }
 
     pub fn resolve_parent(&self, req: ResolutionRequest<'_>) -> VfsResult<ResolvedParent> {
-        let ResolveOutcome::Parent(parent) = self.resolve_internal(req, ResolveMode::Parent)? else {
+        let ResolveOutcome::Parent(parent) = self.resolve_internal(req, ResolveMode::Parent)?
+        else {
             return Err(VfsError::new(VfsErrorKind::Internal, "path.resolve_parent"));
         };
         Ok(parent)
     }
 
     pub fn resolve_at_component_boundary(&self, req: ResolutionRequest<'_>) -> VfsResult<Resolved> {
-        self.resolve_internal(req, ResolveMode::Boundary).map(|outcome| match outcome {
-            ResolveOutcome::Final(resolved) => resolved,
-            ResolveOutcome::Parent(parent) => parent.dir,
-        })
+        self.resolve_internal(req, ResolveMode::Boundary)
+            .map(|outcome| match outcome {
+                ResolveOutcome::Final(resolved) => resolved,
+                ResolveOutcome::Parent(parent) => parent.dir,
+            })
     }
 
-    fn resolve_internal(&self, req: ResolutionRequest<'_>, mode: ResolveMode) -> VfsResult<ResolveOutcome> {
+    fn resolve_internal(
+        &self,
+        req: ResolutionRequest<'_>,
+        mode: ResolveMode,
+    ) -> VfsResult<ResolveOutcome> {
         let inner = self.mount_table.snapshot();
         let (mut current, base_parent) = self.start_node(&inner, &req)?;
         let root_anchor = if req.flags.in_root {
@@ -216,17 +221,21 @@ impl PathWalker {
                     let name_bytes = name;
                     let name_ref = self.validate_name(req.ctx, &name_bytes)?;
                     let is_final = queue.is_empty();
-                    let name_buf = if is_final {
-                        Some(VfsNameBuf::new(name_bytes.clone()).map_err(|_| {
-                            VfsError::new(VfsErrorKind::InvalidInput, "path.name")
-                        })?)
-                    } else {
-                        None
-                    };
+                    let name_buf =
+                        if is_final {
+                            Some(VfsNameBuf::new(name_bytes.clone()).map_err(|_| {
+                                VfsError::new(VfsErrorKind::InvalidInput, "path.name")
+                            })?)
+                        } else {
+                            None
+                        };
 
                     if is_final && matches!(mode, ResolveMode::Parent) {
                         if current.node().file_type() != VfsFileType::Directory {
-                            return Err(VfsError::new(VfsErrorKind::NotDir, "path.resolve.not_dir"));
+                            return Err(VfsError::new(
+                                VfsErrorKind::NotDir,
+                                "path.resolve.not_dir",
+                            ));
                         }
                         self.check_traverse_permission(req.ctx, &current)?;
                         let parent_dir = self.resolved_from_node(&current, traversal.clone());
@@ -359,7 +368,11 @@ impl PathWalker {
         Ok(NodeRef::new(root_inode.mount, node))
     }
 
-    fn mount_root_node(&self, inner: &MountTableInnerRef, mount: crate::MountId) -> VfsResult<NodeRef> {
+    fn mount_root_node(
+        &self,
+        inner: &MountTableInnerRef,
+        mount: crate::MountId,
+    ) -> VfsResult<NodeRef> {
         let (root_inode, fs) = MountTable::mount_root(inner, mount)
             .ok_or_else(|| VfsError::new(VfsErrorKind::NotFound, "path.mount_root"))?;
         let node = fs.root();
@@ -367,12 +380,13 @@ impl PathWalker {
     }
 
     fn try_mount_parent(&self, inner: &MountTableInnerRef, current: &NodeRef) -> Option<NodeRef> {
-        let (root_inode, _) = MountTable::mount_root(inner, current.mount())?;
+        let (root_inode, _) = MountTable::mount_root_any(inner, current.mount())?;
         if current.inode_id() != root_inode {
             return None;
         }
-        let (parent_mount, mountpoint_inode) = MountTable::parent_of_mount_root(inner, current.mount())?;
-        let (_, fs) = MountTable::mount_root(inner, parent_mount)?;
+        let (parent_mount, mountpoint_inode) =
+            MountTable::parent_of_mount_root(inner, current.mount())?;
+        let (_, fs) = MountTable::mount_root_any(inner, parent_mount)?;
         let node = fs.node_by_inode(mountpoint_inode.backend)?;
         Some(NodeRef::new(parent_mount, node))
     }
@@ -679,12 +693,7 @@ mod tests {
             node
         }
 
-        fn add_symlink(
-            &self,
-            parent: &Arc<TestNode>,
-            name: &[u8],
-            target: &[u8],
-        ) -> Arc<TestNode> {
+        fn add_symlink(&self, parent: &Arc<TestNode>, name: &[u8], target: &[u8]) -> Arc<TestNode> {
             let node = Arc::new(TestNode::symlink(
                 self.alloc_inode(),
                 VfsPathBuf::from_bytes(target.to_vec()),
@@ -753,6 +762,23 @@ mod tests {
         Arc::new(MountTable::new(fs_arc).expect("mount table"))
     }
 
+    fn mount_secondary(
+        mount_table: &MountTable,
+        mountpoint_inode: VfsInodeId,
+        secondary: &Arc<TestFs>,
+    ) -> MountId {
+        let secondary_fs: Arc<dyn Fs> = secondary.clone();
+        mount_table
+            .mount(
+                MountId::from_index(0),
+                mountpoint_inode,
+                secondary_fs,
+                secondary.root.inode(),
+                crate::provider::MountFlags::empty(),
+            )
+            .expect("mount secondary fs")
+    }
+
     #[test]
     fn symlink_follow_and_nofollow() {
         let fs = TestFs::new();
@@ -763,13 +789,7 @@ mod tests {
         fs.add_symlink(&root, b"final", b"dir/child");
 
         let mount_table = mount_table_for(&fs);
-        let cwd = make_dir_handle(
-            &mount_table,
-            MountId::from_index(0),
-            root.clone(),
-            None,
-            1,
-        );
+        let cwd = make_dir_handle(&mount_table, MountId::from_index(0), root.clone(), None, 1);
         let ctx = make_ctx(cwd);
         let walker = PathWalker::new(mount_table.clone());
 
@@ -1070,6 +1090,201 @@ mod tests {
         assert_eq!(
             resolved.inode,
             make_vfs_inode(MountId::from_index(0), mnt.inode())
+        );
+    }
+
+    #[test]
+    fn mount_enter_and_traverse_into_mounted_fs() {
+        let fs = TestFs::new();
+        let root = fs.root.clone();
+        let mnt = fs.add_dir(&root, b"mnt");
+
+        let secondary = TestFs::new();
+        let secondary_root = secondary.root.clone();
+        let secondary_sub = secondary.add_dir(&secondary_root, b"sub");
+
+        let mount_table = mount_table_for(&fs);
+        let mount_id = mount_secondary(
+            &mount_table,
+            make_vfs_inode(MountId::from_index(0), mnt.inode()),
+            &secondary,
+        );
+
+        let cwd = make_dir_handle(&mount_table, MountId::from_index(0), root.clone(), None, 1);
+        let ctx = make_ctx(cwd);
+        let walker = PathWalker::new(mount_table.clone());
+
+        let resolved = walker
+            .resolve(ResolutionRequest {
+                ctx: &ctx,
+                base: VfsBaseDir::Cwd,
+                path: VfsPath::new(b"/mnt/sub"),
+                flags: WalkFlags::new(&ctx),
+            })
+            .expect("mount traversal should resolve mounted sub");
+        assert_eq!(
+            resolved.inode,
+            make_vfs_inode(mount_id, secondary_sub.inode())
+        );
+    }
+
+    #[test]
+    fn mount_dotdot_inside_mounted_fs() {
+        let fs = TestFs::new();
+        let root = fs.root.clone();
+        let mnt = fs.add_dir(&root, b"mnt");
+
+        let secondary = TestFs::new();
+        let secondary_root = secondary.root.clone();
+        let dir = secondary.add_dir(&secondary_root, b"d");
+        let _sub = secondary.add_dir(&dir, b"e");
+
+        let mount_table = mount_table_for(&fs);
+        let mount_id = mount_secondary(
+            &mount_table,
+            make_vfs_inode(MountId::from_index(0), mnt.inode()),
+            &secondary,
+        );
+
+        let cwd = make_dir_handle(&mount_table, MountId::from_index(0), root.clone(), None, 1);
+        let ctx = make_ctx(cwd);
+        let walker = PathWalker::new(mount_table.clone());
+
+        let resolved = walker
+            .resolve(ResolutionRequest {
+                ctx: &ctx,
+                base: VfsBaseDir::Cwd,
+                path: VfsPath::new(b"/mnt/d/e/.."),
+                flags: WalkFlags::new(&ctx),
+            })
+            .expect("dotdot inside mount should resolve");
+        assert_eq!(resolved.inode, make_vfs_inode(mount_id, dir.inode()));
+        assert_eq!(resolved.node.file_type(), VfsFileType::Directory);
+    }
+
+    #[test]
+    fn symlink_across_mount_boundary() {
+        let fs = TestFs::new();
+        let root = fs.root.clone();
+        let mnt = fs.add_dir(&root, b"mnt");
+
+        let secondary = TestFs::new();
+        let secondary_root = secondary.root.clone();
+        let secondary_sub = secondary.add_dir(&secondary_root, b"sub");
+
+        let mount_table = mount_table_for(&fs);
+        let mount_id = mount_secondary(
+            &mount_table,
+            make_vfs_inode(MountId::from_index(0), mnt.inode()),
+            &secondary,
+        );
+
+        fs.add_symlink(&root, b"link", b"/mnt/sub");
+
+        let cwd = make_dir_handle(&mount_table, MountId::from_index(0), root.clone(), None, 1);
+        let ctx = make_ctx(cwd);
+        let walker = PathWalker::new(mount_table.clone());
+
+        let resolved = walker
+            .resolve(ResolutionRequest {
+                ctx: &ctx,
+                base: VfsBaseDir::Cwd,
+                path: VfsPath::new(b"/link"),
+                flags: WalkFlags::new(&ctx),
+            })
+            .expect("symlink across mount should resolve");
+        assert_eq!(
+            resolved.inode,
+            make_vfs_inode(mount_id, secondary_sub.inode())
+        );
+    }
+
+    #[test]
+    fn trailing_slash_uses_mounted_root() {
+        let fs = TestFs::new();
+        let root = fs.root.clone();
+        let mnt = fs.add_dir(&root, b"mnt");
+
+        let secondary = TestFs::new();
+        let secondary_root = secondary.root.clone();
+
+        let mount_table = mount_table_for(&fs);
+        let mount_id = mount_secondary(
+            &mount_table,
+            make_vfs_inode(MountId::from_index(0), mnt.inode()),
+            &secondary,
+        );
+
+        let cwd = make_dir_handle(&mount_table, MountId::from_index(0), root.clone(), None, 1);
+        let ctx = make_ctx(cwd);
+        let walker = PathWalker::new(mount_table.clone());
+
+        let resolved = walker
+            .resolve(ResolutionRequest {
+                ctx: &ctx,
+                base: VfsBaseDir::Cwd,
+                path: VfsPath::new(b"/mnt/"),
+                flags: WalkFlags::new(&ctx),
+            })
+            .expect("mount root with trailing slash should resolve");
+        assert_eq!(
+            resolved.inode,
+            make_vfs_inode(mount_id, secondary_root.inode())
+        );
+        assert_eq!(resolved.node.file_type(), VfsFileType::Directory);
+    }
+
+    #[test]
+    fn detached_mount_still_allows_handle_traversal() {
+        let fs = TestFs::new();
+        let root = fs.root.clone();
+        let mnt = fs.add_dir(&root, b"mnt");
+        let parent_sub = fs.add_dir(&mnt, b"sub");
+
+        let secondary = TestFs::new();
+        let secondary_root = secondary.root.clone();
+        let secondary_sub = secondary.add_dir(&secondary_root, b"sub");
+
+        let mount_table = mount_table_for(&fs);
+        let mount_id = mount_secondary(
+            &mount_table,
+            make_vfs_inode(MountId::from_index(0), mnt.inode()),
+            &secondary,
+        );
+
+        let base_handle = make_dir_handle(&mount_table, mount_id, secondary_root.clone(), None, 2);
+        mount_table
+            .unmount(mount_id, crate::mount::UnmountFlags::Detach)
+            .expect("detach mount");
+
+        let cwd = make_dir_handle(&mount_table, MountId::from_index(0), root.clone(), None, 1);
+        let ctx = make_ctx(cwd);
+        let walker = PathWalker::new(mount_table.clone());
+
+        let resolved_parent = walker
+            .resolve(ResolutionRequest {
+                ctx: &ctx,
+                base: VfsBaseDir::Cwd,
+                path: VfsPath::new(b"/mnt/sub"),
+                flags: WalkFlags::new(&ctx),
+            })
+            .expect("detached mount should resolve parent fs path");
+        assert_eq!(
+            resolved_parent.inode,
+            make_vfs_inode(MountId::from_index(0), parent_sub.inode())
+        );
+
+        let resolved_detached = walker
+            .resolve(ResolutionRequest {
+                ctx: &ctx,
+                base: VfsBaseDir::Handle(&base_handle),
+                path: VfsPath::new(b"sub"),
+                flags: WalkFlags::new(&ctx),
+            })
+            .expect("detached mount handle should still resolve");
+        assert_eq!(
+            resolved_detached.inode,
+            make_vfs_inode(mount_id, secondary_sub.inode())
         );
     }
 }

@@ -128,15 +128,27 @@ impl FsNode for DummyNode {
         self.unsupported("dummy.lookup")
     }
 
-    fn create_file(&self, _name: &vfs_core::VfsName, _opts: vfs_core::node::CreateFile) -> VfsResult<Arc<dyn FsNode>> {
+    fn create_file(
+        &self,
+        _name: &vfs_core::VfsName,
+        _opts: vfs_core::node::CreateFile,
+    ) -> VfsResult<Arc<dyn FsNode>> {
         self.unsupported("dummy.create_file")
     }
 
-    fn mkdir(&self, _name: &vfs_core::VfsName, _opts: vfs_core::node::MkdirOptions) -> VfsResult<Arc<dyn FsNode>> {
+    fn mkdir(
+        &self,
+        _name: &vfs_core::VfsName,
+        _opts: vfs_core::node::MkdirOptions,
+    ) -> VfsResult<Arc<dyn FsNode>> {
         self.unsupported("dummy.mkdir")
     }
 
-    fn unlink(&self, _name: &vfs_core::VfsName, _opts: vfs_core::node::UnlinkOptions) -> VfsResult<()> {
+    fn unlink(
+        &self,
+        _name: &vfs_core::VfsName,
+        _opts: vfs_core::node::UnlinkOptions,
+    ) -> VfsResult<()> {
         self.unsupported("dummy.unlink")
     }
 
@@ -208,7 +220,9 @@ impl vfs_core::Fs for DummyFs {
 fn make_handle(handle_id: u64, open_flags: vfs_core::OpenFlags) -> VfsHandle {
     let fs: Arc<dyn vfs_core::Fs> = Arc::new(DummyFs::new());
     let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
-    let guard = mount_table.guard(MountId::from_index(0)).expect("mount guard");
+    let guard = mount_table
+        .guard(MountId::from_index(0))
+        .expect("mount guard");
 
     let inode = BackendInodeId::new(10).expect("non-zero inode");
     let vfs_inode = make_vfs_inode(MountId::from_index(0), inode);

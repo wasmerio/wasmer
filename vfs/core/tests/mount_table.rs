@@ -57,11 +57,19 @@ impl FsNode for DummyNode {
         self.unsupported("dummy.lookup")
     }
 
-    fn create_file(&self, _name: &VfsName, _opts: vfs_core::node::CreateFile) -> VfsResult<Arc<dyn FsNode>> {
+    fn create_file(
+        &self,
+        _name: &VfsName,
+        _opts: vfs_core::node::CreateFile,
+    ) -> VfsResult<Arc<dyn FsNode>> {
         self.unsupported("dummy.create_file")
     }
 
-    fn mkdir(&self, _name: &VfsName, _opts: vfs_core::node::MkdirOptions) -> VfsResult<Arc<dyn FsNode>> {
+    fn mkdir(
+        &self,
+        _name: &VfsName,
+        _opts: vfs_core::node::MkdirOptions,
+    ) -> VfsResult<Arc<dyn FsNode>> {
         self.unsupported("dummy.mkdir")
     }
 
@@ -152,11 +160,20 @@ fn mount_enter_mapping() {
 
     let mountpoint_inode = make_vfs_inode(root_mount, inode(10));
     let child_mount = mount_table
-        .mount(root_mount, mountpoint_inode, dummy_fs(), inode(1), vfs_core::provider::MountFlags::empty())
+        .mount(
+            root_mount,
+            mountpoint_inode,
+            dummy_fs(),
+            inode(1),
+            vfs_core::provider::MountFlags::empty(),
+        )
         .expect("mount");
 
     let inner = mount_table.snapshot();
-    assert_eq!(inner.mount_by_mountpoint.get(&mountpoint_inode), Some(&child_mount));
+    assert_eq!(
+        inner.mount_by_mountpoint.get(&mountpoint_inode),
+        Some(&child_mount)
+    );
     assert_eq!(
         MountTable::enter_if_mountpoint(&inner, root_mount, mountpoint_inode),
         Some(child_mount)
@@ -171,7 +188,13 @@ fn parent_of_mount_root_crosses_boundary() {
 
     let mountpoint_inode = make_vfs_inode(root_mount, inode(11));
     let child_mount = mount_table
-        .mount(root_mount, mountpoint_inode, dummy_fs(), inode(2), vfs_core::provider::MountFlags::empty())
+        .mount(
+            root_mount,
+            mountpoint_inode,
+            dummy_fs(),
+            inode(2),
+            vfs_core::provider::MountFlags::empty(),
+        )
         .expect("mount");
 
     let inner = mount_table.snapshot();
@@ -189,7 +212,13 @@ fn unmount_busy_fails() {
 
     let mountpoint_inode = make_vfs_inode(root_mount, inode(12));
     let child_mount = mount_table
-        .mount(root_mount, mountpoint_inode, dummy_fs(), inode(3), vfs_core::provider::MountFlags::empty())
+        .mount(
+            root_mount,
+            mountpoint_inode,
+            dummy_fs(),
+            inode(3),
+            vfs_core::provider::MountFlags::empty(),
+        )
         .expect("mount");
 
     let _guard = mount_table.guard(child_mount).expect("mount guard");
@@ -208,7 +237,13 @@ fn detach_hides_mount_and_reclaims() {
 
     let mountpoint_inode = make_vfs_inode(root_mount, inode(13));
     let child_mount = mount_table
-        .mount(root_mount, mountpoint_inode, dummy_fs(), inode(4), vfs_core::provider::MountFlags::empty())
+        .mount(
+            root_mount,
+            mountpoint_inode,
+            dummy_fs(),
+            inode(4),
+            vfs_core::provider::MountFlags::empty(),
+        )
         .expect("mount");
 
     {
@@ -219,7 +254,9 @@ fn detach_hides_mount_and_reclaims() {
 
         let inner = mount_table.snapshot();
         assert!(!inner.mount_by_mountpoint.contains_key(&mountpoint_inode));
-        let err = mount_table.guard(child_mount).expect_err("detached guard fails");
+        let err = mount_table
+            .guard(child_mount)
+            .expect_err("detached guard fails");
         assert_eq!(err.kind(), VfsErrorKind::NotFound);
         assert_eq!(err.context(), "mount.detached");
 
@@ -227,7 +264,13 @@ fn detach_hides_mount_and_reclaims() {
     }
 
     let inner = mount_table.snapshot();
-    assert!(inner.mounts.get(child_mount.index()).and_then(|slot| slot.as_ref()).is_none());
+    assert!(
+        inner
+            .mounts
+            .get(child_mount.index())
+            .and_then(|slot| slot.as_ref())
+            .is_none()
+    );
 }
 
 #[test]
@@ -238,12 +281,24 @@ fn unmount_with_children_fails() {
 
     let mountpoint_inode = make_vfs_inode(root_mount, inode(14));
     let child_mount = mount_table
-        .mount(root_mount, mountpoint_inode, dummy_fs(), inode(5), vfs_core::provider::MountFlags::empty())
+        .mount(
+            root_mount,
+            mountpoint_inode,
+            dummy_fs(),
+            inode(5),
+            vfs_core::provider::MountFlags::empty(),
+        )
         .expect("mount");
 
     let child_mountpoint = make_vfs_inode(child_mount, inode(15));
     let _grandchild_mount = mount_table
-        .mount(child_mount, child_mountpoint, dummy_fs(), inode(6), vfs_core::provider::MountFlags::empty())
+        .mount(
+            child_mount,
+            child_mountpoint,
+            dummy_fs(),
+            inode(6),
+            vfs_core::provider::MountFlags::empty(),
+        )
         .expect("mount grandchild");
 
     let err = mount_table

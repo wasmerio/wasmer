@@ -1,5 +1,5 @@
-use crate::{VfsDirHandle, VfsGid, VfsHandleId, VfsUid};
 use crate::policy::VfsPolicy;
+use crate::{VfsDirHandle, VfsGid, VfsHandleId, VfsUid};
 use smallvec::SmallVec;
 use std::sync::Arc;
 
@@ -67,4 +67,3 @@ impl VfsContext {
         self.cwd.id()
     }
 }
-

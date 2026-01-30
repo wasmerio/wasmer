@@ -113,4 +113,3 @@ pub struct SymlinkOptions {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReadDirOptions;
-

@@ -5,7 +5,7 @@ use crate::provider::MountFlags;
 use crate::{BackendInodeId, Fs, MountId, VfsError, VfsErrorKind, VfsInodeId, VfsResult};
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -138,13 +138,24 @@ impl MountTable {
         }
     }
 
-    pub fn mount_root(inner: &MountTableInner, mount: MountId) -> Option<(VfsInodeId, Arc<dyn Fs>)> {
+    pub fn mount_root(
+        inner: &MountTableInner,
+        mount: MountId,
+    ) -> Option<(VfsInodeId, Arc<dyn Fs>)> {
         let entry = inner.mounts.get(mount.index())?.as_ref()?;
         if entry.state() == MountState::Active {
             Some((entry.root_inode, entry.fs.clone()))
         } else {
             None
         }
+    }
+
+    pub fn mount_root_any(
+        inner: &MountTableInner,
+        mount: MountId,
+    ) -> Option<(VfsInodeId, Arc<dyn Fs>)> {
+        let entry = inner.mounts.get(mount.index())?.as_ref()?;
+        Some((entry.root_inode, entry.fs.clone()))
     }
 
     pub fn parent_of_mount_root(
@@ -166,7 +177,10 @@ impl MountTable {
         flags: MountFlags,
     ) -> VfsResult<MountId> {
         if mountpoint_inode.mount != parent_mount {
-            return Err(VfsError::new(VfsErrorKind::InvalidInput, "mount.parent_mismatch"));
+            return Err(VfsError::new(
+                VfsErrorKind::InvalidInput,
+                "mount.parent_mismatch",
+            ));
         }
 
         let mut guard = self
@@ -186,7 +200,10 @@ impl MountTable {
             .filter(|entry| entry.state() == MountState::Active)
             .is_none()
         {
-            return Err(VfsError::new(VfsErrorKind::NotFound, "mount.parent_not_found"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotFound,
+                "mount.parent_not_found",
+            ));
         }
 
         let (entry_id, entry) = {
@@ -259,7 +276,9 @@ impl MountTable {
 
         if entry.open_count.load(Ordering::Acquire) > 0 {
             if matches!(flags, UnmountFlags::Detach) {
-                entry.state.store(MountState::Detached as u8, Ordering::Release);
+                entry
+                    .state
+                    .store(MountState::Detached as u8, Ordering::Release);
             } else {
                 return Err(VfsError::new(VfsErrorKind::Busy, "unmount.busy"));
             }
@@ -307,7 +326,11 @@ impl MountTable {
             Err(_) => return,
         };
         let mut inner = (**guard).clone();
-        let entry = match inner.mounts.get(mount.index()).and_then(|slot| slot.as_ref()) {
+        let entry = match inner
+            .mounts
+            .get(mount.index())
+            .and_then(|slot| slot.as_ref())
+        {
             Some(entry) => entry,
             None => return,
         };

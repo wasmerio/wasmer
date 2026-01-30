@@ -65,7 +65,10 @@ impl TestNode {
     }
 
     fn unsupported<T>(&self, op: &'static str) -> VfsResult<T> {
-        Err(vfs_core::VfsError::new(vfs_core::VfsErrorKind::NotSupported, op))
+        Err(vfs_core::VfsError::new(
+            vfs_core::VfsErrorKind::NotSupported,
+            op,
+        ))
     }
 }
 
@@ -95,15 +98,27 @@ impl FsNode for TestNode {
             .ok_or_else(|| vfs_core::VfsError::new(vfs_core::VfsErrorKind::NotFound, "test.lookup"))
     }
 
-    fn create_file(&self, _name: &vfs_core::VfsName, _opts: vfs_core::node::CreateFile) -> VfsResult<Arc<dyn FsNode>> {
+    fn create_file(
+        &self,
+        _name: &vfs_core::VfsName,
+        _opts: vfs_core::node::CreateFile,
+    ) -> VfsResult<Arc<dyn FsNode>> {
         self.unsupported("test.create_file")
     }
 
-    fn mkdir(&self, _name: &vfs_core::VfsName, _opts: vfs_core::node::MkdirOptions) -> VfsResult<Arc<dyn FsNode>> {
+    fn mkdir(
+        &self,
+        _name: &vfs_core::VfsName,
+        _opts: vfs_core::node::MkdirOptions,
+    ) -> VfsResult<Arc<dyn FsNode>> {
         self.unsupported("test.mkdir")
     }
 
-    fn unlink(&self, _name: &vfs_core::VfsName, _opts: vfs_core::node::UnlinkOptions) -> VfsResult<()> {
+    fn unlink(
+        &self,
+        _name: &vfs_core::VfsName,
+        _opts: vfs_core::node::UnlinkOptions,
+    ) -> VfsResult<()> {
         self.unsupported("test.unlink")
     }
 
@@ -178,7 +193,14 @@ impl TestFs {
         self.nodes.lock().unwrap().insert(node.inode, node);
     }
 
-    fn add_dir(&self, parent: &Arc<TestNode>, name: &[u8], mode: u32, uid: u32, gid: u32) -> Arc<TestNode> {
+    fn add_dir(
+        &self,
+        parent: &Arc<TestNode>,
+        name: &[u8],
+        mode: u32,
+        uid: u32,
+        gid: u32,
+    ) -> Arc<TestNode> {
         let node = Arc::new(TestNode::dir(self.alloc_inode(), mode, uid, gid));
         parent
             .children
@@ -189,7 +211,14 @@ impl TestFs {
         node
     }
 
-    fn add_file(&self, parent: &Arc<TestNode>, name: &[u8], mode: u32, uid: u32, gid: u32) -> Arc<TestNode> {
+    fn add_file(
+        &self,
+        parent: &Arc<TestNode>,
+        name: &[u8],
+        mode: u32,
+        uid: u32,
+        gid: u32,
+    ) -> Arc<TestNode> {
         let node = Arc::new(TestNode::file(self.alloc_inode(), mode, uid, gid));
         parent
             .children
@@ -283,7 +312,10 @@ fn traverse_requires_exec() {
 fn open_requires_read_write_bits() {
     let policy = PosixPolicy::new(true, false);
     let meta = VfsMetadata {
-        inode: make_vfs_inode(MountId::from_index(0), BackendInodeId::new(2).expect("inode")),
+        inode: make_vfs_inode(
+            MountId::from_index(0),
+            BackendInodeId::new(2).expect("inode"),
+        ),
         file_type: VfsFileType::RegularFile,
         mode: VfsFileMode(0o400),
         nlink: 1,
@@ -299,7 +331,17 @@ fn open_requires_read_write_bits() {
 
     let fs: Arc<dyn vfs_core::Fs> = TestFs::new();
     let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
-    let cwd = make_dir_handle(&mount_table, MountId::from_index(0), Arc::new(TestNode::dir(BackendInodeId::new(3).expect("inode"), 0o755, 1000, 1000)), 2);
+    let cwd = make_dir_handle(
+        &mount_table,
+        MountId::from_index(0),
+        Arc::new(TestNode::dir(
+            BackendInodeId::new(3).expect("inode"),
+            0o755,
+            1000,
+            1000,
+        )),
+        2,
+    );
     let ctx = make_ctx(policy, cwd);
 
     let err = ctx
@@ -321,7 +363,10 @@ fn open_requires_read_write_bits() {
 fn create_requires_write_and_exec_on_parent() {
     let policy = PosixPolicy::new(true, false);
     let parent_meta = VfsMetadata {
-        inode: make_vfs_inode(MountId::from_index(0), BackendInodeId::new(4).expect("inode")),
+        inode: make_vfs_inode(
+            MountId::from_index(0),
+            BackendInodeId::new(4).expect("inode"),
+        ),
         file_type: VfsFileType::Directory,
         mode: VfsFileMode(0o555),
         nlink: 1,
@@ -337,7 +382,17 @@ fn create_requires_write_and_exec_on_parent() {
 
     let fs: Arc<dyn vfs_core::Fs> = TestFs::new();
     let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
-    let cwd = make_dir_handle(&mount_table, MountId::from_index(0), Arc::new(TestNode::dir(BackendInodeId::new(5).expect("inode"), 0o755, 1000, 1000)), 3);
+    let cwd = make_dir_handle(
+        &mount_table,
+        MountId::from_index(0),
+        Arc::new(TestNode::dir(
+            BackendInodeId::new(5).expect("inode"),
+            0o755,
+            1000,
+            1000,
+        )),
+        3,
+    );
     let ctx = make_ctx(policy, cwd);
 
     let err = ctx
@@ -351,7 +406,10 @@ fn create_requires_write_and_exec_on_parent() {
 fn chmod_affects_later_opens() {
     let policy = PosixPolicy::new(true, false);
     let mut meta = VfsMetadata {
-        inode: make_vfs_inode(MountId::from_index(0), BackendInodeId::new(6).expect("inode")),
+        inode: make_vfs_inode(
+            MountId::from_index(0),
+            BackendInodeId::new(6).expect("inode"),
+        ),
         file_type: VfsFileType::RegularFile,
         mode: VfsFileMode(0o600),
         nlink: 1,
@@ -367,7 +425,17 @@ fn chmod_affects_later_opens() {
 
     let fs: Arc<dyn vfs_core::Fs> = TestFs::new();
     let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
-    let cwd = make_dir_handle(&mount_table, MountId::from_index(0), Arc::new(TestNode::dir(BackendInodeId::new(7).expect("inode"), 0o755, 1000, 1000)), 4);
+    let cwd = make_dir_handle(
+        &mount_table,
+        MountId::from_index(0),
+        Arc::new(TestNode::dir(
+            BackendInodeId::new(7).expect("inode"),
+            0o755,
+            1000,
+            1000,
+        )),
+        4,
+    );
     let ctx = make_ctx(policy, cwd);
 
     let err = ctx

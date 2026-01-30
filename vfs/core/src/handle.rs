@@ -7,8 +7,8 @@ use crate::{VfsError, VfsErrorKind, VfsFileType, VfsHandleId, VfsInodeId, VfsRes
 use bitflags::bitflags;
 use parking_lot::Mutex;
 use std::io::SeekFrom;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 pub struct OFDState {
     backend: Arc<dyn FsHandle>,
@@ -185,9 +185,9 @@ impl VfsHandle {
                     current.saturating_add(delta as u64)
                 } else {
                     let neg = (-delta) as u64;
-                    current.checked_sub(neg).ok_or_else(|| {
-                        VfsError::new(VfsErrorKind::InvalidInput, "handle.seek")
-                    })?
+                    current
+                        .checked_sub(neg)
+                        .ok_or_else(|| VfsError::new(VfsErrorKind::InvalidInput, "handle.seek"))?
                 }
             }
             SeekFrom::End(delta) => {
@@ -196,9 +196,8 @@ impl VfsHandle {
                     len.saturating_add(delta as u64)
                 } else {
                     let neg = (-delta) as u64;
-                    len.checked_sub(neg).ok_or_else(|| {
-                        VfsError::new(VfsErrorKind::InvalidInput, "handle.seek")
-                    })?
+                    len.checked_sub(neg)
+                        .ok_or_else(|| VfsError::new(VfsErrorKind::InvalidInput, "handle.seek"))?
                 }
             }
         };
