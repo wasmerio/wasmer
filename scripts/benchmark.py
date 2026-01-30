@@ -12,7 +12,7 @@ RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
 WASMER_CONFIGS = (
-    # ("Wasmer LLVM", "/home/marxin/Programming/testcases/wasmer-default", "-l"),
+    ("Wasmer LLVM", "/home/marxin/Programming/testcases/wasmer-default", "-l"),
     (
         "Wasmer LLVM pass-params",
         "/home/marxin/Programming/testcases/wasmer-default",
