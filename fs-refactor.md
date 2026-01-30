@@ -137,7 +137,7 @@ This section is non-negotiable. It exists to prevent filesystem semantics from b
 ## Phase 2 – VFS Core Semantics (Clean‑Slate Implementation)
 
 ### 2.1 Canonical path normalization and resolution
-- **Deliverables**: `vfs/core/src/path.rs`
+- **Deliverables**: `vfs/core/src/path_walker.rs`
 - Implement path normalization with POSIX semantics:
   - `.` and `..` resolution.
   - Preserve trailing slashes where needed (`stat` vs `open` behavior).

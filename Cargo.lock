@@ -11589,6 +11589,11 @@ version = "7.0.0"
 [[package]]
 name = "vfs-unix"
 version = "7.0.0"
+dependencies = [
+ "libc",
+ "vfs-core",
+ "wasmer-wasix-types",
+]
 
 [[package]]
 name = "virtual-fs"

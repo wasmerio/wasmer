@@ -9,3 +9,11 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+vfs-core = { path = "../core" }
+wasmer-wasix-types = { path = "../../lib/wasi-types", version = "0.700.0", optional = true }
+libc = { workspace = true, optional = true }
+
+[features]
+default = ["wasi"]
+wasi = ["dep:wasmer-wasix-types"]
+host-errno = ["dep:libc"]
