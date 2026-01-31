@@ -759,6 +759,14 @@ where
 {
     let env = ctx.data();
     let fd_entry = env.state.fs.get_fd(sock)?;
+    {
+        let inode = fd_entry.inode.clone();
+        let guard = inode.read();
+        if !matches!(guard.deref(), Kind::Socket { .. }) {
+            return Err(Errno::Notsock);
+        }
+    }
+
     if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         tracing::warn!(
             "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade",

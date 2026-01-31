@@ -67,6 +67,7 @@ TESTS := \
   fd_allocate \
   fd_close \
   fd_datasync \
+  fd_dup \
   fd_dup2 \
   fd_fdstat_get \
   fd_fdstat_set_rights \
@@ -90,6 +91,7 @@ TESTS := \
   proc_id \
   proc_parent \
   proc_signals_sizes_get \
+  proc_signals_get \
   proc_exit_code_1 \
   proc_exit_code_2 \
   proc_exit_code_123 \
@@ -97,6 +99,8 @@ TESTS := \
   proc_exit_code_126 \
   proc_exit_hello \
   proc_exit_fpr \
+  proc_exit2__exit_65 \
+  proc_exit2_exit_65 \
   port_addr_list \
   port_route_list \
   port_mac \
@@ -104,6 +108,13 @@ TESTS := \
   random_get \
   sched_yield \
   sock_addr_peer \
+  sock_get_opt_flag \
+  sock_get_opt_size \
+  sock_get_opt_time \
+  sock_listen \
+  sock_shutdown \
+  sock_status \
+  thread_sleep \
   thread_id \
   thread_parallelism \
   tty_get
@@ -146,11 +157,13 @@ run: $(BUILD_TARGETS)
 			proc_exit_code_125) expected=125 ;; \
 			proc_exit_code_126) expected=126 ;; \
 			proc_exit_hello) expected=1 ;; \
+			proc_exit2__exit_65) expected=65 ;; \
+			proc_exit2_exit_65) expected=65 ;; \
 		esac; \
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
 			dlopen|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
-			port_addr_list|port_route_list|port_mac|sock_addr_peer) flags="$$flags --net" ;; \
+			fd_close|fd_filestat_set_size|port_addr_list|port_route_list|port_mac|sock_addr_peer|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_listen|sock_shutdown|sock_status) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \
 		if [ $$rc -ne $$expected ]; then \
