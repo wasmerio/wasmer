@@ -864,7 +864,7 @@ impl WasiEnvBuilder {
                 }
                 Err(err) => {
                     return Err(WasiStateCreationError::WasiFsSetupError(format!(
-                        "Could check specified current directory at '{}': {err}",
+                        "Could not check specified current directory at '{}': {err}",
                         dir.display()
                     )));
                 }
