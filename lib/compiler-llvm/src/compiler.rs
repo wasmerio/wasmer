@@ -6,9 +6,11 @@ use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
+use perfetto_recorder::{ThreadTraceData, TraceBuilder, scope};
 use rayon::ThreadPoolBuilder;
-use rayon::iter::ParallelBridge;
+use rayon::iter::{IndexedParallelIterator, ParallelBridge};
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use std::sync::Mutex;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -380,6 +382,9 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        perfetto_recorder::start().unwrap();
+
+        scope!("compile module");
         //let data = Arc::new(Mutex::new(0));
 
         let memory_styles = &compile_info.memory_styles;
@@ -428,6 +433,7 @@ impl Compiler for LLVMCompiler {
                 .iter()
                 .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
                 .par_iter()
+                .with_max_len(2)
                 .map_init(
                     || {
                         let target_machine = self.config().target_machine_with_opt(target, true);
@@ -446,6 +452,11 @@ impl Compiler for LLVMCompiler {
                     |func_translator, (i, input)| {
                         // TODO: remove (to serialize)
                         //let _data = data.lock().unwrap();
+
+                        let fname = compile_info
+                            .module
+                            .get_function_name(compile_info.module.func_index(*i));
+                        scope!("translate function", llvm_ir_size = input.data.len(), fname);
 
                         let translated = func_translator.translate(
                             module,
@@ -576,6 +587,7 @@ impl Compiler for LLVMCompiler {
         // We can move that logic out and re-enable parallel processing. Hopefully, there aren't
         // enough dynamic trampolines to actually cause a noticeable performance degradation.
         let dynamic_function_trampolines = {
+            scope!("dynamic trampolines");
             let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
             let func_trampoline =
@@ -674,6 +686,26 @@ impl Compiler for LLVMCompiler {
             });
             got.index = Some(got_idx);
         };
+
+        let mut trace = TraceBuilder::new().unwrap();
+
+        // Record data from the main thread.
+        trace.process_thread_data(&ThreadTraceData::take_current_thread());
+
+        let trace = Mutex::new(trace);
+
+        pool.in_place_scope(|scope| {
+            scope.spawn_broadcast(|_, _| {
+                let thread_trace = ThreadTraceData::take_current_thread();
+                trace.lock().unwrap().process_thread_data(&thread_trace);
+            });
+        });
+
+        trace
+            .lock()
+            .unwrap()
+            .write_to_file("/home/marxin/Downloads/wasmer.ptrace")
+            .unwrap();
 
         tracing::trace!("Finished compling the module!");
         Ok(Compilation {

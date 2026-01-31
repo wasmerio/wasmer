@@ -3480,6 +3480,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.30.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
+dependencies = [
+ "bitflags 2.10.0",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
 name = "nom"
 version = "5.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3765,6 +3777,19 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
+
+[[package]]
+name = "perfetto-recorder"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59dd5cf301c02a999243838c78e024fd0e2b8774c467418f08034b475a21bae7"
+dependencies = [
+ "libc",
+ "nix 0.30.1",
+ "prost",
+ "rand 0.9.2",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "pest"
@@ -7052,6 +7077,7 @@ dependencies = [
  "itertools 0.14.0",
  "libc",
  "object 0.38.1",
+ "perfetto-recorder",
  "phf",
  "rayon",
  "regex",
