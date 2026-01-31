@@ -9,3 +9,11 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+vfs-core = { path = "../core" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+vfs-unix = { path = "../unix", default-features = false, features = ["host-errno"] }
+
+[dev-dependencies]
+vfs-rt = { path = "../rt" }

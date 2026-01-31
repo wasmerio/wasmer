@@ -5,7 +5,7 @@
 use crate::VfsFileType;
 use crate::dir::VfsDirEntry;
 use crate::inode::make_vfs_inode;
-use crate::{BackendInodeId, MountId, VfsInodeId, VfsSetMetadata};
+use crate::{MountId, VfsInodeId, VfsSetMetadata};
 use smallvec::SmallVec;
 use std::any::Any;
 use std::sync::Arc;

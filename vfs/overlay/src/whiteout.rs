@@ -44,6 +44,7 @@ pub fn create_whiteout(parent: &dyn FsNode, name: &VfsName) -> VfsResult<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn create_opaque_marker(parent: &dyn FsNode) -> VfsResult<()> {
     let name = opaque_name()?;
     let create = CreateFile {

@@ -6,7 +6,7 @@ use futures::join;
 use vfs_core::flags::{OpenFlags, OpenOptions, ResolveFlags};
 use vfs_core::inode::make_vfs_inode;
 use vfs_core::node::{
-    CreateFile, DirCursor, FsHandleAsync, FsNodeAsync, MkdirOptions, ReadDirBatch, RenameOptions,
+    CreateFile, FsHandleAsync, FsNodeAsync, MkdirOptions, ReadDirBatch, RenameOptions,
     SetMetadata, UnlinkOptions, VfsDirCookie,
 };
 use vfs_core::path_types::{VfsName, VfsPath, VfsPathBuf};
@@ -17,11 +17,37 @@ use vfs_core::{
     VfsFileType, VfsHandleAsync, VfsHandleId, VfsMetadata, VfsResult, VfsTimespec,
 };
 use vfs_mem::MemFs;
-use vfs_rt::InlineTestRuntime;
+use std::any::Any;
+use std::future::Future;
+use std::pin::Pin;
+
+struct TestRuntime;
+
+impl VfsRuntime for TestRuntime {
+    fn spawn_blocking_boxed(
+        &self,
+        f: Box<dyn FnOnce() -> Box<dyn Any + Send> + Send>,
+    ) -> Pin<Box<dyn Future<Output = Box<dyn Any + Send>> + Send>> {
+        Box::pin(async move {
+            let handle = std::thread::spawn(f);
+            match handle.join() {
+                Ok(value) => value,
+                Err(err) => std::panic::resume_unwind(err),
+            }
+        })
+    }
+
+    fn block_on_boxed<'a>(
+        &'a self,
+        fut: Pin<Box<dyn Future<Output = Box<dyn Any + Send>> + Send + 'a>>,
+    ) -> Box<dyn Any + Send> {
+        futures::executor::block_on(fut)
+    }
+}
 
 #[test]
 fn sync_backend_works_through_async_adapter() {
-    let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+    let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
     let fs_sync: Arc<dyn FsSync> = Arc::new(MemFs::new());
     let fs_async: Arc<dyn FsAsync> = Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime.clone()));
 
@@ -205,7 +231,7 @@ impl FsAsync for AsyncTestFs {
 
 #[test]
 fn async_backend_works_through_sync_adapter() {
-    let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+    let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
     let root = Arc::new(AsyncTestNode::dir(
         BackendInodeId::new(1).expect("inode"),
     ));
@@ -305,7 +331,7 @@ impl FsHandleAsync for AsyncMemHandle {
 
 #[test]
 fn async_ofd_shares_offsets() {
-    let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+    let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
     let fs_sync: Arc<dyn FsSync> = Arc::new(MemFs::new());
     let fs_async: Arc<dyn FsAsync> = Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime));
     let mount_table =
@@ -349,7 +375,7 @@ fn async_ofd_shares_offsets() {
 
 #[test]
 fn async_path_walker_parity_nofollow() {
-    let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+    let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
     let fs_sync: Arc<dyn FsSync> = Arc::new(MemFs::new());
     let fs_async: Arc<dyn FsAsync> = Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime.clone()));
     let mount_table =

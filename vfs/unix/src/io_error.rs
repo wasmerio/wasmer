@@ -43,6 +43,18 @@ pub fn io_error_to_vfs_error_kind(e: &std::io::Error) -> VfsErrorKind {
 #[cfg(feature = "host-errno")]
 fn map_unix_errno(e: &std::io::Error) -> Option<VfsErrorKind> {
     let raw = e.raw_os_error()?;
+    if raw == libc::ENOTSUP {
+        return Some(VfsErrorKind::NotSupported);
+    }
+    if libc::ENOTSUP != libc::EOPNOTSUPP && raw == libc::EOPNOTSUPP {
+        return Some(VfsErrorKind::NotSupported);
+    }
+    if raw == libc::EAGAIN {
+        return Some(VfsErrorKind::WouldBlock);
+    }
+    if libc::EAGAIN != libc::EWOULDBLOCK && raw == libc::EWOULDBLOCK {
+        return Some(VfsErrorKind::WouldBlock);
+    }
     let kind = match raw {
         libc::ENOENT => VfsErrorKind::NotFound,
         libc::ENOTDIR => VfsErrorKind::NotDir,
@@ -53,13 +65,9 @@ fn map_unix_errno(e: &std::io::Error) -> Option<VfsErrorKind> {
         libc::EPERM => VfsErrorKind::OperationNotPermitted,
         libc::EINVAL => VfsErrorKind::InvalidInput,
         libc::ELOOP => VfsErrorKind::TooManySymlinks,
-        libc::ENOTSUP => VfsErrorKind::NotSupported,
-        libc::EOPNOTSUPP => VfsErrorKind::NotSupported,
         libc::EXDEV => VfsErrorKind::CrossDevice,
         libc::EBUSY => VfsErrorKind::Busy,
         libc::EROFS => VfsErrorKind::ReadOnlyFs,
-        libc::EAGAIN => VfsErrorKind::WouldBlock,
-        libc::EWOULDBLOCK => VfsErrorKind::WouldBlock,
         libc::EINTR => VfsErrorKind::Interrupted,
         libc::ETIMEDOUT => VfsErrorKind::TimedOut,
         libc::ECANCELED => VfsErrorKind::Cancelled,

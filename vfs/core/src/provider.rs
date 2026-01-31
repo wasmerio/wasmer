@@ -221,7 +221,7 @@ impl FsAsync for AsyncFsFromSync {
 
     async fn root(&self) -> VfsResult<Arc<dyn FsNodeAsync>> {
         let inner = self.inner.clone();
-        let node = self.rt.spawn_blocking(move || inner.root()).await?;
+        let node = self.rt.spawn_blocking(move || inner.root()).await;
         Ok(self.wrap_node(node))
     }
 
@@ -232,8 +232,8 @@ impl FsAsync for AsyncFsFromSync {
         let inner = self.inner.clone();
         let node = self
             .rt
-            .spawn_blocking(move || Ok(inner.node_by_inode(inode)))
-            .await?;
+            .spawn_blocking(move || inner.node_by_inode(inode))
+            .await;
         Ok(node.map(|node| self.wrap_node(node)))
     }
 }
@@ -276,12 +276,12 @@ impl FsNodeAsync for AsyncNodeFromSync {
 
     async fn metadata(&self) -> VfsResult<crate::VfsMetadata> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.metadata()).await?
+        self.rt.spawn_blocking(move || inner.metadata()).await
     }
 
     async fn set_metadata(&self, set: crate::VfsSetMetadata) -> VfsResult<()> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.set_metadata(set)).await?
+        self.rt.spawn_blocking(move || inner.set_metadata(set)).await
     }
 
     async fn lookup(&self, name: &crate::VfsName) -> VfsResult<Arc<dyn FsNodeAsync>> {
@@ -343,7 +343,7 @@ impl FsNodeAsync for AsyncNodeFromSync {
                 let name = crate::VfsName::new(&name)?;
                 inner.unlink(&name, opts)
             })
-            .await?
+            .await
     }
 
     async fn rmdir(&self, name: &crate::VfsName) -> VfsResult<()> {
@@ -354,7 +354,7 @@ impl FsNodeAsync for AsyncNodeFromSync {
                 let name = crate::VfsName::new(&name)?;
                 inner.rmdir(&name)
             })
-            .await?
+            .await
     }
 
     async fn read_dir(
@@ -365,7 +365,7 @@ impl FsNodeAsync for AsyncNodeFromSync {
         let inner = self.inner.clone();
         self.rt
             .spawn_blocking(move || inner.read_dir(cursor, max))
-            .await?
+            .await
     }
 
     async fn rename(
@@ -387,7 +387,7 @@ impl FsNodeAsync for AsyncNodeFromSync {
                 let new_name = crate::VfsName::new(&new_name)?;
                 inner.rename(&old_name, sync_parent.as_ref(), &new_name, opts)
             })
-            .await?
+            .await
     }
 
     async fn link(&self, existing: &dyn FsNodeAsync, new_name: &crate::VfsName) -> VfsResult<()> {
@@ -401,7 +401,7 @@ impl FsNodeAsync for AsyncNodeFromSync {
                 let new_name = crate::VfsName::new(&new_name)?;
                 inner.link(sync_existing.as_ref(), &new_name)
             })
-            .await?
+            .await
     }
 
     async fn symlink(&self, new_name: &crate::VfsName, target: &crate::VfsPath) -> VfsResult<()> {
@@ -414,12 +414,12 @@ impl FsNodeAsync for AsyncNodeFromSync {
                 let target = crate::VfsPathBuf::from_bytes(target);
                 inner.symlink(&new_name, target.as_path())
             })
-            .await?
+            .await
     }
 
     async fn readlink(&self) -> VfsResult<crate::VfsPathBuf> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.readlink()).await?
+        self.rt.spawn_blocking(move || inner.readlink()).await
     }
 
     async fn open(&self, opts: crate::flags::OpenOptions) -> VfsResult<Arc<dyn FsHandleAsync>> {
@@ -448,10 +448,7 @@ impl FsHandleAsync for AsyncHandleFromSync {
         let mut temp = vec![0u8; buf.len()];
         let (read, data) = self
             .rt
-            .spawn_blocking(move || {
-                let read = inner.read_at(offset, &mut temp)?;
-                Ok((read, temp))
-            })
+            .spawn_blocking(move || inner.read_at(offset, &mut temp).map(|read| (read, temp)))
             .await?;
         buf[..read].copy_from_slice(&data[..read]);
         Ok(read)
@@ -462,32 +459,32 @@ impl FsHandleAsync for AsyncHandleFromSync {
         let data = buf.to_vec();
         self.rt
             .spawn_blocking(move || inner.write_at(offset, &data))
-            .await?
+            .await
     }
 
     async fn flush(&self) -> VfsResult<()> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.flush()).await?
+        self.rt.spawn_blocking(move || inner.flush()).await
     }
 
     async fn fsync(&self) -> VfsResult<()> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.fsync()).await?
+        self.rt.spawn_blocking(move || inner.fsync()).await
     }
 
     async fn get_metadata(&self) -> VfsResult<crate::VfsMetadata> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.get_metadata()).await?
+        self.rt.spawn_blocking(move || inner.get_metadata()).await
     }
 
     async fn set_len(&self, len: u64) -> VfsResult<()> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.set_len(len)).await?
+        self.rt.spawn_blocking(move || inner.set_len(len)).await
     }
 
     async fn len(&self) -> VfsResult<u64> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.len()).await?
+        self.rt.spawn_blocking(move || inner.len()).await
     }
 
     async fn append(&self, buf: &[u8]) -> VfsResult<Option<usize>> {
@@ -495,7 +492,7 @@ impl FsHandleAsync for AsyncHandleFromSync {
         let data = buf.to_vec();
         self.rt
             .spawn_blocking(move || inner.append(&data))
-            .await?
+            .await
     }
 
     async fn dup(&self) -> VfsResult<Option<Arc<dyn FsHandleAsync>>> {

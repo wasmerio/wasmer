@@ -11588,6 +11588,12 @@ dependencies = [
 [[package]]
 name = "vfs-host"
 version = "7.0.0"
+dependencies = [
+ "libc",
+ "vfs-core",
+ "vfs-rt",
+ "vfs-unix",
+]
 
 [[package]]
 name = "vfs-mem"

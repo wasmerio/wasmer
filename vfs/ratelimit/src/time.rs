@@ -1,4 +1,4 @@
-pub use std::time::{Duration, Instant};
+pub use std::time::Instant;
 
 pub trait TimeSource: Send + Sync {
     fn now(&self) -> Instant;

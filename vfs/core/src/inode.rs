@@ -31,7 +31,7 @@ pub struct NodeRef {
     inner: Arc<NodeRefInner>,
 }
 
-struct NodeRefInner {
+pub(crate) struct NodeRefInner {
     mount: MountId,
     node: Arc<dyn FsNode>,
 }

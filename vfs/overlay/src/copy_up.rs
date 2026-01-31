@@ -7,6 +7,7 @@ use vfs_core::path_types::{VfsName, VfsPathBuf};
 
 use crate::config::OverlayOptions;
 
+#[allow(dead_code)]
 fn read_all(handle: &dyn FsHandle) -> VfsResult<Vec<u8>> {
     let mut offset = 0u64;
     let mut data = Vec::new();
@@ -106,10 +107,12 @@ pub fn copy_up_dir(
     Ok(upper_node)
 }
 
+#[allow(dead_code)]
 pub fn copy_bytes(handle: &dyn FsHandle) -> VfsResult<Vec<u8>> {
     read_all(handle)
 }
 
+#[allow(dead_code)]
 pub fn copy_up_symlink_target(lower_node: &dyn FsNode) -> VfsResult<VfsPathBuf> {
     lower_node.readlink()
 }

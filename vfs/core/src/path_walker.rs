@@ -938,10 +938,36 @@ mod tests {
         VfsErrorKind, VfsFileMode, VfsFileType, VfsHandleId, VfsInodeId, VfsMetadata, VfsPath,
         VfsTimespec,
     };
+    use std::any::Any;
     use std::collections::HashMap;
+    use std::future::Future;
+    use std::pin::Pin;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
-    use vfs_rt::InlineTestRuntime;
+
+    struct TestRuntime;
+
+    impl VfsRuntime for TestRuntime {
+        fn spawn_blocking_boxed(
+            &self,
+            f: Box<dyn FnOnce() -> Box<dyn Any + Send> + Send>,
+        ) -> Pin<Box<dyn Future<Output = Box<dyn Any + Send>> + Send>> {
+            Box::pin(async move {
+                let handle = std::thread::spawn(f);
+                match handle.join() {
+                    Ok(value) => value,
+                    Err(err) => std::panic::resume_unwind(err),
+                }
+            })
+        }
+
+        fn block_on_boxed<'a>(
+            &'a self,
+            fut: Pin<Box<dyn Future<Output = Box<dyn Any + Send>> + Send + 'a>>,
+        ) -> Box<dyn Any + Send> {
+            futures::executor::block_on(fut)
+        }
+    }
 
     #[derive(Debug)]
     struct TestNode {
@@ -1195,7 +1221,7 @@ mod tests {
 
     fn mount_table_for(fs: &Arc<TestFs>) -> Arc<MountTable> {
         let fs_arc: Arc<dyn Fs> = fs.clone();
-        let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+        let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
         let fs_async: Arc<dyn crate::FsAsync> =
             Arc::new(AsyncFsFromSync::new(fs_arc.clone(), runtime));
         Arc::new(MountTable::new(fs_arc, fs_async).expect("mount table"))
@@ -1207,7 +1233,7 @@ mod tests {
         secondary: &Arc<TestFs>,
     ) -> MountId {
         let secondary_fs: Arc<dyn Fs> = secondary.clone();
-        let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+        let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
         let secondary_async: Arc<dyn crate::FsAsync> =
             Arc::new(AsyncFsFromSync::new(secondary_fs.clone(), runtime));
         mount_table
@@ -1499,7 +1525,7 @@ mod tests {
         let secondary = TestFs::new();
         let secondary_root = secondary.root.clone();
         let secondary_fs: Arc<dyn Fs> = secondary.clone();
-        let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+        let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
         let secondary_async: Arc<dyn crate::FsAsync> =
             Arc::new(AsyncFsFromSync::new(secondary_fs.clone(), runtime));
         let mount_id = mount_table

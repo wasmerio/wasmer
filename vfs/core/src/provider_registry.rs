@@ -303,12 +303,14 @@ impl FsProviderRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fs::Fs;
     use crate::node::{
         CreateFile, DirCursor, FsHandle, FsNode, MkdirOptions, ReadDirBatch, RenameOptions,
         SetMetadata, UnlinkOptions,
     };
     use crate::path_types::VfsPathBuf;
     use crate::provider::config_downcast_ref;
+    use crate::provider::FsProvider;
     use crate::{BackendInodeId, MountId, VfsCapabilities, VfsErrorKind, VfsFileType, VfsInodeId};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
