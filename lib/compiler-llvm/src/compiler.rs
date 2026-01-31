@@ -1,6 +1,7 @@
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::{FuncTranslator, LLVMIR_LARGE_FUNCTION_THRESHOLD};
+use crossbeam_channel::unbounded;
 use inkwell::DLLStorageClass;
 use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
@@ -9,7 +10,7 @@ use inkwell::targets::FileType;
 use itertools::Itertools;
 use perfetto_recorder::{ThreadTraceData, TraceBuilder, scope};
 use rayon::ThreadPoolBuilder;
-use rayon::iter::{IndexedParallelIterator, ParallelBridge};
+use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::cmp::Reverse;
 use std::sync::Mutex;
@@ -119,64 +120,107 @@ fn translate_function_buckets<'a>(
     let module = &compile_info.module;
     let memory_styles = &compile_info.memory_styles;
     let table_styles = &compile_info.table_styles;
+    let progress = progress.as_ref();
 
     let functions = pool.install(|| {
-        buckets
-            .par_iter()
-            .with_min_len(1)
-            .with_max_len(1)
-            .map_init(
-                || {
+        let (bucket_tx, bucket_rx) = unbounded::<&FunctionBucket<'a>>();
+        for bucket in buckets {
+            if bucket_tx.send(bucket).is_err() {
+                break;
+            }
+        }
+        drop(bucket_tx);
+
+        let (result_tx, result_rx) = unbounded::<
+            Result<Vec<(LocalFunctionIndex, crate::object_file::CompiledFunction)>, CompileError>,
+        >();
+
+        pool.scope(|s| {
+            let worker_count = pool.current_num_threads().max(1);
+            for _ in 0..worker_count {
+                let bucket_rx = bucket_rx.clone();
+                let result_tx = result_tx.clone();
+                s.spawn(move |_| {
                     let target_machine = compiler.config().target_machine_with_opt(target, true);
                     let target_machine_no_opt =
                         compiler.config().target_machine_with_opt(target, false);
                     let pointer_width = target.triple().pointer_width().unwrap().bytes();
-                    FuncTranslator::new(
+                    let func_translator = FuncTranslator::new(
                         target.triple().clone(),
                         target_machine,
                         Some(target_machine_no_opt),
                         binary_format,
                         pointer_width,
                     )
-                    .unwrap()
-                },
-                |func_translator, bucket| {
-                    // TODO: remove (to serialize)
-                    //let _data = data.lock().unwrap();
-                    scope!(
-                        "translate bucket",
-                        id = bucket.id,
-                        bucket_size = bucket.size,
-                        functions = bucket.functions.len()
-                    );
-                    let mut translated_functions = Vec::new();
-                    for (i, input) in bucket.functions.iter() {
-                        let fname = compile_info
-                            .module
-                            .get_function_name(compile_info.module.func_index(*i));
-                        scope!("translate function", llvm_ir_size = input.data.len(), fname);
+                    .unwrap();
 
-                        let translated = func_translator.translate(
-                            module,
-                            module_translation,
-                            i,
-                            input,
-                            compiler.config(),
-                            memory_styles,
-                            table_styles,
-                            symbol_registry,
-                            target.triple(),
-                        )?;
+                    while let Ok(bucket) = bucket_rx.recv() {
+                        // TODO: remove (to serialize)
+                        //let _data = data.lock().unwrap();
+                        scope!(
+                            "translate bucket",
+                            id = bucket.id,
+                            bucket_size = bucket.size,
+                            functions = bucket.functions.len()
+                        );
+                        let bucket_result = (|| {
+                            let mut translated_functions = Vec::new();
+                            for (i, input) in bucket.functions.iter() {
+                                let fname = compile_info
+                                    .module
+                                    .get_function_name(compile_info.module.func_index(*i));
+                                scope!(
+                                    "translate function",
+                                    llvm_ir_size = input.data.len(),
+                                    fname
+                                );
 
-                        if let Some(progress) = progress.as_ref() {
-                            progress.notify()?;
+                                let translated = func_translator.translate(
+                                    module,
+                                    module_translation,
+                                    i,
+                                    input,
+                                    compiler.config(),
+                                    memory_styles,
+                                    table_styles,
+                                    symbol_registry,
+                                    target.triple(),
+                                )?;
+
+                                if let Some(progress) = progress {
+                                    progress.notify()?;
+                                }
+                                translated_functions.push((*i, translated));
+                            }
+                            Ok(translated_functions)
+                        })();
+
+                        if result_tx.send(bucket_result).is_err() {
+                            break;
                         }
-                        translated_functions.push((i, translated));
                     }
-                    Ok(translated_functions)
-                },
-            )
-            .collect::<Result<Vec<_>, CompileError>>()
+                });
+            }
+        });
+
+        drop(result_tx);
+        let mut functions = Vec::with_capacity(buckets.len());
+        let mut first_error = None;
+        for _ in 0..buckets.len() {
+            match result_rx.recv() {
+                Ok(Ok(bucket_functions)) => functions.push(bucket_functions),
+                Ok(Err(err)) => {
+                    if first_error.is_none() {
+                        first_error = Some(err);
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        if let Some(err) = first_error {
+            return Err(err);
+        }
+        Ok(functions)
     })?;
 
     Ok(functions
