@@ -10,6 +10,7 @@ use vfs_core::node::{
     SetMetadata, UnlinkOptions, VfsDirCookie,
 };
 use vfs_core::path_types::{VfsName, VfsNameBuf, VfsPath, VfsPathBuf};
+use vfs_core::provider::MountFlags;
 use vfs_core::{
     BackendInodeId, VfsError, VfsErrorKind, VfsFileType, VfsInodeId, VfsMetadata, VfsResult,
 };
@@ -320,6 +321,13 @@ impl OverlayNode {
         }
         Ok(())
     }
+
+    fn ensure_writable(&self) -> VfsResult<()> {
+        if self.fs.mount_flags.contains(MountFlags::READ_ONLY) {
+            return Err(VfsError::new(VfsErrorKind::ReadOnlyFs, "overlay.read_only"));
+        }
+        Ok(())
+    }
 }
 
 impl FsNode for OverlayNode {
@@ -353,6 +361,7 @@ impl FsNode for OverlayNode {
     }
 
     fn set_metadata(&self, set: SetMetadata) -> VfsResult<()> {
+        self.ensure_writable()?;
         match self.kind {
             OverlayNodeKind::Dir => {
                 let upper = self.ensure_upper_dir()?;
@@ -423,6 +432,7 @@ impl FsNode for OverlayNode {
     }
 
     fn create_file(&self, name: &VfsName, opts: CreateFile) -> VfsResult<Arc<dyn FsNode>> {
+        self.ensure_writable()?;
         self.deny_reserved(name)?;
         let upper = self.ensure_upper_dir()?;
         let node = upper.create_file(name, opts)?;
@@ -438,6 +448,7 @@ impl FsNode for OverlayNode {
     }
 
     fn mkdir(&self, name: &VfsName, opts: MkdirOptions) -> VfsResult<Arc<dyn FsNode>> {
+        self.ensure_writable()?;
         self.deny_reserved(name)?;
         let upper = self.ensure_upper_dir()?;
         let node = upper.mkdir(name, opts)?;
@@ -453,6 +464,7 @@ impl FsNode for OverlayNode {
     }
 
     fn unlink(&self, name: &VfsName, opts: UnlinkOptions) -> VfsResult<()> {
+        self.ensure_writable()?;
         if is_reserved_name(name) {
             return Err(VfsError::new(
                 VfsErrorKind::NotFound,
@@ -491,6 +503,7 @@ impl FsNode for OverlayNode {
     }
 
     fn rmdir(&self, name: &VfsName) -> VfsResult<()> {
+        self.ensure_writable()?;
         if is_reserved_name(name) {
             return Err(VfsError::new(
                 VfsErrorKind::NotFound,
@@ -614,6 +627,7 @@ impl FsNode for OverlayNode {
         new_name: &VfsName,
         opts: RenameOptions,
     ) -> VfsResult<()> {
+        self.ensure_writable()?;
         self.deny_reserved(new_name)?;
         if opts.exchange {
             return Err(VfsError::new(
@@ -681,6 +695,7 @@ impl FsNode for OverlayNode {
     }
 
     fn link(&self, existing: &dyn FsNode, new_name: &VfsName) -> VfsResult<()> {
+        self.ensure_writable()?;
         self.deny_reserved(new_name)?;
         let existing = existing
             .as_any()
@@ -702,6 +717,7 @@ impl FsNode for OverlayNode {
     }
 
     fn symlink(&self, new_name: &VfsName, target: &VfsPath) -> VfsResult<()> {
+        self.ensure_writable()?;
         self.deny_reserved(new_name)?;
         let upper = self.ensure_upper_dir()?;
         upper.symlink(new_name, target)
@@ -715,6 +731,9 @@ impl FsNode for OverlayNode {
         let write_intent = opts.flags.intersects(
             OpenFlags::WRITE | OpenFlags::TRUNC | OpenFlags::CREATE | OpenFlags::APPEND,
         );
+        if write_intent {
+            self.ensure_writable()?;
+        }
         let node = match self.kind {
             OverlayNodeKind::Dir => self.active_node()?,
             OverlayNodeKind::Symlink => {

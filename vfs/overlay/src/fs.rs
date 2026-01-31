@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use smallvec::SmallVec;
 
+use vfs_core::provider::MountFlags;
 use vfs_core::{BackendInodeId, Fs, VfsCapabilities, VfsError, VfsErrorKind, VfsResult};
 
 use crate::config::OverlayOptions;
@@ -12,6 +13,7 @@ pub struct OverlayFs {
     pub(crate) upper: Arc<dyn Fs>,
     pub(crate) lowers: Vec<Arc<dyn Fs>>,
     pub(crate) opts: OverlayOptions,
+    pub(crate) mount_flags: MountFlags,
     pub(crate) inodes: Arc<OverlayInodeTable>,
 }
 
@@ -20,6 +22,15 @@ impl OverlayFs {
         upper: Arc<dyn Fs>,
         lowers: Vec<Arc<dyn Fs>>,
         opts: OverlayOptions,
+    ) -> VfsResult<Self> {
+        Self::new_with_mount_flags(upper, lowers, opts, MountFlags::empty())
+    }
+
+    pub fn new_with_mount_flags(
+        upper: Arc<dyn Fs>,
+        lowers: Vec<Arc<dyn Fs>>,
+        opts: OverlayOptions,
+        mount_flags: MountFlags,
     ) -> VfsResult<Self> {
         if lowers.is_empty() {
             return Err(VfsError::new(
@@ -31,6 +42,7 @@ impl OverlayFs {
             upper,
             lowers,
             opts,
+            mount_flags,
             inodes: Arc::new(OverlayInodeTable::new()),
         })
     }
@@ -107,6 +119,7 @@ impl Clone for OverlayFs {
             upper: self.upper.clone(),
             lowers: self.lowers.clone(),
             opts: self.opts.clone(),
+            mount_flags: self.mount_flags,
             inodes: self.inodes.clone(),
         }
     }

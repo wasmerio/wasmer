@@ -80,14 +80,31 @@ impl FsProvider for OverlayProvider {
     }
 
     fn validate_config(&self, config: &dyn ProviderConfig) -> VfsResult<()> {
-        if config_downcast_ref::<OverlayConfig>(config).is_some() {
-            Ok(())
-        } else {
-            Err(VfsError::new(
+        let cfg = config_downcast_ref::<OverlayConfig>(config).ok_or(VfsError::new(
+            VfsErrorKind::InvalidInput,
+            "overlay.validate_config",
+        ))?;
+        if cfg.lowers.is_empty() {
+            return Err(VfsError::new(
                 VfsErrorKind::InvalidInput,
-                "overlay.validate_config",
-            ))
+                "overlay.validate_config.lowers",
+            ));
         }
+        if cfg.upper.provider.trim().is_empty() {
+            return Err(VfsError::new(
+                VfsErrorKind::InvalidInput,
+                "overlay.validate_config.upper_provider",
+            ));
+        }
+        for lower in &cfg.lowers {
+            if lower.provider.trim().is_empty() {
+                return Err(VfsError::new(
+                    VfsErrorKind::InvalidInput,
+                    "overlay.validate_config.lower_provider",
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn mount(&self, req: MountRequest<'_>) -> VfsResult<Arc<dyn Fs>> {
@@ -113,7 +130,8 @@ impl FsProvider for OverlayProvider {
             lowers.push(fs);
         }
 
-        let overlay = OverlayFs::new(upper, lowers, cfg.options.clone())?;
+        let overlay =
+            OverlayFs::new_with_mount_flags(upper, lowers, cfg.options.clone(), req.flags)?;
         Ok(Arc::new(overlay))
     }
 }

@@ -7,7 +7,7 @@ use vfs_core::{Fs, VfsErrorKind, VfsResult};
 
 use vfs_mem::MemFs;
 
-use crate::config::OverlayBuilder;
+use crate::config::{OverlayBuilder, OverlayOptions};
 
 fn ensure_dir(root: Arc<dyn FsNode>, path: &str) -> VfsResult<Arc<dyn FsNode>> {
     let mut cur = root;
@@ -252,4 +252,111 @@ fn inode_stable_across_copy_up() {
     let inode_after = mp_after.inode();
 
     assert_eq!(inode_before, inode_after);
+}
+
+#[test]
+fn reserved_names_hidden() {
+    let upper = Arc::new(MemFs::new());
+    let lower = Arc::new(MemFs::new());
+    create_file_with_contents(upper.root(), "/.wasmer_overlay.opaque", b"").unwrap();
+    create_file_with_contents(upper.root(), "/.wasmer_overlay.wh.hidden", b"").unwrap();
+    create_file_with_contents(lower.root(), "/visible", b"ok").unwrap();
+
+    let overlay = OverlayBuilder::new(upper, vec![lower]).build().unwrap();
+    let root = overlay.root();
+
+    let err = root
+        .lookup(&VfsName::new(b".wasmer_overlay.opaque").unwrap())
+        .err()
+        .expect("expected error");
+    assert_eq!(err.kind(), VfsErrorKind::NotFound);
+    let err = root
+        .lookup(&VfsName::new(b".wasmer_overlay.wh.hidden").unwrap())
+        .err()
+        .expect("expected error");
+    assert_eq!(err.kind(), VfsErrorKind::NotFound);
+
+    let batch = root.read_dir(None, 16).unwrap();
+    let names: Vec<_> = batch
+        .entries
+        .iter()
+        .map(|e| String::from_utf8_lossy(e.name.as_bytes()).to_string())
+        .collect();
+    assert!(names.contains(&"visible".to_string()));
+    assert!(
+        names
+            .iter()
+            .all(|name| !name.starts_with(".wasmer_overlay."))
+    );
+}
+
+#[test]
+fn deny_reserved_names_on_create() {
+    let upper = Arc::new(MemFs::new());
+    let lower = Arc::new(MemFs::new());
+    let overlay = OverlayBuilder::new(upper, vec![lower])
+        .with_options(OverlayOptions {
+            deny_reserved_names: true,
+            ..OverlayOptions::default()
+        })
+        .build()
+        .unwrap();
+    let root = overlay.root();
+    let err = root
+        .create_file(
+            &VfsName::new(b".wasmer_overlay.opaque").unwrap(),
+            CreateFile {
+                mode: None,
+                truncate: true,
+                exclusive: false,
+            },
+        )
+        .err()
+        .expect("expected error");
+    assert_eq!(err.kind(), VfsErrorKind::PermissionDenied);
+}
+
+#[test]
+fn multi_lower_layering_order_and_lookup() {
+    let upper = Arc::new(MemFs::new());
+    let lower0 = Arc::new(MemFs::new());
+    let lower1 = Arc::new(MemFs::new());
+
+    create_file_with_contents(upper.root(), "/d/upper_a", b"u").unwrap();
+    create_file_with_contents(upper.root(), "/d/upper_c", b"u").unwrap();
+    create_file_with_contents(lower0.root(), "/d/lower_b", b"l0").unwrap();
+    create_file_with_contents(lower0.root(), "/d/lower_d", b"l0").unwrap();
+    create_file_with_contents(lower0.root(), "/d/shared", b"lower0").unwrap();
+    create_file_with_contents(lower1.root(), "/d/lower_e", b"l1").unwrap();
+    create_file_with_contents(lower1.root(), "/d/lower_f", b"l1").unwrap();
+    create_file_with_contents(lower1.root(), "/d/shared", b"lower1").unwrap();
+
+    let overlay = OverlayBuilder::new(upper, vec![lower0, lower1])
+        .build()
+        .unwrap();
+    let dir = lookup_path(overlay.root(), "/d").unwrap();
+    let batch = dir.read_dir(None, 16).unwrap();
+    let names: Vec<_> = batch
+        .entries
+        .iter()
+        .map(|e| String::from_utf8_lossy(e.name.as_bytes()).to_string())
+        .collect();
+
+    assert!(names.contains(&"upper_a".to_string()));
+    assert!(names.contains(&"upper_c".to_string()));
+    assert!(names.contains(&"lower_b".to_string()));
+    assert!(names.contains(&"lower_d".to_string()));
+    assert!(names.contains(&"lower_e".to_string()));
+    assert!(names.contains(&"lower_f".to_string()));
+    assert!(names.contains(&"shared".to_string()));
+    assert_eq!(names.iter().filter(|name| *name == "shared").count(), 1);
+
+    let pos = |name: &str| names.iter().position(|n| n == name).unwrap();
+    assert!(pos("upper_a") < pos("lower_b"));
+    assert!(pos("upper_c") < pos("lower_b"));
+    assert!(pos("lower_b") < pos("lower_e"));
+    assert!(pos("lower_d") < pos("lower_e"));
+
+    let shared = read_file(overlay.root(), "/d/shared").unwrap();
+    assert_eq!(shared, b"lower0");
 }
