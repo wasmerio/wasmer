@@ -58,6 +58,135 @@ impl LLVMCompiler {
     }
 }
 
+struct FunctionBucket<'a> {
+    id: usize,
+    functions: Vec<(LocalFunctionIndex, &'a FunctionBodyData<'a>)>,
+    size: usize,
+}
+
+fn build_function_buckets<'a>(
+    function_body_inputs: &'a PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
+) -> Vec<FunctionBucket<'a>> {
+    let mut function_bodies = function_body_inputs
+        .iter()
+        .sorted_by_key(|(id, body)| Reverse((body.data.len(), id.as_u32())))
+        .collect_vec();
+
+    let mut buckets = Vec::new();
+
+    {
+        scope!("build buckets");
+        while !function_bodies.is_empty() {
+            let mut next_function_body = Vec::with_capacity(function_bodies.len());
+            // TODO
+            let mut bucket = FunctionBucket {
+                id: buckets.len(),
+                functions: Vec::new(),
+                size: 0,
+            };
+
+            for (fn_index, fn_body) in function_bodies.into_iter() {
+                if bucket.size + fn_body.data.len() <= LLVMIR_LARGE_FUNCTION_THRESHOLD / 3
+                    || bucket.size == 0
+                {
+                    bucket.size += fn_body.data.len();
+                    bucket.functions.push((fn_index, fn_body));
+                } else {
+                    next_function_body.push((fn_index, fn_body));
+                }
+            }
+
+            function_bodies = next_function_body;
+            buckets.push(bucket);
+        }
+    }
+
+    buckets
+}
+
+#[allow(clippy::too_many_arguments)]
+fn translate_function_buckets<'a>(
+    compiler: &LLVMCompiler,
+    pool: &rayon::ThreadPool,
+    target: &Target,
+    compile_info: &CompileModuleInfo,
+    module_translation: &ModuleTranslationState,
+    symbol_registry: &dyn SymbolRegistry,
+    binary_format: target_lexicon::BinaryFormat,
+    progress: Option<ProgressContext>,
+    buckets: &[FunctionBucket<'a>],
+) -> Result<Vec<crate::object_file::CompiledFunction>, CompileError> {
+    let module = &compile_info.module;
+    let memory_styles = &compile_info.memory_styles;
+    let table_styles = &compile_info.table_styles;
+
+    let functions = pool.install(|| {
+        buckets
+            .par_iter()
+            .with_min_len(1)
+            .with_max_len(1)
+            .map_init(
+                || {
+                    let target_machine = compiler.config().target_machine_with_opt(target, true);
+                    let target_machine_no_opt =
+                        compiler.config().target_machine_with_opt(target, false);
+                    let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                    FuncTranslator::new(
+                        target.triple().clone(),
+                        target_machine,
+                        Some(target_machine_no_opt),
+                        binary_format,
+                        pointer_width,
+                    )
+                    .unwrap()
+                },
+                |func_translator, bucket| {
+                    // TODO: remove (to serialize)
+                    //let _data = data.lock().unwrap();
+                    scope!(
+                        "translate bucket",
+                        id = bucket.id,
+                        bucket_size = bucket.size,
+                        functions = bucket.functions.len()
+                    );
+                    let mut translated_functions = Vec::new();
+                    for (i, input) in bucket.functions.iter() {
+                        let fname = compile_info
+                            .module
+                            .get_function_name(compile_info.module.func_index(*i));
+                        scope!("translate function", llvm_ir_size = input.data.len(), fname);
+
+                        let translated = func_translator.translate(
+                            module,
+                            module_translation,
+                            i,
+                            input,
+                            compiler.config(),
+                            memory_styles,
+                            table_styles,
+                            symbol_registry,
+                            target.triple(),
+                        )?;
+
+                        if let Some(progress) = progress.as_ref() {
+                            progress.notify()?;
+                        }
+                        translated_functions.push((i, translated));
+                    }
+                    Ok(translated_functions)
+                },
+            )
+            .collect::<Result<Vec<_>, CompileError>>()
+    })?;
+
+    Ok(functions
+        .into_iter()
+        .flatten()
+        .sorted_by_key(|x| x.0)
+        .map(|(_, body)| body)
+        .collect_vec())
+}
+
 struct ShortNames {}
 
 impl SymbolRegistry for ShortNames {
@@ -389,8 +518,6 @@ impl Compiler for LLVMCompiler {
         scope!("compile module");
         //let data = Arc::new(Mutex::new(0));
 
-        let memory_styles = &compile_info.memory_styles;
-        let table_styles = &compile_info.table_styles;
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
@@ -425,116 +552,23 @@ impl Compiler for LLVMCompiler {
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
 
-        struct FunctionBucket<'a> {
-            id: usize,
-            functions: Vec<(LocalFunctionIndex, &'a FunctionBodyData<'a>)>,
-            size: usize,
-        }
+        let buckets = build_function_buckets(&function_body_inputs);
 
-        let mut function_bodies = function_body_inputs
-            .iter()
-            .sorted_by_key(|(id, body)| Reverse((body.data.len(), id.as_u32())))
-            .collect_vec();
-
-        let mut buckets = Vec::new();
-
-        {
-            scope!("build buckets");
-            while !function_bodies.is_empty() {
-                let mut next_function_body = Vec::with_capacity(function_bodies.len());
-                // TODO
-                let mut bucket = FunctionBucket {
-                    id: buckets.len(),
-                    functions: Vec::new(),
-                    size: 0,
-                };
-
-                for (fn_index, fn_body) in function_bodies.into_iter() {
-                    if bucket.size + fn_body.data.len() <= LLVMIR_LARGE_FUNCTION_THRESHOLD / 3
-                        || bucket.size == 0
-                    {
-                        bucket.size += fn_body.data.len();
-                        bucket.functions.push((fn_index, fn_body));
-                    } else {
-                        next_function_body.push((fn_index, fn_body));
-                    }
-                }
-
-                function_bodies = next_function_body;
-                buckets.push(bucket);
-            }
-        }
-
-        let progress = progress.clone();
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
-        let functions = pool.install(|| {
-            buckets
-                .par_iter()
-                .with_min_len(1)
-                .with_max_len(1)
-                .map_init(
-                    || {
-                        let target_machine = self.config().target_machine_with_opt(target, true);
-                        let target_machine_no_opt =
-                            self.config().target_machine_with_opt(target, false);
-                        let pointer_width = target.triple().pointer_width().unwrap().bytes();
-                        FuncTranslator::new(
-                            target.triple().clone(),
-                            target_machine,
-                            Some(target_machine_no_opt),
-                            binary_format,
-                            pointer_width,
-                        )
-                        .unwrap()
-                    },
-                    |func_translator, bucket| {
-                        // TODO: remove (to serialize)
-                        //let _data = data.lock().unwrap();
-                        scope!(
-                            "translate bucket",
-                            id = bucket.id,
-                            bucket_size = bucket.size,
-                            functions = bucket.functions.len()
-                        );
-                        let mut translated_functions = Vec::new();
-                        for (i, input) in bucket.functions.iter() {
-                            let fname = compile_info
-                                .module
-                                .get_function_name(compile_info.module.func_index(*i));
-                            scope!("translate function", llvm_ir_size = input.data.len(), fname);
-
-                            let translated = func_translator.translate(
-                                module,
-                                module_translation,
-                                i,
-                                input,
-                                self.config(),
-                                memory_styles,
-                                table_styles,
-                                &symbol_registry,
-                                target.triple(),
-                            )?;
-
-                            if let Some(progress) = progress.as_ref() {
-                                progress.notify()?;
-                            }
-                            translated_functions.push((i, translated));
-                        }
-                        Ok(translated_functions)
-                    },
-                )
-                .collect::<Result<Vec<_>, CompileError>>()
-        })?;
-
-        let functions = functions
-            .into_iter()
-            .flatten()
-            .sorted_by_key(|x| x.0)
-            .map(|(_, body)| body)
-            .collect_vec();
+        let functions = translate_function_buckets(
+            self,
+            &pool,
+            target,
+            compile_info,
+            module_translation,
+            &symbol_registry,
+            binary_format,
+            progress.clone(),
+            &buckets,
+        )?;
 
         let functions = functions
             .into_iter()
