@@ -2,12 +2,17 @@ use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use vfs_core::provider::FsProviderCapabilities;
 use vfs_core::{BackendInodeId, VfsFileType, VfsTimespec};
 
 use super::{DirEntryInfo, Stat};
+
+#[cfg(test)]
+static LAST_STAT_FOLLOW: AtomicU8 = AtomicU8::new(0);
 
 #[derive(Clone, Debug)]
 pub struct DirHandle {
@@ -49,10 +54,10 @@ pub fn stat_dir(dir: &DirHandle) -> io::Result<Stat> {
     stat_path(&dir.path, true)
 }
 
-pub fn stat_at(parent: &DirHandle, name: &[u8], _nofollow: bool) -> io::Result<Stat> {
+pub fn stat_at(parent: &DirHandle, name: &[u8], nofollow: bool) -> io::Result<Stat> {
     let name = name_to_osstring(name)?;
     let path = parent.path.join(name);
-    stat_path(&path, false)
+    stat_path(&path, !nofollow)
 }
 
 pub fn stat_file(file: &std::fs::File) -> io::Result<Stat> {
@@ -186,11 +191,28 @@ pub fn read_dir(dir: &DirHandle) -> io::Result<Vec<DirEntryInfo>> {
 }
 
 fn stat_path(path: &Path, follow: bool) -> io::Result<Stat> {
-    let meta = if follow {
-        std::fs::metadata(path)?
+    if follow {
+        stat_path_follow(path)
     } else {
-        std::fs::symlink_metadata(path)?
-    };
+        stat_path_nofollow(path)
+    }
+}
+
+fn stat_path_follow(path: &Path) -> io::Result<Stat> {
+    #[cfg(test)]
+    {
+        LAST_STAT_FOLLOW.store(1, Ordering::Relaxed);
+    }
+    let meta = std::fs::metadata(path)?;
+    Ok(stat_from_metadata(meta))
+}
+
+fn stat_path_nofollow(path: &Path) -> io::Result<Stat> {
+    #[cfg(test)]
+    {
+        LAST_STAT_FOLLOW.store(2, Ordering::Relaxed);
+    }
+    let meta = std::fs::symlink_metadata(path)?;
     Ok(stat_from_metadata(meta))
 }
 
@@ -252,4 +274,30 @@ fn name_to_osstring(name: &[u8]) -> io::Result<OsString> {
     let s = std::str::from_utf8(name)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "name not utf-8"))?;
     Ok(OsString::from(s))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(windows)]
+    fn stat_at_respects_nofollow_flag() {
+        let dir = std::env::temp_dir().join(format!("vfs_stat_at_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let file_path = dir.join("file");
+        std::fs::write(&file_path, b"data").expect("write");
+        let handle = open_root_dir(&dir).expect("open root");
+
+        LAST_STAT_FOLLOW.store(0, Ordering::Relaxed);
+        stat_at(&handle, b"file", false).expect("stat follow");
+        assert_eq!(LAST_STAT_FOLLOW.load(Ordering::Relaxed), 1);
+
+        LAST_STAT_FOLLOW.store(0, Ordering::Relaxed);
+        stat_at(&handle, b"file", true).expect("stat nofollow");
+        assert_eq!(LAST_STAT_FOLLOW.load(Ordering::Relaxed), 2);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
