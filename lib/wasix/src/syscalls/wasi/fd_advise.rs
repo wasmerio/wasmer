@@ -51,6 +51,10 @@ pub(crate) fn fd_advise_internal(
     let fd_entry = state.fs.get_fd(fd)?;
     let inode = fd_entry.inode;
 
+    if matches!(advice, Advice::Unknown) {
+        return Err(Errno::Inval);
+    }
+
     if !fd_entry.inner.rights.contains(Rights::FD_ADVISE) {
         return Err(Errno::Access);
     }

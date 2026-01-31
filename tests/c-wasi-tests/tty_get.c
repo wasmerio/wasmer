@@ -51,10 +51,20 @@ static void test_regular_file_isatty(void)
     assert(unlink("tty_get_regular_file") == 0);
 }
 
+static void test_invalid_fd_isatty(void)
+{
+    printf("Test 3: invalid fd isatty (EBADF)\n");
+    errno = 0;
+    int ret = isatty(-1);
+    assert(ret == 0);
+    assert(errno == EBADF);
+}
+
 int main(void)
 {
     test_stdio_isatty_matches_tty_get();
     test_regular_file_isatty();
+    test_invalid_fd_isatty();
     printf("All tests passed!\n");
     return 0;
 }

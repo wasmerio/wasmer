@@ -48,9 +48,18 @@ void test_invalid_fd() {
     printf("  ✓ Invalid fd 1500 returned EBADF (errno=%d)\n", ret);
 }
 
+// Test 3: fd_fdstat_get with invalid pointer
+void test_invalid_pointer() {
+    printf("\nTest 3: fd_fdstat_get with invalid pointer (MEMVIOLATION)\n");
+
+    __wasi_errno_t ret = __wasi_fd_fdstat_get(0, (__wasi_fdstat_t *)0xFFFFFFFF);
+    assert(ret == __WASI_ERRNO_MEMVIOLATION && "invalid pointer should return MEMVIOLATION");
+    printf("  ✓ Invalid pointer returned MEMVIOLATION (errno=%d)\n", ret);
+}
+
 // Test 3: fd_fdstat_get consistency (multiple calls return same results)
 void test_fdstat_consistency() {
-    printf("\nTest 3: fd_fdstat_get consistency (repeated calls)\n");
+    printf("\nTest 4: fd_fdstat_get consistency (repeated calls)\n");
 
     __wasi_fdstat_t fdstat1, fdstat2, fdstat3;
     __wasi_errno_t ret;
@@ -76,7 +85,7 @@ void test_fdstat_consistency() {
 
 // Test 4: All standard fds (stdin, stdout, stderr)
 void test_all_standard_fds() {
-    printf("\nTest 4: fd_fdstat_get on all standard fds\n");
+    printf("\nTest 5: fd_fdstat_get on all standard fds\n");
 
     __wasi_fdstat_t fdstat;
     __wasi_errno_t ret;
@@ -91,7 +100,7 @@ void test_all_standard_fds() {
 
 // Test 5: fdstat structure fields validation
 void test_fdstat_fields() {
-    printf("\nTest 5: fdstat structure fields validation\n");
+    printf("\nTest 6: fdstat structure fields validation\n");
 
     __wasi_fdstat_t fdstat;
     __wasi_errno_t ret;
@@ -114,7 +123,7 @@ void test_fdstat_fields() {
 
 // Test 6: Preopen directory fd (if available)
 void test_preopen_directory() {
-    printf("\nTest 6: fd_fdstat_get on preopen directory\n");
+    printf("\nTest 7: fd_fdstat_get on preopen directory\n");
 
     __wasi_fdstat_t fdstat;
     __wasi_errno_t ret;
@@ -130,7 +139,7 @@ void test_preopen_directory() {
 
 // Test 7: Rights validation - stdin should have read rights
 void test_stdin_rights() {
-    printf("\nTest 7: Rights validation - stdin should have read rights\n");
+    printf("\nTest 8: Rights validation - stdin should have read rights\n");
 
     __wasi_fdstat_t fdstat;
     __wasi_errno_t ret;
@@ -147,7 +156,7 @@ void test_stdin_rights() {
 
 // Test 8: Rights validation - stdout should have write rights
 void test_stdout_rights() {
-    printf("\nTest 8: Rights validation - stdout should have write rights\n");
+    printf("\nTest 9: Rights validation - stdout should have write rights\n");
 
     __wasi_fdstat_t fdstat;
     __wasi_errno_t ret;
@@ -164,7 +173,7 @@ void test_stdout_rights() {
 
 // Test 9: Rights validation - stderr should have write rights
 void test_stderr_rights() {
-    printf("\nTest 9: Rights validation - stderr should have write rights\n");
+    printf("\nTest 10: Rights validation - stderr should have write rights\n");
 
     __wasi_fdstat_t fdstat;
     __wasi_errno_t ret;
@@ -181,7 +190,7 @@ void test_stderr_rights() {
 
 // Test 10: File descriptor range testing
 void test_fd_range() {
-    printf("\nTest 10: File descriptor range testing\n");
+    printf("\nTest 11: File descriptor range testing\n");
 
     __wasi_fdstat_t fdstat;
     __wasi_errno_t ret;
@@ -200,7 +209,7 @@ void test_fd_range() {
 
 // Test 11: Negative fd testing
 void test_negative_fd() {
-    printf("\nTest 11: Negative fd testing\n");
+    printf("\nTest 12: Negative fd testing\n");
 
     __wasi_fdstat_t fdstat;
     __wasi_errno_t ret;
@@ -218,6 +227,7 @@ int main() {
 
     test_stdin_stdout_stderr();
     test_invalid_fd();
+    test_invalid_pointer();
     test_fdstat_consistency();
     test_all_standard_fds();
     test_fdstat_fields();
