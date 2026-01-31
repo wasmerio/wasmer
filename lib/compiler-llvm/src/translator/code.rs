@@ -67,7 +67,7 @@ const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 
 // Use the lowest optimization level for very large function bodies to reduce compile time.
 // See #5997 for more numbers connected to the change.
-const LLVMIR_LARGE_FUNCTION_THRESHOLD: usize = 90_000;
+pub(crate) const LLVMIR_LARGE_FUNCTION_THRESHOLD: usize = 100_000;
 
 pub struct FuncTranslator {
     ctx: Context,

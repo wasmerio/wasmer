@@ -1,15 +1,17 @@
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
-use crate::translator::FuncTranslator;
+use crate::translator::{FuncTranslator, LLVMIR_LARGE_FUNCTION_THRESHOLD};
 use inkwell::DLLStorageClass;
 use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
+use itertools::Itertools;
 use perfetto_recorder::{ThreadTraceData, TraceBuilder, scope};
 use rayon::ThreadPoolBuilder;
 use rayon::iter::{IndexedParallelIterator, ParallelBridge};
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use std::cmp::Reverse;
 use std::sync::Mutex;
 use std::{
     borrow::Cow,
@@ -423,17 +425,56 @@ impl Compiler for LLVMCompiler {
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
 
+        struct FunctionBucket<'a> {
+            id: usize,
+            functions: Vec<(LocalFunctionIndex, &'a FunctionBodyData<'a>)>,
+            size: usize,
+        }
+
+        let mut function_bodies = function_body_inputs
+            .iter()
+            .sorted_by_key(|(id, body)| Reverse((body.data.len(), id.as_u32())))
+            .collect_vec();
+
+        let mut buckets = Vec::new();
+
+        {
+            scope!("build buckets");
+            while !function_bodies.is_empty() {
+                let mut next_function_body = Vec::with_capacity(function_bodies.len());
+                // TODO
+                let mut bucket = FunctionBucket {
+                    id: buckets.len(),
+                    functions: Vec::new(),
+                    size: 0,
+                };
+
+                for (fn_index, fn_body) in function_bodies.into_iter() {
+                    if bucket.size + fn_body.data.len() <= LLVMIR_LARGE_FUNCTION_THRESHOLD / 3
+                        || bucket.size == 0
+                    {
+                        bucket.size += fn_body.data.len();
+                        bucket.functions.push((fn_index, fn_body));
+                    } else {
+                        next_function_body.push((fn_index, fn_body));
+                    }
+                }
+
+                function_bodies = next_function_body;
+                buckets.push(bucket);
+            }
+        }
+
         let progress = progress.clone();
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
         let functions = pool.install(|| {
-            function_body_inputs
-                .iter()
-                .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+            buckets
                 .par_iter()
-                .with_max_len(2)
+                .with_min_len(1)
+                .with_max_len(1)
                 .map_init(
                     || {
                         let target_machine = self.config().target_machine_with_opt(target, true);
@@ -449,36 +490,51 @@ impl Compiler for LLVMCompiler {
                         )
                         .unwrap()
                     },
-                    |func_translator, (i, input)| {
+                    |func_translator, bucket| {
                         // TODO: remove (to serialize)
                         //let _data = data.lock().unwrap();
-
-                        let fname = compile_info
-                            .module
-                            .get_function_name(compile_info.module.func_index(*i));
-                        scope!("translate function", llvm_ir_size = input.data.len(), fname);
-
-                        let translated = func_translator.translate(
-                            module,
-                            module_translation,
-                            i,
-                            input,
-                            self.config(),
-                            memory_styles,
-                            table_styles,
-                            &symbol_registry,
-                            target.triple(),
+                        scope!(
+                            "translate bucket",
+                            id = bucket.id,
+                            bucket_size = bucket.size,
+                            functions = bucket.functions.len()
                         );
+                        let mut translated_functions = Vec::new();
+                        for (i, input) in bucket.functions.iter() {
+                            let fname = compile_info
+                                .module
+                                .get_function_name(compile_info.module.func_index(*i));
+                            scope!("translate function", llvm_ir_size = input.data.len(), fname);
 
-                        if let Some(progress) = progress.as_ref() {
-                            progress.notify()?;
+                            let translated = func_translator.translate(
+                                module,
+                                module_translation,
+                                i,
+                                input,
+                                self.config(),
+                                memory_styles,
+                                table_styles,
+                                &symbol_registry,
+                                target.triple(),
+                            )?;
+
+                            if let Some(progress) = progress.as_ref() {
+                                progress.notify()?;
+                            }
+                            translated_functions.push((i, translated));
                         }
-
-                        translated
+                        Ok(translated_functions)
                     },
                 )
                 .collect::<Result<Vec<_>, CompileError>>()
         })?;
+
+        let functions = functions
+            .into_iter()
+            .flatten()
+            .sorted_by_key(|x| x.0)
+            .map(|(_, body)| body)
+            .collect_vec();
 
         let functions = functions
             .into_iter()
