@@ -190,7 +190,7 @@ fn translate_function_buckets<'a>(
                                 )?;
 
                                 if let Some(progress) = progress {
-                                    progress.notify()?;
+                                    progress.notify_steps(input.data.len() as u64)?;
                                 }
                                 translated_functions.push((*i, translated));
                             }
@@ -560,14 +560,22 @@ impl Compiler for LLVMCompiler {
 
         let module = &compile_info.module;
         let module_hash = module.hash_string();
-        let total_functions = function_body_inputs.len() as u64;
-        let total_function_call_trampolines = module.signatures.len() as u64;
-        let total_dynamic_trampolines = module.num_imported_functions as u64;
-        let total_steps =
-            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
-        let progress = progress_callback
-            .cloned()
-            .map(|cb| ProgressContext::new(cb, total_steps, "Compiling functions"));
+        // TODO
+        let _total_functions = function_body_inputs.len() as u64;
+        let _total_function_call_trampolines = module.signatures.len() as u64;
+        let _total_dynamic_trampolines = module.num_imported_functions as u64;
+        //let _total_steps =
+        //total_functions + total_function_call_trampolines + total_dynamic_trampolines;
+        let progress = progress_callback.cloned().map(|cb| {
+            ProgressContext::new(
+                cb,
+                function_body_inputs
+                    .iter()
+                    .map(|(_, body)| body.data.len())
+                    .sum::<usize>() as u64,
+                "Compiling functions",
+            )
+        });
 
         // TODO: merge constants in sections.
 
