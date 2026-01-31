@@ -60,9 +60,19 @@ impl LLVMCompiler {
 }
 
 struct FunctionBucket<'a> {
-    id: usize,
+    id: u64,
     functions: Vec<(LocalFunctionIndex, &'a FunctionBodyData<'a>)>,
     size: usize,
+}
+
+impl<'a> FunctionBucket<'a> {
+    fn new(id: u64) -> Self {
+        Self {
+            id,
+            functions: Vec::new(),
+            size: 0,
+        }
+    }
 }
 
 fn build_function_buckets<'a>(
@@ -75,31 +85,25 @@ fn build_function_buckets<'a>(
 
     let mut buckets = Vec::new();
 
-    {
-        scope!("build buckets");
-        while !function_bodies.is_empty() {
-            let mut next_function_body = Vec::with_capacity(function_bodies.len());
-            // TODO
-            let mut bucket = FunctionBucket {
-                id: buckets.len(),
-                functions: Vec::new(),
-                size: 0,
-            };
+    scope!("build buckets");
+    while !function_bodies.is_empty() {
+        let mut next_function_body = Vec::with_capacity(function_bodies.len());
+        let mut bucket = FunctionBucket::new(buckets.len() as u64);
 
-            for (fn_index, fn_body) in function_bodies.into_iter() {
-                if bucket.size + fn_body.data.len() <= LLVMIR_LARGE_FUNCTION_THRESHOLD / 3
-                    || bucket.size == 0
-                {
-                    bucket.size += fn_body.data.len();
-                    bucket.functions.push((fn_index, fn_body));
-                } else {
-                    next_function_body.push((fn_index, fn_body));
-                }
+        for (fn_index, fn_body) in function_bodies.into_iter() {
+            if bucket.size + fn_body.data.len() <= LLVMIR_LARGE_FUNCTION_THRESHOLD / 3
+                // Huge functions must fit into a bucket!
+                || bucket.size == 0
+            {
+                bucket.size += fn_body.data.len();
+                bucket.functions.push((fn_index, fn_body));
+            } else {
+                next_function_body.push((fn_index, fn_body));
             }
-
-            function_bodies = next_function_body;
-            buckets.push(bucket);
         }
+
+        function_bodies = next_function_body;
+        buckets.push(bucket);
     }
 
     buckets
@@ -125,9 +129,9 @@ fn translate_function_buckets<'a>(
     let functions = pool.install(|| {
         let (bucket_tx, bucket_rx) = unbounded::<&FunctionBucket<'a>>();
         for bucket in buckets {
-            if bucket_tx.send(bucket).is_err() {
-                break;
-            }
+            bucket_tx.send(bucket).map_err(|e| {
+                CompileError::Resource(format!("cannot allocate crossbeam channel item: {e}"))
+            })?;
         }
         drop(bucket_tx);
 
@@ -155,8 +159,6 @@ fn translate_function_buckets<'a>(
                     .unwrap();
 
                     while let Ok(bucket) = bucket_rx.recv() {
-                        // TODO: remove (to serialize)
-                        //let _data = data.lock().unwrap();
                         scope!(
                             "translate bucket",
                             id = bucket.id,
@@ -204,28 +206,20 @@ fn translate_function_buckets<'a>(
         });
 
         drop(result_tx);
-        let mut functions = Vec::with_capacity(buckets.len());
-        let mut first_error = None;
+        let mut functions = Vec::with_capacity(buckets.iter().map(|b| b.functions.len()).sum());
         for _ in 0..buckets.len() {
-            match result_rx.recv() {
-                Ok(Ok(bucket_functions)) => functions.push(bucket_functions),
-                Ok(Err(err)) => {
-                    if first_error.is_none() {
-                        first_error = Some(err);
-                    }
-                }
-                Err(_) => break,
+            match result_rx.recv().map_err(|e| {
+                CompileError::Resource(format!("cannot allocate crossbeam channel item: {e}"))
+            })? {
+                Ok(bucket_functions) => functions.extend(bucket_functions),
+                Err(err) => return Err(err),
             }
-        }
-        if let Some(err) = first_error {
-            return Err(err);
         }
         Ok(functions)
     })?;
 
     Ok(functions
         .into_iter()
-        .flatten()
         .sorted_by_key(|x| x.0)
         .map(|(_, body)| body)
         .collect_vec())
