@@ -153,8 +153,7 @@ fn inode(raw: u64) -> BackendInodeId {
 fn dummy_fs_pair() -> (Arc<dyn vfs_core::Fs>, Arc<dyn vfs_core::FsAsync>) {
     let fs: Arc<dyn vfs_core::Fs> = Arc::new(DummyFs::new());
     let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
-    let fs_async: Arc<dyn vfs_core::FsAsync> =
-        Arc::new(AsyncFsFromSync::new(fs.clone(), runtime));
+    let fs_async: Arc<dyn vfs_core::FsAsync> = Arc::new(AsyncFsFromSync::new(fs.clone(), runtime));
     (fs, fs_async)
 }
 

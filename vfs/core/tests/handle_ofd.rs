@@ -223,10 +223,8 @@ impl vfs_core::Fs for DummyFs {
 fn make_handle(handle_id: u64, open_flags: vfs_core::OpenFlags) -> VfsHandle {
     let fs: Arc<dyn vfs_core::Fs> = Arc::new(DummyFs::new());
     let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
-    let fs_async: Arc<dyn vfs_core::FsAsync> =
-        Arc::new(AsyncFsFromSync::new(fs.clone(), runtime));
-    let mount_table =
-        vfs_core::mount::MountTable::new(fs, fs_async).expect("mount table");
+    let fs_async: Arc<dyn vfs_core::FsAsync> = Arc::new(AsyncFsFromSync::new(fs.clone(), runtime));
+    let mount_table = vfs_core::mount::MountTable::new(fs, fs_async).expect("mount table");
     let guard = mount_table
         .guard(MountId::from_index(0))
         .expect("mount guard");

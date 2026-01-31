@@ -40,9 +40,9 @@ pub mod path_walker;
 pub mod policy;
 pub mod provider;
 pub mod provider_registry;
+pub mod time;
 pub mod traits_async;
 pub mod traits_sync;
-pub mod time;
 pub mod vfs;
 
 pub use error::{VfsError, VfsErrorKind, VfsResult};
@@ -66,7 +66,7 @@ pub use path_walker::{
 };
 pub use policy::{AllowAllPolicy, PosixPolicy, VfsMutationOp, VfsPolicy};
 pub use provider_registry::FsProviderRegistry;
+pub use time::VfsTimespec;
 pub use traits_async::{FsAsync, FsHandleAsync, FsNodeAsync, FsProviderAsync};
 pub use traits_sync::{FsHandleSync, FsNodeSync, FsProviderSync, FsSync};
-pub use time::VfsTimespec;
 pub use vfs::{Vfs, VfsBaseDir, VfsBaseDirAsync};

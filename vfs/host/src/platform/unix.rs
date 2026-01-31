@@ -22,7 +22,11 @@ impl Clone for DirHandle {
         if fd < 0 {
             panic!("dup dirfd failed: {}", io::Error::last_os_error());
         }
-        unsafe { Self { fd: OwnedFd::from_raw_fd(fd) } }
+        unsafe {
+            Self {
+                fd: OwnedFd::from_raw_fd(fd),
+            }
+        }
     }
 }
 
@@ -84,7 +88,11 @@ pub fn stat_at(parent: &DirHandle, name: &[u8], nofollow: bool) -> io::Result<St
     let cstr =
         CString::new(name).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "name NUL"))?;
     let mut st = unsafe { mem::zeroed::<libc::stat>() };
-    let flags = if nofollow { libc::AT_SYMLINK_NOFOLLOW } else { 0 };
+    let flags = if nofollow {
+        libc::AT_SYMLINK_NOFOLLOW
+    } else {
+        0
+    };
     let res = unsafe { libc::fstatat(parent.as_raw_fd(), cstr.as_ptr(), &mut st, flags) };
     if res < 0 {
         return Err(io::Error::last_os_error());
@@ -217,8 +225,8 @@ pub fn link_at(
 ) -> io::Result<()> {
     let old_cstr = CString::new(existing_name)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "name NUL"))?;
-    let new_cstr =
-        CString::new(new_name).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "name NUL"))?;
+    let new_cstr = CString::new(new_name)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "name NUL"))?;
     let res = unsafe {
         libc::linkat(
             existing_parent.as_raw_fd(),
@@ -239,9 +247,8 @@ pub fn symlink_at(parent: &DirHandle, new_name: &[u8], target: &[u8]) -> io::Res
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "name NUL"))?;
     let target_cstr = CString::new(target)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "target NUL"))?;
-    let res = unsafe {
-        libc::symlinkat(target_cstr.as_ptr(), parent.as_raw_fd(), new_cstr.as_ptr())
-    };
+    let res =
+        unsafe { libc::symlinkat(target_cstr.as_ptr(), parent.as_raw_fd(), new_cstr.as_ptr()) };
     if res < 0 {
         return Err(io::Error::last_os_error());
     }
@@ -254,7 +261,12 @@ pub fn readlink_at(parent: &DirHandle, name: &[u8]) -> io::Result<Vec<u8>> {
     let mut buf = vec![0u8; 1024];
     loop {
         let res = unsafe {
-            libc::readlinkat(parent.as_raw_fd(), cstr.as_ptr(), buf.as_mut_ptr() as *mut _, buf.len())
+            libc::readlinkat(
+                parent.as_raw_fd(),
+                cstr.as_ptr(),
+                buf.as_mut_ptr() as *mut _,
+                buf.len(),
+            )
         };
         if res < 0 {
             return Err(io::Error::last_os_error());
@@ -304,14 +316,7 @@ pub fn utimens_at(
     let cstr =
         CString::new(name).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "name NUL"))?;
     let times = make_utimenspec(atime, mtime)?;
-    let res = unsafe {
-        libc::utimensat(
-            parent.as_raw_fd(),
-            cstr.as_ptr(),
-            times.as_ptr(),
-            0,
-        )
-    };
+    let res = unsafe { libc::utimensat(parent.as_raw_fd(), cstr.as_ptr(), times.as_ptr(), 0) };
     if res < 0 {
         return Err(io::Error::last_os_error());
     }

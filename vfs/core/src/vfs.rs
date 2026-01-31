@@ -122,7 +122,10 @@ impl Vfs {
         _path: &VfsPath,
         _opts: OpenOptions,
     ) -> VfsResult<VfsHandleAsync> {
-        Err(VfsError::new(VfsErrorKind::NotImplemented, "vfs.openat_async"))
+        Err(VfsError::new(
+            VfsErrorKind::NotImplemented,
+            "vfs.openat_async",
+        ))
     }
 
     pub async fn statat_async(
@@ -132,7 +135,10 @@ impl Vfs {
         _path: &VfsPath,
         _opts: StatOptions,
     ) -> VfsResult<VfsMetadata> {
-        Err(VfsError::new(VfsErrorKind::NotImplemented, "vfs.statat_async"))
+        Err(VfsError::new(
+            VfsErrorKind::NotImplemented,
+            "vfs.statat_async",
+        ))
     }
 
     pub async fn mkdirat_async(
@@ -142,7 +148,10 @@ impl Vfs {
         _path: &VfsPath,
         _opts: MkdirOptions,
     ) -> VfsResult<()> {
-        Err(VfsError::new(VfsErrorKind::NotImplemented, "vfs.mkdirat_async"))
+        Err(VfsError::new(
+            VfsErrorKind::NotImplemented,
+            "vfs.mkdirat_async",
+        ))
     }
 
     pub async fn unlinkat_async(
@@ -152,7 +161,10 @@ impl Vfs {
         _path: &VfsPath,
         _opts: UnlinkOptions,
     ) -> VfsResult<()> {
-        Err(VfsError::new(VfsErrorKind::NotImplemented, "vfs.unlinkat_async"))
+        Err(VfsError::new(
+            VfsErrorKind::NotImplemented,
+            "vfs.unlinkat_async",
+        ))
     }
 
     pub async fn renameat_async(
@@ -164,7 +176,10 @@ impl Vfs {
         _new_path: &VfsPath,
         _opts: RenameOptions,
     ) -> VfsResult<()> {
-        Err(VfsError::new(VfsErrorKind::NotImplemented, "vfs.renameat_async"))
+        Err(VfsError::new(
+            VfsErrorKind::NotImplemented,
+            "vfs.renameat_async",
+        ))
     }
 
     pub async fn readlinkat_async(
@@ -188,7 +203,10 @@ impl Vfs {
         _target: &VfsPath,
         _opts: SymlinkOptions,
     ) -> VfsResult<()> {
-        Err(VfsError::new(VfsErrorKind::NotImplemented, "vfs.symlinkat_async"))
+        Err(VfsError::new(
+            VfsErrorKind::NotImplemented,
+            "vfs.symlinkat_async",
+        ))
     }
 
     pub async fn readdir_async(
@@ -197,7 +215,10 @@ impl Vfs {
         _dir: &VfsDirHandleAsync,
         _opts: ReadDirOptions,
     ) -> VfsResult<DirStreamHandle> {
-        Err(VfsError::new(VfsErrorKind::NotImplemented, "vfs.readdir_async"))
+        Err(VfsError::new(
+            VfsErrorKind::NotImplemented,
+            "vfs.readdir_async",
+        ))
     }
 }
 

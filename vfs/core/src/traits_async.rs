@@ -131,15 +131,9 @@ pub trait FsProviderAsync: Send + Sync + 'static {
     fn name(&self) -> &'static str;
     fn capabilities(&self) -> crate::provider::FsProviderCapabilities;
 
-    fn validate_config(
-        &self,
-        _config: &dyn crate::provider::ProviderConfig,
-    ) -> VfsResult<()> {
+    fn validate_config(&self, _config: &dyn crate::provider::ProviderConfig) -> VfsResult<()> {
         Ok(())
     }
 
-    async fn mount(
-        &self,
-        req: crate::provider::MountRequest<'_>,
-    ) -> VfsResult<Arc<dyn FsAsync>>;
+    async fn mount(&self, req: crate::provider::MountRequest<'_>) -> VfsResult<Arc<dyn FsAsync>>;
 }

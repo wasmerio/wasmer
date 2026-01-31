@@ -287,8 +287,7 @@ fn make_dir_handle(
 
 fn mount_table_for(fs: Arc<dyn vfs_core::Fs>) -> vfs_core::mount::MountTable {
     let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
-    let fs_async: Arc<dyn vfs_core::FsAsync> =
-        Arc::new(AsyncFsFromSync::new(fs.clone(), runtime));
+    let fs_async: Arc<dyn vfs_core::FsAsync> = Arc::new(AsyncFsFromSync::new(fs.clone(), runtime));
     vfs_core::mount::MountTable::new(fs, fs_async).expect("mount table")
 }
 

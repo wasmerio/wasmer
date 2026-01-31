@@ -229,7 +229,11 @@ impl FsProviderRegistry {
         provider.mount(req)
     }
 
-    pub fn create_fs(&self, provider_name: &str, req: MountRequest<'_>) -> VfsResult<Arc<dyn FsSync>> {
+    pub fn create_fs(
+        &self,
+        provider_name: &str,
+        req: MountRequest<'_>,
+    ) -> VfsResult<Arc<dyn FsSync>> {
         self.create_fs_sync(provider_name, req)
     }
 
@@ -309,8 +313,8 @@ mod tests {
         SetMetadata, UnlinkOptions,
     };
     use crate::path_types::VfsPathBuf;
-    use crate::provider::config_downcast_ref;
     use crate::provider::FsProvider;
+    use crate::provider::config_downcast_ref;
     use crate::{BackendInodeId, MountId, VfsCapabilities, VfsErrorKind, VfsFileType, VfsInodeId};
     use std::sync::atomic::{AtomicUsize, Ordering};
 

@@ -25,8 +25,14 @@ pub struct HostNode {
 #[derive(Debug)]
 pub(crate) enum HostNodeKind {
     Dir(Arc<HostDir>),
-    File { inode: BackendInodeId, locator: Locator },
-    Symlink { inode: BackendInodeId, locator: Locator },
+    File {
+        inode: BackendInodeId,
+        locator: Locator,
+    },
+    Symlink {
+        inode: BackendInodeId,
+        locator: Locator,
+    },
 }
 
 #[derive(Debug)]
@@ -161,7 +167,10 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
                     handle.set_len(size)?;
                 }
                 VfsFileType::Directory => {
-                    return Err(VfsError::new(VfsErrorKind::InvalidInput, "host.set_metadata.size"));
+                    return Err(VfsError::new(
+                        VfsErrorKind::InvalidInput,
+                        "host.set_metadata.size",
+                    ));
                 }
                 VfsFileType::Symlink => {
                     return Err(VfsError::new(
@@ -227,8 +236,10 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
         )?;
         let mut stat = stat;
         if stat.file_type == VfsFileType::Directory {
-            let handle =
-                crate::io_result("host.lookup.open_dir", platform::open_dir_at(&dir.dir, name))?;
+            let handle = crate::io_result(
+                "host.lookup.open_dir",
+                platform::open_dir_at(&dir.dir, name),
+            )?;
             stat.dir_handle = Some(handle);
         }
         let name_buf = VfsNameBuf::new(name.as_bytes().to_vec())
@@ -236,7 +247,11 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
         Ok(self.node_from_stat(dir.clone(), name_buf, stat))
     }
 
-    fn create_file(&self, name: &VfsName, opts: CreateFile) -> VfsResult<Arc<dyn vfs_core::traits_sync::FsNodeSync>> {
+    fn create_file(
+        &self,
+        name: &VfsName,
+        opts: CreateFile,
+    ) -> VfsResult<Arc<dyn vfs_core::traits_sync::FsNodeSync>> {
         if self.is_read_only() {
             return Err(crate::readonly_error("host.create_file.read_only"));
         }
@@ -259,8 +274,9 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
                         platform::open_file_at(&dir.dir, name.as_bytes(), flags, opts.mode),
                     )?;
                 }
-                let name_buf = VfsNameBuf::new(name.as_bytes().to_vec())
-                    .map_err(|_| VfsError::new(VfsErrorKind::InvalidInput, "host.create_file.name"))?;
+                let name_buf = VfsNameBuf::new(name.as_bytes().to_vec()).map_err(|_| {
+                    VfsError::new(VfsErrorKind::InvalidInput, "host.create_file.name")
+                })?;
                 return Ok(self.node_from_stat(dir.clone(), name_buf, stat));
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
@@ -289,14 +305,21 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
         Ok(self.node_from_stat(dir.clone(), name_buf, stat))
     }
 
-    fn mkdir(&self, name: &VfsName, opts: MkdirOptions) -> VfsResult<Arc<dyn vfs_core::traits_sync::FsNodeSync>> {
+    fn mkdir(
+        &self,
+        name: &VfsName,
+        opts: MkdirOptions,
+    ) -> VfsResult<Arc<dyn vfs_core::traits_sync::FsNodeSync>> {
         if self.is_read_only() {
             return Err(crate::readonly_error("host.mkdir.read_only"));
         }
         let dir = self.ensure_dir()?;
         match platform::stat_at(&dir.dir, name.as_bytes(), true) {
             Ok(_) => {
-                return Err(VfsError::new(VfsErrorKind::AlreadyExists, "host.mkdir.exists"));
+                return Err(VfsError::new(
+                    VfsErrorKind::AlreadyExists,
+                    "host.mkdir.exists",
+                ));
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
             Err(err) => {
@@ -339,10 +362,7 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
             return Err(crate::readonly_error("host.rmdir.read_only"));
         }
         let dir = self.ensure_dir()?;
-        crate::io_result(
-            "host.rmdir",
-            platform::rmdir_at(&dir.dir, name.as_bytes()),
-        )?;
+        crate::io_result("host.rmdir", platform::rmdir_at(&dir.dir, name.as_bytes()))?;
         Ok(())
     }
 
@@ -404,7 +424,10 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
             .downcast_ref::<HostNode>()
             .ok_or_else(|| VfsError::new(VfsErrorKind::CrossDevice, "host.rename.cross_device"))?;
         if !Arc::ptr_eq(&self.fs, &new_parent.fs) {
-            return Err(VfsError::new(VfsErrorKind::CrossDevice, "host.rename.cross_device"));
+            return Err(VfsError::new(
+                VfsErrorKind::CrossDevice,
+                "host.rename.cross_device",
+            ));
         }
         let new_dir = new_parent.ensure_dir()?;
 
@@ -425,14 +448,26 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
 
         crate::io_result(
             "host.rename",
-            platform::rename_at(&dir.dir, old_name.as_bytes(), &new_dir.dir, new_name.as_bytes()),
+            platform::rename_at(
+                &dir.dir,
+                old_name.as_bytes(),
+                &new_dir.dir,
+                new_name.as_bytes(),
+            ),
         )?;
         Ok(())
     }
 
-    fn link(&self, existing: &dyn vfs_core::traits_sync::FsNodeSync, new_name: &VfsName) -> VfsResult<()> {
+    fn link(
+        &self,
+        existing: &dyn vfs_core::traits_sync::FsNodeSync,
+        new_name: &VfsName,
+    ) -> VfsResult<()> {
         if !self.fs.caps.contains(vfs_core::VfsCapabilities::HARDLINKS) {
-            return Err(VfsError::new(VfsErrorKind::NotSupported, "host.link.unsupported"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotSupported,
+                "host.link.unsupported",
+            ));
         }
         if self.is_read_only() {
             return Err(crate::readonly_error("host.link.read_only"));
@@ -443,7 +478,10 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
             .downcast_ref::<HostNode>()
             .ok_or_else(|| VfsError::new(VfsErrorKind::CrossDevice, "host.link.cross_device"))?;
         if !Arc::ptr_eq(&self.fs, &existing.fs) {
-            return Err(VfsError::new(VfsErrorKind::CrossDevice, "host.link.cross_device"));
+            return Err(VfsError::new(
+                VfsErrorKind::CrossDevice,
+                "host.link.cross_device",
+            ));
         }
         let (parent, name) = existing.locate_parent("host.link.locator")?;
         crate::io_result(
@@ -465,7 +503,10 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
         }
         let dir = self.ensure_dir()?;
         if target.as_bytes().iter().any(|b| *b == 0) {
-            return Err(VfsError::new(VfsErrorKind::InvalidInput, "host.symlink.target"));
+            return Err(VfsError::new(
+                VfsErrorKind::InvalidInput,
+                "host.symlink.target",
+            ));
         }
         crate::io_result(
             "host.symlink",
@@ -482,8 +523,10 @@ impl vfs_core::traits_sync::FsNodeSync for HostNode {
             ));
         }
         let (parent, name) = self.locate_parent("host.readlink.locator")?;
-        let target =
-            crate::io_result("host.readlink", platform::readlink_at(&parent.dir, name.as_bytes()))?;
+        let target = crate::io_result(
+            "host.readlink",
+            platform::readlink_at(&parent.dir, name.as_bytes()),
+        )?;
         Ok(VfsPathBuf::from_bytes(target))
     }
 

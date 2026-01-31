@@ -118,8 +118,5 @@ pub trait FsProviderSync: Send + Sync + 'static {
         Ok(())
     }
 
-    fn mount(
-        &self,
-        req: crate::provider::MountRequest<'_>,
-    ) -> VfsResult<Arc<dyn FsSync>>;
+    fn mount(&self, req: crate::provider::MountRequest<'_>) -> VfsResult<Arc<dyn FsSync>>;
 }

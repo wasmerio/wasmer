@@ -3,11 +3,14 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use futures::join;
+use std::any::Any;
+use std::future::Future;
+use std::pin::Pin;
 use vfs_core::flags::{OpenFlags, OpenOptions, ResolveFlags};
 use vfs_core::inode::make_vfs_inode;
 use vfs_core::node::{
-    CreateFile, FsHandleAsync, FsNodeAsync, MkdirOptions, ReadDirBatch, RenameOptions,
-    SetMetadata, UnlinkOptions, VfsDirCookie,
+    CreateFile, FsHandleAsync, FsNodeAsync, MkdirOptions, ReadDirBatch, RenameOptions, SetMetadata,
+    UnlinkOptions, VfsDirCookie,
 };
 use vfs_core::path_types::{VfsName, VfsPath, VfsPathBuf};
 use vfs_core::provider::{AsyncFsFromSync, SyncFsFromAsync, VfsRuntime, VfsRuntimeExt};
@@ -17,9 +20,6 @@ use vfs_core::{
     VfsFileType, VfsHandleAsync, VfsHandleId, VfsMetadata, VfsResult, VfsTimespec,
 };
 use vfs_mem::MemFs;
-use std::any::Any;
-use std::future::Future;
-use std::pin::Pin;
 
 struct TestRuntime;
 
@@ -49,15 +49,14 @@ impl VfsRuntime for TestRuntime {
 fn sync_backend_works_through_async_adapter() {
     let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
     let fs_sync: Arc<dyn FsSync> = Arc::new(MemFs::new());
-    let fs_async: Arc<dyn FsAsync> = Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime.clone()));
+    let fs_async: Arc<dyn FsAsync> =
+        Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime.clone()));
 
     runtime
         .block_on(async {
             let root = fs_async.root().await?;
             let name = VfsName::new(b"file").expect("name");
-            let node = root
-                .create_file(&name, CreateFile::default())
-                .await?;
+            let node = root.create_file(&name, CreateFile::default()).await?;
 
             let opts = OpenOptions {
                 flags: OpenFlags::READ | OpenFlags::WRITE | OpenFlags::CREATE,
@@ -159,11 +158,7 @@ impl FsNodeAsync for AsyncTestNode {
         self.unsupported("async_test.create_file")
     }
 
-    async fn mkdir(
-        &self,
-        _name: &VfsName,
-        _opts: MkdirOptions,
-    ) -> VfsResult<Arc<dyn FsNodeAsync>> {
+    async fn mkdir(&self, _name: &VfsName, _opts: MkdirOptions) -> VfsResult<Arc<dyn FsNodeAsync>> {
         self.unsupported("async_test.mkdir")
     }
 
@@ -232,12 +227,8 @@ impl FsAsync for AsyncTestFs {
 #[test]
 fn async_backend_works_through_sync_adapter() {
     let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
-    let root = Arc::new(AsyncTestNode::dir(
-        BackendInodeId::new(1).expect("inode"),
-    ));
-    let child = Arc::new(AsyncTestNode::file(
-        BackendInodeId::new(2).expect("inode"),
-    ));
+    let root = Arc::new(AsyncTestNode::dir(BackendInodeId::new(1).expect("inode")));
+    let child = Arc::new(AsyncTestNode::file(BackendInodeId::new(2).expect("inode")));
     root.children
         .lock()
         .unwrap()
@@ -334,8 +325,7 @@ fn async_ofd_shares_offsets() {
     let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
     let fs_sync: Arc<dyn FsSync> = Arc::new(MemFs::new());
     let fs_async: Arc<dyn FsAsync> = Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime));
-    let mount_table =
-        vfs_core::mount::MountTable::new(fs_sync, fs_async).expect("mount table");
+    let mount_table = vfs_core::mount::MountTable::new(fs_sync, fs_async).expect("mount table");
     let guard = mount_table
         .guard(MountId::from_index(0))
         .expect("mount guard");
@@ -377,7 +367,8 @@ fn async_ofd_shares_offsets() {
 fn async_path_walker_parity_nofollow() {
     let runtime: Arc<dyn VfsRuntime> = Arc::new(TestRuntime);
     let fs_sync: Arc<dyn FsSync> = Arc::new(MemFs::new());
-    let fs_async: Arc<dyn FsAsync> = Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime.clone()));
+    let fs_async: Arc<dyn FsAsync> =
+        Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime.clone()));
     let mount_table =
         vfs_core::mount::MountTable::new(fs_sync.clone(), fs_async.clone()).expect("mount table");
 
@@ -399,9 +390,7 @@ fn async_path_walker_parity_nofollow() {
         root.clone(),
         None,
     );
-    let async_root = runtime
-        .block_on(fs_async.root())
-        .expect("async root");
+    let async_root = runtime.block_on(fs_async.root()).expect("async root");
     let cwd_async = VfsDirHandleAsync::new(
         VfsHandleId(2),
         guard,
@@ -421,12 +410,14 @@ fn async_path_walker_parity_nofollow() {
     let mut flags = vfs_core::WalkFlags::new(&ctx);
     flags.follow_final_symlink = false;
     let resolved = runtime
-        .block_on(walker.resolve(vfs_core::path_walker::ResolutionRequestAsync {
-            ctx: &ctx,
-            base: VfsBaseDirAsync::Cwd,
-            path: VfsPath::new(b"link"),
-            flags,
-        }))
+        .block_on(
+            walker.resolve(vfs_core::path_walker::ResolutionRequestAsync {
+                ctx: &ctx,
+                base: VfsBaseDirAsync::Cwd,
+                path: VfsPath::new(b"link"),
+                flags,
+            }),
+        )
         .expect("nofollow resolve");
     assert_eq!(resolved.node.file_type(), VfsFileType::Symlink);
 }

@@ -126,9 +126,7 @@ where
         F: FnOnce() -> R + Send + 'static,
         R: Send + 'static,
     {
-        let fut = self.spawn_blocking_boxed(Box::new(move || {
-            Box::new(f()) as Box<dyn Any + Send>
-        }));
+        let fut = self.spawn_blocking_boxed(Box::new(move || Box::new(f()) as Box<dyn Any + Send>));
         Box::pin(async move {
             let value = fut.await;
             *value
@@ -281,7 +279,9 @@ impl FsNodeAsync for AsyncNodeFromSync {
 
     async fn set_metadata(&self, set: crate::VfsSetMetadata) -> VfsResult<()> {
         let inner = self.inner.clone();
-        self.rt.spawn_blocking(move || inner.set_metadata(set)).await
+        self.rt
+            .spawn_blocking(move || inner.set_metadata(set))
+            .await
     }
 
     async fn lookup(&self, name: &crate::VfsName) -> VfsResult<Arc<dyn FsNodeAsync>> {
@@ -376,7 +376,10 @@ impl FsNodeAsync for AsyncNodeFromSync {
         opts: crate::node::RenameOptions,
     ) -> VfsResult<()> {
         let Some(sync_parent) = Self::try_sync_parent(new_parent) else {
-            return Err(VfsError::new(VfsErrorKind::CrossDevice, "adapter.rename.cross_device"));
+            return Err(VfsError::new(
+                VfsErrorKind::CrossDevice,
+                "adapter.rename.cross_device",
+            ));
         };
         let inner = self.inner.clone();
         let old_name = old_name.as_bytes().to_vec();
@@ -392,7 +395,10 @@ impl FsNodeAsync for AsyncNodeFromSync {
 
     async fn link(&self, existing: &dyn FsNodeAsync, new_name: &crate::VfsName) -> VfsResult<()> {
         let Some(sync_existing) = Self::try_sync_parent(existing) else {
-            return Err(VfsError::new(VfsErrorKind::CrossDevice, "adapter.link.cross_device"));
+            return Err(VfsError::new(
+                VfsErrorKind::CrossDevice,
+                "adapter.link.cross_device",
+            ));
         };
         let inner = self.inner.clone();
         let new_name = new_name.as_bytes().to_vec();
@@ -490,9 +496,7 @@ impl FsHandleAsync for AsyncHandleFromSync {
     async fn append(&self, buf: &[u8]) -> VfsResult<Option<usize>> {
         let inner = self.inner.clone();
         let data = buf.to_vec();
-        self.rt
-            .spawn_blocking(move || inner.append(&data))
-            .await
+        self.rt.spawn_blocking(move || inner.append(&data)).await
     }
 
     async fn dup(&self) -> VfsResult<Option<Arc<dyn FsHandleAsync>>> {
@@ -668,15 +672,23 @@ impl FsNodeSync for SyncNodeFromAsync {
         opts: crate::node::RenameOptions,
     ) -> VfsResult<()> {
         let Some(async_parent) = Self::try_async_parent(new_parent) else {
-            return Err(VfsError::new(VfsErrorKind::CrossDevice, "adapter.rename.cross_device"));
+            return Err(VfsError::new(
+                VfsErrorKind::CrossDevice,
+                "adapter.rename.cross_device",
+            ));
         };
-        self.rt
-            .block_on(self.inner.rename(old_name, async_parent.as_ref(), new_name, opts))
+        self.rt.block_on(
+            self.inner
+                .rename(old_name, async_parent.as_ref(), new_name, opts),
+        )
     }
 
     fn link(&self, existing: &dyn FsNodeSync, new_name: &crate::VfsName) -> VfsResult<()> {
         let Some(async_existing) = Self::try_async_parent(existing) else {
-            return Err(VfsError::new(VfsErrorKind::CrossDevice, "adapter.link.cross_device"));
+            return Err(VfsError::new(
+                VfsErrorKind::CrossDevice,
+                "adapter.link.cross_device",
+            ));
         };
         self.rt
             .block_on(self.inner.link(async_existing.as_ref(), new_name))

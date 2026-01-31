@@ -1,19 +1,19 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use vfs_core::VfsBaseDir;
 use vfs_core::flags::{OpenFlags, OpenOptions};
+use vfs_core::mount::MountTable;
 use vfs_core::node::{CreateFile, MkdirOptions, RenameOptions};
 use vfs_core::path_types::{VfsName, VfsPath};
+use vfs_core::path_walker::{PathWalker, ResolutionRequest};
+use vfs_core::provider::AsyncFsFromSync;
 use vfs_core::provider::{MountFlags, MountRequest};
 use vfs_core::{
-    make_vfs_inode, AllowAllPolicy, FsNodeSync, FsProviderRegistry, MountId, VfsConfig,
-    VfsContext, VfsDirHandle, VfsFileType, WalkFlags,
+    AllowAllPolicy, FsNodeSync, FsProviderRegistry, MountId, VfsConfig, VfsContext, VfsDirHandle,
+    VfsFileType, WalkFlags, make_vfs_inode,
 };
 use vfs_rt::InlineTestRuntime;
-use vfs_core::provider::AsyncFsFromSync;
-use vfs_core::mount::MountTable;
-use vfs_core::path_walker::{PathWalker, ResolutionRequest};
-use vfs_core::VfsBaseDir;
 
 use vfs_host::{HostFsConfig, HostFsProvider};
 
@@ -28,7 +28,10 @@ impl TempDir {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
-        base.push(format!("wasmer-hostfs-{prefix}-{stamp}-{}", std::process::id()));
+        base.push(format!(
+            "wasmer-hostfs-{prefix}-{stamp}-{}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&base).expect("create temp dir");
         Self { path: base }
     }
@@ -122,8 +125,7 @@ fn mkdir_and_readdir() {
     let fs = mount_host(&temp);
     let root = fs.root();
     let name = VfsName::new(b"dir").expect("name");
-    root.mkdir(&name, MkdirOptions::default())
-        .expect("mkdir");
+    root.mkdir(&name, MkdirOptions::default()).expect("mkdir");
     let batch = root.read_dir(None, 128).expect("read_dir");
     let names: Vec<_> = batch.entries.iter().map(|e| e.name.as_bytes()).collect();
     assert!(names.iter().any(|n| n == &b"dir".as_slice()));
@@ -171,11 +173,12 @@ fn resolve_beneath_blocks_escape() {
     let fs = mount_host(&temp);
     let root = fs.root();
     let inside = VfsName::new(b"inside").expect("name");
-    let inside_node = root
-        .mkdir(&inside, MkdirOptions::default())
-        .expect("mkdir");
+    let inside_node = root.mkdir(&inside, MkdirOptions::default()).expect("mkdir");
     inside_node
-        .symlink(&VfsName::new(b"escape").expect("name"), VfsPath::new(b"../.."))
+        .symlink(
+            &VfsName::new(b"escape").expect("name"),
+            VfsPath::new(b"../.."),
+        )
         .expect("symlink escape");
 
     let runtime: Arc<dyn vfs_core::provider::VfsRuntime> = Arc::new(InlineTestRuntime);
@@ -183,7 +186,13 @@ fn resolve_beneath_blocks_escape() {
     let mount_table = Arc::new(MountTable::new(fs.clone(), fs_async).expect("mount table"));
 
     let root_node = fs.root();
-    let root_handle = make_dir_handle(&mount_table, MountId::from_index(0), root_node.clone(), None, 1);
+    let root_handle = make_dir_handle(
+        &mount_table,
+        MountId::from_index(0),
+        root_node.clone(),
+        None,
+        1,
+    );
     let ctx = VfsContext::new(
         vfs_core::VfsCred::root(),
         root_handle,

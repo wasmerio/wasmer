@@ -430,7 +430,10 @@ impl VfsHandleAsync {
 
     pub async fn seek(&self, pos: SeekFrom) -> VfsResult<u64> {
         if !self.state.backend.is_seekable() {
-            return Err(VfsError::new(VfsErrorKind::NotSupported, "handle_async.seek"));
+            return Err(VfsError::new(
+                VfsErrorKind::NotSupported,
+                "handle_async.seek",
+            ));
         }
 
         let _guard = self.state.io_lock.lock().await;
@@ -442,9 +445,9 @@ impl VfsHandleAsync {
                     current.saturating_add(delta as u64)
                 } else {
                     let neg = (-delta) as u64;
-                    current
-                        .checked_sub(neg)
-                        .ok_or_else(|| VfsError::new(VfsErrorKind::InvalidInput, "handle_async.seek"))?
+                    current.checked_sub(neg).ok_or_else(|| {
+                        VfsError::new(VfsErrorKind::InvalidInput, "handle_async.seek")
+                    })?
                 }
             }
             SeekFrom::End(delta) => {
@@ -453,8 +456,9 @@ impl VfsHandleAsync {
                     len.saturating_add(delta as u64)
                 } else {
                     let neg = (-delta) as u64;
-                    len.checked_sub(neg)
-                        .ok_or_else(|| VfsError::new(VfsErrorKind::InvalidInput, "handle_async.seek"))?
+                    len.checked_sub(neg).ok_or_else(|| {
+                        VfsError::new(VfsErrorKind::InvalidInput, "handle_async.seek")
+                    })?
                 }
             }
         };

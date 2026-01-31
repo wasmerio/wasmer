@@ -461,9 +461,13 @@ impl PathWalkerAsync {
     }
 
     pub async fn resolve(&self, req: ResolutionRequestAsync<'_>) -> VfsResult<ResolvedAsync> {
-        let ResolveOutcomeAsync::Final(resolved) = self.resolve_internal(req, ResolveMode::Final).await?
+        let ResolveOutcomeAsync::Final(resolved) =
+            self.resolve_internal(req, ResolveMode::Final).await?
         else {
-            return Err(VfsError::new(VfsErrorKind::Internal, "path_async.resolve.final"));
+            return Err(VfsError::new(
+                VfsErrorKind::Internal,
+                "path_async.resolve.final",
+            ));
         };
         Ok(resolved)
     }
@@ -626,14 +630,13 @@ impl PathWalkerAsync {
                     let name_bytes = name;
                     let name_ref = self.validate_name(req.ctx, &name_bytes)?;
                     let is_final = queue.is_empty();
-                    let name_buf =
-                        if is_final {
-                            Some(VfsNameBuf::new(name_bytes.clone()).map_err(|_| {
-                                VfsError::new(VfsErrorKind::InvalidInput, "path_async.name")
-                            })?)
-                        } else {
-                            None
-                        };
+                    let name_buf = if is_final {
+                        Some(VfsNameBuf::new(name_bytes.clone()).map_err(|_| {
+                            VfsError::new(VfsErrorKind::InvalidInput, "path_async.name")
+                        })?)
+                    } else {
+                        None
+                    };
 
                     if is_final && matches!(mode, ResolveMode::Parent) {
                         if current.node().file_type() != VfsFileType::Directory {
@@ -775,7 +778,10 @@ impl PathWalkerAsync {
             }
             VfsBaseDirAsync::Handle(dir) => {
                 let inode = dir.inode();
-                Ok((NodeRefAsync::new(inode.mount, dir.node().clone()), dir.parent()))
+                Ok((
+                    NodeRefAsync::new(inode.mount, dir.node().clone()),
+                    dir.parent(),
+                ))
             }
         }
     }

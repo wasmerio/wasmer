@@ -21,7 +21,10 @@ pub fn provider_capabilities() -> FsProviderCapabilities {
 pub fn open_root_dir(path: &Path) -> io::Result<DirHandle> {
     let meta = std::fs::metadata(path)?;
     if !meta.is_dir() {
-        return Err(io::Error::new(io::ErrorKind::NotFound, "root not directory"));
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "root not directory",
+        ));
     }
     Ok(DirHandle {
         path: path.to_path_buf(),
@@ -171,11 +174,7 @@ pub fn read_dir(dir: &DirHandle) -> io::Result<Vec<DirEntryInfo>> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(&dir.path)? {
         let entry = entry?;
-        let name = entry
-            .file_name()
-            .to_string_lossy()
-            .as_bytes()
-            .to_vec();
+        let name = entry.file_name().to_string_lossy().as_bytes().to_vec();
         let stat = stat_path(&entry.path(), false)?;
         entries.push(DirEntryInfo {
             name,

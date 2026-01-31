@@ -47,7 +47,9 @@ impl HostFs {
             caps = caps.union(VfsCapabilities::HARDLINKS);
         }
         if provider_caps.contains(vfs_core::provider::FsProviderCapabilities::UNIX_PERMISSIONS) {
-            caps = caps.union(VfsCapabilities::CHMOD).union(VfsCapabilities::CHOWN);
+            caps = caps
+                .union(VfsCapabilities::CHMOD)
+                .union(VfsCapabilities::CHOWN);
         }
         if provider_caps.contains(vfs_core::provider::FsProviderCapabilities::UTIMENS) {
             caps = caps.union(VfsCapabilities::UTIMENS);
@@ -74,7 +76,6 @@ impl HostFs {
             kind: HostNodeKind::Dir(Arc::new(dir)),
         })
     }
-
 }
 
 impl vfs_core::traits_sync::FsSync for HostFs {
