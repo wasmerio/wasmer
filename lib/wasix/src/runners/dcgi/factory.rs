@@ -1,10 +1,10 @@
 use std::sync::{Arc, Mutex};
 
-use virtual_fs::Pipe;
 use wasmer_wasix_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
 use crate::{
     WasiStateCreationError,
+    fs::Stdio,
     runners::wcgi::{CreateEnvConfig, CreateEnvResult, RecycleEnvConfig},
     state::conv_env_vars,
 };
@@ -60,9 +60,9 @@ fn convert_instance(
 ) -> anyhow::Result<CreateEnvResult> {
     let mut env = inst.env;
 
-    let (req_body_sender, req_body_receiver) = Pipe::channel();
-    let (res_body_sender, res_body_receiver) = Pipe::channel();
-    let (stderr_sender, stderr_receiver) = Pipe::channel();
+    let (req_body_sender, req_body_receiver) = tokio::io::duplex(64 * 1024);
+    let (res_body_sender, res_body_receiver) = tokio::io::duplex(64 * 1024);
+    let (stderr_sender, stderr_receiver) = tokio::io::duplex(64 * 1024);
 
     env.reinit()?;
 
@@ -77,20 +77,53 @@ fn convert_instance(
 
     // The stdio have to be reattached on each call as they are
     // read to completion (EOF) during nominal flows
+    env.state.fs.close_fd(__WASI_STDIN_FILENO).ok();
     env.state
         .fs
-        .swap_file(__WASI_STDIN_FILENO, Box::new(req_body_receiver))
-        .map_err(WasiStateCreationError::FileSystemError)?;
+        .with_fd(
+            wasmer_wasix_types::wasi::Rights::FD_READ
+                | wasmer_wasix_types::wasi::Rights::POLL_FD_READWRITE,
+            wasmer_wasix_types::wasi::Rights::empty(),
+            wasmer_wasix_types::wasi::Fdflags::empty(),
+            wasmer_wasix_types::wasi::Fdflagsext::empty(),
+            crate::fs::Kind::Stdin {
+                handle: Arc::new(Stdio::from_reader(Box::new(req_body_receiver))),
+            },
+            __WASI_STDIN_FILENO,
+        )
+        .map_err(|err| WasiStateCreationError::WasiFsSetupError(format!("{err:?}")))?;
 
+    env.state.fs.close_fd(__WASI_STDOUT_FILENO).ok();
     env.state
         .fs
-        .swap_file(__WASI_STDOUT_FILENO, Box::new(res_body_sender))
-        .map_err(WasiStateCreationError::FileSystemError)?;
+        .with_fd(
+            wasmer_wasix_types::wasi::Rights::FD_WRITE
+                | wasmer_wasix_types::wasi::Rights::POLL_FD_READWRITE,
+            wasmer_wasix_types::wasi::Rights::empty(),
+            wasmer_wasix_types::wasi::Fdflags::APPEND,
+            wasmer_wasix_types::wasi::Fdflagsext::empty(),
+            crate::fs::Kind::Stdout {
+                handle: Arc::new(Stdio::from_writer(Box::new(res_body_sender))),
+            },
+            __WASI_STDOUT_FILENO,
+        )
+        .map_err(|err| WasiStateCreationError::WasiFsSetupError(format!("{err:?}")))?;
 
+    env.state.fs.close_fd(__WASI_STDERR_FILENO).ok();
     env.state
         .fs
-        .swap_file(__WASI_STDERR_FILENO, Box::new(stderr_sender))
-        .map_err(WasiStateCreationError::FileSystemError)?;
+        .with_fd(
+            wasmer_wasix_types::wasi::Rights::FD_WRITE
+                | wasmer_wasix_types::wasi::Rights::POLL_FD_READWRITE,
+            wasmer_wasix_types::wasi::Rights::empty(),
+            wasmer_wasix_types::wasi::Fdflags::APPEND,
+            wasmer_wasix_types::wasi::Fdflagsext::empty(),
+            crate::fs::Kind::Stderr {
+                handle: Arc::new(Stdio::from_writer(Box::new(stderr_sender))),
+            },
+            __WASI_STDERR_FILENO,
+        )
+        .map_err(|err| WasiStateCreationError::WasiFsSetupError(format!("{err:?}")))?;
 
     Ok(CreateEnvResult {
         env,

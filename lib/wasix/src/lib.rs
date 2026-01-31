@@ -80,8 +80,7 @@ use wasmer::{
     RuntimeError, imports, namespace,
 };
 
-pub use virtual_fs;
-pub use virtual_fs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
+pub use crate::fs::{DuplexPipe, PipeRx, PipeTx, WasiFs};
 pub use virtual_net;
 pub use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 
@@ -93,7 +92,6 @@ pub use virtual_net::{
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 pub use crate::{
-    fs::{Fd, VIRTUAL_ROOT_FD, WasiFs, WasiInodes, default_fs_backing},
     os::{
         WasiTtyState,
         task::{
@@ -208,19 +206,19 @@ pub enum SpawnError {
 
 #[derive(Debug)]
 pub struct ExtendedFsError {
-    pub error: virtual_fs::FsError,
+    pub error: vfs_core::VfsError,
     pub message: Option<String>,
 }
 
 impl ExtendedFsError {
-    pub fn with_msg(error: virtual_fs::FsError, msg: impl Into<String>) -> Self {
+    pub fn with_msg(error: vfs_core::VfsError, msg: impl Into<String>) -> Self {
         Self {
             error,
             message: Some(msg.into()),
         }
     }
 
-    pub fn new(error: virtual_fs::FsError) -> Self {
+    pub fn new(error: vfs_core::VfsError) -> Self {
         Self {
             error,
             message: None,

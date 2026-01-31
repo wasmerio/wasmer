@@ -4,23 +4,23 @@
 //! early so `lib/wasix` can call into `vfs-core` without signature churn.
 
 use crate::inode::{NodeRef, NodeRefAsync, make_vfs_inode};
+use crate::mount::MountTable;
 use crate::node::{
     CreateFile, MkdirOptions as NodeMkdirOptions, ReadDirBatch, RenameOptions as NodeRenameOptions,
     UnlinkOptions as NodeUnlinkOptions, VfsDirCookie,
 };
 use crate::path_walker::{PathWalker, PathWalkerAsync, ResolutionRequest, ResolutionRequestAsync};
 use crate::policy::VfsMutationOp;
-use crate::mount::MountTable;
 use crate::{
-    DirStreamHandle, MkdirOptions, MountId, OpenFlags, OpenOptions, ReadDirOptions, ReadlinkOptions,
-    RenameOptions, ResolveFlags, StatOptions, SymlinkOptions, UnlinkOptions, VfsContext,
-    VfsDirHandle, VfsDirHandleAsync, VfsError, VfsErrorKind, VfsFileType, VfsHandle,
+    DirStreamHandle, MkdirOptions, MountId, OpenFlags, OpenOptions, ReadDirOptions,
+    ReadlinkOptions, RenameOptions, ResolveFlags, StatOptions, SymlinkOptions, UnlinkOptions,
+    VfsContext, VfsDirHandle, VfsDirHandleAsync, VfsError, VfsErrorKind, VfsFileType, VfsHandle,
     VfsHandleAsync, VfsHandleId, VfsMetadata, VfsPath, VfsPathBuf, VfsResult, WalkFlags,
 };
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use vfs_ratelimit::LimiterChain;
 
 #[derive(Clone)]
@@ -53,7 +53,11 @@ impl Vfs {
         let mut chain = LimiterChain::default();
         chain.global = ctx.rate_limiter.clone();
         let inner = self.inner.mount_table.snapshot();
-        if let Some(entry) = inner.mounts.get(mount.index()).and_then(|slot| slot.as_ref()) {
+        if let Some(entry) = inner
+            .mounts
+            .get(mount.index())
+            .and_then(|slot| slot.as_ref())
+        {
             chain.mount = entry.mount_limiter.clone();
             chain.fs = entry.fs_limiter.clone();
         }
@@ -218,12 +222,10 @@ impl Vfs {
         ctx.policy
             .check_mutation(ctx, &parent_meta, VfsMutationOp::Remove { is_dir: false })?;
         let name = Self::name_from_buf(&parent.name)?;
-        parent.dir.node.unlink(
-            &name,
-            NodeUnlinkOptions {
-                must_be_dir: false,
-            },
-        )?;
+        parent
+            .dir
+            .node
+            .unlink(&name, NodeUnlinkOptions { must_be_dir: false })?;
         Ok(())
     }
 
@@ -388,9 +390,9 @@ impl Vfs {
         opts: OpenOptions,
     ) -> VfsResult<VfsDirHandle> {
         if !opts.flags.contains(OpenFlags::DIRECTORY)
-            || opts
-                .flags
-                .intersects(OpenFlags::TRUNC | OpenFlags::CREATE | OpenFlags::EXCL | OpenFlags::APPEND)
+            || opts.flags.intersects(
+                OpenFlags::TRUNC | OpenFlags::CREATE | OpenFlags::EXCL | OpenFlags::APPEND,
+            )
         {
             return Err(VfsError::new(VfsErrorKind::InvalidInput, "vfs.opendirat"));
         }
@@ -404,9 +406,10 @@ impl Vfs {
         })?;
         let guard = self.inner.mount_table.guard(resolved.mount)?;
         let handle_id = self.alloc_handle_id();
-        let parent = resolved.parent.as_ref().map(|parent| {
-            NodeRef::new(parent.dir.mount, parent.dir.node.clone())
-        });
+        let parent = resolved
+            .parent
+            .as_ref()
+            .map(|parent| NodeRef::new(parent.dir.mount, parent.dir.node.clone()));
         Ok(VfsDirHandle::new(
             handle_id,
             guard,
@@ -568,12 +571,7 @@ impl Vfs {
         parent
             .dir
             .node
-            .unlink(
-                &name,
-                NodeUnlinkOptions {
-                    must_be_dir: false,
-                },
-            )
+            .unlink(&name, NodeUnlinkOptions { must_be_dir: false })
             .await?;
         Ok(())
     }
@@ -606,7 +604,10 @@ impl Vfs {
             })
             .await?;
         if old_parent.dir.mount != new_parent.dir.mount {
-            return Err(VfsError::new(VfsErrorKind::CrossDevice, "vfs.renameat_async"));
+            return Err(VfsError::new(
+                VfsErrorKind::CrossDevice,
+                "vfs.renameat_async",
+            ));
         }
         let old_parent_meta = old_parent.dir.node.metadata().await?;
         ctx.policy
@@ -716,7 +717,10 @@ impl Vfs {
                 .get(&stream.id())
                 .ok_or_else(|| VfsError::new(VfsErrorKind::BadHandle, "vfs.readdir_next_async"))?;
             let DirStreamState::Async(state) = state else {
-                return Err(VfsError::new(VfsErrorKind::BadHandle, "vfs.readdir_next_async"));
+                return Err(VfsError::new(
+                    VfsErrorKind::BadHandle,
+                    "vfs.readdir_next_async",
+                ));
             };
             (state.dir.clone(), state.cursor, state.finished)
         };
@@ -733,7 +737,10 @@ impl Vfs {
             .get_mut(&stream.id())
             .ok_or_else(|| VfsError::new(VfsErrorKind::BadHandle, "vfs.readdir_next_async"))?;
         let DirStreamState::Async(state) = state else {
-            return Err(VfsError::new(VfsErrorKind::BadHandle, "vfs.readdir_next_async"));
+            return Err(VfsError::new(
+                VfsErrorKind::BadHandle,
+                "vfs.readdir_next_async",
+            ));
         };
         state.cursor = batch.next;
         state.finished = finished;
@@ -752,11 +759,14 @@ impl Vfs {
         opts: OpenOptions,
     ) -> VfsResult<VfsDirHandleAsync> {
         if !opts.flags.contains(OpenFlags::DIRECTORY)
-            || opts
-                .flags
-                .intersects(OpenFlags::TRUNC | OpenFlags::CREATE | OpenFlags::EXCL | OpenFlags::APPEND)
+            || opts.flags.intersects(
+                OpenFlags::TRUNC | OpenFlags::CREATE | OpenFlags::EXCL | OpenFlags::APPEND,
+            )
         {
-            return Err(VfsError::new(VfsErrorKind::InvalidInput, "vfs.opendirat_async"));
+            return Err(VfsError::new(
+                VfsErrorKind::InvalidInput,
+                "vfs.opendirat_async",
+            ));
         }
         let mut walk = Self::walk_flags(ctx, opts.resolve);
         walk.must_be_dir = true;
@@ -771,9 +781,10 @@ impl Vfs {
             .await?;
         let guard = self.inner.mount_table.guard(resolved.mount)?;
         let handle_id = self.alloc_handle_id();
-        let parent = resolved.parent.as_ref().map(|parent| {
-            NodeRefAsync::new(parent.dir.mount, parent.dir.node.clone())
-        });
+        let parent = resolved
+            .parent
+            .as_ref()
+            .map(|parent| NodeRefAsync::new(parent.dir.mount, parent.dir.node.clone()));
         Ok(VfsDirHandleAsync::new(
             handle_id,
             guard,

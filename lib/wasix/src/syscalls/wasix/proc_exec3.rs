@@ -1,8 +1,11 @@
 use wasmer::FromToNativeWasmType;
 
+use vfs_core::{ResolveFlags, StatOptions, VfsBaseDirAsync, VfsPath, VfsPathBuf};
+use vfs_unix::errno::vfs_error_to_wasi_errno;
+
 use super::*;
 use crate::{
-    VIRTUAL_ROOT_FD, WasiFs,
+    WasiFs,
     os::task::{OwnedTaskStatus, TaskStatus},
     syscalls::*,
 };
@@ -95,34 +98,24 @@ pub fn proc_exec3<M: MemorySize>(
             })?;
             path_str.split(':').collect()
         };
-        let (_, state, inodes) =
-            unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), &name) {
+        let state = ctx.data().state();
+        match find_executable_in_path(ctx.data(), &state.fs, path.iter().map(AsRef::as_ref), &name)
+        {
             FindExecutableResult::Found(p) => name = p,
             FindExecutableResult::AccessError => return Ok(Errno::Access),
             FindExecutableResult::NotFound => return Ok(Errno::Noexec),
         }
     } else if name.starts_with("./") {
-        name = ctx.data().state.fs.relative_path_to_absolute(name);
+        let state = ctx.data().state();
+        let mut cwd = state.fs.current_dir();
+        cwd.push(VfsPath::new(name.trim_start_matches("./").as_bytes()));
+        name = String::from_utf8_lossy(cwd.as_bytes()).into_owned();
     }
 
     trace!(name);
 
     // Convert the preopen directories
     let preopen = ctx.data().state.preopen.clone();
-
-    // Get the current working directory
-    let (_, cur_dir) = {
-        let (memory, state, inodes) =
-            unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD) {
-            Ok(a) => a,
-            Err(err) => {
-                warn!("failed to create subprocess for fork - {}", err);
-                return Err(WasiError::Exit(err.into()));
-            }
-        }
-    };
 
     let new_store = ctx.data().runtime.new_store();
 
@@ -321,17 +314,36 @@ pub(crate) enum FindExecutableResult {
 }
 
 pub(crate) fn find_executable_in_path<'a>(
+    env: &WasiEnv,
     fs: &WasiFs,
-    inodes: &WasiInodes,
     path: impl IntoIterator<Item = &'a str>,
     file_name: &str,
 ) -> FindExecutableResult {
     let mut encountered_eaccess = false;
     for p in path {
         let full_path = format!("{}/{}", p.trim_end_matches('/'), file_name);
-        match fs.get_inode_at_path(inodes, VIRTUAL_ROOT_FD, &full_path, true) {
-            Ok(_) => return FindExecutableResult::Found(full_path),
-            Err(Errno::Access) => encountered_eaccess = true,
+        let ctx = fs.ctx.read().unwrap().clone();
+        let path_bytes = full_path.as_bytes().to_vec();
+        let res = __asyncify_light(env, None, async move {
+            fs.vfs
+                .statat_async(
+                    &ctx,
+                    VfsBaseDirAsync::Cwd,
+                    VfsPath::new(&path_bytes),
+                    StatOptions {
+                        resolve: ResolveFlags::empty(),
+                        follow: true,
+                        require_dir_if_trailing_slash: false,
+                    },
+                )
+                .await
+                .map(|_| ())
+                .map_err(|err| vfs_error_to_wasi_errno(&err))
+        });
+        match res {
+            Ok(Ok(())) => return FindExecutableResult::Found(full_path),
+            Ok(Err(Errno::Access)) => encountered_eaccess = true,
+            Ok(Err(_)) => (),
             Err(_) => (),
         }
     }

@@ -3,7 +3,6 @@ use wasmer_wasix_types::wasi::{Subclockflags, SubscriptionClock, Userdata};
 
 use super::*;
 use crate::{
-    WasiInodes,
     fs::{InodeValFilePollGuard, InodeValFilePollGuardJoin},
     state::PollEventSet,
     syscalls::*,
@@ -175,32 +174,12 @@ pub(crate) fn poll_fd_guard(
     fd: WasiFd,
     s: Subscription,
 ) -> Result<InodeValFilePollGuard, Errno> {
-    Ok(match fd {
-        __WASI_STDERR_FILENO => WasiInodes::stderr(&state.fs.fd_map)
-            .map(|g| g.into_poll_guard(fd, peb, s))
-            .map_err(fs_error_into_wasi_err)?,
-        __WASI_STDOUT_FILENO => WasiInodes::stdout(&state.fs.fd_map)
-            .map(|g| g.into_poll_guard(fd, peb, s))
-            .map_err(fs_error_into_wasi_err)?,
-        _ => {
-            let fd_entry = state.fs.get_fd(fd)?;
-            if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
-                return Err(Errno::Access);
-            }
-            let inode = fd_entry.inode;
+    let fd_entry = state.fs.get_fd(fd)?;
+    if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
+        return Err(Errno::Access);
+    }
 
-            {
-                let guard = inode.read();
-                if let Some(guard) =
-                    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
-                {
-                    guard
-                } else {
-                    return Err(Errno::Badf);
-                }
-            }
-        }
-    })
+    InodeValFilePollGuard::new(fd, peb, s, &fd_entry.kind).ok_or(Errno::Badf)
 }
 
 /// ### `poll_oneoff()`

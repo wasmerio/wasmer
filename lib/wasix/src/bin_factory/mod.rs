@@ -3,14 +3,12 @@ use std::{
     collections::HashMap,
     future::Future,
     ops::Deref,
-    path::Path,
     pin::Pin,
     sync::{Arc, RwLock},
 };
 
 use anyhow::Context;
 use shared_buffer::OwnedBuffer;
-use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
 
@@ -26,6 +24,7 @@ pub use self::{
 };
 use crate::{
     Runtime, SpawnError, WasiEnv,
+    fs::WasiFs,
     os::{command::Commands, task::TaskJoinHandle},
     runtime::module_cache::HashedModuleData,
 };
@@ -56,11 +55,7 @@ impl BinFactory {
     }
 
     #[allow(clippy::await_holding_lock)]
-    pub async fn get_binary(
-        &self,
-        name: &str,
-        fs: Option<&dyn FileSystem>,
-    ) -> Option<Arc<BinaryPackage>> {
+    pub async fn get_binary(&self, name: &str, fs: Option<&WasiFs>) -> Option<Arc<BinaryPackage>> {
         self.get_executable(name, fs)
             .await
             .and_then(|executable| match executable {
@@ -77,7 +72,7 @@ impl BinFactory {
         Box::pin(async move {
             // Find the binary (or die trying) and make the spawn type
             let res = self
-                .get_executable(name.as_str(), Some(env.fs_root()))
+                .get_executable(name.as_str(), Some(env.fs()))
                 .await
                 .ok_or_else(|| SpawnError::BinaryNotFound {
                     binary: name.clone(),
@@ -122,11 +117,7 @@ impl BinFactory {
     // TODO: remove allow once BinFactory is refactored
     // currently fine because a BinFactory is only used by a single process tree
     #[allow(clippy::await_holding_lock)]
-    pub async fn get_executable(
-        &self,
-        name: &str,
-        fs: Option<&dyn FileSystem>,
-    ) -> Option<Executable> {
+    pub async fn get_executable(&self, name: &str, fs: Option<&WasiFs>) -> Option<Executable> {
         let name = name.to_string();
 
         // Return early if the path is already cached
@@ -178,45 +169,54 @@ pub enum Executable {
 }
 
 async fn load_executable_from_filesystem(
-    fs: &dyn FileSystem,
-    path: &Path,
+    fs: &WasiFs,
+    path: &str,
     rt: &(dyn Runtime + Send + Sync),
 ) -> Result<Executable, anyhow::Error> {
-    let mut f = fs
-        .new_open_options()
-        .read(true)
-        .open(path)
-        .context("Unable to open the file")?;
+    use vfs_core::VfsBaseDirAsync;
+    use vfs_core::flags::{OpenFlags, OpenOptions, ResolveFlags};
+    use vfs_core::path_types::VfsPath;
 
-    // Fast path if the file is fully available in memory.
-    // Prevents redundant copying of the file data.
-    if let Some(buf) = f.as_owned_buffer() {
-        if wasmer_package::utils::is_container(buf.as_slice()) {
-            let bytes = buf.clone().into_bytes();
-            if let Ok(container) = from_bytes(bytes.clone()) {
-                let pkg = BinaryPackage::from_webc(&container, rt)
-                    .await
-                    .context("Unable to load the package")?;
+    let ctx = fs.ctx.read().unwrap();
+    let handle = fs
+        .vfs
+        .openat_async(
+            &ctx,
+            VfsBaseDirAsync::Cwd,
+            VfsPath::new(path.as_bytes()),
+            OpenOptions {
+                flags: OpenFlags::READ,
+                mode: None,
+                resolve: ResolveFlags::empty(),
+            },
+        )
+        .await
+        .map_err(|err| anyhow::anyhow!(err).context("Unable to open the file"))?;
 
-                return Ok(Executable::BinaryPackage(Arc::new(pkg)));
-            }
+    let meta = handle.get_metadata().await.context("metadata")?;
+    let mut data = vec![0u8; meta.size as usize];
+    let mut read = 0usize;
+    while read < data.len() {
+        let n = handle
+            .read(&mut data[read..])
+            .await
+            .context("Read failed")?;
+        if n == 0 {
+            break;
         }
+        read += n;
+    }
+    data.truncate(read);
 
-        Ok(Executable::Wasm(buf))
+    if wasmer_package::utils::is_container(&data) {
+        let bytes = data.into();
+        let container = from_bytes(bytes)?;
+        let pkg = BinaryPackage::from_webc(&container, rt)
+            .await
+            .context("Unable to load the package")?;
+
+        Ok(Executable::BinaryPackage(Arc::new(pkg)))
     } else {
-        let mut data = Vec::with_capacity(f.size() as usize);
-        f.read_to_end(&mut data).await.context("Read failed")?;
-
-        let bytes: bytes::Bytes = data.into();
-
-        if let Ok(container) = from_bytes(bytes.clone()) {
-            let pkg = BinaryPackage::from_webc(&container, rt)
-                .await
-                .context("Unable to load the package")?;
-
-            Ok(Executable::BinaryPackage(Arc::new(pkg)))
-        } else {
-            Ok(Executable::Wasm(OwnedBuffer::from_bytes(bytes)))
-        }
+        Ok(Executable::Wasm(OwnedBuffer::from_bytes(data.into())))
     }
 }

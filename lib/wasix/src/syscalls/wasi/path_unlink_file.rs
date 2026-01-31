@@ -1,3 +1,6 @@
+use vfs_core::{ResolveFlags, StatOptions, UnlinkOptions, VfsBaseDirAsync, VfsFileType, VfsPath};
+use vfs_unix::errno::vfs_error_to_wasi_errno;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -20,7 +23,7 @@ pub fn path_unlink_file<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let base_dir = wasi_try_ok!(state.fs.get_fd(fd));
     if !base_dir.inner.rights.contains(Rights::PATH_UNLINK_FILE) {
@@ -53,63 +56,57 @@ pub(crate) fn path_unlink_file_internal(
     path: &str,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-
-    let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
-    let (parent_inode, childs_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
-        inodes,
-        fd,
-        std::path::Path::new(path),
-        false
-    ));
-
-    let removed_inode = {
-        let mut guard = parent_inode.write();
-        match guard.deref_mut() {
-            Kind::Dir { entries, .. } => {
-                let removed_inode = wasi_try_ok!(entries.remove(&childs_name).ok_or(Errno::Inval));
-                // TODO: make this a debug assert in the future
-                assert!(inode.ino() == removed_inode.ino());
-                debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
-                removed_inode
-            }
-            Kind::Root { .. } => return Ok(Errno::Access),
-            _ => unreachable!(
-                "Internal logic error in wasi::path_unlink_file, parent is not a directory"
-            ),
-        }
-    };
-
-    let st_nlink = {
-        let mut guard = removed_inode.stat.write().unwrap();
-        guard.st_nlink -= 1;
-        guard.st_nlink
-    };
-    if st_nlink == 0 {
-        {
-            let mut guard = removed_inode.read();
-            match guard.deref() {
-                Kind::File { handle, path, .. } => {
-                    if let Some(h) = handle {
-                        let mut h = h.write().unwrap();
-                        wasi_try_ok!(h.unlink().map_err(fs_error_into_wasi_err));
-                    } else {
-                        // File is closed
-                        // problem with the abstraction, we can't call unlink because there's no handle
-                        // drop mutable borrow on `path`
-                        let path = path.clone();
-                        drop(guard);
-                        wasi_try_ok!(state.fs_remove_file(path));
-                    }
-                }
-                Kind::Dir { .. } | Kind::Root { .. } => return Ok(Errno::Isdir),
-                Kind::Symlink { .. } => {
-                    // TODO: actually delete real symlinks and do nothing for virtual symlinks
-                }
-                _ => unimplemented!("wasi::path_unlink_file for Buffer"),
-            }
-        }
+    let (_memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let base_dir = state.fs.get_fd(fd)?;
+    if !base_dir.inner.rights.contains(Rights::PATH_UNLINK_FILE) {
+        return Ok(Errno::Access);
     }
 
-    Ok(Errno::Success)
+    let dir_handle = match base_dir.kind {
+        Kind::VfsDir { handle } => handle,
+        _ => return Ok(Errno::Badf),
+    };
+
+    let ctx = state.fs.ctx.read().unwrap().clone();
+    let path_bytes = path.as_bytes().to_vec();
+    let res = __asyncify_light(env, None, async move {
+        let base = VfsBaseDirAsync::Handle(&dir_handle);
+        let vfs_path = VfsPath::new(&path_bytes);
+        let meta = state
+            .fs
+            .vfs
+            .statat_async(
+                &ctx,
+                base,
+                vfs_path,
+                StatOptions {
+                    resolve: ResolveFlags::empty(),
+                    follow: true,
+                    require_dir_if_trailing_slash: false,
+                },
+            )
+            .await
+            .map_err(|err| vfs_error_to_wasi_errno(&err))?;
+        if meta.file_type == VfsFileType::Directory {
+            return Err(Errno::Isdir);
+        }
+        state
+            .fs
+            .vfs
+            .unlinkat_async(
+                &ctx,
+                base,
+                vfs_path,
+                UnlinkOptions {
+                    resolve: ResolveFlags::empty(),
+                },
+            )
+            .await
+            .map_err(|err| vfs_error_to_wasi_errno(&err))
+    })?;
+
+    match res {
+        Ok(()) => Ok(Errno::Success),
+        Err(err) => Ok(err),
+    }
 }

@@ -5,8 +5,8 @@ use vfs_core::mount::MountTable;
 use vfs_core::provider::{AsyncFsFromSync, VfsRuntime, VfsRuntimeExt};
 use vfs_core::{
     AllowAllPolicy, FsAsync, FsSync, MountId, OpenFlags, OpenOptions, ResolveFlags, StatOptions,
-    VfsBaseDirAsync, VfsConfig, VfsContext, VfsCred, VfsDirHandle, VfsDirHandleAsync, VfsHandleId,
-    VfsPath, VfsResult, Vfs,
+    Vfs, VfsBaseDirAsync, VfsConfig, VfsContext, VfsCred, VfsDirHandle, VfsDirHandleAsync,
+    VfsHandleId, VfsPath, VfsResult,
 };
 use vfs_mem::MemFs;
 use vfs_rt::InlineTestRuntime;
@@ -35,9 +35,7 @@ fn setup_async() -> AsyncFixture {
         root,
         None,
     );
-    let async_root = runtime
-        .block_on(fs_async.root())
-        .expect("async root");
+    let async_root = runtime.block_on(fs_async.root()).expect("async root");
     let cwd_async = VfsDirHandleAsync::new(
         VfsHandleId(2),
         guard,
@@ -69,7 +67,12 @@ fn openat_async_read_write() -> VfsResult<()> {
     fixture.runtime.block_on(async {
         let handle = fixture
             .vfs
-            .openat_async(&fixture.ctx, VfsBaseDirAsync::Cwd, VfsPath::new(b"file"), open_create())
+            .openat_async(
+                &fixture.ctx,
+                VfsBaseDirAsync::Cwd,
+                VfsPath::new(b"file"),
+                open_create(),
+            )
             .await?;
         handle.write(b"hi").await?;
         handle.seek(std::io::SeekFrom::Start(0)).await?;

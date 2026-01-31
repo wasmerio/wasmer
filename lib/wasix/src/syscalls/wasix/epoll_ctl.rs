@@ -12,7 +12,6 @@ use futures::Future;
 
 use super::*;
 use crate::{
-    WasiInodes,
     fs::{
         EpollFd, EpollInterest, EpollJoinGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin,
         InodeValFilePollGuardMode, POLL_GUARD_MAX_RET,
@@ -83,9 +82,7 @@ pub(crate) fn epoll_ctl_internal(
     let env = ctx.data();
     let fd_entry = wasi_try_ok_ok!(env.state.fs.get_fd(epfd));
 
-    let tasks = env.tasks().clone();
-    let mut inode_guard = fd_entry.inode.read();
-    match inode_guard.deref() {
+    match fd_entry.kind {
         Kind::Epoll {
             subscriptions, tx, ..
         } => {
@@ -124,7 +121,6 @@ pub(crate) fn epoll_ctl_internal(
                 }
 
                 // Now we register the epoll waker
-                let tx = tx.clone();
                 let mut fd_guard =
                     wasi_try_ok_ok!(register_epoll_handler(&env.state, &epoll_fd, tx));
 
@@ -244,12 +240,10 @@ pub(super) fn register_epoll_handler(
         }
         InodeValFilePollGuardMode::EventNotifications(inner) => inner.set_interest_handler(handler),
         InodeValFilePollGuardMode::DuplexPipe { pipe } => {
-            let mut inner = pipe.write().unwrap();
-            inner.set_interest_handler(handler);
+            pipe.add_interest_handler(handler);
         }
         InodeValFilePollGuardMode::PipeRx { rx } => {
-            let mut inner = rx.write().unwrap();
-            inner.set_interest_handler(handler);
+            rx.add_interest_handler(handler);
         }
         InodeValFilePollGuardMode::PipeTx { tx } => {
             // The sending end of a pipe can't have an interest handler, since we

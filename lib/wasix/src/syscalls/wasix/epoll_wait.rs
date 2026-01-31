@@ -5,7 +5,6 @@ use wasmer_wasix_types::wasi::{
 
 use super::*;
 use crate::{
-    WasiInodes,
     fs::{EpollFd, InodeValFilePollGuard, InodeValFilePollGuardJoin, POLL_GUARD_MAX_RET},
     state::PollEventSet,
     syscalls::*,
@@ -37,14 +36,13 @@ pub fn epoll_wait<M: MemorySize + 'static>(
 
     let (rx, tx, subscriptions) = {
         let fd_entry = wasi_try_ok!(ctx.data().state.fs.get_fd(epfd));
-        let mut inode_guard = fd_entry.inode.read();
-        match inode_guard.deref() {
+        match fd_entry.kind {
             Kind::Epoll {
                 rx,
                 tx,
                 subscriptions,
                 ..
-            } => (rx.clone(), tx.clone(), subscriptions.clone()),
+            } => (rx, tx, subscriptions),
             _ => return Ok(Errno::Inval),
         }
     };

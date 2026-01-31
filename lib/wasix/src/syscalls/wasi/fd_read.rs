@@ -1,7 +1,5 @@
 use std::{collections::VecDeque, task::Waker};
 
-use virtual_fs::{AsyncReadExt, DeviceFile, ReadBuf};
-
 use super::*;
 use crate::{
     fs::NotificationInner,
@@ -47,7 +45,7 @@ pub fn fd_read<M: MemorySize>(
     };
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
-    if fd == DeviceFile::STDIN {
+    if fd == __WASI_STDIN_FILENO {
         ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstStdin)?);
     }
 
@@ -83,7 +81,7 @@ pub fn fd_pread<M: MemorySize>(
     let tid = ctx.data().tid();
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
-    if fd == DeviceFile::STDIN {
+    if fd == __WASI_STDIN_FILENO {
         ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstStdin)?);
     }
 
@@ -119,6 +117,7 @@ pub(crate) fn fd_read_internal_handler<M: MemorySize>(
     Ok(ret)
 }
 
+#[cfg(feature = "legacy-fs")]
 #[allow(clippy::await_holding_lock)]
 pub(crate) fn fd_read_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
@@ -459,5 +458,175 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
         bytes_read
     };
 
+    Ok(Ok(bytes_read))
+}
+
+#[cfg(not(feature = "legacy-fs"))]
+#[allow(clippy::await_holding_lock)]
+pub(crate) fn fd_read_internal<M: MemorySize>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    fd: WasiFd,
+    iovs: WasmPtr<__wasi_iovec_t<M>, M>,
+    iovs_len: M::Offset,
+    offset: usize,
+    nread: WasmPtr<M::Offset, M>,
+    should_update_cursor: bool,
+) -> WasiResult<usize> {
+    let env = ctx.data();
+    let memory = unsafe { env.memory_view(&ctx) };
+    let state = env.state();
+
+    let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
+    if !fd_entry.is_stdio && !fd_entry.inner.rights.contains(Rights::FD_READ) {
+        return Ok(Err(Errno::Access));
+    }
+
+    let iovs_arr = iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+    let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+    let fd_flags = fd_entry.inner.flags;
+
+    let res = match fd_entry.kind {
+        Kind::VfsFile { handle } => {
+            let handle = handle.clone();
+            __asyncify_light(
+                env,
+                if fd_flags.contains(Fdflags::NONBLOCK) {
+                    Some(Duration::ZERO)
+                } else {
+                    None
+                },
+                async move {
+                    let mut total_read = 0usize;
+                    for iov in iovs_arr.iter() {
+                        let mut buf = WasmPtr::<u8, M>::new(iov.buf)
+                            .slice(&memory, iov.buf_len)
+                            .map_err(mem_error_to_wasi)?
+                            .access()
+                            .map_err(mem_error_to_wasi)?;
+                        let read = if should_update_cursor {
+                            handle.read(buf.as_mut()).await
+                        } else {
+                            handle
+                                .pread_at((offset + total_read) as u64, buf.as_mut())
+                                .await
+                        }
+                        .map_err(|err| vfs_unix::errno::vfs_error_to_wasi_errno(&err))?;
+                        total_read += read;
+                        if read != buf.len() {
+                            break;
+                        }
+                    }
+                    Ok(total_read)
+                },
+            )
+        }
+        Kind::Stdin { handle } => {
+            let handle = handle.clone();
+            __asyncify_light(env, None, async move {
+                let mut total_read = 0usize;
+                for iov in iovs_arr.iter() {
+                    let mut buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(&memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let read = handle.read(buf.as_mut()).await?;
+                    total_read += read;
+                    if read != buf.len() {
+                        break;
+                    }
+                }
+                Ok(total_read)
+            })
+        }
+        Kind::PipeRx { rx } => {
+            let rx = rx.clone();
+            __asyncify_light(env, None, async move {
+                let mut total_read = 0usize;
+                for iov in iovs_arr.iter() {
+                    let mut buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(&memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let read = rx.read(buf.as_mut()).await?;
+                    total_read += read;
+                    if read != buf.len() {
+                        break;
+                    }
+                }
+                Ok(total_read)
+            })
+        }
+        Kind::DuplexPipe { pipe } => {
+            let pipe = pipe.clone();
+            __asyncify_light(env, None, async move {
+                let mut total_read = 0usize;
+                for iov in iovs_arr.iter() {
+                    let mut buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(&memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let read = pipe.read(buf.as_mut()).await?;
+                    total_read += read;
+                    if read != buf.len() {
+                        break;
+                    }
+                }
+                Ok(total_read)
+            })
+        }
+        Kind::EventNotifications { inner } => {
+            let inner = inner.clone();
+            __asyncify_light(env, None, async move {
+                let mut total_read = 0usize;
+                for iov in iovs_arr.iter() {
+                    let mut buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(&memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let val = match inner.read() {
+                        Some(val) => val,
+                        None => break,
+                    };
+                    let data = val.to_ne_bytes();
+                    let to_copy = data.len().min(buf.len());
+                    buf.as_mut()[..to_copy].copy_from_slice(&data[..to_copy]);
+                    total_read += to_copy;
+                    break;
+                }
+                Ok(total_read)
+            })
+        }
+        Kind::Buffer { buffer } => {
+            let mut total_read = 0usize;
+            for iov in iovs_arr.iter() {
+                let mut buf = WasmPtr::<u8, M>::new(iov.buf)
+                    .slice(&memory, iov.buf_len)
+                    .map_err(mem_error_to_wasi)?
+                    .access()
+                    .map_err(mem_error_to_wasi)?;
+                let remaining = &buffer[total_read..];
+                let to_copy = remaining.len().min(buf.len());
+                buf.as_mut()[..to_copy].copy_from_slice(&remaining[..to_copy]);
+                total_read += to_copy;
+                if to_copy != buf.len() {
+                    break;
+                }
+            }
+            Ok(total_read)
+        }
+        _ => Ok(Err(Errno::Badf)),
+    };
+
+    let bytes_read = wasi_try_ok_ok!(res?.map_err(|err| match err {
+        Errno::Timedout => Errno::Again,
+        other => other,
+    }));
+
+    let nread_ref = nread.deref(&memory);
+    wasi_try_mem_ok!(nread_ref.write(bytes_read as M::Offset));
     Ok(Ok(bytes_read))
 }

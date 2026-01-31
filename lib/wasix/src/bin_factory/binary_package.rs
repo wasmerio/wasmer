@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use anyhow::Context;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
-use virtual_fs::UnionFileSystem;
+use vfs_webc::WebcVolumeMapping;
 use wasmer_config::package::{
     PackageHash, PackageId, PackageSource, SuggestedCompilerOptimizations,
 };
@@ -96,10 +96,8 @@ pub struct BinaryPackage {
     /// entrypoint.
     pub entrypoint_cmd: Option<String>,
     pub hash: OnceCell<ModuleHash>,
-    // TODO: using a UnionFileSystem here directly is suboptimal, since cloning
-    // it is expensive. Should instead store an immutable map that can easily
-    // be converted into a dashmap.
-    pub webc_fs: Option<Arc<UnionFileSystem>>,
+    /// WebC volume mappings to mount in the guest filesystem.
+    pub webc_volumes: Vec<WebcVolumeMapping>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub file_system_memory_footprint: u64,

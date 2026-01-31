@@ -1,4 +1,5 @@
-use std::fs;
+use vfs_core::{ResolveFlags, StatOptions, UnlinkOptions, VfsBaseDirAsync, VfsFileType, VfsPath};
+use vfs_unix::errno::vfs_error_to_wasi_errno;
 
 use super::*;
 use crate::syscalls::*;
@@ -15,7 +16,7 @@ pub fn path_remove_directory<M: MemorySize>(
 
     // TODO check if fd is a dir, ensure it's within sandbox, etc.
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let base_dir = wasi_try_ok!(state.fs.get_fd(fd));
     let path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
@@ -43,57 +44,62 @@ pub(crate) fn path_remove_directory_internal(
     path: &str,
 ) -> Result<(), Errno> {
     let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (_memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let working_dir = state.fs.get_fd(fd)?;
+    if !working_dir
+        .inner
+        .rights
+        .contains(Rights::PATH_REMOVE_DIRECTORY)
+    {
+        return Err(Errno::Access);
+    }
 
-    let (parent_inode, dir_name) =
+    let dir_handle = match working_dir.kind {
+        Kind::VfsDir { handle } => handle,
+        _ => return Err(Errno::Badf),
+    };
+
+    let ctx = state.fs.ctx.read().unwrap().clone();
+    let path_bytes = path.as_bytes().to_vec();
+    let res = __asyncify_light(env, None, async move {
+        let base = VfsBaseDirAsync::Handle(&dir_handle);
+        let vfs_path = VfsPath::new(&path_bytes);
+        let meta = state
+            .fs
+            .vfs
+            .statat_async(
+                &ctx,
+                base,
+                vfs_path,
+                StatOptions {
+                    resolve: ResolveFlags::empty(),
+                    follow: true,
+                    require_dir_if_trailing_slash: true,
+                },
+            )
+            .await
+            .map_err(|err| vfs_error_to_wasi_errno(&err))?;
+        if meta.file_type != VfsFileType::Directory {
+            return Err(Errno::Notdir);
+        }
         state
             .fs
-            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+            .vfs
+            .unlinkat_async(
+                &ctx,
+                base,
+                vfs_path,
+                UnlinkOptions {
+                    resolve: ResolveFlags::empty(),
+                },
+            )
+            .await
+            .map_err(|err| vfs_error_to_wasi_errno(&err))
+    });
 
-    let mut guard = parent_inode.write();
-    match guard.deref_mut() {
-        Kind::Dir {
-            entries: parent_entries,
-            ..
-        } => {
-            let Some(child_inode) = parent_entries.get(&dir_name) else {
-                return Err(Errno::Noent);
-            };
-
-            {
-                let Kind::Dir {
-                    entries: ref child_entries,
-                    path: ref child_path,
-                    ..
-                } = *child_inode.read()
-                else {
-                    return Err(Errno::Notdir);
-                };
-
-                if !child_entries.is_empty() {
-                    return Err(Errno::Notempty);
-                }
-
-                if let Err(e) = state.fs_remove_dir(child_path) {
-                    tracing::warn!(path = ?child_path, error = ?e, "failed to remove directory");
-                    return Err(e);
-                }
-            }
-
-            parent_entries.remove(&dir_name).expect(
-                "Entry should exist since we checked before and have an exclusive write lock",
-            );
-
-            Ok(())
-        }
-        Kind::Root { .. } => {
-            trace!("directories directly in the root node can not be removed");
-            Err(Errno::Access)
-        }
-        _ => {
-            trace!("path is not a directory");
-            Err(Errno::Notdir)
-        }
+    match res {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(err)) => Err(err),
+        Err(_) => Err(Errno::Io),
     }
 }

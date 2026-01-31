@@ -1,0 +1,17 @@
+ [package]
+ name = "vfs-webc"
+ version = "0.700.0"
+ description = "Read-only VFS provider for WebC volumes"
+ authors.workspace = true
+ edition.workspace = true
+ homepage.workspace = true
+ license.workspace = true
+ repository.workspace = true
+ rust-version.workspace = true
+ 
+ [dependencies]
+ vfs-core = { path = "../core", version = "0.700.0" }
+ webc.workspace = true
+ smallvec.workspace = true
+ xxhash-rust = { workspace = true, features = ["xxh64"] }
+ 

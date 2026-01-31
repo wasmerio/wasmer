@@ -120,6 +120,7 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
 }
 
 #[allow(clippy::await_holding_lock)]
+#[cfg(feature = "legacy-fs")]
 pub(crate) fn fd_write_internal<M: MemorySize>(
     mut ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -550,6 +551,131 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         }
         bytes_written
     };
+
+    Ok(Ok(bytes_written))
+}
+
+#[cfg(not(feature = "legacy-fs"))]
+pub(crate) fn fd_write_internal<M: MemorySize>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    fd: WasiFd,
+    iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
+    iovs_len: M::Offset,
+    offset: Option<usize>,
+) -> WasiResult<usize> {
+    let env = ctx.data();
+    let memory = unsafe { env.memory_view(&ctx) };
+    let state = env.state();
+
+    let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
+    if !fd_entry.is_stdio && !fd_entry.inner.rights.contains(Rights::FD_WRITE) {
+        return Ok(Err(Errno::Access));
+    }
+
+    let iovs_arr = iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+    let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+    let fd_flags = fd_entry.inner.flags;
+
+    let res = match fd_entry.kind {
+        Kind::VfsFile { handle } => {
+            let handle = handle.clone();
+            __asyncify_light(
+                env,
+                if fd_flags.contains(Fdflags::NONBLOCK) {
+                    Some(Duration::ZERO)
+                } else {
+                    None
+                },
+                async move {
+                    let mut total_written = 0usize;
+                    for iov in iovs_arr.iter() {
+                        let buf = WasmPtr::<u8, M>::new(iov.buf)
+                            .slice(&memory, iov.buf_len)
+                            .map_err(mem_error_to_wasi)?
+                            .access()
+                            .map_err(mem_error_to_wasi)?;
+                        let written = match offset {
+                            Some(base) => {
+                                handle
+                                    .pwrite_at((base + total_written) as u64, buf.as_ref())
+                                    .await
+                            }
+                            None => handle.write(buf.as_ref()).await,
+                        }
+                        .map_err(|err| vfs_unix::errno::vfs_error_to_wasi_errno(&err))?;
+                        total_written += written;
+                        if written != buf.len() {
+                            break;
+                        }
+                    }
+                    Ok(total_written)
+                },
+            )
+        }
+        Kind::Stdout { handle } | Kind::Stderr { handle } => {
+            let handle = handle.clone();
+            __asyncify_light(env, None, async move {
+                let mut total_written = 0usize;
+                for iov in iovs_arr.iter() {
+                    let buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(&memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let written = handle.write(buf.as_ref()).await?;
+                    total_written += written;
+                    if written != buf.len() {
+                        break;
+                    }
+                }
+                Ok(total_written)
+            })
+        }
+        Kind::PipeTx { tx } => {
+            let tx = tx.clone();
+            __asyncify_light(env, None, async move {
+                let mut total_written = 0usize;
+                for iov in iovs_arr.iter() {
+                    let buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(&memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let written = tx.write(buf.as_ref()).await?;
+                    total_written += written;
+                    if written != buf.len() {
+                        break;
+                    }
+                }
+                Ok(total_written)
+            })
+        }
+        Kind::DuplexPipe { pipe } => {
+            let pipe = pipe.clone();
+            __asyncify_light(env, None, async move {
+                let mut total_written = 0usize;
+                for iov in iovs_arr.iter() {
+                    let buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(&memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let written = pipe.write(buf.as_ref()).await?;
+                    total_written += written;
+                    if written != buf.len() {
+                        break;
+                    }
+                }
+                Ok(total_written)
+            })
+        }
+        _ => Ok(Err(Errno::Badf)),
+    };
+
+    let bytes_written = wasi_try_ok_ok!(res?.map_err(|err| match err {
+        Errno::Timedout => Errno::Again,
+        other => other,
+    }));
 
     Ok(Ok(bytes_written))
 }

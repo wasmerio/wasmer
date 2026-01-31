@@ -9,7 +9,7 @@ use anyhow::{Context, Error};
 use futures::{StreamExt, TryStreamExt, future::BoxFuture};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
-use virtual_fs::{FileSystem, UnionFileSystem, WebcVolumeFileSystem};
+use vfs_webc::WebcVolumeMapping;
 use wasmer_config::package::{PackageId, SuggestedCompilerOptimizations};
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
@@ -62,17 +62,13 @@ pub async fn load_package_tree(
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
     containers.insert(resolution.package.root_package.clone(), root.clone());
     let package_ids = containers.keys().cloned().collect();
-    let fs_opt = filesystem(&containers, &resolution.package, root_is_local_dir)?;
+    let webc_volumes = volume_mappings(&containers, &resolution.package, root_is_local_dir)?;
 
     let root = &resolution.package.root_package;
     let commands: Vec<BinaryPackageCommand> =
         commands(&resolution.package.commands, &containers, resolution)?;
 
-    let file_system_memory_footprint = if let Some(fs) = &fs_opt {
-        count_file_system(fs, Path::new("/"))
-    } else {
-        0
-    };
+    let file_system_memory_footprint = 0;
 
     let loaded = BinaryPackage {
         id: root.clone(),
@@ -85,7 +81,7 @@ pub async fn load_package_tree(
         .map(|ts| ts as u128),
         hash: OnceCell::new(),
         entrypoint_cmd: resolution.package.entrypoint.clone(),
-        webc_fs: fs_opt.map(Arc::new),
+        webc_volumes,
         commands,
         uses: Vec::new(),
         file_system_memory_footprint,
@@ -378,39 +374,17 @@ async fn fetch_dependencies(
 }
 
 /// How many bytes worth of files does a directory contain?
-fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
-    let mut total = 0;
-
-    let dir = match fs.read_dir(path) {
-        Ok(d) => d,
-        Err(_err) => {
-            return 0;
-        }
-    };
-
-    for entry in dir.flatten() {
-        if let Ok(meta) = entry.metadata() {
-            total += meta.len();
-            if meta.is_dir() {
-                total += count_file_system(fs, entry.path.as_path());
-            }
-        }
-    }
-
-    total
-}
-
 /// Given a set of [`ResolvedFileSystemMapping`]s and the [`Container`] for each
 /// package in a dependency tree, construct the resulting filesystem.
 ///
 /// Returns `Ok(None)` if no filesystem mappings were specified.
-fn filesystem(
+fn volume_mappings(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<Option<UnionFileSystem>, Error> {
+) -> Result<Vec<WebcVolumeMapping>, Error> {
     if pkg.filesystem.is_empty() {
-        return Ok(None);
+        return Ok(Vec::new());
     }
 
     let mut found_v2 = None;
@@ -447,8 +421,8 @@ fn filesystem(
     }
 
     match (found_v2, found_v3) {
-        (None, Some(_)) => filesystem_v3(packages, pkg, root_is_local_dir).map(Some),
-        (Some(_), None) => filesystem_v2(packages, pkg, root_is_local_dir).map(Some),
+        (None, Some(_)) => filesystem_v3(packages, pkg, root_is_local_dir),
+        (Some(_), None) => filesystem_v2(packages, pkg, root_is_local_dir),
         (Some(v2), Some(v3)) => {
             anyhow::bail!(
                 "Mix of webc v2 and v3 in the same dependency tree is not supported; v2: {v2}, v3: {v3}"
@@ -463,10 +437,9 @@ fn filesystem_v3(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<UnionFileSystem, Error> {
+) -> Result<Vec<WebcVolumeMapping>, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
-
-    let union_fs = UnionFileSystem::new();
+    let mut mappings = Vec::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -504,11 +477,15 @@ fn filesystem_v3(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let webc_vol = WebcVolumeFileSystem::new(volume.clone());
-        union_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))?;
+        mappings.push(WebcVolumeMapping {
+            mount_path: vfs_core::path_types::VfsPathBuf::from_bytes(
+                mount_path.to_string_lossy().as_bytes().to_vec(),
+            ),
+            volume: volume.clone(),
+            root: None,
+        });
     }
-
-    Ok(union_fs)
+    Ok(mappings)
 }
 
 /// Build the filesystem for webc v2 packages.
@@ -538,10 +515,9 @@ fn filesystem_v2(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<UnionFileSystem, Error> {
+) -> Result<Vec<WebcVolumeMapping>, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
-
-    let union_fs = UnionFileSystem::new();
+    let mut mappings = Vec::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -584,117 +560,20 @@ fn filesystem_v2(
         // UnionFileSystem strips the mount point before forwarding paths to the
         // mounted filesystem. That means paths are already relative to the
         // mount root and shouldn't be stripped by mount_path.
-        let fs = if let Some(original) = original_path {
-            let original = PathBuf::from(original);
-
-            MappedPathFileSystem::new(
-                WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| Ok(original.join(strip_root_prefix(path))))
-                    as DynPathMapper,
-            )
-        } else {
-            MappedPathFileSystem::new(
-                WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| Ok(strip_root_prefix(path))) as DynPathMapper,
-            )
-        };
-
-        union_fs.mount(volume_name.clone(), mount_path, Box::new(fs))?;
+        let root = original_path.as_ref().map(PathBuf::from);
+        mappings.push(WebcVolumeMapping {
+            mount_path: vfs_core::path_types::VfsPathBuf::from_bytes(
+                mount_path.to_string_lossy().as_bytes().to_vec(),
+            ),
+            volume: volume.clone(),
+            root,
+        });
     }
-
-    Ok(union_fs)
+    Ok(mappings)
 }
 
 fn strip_root_prefix(path: &Path) -> PathBuf {
     path.strip_prefix("/").unwrap_or(path).to_owned()
-}
-
-type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;
-
-struct MappedPathFileSystem<F, M> {
-    inner: F,
-    map: M,
-}
-
-impl<F, M> MappedPathFileSystem<F, M>
-where
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn new(inner: F, map: M) -> Self {
-        MappedPathFileSystem { inner, map }
-    }
-
-    fn path(&self, path: &Path) -> Result<PathBuf, virtual_fs::FsError> {
-        let path = (self.map)(path)?;
-
-        // Don't forget to make the path absolute again.
-        Ok(Path::new("/").join(path))
-    }
-}
-
-impl<M, F> FileSystem for MappedPathFileSystem<F, M>
-where
-    F: FileSystem,
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
-        let path = self.path(path)?;
-        self.inner.readlink(&path)
-    }
-
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        let path = self.path(path)?;
-        self.inner.read_dir(&path)
-    }
-
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.create_dir(&path)
-    }
-
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.remove_dir(&path)
-    }
-
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
-        Box::pin(async move {
-            let from = self.path(&from)?;
-            let to = self.path(&to)?;
-            self.inner.rename(&from, &to).await
-        })
-    }
-
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        let path = self.path(path)?;
-        self.inner.metadata(&path)
-    }
-
-    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        let path = self.path(path)?;
-        self.inner.symlink_metadata(&path)
-    }
-
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.remove_file(&path)
-    }
-
-    fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
-        virtual_fs::OpenOptions::new(self)
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.mount(name, path.as_path(), fs)
-    }
 }
 
 #[cfg(test)]
@@ -789,32 +668,4 @@ mod tests {
         );
     }
 }
-impl<F, M> virtual_fs::FileOpener for MappedPathFileSystem<F, M>
-where
-    F: FileSystem,
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
-        let path = self.path(path)?;
-        self.inner
-            .new_open_options()
-            .options(conf.clone())
-            .open(path)
-    }
-}
-
-impl<F, M> Debug for MappedPathFileSystem<F, M>
-where
-    F: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MappedPathFileSystem")
-            .field("inner", &self.inner)
-            .field("map", &std::any::type_name::<M>())
-            .finish()
-    }
-}
+// Legacy virtual-fs mapping adapter removed in favor of VFS mappings.

@@ -1,3 +1,6 @@
+use vfs_core::{ReadlinkOptions, ResolveFlags, VfsBaseDirAsync, VfsPath};
+use vfs_unix::errno::vfs_error_to_wasi_errno;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -30,7 +33,7 @@ pub fn path_readlink<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let base_dir = wasi_try_ok!(state.fs.get_fd(dir_fd));
     if !base_dir.inner.rights.contains(Rights::PATH_READLINK) {
@@ -39,31 +42,45 @@ pub fn path_readlink<M: MemorySize>(
     let mut path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
-    let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, dir_fd, &path_str, false));
+    let dir_handle = match base_dir.kind {
+        Kind::VfsDir { handle } => handle,
+        _ => return Ok(Errno::Badf),
+    };
 
-    {
-        let guard = inode.read();
-        if let Kind::Symlink { relative_path, .. } = guard.deref() {
-            let rel_path_str = relative_path.to_string_lossy();
-            let buf_len: u64 = buf_len.into();
-            let bytes = rel_path_str.bytes();
-            if bytes.len() as u64 >= buf_len {
-                return Ok(Errno::Overflow);
-            }
-            let bytes: Vec<_> = bytes.collect();
+    let ctx = state.fs.ctx.read().unwrap().clone();
+    let path_bytes = path_str.as_bytes().to_vec();
+    let res = __asyncify_light(env, None, async move {
+        state
+            .fs
+            .vfs
+            .readlinkat_async(
+                &ctx,
+                VfsBaseDirAsync::Handle(&dir_handle),
+                VfsPath::new(&path_bytes),
+                ReadlinkOptions {
+                    resolve: ResolveFlags::empty(),
+                },
+            )
+            .await
+            .map_err(|err| vfs_error_to_wasi_errno(&err))
+    })?;
 
-            let out =
-                wasi_try_mem_ok!(buf.slice(&memory, wasi_try_ok!(to_offset::<M>(bytes.len()))));
-            wasi_try_mem_ok!(out.write_slice(&bytes));
-            // should we null terminate this?
+    let path_buf = match res {
+        Ok(path_buf) => path_buf,
+        Err(err) => return Ok(err),
+    };
 
-            let bytes_len: M::Offset =
-                wasi_try_ok!(bytes.len().try_into().map_err(|_| Errno::Overflow));
-            wasi_try_mem_ok!(buf_used.deref(&memory).write(bytes_len));
-        } else {
-            return Ok(Errno::Inval);
-        }
+    let buf_len: u64 = buf_len.into();
+    let bytes = path_buf.as_bytes();
+    if bytes.len() as u64 >= buf_len {
+        return Ok(Errno::Overflow);
     }
+
+    let out = wasi_try_mem_ok!(buf.slice(&memory, wasi_try_ok!(to_offset::<M>(bytes.len()))));
+    wasi_try_mem_ok!(out.write_slice(bytes));
+
+    let bytes_len: M::Offset = wasi_try_ok!(bytes.len().try_into().map_err(|_| Errno::Overflow));
+    wasi_try_mem_ok!(buf_used.deref(&memory).write(bytes_len));
 
     Ok(Errno::Success)
 }

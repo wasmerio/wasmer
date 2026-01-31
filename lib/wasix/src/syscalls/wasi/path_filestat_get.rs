@@ -1,3 +1,6 @@
+use vfs_core::{ResolveFlags, StatOptions, VfsBaseDirAsync, VfsPath};
+use vfs_unix::{errno::vfs_error_to_wasi_errno, vfs_filetype_to_wasi};
+
 use super::*;
 use crate::syscalls::*;
 use crate::types::wasi::Snapshot0Filestat;
@@ -26,7 +29,7 @@ pub fn path_filestat_get<M: MemorySize>(
     buf: WasmPtr<Filestat, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
 
@@ -44,9 +47,8 @@ pub fn path_filestat_get<M: MemorySize>(
     tracing::trace!(path = path_string.as_str());
 
     let stat = wasi_try!(path_filestat_get_internal(
-        &memory,
+        env,
         state,
-        inodes,
         fd,
         flags,
         &path_string
@@ -60,34 +62,74 @@ pub fn path_filestat_get<M: MemorySize>(
 /// ### `path_filestat_get_internal()`
 /// return a Filstat or Errno
 pub(crate) fn path_filestat_get_internal(
-    memory: &MemoryView,
+    env: &WasiEnv,
     state: &WasiState,
-    inodes: &crate::WasiInodes,
     fd: WasiFd,
     flags: LookupFlags,
     path_string: &str,
 ) -> Result<Filestat, Errno> {
     let root_dir = state.fs.get_fd(fd)?;
-
     if !root_dir.inner.rights.contains(Rights::PATH_FILESTAT_GET) {
         return Err(Errno::Access);
     }
-    let file_inode = state.fs.get_inode_at_path(
-        inodes,
-        fd,
-        path_string,
-        flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
-    )?;
 
-    let st_ino = file_inode.ino().as_u64();
-    let mut stat = if file_inode.is_preopened {
-        *file_inode.stat.read().unwrap().deref()
-    } else {
-        let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())?
+    let dir_handle = match root_dir.kind {
+        Kind::VfsDir { handle } => handle,
+        _ => return Err(Errno::Badf),
     };
-    stat.st_ino = st_ino;
-    Ok(stat)
+
+    let resolve = if (flags & __WASI_LOOKUP_SYMLINK_FOLLOW) != 0 {
+        ResolveFlags::empty()
+    } else {
+        ResolveFlags::NO_SYMLINK_FOLLOW
+    };
+    let options = StatOptions {
+        resolve,
+        follow: (flags & __WASI_LOOKUP_SYMLINK_FOLLOW) != 0,
+        require_dir_if_trailing_slash: path_string.ends_with('/'),
+    };
+    let path_bytes = path_string.as_bytes().to_vec();
+    let ctx = state.fs.ctx.read().unwrap().clone();
+    let meta = __asyncify_light(env, None, async move {
+        state
+            .fs
+            .vfs
+            .statat_async(
+                &ctx,
+                VfsBaseDirAsync::Handle(&dir_handle),
+                VfsPath::new(&path_bytes),
+                options,
+            )
+            .await
+            .map_err(|err| vfs_error_to_wasi_errno(&err))
+    });
+
+    let timespec_to_timestamp = |ts: vfs_core::VfsTimespec| -> Timestamp {
+        if ts.secs < 0 {
+            0
+        } else {
+            (ts.secs as u64)
+                .saturating_mul(1_000_000_000)
+                .saturating_add(ts.nanos as u64)
+        }
+    };
+
+    let meta = match meta {
+        Ok(Ok(meta)) => meta,
+        Ok(Err(err)) => return Err(err),
+        Err(_) => return Err(Errno::Io),
+    };
+
+    Ok(Filestat {
+        st_dev: 0,
+        st_ino: meta.inode.backend.get(),
+        st_filetype: vfs_filetype_to_wasi(meta.file_type),
+        st_nlink: meta.nlink,
+        st_size: meta.size,
+        st_atim: timespec_to_timestamp(meta.atime),
+        st_mtim: timespec_to_timestamp(meta.mtime),
+        st_ctim: timespec_to_timestamp(meta.ctime),
+    })
 }
 
 /// ### `path_filestat_get_old()`
@@ -114,15 +156,14 @@ pub fn path_filestat_get_old<M: MemorySize>(
     buf: WasmPtr<Snapshot0Filestat, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let path_string = unsafe { get_input_str!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
     let stat = wasi_try!(path_filestat_get_internal(
-        &memory,
+        env,
         state,
-        inodes,
         fd,
         flags,
         &path_string

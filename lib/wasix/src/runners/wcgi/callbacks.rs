@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use virtual_fs::Pipe;
+use tokio::io::DuplexStream;
 use wasmer::{Memory, Module, Store};
 
 use super::{create_env::default_recycle_env, handler::SetupBuilder, *};
@@ -21,9 +21,9 @@ pub struct CreateEnvConfig {
 pub struct CreateEnvResult {
     pub env: WasiEnv,
     pub memory: Option<(Memory, Store)>,
-    pub body_sender: Pipe,
-    pub body_receiver: Pipe,
-    pub stderr_receiver: Pipe,
+    pub body_sender: DuplexStream,
+    pub body_receiver: DuplexStream,
+    pub stderr_receiver: DuplexStream,
 }
 
 /// Configuration used for reusing an new environment

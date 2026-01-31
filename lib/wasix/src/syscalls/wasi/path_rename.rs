@@ -1,6 +1,5 @@
-use std::path::PathBuf;
-
-use anyhow::Context;
+use vfs_core::{RenameFlags, RenameOptions, ResolveFlags, VfsBaseDirAsync, VfsPath};
+use vfs_unix::errno::vfs_error_to_wasi_errno;
 
 use super::*;
 use crate::syscalls::*;
@@ -33,7 +32,7 @@ pub fn path_rename<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let source_str = unsafe { get_input_str_ok!(&memory, old_path, old_path_len) };
     Span::current().record("old_path", source_str.as_str());
     let target_str = unsafe { get_input_str_ok!(&memory, new_path, new_path_len) };
@@ -63,200 +62,57 @@ pub fn path_rename_internal(
     target_path: &str,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-
+    let (_memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let source_fd_entry = wasi_try_ok!(state.fs.get_fd(source_fd));
+    if !source_fd_entry
+        .inner
+        .rights
+        .contains(Rights::PATH_RENAME_SOURCE)
     {
-        let source_fd = wasi_try_ok!(state.fs.get_fd(source_fd));
-        if !source_fd.inner.rights.contains(Rights::PATH_RENAME_SOURCE) {
-            return Ok(Errno::Access);
-        }
-        let target_fd = wasi_try_ok!(state.fs.get_fd(target_fd));
-        if !target_fd.inner.rights.contains(Rights::PATH_RENAME_TARGET) {
-            return Ok(Errno::Access);
-        }
+        return Ok(Errno::Access);
+    }
+    let target_fd_entry = wasi_try_ok!(state.fs.get_fd(target_fd));
+    if !target_fd_entry
+        .inner
+        .rights
+        .contains(Rights::PATH_RENAME_TARGET)
+    {
+        return Ok(Errno::Access);
     }
 
-    // this is to be sure the source file is fetched from the filesystem if needed
-    wasi_try_ok!(
+    let source_dir = match source_fd_entry.kind {
+        Kind::VfsDir { handle } => handle,
+        _ => return Ok(Errno::Badf),
+    };
+    let target_dir = match target_fd_entry.kind {
+        Kind::VfsDir { handle } => handle,
+        _ => return Ok(Errno::Badf),
+    };
+
+    let ctx = state.fs.ctx.read().unwrap().clone();
+    let source_bytes = source_path.as_bytes().to_vec();
+    let target_bytes = target_path.as_bytes().to_vec();
+    let res = __asyncify_light(env, None, async move {
         state
             .fs
-            .get_inode_at_path(inodes, source_fd, source_path, true)
-    );
-    // Create the destination inode if the file exists.
-    let _ = state
-        .fs
-        .get_inode_at_path(inodes, target_fd, target_path, true);
-    let (source_parent_inode, source_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
-        inodes,
-        source_fd,
-        Path::new(source_path),
-        true
-    ));
-    let (target_parent_inode, target_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
-        inodes,
-        target_fd,
-        Path::new(target_path),
-        true
-    ));
-    let mut need_create = true;
-    let host_adjusted_target_path = {
-        let guard = target_parent_inode.read();
-        match guard.deref() {
-            Kind::Dir { entries, path, .. } => {
-                if entries.contains_key(&target_entry_name) {
-                    need_create = false;
-                }
-                path.join(&target_entry_name)
-            }
-            Kind::Root { .. } => return Ok(Errno::Notcapable),
-            Kind::Socket { .. }
-            | Kind::PipeTx { .. }
-            | Kind::PipeRx { .. }
-            | Kind::DuplexPipe { .. }
-            | Kind::EventNotifications { .. }
-            | Kind::Epoll { .. } => return Ok(Errno::Inval),
-            Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
-                debug!("fatal internal logic error: parent of inode is not a directory");
-                return Ok(Errno::Inval);
-            }
-        }
-    };
+            .vfs
+            .renameat_async(
+                &ctx,
+                VfsBaseDirAsync::Handle(&source_dir),
+                VfsPath::new(&source_bytes),
+                VfsBaseDirAsync::Handle(&target_dir),
+                VfsPath::new(&target_bytes),
+                RenameOptions {
+                    flags: RenameFlags::empty(),
+                    resolve: ResolveFlags::empty(),
+                },
+            )
+            .await
+            .map_err(|err| vfs_error_to_wasi_errno(&err))
+    })?;
 
-    let source_entry = {
-        let mut guard = source_parent_inode.write();
-        match guard.deref_mut() {
-            Kind::Dir { entries, .. } => {
-                wasi_try_ok!(entries.remove(&source_entry_name).ok_or(Errno::Noent))
-            }
-            Kind::Root { .. } => return Ok(Errno::Notcapable),
-            Kind::Socket { .. }
-            | Kind::PipeRx { .. }
-            | Kind::PipeTx { .. }
-            | Kind::DuplexPipe { .. }
-            | Kind::EventNotifications { .. }
-            | Kind::Epoll { .. } => {
-                return Ok(Errno::Inval);
-            }
-            Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
-                debug!("fatal internal logic error: parent of inode is not a directory");
-                return Ok(Errno::Inval);
-            }
-        }
-    };
-
-    {
-        let mut guard = source_entry.write();
-        match guard.deref_mut() {
-            Kind::File { path, .. } => {
-                let result = {
-                    let path_clone = path.clone();
-                    drop(guard);
-                    let state = state;
-                    let host_adjusted_target_path = host_adjusted_target_path.clone();
-                    __asyncify_light(env, None, async move {
-                        state
-                            .fs_rename(path_clone, &host_adjusted_target_path)
-                            .await
-                    })?
-                };
-                // if the above operation failed we have to revert the previous change and then fail
-                if let Err(e) = result {
-                    let mut guard = source_parent_inode.write();
-                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
-                        entries.insert(source_entry_name, source_entry);
-                        return Ok(e);
-                    }
-                } else {
-                    let mut guard = source_entry.write();
-                    if let Kind::File { path, .. } = guard.deref_mut() {
-                        *path = host_adjusted_target_path;
-                    } else {
-                        unreachable!()
-                    }
-                }
-            }
-            Kind::Dir { path, .. } => {
-                let cloned_path = path.clone();
-                let res = {
-                    let state = state;
-                    let host_adjusted_target_path = host_adjusted_target_path.clone();
-                    __asyncify_light(env, None, async move {
-                        state
-                            .fs_rename(cloned_path, &host_adjusted_target_path)
-                            .await
-                    })?
-                };
-                if let Err(e) = res {
-                    return Ok(e);
-                }
-                {
-                    let source_dir_path = path.clone();
-                    drop(guard);
-                    rename_inode_tree(&source_entry, &source_dir_path, &host_adjusted_target_path);
-                }
-            }
-            Kind::Buffer { .. }
-            | Kind::Symlink { .. }
-            | Kind::Socket { .. }
-            | Kind::PipeTx { .. }
-            | Kind::PipeRx { .. }
-            | Kind::DuplexPipe { .. }
-            | Kind::Epoll { .. }
-            | Kind::EventNotifications { .. } => {}
-            Kind::Root { .. } => unreachable!("The root can not be moved"),
-        }
+    match res {
+        Ok(()) => Ok(Errno::Success),
+        Err(err) => Ok(err),
     }
-
-    let source_size = source_entry.stat.read().unwrap().st_size;
-
-    if need_create {
-        let mut guard = target_parent_inode.write();
-        if let Kind::Dir { entries, .. } = guard.deref_mut() {
-            let result = entries.insert(target_entry_name.clone(), source_entry);
-            assert!(
-                result.is_none(),
-                "fatal error: race condition on filesystem detected or internal logic error"
-            );
-        }
-    }
-
-    // The target entry is created, one way or the other
-    let target_inode = state
-        .fs
-        .get_inode_at_path(inodes, target_fd, target_path, true)
-        .expect("Expected target inode to exist, and it's too late to safely fail");
-    *target_inode.name.write().unwrap() = target_entry_name.into();
-    target_inode.stat.write().unwrap().st_size = source_size;
-
-    Ok(Errno::Success)
-}
-
-fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path: &Path) {
-    let children;
-
-    let mut guard = inode.write();
-    match guard.deref_mut() {
-        Kind::File { path, .. } => {
-            *path = adjust_path(path, source_dir_path, target_dir_path);
-            return;
-        }
-        Kind::Dir { path, entries, .. } => {
-            *path = adjust_path(path, source_dir_path, target_dir_path);
-            children = entries.values().cloned().collect::<Vec<_>>();
-        }
-        _ => return,
-    }
-    drop(guard);
-
-    for child in children {
-        rename_inode_tree(&child, source_dir_path, target_dir_path);
-    }
-}
-
-fn adjust_path(path: &Path, source_dir_path: &Path, target_dir_path: &Path) -> PathBuf {
-    let relative_path = path
-        .strip_prefix(source_dir_path)
-        .with_context(|| format!("Expected path {path:?} to be a subpath of {source_dir_path:?}"))
-        .expect("Fatal filesystem error");
-    target_dir_path.join(relative_path)
 }

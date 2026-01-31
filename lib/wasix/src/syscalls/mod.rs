@@ -78,9 +78,7 @@ pub use unix::*;
 #[cfg(target_family = "wasm")]
 pub use wasm::*;
 
-pub(crate) use virtual_fs::{
-    AsyncSeekExt, AsyncWriteExt, DuplexPipe, FileSystem, FsError, VirtualFile,
-};
+pub(crate) use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 pub(crate) use virtual_net::StreamSecurity;
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
@@ -111,12 +109,9 @@ pub(crate) use crate::os::task::{
     thread::{WasiThread, WasiThreadId},
 };
 use crate::{
-    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
-    WasiResult, WasiRuntimeError,
-    fs::{
-        Fd, FdInner, InodeVal, Kind, MAX_SYMLINKS, fs_error_into_wasi_err,
-        virtual_file_type_to_wasi_file_type,
-    },
+    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiResult,
+    WasiRuntimeError,
+    fs::{Kind, MAX_SYMLINKS, fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type},
     journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
     os::task::{
         process::{MaybeCheckpointResult, WasiProcessCheckpoint},
@@ -248,11 +243,22 @@ pub unsafe fn stderr_write<'a>(
     buf: &[u8],
 ) -> LocalBoxFuture<'a, Result<(), Errno>> {
     let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(ctx, 0) };
-
     let buf = buf.to_vec();
-    let mut stderr = WasiInodes::stderr_mut(&state.fs.fd_map).map_err(fs_error_into_wasi_err);
-    Box::pin(async move { stderr?.write_all(&buf).await.map_err(map_io_err) })
+    let state = env.state();
+    let handle = match state.fs.get_fd(__WASI_STDERR_FILENO) {
+        Ok(entry) => match entry.kind {
+            Kind::Stderr { handle } => Some(handle),
+            _ => None,
+        },
+        Err(_) => None,
+    };
+
+    Box::pin(async move {
+        let Some(handle) = handle else {
+            return Err(Errno::Badf);
+        };
+        handle.write(&buf).await.map(|_| ())
+    })
 }
 
 fn block_on_with_timeout<T, Fut>(
@@ -609,24 +615,11 @@ where
         return Err(Errno::Access);
     }
 
-    let mut work = {
-        let inode = fd_entry.inode.clone();
-        let tasks = env.tasks().clone();
-        let mut guard = inode.write();
-        match guard.deref_mut() {
-            Kind::Socket { socket } => {
-                // Clone the socket and release the lock
-                let socket = socket.clone();
-                drop(guard);
-
-                // Start the work using the socket
-                actor(socket, fd_entry)
-            }
-            _ => {
-                return Err(Errno::Notsock);
-            }
-        }
+    let socket = match fd_entry.kind {
+        Kind::Socket { socket } => socket,
+        _ => return Err(Errno::Notsock),
     };
+    let mut work = actor(socket, fd_entry);
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
@@ -653,23 +646,13 @@ where
         return Err(Errno::Access);
     }
 
-    let inode = fd_entry.inode.clone();
-    let mut guard = inode.write();
-    match guard.deref_mut() {
-        Kind::Socket { socket } => {
-            // Clone the socket and release the lock
-            let socket = socket.clone();
-            drop(guard);
+    let socket = match fd_entry.kind {
+        Kind::Socket { socket } => socket,
+        _ => return Err(Errno::Notsock),
+    };
 
-            // Start the work using the socket
-            let mut work = actor(socket, fd_entry);
-
-            // Otherwise we block on the work and process it
-            // using an asynchronou context
-            block_on(work)
-        }
-        _ => Err(Errno::Notsock),
-    }
+    let mut work = actor(socket, fd_entry);
+    block_on(work)
 }
 
 /// Performs an immutable operation on the socket while running in an asynchronous runtime
@@ -692,21 +675,11 @@ where
         return Err(Errno::Access);
     }
 
-    let inode = fd_entry.inode.clone();
-
-    let tasks = env.tasks().clone();
-    let mut guard = inode.write();
-    match guard.deref_mut() {
-        Kind::Socket { socket } => {
-            // Clone the socket and release the lock
-            let socket = socket.clone();
-            drop(guard);
-
-            // Start the work using the socket
-            actor(socket, fd_entry)
-        }
-        _ => Err(Errno::Notsock),
-    }
+    let socket = match fd_entry.kind {
+        Kind::Socket { socket } => socket,
+        _ => return Err(Errno::Notsock),
+    };
+    actor(socket, fd_entry)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -729,19 +702,11 @@ where
         return Err(Errno::Access);
     }
 
-    let inode = fd_entry.inode.clone();
-    let mut guard = inode.write();
-    match guard.deref_mut() {
-        Kind::Socket { socket } => {
-            // Clone the socket and release the lock
-            let socket = socket.clone();
-            drop(guard);
-
-            // Start the work using the socket
-            actor(socket, fd_entry)
-        }
-        _ => Err(Errno::Notsock),
-    }
+    let socket = match fd_entry.kind {
+        Kind::Socket { socket } => socket,
+        _ => return Err(Errno::Notsock),
+    };
+    actor(socket, fd_entry)
 }
 
 /// Replaces a socket with another socket in under an asynchronous runtime.
@@ -771,51 +736,32 @@ where
     }
 
     let tasks = env.tasks().clone();
-    {
-        let inode = fd_entry.inode;
-        let mut guard = inode.write();
-        match guard.deref_mut() {
-            Kind::Socket { socket } => {
-                let socket = socket.clone();
-                drop(guard);
-
-                // Start the work using the socket
-                let work = actor(socket, fd_entry.inner.flags);
-
-                // Block on the work and process it
-                let res = block_on(work);
-                let new_socket = res?;
-
-                if let Some(mut new_socket) = new_socket {
-                    let mut guard = inode.write();
-                    match guard.deref_mut() {
-                        Kind::Socket { socket, .. } => {
-                            std::mem::swap(socket, &mut new_socket);
-                        }
-                        _ => {
-                            tracing::warn!(
-                                "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket",
-                                ctx.data().pid(),
-                                ctx.data().tid(),
-                                sock,
-                                rights
-                            );
-                            return Err(Errno::Notsock);
-                        }
-                    }
-                }
-            }
-            _ => {
-                tracing::warn!(
-                    "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
-                    sock,
-                    rights
-                );
-                return Err(Errno::Notsock);
-            }
+    let socket = match fd_entry.kind {
+        Kind::Socket { socket } => socket,
+        _ => {
+            tracing::warn!(
+                "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket",
+                ctx.data().pid(),
+                ctx.data().tid(),
+                sock,
+                rights
+            );
+            return Err(Errno::Notsock);
         }
+    };
+
+    // Start the work using the socket
+    let work = actor(socket, fd_entry.inner.flags);
+
+    // Block on the work and process it
+    let res = block_on(work);
+    let new_socket = res?;
+
+    if let Some(new_socket) = new_socket {
+        ctx.data()
+            .state
+            .fs
+            .replace_fd_kind(sock, Kind::Socket { socket: new_socket })?;
     }
 
     Ok(())

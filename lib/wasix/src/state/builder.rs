@@ -6,9 +6,9 @@ use std::{
     sync::Arc,
 };
 
+use crate::fs::{Stdio, build_default_fs};
 use rand::Rng;
 use thiserror::Error;
-use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Engine, Instance, Module};
 use wasmer_config::package::PackageId;
 
@@ -18,7 +18,7 @@ use crate::{
     Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
-    fs::{WasiFs, WasiFsRoot, WasiInodes},
+    fs::WasiFs,
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
@@ -61,12 +61,10 @@ pub struct WasiEnvBuilder {
     /// Pre-opened virtual directories that will be accessible from WASI.
     vfs_preopens: Vec<String>,
     #[allow(clippy::type_complexity)]
-    pub(super) setup_fs_fn:
-        Option<Box<dyn Fn(&WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
-    pub(super) stdout: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    pub(super) stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    pub(super) fs: Option<WasiFsRoot>,
+    pub(super) setup_fs_fn: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>>,
+    pub(super) stdout: Option<Arc<Stdio>>,
+    pub(super) stderr: Option<Arc<Stdio>>,
+    pub(super) stdin: Option<Arc<Stdio>>,
     pub(super) engine: Option<Engine>,
     pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
     pub(super) current_dir: Option<PathBuf>,
@@ -141,8 +139,6 @@ pub enum WasiStateCreationError {
     WasiFsCreationError(String),
     #[error("wasi filesystem setup error: `{0}`")]
     WasiFsSetupError(String),
-    #[error(transparent)]
-    FileSystemError(#[from] FsError),
     #[error("wasi inherit error: `{0}`")]
     WasiInheritError(String),
     #[error("wasi include package: `{0}`")]
@@ -161,7 +157,7 @@ fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> 
     Ok(())
 }
 
-pub type SetupFsFn = Box<dyn Fn(&WasiInodes, &mut WasiFs) -> Result<(), String> + Send>;
+pub type SetupFsFn = Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>;
 
 // TODO add other WasiFS APIs here like swapping out stdout, for example (though we need to
 // return stdout somehow, it's unclear what that API should look like)
@@ -656,7 +652,7 @@ impl WasiEnvBuilder {
 
     /// Overwrite the default WASI `stdout`, if you want to hold on to the
     /// original `stdout` use [`WasiFs::swap_file`] after building.
-    pub fn stdout(mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+    pub fn stdout(mut self, new_file: Arc<Stdio>) -> Self {
         self.stdout = Some(new_file);
 
         self
@@ -664,26 +660,26 @@ impl WasiEnvBuilder {
 
     /// Overwrite the default WASI `stdout`, if you want to hold on to the
     /// original `stdout` use [`WasiFs::swap_file`] after building.
-    pub fn set_stdout(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) {
+    pub fn set_stdout(&mut self, new_file: Arc<Stdio>) {
         self.stdout = Some(new_file);
     }
 
     /// Overwrite the default WASI `stderr`, if you want to hold on to the
     /// original `stderr` use [`WasiFs::swap_file`] after building.
-    pub fn stderr(mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+    pub fn stderr(mut self, new_file: Arc<Stdio>) -> Self {
         self.set_stderr(new_file);
         self
     }
 
     /// Overwrite the default WASI `stderr`, if you want to hold on to the
     /// original `stderr` use [`WasiFs::swap_file`] after building.
-    pub fn set_stderr(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) {
+    pub fn set_stderr(&mut self, new_file: Arc<Stdio>) {
         self.stderr = Some(new_file);
     }
 
     /// Overwrite the default WASI `stdin`, if you want to hold on to the
     /// original `stdin` use [`WasiFs::swap_file`] after building.
-    pub fn stdin(mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+    pub fn stdin(mut self, new_file: Arc<Stdio>) -> Self {
         self.stdin = Some(new_file);
 
         self
@@ -691,32 +687,12 @@ impl WasiEnvBuilder {
 
     /// Overwrite the default WASI `stdin`, if you want to hold on to the
     /// original `stdin` use [`WasiFs::swap_file`] after building.
-    pub fn set_stdin(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) {
+    pub fn set_stdin(&mut self, new_file: Arc<Stdio>) {
         self.stdin = Some(new_file);
     }
 
-    /// Sets the FileSystem to be used with this WASI instance.
-    ///
-    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-    pub fn fs(mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) -> Self {
-        self.set_fs(fs);
-        self
-    }
-
-    pub fn set_fs(&mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) {
-        self.fs = Some(WasiFsRoot::Backing(fs.into()));
-    }
-
-    pub(crate) fn set_fs_root(&mut self, fs: WasiFsRoot) {
-        self.fs = Some(fs);
-    }
-
-    /// Sets a new sandbox FileSystem to be used with this WASI instance.
-    ///
-    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-    pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
-        self.fs = Some(WasiFsRoot::Sandbox(fs));
-        self
+    pub(crate) fn set_fs_root(&mut self) {
+        // VFS is constructed during build_init.
     }
 
     /// Configure the WASI filesystem before running.
@@ -839,87 +815,60 @@ impl WasiEnvBuilder {
         }
 
         // Determine the STDIN
-        let stdin: Box<dyn VirtualFile + Send + Sync + 'static> = self
+        let stdin = self
             .stdin
             .take()
-            .unwrap_or_else(|| Box::new(ArcFile::new(Box::<super::Stdin>::default())));
-
-        let fs_backing = self
-            .fs
+            .unwrap_or_else(|| Arc::new(Stdio::stdin()));
+        let stdout = self
+            .stdout
             .take()
-            .unwrap_or_else(|| WasiFsRoot::Sandbox(TmpFileSystem::new()));
+            .unwrap_or_else(|| Arc::new(Stdio::stdout()));
+        let stderr = self
+            .stderr
+            .take()
+            .unwrap_or_else(|| Arc::new(Stdio::stderr()));
 
-        if let Some(dir) = &self.current_dir {
-            match fs_backing.read_dir(dir) {
-                Ok(_) => {
-                    // All good
-                }
-                Err(FsError::EntryNotFound) => {
-                    fs_backing.create_dir(dir).map_err(|err| {
-                        WasiStateCreationError::WasiFsSetupError(format!(
-                            "Could not create specified current directory at '{}': {err}",
-                            dir.display()
-                        ))
-                    })?;
-                }
-                Err(err) => {
-                    return Err(WasiStateCreationError::WasiFsSetupError(format!(
-                        "Could check specified current directory at '{}': {err}",
-                        dir.display()
-                    )));
-                }
-            }
-        }
+        let mut wasi_fs = build_default_fs(&self.preopens, &self.vfs_preopens, &[], &[])
+            .map_err(WasiStateCreationError::WasiFsCreationError)?;
 
-        // self.preopens are checked in [`PreopenDirBuilder::build`]
-        let inodes = crate::state::WasiInodes::new();
-        let wasi_fs = {
-            // self.preopens are checked in [`PreopenDirBuilder::build`]
-            let mut wasi_fs =
-                WasiFs::new_with_preopen(&inodes, &self.preopens, &self.vfs_preopens, fs_backing)
-                    .map_err(WasiStateCreationError::WasiFsCreationError)?;
+        wasi_fs
+            .with_fd(
+                Rights::FD_READ | Rights::POLL_FD_READWRITE,
+                Rights::empty(),
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                crate::fs::Kind::Stdin { handle: stdin },
+                __WASI_STDIN_FILENO,
+            )
+            .map_err(|err| WasiStateCreationError::WasiFsCreationError(format!("{err:?}")))?;
+        wasi_fs
+            .with_fd(
+                Rights::FD_WRITE | Rights::POLL_FD_READWRITE,
+                Rights::empty(),
+                Fdflags::APPEND,
+                Fdflagsext::empty(),
+                crate::fs::Kind::Stdout { handle: stdout },
+                __WASI_STDOUT_FILENO,
+            )
+            .map_err(|err| WasiStateCreationError::WasiFsCreationError(format!("{err:?}")))?;
+        wasi_fs
+            .with_fd(
+                Rights::FD_WRITE | Rights::POLL_FD_READWRITE,
+                Rights::empty(),
+                Fdflags::APPEND,
+                Fdflagsext::empty(),
+                crate::fs::Kind::Stderr { handle: stderr },
+                __WASI_STDERR_FILENO,
+            )
+            .map_err(|err| WasiStateCreationError::WasiFsCreationError(format!("{err:?}")))?;
 
-            // set up the file system, overriding base files and calling the setup function
-            wasi_fs
-                .swap_file(__WASI_STDIN_FILENO, stdin)
-                .map_err(WasiStateCreationError::FileSystemError)?;
-
-            if let Some(stdout_override) = self.stdout.take() {
-                wasi_fs
-                    .swap_file(__WASI_STDOUT_FILENO, stdout_override)
-                    .map_err(WasiStateCreationError::FileSystemError)?;
-            }
-
-            if let Some(stderr_override) = self.stderr.take() {
-                wasi_fs
-                    .swap_file(__WASI_STDERR_FILENO, stderr_override)
-                    .map_err(WasiStateCreationError::FileSystemError)?;
-            }
-
-            if let Some(f) = &self.setup_fs_fn {
-                f(&inodes, &mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
-            }
-            wasi_fs
-        };
-
-        if let Some(dir) = &self.current_dir {
-            let s = dir.to_str().ok_or_else(|| {
-                WasiStateCreationError::WasiFsSetupError(format!(
-                    "Specified current directory is not valid UTF-8: '{}'",
-                    dir.display()
-                ))
-            })?;
-            wasi_fs.set_current_dir(s);
-        }
-
-        for id in &self.included_packages {
-            wasi_fs.has_unioned.lock().unwrap().insert(id.clone());
+        if let Some(f) = &self.setup_fs_fn {
+            f(&mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
         }
 
         let state = WasiState {
             fs: wasi_fs,
             secret: rand::thread_rng().r#gen::<[u8; 32]>(),
-            inodes,
             args: std::sync::Mutex::new(self.args.clone()),
             preopen: self.vfs_preopens.clone(),
             futexs: Default::default(),

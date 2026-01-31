@@ -27,7 +27,7 @@ pub fn sock_accept<M: MemorySize>(
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     let env = ctx.data();
-    let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
@@ -68,7 +68,7 @@ pub fn sock_accept_v2<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
-    let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
@@ -98,7 +98,7 @@ pub fn sock_accept_v2<M: MemorySize>(
     }
 
     let env = ctx.data();
-    let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(
         &memory,
@@ -118,7 +118,6 @@ pub(crate) fn sock_accept_internal(
     with_fd: Option<WasiFd>,
 ) -> Result<Result<(WasiFd, SocketAddr, SocketAddr), Errno>, WasiError> {
     let state = env.state();
-    let inodes = &state.inodes;
 
     let tasks = env.tasks().clone();
     let (child, local_addr, peer_addr, fd_flags) = wasi_try_ok_ok!(__sock_asyncify(
@@ -150,14 +149,6 @@ pub(crate) fn sock_accept_internal(
             read_timeout: None,
         }),
     };
-    let inode = state
-        .fs
-        .create_inode_with_default_stat(inodes, kind, false, "socket".into());
-
-    let mut new_flags = Fdflags::empty();
-    if fd_flags.contains(Fdflags::NONBLOCK) {
-        new_flags.set(Fdflags::NONBLOCK, true);
-    }
 
     let mut new_flags = Fdflags::empty();
     if fd_flags.contains(Fdflags::NONBLOCK) {
@@ -168,12 +159,12 @@ pub(crate) fn sock_accept_internal(
     let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
         state
             .fs
-            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, inode, fd)
+            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), kind, fd)
             .map(|_| fd)
     } else {
         state
             .fs
-            .create_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, inode)
+            .create_fd(rights, rights, new_flags, Fdflagsext::empty(), kind)
     });
     Span::current().record("fd", fd);
 

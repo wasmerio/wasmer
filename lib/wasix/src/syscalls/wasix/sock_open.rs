@@ -56,7 +56,7 @@ pub fn sock_open<M: MemorySize>(
     }
 
     let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     wasi_try_mem_ok!(ro_sock.write(&memory, fd));
 
     Ok(Errno::Success)
@@ -70,7 +70,7 @@ pub(crate) fn sock_open_internal(
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (_memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let kind = match ty {
         Socktype::Stream | Socktype::Dgram => Kind::Socket {
@@ -99,10 +99,6 @@ pub(crate) fn sock_open_internal(
         _ => return Ok(Err(Errno::Notsup)),
     };
 
-    let inode =
-        state
-            .fs
-            .create_inode_with_default_stat(inodes, kind, false, "socket".to_string().into());
     let rights = Rights::all_socket();
     let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
         state
@@ -112,20 +108,14 @@ pub(crate) fn sock_open_internal(
                 rights,
                 Fdflags::empty(),
                 Fdflagsext::empty(),
-                0,
-                inode,
+                kind,
                 fd,
             )
             .map(|_| fd)
     } else {
-        state.fs.create_fd(
-            rights,
-            rights,
-            Fdflags::empty(),
-            Fdflagsext::empty(),
-            0,
-            inode,
-        )
+        state
+            .fs
+            .create_fd(rights, rights, Fdflags::empty(), Fdflagsext::empty(), kind)
     });
     Span::current().record("sock", fd);
 

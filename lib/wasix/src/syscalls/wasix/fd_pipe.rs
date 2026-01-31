@@ -1,14 +1,7 @@
-use std::sync::atomic::AtomicUsize;
-
-use virtual_fs::Pipe;
+use crate::fs::DuplexPipe;
 
 use super::*;
 use crate::syscalls::*;
-
-// Used to make pipe end names unique. This is necessary since we use
-// a hash of the name to calculate inode numbers. The actual number
-// has no other meaning.
-static PIPE_NUMBER: AtomicUsize = AtomicUsize::new(0);
 
 /// ### `fd_pipe()`
 /// Creates ta pipe that feeds data between two file handles
@@ -37,7 +30,7 @@ pub fn fd_pipe<M: MemorySize>(
     }
 
     let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     Span::current()
         .record("read_fd", read_fd)
@@ -55,25 +48,8 @@ pub fn fd_pipe_internal(
     with_write_fd: Option<WasiFd>,
 ) -> Result<(WasiFd, WasiFd), Errno> {
     let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    let (tx, rx) = Pipe::new().split();
-
-    // FIXME: since a hash of the inode name is used to calculate the inode number, this may
-    // or may not break journals that include pipes and are compacted.
-    let pipe_no = PIPE_NUMBER.fetch_add(1, Ordering::SeqCst);
-
-    let rx_inode = state.fs.create_inode_with_default_stat(
-        inodes,
-        Kind::PipeRx { rx },
-        false,
-        format!("pipe{pipe_no}-rx").into(),
-    );
-    let tx_inode = state.fs.create_inode_with_default_stat(
-        inodes,
-        Kind::PipeTx { tx },
-        false,
-        format!("pipe{pipe_no}-tx").into(),
-    );
+    let (_memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let (rx, tx) = DuplexPipe::channel();
 
     let rights = Rights::FD_SYNC
         | Rights::FD_DATASYNC
@@ -93,8 +69,7 @@ pub fn fd_pipe_internal(
                 read_rights,
                 Fdflags::empty(),
                 Fdflagsext::empty(),
-                0,
-                rx_inode,
+                Kind::PipeRx { rx },
                 fd,
             )
             .map(|()| fd)?
@@ -104,8 +79,7 @@ pub fn fd_pipe_internal(
             read_rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
-            0,
-            rx_inode,
+            Kind::PipeRx { rx },
         )?
     };
 
@@ -117,8 +91,7 @@ pub fn fd_pipe_internal(
                 write_rights,
                 Fdflags::empty(),
                 Fdflagsext::empty(),
-                0,
-                tx_inode,
+                Kind::PipeTx { tx },
                 fd,
             )
             .map(|()| fd)?
@@ -128,8 +101,7 @@ pub fn fd_pipe_internal(
             write_rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
-            0,
-            tx_inode,
+            Kind::PipeTx { tx },
         )?
     };
 

@@ -33,7 +33,6 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasix_types::wasi::{
     Disposition, Errno, Fd as WasiFd, Rights, Signal, Snapshot0Clockid,
 };
@@ -44,34 +43,12 @@ pub use self::{
     func_env::WasiFunctionEnv,
     types::*,
 };
-pub use crate::fs::{InodeGuard, InodeWeakGuard};
-use crate::{
-    fs::{WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard, fs_error_into_wasi_err},
-    syscalls::types::*,
-    utils::WasiParkingLot,
-};
+use crate::{fs::WasiFs, syscalls::types::*, utils::WasiParkingLot};
 pub(crate) use handles::*;
 pub(crate) use linker::*;
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
-
-#[allow(dead_code)]
-struct WasiStateOpener {
-    root_fs: WasiFsRoot,
-}
-
-impl FileOpener for WasiStateOpener {
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        let mut new_options = self.root_fs.new_open_options();
-        new_options.options(conf.clone());
-        new_options.open(path)
-    }
-}
 
 /// Represents a futex which will make threads wait for completion in a more
 /// CPU efficient manner
@@ -133,7 +110,6 @@ pub(crate) struct WasiState {
     pub secret: [u8; 32],
 
     pub fs: WasiFs,
-    pub inodes: WasiInodes,
     pub futexs: Mutex<WasiFutexState>,
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Mutex<Vec<String>>,
@@ -163,53 +139,6 @@ impl WasiState {
 
 // Implementations of direct to FS calls so that we can easily change their implementation
 impl WasiState {
-    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
-        &self,
-        path: P,
-    ) -> Result<virtual_fs::ReadDir, Errno> {
-        self.fs
-            .root_fs
-            .read_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .create_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .remove_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) async fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
-        &self,
-        from: P,
-        to: Q,
-    ) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .rename(from.as_ref(), to.as_ref())
-            .await
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .remove_file(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_new_open_options(&self) -> OpenOptions<'_> {
-        self.fs.root_fs.new_open_options()
-    }
-
     /// Turn the WasiState into bytes
     #[cfg(feature = "enable-serde")]
     pub fn freeze(&self) -> Option<Vec<u8>> {
@@ -222,41 +151,11 @@ impl WasiState {
         bincode::deserialize(bytes).ok()
     }
 
-    /// Get the `VirtualFile` object at stdout
-    pub fn stdout(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.std_dev_get(__WASI_STDOUT_FILENO)
-    }
-
-    /// Get the `VirtualFile` object at stderr
-    pub fn stderr(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.std_dev_get(__WASI_STDERR_FILENO)
-    }
-
-    /// Get the `VirtualFile` object at stdin
-    pub fn stdin(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.std_dev_get(__WASI_STDIN_FILENO)
-    }
-
-    /// Internal helper function to get a standard device handle.
-    /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    fn std_dev_get(
-        &self,
-        fd: WasiFd,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        let ret = WasiStateFileGuard::new(self, fd)?.map(|a| {
-            let ret = Box::new(a);
-            let ret: Box<dyn VirtualFile + Send + Sync + 'static> = ret;
-            ret
-        });
-        Ok(ret)
-    }
-
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
         WasiState {
             fs: self.fs.fork(),
             secret: self.secret,
-            inodes: self.inodes.clone(),
             futexs: Default::default(),
             clock_offset: Mutex::new(self.clock_offset.lock().unwrap().clone()),
             args: Mutex::new(self.args.lock().unwrap().clone()),

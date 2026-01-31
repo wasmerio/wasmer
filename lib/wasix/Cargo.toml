@@ -22,9 +22,13 @@ wasmer = { path = "../api", version = "=7.0.0", default-features = false, featur
 	"experimental-async",
 ] }
 virtual-mio = { path = "../virtual-io", version = "0.700.0", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.700.0", default-features = false, features = [
-	"webc-fs",
-] }
+vfs-core = { path = "../../vfs/core", version = "0.700.0" }
+vfs-host = { path = "../../vfs/host", version = "0.700.0" }
+vfs-mem = { path = "../../vfs/mem", version = "0.700.0" }
+vfs-overlay = { path = "../../vfs/overlay", version = "0.700.0" }
+vfs-unix = { path = "../../vfs/unix", version = "0.700.0" }
+vfs-rt = { path = "../../vfs/rt", version = "0.700.0", features = ["tokio"] }
+vfs-webc = { path = "../../vfs/webc", version = "0.700.0" }
 virtual-net = { path = "../virtual-net", version = "0.700.0", default-features = false, features = [
 	"rkyv",
 ] }
@@ -237,7 +241,6 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 compiler = []
 
 js = [
-	"virtual-fs/js",
 	"getrandom/js",
 	"chrono",
 	"js-sys",
@@ -255,17 +258,12 @@ test-js = ["js", "wasmer/wat"]
 host-vnet = ["virtual-net/host-net"]
 host-threads = []
 host-reqwest = ["reqwest"]
-host-fs = ["virtual-fs/host-fs"]
+host-fs = []
 remote-vnet = ["virtual-net/remote"]
 
 logging = ["tracing/log"]
 disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
-enable-serde = [
-	"typetag",
-	"virtual-fs/enable-serde",
-	"wasmer-wasix-types/enable-serde",
-	"wasmer/enable-serde",
-]
+enable-serde = ["typetag", "wasmer-wasix-types/enable-serde", "wasmer/enable-serde"]
 
 [package.metadata.docs.rs]
 features = [

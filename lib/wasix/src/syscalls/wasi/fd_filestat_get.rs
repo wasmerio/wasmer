@@ -1,3 +1,5 @@
+use vfs_unix::{errno::vfs_error_to_wasi_errno, vfs_filetype_to_wasi};
+
 use super::*;
 use crate::syscalls::*;
 use crate::types::wasi::Snapshot0Filestat;
@@ -49,13 +51,119 @@ pub(crate) fn fd_filestat_get_internal(
     fd: WasiFd,
 ) -> Result<Filestat, Errno> {
     let env = ctx.data();
-    let (_, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (_, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let fd_entry = state.fs.get_fd(fd)?;
     if !fd_entry.inner.rights.contains(Rights::FD_FILESTAT_GET) {
         return Err(Errno::Access);
     }
 
-    state.fs.filestat_fd(fd)
+    let timespec_to_timestamp = |ts: vfs_core::VfsTimespec| -> Timestamp {
+        if ts.secs < 0 {
+            0
+        } else {
+            (ts.secs as u64)
+                .saturating_mul(1_000_000_000)
+                .saturating_add(ts.nanos as u64)
+        }
+    };
+
+    match fd_entry.kind {
+        Kind::VfsFile { handle } => {
+            let handle = handle.clone();
+            let meta = __asyncify_light(env, None, async move {
+                handle
+                    .get_metadata()
+                    .await
+                    .map_err(|err| vfs_error_to_wasi_errno(&err))
+            })
+            .map_err(|_| Errno::Io)?
+            .map_err(|err| err)?;
+
+            Ok(Filestat {
+                st_dev: 0,
+                st_ino: meta.inode.backend.get(),
+                st_filetype: vfs_filetype_to_wasi(meta.file_type),
+                st_nlink: meta.nlink,
+                st_size: meta.size,
+                st_atim: timespec_to_timestamp(meta.atime),
+                st_mtim: timespec_to_timestamp(meta.mtime),
+                st_ctim: timespec_to_timestamp(meta.ctime),
+            })
+        }
+        Kind::VfsDir { handle } => {
+            let handle = handle.clone();
+            let meta = __asyncify_light(env, None, async move {
+                handle
+                    .node()
+                    .metadata()
+                    .await
+                    .map_err(|err| vfs_error_to_wasi_errno(&err))
+            })
+            .map_err(|_| Errno::Io)?
+            .map_err(|err| err)?;
+
+            Ok(Filestat {
+                st_dev: 0,
+                st_ino: meta.inode.backend.get(),
+                st_filetype: vfs_filetype_to_wasi(meta.file_type),
+                st_nlink: meta.nlink,
+                st_size: meta.size,
+                st_atim: timespec_to_timestamp(meta.atime),
+                st_mtim: timespec_to_timestamp(meta.mtime),
+                st_ctim: timespec_to_timestamp(meta.ctime),
+            })
+        }
+        Kind::Stdin { .. } | Kind::Stdout { .. } | Kind::Stderr { .. } => Ok(Filestat {
+            st_dev: 0,
+            st_ino: 0,
+            st_filetype: Filetype::CharacterDevice,
+            st_nlink: 1,
+            st_size: 0,
+            st_atim: 0,
+            st_mtim: 0,
+            st_ctim: 0,
+        }),
+        Kind::Socket { .. } => Ok(Filestat {
+            st_dev: 0,
+            st_ino: 0,
+            st_filetype: Filetype::SocketStream,
+            st_nlink: 1,
+            st_size: 0,
+            st_atim: 0,
+            st_mtim: 0,
+            st_ctim: 0,
+        }),
+        Kind::PipeRx { .. } | Kind::PipeTx { .. } | Kind::DuplexPipe { .. } => Ok(Filestat {
+            st_dev: 0,
+            st_ino: 0,
+            st_filetype: Filetype::Unknown,
+            st_nlink: 1,
+            st_size: 0,
+            st_atim: 0,
+            st_mtim: 0,
+            st_ctim: 0,
+        }),
+        Kind::EventNotifications { .. } | Kind::Epoll { .. } => Ok(Filestat {
+            st_dev: 0,
+            st_ino: 0,
+            st_filetype: Filetype::Unknown,
+            st_nlink: 1,
+            st_size: 0,
+            st_atim: 0,
+            st_mtim: 0,
+            st_ctim: 0,
+        }),
+        Kind::Buffer { buffer } => Ok(Filestat {
+            st_dev: 0,
+            st_ino: 0,
+            st_filetype: Filetype::RegularFile,
+            st_nlink: 1,
+            st_size: buffer.len() as u64,
+            st_atim: 0,
+            st_mtim: 0,
+            st_ctim: 0,
+        }),
+    }
 }
 
 /// ### `fd_filestat_get_old()`

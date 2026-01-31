@@ -1,7 +1,5 @@
-use virtual_fs::AsyncReadExt;
-
 use super::*;
-use crate::{WasiInodes, net::socket::TimeType, syscalls::*};
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_send_file()`
 /// Sends the entire contents of a file down a socket
@@ -57,175 +55,80 @@ pub(crate) fn sock_send_file_internal(
     mut count: Filesize,
 ) -> Result<Result<Filesize, Errno>, WasiError> {
     let mut env = ctx.data();
-    let net = env.net();
-    let tasks = env.tasks().clone();
     let state = env.state.clone();
-
-    // Set the offset of the file
-    {
-        let mut fd_map = state.fs.fd_map.write().unwrap();
-        let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(in_fd).ok_or(Errno::Badf));
-        fd_entry.offset.store(offset, Ordering::Release);
-    }
+    let tasks = env.tasks().clone();
 
     // Enter a loop that will process all the data
     let mut total_written: Filesize = 0;
-    while (count > 0) {
-        let sub_count = count.min(4096);
-        count -= sub_count;
+    while count > 0 {
+        let sub_count = count.min(4096) as usize;
+        count -= sub_count as u64;
 
         let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(in_fd));
-        let fd_flags = fd_entry.inner.flags;
+        if !fd_entry.is_stdio && !fd_entry.inner.rights.contains(Rights::FD_READ) {
+            return Ok(Err(Errno::Access));
+        }
 
-        let data = {
-            match in_fd {
-                __WASI_STDIN_FILENO => {
-                    let mut stdin = wasi_try_ok_ok!(
-                        WasiInodes::stdin_mut(&state.fs.fd_map).map_err(fs_error_into_wasi_err)
-                    );
-                    let data = wasi_try_ok_ok!(__asyncify(ctx, None, async move {
-                        // TODO: optimize with MaybeUninit
-                        let mut buf = vec![0u8; sub_count as usize];
-                        let amt = stdin.read(&mut buf[..]).await.map_err(map_io_err)?;
-                        buf.truncate(amt);
-                        Ok(buf)
-                    })?);
-                    env = ctx.data();
-                    data
-                }
-                __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => return Ok(Err(Errno::Inval)),
-                _ => {
-                    if !fd_entry.inner.rights.contains(Rights::FD_READ) {
-                        // TODO: figure out the error to return when lacking rights
-                        return Ok(Err(Errno::Access));
-                    }
-
-                    let offset = fd_entry.inner.offset.load(Ordering::Acquire) as usize;
-                    let inode = fd_entry.inode;
-                    let data = {
-                        let mut guard = inode.write();
-                        match guard.deref_mut() {
-                            Kind::File { handle, .. } => {
-                                if let Some(handle) = handle {
-                                    let data =
-                                        wasi_try_ok_ok!(__asyncify(ctx, None, async move {
-                                            let mut buf = vec![0u8; sub_count as usize];
-
-                                            let mut handle = handle.write().unwrap();
-                                            handle
-                                                .seek(std::io::SeekFrom::Start(offset as u64))
-                                                .await
-                                                .map_err(map_io_err)?;
-                                            let amt = handle
-                                                .read(&mut buf[..])
-                                                .await
-                                                .map_err(map_io_err)?;
-                                            buf.truncate(amt);
-                                            Ok(buf)
-                                        })?);
-                                    env = ctx.data();
-                                    data
-                                } else {
-                                    return Ok(Err(Errno::Inval));
-                                }
-                            }
-                            Kind::Socket { socket, .. } => {
-                                let socket = socket.clone();
-                                let tasks = tasks.clone();
-                                drop(guard);
-
-                                let read_timeout = socket
-                                    .opt_time(TimeType::WriteTimeout)
-                                    .ok()
-                                    .flatten()
-                                    .unwrap_or(Duration::from_secs(30));
-
-                                let data = wasi_try_ok_ok!(__asyncify(ctx, None, async {
-                                    let mut buf = Vec::with_capacity(sub_count as usize);
-                                    unsafe {
-                                        buf.set_len(sub_count as usize);
-                                    }
-                                    socket
-                                        .recv(
-                                            tasks.deref(),
-                                            &mut buf,
-                                            Some(read_timeout),
-                                            false,
-                                            false,
-                                        )
-                                        .await
-                                        .map(|amt| {
-                                            unsafe {
-                                                buf.set_len(amt);
-                                            }
-                                            let buf: Vec<u8> = unsafe { std::mem::transmute(buf) };
-                                            buf
-                                        })
-                                })?);
-                                env = ctx.data();
-                                data
-                            }
-                            Kind::PipeRx { rx } => {
-                                let data = wasi_try_ok_ok!(__asyncify(ctx, None, async move {
-                                    // TODO: optimize with MaybeUninit
-                                    let mut buf = vec![0u8; sub_count as usize];
-                                    let amt = virtual_fs::AsyncReadExt::read(rx, &mut buf[..])
-                                        .await
-                                        .map_err(map_io_err)?;
-                                    buf.truncate(amt);
-                                    Ok(buf)
-                                })?);
-                                env = ctx.data();
-                                data
-                            }
-                            Kind::DuplexPipe { pipe } => {
-                                let data = wasi_try_ok_ok!(__asyncify(ctx, None, async move {
-                                    // TODO: optimize with MaybeUninit
-                                    let mut buf = vec![0u8; sub_count as usize];
-                                    let amt = virtual_fs::AsyncReadExt::read(pipe, &mut buf[..])
-                                        .await
-                                        .map_err(map_io_err)?;
-                                    buf.truncate(amt);
-                                    Ok(buf)
-                                })?);
-                                env = ctx.data();
-                                data
-                            }
-                            Kind::PipeTx { .. }
-                            | Kind::Epoll { .. }
-                            | Kind::EventNotifications { .. } => {
-                                return Ok(Err(Errno::Inval));
-                            }
-                            Kind::Dir { .. } | Kind::Root { .. } => {
-                                return Ok(Err(Errno::Isdir));
-                            }
-                            Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
-                            Kind::Buffer { buffer } => {
-                                // TODO: optimize with MaybeUninit
-                                let mut buf = vec![0u8; sub_count as usize];
-
-                                let mut buf_read = &buffer[offset..];
-                                let amt = wasi_try_ok_ok!(
-                                    std::io::Read::read(&mut buf_read, &mut buf[..])
-                                        .map_err(map_io_err)
-                                );
-                                buf.truncate(amt);
-                                buf
-                            }
-                        }
-                    };
-
-                    // reborrow
-                    let mut fd_map = state.fs.fd_map.write().unwrap();
-                    let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(in_fd).ok_or(Errno::Badf));
-                    fd_entry
-                        .offset
-                        .fetch_add(data.len() as u64, Ordering::AcqRel);
-
-                    data
+        let data = match fd_entry.kind {
+            Kind::VfsFile { handle } => {
+                let handle = handle.clone();
+                let base_offset = offset + total_written;
+                let read = wasi_try_ok_ok!(__asyncify_light(env, None, async move {
+                    let mut buf = vec![0u8; sub_count];
+                    let read = handle
+                        .pread_at(base_offset as u64, &mut buf)
+                        .await
+                        .map_err(|err| vfs_unix::errno::vfs_error_to_wasi_errno(&err))?;
+                    buf.truncate(read);
+                    Ok(buf)
+                })?);
+                read
+            }
+            Kind::Stdin { handle } => {
+                let handle = handle.clone();
+                let read = wasi_try_ok_ok!(__asyncify_light(env, None, async move {
+                    let mut buf = vec![0u8; sub_count];
+                    let read = handle.read(&mut buf).await?;
+                    buf.truncate(read);
+                    Ok(buf)
+                })?);
+                read
+            }
+            Kind::PipeRx { rx } => {
+                let rx = rx.clone();
+                let read = wasi_try_ok_ok!(__asyncify_light(env, None, async move {
+                    let mut buf = vec![0u8; sub_count];
+                    let read = rx.read(&mut buf).await?;
+                    buf.truncate(read);
+                    Ok(buf)
+                })?);
+                read
+            }
+            Kind::DuplexPipe { pipe } => {
+                let pipe = pipe.clone();
+                let read = wasi_try_ok_ok!(__asyncify_light(env, None, async move {
+                    let mut buf = vec![0u8; sub_count];
+                    let read = pipe.read(&mut buf).await?;
+                    buf.truncate(read);
+                    Ok(buf)
+                })?);
+                read
+            }
+            Kind::Buffer { buffer } => {
+                let start = (offset + total_written) as usize;
+                if start >= buffer.len() {
+                    Vec::new()
+                } else {
+                    let end = (start + sub_count).min(buffer.len());
+                    buffer[start..end].to_vec()
                 }
             }
+            _ => return Ok(Err(Errno::Inval)),
         };
+
+        if data.is_empty() {
+            break;
+        }
 
         // Write it down to the socket
         let tasks = ctx.data().tasks().clone();
@@ -244,8 +147,6 @@ pub(crate) fn sock_send_file_internal(
                     .await
             },
         ));
-        env = ctx.data();
-
         total_written += bytes_written as u64;
     }
 

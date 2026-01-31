@@ -12,10 +12,10 @@ pub fn getcwd<M: MemorySize>(
     path_len: WasmPtr<M::Offset, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
-    let (_, cur_dir) = wasi_try!(state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD));
-    Span::current().record("path", cur_dir.as_str());
+    let cur_dir = state.fs.current_dir();
+    Span::current().record("path", String::from_utf8_lossy(cur_dir.as_bytes()).as_ref());
 
     let max_path_len = wasi_try_mem!(path_len.read(&memory));
     let max_path_len64: u64 = max_path_len.into();
@@ -26,18 +26,18 @@ pub fn getcwd<M: MemorySize>(
     };
     Span::current().record("max_path_len", max_path_len64);
 
-    let cur_dir = cur_dir.as_bytes();
-    wasi_try_mem!(path_len.write(&memory, wasi_try!(to_offset::<M>(cur_dir.len()))));
-    if cur_dir.len() as u64 > max_path_len64 {
+    let cur_dir_bytes = cur_dir.as_bytes();
+    wasi_try_mem!(path_len.write(&memory, wasi_try!(to_offset::<M>(cur_dir_bytes.len()))));
+    if cur_dir_bytes.len() as u64 > max_path_len64 {
         return Errno::Range;
     }
 
     if let Some(path_slice) = path_slice {
         let cur_dir = {
             let mut u8_buffer = vec![0; max_path_len64 as usize];
-            let cur_dir_len = cur_dir.len();
+            let cur_dir_len = cur_dir_bytes.len();
             if (cur_dir_len as u64) <= max_path_len64 {
-                u8_buffer[..cur_dir_len].clone_from_slice(cur_dir);
+                u8_buffer[..cur_dir_len].clone_from_slice(cur_dir_bytes);
             } else {
                 return Errno::Range;
             }

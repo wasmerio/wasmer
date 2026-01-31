@@ -18,8 +18,23 @@ pub fn fd_fdstat_get<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    let stat = wasi_try_ok!(state.fs.fdstat(fd));
+    let (memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
+    let filetype = match fd_entry.kind {
+        Kind::VfsFile { .. } => Filetype::RegularFile,
+        Kind::VfsDir { .. } => Filetype::Directory,
+        Kind::Stdin { .. } | Kind::Stdout { .. } | Kind::Stderr { .. } => Filetype::CharacterDevice,
+        Kind::Socket { .. } => Filetype::SocketStream,
+        Kind::PipeRx { .. } | Kind::PipeTx { .. } | Kind::DuplexPipe { .. } => Filetype::Unknown,
+        Kind::EventNotifications { .. } | Kind::Epoll { .. } => Filetype::Unknown,
+        Kind::Buffer { .. } => Filetype::RegularFile,
+    };
+    let stat = Fdstat {
+        fs_filetype: filetype,
+        fs_flags: fd_entry.inner.flags,
+        fs_rights_base: fd_entry.inner.rights,
+        fs_rights_inheriting: fd_entry.inner.rights_inheriting,
+    };
 
     let buf = buf_ptr.deref(&memory);
 

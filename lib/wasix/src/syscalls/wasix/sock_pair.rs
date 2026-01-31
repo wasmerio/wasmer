@@ -1,4 +1,6 @@
-use virtual_fs::Pipe;
+use std::sync::Arc;
+
+use crate::fs::DuplexPipe;
 
 use super::*;
 use crate::{
@@ -71,7 +73,7 @@ pub fn sock_pair<M: MemorySize>(
     }
 
     let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, _state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     wasi_try_mem_ok!(ro_sock1.write(&memory, fd1));
     wasi_try_mem_ok!(ro_sock2.write(&memory, fd2));
 
@@ -84,21 +86,10 @@ pub(crate) fn sock_pair_internal(
     with_fd2: Option<WasiFd>,
 ) -> Result<(WasiFd, WasiFd), Errno> {
     let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    let (end1, end2) = Pipe::channel();
-
-    let inode1 = state.fs.create_inode_with_default_stat(
-        inodes,
-        Kind::DuplexPipe { pipe: end1 },
-        false,
-        "socketpair".into(),
-    );
-    let inode2 = state.fs.create_inode_with_default_stat(
-        inodes,
-        Kind::DuplexPipe { pipe: end2 },
-        false,
-        "socketpair".into(),
-    );
+    let (_memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let (end1, end2) = tokio::io::duplex(64 * 1024);
+    let pipe1 = Arc::new(DuplexPipe::new(end1));
+    let pipe2 = Arc::new(DuplexPipe::new(end2));
 
     let rights = Rights::all_socket();
     let fd1 = if let Some(fd) = with_fd1 {
@@ -109,8 +100,7 @@ pub(crate) fn sock_pair_internal(
                 rights,
                 Fdflags::empty(),
                 Fdflagsext::empty(),
-                0,
-                inode1,
+                Kind::DuplexPipe { pipe: pipe1 },
                 fd,
             )
             .map(|_| fd)?
@@ -120,8 +110,7 @@ pub(crate) fn sock_pair_internal(
             rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
-            0,
-            inode1,
+            Kind::DuplexPipe { pipe: pipe1 },
         )?
     };
     let fd2 = if let Some(fd) = with_fd2 {
@@ -132,8 +121,7 @@ pub(crate) fn sock_pair_internal(
                 rights,
                 Fdflags::empty(),
                 Fdflagsext::empty(),
-                0,
-                inode2,
+                Kind::DuplexPipe { pipe: pipe2 },
                 fd,
             )
             .map(|_| fd)?
@@ -143,8 +131,7 @@ pub(crate) fn sock_pair_internal(
             rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
-            0,
-            inode2,
+            Kind::DuplexPipe { pipe: pipe2 },
         )?
     };
     Span::current().record("end1", fd1);

@@ -5,7 +5,7 @@ use crate::{
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
     bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand},
     capabilities::Capabilities,
-    fs::{WasiFsRoot, WasiInodes},
+    fs::{Stdio, WasiFs},
     import_object_for_all_wasi_versions,
     os::task::{
         control_plane::ControlPlaneError,
@@ -24,7 +24,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use virtual_fs::{FileSystem, FsError, VirtualFile};
 use virtual_mio::block_on;
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
@@ -35,13 +34,14 @@ use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
 use wasmer_wasix_types::{
     types::Signal,
-    wasi::{Errno, ExitCode, Snapshot0Clockid},
+    wasi::{Errno, ExitCode, Fdflags, Fdflagsext, Rights, Snapshot0Clockid},
     wasix::ThreadStartType,
 };
 use webc::metadata::annotations::Wasi;
 
 pub use super::handles::*;
 use super::{Linker, WasiState, context_switching::ContextSwitchingEnvironment, conv_env_vars};
+use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -82,18 +82,10 @@ pub struct WasiEnvInit {
 
 impl WasiEnvInit {
     pub fn duplicate(&self) -> Self {
-        let inodes = WasiInodes::new();
-
-        // TODO: preserve preopens?
-        let fs =
-            crate::fs::WasiFs::new_with_preopen(&inodes, &[], &[], self.state.fs.root_fs.clone())
-                .unwrap();
-
         Self {
             state: WasiState {
                 secret: rand::thread_rng().r#gen::<[u8; 32]>(),
-                inodes,
-                fs,
+                fs: self.state.fs.fork(),
                 futexs: Default::default(),
                 clock_offset: std::sync::Mutex::new(
                     self.state.clock_offset.lock().unwrap().clone(),
@@ -283,26 +275,74 @@ impl WasiEnv {
         // file descriptors which would have been destroyed when the
         // main thread exited
         if !self.disable_fs_cleanup {
-            // First we clear any open files as the descriptors would
-            // otherwise clash
-            if let Ok(mut map) = self.state.fs.fd_map.write() {
-                map.clear();
-            }
-            self.state.fs.preopen_fds.write().unwrap().clear();
-            *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
+            let stdin = self
+                .state
+                .fs
+                .get_fd(__WASI_STDIN_FILENO)
+                .ok()
+                .and_then(|entry| match entry.kind {
+                    crate::fs::Kind::Stdin { handle } => Some(handle),
+                    _ => None,
+                })
+                .unwrap_or_else(|| Arc::new(Stdio::stdin()));
+            let stdout = self
+                .state
+                .fs
+                .get_fd(__WASI_STDOUT_FILENO)
+                .ok()
+                .and_then(|entry| match entry.kind {
+                    crate::fs::Kind::Stdout { handle } => Some(handle),
+                    _ => None,
+                })
+                .unwrap_or_else(|| Arc::new(Stdio::stdout()));
+            let stderr = self
+                .state
+                .fs
+                .get_fd(__WASI_STDERR_FILENO)
+                .ok()
+                .and_then(|entry| match entry.kind {
+                    crate::fs::Kind::Stderr { handle } => Some(handle),
+                    _ => None,
+                })
+                .unwrap_or_else(|| Arc::new(Stdio::stderr()));
 
-            // We need to rebuild the basic file descriptors
-            self.state.fs.create_stdin(&self.state.inodes);
-            self.state.fs.create_stdout(&self.state.inodes);
-            self.state.fs.create_stderr(&self.state.inodes);
+            self.state.fs.fd_table.write().unwrap().clear();
+            self.state.fs.preopen_fds.write().unwrap().clear();
+            self.state.fs.set_current_dir("/");
+
             self.state
                 .fs
-                .create_rootfd()
-                .map_err(WasiStateCreationError::WasiFsSetupError)?;
+                .with_fd(
+                    Rights::FD_READ | Rights::POLL_FD_READWRITE,
+                    Rights::empty(),
+                    Fdflags::empty(),
+                    Fdflagsext::empty(),
+                    crate::fs::Kind::Stdin { handle: stdin },
+                    __WASI_STDIN_FILENO,
+                )
+                .map_err(|err| WasiStateCreationError::WasiFsSetupError(format!("{err:?}")))?;
             self.state
                 .fs
-                .create_preopens(&self.state.inodes, true)
-                .map_err(WasiStateCreationError::WasiFsSetupError)?;
+                .with_fd(
+                    Rights::FD_WRITE | Rights::POLL_FD_READWRITE,
+                    Rights::empty(),
+                    Fdflags::APPEND,
+                    Fdflagsext::empty(),
+                    crate::fs::Kind::Stdout { handle: stdout },
+                    __WASI_STDOUT_FILENO,
+                )
+                .map_err(|err| WasiStateCreationError::WasiFsSetupError(format!("{err:?}")))?;
+            self.state
+                .fs
+                .with_fd(
+                    Rights::FD_WRITE | Rights::POLL_FD_READWRITE,
+                    Rights::empty(),
+                    Fdflags::APPEND,
+                    Fdflagsext::empty(),
+                    crate::fs::Kind::Stderr { handle: stderr },
+                    __WASI_STDERR_FILENO,
+                )
+                .map_err(|err| WasiStateCreationError::WasiFsSetupError(format!("{err:?}")))?;
         }
 
         // The process and thread state need to be reset
@@ -592,8 +632,8 @@ impl WasiEnv {
         self.runtime.task_manager()
     }
 
-    pub fn fs_root(&self) -> &WasiFsRoot {
-        &self.state.fs.root_fs
+    pub fn fs(&self) -> &WasiFs {
+        &self.state.fs
     }
 
     /// Overrides the runtime implementation for this environment
@@ -921,19 +961,37 @@ impl WasiEnv {
         &self.state
     }
 
-    /// Get the `VirtualFile` object at stdout
-    pub fn stdout(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.state.stdout()
+    /// Get the stdio handle at stdout.
+    pub fn stdout(&self) -> Option<Arc<Stdio>> {
+        match self.state.fs.get_fd(__WASI_STDOUT_FILENO).ok() {
+            Some(entry) => match entry.kind {
+                crate::fs::Kind::Stdout { handle } => Some(handle),
+                _ => None,
+            },
+            None => None,
+        }
     }
 
-    /// Get the `VirtualFile` object at stderr
-    pub fn stderr(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.state.stderr()
+    /// Get the stdio handle at stderr.
+    pub fn stderr(&self) -> Option<Arc<Stdio>> {
+        match self.state.fs.get_fd(__WASI_STDERR_FILENO).ok() {
+            Some(entry) => match entry.kind {
+                crate::fs::Kind::Stderr { handle } => Some(handle),
+                _ => None,
+            },
+            None => None,
+        }
     }
 
-    /// Get the `VirtualFile` object at stdin
-    pub fn stdin(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.state.stdin()
+    /// Get the stdio handle at stdin.
+    pub fn stdin(&self) -> Option<Arc<Stdio>> {
+        match self.state.fs.get_fd(__WASI_STDIN_FILENO).ok() {
+            Some(entry) => match entry.kind {
+                crate::fs::Kind::Stdin { handle } => Some(handle),
+                _ => None,
+            },
+            None => None,
+        }
     }
 
     /// Returns true if the process should perform snapshots or not
@@ -976,11 +1034,13 @@ impl WasiEnv {
 
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    pub fn std_dev_get(
-        &self,
-        fd: crate::syscalls::WasiFd,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.state.std_dev_get(fd)
+    pub fn std_dev_get(&self, fd: crate::syscalls::WasiFd) -> Option<Arc<Stdio>> {
+        match fd {
+            __WASI_STDIN_FILENO => self.stdin(),
+            __WASI_STDOUT_FILENO => self.stdout(),
+            __WASI_STDERR_FILENO => self.stderr(),
+            _ => None,
+        }
     }
 
     /// Unsafe:
@@ -998,26 +1058,8 @@ impl WasiEnv {
         (memory, state)
     }
 
-    /// Unsafe:
-    ///
-    /// This will access the memory of the WASM process and create a view into it which is
-    /// inherently unsafe as it could corrupt the memory. Also accessing the memory is not
-    /// thread safe.
-    pub(crate) unsafe fn get_memory_and_wasi_state_and_inodes<'a>(
-        &'a self,
-        store: &'a impl AsStoreRef,
-        _mem_index: u32,
-    ) -> (MemoryView<'a>, &'a WasiState, &'a WasiInodes) {
-        let memory = unsafe { self.memory_view(store) };
-        let state = self.state.deref();
-        let inodes = &state.inodes;
-        (memory, state, inodes)
-    }
-
-    pub(crate) fn get_wasi_state_and_inodes(&self) -> (&WasiState, &WasiInodes) {
-        let state = self.state.deref();
-        let inodes = &state.inodes;
-        (state, inodes)
+    pub(crate) fn get_wasi_state(&self) -> &WasiState {
+        self.state.deref()
     }
 
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
@@ -1030,17 +1072,14 @@ impl WasiEnv {
     /// The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
     /// `/bin/command`.
     ///
-    /// This will also merge the command's filesystem
-    /// ([`BinaryPackage::webc_fs`][pkg-fs]) into the current filesystem.
+    /// This will also merge the command's filesystem into the current filesystem.
     ///
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
-    /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
     pub async fn use_package_async(
         &self,
         pkg: &BinaryPackage,
     ) -> Result<(), WasiStateCreationError> {
         tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
-        let root_fs = &self.state.fs.root_fs;
 
         // We first need to merge the filesystem in the package into the
         // main file system, if it has not been merged already.
@@ -1054,104 +1093,14 @@ impl WasiEnv {
         // Next, make sure all commands will be available
 
         if !pkg.commands.is_empty() {
-            let _ = root_fs.create_dir(Path::new("/bin"));
-            let _ = root_fs.create_dir(Path::new("/usr"));
-            let _ = root_fs.create_dir(Path::new("/usr/bin"));
-
-            for command in &pkg.commands {
-                let path = format!("/bin/{}", command.name());
-                let path2 = format!("/usr/bin/{}", command.name());
-                let path = Path::new(path.as_str());
-                let path2 = Path::new(path2.as_str());
-
-                let atom = command.atom();
-
-                match root_fs {
-                    WasiFsRoot::Sandbox(root_fs) => {
-                        if let Err(err) = root_fs
-                            .new_open_options_ext()
-                            .insert_ro_file(path, atom.clone())
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                    }
-                    WasiFsRoot::Overlay(ofs) => {
-                        let root_fs = ofs.primary();
-
-                        if let Err(err) = root_fs
-                            .new_open_options_ext()
-                            .insert_ro_file(path, atom.clone())
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                    }
-                    WasiFsRoot::Backing(fs) => {
-                        // FIXME: we're counting on the fs being a mem_fs here. Otherwise, memory
-                        // usage will be very high.
-                        let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
-                            tracing::warn!(
-                                error = &e as &dyn std::error::Error,
-                                "Unable to copy file reference",
-                            );
-                        }
-                        let mut f = fs.new_open_options().create(true).write(true).open(path2)?;
-                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
-                            tracing::warn!(
-                                error = &e as &dyn std::error::Error,
-                                "Unable to copy file reference",
-                            );
-                        }
-                    }
-                }
-
-                let mut package = pkg.clone();
-                package.entrypoint_cmd = Some(command.name().to_string());
-                let package_arc = Arc::new(package);
-                self.bin_factory
-                    .set_binary(path.to_string_lossy().as_ref(), &package_arc);
-                self.bin_factory
-                    .set_binary(path2.to_string_lossy().as_ref(), &package_arc);
-
-                tracing::debug!(
-                    package=%pkg.id,
-                    command_name=command.name(),
-                    path=%path.display(),
-                    "Injected a command into the filesystem",
-                );
-            }
+            let package_arc = Arc::new(pkg.clone());
+            crate::fs::packages::inject_package_commands(
+                &self.state.fs,
+                &self.bin_factory,
+                package_arc,
+            )
+            .await
+            .map_err(|err| WasiStateCreationError::WasiFsSetupError(format!("{err:?}")))?;
         }
 
         Ok(())
@@ -1187,17 +1136,8 @@ impl WasiEnv {
         &self,
         map_commands: std::collections::HashMap<String, std::path::PathBuf>,
     ) -> Result<(), WasiStateCreationError> {
-        // Load all the mapped atoms
-        #[allow(unused_imports)]
-        use std::path::Path;
-
-        use shared_buffer::OwnedBuffer;
-        #[allow(unused_imports)]
-        use virtual_fs::FileSystem;
-
         #[cfg(feature = "sys")]
         for (command, target) in map_commands.iter() {
-            // Read the file
             let file = std::fs::read(target).map_err(|err| {
                 WasiStateCreationError::WasiInheritError(format!(
                     "failed to read local binary [{}] - {}",
@@ -1205,35 +1145,12 @@ impl WasiEnv {
                     err
                 ))
             })?;
-            let file = OwnedBuffer::from(file);
-
-            if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
-                let _ = root_fs.create_dir(Path::new("/bin"));
-                let _ = root_fs.create_dir(Path::new("/usr"));
-                let _ = root_fs.create_dir(Path::new("/usr/bin"));
-
-                let path = format!("/bin/{command}");
-                let path = Path::new(path.as_str());
-                if let Err(err) = root_fs
-                    .new_open_options_ext()
-                    .insert_ro_file(path, file.clone())
-                {
-                    tracing::debug!("failed to add atom command [{}] - {}", command, err);
-                    continue;
-                }
-                let path = format!("/usr/bin/{command}");
-                let path = Path::new(path.as_str());
-                if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, file) {
-                    tracing::debug!("failed to add atom command [{}] - {}", command, err);
-                    continue;
-                }
-            } else {
-                tracing::debug!(
-                    "failed to add atom command [{}] to the root file system as it is not sandboxed",
-                    command
-                );
-                continue;
-            }
+            block_on(crate::fs::packages::write_command_bytes(
+                &self.state.fs,
+                command,
+                &file,
+            ))
+            .map_err(|err| WasiStateCreationError::WasiFsSetupError(format!("{err:?}")))?;
         }
         Ok(())
     }

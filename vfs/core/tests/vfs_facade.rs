@@ -5,8 +5,8 @@ use vfs_core::mount::MountTable;
 use vfs_core::provider::{AsyncFsFromSync, VfsRuntime};
 use vfs_core::{
     AllowAllPolicy, FsAsync, FsSync, MountId, OpenFlags, OpenOptions, ReadDirOptions, ResolveFlags,
-    StatOptions, VfsBaseDir, VfsConfig, VfsContext, VfsCred, VfsDirHandle, VfsErrorKind,
-    VfsHandleId, VfsPath, VfsResult, Vfs,
+    StatOptions, Vfs, VfsBaseDir, VfsConfig, VfsContext, VfsCred, VfsDirHandle, VfsErrorKind,
+    VfsHandleId, VfsPath, VfsResult,
 };
 use vfs_mem::MemFs;
 use vfs_rt::InlineTestRuntime;
@@ -14,8 +14,7 @@ use vfs_rt::InlineTestRuntime;
 fn setup_vfs() -> (Vfs, VfsContext, Arc<MountTable>) {
     let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
     let fs_sync: Arc<dyn FsSync> = Arc::new(MemFs::new());
-    let fs_async: Arc<dyn FsAsync> =
-        Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime));
+    let fs_async: Arc<dyn FsAsync> = Arc::new(AsyncFsFromSync::new(fs_sync.clone(), runtime));
     let mount_table = Arc::new(MountTable::new(fs_sync.clone(), fs_async).expect("mount table"));
     let vfs = Vfs::new(mount_table.clone());
     let guard = mount_table
@@ -81,12 +80,7 @@ fn statat_basic() -> VfsResult<()> {
 #[test]
 fn openat_ofd_read_write() -> VfsResult<()> {
     let (vfs, ctx, _) = setup_vfs();
-    let handle = vfs.openat(
-        &ctx,
-        VfsBaseDir::Cwd,
-        VfsPath::new(b"file"),
-        open_create(),
-    )?;
+    let handle = vfs.openat(&ctx, VfsBaseDir::Cwd, VfsPath::new(b"file"), open_create())?;
     handle.write(b"hello")?;
     handle.seek(std::io::SeekFrom::Start(0))?;
     let mut buf = [0u8; 5];
@@ -257,7 +251,11 @@ fn opendirat_yields_dir_handle() -> VfsResult<()> {
         },
     )?;
     let batch = dir_handle.node().read_dir(None, 10)?;
-    let names: Vec<Vec<u8>> = batch.entries.iter().map(|e| e.name.as_bytes().to_vec()).collect();
+    let names: Vec<Vec<u8>> = batch
+        .entries
+        .iter()
+        .map(|e| e.name.as_bytes().to_vec())
+        .collect();
     assert!(names.iter().any(|name| name.as_slice() == b"file1"));
     Ok(())
 }
