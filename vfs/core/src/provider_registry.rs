@@ -1,10 +1,10 @@
 //! Filesystem provider registry.
 
 use crate::path_types::VfsPath;
-use crate::provider::{
-    FsProvider, FsProviderCapabilities, MountFlags, MountRequest, ProviderConfig,
-};
-use crate::{Fs, VfsError, VfsErrorKind, VfsResult};
+use crate::provider::{FsProviderCapabilities, MountFlags, MountRequest, ProviderConfig};
+use crate::traits_async::{FsAsync, FsProviderAsync};
+use crate::traits_sync::{FsProviderSync, FsSync};
+use crate::{VfsError, VfsErrorKind, VfsResult};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -47,7 +47,8 @@ fn normalize_provider_name(input: &str) -> VfsResult<String> {
 
 #[derive(Default)]
 pub struct FsProviderRegistry {
-    providers: RwLock<HashMap<String, Arc<dyn FsProvider>>>,
+    providers_sync: RwLock<HashMap<String, Arc<dyn FsProviderSync>>>,
+    providers_async: RwLock<HashMap<String, Arc<dyn FsProviderAsync>>>,
 }
 
 impl FsProviderRegistry {
@@ -55,18 +56,34 @@ impl FsProviderRegistry {
         Self::default()
     }
 
-    pub fn register(&self, provider: Arc<dyn FsProvider>) -> VfsResult<()> {
-        self.register_provider(provider.name(), provider)
+    pub fn register(&self, provider: Arc<dyn FsProviderSync>) -> VfsResult<()> {
+        self.register_sync(provider)
+    }
+
+    pub fn register_sync(&self, provider: Arc<dyn FsProviderSync>) -> VfsResult<()> {
+        self.register_provider_sync(provider.name(), provider)
+    }
+
+    pub fn register_async(&self, provider: Arc<dyn FsProviderAsync>) -> VfsResult<()> {
+        self.register_provider_async(provider.name(), provider)
     }
 
     pub fn register_provider(
         &self,
         name: impl AsRef<str>,
-        provider: Arc<dyn FsProvider>,
+        provider: Arc<dyn FsProviderSync>,
+    ) -> VfsResult<()> {
+        self.register_provider_sync(name, provider)
+    }
+
+    pub fn register_provider_sync(
+        &self,
+        name: impl AsRef<str>,
+        provider: Arc<dyn FsProviderSync>,
     ) -> VfsResult<()> {
         let name = normalize_provider_name(name.as_ref())?;
         let mut providers = self
-            .providers
+            .providers_sync
             .write()
             .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
 
@@ -81,10 +98,41 @@ impl FsProviderRegistry {
         Ok(())
     }
 
-    pub fn get(&self, name: &str) -> VfsResult<Option<Arc<dyn FsProvider>>> {
+    pub fn register_provider_async(
+        &self,
+        name: impl AsRef<str>,
+        provider: Arc<dyn FsProviderAsync>,
+    ) -> VfsResult<()> {
+        let name = normalize_provider_name(name.as_ref())?;
+        let mut providers = self
+            .providers_async
+            .write()
+            .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
+
+        if providers.contains_key(&name) {
+            return Err(VfsError::new(
+                VfsErrorKind::AlreadyExists,
+                "provider_registry.register_async",
+            ));
+        }
+
+        providers.insert(name, provider);
+        Ok(())
+    }
+
+    pub fn get(&self, name: &str) -> VfsResult<Option<Arc<dyn FsProviderSync>>> {
         let name = normalize_provider_name(name)?;
         let providers = self
-            .providers
+            .providers_sync
+            .read()
+            .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
+        Ok(providers.get(&name).cloned())
+    }
+
+    pub fn get_async(&self, name: &str) -> VfsResult<Option<Arc<dyn FsProviderAsync>>> {
+        let name = normalize_provider_name(name)?;
+        let providers = self
+            .providers_async
             .read()
             .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
         Ok(providers.get(&name).cloned())
@@ -92,7 +140,7 @@ impl FsProviderRegistry {
 
     pub fn list_names(&self) -> VfsResult<Vec<String>> {
         let providers = self
-            .providers
+            .providers_sync
             .read()
             .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
         let mut names: Vec<String> = providers.keys().cloned().collect();
@@ -104,7 +152,7 @@ impl FsProviderRegistry {
         let name = normalize_provider_name(name)?;
         let provider = {
             let providers = self
-                .providers
+                .providers_sync
                 .read()
                 .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
             providers.get(&name).cloned().ok_or(VfsError::new(
@@ -119,7 +167,7 @@ impl FsProviderRegistry {
         let name = normalize_provider_name(name)?;
         let provider = {
             let providers = self
-                .providers
+                .providers_sync
                 .read()
                 .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
             providers.get(&name).cloned().ok_or(VfsError::new(
@@ -134,9 +182,9 @@ impl FsProviderRegistry {
     }
 
     pub fn list_providers(&self) -> VfsResult<Vec<ProviderInfo>> {
-        let providers: Vec<(String, Arc<dyn FsProvider>)> = {
+        let providers: Vec<(String, Arc<dyn FsProviderSync>)> = {
             let providers = self
-                .providers
+                .providers_sync
                 .read()
                 .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
             providers
@@ -156,15 +204,19 @@ impl FsProviderRegistry {
         Ok(infos)
     }
 
-    /// Create an [`Fs`] instance using a registered provider.
+    /// Create an [`FsSync`] instance using a registered provider.
     ///
     /// Attaching the resulting filesystem into a mount table is handled by the mount layer
     /// (Phase 3).
-    pub fn create_fs(&self, provider_name: &str, req: MountRequest<'_>) -> VfsResult<Arc<dyn Fs>> {
+    pub fn create_fs_sync(
+        &self,
+        provider_name: &str,
+        req: MountRequest<'_>,
+    ) -> VfsResult<Arc<dyn FsSync>> {
         let provider_name = normalize_provider_name(provider_name)?;
         let provider = {
             let providers = self
-                .providers
+                .providers_sync
                 .read()
                 .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
             providers.get(&provider_name).cloned().ok_or(VfsError::new(
@@ -177,14 +229,39 @@ impl FsProviderRegistry {
         provider.mount(req)
     }
 
+    pub fn create_fs(&self, provider_name: &str, req: MountRequest<'_>) -> VfsResult<Arc<dyn FsSync>> {
+        self.create_fs_sync(provider_name, req)
+    }
+
+    pub async fn create_fs_async(
+        &self,
+        provider_name: &str,
+        req: MountRequest<'_>,
+    ) -> VfsResult<Arc<dyn FsAsync>> {
+        let provider_name = normalize_provider_name(provider_name)?;
+        let provider = {
+            let providers = self
+                .providers_async
+                .read()
+                .map_err(|_| VfsError::new(VfsErrorKind::Internal, "provider_registry.lock"))?;
+            providers.get(&provider_name).cloned().ok_or(VfsError::new(
+                VfsErrorKind::NotFound,
+                "provider_registry.get_async",
+            ))?
+        };
+
+        provider.validate_config(req.config)?;
+        provider.mount(req).await
+    }
+
     pub fn create_fs_with_provider(
         &self,
         provider_name: &str,
         config: &dyn ProviderConfig,
         target_path: &VfsPath,
         flags: MountFlags,
-    ) -> VfsResult<Arc<dyn Fs>> {
-        self.create_fs(
+    ) -> VfsResult<Arc<dyn FsSync>> {
+        self.create_fs_sync(
             provider_name,
             MountRequest {
                 target_path,
@@ -200,8 +277,26 @@ impl FsProviderRegistry {
         config: &dyn ProviderConfig,
         target_path: &VfsPath,
         flags: MountFlags,
-    ) -> VfsResult<Arc<dyn Fs>> {
+    ) -> VfsResult<Arc<dyn FsSync>> {
         self.create_fs_with_provider(provider_name, config, target_path, flags)
+    }
+
+    pub async fn mount_with_provider_async(
+        &self,
+        provider_name: &str,
+        config: &dyn ProviderConfig,
+        target_path: &VfsPath,
+        flags: MountFlags,
+    ) -> VfsResult<Arc<dyn FsAsync>> {
+        self.create_fs_async(
+            provider_name,
+            MountRequest {
+                target_path,
+                flags,
+                config,
+            },
+        )
+        .await
     }
 }
 
@@ -399,7 +494,7 @@ mod tests {
         }
 
         fn mount(&self, _req: MountRequest<'_>) -> VfsResult<Arc<dyn Fs>> {
-            assert!(self.registry.providers.try_read().is_ok());
+            assert!(self.registry.providers_sync.try_read().is_ok());
             Ok(Arc::new(DummyFs::new()))
         }
     }

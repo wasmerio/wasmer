@@ -2,7 +2,9 @@
 
 use crate::inode::make_vfs_inode;
 use crate::provider::MountFlags;
-use crate::{BackendInodeId, Fs, MountId, VfsError, VfsErrorKind, VfsInodeId, VfsResult};
+use crate::traits_async::FsAsync;
+use crate::traits_sync::FsSync;
+use crate::{BackendInodeId, MountId, VfsError, VfsErrorKind, VfsInodeId, VfsResult};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
@@ -35,7 +37,8 @@ pub struct MountEntry {
     pub parent: Option<MountId>,
     pub mountpoint: Option<VfsInodeId>,
     pub root_inode: VfsInodeId,
-    pub fs: Arc<dyn Fs>,
+    pub fs_sync: Arc<dyn FsSync>,
+    pub fs_async: Arc<dyn FsAsync>,
     pub mount_limiter: Option<Arc<dyn RateLimiter>>,
     pub fs_limiter: Option<Arc<dyn RateLimiter>>,
     pub flags: MountFlags,
@@ -49,7 +52,8 @@ impl MountEntry {
         parent: Option<MountId>,
         mountpoint: Option<VfsInodeId>,
         root_inode: VfsInodeId,
-        fs: Arc<dyn Fs>,
+        fs_sync: Arc<dyn FsSync>,
+        fs_async: Arc<dyn FsAsync>,
         mount_limiter: Option<Arc<dyn RateLimiter>>,
         fs_limiter: Option<Arc<dyn RateLimiter>>,
         flags: MountFlags,
@@ -59,7 +63,8 @@ impl MountEntry {
             parent,
             mountpoint,
             root_inode,
-            fs,
+            fs_sync,
+            fs_async,
             mount_limiter,
             fs_limiter,
             flags,
@@ -97,9 +102,9 @@ impl Clone for MountTableInner {
 }
 
 impl MountTable {
-    pub fn new(root_fs: Arc<dyn Fs>) -> VfsResult<Self> {
+    pub fn new(root_fs_sync: Arc<dyn FsSync>, root_fs_async: Arc<dyn FsAsync>) -> VfsResult<Self> {
         let root_id = MountId::from_index(0);
-        let root_node = root_fs.root();
+        let root_node = root_fs_sync.root();
         let root_inode = make_vfs_inode(root_id, root_node.inode());
 
         let mut mounts = Vec::with_capacity(4);
@@ -108,7 +113,8 @@ impl MountTable {
             None,
             None,
             root_inode,
-            root_fs,
+            root_fs_sync,
+            root_fs_async,
             None,
             None,
             MountFlags::empty(),
@@ -150,10 +156,10 @@ impl MountTable {
     pub fn mount_root(
         inner: &MountTableInner,
         mount: MountId,
-    ) -> Option<(VfsInodeId, Arc<dyn Fs>)> {
+    ) -> Option<(VfsInodeId, Arc<dyn FsSync>)> {
         let entry = inner.mounts.get(mount.index())?.as_ref()?;
         if entry.state() == MountState::Active {
-            Some((entry.root_inode, entry.fs.clone()))
+            Some((entry.root_inode, entry.fs_sync.clone()))
         } else {
             None
         }
@@ -162,9 +168,29 @@ impl MountTable {
     pub fn mount_root_any(
         inner: &MountTableInner,
         mount: MountId,
-    ) -> Option<(VfsInodeId, Arc<dyn Fs>)> {
+    ) -> Option<(VfsInodeId, Arc<dyn FsSync>)> {
         let entry = inner.mounts.get(mount.index())?.as_ref()?;
-        Some((entry.root_inode, entry.fs.clone()))
+        Some((entry.root_inode, entry.fs_sync.clone()))
+    }
+
+    pub fn mount_root_async(
+        inner: &MountTableInner,
+        mount: MountId,
+    ) -> Option<(VfsInodeId, Arc<dyn FsAsync>)> {
+        let entry = inner.mounts.get(mount.index())?.as_ref()?;
+        if entry.state() == MountState::Active {
+            Some((entry.root_inode, entry.fs_async.clone()))
+        } else {
+            None
+        }
+    }
+
+    pub fn mount_root_any_async(
+        inner: &MountTableInner,
+        mount: MountId,
+    ) -> Option<(VfsInodeId, Arc<dyn FsAsync>)> {
+        let entry = inner.mounts.get(mount.index())?.as_ref()?;
+        Some((entry.root_inode, entry.fs_async.clone()))
     }
 
     pub fn parent_of_mount_root(
@@ -181,14 +207,16 @@ impl MountTable {
         &self,
         parent_mount: MountId,
         mountpoint_inode: VfsInodeId,
-        fs: Arc<dyn Fs>,
+        fs_sync: Arc<dyn FsSync>,
+        fs_async: Arc<dyn FsAsync>,
         root_inode: BackendInodeId,
         flags: MountFlags,
     ) -> VfsResult<MountId> {
         self.mount_with_limiters(
             parent_mount,
             mountpoint_inode,
-            fs,
+            fs_sync,
+            fs_async,
             root_inode,
             flags,
             None,
@@ -200,7 +228,8 @@ impl MountTable {
         &self,
         parent_mount: MountId,
         mountpoint_inode: VfsInodeId,
-        fs: Arc<dyn Fs>,
+        fs_sync: Arc<dyn FsSync>,
+        fs_async: Arc<dyn FsAsync>,
         root_inode: BackendInodeId,
         flags: MountFlags,
         mount_limiter: Option<Arc<dyn RateLimiter>>,
@@ -252,7 +281,8 @@ impl MountTable {
                 Some(parent_mount),
                 Some(mountpoint_inode),
                 root_inode,
-                fs,
+                fs_sync,
+                fs_async,
                 mount_limiter,
                 fs_limiter,
                 flags,

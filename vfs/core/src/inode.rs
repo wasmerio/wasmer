@@ -9,7 +9,7 @@
 //!
 //! Ids do not need to survive unmount/remount or process restarts.
 
-use crate::node::FsNode;
+use crate::node::{FsNode, FsNodeAsync};
 use crate::{BackendInodeId, MountId, VfsInodeId};
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
@@ -57,6 +57,36 @@ impl NodeRef {
 
     pub(crate) fn downgrade(&self) -> Weak<NodeRefInner> {
         Arc::downgrade(&self.inner)
+    }
+}
+
+#[derive(Clone)]
+pub struct NodeRefAsync {
+    inner: Arc<NodeRefAsyncInner>,
+}
+
+struct NodeRefAsyncInner {
+    mount: MountId,
+    node: Arc<dyn FsNodeAsync>,
+}
+
+impl NodeRefAsync {
+    pub fn new(mount: MountId, node: Arc<dyn FsNodeAsync>) -> Self {
+        Self {
+            inner: Arc::new(NodeRefAsyncInner { mount, node }),
+        }
+    }
+
+    pub fn mount(&self) -> MountId {
+        self.inner.mount
+    }
+
+    pub fn node(&self) -> &Arc<dyn FsNodeAsync> {
+        &self.inner.node
+    }
+
+    pub fn inode_id(&self) -> VfsInodeId {
+        make_vfs_inode(self.inner.mount, self.inner.node.inode())
     }
 }
 

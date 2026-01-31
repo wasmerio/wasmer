@@ -9,3 +9,9 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+futures.workspace = true
+vfs-core = { path = "../core" }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"], optional = true }
+
+[features]
+tokio = ["dep:tokio"]

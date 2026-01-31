@@ -1,5 +1,5 @@
 use crate::policy::VfsPolicy;
-use crate::{VfsDirHandle, VfsGid, VfsHandleId, VfsUid};
+use crate::{VfsDirHandle, VfsDirHandleAsync, VfsGid, VfsHandleId, VfsUid};
 use smallvec::SmallVec;
 use std::sync::Arc;
 use vfs_ratelimit::RateLimiter;
@@ -45,6 +45,7 @@ impl VfsCred {
 pub struct VfsContext {
     pub cred: VfsCred,
     pub cwd: VfsDirHandle,
+    pub cwd_async: Option<VfsDirHandleAsync>,
     pub config: Arc<VfsConfig>,
     pub policy: Arc<dyn VfsPolicy>,
     pub rate_limiter: Option<Arc<dyn RateLimiter>>,
@@ -60,10 +61,16 @@ impl VfsContext {
         Self {
             cred,
             cwd,
+            cwd_async: None,
             config,
             policy,
             rate_limiter: None,
         }
+    }
+
+    pub fn with_async_cwd(mut self, cwd: VfsDirHandleAsync) -> Self {
+        self.cwd_async = Some(cwd);
+        self
     }
 
     pub fn cwd_handle_id(&self) -> VfsHandleId {

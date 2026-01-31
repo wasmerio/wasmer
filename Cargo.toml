@@ -105,6 +105,7 @@ loupe = "0.2.0"
 anyhow = "1.0"
 assert-panic = "1.0.1"
 assert_cmd = "2.1.1"
+async-lock = "3"
 async-trait = "0.1.68"
 async-tungstenite = "0.32.1"
 axum = { version = "=0.6.9", default-features = false }

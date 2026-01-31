@@ -1,10 +1,13 @@
 //! Mount-aware path traversal and resolution.
 
-use crate::inode::{NodeRef, make_vfs_inode};
+use crate::inode::{NodeRef, NodeRefAsync, make_vfs_inode};
 use crate::mount::MountTable;
-use crate::node::FsNode;
+use crate::node::{FsNode, FsNodeAsync};
 use crate::path_types::{VfsComponent, VfsName, VfsNameBuf, VfsPath, VfsPathBuf};
-use crate::{VfsBaseDir, VfsContext, VfsError, VfsErrorKind, VfsFileType, VfsInodeId, VfsResult};
+use crate::{
+    VfsBaseDir, VfsBaseDirAsync, VfsContext, VfsError, VfsErrorKind, VfsFileType, VfsInodeId,
+    VfsResult,
+};
 use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -425,6 +428,437 @@ enum ResolveOutcome {
     Parent(ResolvedParent),
 }
 
+#[derive(Clone)]
+pub struct ResolvedAsync {
+    pub mount: crate::MountId,
+    pub inode: VfsInodeId,
+    pub node: Arc<dyn FsNodeAsync>,
+    pub parent: Option<Box<ResolvedParentAsync>>,
+    pub traversal: TraversalInfo,
+}
+
+#[derive(Clone)]
+pub struct ResolvedParentAsync {
+    pub dir: ResolvedAsync,
+    pub name: VfsNameBuf,
+    pub had_trailing_slash: bool,
+}
+
+pub struct ResolutionRequestAsync<'a> {
+    pub ctx: &'a VfsContext,
+    pub base: VfsBaseDirAsync<'a>,
+    pub path: &'a VfsPath,
+    pub flags: WalkFlags,
+}
+
+pub struct PathWalkerAsync {
+    mount_table: Arc<MountTable>,
+}
+
+impl PathWalkerAsync {
+    pub fn new(mount_table: Arc<MountTable>) -> Self {
+        Self { mount_table }
+    }
+
+    pub async fn resolve(&self, req: ResolutionRequestAsync<'_>) -> VfsResult<ResolvedAsync> {
+        let ResolveOutcomeAsync::Final(resolved) = self.resolve_internal(req, ResolveMode::Final).await?
+        else {
+            return Err(VfsError::new(VfsErrorKind::Internal, "path_async.resolve.final"));
+        };
+        Ok(resolved)
+    }
+
+    pub async fn resolve_parent(
+        &self,
+        req: ResolutionRequestAsync<'_>,
+    ) -> VfsResult<ResolvedParentAsync> {
+        let ResolveOutcomeAsync::Parent(parent) =
+            self.resolve_internal(req, ResolveMode::Parent).await?
+        else {
+            return Err(VfsError::new(
+                VfsErrorKind::Internal,
+                "path_async.resolve_parent",
+            ));
+        };
+        Ok(parent)
+    }
+
+    pub async fn resolve_at_component_boundary(
+        &self,
+        req: ResolutionRequestAsync<'_>,
+    ) -> VfsResult<ResolvedAsync> {
+        self.resolve_internal(req, ResolveMode::Boundary)
+            .await
+            .map(|outcome| match outcome {
+                ResolveOutcomeAsync::Final(resolved) => resolved,
+                ResolveOutcomeAsync::Parent(parent) => parent.dir,
+            })
+    }
+
+    async fn resolve_internal(
+        &self,
+        req: ResolutionRequestAsync<'_>,
+        mode: ResolveMode,
+    ) -> VfsResult<ResolveOutcomeAsync> {
+        let inner = self.mount_table.snapshot();
+        let (mut current, base_parent) = self.start_node(&inner, &req).await?;
+        let root_anchor = if req.flags.in_root {
+            current.clone()
+        } else {
+            self.root_node(&inner).await?
+        };
+
+        if req.path.is_empty() {
+            if !req.flags.allow_empty_path {
+                return Err(VfsError::new(
+                    VfsErrorKind::InvalidInput,
+                    "path_async.resolve.empty",
+                ));
+            }
+            if matches!(mode, ResolveMode::Parent) {
+                return Err(VfsError::new(
+                    VfsErrorKind::InvalidInput,
+                    "path_async.resolve_parent.empty",
+                ));
+            }
+            let resolved = self.resolved_from_node(&current, TraversalInfo::default());
+            if req.flags.must_be_dir && resolved.node.file_type() != VfsFileType::Directory {
+                return Err(VfsError::new(
+                    VfsErrorKind::NotDir,
+                    "path_async.resolve.must_dir",
+                ));
+            }
+            return Ok(ResolveOutcomeAsync::Final(resolved));
+        }
+
+        if req.flags.resolve_beneath && req.path.is_absolute() {
+            return Err(VfsError::new(
+                VfsErrorKind::CrossDevice,
+                "path_async.resolve.beneath.absolute",
+            ));
+        }
+        let mut stack: SmallVec<[NodeRefAsync; 8]> = SmallVec::new();
+        if let Some(parent) = base_parent {
+            stack.push(parent);
+        }
+        let min_stack_len = if req.flags.resolve_beneath {
+            stack.len()
+        } else {
+            0
+        };
+
+        let mut queue = WorkQueue::from_path(req.path);
+        let had_trailing_slash = req.path.has_trailing_slash();
+
+        if req.path.is_absolute() {
+            queue.pop_root();
+        }
+        if req.flags.in_root && req.path.is_absolute() {
+            stack.clear();
+        }
+
+        if queue.is_empty() {
+            if matches!(mode, ResolveMode::Parent) {
+                return Err(VfsError::new(
+                    VfsErrorKind::InvalidInput,
+                    "path_async.resolve_parent.empty",
+                ));
+            }
+            let resolved = self.resolved_from_node(&current, TraversalInfo::default());
+            if req.flags.must_be_dir && resolved.node.file_type() != VfsFileType::Directory {
+                return Err(VfsError::new(
+                    VfsErrorKind::NotDir,
+                    "path_async.resolve.must_dir",
+                ));
+            }
+            return Ok(ResolveOutcomeAsync::Final(resolved));
+        }
+
+        let mut traversal = TraversalInfo::default();
+        let mut last_parent: Option<NodeRefAsync> = None;
+        let mut last_name: Option<VfsNameBuf> = None;
+
+        while let Some(component) = queue.pop_front() {
+            traversal.components_walked += 1;
+            match component {
+                WorkComponent::RootDir => {
+                    if req.flags.resolve_beneath {
+                        return Err(VfsError::new(
+                            VfsErrorKind::CrossDevice,
+                            "path_async.resolve.beneath.rootdir",
+                        ));
+                    }
+                    current = root_anchor.clone();
+                    stack.clear();
+                }
+                WorkComponent::CurDir => {
+                    if queue.is_empty() && matches!(mode, ResolveMode::Parent) {
+                        return Err(VfsError::new(
+                            VfsErrorKind::InvalidInput,
+                            "path_async.resolve_parent.curdir",
+                        ));
+                    }
+                }
+                WorkComponent::ParentDir => {
+                    if queue.is_empty() && matches!(mode, ResolveMode::Parent) {
+                        return Err(VfsError::new(
+                            VfsErrorKind::InvalidInput,
+                            "path_async.resolve_parent.parentdir",
+                        ));
+                    }
+                    self.check_traverse_permission(req.ctx, &current).await?;
+                    if req.flags.resolve_beneath && stack.len() == min_stack_len {
+                        return Err(VfsError::new(
+                            VfsErrorKind::CrossDevice,
+                            "path_async.resolve.beneath.parent",
+                        ));
+                    }
+                    if let Some(prev) = stack.pop() {
+                        current = prev;
+                        continue;
+                    }
+
+                    if let Some(parent) = self.try_mount_parent(&inner, &current).await? {
+                        current = parent;
+                    }
+                }
+                WorkComponent::Normal(name) => {
+                    let name_bytes = name;
+                    let name_ref = self.validate_name(req.ctx, &name_bytes)?;
+                    let is_final = queue.is_empty();
+                    let name_buf =
+                        if is_final {
+                            Some(VfsNameBuf::new(name_bytes.clone()).map_err(|_| {
+                                VfsError::new(VfsErrorKind::InvalidInput, "path_async.name")
+                            })?)
+                        } else {
+                            None
+                        };
+
+                    if is_final && matches!(mode, ResolveMode::Parent) {
+                        if current.node().file_type() != VfsFileType::Directory {
+                            return Err(VfsError::new(
+                                VfsErrorKind::NotDir,
+                                "path_async.resolve.not_dir",
+                            ));
+                        }
+                        self.check_traverse_permission(req.ctx, &current).await?;
+                        let parent_dir = self.resolved_from_node(&current, traversal.clone());
+                        return Ok(ResolveOutcomeAsync::Parent(ResolvedParentAsync {
+                            dir: parent_dir,
+                            name: name_buf.expect("final component must have name"),
+                            had_trailing_slash,
+                        }));
+                    }
+
+                    if current.node().file_type() != VfsFileType::Directory {
+                        return Err(VfsError::new(
+                            VfsErrorKind::NotDir,
+                            "path_async.resolve.not_dir",
+                        ));
+                    }
+                    self.check_traverse_permission(req.ctx, &current).await?;
+
+                    let child = current.node().lookup(&name_ref).await?;
+                    let child_ref = NodeRefAsync::new(current.mount(), child);
+
+                    if child_ref.node().file_type() == VfsFileType::Symlink {
+                        let follow = if is_final {
+                            req.flags.follow_final_symlink
+                        } else {
+                            req.flags.follow_symlinks
+                        };
+
+                        if follow {
+                            traversal.symlinks_followed += 1;
+                            if traversal.symlinks_followed > req.flags.max_symlinks {
+                                return Err(VfsError::new(
+                                    VfsErrorKind::TooManySymlinks,
+                                    "path_async.resolve.symlink_depth",
+                                ));
+                            }
+
+                            let target = child_ref.node().readlink().await?;
+                            queue.inject_symlink(target);
+                            if queue.is_absolute_head() {
+                                if req.flags.resolve_beneath {
+                                    return Err(VfsError::new(
+                                        VfsErrorKind::CrossDevice,
+                                        "path_async.resolve.beneath.symlink_absolute",
+                                    ));
+                                }
+                                current = root_anchor.clone();
+                                stack.clear();
+                            }
+                            continue;
+                        }
+
+                        if !is_final {
+                            return Err(VfsError::new(
+                                VfsErrorKind::NotDir,
+                                "path_async.resolve.symlink_no_follow",
+                            ));
+                        }
+                        // Final symlink with NOFOLLOW: fall through as terminal entry.
+                    }
+
+                    if !is_final && child_ref.node().file_type() != VfsFileType::Directory {
+                        return Err(VfsError::new(
+                            VfsErrorKind::NotDir,
+                            "path_async.resolve.not_dir",
+                        ));
+                    }
+
+                    if is_final && matches!(mode, ResolveMode::Final) {
+                        last_parent = Some(current.clone());
+                        last_name = name_buf.clone();
+                    }
+
+                    let child_inode = make_vfs_inode(child_ref.mount(), child_ref.node().inode());
+                    if let Some(mount_id) =
+                        MountTable::enter_if_mountpoint(&inner, current.mount(), child_inode)
+                    {
+                        stack.push(child_ref.clone());
+                        current = self.mount_root_node(&inner, mount_id).await?;
+                        continue;
+                    }
+
+                    stack.push(current.clone());
+                    current = child_ref;
+                }
+            }
+        }
+
+        let mut resolved = self.resolved_from_node(&current, traversal.clone());
+        if let (Some(parent), Some(name)) = (last_parent, last_name) {
+            resolved.parent = Some(Box::new(ResolvedParentAsync {
+                dir: self.resolved_from_node(&parent, traversal),
+                name,
+                had_trailing_slash,
+            }));
+        }
+        if (req.flags.must_be_dir || had_trailing_slash)
+            && resolved.node.file_type() != VfsFileType::Directory
+        {
+            return Err(VfsError::new(
+                VfsErrorKind::NotDir,
+                "path_async.resolve.must_dir",
+            ));
+        }
+
+        Ok(ResolveOutcomeAsync::Final(resolved))
+    }
+
+    async fn start_node(
+        &self,
+        inner: &MountTableInnerRef,
+        req: &ResolutionRequestAsync<'_>,
+    ) -> VfsResult<(NodeRefAsync, Option<NodeRefAsync>)> {
+        if req.path.is_absolute() && !req.flags.in_root {
+            let root = self.root_node(inner).await?;
+            return Ok((root, None));
+        }
+
+        match req.base {
+            VfsBaseDirAsync::Cwd => {
+                let Some(cwd) = req.ctx.cwd_async.as_ref() else {
+                    return Err(VfsError::new(
+                        VfsErrorKind::NotSupported,
+                        "path_async.resolve.cwd_missing",
+                    ));
+                };
+                let inode = cwd.inode();
+                Ok((
+                    NodeRefAsync::new(inode.mount, cwd.node().clone()),
+                    cwd.parent(),
+                ))
+            }
+            VfsBaseDirAsync::Handle(dir) => {
+                let inode = dir.inode();
+                Ok((NodeRefAsync::new(inode.mount, dir.node().clone()), dir.parent()))
+            }
+        }
+    }
+
+    async fn root_node(&self, inner: &MountTableInnerRef) -> VfsResult<NodeRefAsync> {
+        let root_mount = inner.root;
+        let (root_inode, fs) = MountTable::mount_root_async(inner, root_mount)
+            .ok_or_else(|| VfsError::new(VfsErrorKind::Internal, "path_async.root"))?;
+        let node = fs.root().await?;
+        Ok(NodeRefAsync::new(root_inode.mount, node))
+    }
+
+    async fn mount_root_node(
+        &self,
+        inner: &MountTableInnerRef,
+        mount: crate::MountId,
+    ) -> VfsResult<NodeRefAsync> {
+        let (root_inode, fs) = MountTable::mount_root_async(inner, mount)
+            .ok_or_else(|| VfsError::new(VfsErrorKind::NotFound, "path_async.mount_root"))?;
+        let node = fs.root().await?;
+        Ok(NodeRefAsync::new(root_inode.mount, node))
+    }
+
+    async fn try_mount_parent(
+        &self,
+        inner: &MountTableInnerRef,
+        current: &NodeRefAsync,
+    ) -> VfsResult<Option<NodeRefAsync>> {
+        let (root_inode, _) = match MountTable::mount_root_any_async(inner, current.mount()) {
+            Some(pair) => pair,
+            None => return Ok(None),
+        };
+        if current.inode_id() != root_inode {
+            return Ok(None);
+        }
+        let (parent_mount, mountpoint_inode) =
+            match MountTable::parent_of_mount_root(inner, current.mount()) {
+                Some(pair) => pair,
+                None => return Ok(None),
+            };
+        let (_, fs) = match MountTable::mount_root_any_async(inner, parent_mount) {
+            Some(pair) => pair,
+            None => return Ok(None),
+        };
+        let node = match fs.node_by_inode(mountpoint_inode.backend).await? {
+            Some(node) => node,
+            None => return Ok(None),
+        };
+        Ok(Some(NodeRefAsync::new(parent_mount, node)))
+    }
+
+    fn resolved_from_node(&self, node: &NodeRefAsync, traversal: TraversalInfo) -> ResolvedAsync {
+        ResolvedAsync {
+            mount: node.mount(),
+            inode: node.inode_id(),
+            node: node.node().clone(),
+            parent: None,
+            traversal,
+        }
+    }
+
+    fn validate_name<'a>(&self, ctx: &VfsContext, name: &'a [u8]) -> VfsResult<VfsName<'a>> {
+        if name.len() > ctx.config.max_name_len {
+            return Err(VfsError::new(VfsErrorKind::NameTooLong, "path_async.name"));
+        }
+        VfsName::new(name).map_err(|_| VfsError::new(VfsErrorKind::InvalidInput, "path_async.name"))
+    }
+
+    async fn check_traverse_permission(
+        &self,
+        ctx: &VfsContext,
+        current: &NodeRefAsync,
+    ) -> VfsResult<()> {
+        let meta = current.node().metadata().await?;
+        ctx.policy.check_path_component_traverse(ctx, &meta)
+    }
+}
+
+enum ResolveOutcomeAsync {
+    Final(ResolvedAsync),
+    Parent(ResolvedParentAsync),
+}
+
 type MountTableInnerRef = crate::mount::MountTableInner;
 
 #[derive(Clone)]
@@ -498,6 +932,7 @@ mod tests {
         SetMetadata, UnlinkOptions,
     };
     use crate::policy::AllowAllPolicy;
+    use crate::provider::{AsyncFsFromSync, VfsRuntime};
     use crate::{
         BackendInodeId, Fs, MountId, VfsBaseDir, VfsConfig, VfsContext, VfsCred, VfsDirHandle,
         VfsErrorKind, VfsFileMode, VfsFileType, VfsHandleId, VfsInodeId, VfsMetadata, VfsPath,
@@ -506,6 +941,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
+    use vfs_rt::InlineTestRuntime;
 
     #[derive(Debug)]
     struct TestNode {
@@ -759,7 +1195,10 @@ mod tests {
 
     fn mount_table_for(fs: &Arc<TestFs>) -> Arc<MountTable> {
         let fs_arc: Arc<dyn Fs> = fs.clone();
-        Arc::new(MountTable::new(fs_arc).expect("mount table"))
+        let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+        let fs_async: Arc<dyn crate::FsAsync> =
+            Arc::new(AsyncFsFromSync::new(fs_arc.clone(), runtime));
+        Arc::new(MountTable::new(fs_arc, fs_async).expect("mount table"))
     }
 
     fn mount_secondary(
@@ -768,11 +1207,15 @@ mod tests {
         secondary: &Arc<TestFs>,
     ) -> MountId {
         let secondary_fs: Arc<dyn Fs> = secondary.clone();
+        let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+        let secondary_async: Arc<dyn crate::FsAsync> =
+            Arc::new(AsyncFsFromSync::new(secondary_fs.clone(), runtime));
         mount_table
             .mount(
                 MountId::from_index(0),
                 mountpoint_inode,
                 secondary_fs,
+                secondary_async,
                 secondary.root.inode(),
                 crate::provider::MountFlags::empty(),
             )
@@ -1056,11 +1499,15 @@ mod tests {
         let secondary = TestFs::new();
         let secondary_root = secondary.root.clone();
         let secondary_fs: Arc<dyn Fs> = secondary.clone();
+        let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+        let secondary_async: Arc<dyn crate::FsAsync> =
+            Arc::new(AsyncFsFromSync::new(secondary_fs.clone(), runtime));
         let mount_id = mount_table
             .mount(
                 MountId::from_index(0),
                 make_vfs_inode(MountId::from_index(0), mnt.inode()),
                 secondary_fs,
+                secondary_async,
                 secondary_root.inode(),
                 crate::provider::MountFlags::empty(),
             )

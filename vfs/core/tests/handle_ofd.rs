@@ -5,11 +5,13 @@ use std::thread;
 use vfs_core::flags::HandleStatusFlags;
 use vfs_core::inode::make_vfs_inode;
 use vfs_core::node::{FsHandle, FsNode};
+use vfs_core::provider::{AsyncFsFromSync, VfsRuntime};
 use vfs_core::{
     BackendInodeId, MountId, VfsError, VfsErrorKind, VfsFileMode, VfsFileType, VfsHandle,
     VfsHandleId, VfsMetadata, VfsResult, VfsTimespec,
 };
 use vfs_ratelimit::LimiterChain;
+use vfs_rt::InlineTestRuntime;
 
 struct MemHandle {
     inode: BackendInodeId,
@@ -220,7 +222,11 @@ impl vfs_core::Fs for DummyFs {
 
 fn make_handle(handle_id: u64, open_flags: vfs_core::OpenFlags) -> VfsHandle {
     let fs: Arc<dyn vfs_core::Fs> = Arc::new(DummyFs::new());
-    let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
+    let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+    let fs_async: Arc<dyn vfs_core::FsAsync> =
+        Arc::new(AsyncFsFromSync::new(fs.clone(), runtime));
+    let mount_table =
+        vfs_core::mount::MountTable::new(fs, fs_async).expect("mount table");
     let guard = mount_table
         .guard(MountId::from_index(0))
         .expect("mount guard");

@@ -5,11 +5,13 @@ use std::sync::{Arc, Mutex};
 use vfs_core::inode::make_vfs_inode;
 use vfs_core::node::{FsHandle, FsNode};
 use vfs_core::policy::{PosixPolicy, VfsMutationOp};
+use vfs_core::provider::{AsyncFsFromSync, VfsRuntime};
 use vfs_core::{
     BackendInodeId, MountId, OpenFlags, VfsBaseDir, VfsConfig, VfsContext, VfsCred, VfsDirHandle,
     VfsErrorKind, VfsFileMode, VfsFileType, VfsHandleId, VfsMetadata, VfsPath, VfsResult,
     VfsTimespec,
 };
+use vfs_rt::InlineTestRuntime;
 
 #[derive(Debug)]
 struct TestNode {
@@ -283,6 +285,13 @@ fn make_dir_handle(
     )
 }
 
+fn mount_table_for(fs: Arc<dyn vfs_core::Fs>) -> vfs_core::mount::MountTable {
+    let runtime: Arc<dyn VfsRuntime> = Arc::new(InlineTestRuntime);
+    let fs_async: Arc<dyn vfs_core::FsAsync> =
+        Arc::new(AsyncFsFromSync::new(fs.clone(), runtime));
+    vfs_core::mount::MountTable::new(fs, fs_async).expect("mount table")
+}
+
 #[test]
 fn traverse_requires_exec() {
     let fs = TestFs::new();
@@ -290,7 +299,7 @@ fn traverse_requires_exec() {
     let dir = fs.add_dir(&root, b"a", 0o000, 1000, 1000);
     fs.add_file(&dir, b"b", 0o644, 1000, 1000);
 
-    let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
+    let mount_table = mount_table_for(fs);
     let cwd = make_dir_handle(&mount_table, MountId::from_index(0), root, 1);
     let ctx = make_ctx(PosixPolicy::new(true, false), cwd);
     let walker = vfs_core::PathWalker::new(Arc::new(mount_table));
@@ -330,7 +339,7 @@ fn open_requires_read_write_bits() {
     };
 
     let fs: Arc<dyn vfs_core::Fs> = TestFs::new();
-    let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
+    let mount_table = mount_table_for(fs);
     let cwd = make_dir_handle(
         &mount_table,
         MountId::from_index(0),
@@ -381,7 +390,7 @@ fn create_requires_write_and_exec_on_parent() {
     };
 
     let fs: Arc<dyn vfs_core::Fs> = TestFs::new();
-    let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
+    let mount_table = mount_table_for(fs);
     let cwd = make_dir_handle(
         &mount_table,
         MountId::from_index(0),
@@ -424,7 +433,7 @@ fn chmod_affects_later_opens() {
     };
 
     let fs: Arc<dyn vfs_core::Fs> = TestFs::new();
-    let mount_table = vfs_core::mount::MountTable::new(fs).expect("mount table");
+    let mount_table = mount_table_for(fs);
     let cwd = make_dir_handle(
         &mount_table,
         MountId::from_index(0),

@@ -415,6 +415,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-lock"
+version = "3.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290f7f2596bd5b78a9fec8088ccd89180d7f9f55b94b0576823bbbdc72ee8311"
+dependencies = [
+ "event-listener",
+ "event-listener-strategy",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "async-once-cell"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9748,7 +9759,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.52.0",
  "windows-sys 0.59.0",
 ]
 
@@ -11564,11 +11574,15 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "vfs-core"
 version = "7.0.0"
 dependencies = [
+ "async-lock",
  "async-trait",
  "bitflags 2.10.0",
+ "futures",
  "parking_lot",
  "smallvec",
+ "vfs-mem",
  "vfs-ratelimit",
+ "vfs-rt",
 ]
 
 [[package]]
@@ -11602,6 +11616,11 @@ dependencies = [
 [[package]]
 name = "vfs-rt"
 version = "7.0.0"
+dependencies = [
+ "futures",
+ "tokio",
+ "vfs-core",
+]
 
 [[package]]
 name = "vfs-unix"

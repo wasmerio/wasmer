@@ -362,6 +362,15 @@ Async implementation rule: all async traits in `vfs/*` use `async-trait` to rema
 - One backend can be implemented using only the sync traits and still be usable from the async interface (via adapters), and vice-versa.
 - The chosen async-trait strategy is implemented and covered by at least one unit test exercising a sync<->async adapter boundary.
 
+### Phase 4 implementation status (2026-01-31)
+- Traits are centralized in `vfs/core/src/traits_sync.rs` and `vfs/core/src/traits_async.rs`;
+  `node.rs` re-exports for compatibility.
+- `vfs-rt` now provides `InlineTestRuntime` and a `TokioRuntime` behind the `tokio` feature.
+- Mount table entries store both sync and async `Fs` interfaces; adapters are used at mount time.
+- Async path walker and async OFD handle (`VfsHandleAsync`) are implemented using an async mutex.
+- Sync-from-async adapters are supported but remain caller-controlled (may deadlock if used inside
+  a single-threaded async runtime without spawn-blocking).
+
 ---
 
 ## Phase 5 – Wasix Integration (syscalls + resource table)

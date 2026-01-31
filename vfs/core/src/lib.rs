@@ -40,6 +40,8 @@ pub mod path_walker;
 pub mod policy;
 pub mod provider;
 pub mod provider_registry;
+pub mod traits_async;
+pub mod traits_sync;
 pub mod time;
 pub mod vfs;
 
@@ -52,14 +54,19 @@ pub use context::{VfsConfig, VfsContext, VfsCred};
 pub use dir::VfsDirEntry;
 pub use file_type::VfsFileType;
 pub use flags::*;
-pub use handle::{DirStreamHandle, VfsDirHandle, VfsHandle};
+pub use handle::{DirStreamHandle, VfsDirHandle, VfsDirHandleAsync, VfsHandle, VfsHandleAsync};
 pub use ids::{BackendInodeId, MountId, VfsHandleId, VfsInodeId};
-pub use inode::{InodeCache, NodeRef, make_vfs_inode, split};
+pub use inode::{InodeCache, NodeRef, NodeRefAsync, make_vfs_inode, split};
 pub use metadata::{
     VfsAccess, VfsFileMode, VfsGid, VfsMetadata, VfsSetMetadata, VfsTimestamp, VfsUid,
 };
-pub use path_walker::{PathWalker, ResolutionRequest, Resolved, ResolvedParent, WalkFlags};
+pub use path_walker::{
+    PathWalker, PathWalkerAsync, ResolutionRequest, ResolutionRequestAsync, Resolved,
+    ResolvedAsync, ResolvedParent, ResolvedParentAsync, WalkFlags,
+};
 pub use policy::{AllowAllPolicy, PosixPolicy, VfsMutationOp, VfsPolicy};
 pub use provider_registry::FsProviderRegistry;
+pub use traits_async::{FsAsync, FsHandleAsync, FsNodeAsync, FsProviderAsync};
+pub use traits_sync::{FsHandleSync, FsNodeSync, FsProviderSync, FsSync};
 pub use time::VfsTimespec;
-pub use vfs::{Vfs, VfsBaseDir};
+pub use vfs::{Vfs, VfsBaseDir, VfsBaseDirAsync};

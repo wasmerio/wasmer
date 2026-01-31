@@ -9,8 +9,14 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+async-lock.workspace = true
 async-trait.workspace = true
 bitflags.workspace = true
 parking_lot.workspace = true
 smallvec.workspace = true
 vfs-ratelimit = { path = "../ratelimit" }
+
+[dev-dependencies]
+vfs-rt = { path = "../rt" }
+futures.workspace = true
+vfs-mem = { path = "../mem" }
