@@ -18,6 +18,8 @@ use virtual_mio::{InterestHandler, InterestType};
 
 use crate::{ArcFile, FsError, VirtualFile};
 
+const PIPE_MAX_BYTES: usize = 64 * 1024;
+
 // Each pipe end is separately cloneable. The overall pipe
 // remains open as long as at least one tx end and one rx
 // end are still alive.
@@ -53,7 +55,7 @@ impl PipeRx {
         // Should return how much actual data was read from the provided slice
         write: impl FnOnce(&[u8]) -> Option<usize>,
     ) -> Option<usize> {
-        rx.buffer.as_mut().and_then(|read_buffer| {
+        if let Some(read_buffer) = rx.buffer.as_mut() {
             let buf_len = read_buffer.len();
             if buf_len > 0 {
                 let mut read = buf_len.min(max_len);
@@ -61,11 +63,11 @@ impl PipeRx {
                 // read = ?;
                 read = write(inner_buf)?;
                 read_buffer.advance(read);
-                Some(read)
-            } else {
-                None
+                rx.pending_bytes = rx.pending_bytes.saturating_sub(read);
+                return Some(read);
             }
-        })
+        }
+        None
     }
 
     pub fn close(&mut self) {
@@ -151,6 +153,7 @@ struct PipeReceiver {
     // actual receiver, we can't make use of an mpmc channel
     chan: mpsc::UnboundedReceiver<Vec<u8>>,
     buffer: Option<Bytes>,
+    pending_bytes: usize,
     interest_handler: Option<Box<dyn InterestHandler>>,
 }
 
@@ -161,6 +164,7 @@ impl Pipe {
         let recv = Arc::new(Mutex::new(PipeReceiver {
             chan: rx,
             buffer: None,
+            pending_bytes: 0,
             interest_handler: None,
         }));
         Pipe {
@@ -216,6 +220,42 @@ impl Default for Pipe {
 impl PipeTx {
     pub fn close(&mut self) {
         _ = self.tx.take();
+    }
+
+    fn send_bytes(&self, buf: &[u8]) -> std::io::Result<usize> {
+        let Some(ref tx) = self.tx else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "PipeTx is closed",
+            ));
+        };
+
+        tx.send(buf.to_vec())
+            .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
+
+        if let Some(rx_end) = self.rx_end.upgrade() {
+            let mut rx = rx_end.lock().unwrap();
+            rx.pending_bytes = rx.pending_bytes.saturating_add(buf.len());
+        }
+
+        self.mark_other_end_readable();
+        Ok(buf.len())
+    }
+
+    pub fn try_write_nonblocking(&self, buf: &[u8]) -> std::io::Result<usize> {
+        let Some(rx_end) = self.rx_end.upgrade() else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "PipeRx is closed",
+            ));
+        };
+        {
+            let rx = rx_end.lock().unwrap();
+            if rx.pending_bytes.saturating_add(buf.len()) > PIPE_MAX_BYTES {
+                return Err(std::io::ErrorKind::WouldBlock.into());
+            }
+        }
+        self.send_bytes(buf)
     }
 
     pub fn poll_write_ready(self: Pin<&mut Self>) -> Poll<io::Result<usize>> {
@@ -321,17 +361,7 @@ impl std::io::Write for Pipe {
 
 impl std::io::Write for PipeTx {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let Some(ref tx) = self.tx else {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::BrokenPipe,
-                "PipeTx is closed",
-            ));
-        };
-
-        tx.send(buf.to_vec())
-            .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
-        self.mark_other_end_readable();
-        Ok(buf.len())
+        self.send_bytes(buf)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
@@ -408,22 +438,7 @@ impl AsyncWrite for PipeTx {
         _cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        let Some(ref tx) = self.tx else {
-            return Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::BrokenPipe,
-                "PipeTx is closed",
-            )));
-        };
-
-        match tx.send(buf.to_vec()) {
-            Ok(()) => {
-                self.mark_other_end_readable();
-                Poll::Ready(Ok(buf.len()))
-            }
-            Err(_) => Poll::Ready(Err(Into::<std::io::Error>::into(
-                std::io::ErrorKind::BrokenPipe,
-            ))),
-        }
+        Poll::Ready(self.send_bytes(buf))
     }
 
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
