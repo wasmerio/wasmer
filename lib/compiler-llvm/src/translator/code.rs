@@ -4050,16 +4050,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     VectorType::const_vector(&left_indices),
                     "",
                 ));
-                let v1_left =
-                    err!(self.builder.build_int_s_extend(v1_left, self.intrinsics.i16x8_ty, ""));
+                let v1_left = err!(self.builder.build_int_s_extend(
+                    v1_left,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
                 let v1_right = err!(self.builder.build_shuffle_vector(
                     v1,
                     v1.get_type().get_undef(),
                     VectorType::const_vector(&right_indices),
                     "",
                 ));
-                let v1_right =
-                    err!(self.builder.build_int_s_extend(v1_right, self.intrinsics.i16x8_ty, ""));
+                let v1_right = err!(self.builder.build_int_s_extend(
+                    v1_right,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
 
                 let v2_left = err!(self.builder.build_shuffle_vector(
                     v2,
@@ -4067,16 +4073,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     VectorType::const_vector(&left_indices),
                     "",
                 ));
-                let v2_left =
-                    err!(self.builder.build_int_s_extend(v2_left, self.intrinsics.i16x8_ty, ""));
+                let v2_left = err!(self.builder.build_int_s_extend(
+                    v2_left,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
                 let v2_right = err!(self.builder.build_shuffle_vector(
                     v2,
                     v2.get_type().get_undef(),
                     VectorType::const_vector(&right_indices),
                     "",
                 ));
-                let v2_right =
-                    err!(self.builder.build_int_s_extend(v2_right, self.intrinsics.i16x8_ty, ""));
+                let v2_right = err!(self.builder.build_int_s_extend(
+                    v2_right,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
 
                 let prod_left = err!(self.builder.build_int_mul(v1_left, v2_left, ""));
                 let prod_right = err!(self.builder.build_int_mul(v1_right, v2_right, ""));
@@ -4120,16 +4132,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     VectorType::const_vector(&left_indices),
                     "",
                 ));
-                let v1_left =
-                    err!(self.builder.build_int_s_extend(v1_left, self.intrinsics.i16x8_ty, ""));
+                let v1_left = err!(self.builder.build_int_s_extend(
+                    v1_left,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
                 let v1_right = err!(self.builder.build_shuffle_vector(
                     v1,
                     v1.get_type().get_undef(),
                     VectorType::const_vector(&right_indices),
                     "",
                 ));
-                let v1_right =
-                    err!(self.builder.build_int_s_extend(v1_right, self.intrinsics.i16x8_ty, ""));
+                let v1_right = err!(self.builder.build_int_s_extend(
+                    v1_right,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
 
                 let v2_left = err!(self.builder.build_shuffle_vector(
                     v2,
@@ -4137,16 +4155,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     VectorType::const_vector(&left_indices),
                     "",
                 ));
-                let v2_left =
-                    err!(self.builder.build_int_s_extend(v2_left, self.intrinsics.i16x8_ty, ""));
+                let v2_left = err!(self.builder.build_int_s_extend(
+                    v2_left,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
                 let v2_right = err!(self.builder.build_shuffle_vector(
                     v2,
                     v2.get_type().get_undef(),
                     VectorType::const_vector(&right_indices),
                     "",
                 ));
-                let v2_right =
-                    err!(self.builder.build_int_s_extend(v2_right, self.intrinsics.i16x8_ty, ""));
+                let v2_right = err!(self.builder.build_int_s_extend(
+                    v2_right,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
 
                 let prod_left = err!(self.builder.build_int_mul(v1_left, v2_left, ""));
                 let prod_right = err!(self.builder.build_int_mul(v1_right, v2_right, ""));
@@ -4163,8 +4187,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ]),
                     "",
                 ));
-                let pair_left =
-                    err!(self.builder.build_int_s_extend(pair_left, self.intrinsics.i32x4_ty, ""));
+                let pair_left = err!(self.builder.build_int_s_extend(
+                    pair_left,
+                    self.intrinsics.i32x4_ty,
+                    ""
+                ));
                 let pair_right = err!(self.builder.build_shuffle_vector(
                     dot16,
                     dot16.get_type().get_undef(),
@@ -4176,8 +4203,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ]),
                     "",
                 ));
-                let pair_right =
-                    err!(self.builder.build_int_s_extend(pair_right, self.intrinsics.i32x4_ty, ""));
+                let pair_right = err!(self.builder.build_int_s_extend(
+                    pair_right,
+                    self.intrinsics.i32x4_ty,
+                    ""
+                ));
                 let dot32 = err!(self.builder.build_int_add(pair_left, pair_right, ""));
                 let res = err!(self.builder.build_int_add(dot32, acc, ""));
                 let res = err!(
