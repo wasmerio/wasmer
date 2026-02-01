@@ -74,6 +74,7 @@ TESTS := \
   fd_fdstat_set_flags \
   fd_fdflags_get \
   fd_fdflags_set \
+  fd_event \
   fd_filestat_set_size \
   fd_filestat_set_times \
   fd_filestat_get \
@@ -117,6 +118,7 @@ TESTS := \
   thread_sleep \
   thread_id \
   thread_parallelism \
+  tty_set \
   tty_get
 
 BUILD_TARGETS := libside1.so libside2.so $(addsuffix .wasm,$(TESTS))

@@ -410,46 +410,53 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             );
                             let iovs_arr =
                                 wasi_try_ok_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
+                            let mut total_len: usize = 0;
                             for iovs in iovs_arr.iter() {
                                 let buf_len: usize = wasi_try_ok_ok!(
                                     iovs.buf_len.try_into().map_err(|_| Errno::Inval)
                                 );
-                                let will_be_written = buf_len;
+                                total_len += buf_len;
+                            }
+                            if total_len != std::mem::size_of::<u64>() {
+                                return Ok(Err(Errno::Inval));
+                            }
 
-                                let val_cnt = buf_len / std::mem::size_of::<u64>();
-                                let val_cnt: M::Offset =
-                                    wasi_try_ok_ok!(val_cnt.try_into().map_err(|_| Errno::Inval));
-
-                                let vals = wasi_try_ok_ok!(
-                                    WasmPtr::<u64, M>::new(iovs.buf)
-                                        .slice(&memory, val_cnt as M::Offset)
+                            let mut data_bytes = [0u8; 8];
+                            let mut offset = 0usize;
+                            for iovs in iovs_arr.iter() {
+                                let buf_len: usize = wasi_try_ok_ok!(
+                                    iovs.buf_len.try_into().map_err(|_| Errno::Inval)
+                                );
+                                if buf_len == 0 {
+                                    continue;
+                                }
+                                let buf = wasi_try_ok_ok!(
+                                    WasmPtr::<u8, M>::new(iovs.buf)
+                                        .slice(&memory, iovs.buf_len)
                                         .map_err(mem_error_to_wasi)
                                 );
-                                let vals =
-                                    wasi_try_ok_ok!(vals.access().map_err(mem_error_to_wasi));
-                                for val in vals.iter() {
-                                    inner.write(*val);
-                                }
-
-                                written += will_be_written;
+                                let buf = wasi_try_ok_ok!(buf.access().map_err(mem_error_to_wasi));
+                                let end = offset + buf_len;
+                                data_bytes[offset..end].copy_from_slice(buf.as_ref());
+                                offset = end;
                             }
+
+                            let val = u64::from_ne_bytes(data_bytes);
+                            let non_blocking = fd_flags.contains(Fdflags::NONBLOCK);
+                            wasi_try_ok_ok!(inner.write(val, non_blocking));
+                            written += total_len;
                         }
                         FdWriteSource::Buffer(data) => {
-                            let cnt = data.len() / std::mem::size_of::<u64>();
-                            for n in 0..cnt {
-                                let start = n * std::mem::size_of::<u64>();
-                                let data = [
-                                    data[start],
-                                    data[start + 1],
-                                    data[start + 2],
-                                    data[start + 3],
-                                    data[start + 4],
-                                    data[start + 5],
-                                    data[start + 6],
-                                    data[start + 7],
-                                ];
-                                inner.write(u64::from_ne_bytes(data));
+                            if data.len() != std::mem::size_of::<u64>() {
+                                return Ok(Err(Errno::Inval));
                             }
+                            let data = [
+                                data[0], data[1], data[2], data[3], data[4], data[5], data[6],
+                                data[7],
+                            ];
+                            let non_blocking = fd_flags.contains(Fdflags::NONBLOCK);
+                            wasi_try_ok_ok!(inner.write(u64::from_ne_bytes(data), non_blocking));
+                            written += data.len();
                         }
                     }
 

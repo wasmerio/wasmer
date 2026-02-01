@@ -430,9 +430,20 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                     let val = wasi_try_ok_ok!(res);
 
                     let mut memory = unsafe { env.memory_view(ctx) };
+                    let iovs_slice = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
+                    let iovs_arr = wasi_try_mem_ok_ok!(iovs_slice.access());
+                    let mut total_len: usize = 0;
+                    for iovs in iovs_arr.iter() {
+                        let buf_len: usize =
+                            wasi_try_ok_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Inval));
+                        total_len += buf_len;
+                    }
+                    if total_len != std::mem::size_of::<u64>() {
+                        return Ok(Err(Errno::Inval));
+                    }
+
                     let reader = val.to_ne_bytes();
-                    let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
-                    let ret = wasi_try_ok_ok!(read_bytes(&reader[..], &memory, iovs_arr));
+                    let ret = wasi_try_ok_ok!(read_bytes(&reader[..], &memory, iovs_slice));
                     (ret, false)
                 }
                 Kind::Symlink { .. } | Kind::Epoll { .. } => {
