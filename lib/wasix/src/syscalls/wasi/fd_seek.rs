@@ -62,6 +62,9 @@ pub(crate) fn fd_seek_internal(
         Kind::Dir { .. } | Kind::Root { .. } => {
             return Ok(Err(Errno::Badf));
         }
+        Kind::EventNotifications { .. } => {
+            return Ok(Err(Errno::Notcapable));
+        }
         _ => {}
     }
 
@@ -131,7 +134,7 @@ pub(crate) fn fd_seek_internal(
                 | Kind::EventNotifications { .. }
                 | Kind::Epoll { .. } => {
                     // TODO: check this
-                    return Ok(Err(Errno::Badf));
+                    return Ok(Err(Errno::Spipe));
                 }
                 Kind::Buffer { .. } => {
                     // seeking buffers probably makes sense
