@@ -802,6 +802,9 @@ pub enum NetworkError {
     /// Insufficient memory
     #[error("Insufficient memory")]
     InsufficientMemory,
+    /// The message is too large for the socket
+    #[error("message too large")]
+    MessageTooLarge,
     /// The connection was aborted
     #[error("connection aborted")]
     ConnectionAborted,
@@ -890,6 +893,7 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
                     libc::ENODEV => NetworkError::NoDevice,
                     libc::EINVAL => NetworkError::InvalidInput,
                     libc::EPIPE => NetworkError::BrokenPipe,
+                    libc::EMSGSIZE => NetworkError::MessageTooLarge,
                     err => {
                         tracing::trace!("unknown os error {}", err);
                         NetworkError::UnknownError
@@ -920,6 +924,7 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::Interrupted => ErrorKind::Interrupted.into(),
         NetworkError::InvalidData => ErrorKind::InvalidData.into(),
         NetworkError::InvalidInput => ErrorKind::InvalidInput.into(),
+        NetworkError::MessageTooLarge => ErrorKind::InvalidInput.into(),
         NetworkError::NotConnected => ErrorKind::NotConnected.into(),
         NetworkError::NoDevice => ErrorKind::BrokenPipe.into(),
         NetworkError::PermissionDenied => ErrorKind::PermissionDenied.into(),

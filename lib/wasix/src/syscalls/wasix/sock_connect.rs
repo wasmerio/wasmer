@@ -61,12 +61,13 @@ pub(crate) fn sock_connect_internal(
         sock,
         Rights::SOCK_CONNECT,
         move |mut socket, flags| async move {
-            // Auto-bind UDP
-            socket = socket
-                .auto_bind_udp(tasks.deref(), net.deref())
-                .await?
-                .unwrap_or(socket);
-            socket
+            // Auto-bind UDP. If this upgrades a pre-socket, we must return
+            // the new socket so the inode is swapped.
+            let upgraded = socket.auto_bind_udp(tasks.deref(), net.deref()).await?;
+            let upgraded_socket = upgraded.is_some();
+            let mut socket = upgraded.unwrap_or(socket);
+
+            let res = socket
                 .connect(
                     tasks.deref(),
                     net.deref(),
@@ -74,7 +75,19 @@ pub(crate) fn sock_connect_internal(
                     None,
                     flags.contains(Fdflags::NONBLOCK),
                 )
-                .await
+                .await;
+
+            match res {
+                Ok(Some(new_socket)) => Ok(Some(new_socket)),
+                Ok(None) => {
+                    if upgraded_socket {
+                        Ok(Some(socket))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                Err(err) => Err(err),
+            }
         }
     ));
 

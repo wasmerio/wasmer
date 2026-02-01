@@ -124,7 +124,12 @@ TESTS := \
   sock_get_opt_flag \
   sock_get_opt_size \
   sock_get_opt_time \
+  sock_leave_multicast_v4 \
+  sock_leave_multicast_v6 \
   sock_listen \
+  sock_open \
+  sock_recv \
+  sock_send \
   sock_shutdown \
   sock_status \
   thread_sleep \
@@ -177,7 +182,7 @@ run: $(BUILD_TARGETS)
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
 			dlopen|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
-			fd_close|fd_filestat_set_size|port_addr_list|port_addr_clear|port_addr_remove|port_route_list|port_route_clear|port_mac|sock_addr_peer|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_listen|sock_shutdown|sock_status) flags="$$flags --net" ;; \
+			fd_close|fd_filestat_set_size|port_addr_list|port_addr_clear|port_addr_remove|port_route_list|port_route_clear|port_mac|sock_addr_peer|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_leave_multicast_v4|sock_leave_multicast_v6|sock_listen|sock_open|sock_recv|sock_send|sock_shutdown|sock_status) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \
 		if [ $$rc -ne $$expected ]; then \
