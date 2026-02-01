@@ -149,6 +149,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
             let guard = inode.read();
             match guard.deref() {
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(Err(Errno::Isdir)),
+                Kind::PipeTx { .. } => return Ok(Err(Errno::Badf)),
                 Kind::File { .. } => {
                     if fd_entry.open_flags & crate::fs::Fd::READ == 0 {
                         return Ok(Err(Errno::Badf));

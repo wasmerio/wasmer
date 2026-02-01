@@ -90,6 +90,7 @@ pub(crate) fn path_filestat_get_internal(
         let guard = file_inode.read();
         state.fs.get_stat_for_kind(guard.deref())?
     };
+    stat.st_nlink = file_inode.stat.read().unwrap().st_nlink;
     stat.st_ino = st_ino;
     Ok(stat)
 }
