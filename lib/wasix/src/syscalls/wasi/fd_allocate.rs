@@ -44,6 +44,22 @@ pub(crate) fn fd_allocate_internal(
     let fd_entry = state.fs.get_fd(fd)?;
     let inode = fd_entry.inode;
 
+    {
+        let guard = inode.read();
+        match guard.deref() {
+            Kind::File { .. } | Kind::Buffer { .. } => {}
+            Kind::Socket { .. }
+            | Kind::PipeRx { .. }
+            | Kind::PipeTx { .. }
+            | Kind::DuplexPipe { .. }
+            | Kind::Symlink { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. }
+            | Kind::Dir { .. }
+            | Kind::Root { .. } => return Err(Errno::Badf),
+        }
+    }
+
     if !fd_entry.inner.rights.contains(Rights::FD_ALLOCATE) {
         return Err(Errno::Access);
     }

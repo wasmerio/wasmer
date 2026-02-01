@@ -133,17 +133,37 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state();
 
+    let map_mem_error = |err| match mem_error_to_wasi(err) {
+        Errno::Memviolation => Errno::Fault,
+        other => other,
+    };
+
     let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
     let is_stdio = fd_entry.is_stdio;
 
     let bytes_read = {
-        if !is_stdio && !fd_entry.inner.rights.contains(Rights::FD_READ) {
-            // TODO: figure out the error to return when lacking rights
-            return Ok(Err(Errno::Access));
-        }
-
         let inode = fd_entry.inode;
         let fd_flags = fd_entry.inner.flags;
+
+        if !is_stdio {
+            let guard = inode.read();
+            match guard.deref() {
+                Kind::Dir { .. } | Kind::Root { .. } => return Ok(Err(Errno::Isdir)),
+                Kind::File { .. } => {
+                    if fd_entry.open_flags & crate::fs::Fd::READ == 0 {
+                        return Ok(Err(Errno::Badf));
+                    }
+                    if !fd_entry.inner.rights.contains(Rights::FD_READ) {
+                        return Ok(Err(Errno::Access));
+                    }
+                }
+                _ => {
+                    if !fd_entry.inner.rights.contains(Rights::FD_READ) {
+                        return Ok(Err(Errno::Access));
+                    }
+                }
+            }
+        }
 
         let (bytes_read, can_update_cursor) = {
             let mut guard = inode.write();
@@ -176,14 +196,14 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                 let mut total_read = 0usize;
 
                                 let iovs_arr =
-                                    iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                                    iovs.slice(&memory, iovs_len).map_err(map_mem_error)?;
+                                let iovs_arr = iovs_arr.access().map_err(map_mem_error)?;
                                 for iovs in iovs_arr.iter() {
                                     let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
                                         .slice(&memory, iovs.buf_len)
-                                        .map_err(mem_error_to_wasi)?
+                                        .map_err(map_mem_error)?
                                         .access()
-                                        .map_err(mem_error_to_wasi)?;
+                                        .map_err(map_mem_error)?;
                                     let r = handle.read(buf.as_mut()).await.map_err(|err| {
                                         let err = From::<std::io::Error>::from(err);
                                         match err {
@@ -242,15 +262,14 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                         async move {
                             let mut total_read = 0usize;
 
-                            let iovs_arr =
-                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                            let iovs_arr = iovs.slice(&memory, iovs_len).map_err(map_mem_error)?;
+                            let iovs_arr = iovs_arr.access().map_err(map_mem_error)?;
                             for iovs in iovs_arr.iter() {
                                 let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
                                     .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi)?
+                                    .map_err(map_mem_error)?
                                     .access()
-                                    .map_err(mem_error_to_wasi)?;
+                                    .map_err(map_mem_error)?;
 
                                 let local_read = socket
                                     .recv(
@@ -298,15 +317,14 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                         async move {
                             let mut total_read = 0usize;
 
-                            let iovs_arr =
-                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                            let iovs_arr = iovs.slice(&memory, iovs_len).map_err(map_mem_error)?;
+                            let iovs_arr = iovs_arr.access().map_err(map_mem_error)?;
                             for iovs in iovs_arr.iter() {
                                 let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
                                     .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi)?
+                                    .map_err(map_mem_error)?
                                     .access()
-                                    .map_err(mem_error_to_wasi)?;
+                                    .map_err(map_mem_error)?;
 
                                 let local_read = match nonblocking {
                                     true => match rx.try_read(buf.as_mut()) {
@@ -352,15 +370,14 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                         async move {
                             let mut total_read = 0usize;
 
-                            let iovs_arr =
-                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                            let iovs_arr = iovs.slice(&memory, iovs_len).map_err(map_mem_error)?;
+                            let iovs_arr = iovs_arr.access().map_err(map_mem_error)?;
                             for iovs in iovs_arr.iter() {
                                 let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
                                     .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi)?
+                                    .map_err(map_mem_error)?
                                     .access()
-                                    .map_err(mem_error_to_wasi)?;
+                                    .map_err(map_mem_error)?;
 
                                 let local_read = match nonblocking {
                                     true => match pipe.try_read(buf.as_mut()) {

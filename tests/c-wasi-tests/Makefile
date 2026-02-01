@@ -75,6 +75,8 @@ TESTS := \
   fd_fdflags_get \
   fd_fdflags_set \
   fd_event \
+  fd_write \
+  fd_read \
   fd_filestat_set_size \
   fd_filestat_set_times \
   fd_filestat_get \

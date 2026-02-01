@@ -150,7 +150,7 @@ pub(crate) fn path_open_internal(
     //
     // Maximum rights: should be the working dir rights
     // Minimum rights: whatever rights are provided
-    let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
+    let adjusted_rights = fs_rights_base & working_dir_rights_inheriting;
     let mut open_options = state.fs_new_open_options();
 
     let target_rights = match maybe_inode {
@@ -228,8 +228,31 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notdir));
                 }
 
+                let write_for_create = minimum_rights.write
+                    || minimum_rights.create
+                    || minimum_rights.create_new
+                    || minimum_rights.append
+                    || minimum_rights.truncate;
+                let (need_read, need_write) = {
+                    let mut need_read = minimum_rights.read;
+                    let mut need_write = write_for_create;
+                    let inode_ino = processing_inode.ino();
+                    let fd_map = state.fs.fd_map.read().unwrap();
+                    for (_, existing) in fd_map.iter() {
+                        if existing.inode.ino() == inode_ino {
+                            if existing.open_flags & Fd::READ != 0 {
+                                need_read = true;
+                            }
+                            if existing.open_flags & Fd::WRITE != 0 {
+                                need_write = true;
+                            }
+                        }
+                    }
+                    (need_read, need_write)
+                };
                 let open_options = open_options
-                    .write(minimum_rights.write)
+                    .read(need_read)
+                    .write(need_write)
                     .create(minimum_rights.create)
                     .append(false)
                     .truncate(minimum_rights.truncate);
@@ -345,10 +368,15 @@ pub(crate) fn path_open_internal(
             let handle = {
                 // We set create_new because the path already didn't resolve to an existing file,
                 // so it must be created.
+                let write_for_create = minimum_rights.write
+                    || minimum_rights.create
+                    || minimum_rights.create_new
+                    || minimum_rights.append
+                    || minimum_rights.truncate;
                 let open_options = open_options
                     .read(minimum_rights.read)
                     .append(minimum_rights.append)
-                    .write(minimum_rights.write)
+                    .write(write_for_create)
                     .create_new(true);
 
                 if minimum_rights.read {
