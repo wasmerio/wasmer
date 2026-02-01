@@ -8,12 +8,10 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use itertools::Itertools;
-use perfetto_recorder::{ThreadTraceData, TraceBuilder, scope};
 use rayon::ThreadPoolBuilder;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::cmp::Reverse;
-use std::sync::Mutex;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -60,15 +58,13 @@ impl LLVMCompiler {
 }
 
 struct FunctionBucket<'a> {
-    id: u64,
     functions: Vec<(LocalFunctionIndex, &'a FunctionBodyData<'a>)>,
     size: usize,
 }
 
 impl<'a> FunctionBucket<'a> {
-    fn new(id: u64) -> Self {
+    fn new() -> Self {
         Self {
-            id,
             functions: Vec::new(),
             size: 0,
         }
@@ -85,10 +81,9 @@ fn build_function_buckets<'a>(
 
     let mut buckets = Vec::new();
 
-    scope!("build buckets");
     while !function_bodies.is_empty() {
         let mut next_function_body = Vec::with_capacity(function_bodies.len());
-        let mut bucket = FunctionBucket::new(buckets.len() as u64);
+        let mut bucket = FunctionBucket::new();
 
         for (fn_index, fn_body) in function_bodies.into_iter() {
             if bucket.size + fn_body.data.len() <= LLVMIR_LARGE_FUNCTION_THRESHOLD / 3
@@ -159,24 +154,9 @@ fn translate_function_buckets<'a>(
                     .unwrap();
 
                     while let Ok(bucket) = bucket_rx.recv() {
-                        scope!(
-                            "translate bucket",
-                            id = bucket.id,
-                            bucket_size = bucket.size,
-                            functions = bucket.functions.len()
-                        );
                         let bucket_result = (|| {
                             let mut translated_functions = Vec::new();
                             for (i, input) in bucket.functions.iter() {
-                                let fname = compile_info
-                                    .module
-                                    .get_function_name(compile_info.module.func_index(*i));
-                                scope!(
-                                    "translate function",
-                                    llvm_ir_size = input.data.len(),
-                                    fname
-                                );
-
                                 let translated = func_translator.translate(
                                     module,
                                     module_translation,
@@ -551,11 +531,6 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
-        perfetto_recorder::start().unwrap();
-
-        scope!("compile module");
-        //let data = Arc::new(Mutex::new(0));
-
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
@@ -723,7 +698,6 @@ impl Compiler for LLVMCompiler {
         // We can move that logic out and re-enable parallel processing. Hopefully, there aren't
         // enough dynamic trampolines to actually cause a noticeable performance degradation.
         let dynamic_function_trampolines = {
-            scope!("dynamic trampolines");
             let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
             let func_trampoline =
@@ -823,27 +797,6 @@ impl Compiler for LLVMCompiler {
             got.index = Some(got_idx);
         };
 
-        let mut trace = TraceBuilder::new().unwrap();
-
-        // Record data from the main thread.
-        trace.process_thread_data(&ThreadTraceData::take_current_thread());
-
-        let trace = Mutex::new(trace);
-
-        pool.in_place_scope(|scope| {
-            scope.spawn_broadcast(|_, _| {
-                let thread_trace = ThreadTraceData::take_current_thread();
-                trace.lock().unwrap().process_thread_data(&thread_trace);
-            });
-        });
-
-        trace
-            .lock()
-            .unwrap()
-            .write_to_file("/home/marxin/Downloads/wasmer.ptrace")
-            .unwrap();
-
-        tracing::trace!("Finished compling the module!");
         Ok(Compilation {
             functions,
             custom_sections: module_custom_sections,

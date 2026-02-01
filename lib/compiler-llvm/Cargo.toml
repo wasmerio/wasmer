@@ -36,7 +36,6 @@ inkwell = { workspace = true, features = [
 	"target-riscv",
 	"target-loongarch",
 ] }
-perfetto-recorder = { workspace = true, features = ["enable"] }
 crossbeam-channel.workspace = true
 
 [build-dependencies]
