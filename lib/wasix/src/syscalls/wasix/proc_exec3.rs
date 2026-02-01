@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use wasmer::FromToNativeWasmType;
 
 use super::*;
@@ -55,8 +56,8 @@ pub fn proc_exec3<M: MemorySize>(
     })?;
     let args: Vec<_> = args
         .split(&['\n', '\r'])
+        .dropping_back(1) // `split` returns one last (empty) element
         .map(|a| a.to_string())
-        .filter(|a| !a.is_empty())
         .collect();
 
     let envs = if !envs.is_null() {

@@ -41,6 +41,7 @@ shared-buffer.workspace = true
 hyper = { workspace = true, features = ["server"], optional = true }
 derive_more.workspace = true
 wasm-encoder.workspace = true
+itertools.workspace = true
 
 xxhash-rust = { workspace = true, features = ["xxh64"] }
 rusty_pool = { workspace = true, optional = true }
