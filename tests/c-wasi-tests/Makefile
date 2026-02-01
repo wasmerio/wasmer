@@ -54,11 +54,13 @@ define build_shared
 endef
 
 TESTS := \
+  callback_signal \
   chdir \
   clock_time_get \
   clock_time_set \
   closure_allocate \
   closure_free \
+  closure_prepare \
   context_destroy \
   dlopen \
   dylink-needed \
@@ -84,9 +86,12 @@ TESTS := \
   fd_renumber \
   fd_sync \
   fd_tell \
+  fd_pipe \
   getcwd \
   path_create_directory \
   path_filestat_get \
+  path_filestat_set_times \
+  path_link \
   path_readlink \
   path_remove_directory \
   path_symlink \
@@ -104,13 +109,18 @@ TESTS := \
   proc_exit_fpr \
   proc_exit2__exit_65 \
   proc_exit2_exit_65 \
+  proc_raise \
   port_addr_list \
+  port_addr_clear \
+  port_addr_remove \
   port_route_list \
+  port_route_clear \
   port_mac \
   reflect_signature \
   random_get \
   sched_yield \
   sock_addr_peer \
+  sock_bind \
   sock_get_opt_flag \
   sock_get_opt_size \
   sock_get_opt_time \
@@ -167,7 +177,7 @@ run: $(BUILD_TARGETS)
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
 			dlopen|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
-			fd_close|fd_filestat_set_size|port_addr_list|port_route_list|port_mac|sock_addr_peer|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_listen|sock_shutdown|sock_status) flags="$$flags --net" ;; \
+			fd_close|fd_filestat_set_size|port_addr_list|port_addr_clear|port_addr_remove|port_route_list|port_route_clear|port_mac|sock_addr_peer|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_listen|sock_shutdown|sock_status) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \
 		if [ $$rc -ne $$expected ]; then \

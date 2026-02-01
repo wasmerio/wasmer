@@ -280,6 +280,28 @@ impl InodeSocket {
         Self::bind_internal(tasks, net, set_addr, timeout, inner).await
     }
 
+    async fn validate_bind_addr(
+        net: &dyn VirtualNetworking,
+        set_addr: SocketAddr,
+    ) -> Result<(), Errno> {
+        let ip = set_addr.ip();
+        let v4 = match ip {
+            IpAddr::V4(v4) => v4,
+            IpAddr::V6(_) => return Ok(()),
+        };
+        if v4.is_unspecified() {
+            return Ok(());
+        }
+
+        if let Ok(cidrs) = net.ip_list().await {
+            if !cidrs.is_empty() && !cidrs.iter().any(|cidr| cidr.ip == ip) {
+                return Err(Errno::Addrnotavail);
+            }
+        }
+
+        Ok(())
+    }
+
     // The lock is dropped before awaiting, but clippy doesn't realize it
     #[allow(clippy::await_holding_lock)]
     async fn bind_internal(
@@ -319,6 +341,7 @@ impl InodeSocket {
 
                     match props.ty {
                         Socktype::Stream => {
+                            Self::validate_bind_addr(net, addr).await?;
                             // we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             return Ok(None);
@@ -364,6 +387,7 @@ impl InodeSocket {
 
                     match props.ty {
                         Socktype::Stream => {
+                            Self::validate_bind_addr(net, addr).await?;
                             // we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             return Ok(None);

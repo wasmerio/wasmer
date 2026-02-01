@@ -860,7 +860,8 @@ pub(crate) fn write_buffer_array<M: MemorySize>(
 }
 
 pub(crate) fn get_current_time_in_nanos() -> Result<Timestamp, Errno> {
-    let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+    // ATIM_NOW/MTIM_NOW semantics require realtime (wall clock), not monotonic.
+    let now = platform_clock_time_get(Snapshot0Clockid::Realtime, 1_000_000).unwrap() as u128;
     Ok(now as Timestamp)
 }
 
