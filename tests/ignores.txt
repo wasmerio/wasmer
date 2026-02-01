@@ -1,7 +1,9 @@
 # Compilers
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
+singlepass spec::relaxed_simd # Singlepass doesn't support relaxed SIMD yet
 singlepass wasmer::simd_generated_ext_ops
 singlepass wasmer::simd
+llvm spec::relaxed_simd # LLVM compiler doesn't support relaxed SIMD yet
 singlepass spec::exception_handling # Singlepass doesn't support EH yet (no one asked for this feature)
 singlepass wasmer::exception_handling
 windows spec::exception_handling # No EH support on Windows yet
@@ -69,6 +71,7 @@ cranelift+riscv64 spec::r#if::cranelift
 
 # no SIMD on riscv, Cranelift will not handle them
 cranelift+riscv64 spec::simd
+cranelift+riscv64 spec::relaxed_simd
 # 6078
 cranelift+riscv64 wasmer::simd_generated_ext_ops
 cranelift+riscv64 wasmer::simd
