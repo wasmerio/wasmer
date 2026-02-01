@@ -605,16 +605,15 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
-
     let mut work = {
         let inode = fd_entry.inode.clone();
         let tasks = env.tasks().clone();
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::Socket { socket } => {
+                if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+                    return Err(Errno::Access);
+                }
                 // Clone the socket and release the lock
                 let socket = socket.clone();
                 drop(guard);
@@ -649,14 +648,13 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
-
     let inode = fd_entry.inode.clone();
     let mut guard = inode.write();
     match guard.deref_mut() {
         Kind::Socket { socket } => {
+            if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+                return Err(Errno::Access);
+            }
             // Clone the socket and release the lock
             let socket = socket.clone();
             drop(guard);
@@ -688,16 +686,15 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
-
     let inode = fd_entry.inode.clone();
 
     let tasks = env.tasks().clone();
     let mut guard = inode.write();
     match guard.deref_mut() {
         Kind::Socket { socket } => {
+            if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+                return Err(Errno::Access);
+            }
             // Clone the socket and release the lock
             let socket = socket.clone();
             drop(guard);

@@ -1,6 +1,30 @@
 use super::*;
 use crate::{net::socket::SocketProperties, syscalls::*};
 
+fn validate_sock_open(af: Addressfamily, ty: Socktype, pt: SockProto) -> Result<(), Errno> {
+    match af {
+        Addressfamily::Inet4 | Addressfamily::Inet6 => {}
+        _ => return Err(Errno::Afnosupport),
+    }
+
+    match ty {
+        Socktype::Unknown => return Err(Errno::Inval),
+        Socktype::Raw => return Err(Errno::Protonosupport),
+        Socktype::Seqpacket => return Err(Errno::Notsup),
+        Socktype::Stream | Socktype::Dgram => {}
+        _ => return Err(Errno::Inval),
+    }
+
+    match pt {
+        SockProto::Tcp if ty != Socktype::Stream => return Err(Errno::Protonosupport),
+        SockProto::Udp if ty != Socktype::Dgram => return Err(Errno::Protonosupport),
+        SockProto::Icmp => return Err(Errno::Protonosupport),
+        _ => {}
+    }
+
+    Ok(())
+}
+
 /// ### `sock_open()`
 /// Create an endpoint for communication.
 ///
@@ -30,16 +54,20 @@ pub fn sock_open<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
+    if let Err(errno) = validate_sock_open(af, ty, pt) {
+        return Ok(errno);
+    }
+
     // only certain combinations are supported
     match pt {
         SockProto::Tcp => {
             if ty != Socktype::Stream {
-                return Ok(Errno::Notsup);
+                return Ok(Errno::Protonosupport);
             }
         }
         SockProto::Udp => {
             if ty != Socktype::Dgram {
-                return Ok(Errno::Notsup);
+                return Ok(Errno::Protonosupport);
             }
         }
         _ => {}
@@ -69,6 +97,10 @@ pub(crate) fn sock_open_internal(
     pt: SockProto,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
+    if let Err(errno) = validate_sock_open(af, ty, pt) {
+        return Ok(Err(errno));
+    }
+
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
