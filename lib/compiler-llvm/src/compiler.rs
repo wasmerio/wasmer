@@ -540,21 +540,21 @@ impl Compiler for LLVMCompiler {
         let module = &compile_info.module;
         let module_hash = module.hash_string();
 
-        const TRAMPOLINE_ESTIMATED_BODY_SIZE: usize = 1000;
+        const TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1000;
         let total_function_call_trampolines = module.signatures.len();
         let total_dynamic_trampolines = module.num_imported_functions;
         let total_steps = TRAMPOLINE_ESTIMATED_BODY_SIZE
-            * (total_dynamic_trampolines + total_function_call_trampolines)
+            * ((total_dynamic_trampolines + total_function_call_trampolines) as u64)
             + function_body_inputs
                 .iter()
-                .map(|(_, body)| body.data.len())
-                .sum::<usize>();
+                .map(|(_, body)| body.data.len() as u64)
+                .sum::<u64>();
 
         //let _total_steps =
         //total_functions + total_function_call_trampolines + total_dynamic_trampolines;
         let progress = progress_callback
             .cloned()
-            .map(|cb| ProgressContext::new(cb, total_steps as u64, "Compiling functions"));
+            .map(|cb| ProgressContext::new(cb, total_steps, "Compiling functions"));
 
         // TODO: merge constants in sections.
 
@@ -687,7 +687,7 @@ impl Compiler for LLVMCompiler {
                         let trampoline =
                             func_trampoline.trampoline(sig, self.config(), "", compile_info);
                         if let Some(progress) = progress.as_ref() {
-                            progress.notify()?;
+                            progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                         }
                         trampoline
                     },
@@ -726,7 +726,7 @@ impl Compiler for LLVMCompiler {
                         &module_hash,
                     )?;
                     if let Some(progress) = progress.as_ref() {
-                        progress.notify()?;
+                        progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                     }
                     Ok(trampoline)
                 })
