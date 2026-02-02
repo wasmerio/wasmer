@@ -697,6 +697,36 @@ where
     }
 }
 
+impl<F, M> virtual_fs::FileOpener for MappedPathFileSystem<F, M>
+where
+    F: FileSystem,
+    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
+{
+    fn open(
+        &self,
+        path: &Path,
+        conf: &virtual_fs::OpenOptionsConfig,
+    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
+        let path = self.path(path)?;
+        self.inner
+            .new_open_options()
+            .options(conf.clone())
+            .open(path)
+    }
+}
+
+impl<F, M> Debug for MappedPathFileSystem<F, M>
+where
+    F: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MappedPathFileSystem")
+            .field("inner", &self.inner)
+            .field("map", &std::any::type_name::<M>())
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -787,34 +817,5 @@ mod tests {
                 .unwrap()
                 .is_file()
         );
-    }
-}
-impl<F, M> virtual_fs::FileOpener for MappedPathFileSystem<F, M>
-where
-    F: FileSystem,
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
-        let path = self.path(path)?;
-        self.inner
-            .new_open_options()
-            .options(conf.clone())
-            .open(path)
-    }
-}
-
-impl<F, M> Debug for MappedPathFileSystem<F, M>
-where
-    F: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MappedPathFileSystem")
-            .field("inner", &self.inner)
-            .field("map", &std::any::type_name::<M>())
-            .finish()
     }
 }

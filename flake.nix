@@ -19,11 +19,7 @@
           overlays = [ (import rust-overlay) ];
         };
 
-        rust-toolchain = pkgs.rust-bin.fromRustupToolchain {
-          channel = pkgs.lib.strings.trim (builtins.readFile ./rust-toolchain);
-          components = [ "clippy" "rustfmt" "rust-analyzer" "rust-src" ];
-          targets = [ "wasm32-unknown-unknown" ];
-        };
+        rust-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
       in
       rec {
         packages.${NAME} = import ./scripts/nix/pkg.nix pkgs;
@@ -57,7 +53,10 @@
 
 
             # Rust tooling
-            rust-toolchain
+            (rust-toolchain.override {
+              targets = [ "wasm32-unknown-unknown" ];
+              extensions = [ "clippy" "rustfmt" "rust-analyzer" "rust-src" ];
+            })
 
             # Snapshot testing
             # https://github.com/mitsuhiko/insta
