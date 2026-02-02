@@ -12,7 +12,7 @@
 // #define debug_printf(...) printf(__VA_ARGS__)
 
 int test_unlink() {
-    int fd = open("/tmp/test.txt", O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    int fd = open("/tmp/test.txt", O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd == -1) {
         perror("open");
         return 1;
