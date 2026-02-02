@@ -138,6 +138,10 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn unlink(&self, path: &Path) -> Result<()> {
+        if path == Path::new("/") {
+            return Err(FsError::PermissionDenied);
+        }
+
         let path = self.prepare_path(path);
 
         if path.parent().is_none() {
@@ -145,13 +149,10 @@ impl crate::FileSystem for FileSystem {
         }
 
         // Check if it's a directory or file
-        let metadata = fs::metadata(&path).map_err(|_| FsError::EntryNotFound)?;
+        let metadata = fs::metadata(&path).map_err(FsError::from)?;
 
         if metadata.is_dir() {
-            // For directories, check if empty
-            if self.read_dir(&path).map(|s| !s.is_empty()).unwrap_or(false) {
-                return Err(FsError::DirectoryNotEmpty);
-            }
+            // remove_dir already does the emptyness check
             fs::remove_dir(path).map_err(Into::into)
         } else {
             // For files
