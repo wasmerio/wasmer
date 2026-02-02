@@ -140,11 +140,11 @@ impl LLVM {
         self
     }
 
-    /// (warning: experimental) Pass the value of the first (#0) global and the base pointer of the
+    /// Disable the passing of the value of the first (#0) global and the base pointer of the
     /// first (#0) memory as parameter between guest functions.
-    pub fn enable_pass_params_opt(&mut self) -> &mut Self {
+    pub fn disable_pass_params_opt(&mut self) -> &mut Self {
         // internally, the "pass_params" opt is known as g0m0 opt.
-        self.enable_g0m0_opt = true;
+        self.enable_g0m0_opt = false;
         self
     }
 

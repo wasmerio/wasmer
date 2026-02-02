@@ -200,11 +200,19 @@ pub struct RuntimeOptions {
     #[clap(long, value_enum)]
     profiler: Option<Profiler>,
 
-    /// Only available for the LLVM compiler. Enable the "pass-params" optimization, where the first (#0)
+    /// Deprecated, "pass-params" optimization enabled by default, where the first (#0)
     /// global and the first (#0) memory passed between guest functions as explicit parameters.
+    /// Only available for the LLVM compiler.
     #[cfg(feature = "llvm")]
     #[clap(long)]
-    enable_pass_params_opt: bool,
+    _enable_pass_params_opt: bool,
+
+    /// Disable the "pass-params" optimization, where the first (#0)
+    /// global and the first (#0) memory passed between guest functions as explicit parameters.
+    /// Only available for the LLVM compiler.
+    #[cfg(feature = "llvm")]
+    #[clap(long)]
+    disable_pass_params_opt: bool,
 
     /// Sets the number of threads used to compile the input module(s).
     #[clap(long, alias = "llvm-num-threads")]
@@ -505,8 +513,8 @@ impl RuntimeOptions {
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
 
-                if self.enable_pass_params_opt {
-                    config.enable_pass_params_opt();
+                if self.disable_pass_params_opt {
+                    config.disable_pass_params_opt();
                 }
 
                 if let Some(num_threads) = self.compiler_threads {
@@ -665,8 +673,8 @@ impl BackendType {
                     config.enable_verifier();
                 }
 
-                if runtime_opts.enable_pass_params_opt {
-                    config.enable_pass_params_opt();
+                if runtime_opts.disable_pass_params_opt {
+                    config.disable_pass_params_opt();
                 }
 
                 if let Some(num_threads) = runtime_opts.compiler_threads {
