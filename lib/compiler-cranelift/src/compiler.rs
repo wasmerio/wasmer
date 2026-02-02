@@ -3,9 +3,8 @@
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 
-use crate::eh::FunctionLsdaData;
 #[cfg(feature = "unwind")]
-use crate::eh::{build_function_lsda, build_lsda_section, build_tag_section};
+use crate::eh::{FunctionLsdaData, build_function_lsda, build_lsda_section, build_tag_section};
 
 #[cfg(feature = "unwind")]
 use crate::translator::CraneliftUnwindInfo;
@@ -26,11 +25,10 @@ use cranelift_codegen::{
     ir::{self, ExternalName, UserFuncName},
 };
 
-use gimli::write::FrameDescriptionEntry;
 #[cfg(feature = "unwind")]
 use gimli::{
     constants::DW_EH_PE_absptr,
-    write::{Address, EhFrame, FrameTable, Writer},
+    write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
 };
 
 #[cfg(feature = "rayon")]
@@ -69,7 +67,9 @@ use wasmer_types::{
 
 pub struct CraneliftCompiledFunction {
     function: CompiledFunction,
+    #[cfg(feature = "unwind")]
     fde: Option<FrameDescriptionEntry>,
+    #[cfg(feature = "unwind")]
     function_lsda: Option<FunctionLsdaData>,
 }
 
@@ -165,7 +165,8 @@ impl CraneliftCompiler {
         // parallel compilation paths to avoid code duplication.
         let compile_function = |func_translator: &mut FuncTranslator,
                                 i: &LocalFunctionIndex,
-                                input: &FunctionBodyData| {
+                                input: &FunctionBodyData|
+         -> Result<CraneliftCompiledFunction, CompileError> {
             let func_index = module.func_index(*i);
             let mut context = Context::new();
             let mut func_env = FuncEnvironment::new(
@@ -267,9 +268,7 @@ impl CraneliftCompiler {
                 None
             };
 
-            #[cfg(not(feature = "unwind"))]
-            let function_lsda = ();
-
+            #[allow(unused)]
             let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
                 #[cfg(feature = "unwind")]
                 CraneliftUnwindInfo::Fde(fde) => {
@@ -309,7 +308,9 @@ impl CraneliftCompiler {
                     relocations: func_relocs,
                     frame_info: CompiledFunctionFrameInfo { address_map, traps },
                 },
+                #[cfg(feature = "unwind")]
                 fde,
+                #[cfg(feature = "unwind")]
                 function_lsda,
             })
         };
@@ -356,18 +357,25 @@ impl CraneliftCompiler {
         };
 
         let mut functions = Vec::with_capacity(function_body_inputs.len());
+        #[cfg(feature = "unwind")]
         let mut fdes = Vec::with_capacity(function_body_inputs.len());
+        #[cfg(feature = "unwind")]
         let mut lsda_data = Vec::with_capacity(function_body_inputs.len());
 
-        for CraneliftCompiledFunction {
-            function,
-            fde,
-            function_lsda,
-        } in results
-        {
+        for compiled in results {
+            let CraneliftCompiledFunction {
+                function,
+                #[cfg(feature = "unwind")]
+                fde,
+                #[cfg(feature = "unwind")]
+                function_lsda,
+            } = compiled;
             functions.push(function);
-            fdes.push(fde);
-            lsda_data.push(function_lsda);
+            #[cfg(feature = "unwind")]
+            {
+                fdes.push(fde);
+                lsda_data.push(function_lsda);
+            }
         }
 
         #[cfg(feature = "unwind")]
@@ -447,9 +455,6 @@ impl CraneliftCompiler {
         };
 
         let module_hash = module.hash_string();
-
-        #[cfg(not(feature = "unwind"))]
-        let _ = fdes;
 
         // function call trampolines (only for local functions, by signature)
         #[cfg(not(feature = "rayon"))]
