@@ -71,6 +71,7 @@ impl<'a> FunctionBucket<'a> {
     }
 }
 
+// Build buckets sized by function length to keep compilation units balanced for parallel compilation.
 fn build_function_buckets<'a>(
     function_body_inputs: &'a PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
 ) -> Vec<FunctionBucket<'a>> {
@@ -104,6 +105,7 @@ fn build_function_buckets<'a>(
     buckets
 }
 
+// Compile function buckets largest-first via the channel (instead of Rayon's par_iter).
 #[allow(clippy::too_many_arguments)]
 fn translate_function_buckets<'a>(
     compiler: &LLVMCompiler,
