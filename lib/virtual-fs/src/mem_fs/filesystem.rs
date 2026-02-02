@@ -3,10 +3,7 @@
 use self::offloaded_file::OffloadBackingStore;
 
 use super::*;
-use crate::{
-    DirEntry, FileSystem as FileSystemTrait, FileType, FsError, Metadata, OpenOptions, ReadDir,
-    Result,
-};
+use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
 use futures::future::{BoxFuture, Either};
 use slab::Slab;
 use std::collections::VecDeque;

@@ -1,9 +1,6 @@
 use super::filesystem::InodeResolution;
 use super::*;
-use crate::{
-    FileSystem as FileSystemTrait, FileType, FsError, Metadata, OpenOptionsConfig, Result,
-    VirtualFile,
-};
+use crate::{FileSystem as _, FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use shared_buffer::OwnedBuffer;
 use std::path::Path;
 use tracing::*;
