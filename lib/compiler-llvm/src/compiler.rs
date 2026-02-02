@@ -548,8 +548,6 @@ impl Compiler for LLVMCompiler {
                 .map(|(_, body)| body.data.len() as u64)
                 .sum::<u64>();
 
-        //let _total_steps =
-        //total_functions + total_function_call_trampolines + total_dynamic_trampolines;
         let progress = progress_callback
             .cloned()
             .map(|cb| ProgressContext::new(cb, total_steps, "Compiling functions"));

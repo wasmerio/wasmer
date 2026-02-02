@@ -42,7 +42,7 @@ impl ProgressContext {
 
     /// Notifies the callback that the next N steps in the phase are completed.
     pub fn notify_steps(&self, steps: u64) -> Result<(), CompileError> {
-        let step = self.counter.fetch_add(steps, Ordering::SeqCst) + 1;
+        let step = self.counter.fetch_add(steps, Ordering::SeqCst) + steps;
         self.callback
             .notify(CompilationProgress::new(
                 Some(Cow::Borrowed(self.phase_name)),
