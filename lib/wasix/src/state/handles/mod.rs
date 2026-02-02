@@ -65,11 +65,6 @@ pub struct WasiModuleInstanceHandles {
     // TODO: why is this here? It can exist in WasiEnv
     pub(crate) signal: Option<TypedFunction<i32, ()>>,
 
-    /// Flag that indicates if the signal callback has been set by the WASM
-    /// process - if it has not been set then the runtime behaves differently
-    /// when a CTRL-C is pressed.
-    pub(crate) signal_set: bool,
-
     /// Flag that indicates if the stack capture exports are being used by
     /// this WASM process which means that it will be using asyncify
     pub(crate) has_stack_checkpoint: bool,
@@ -154,7 +149,6 @@ impl WasiModuleInstanceHandles {
                 .get_typed_function(&store, "__wasm_signal")
                 .ok(),
             has_stack_checkpoint,
-            signal_set: false,
             asyncify_start_unwind: instance
                 .exports
                 .get_typed_function(store, "asyncify_start_unwind")

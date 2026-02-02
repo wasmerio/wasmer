@@ -30,16 +30,15 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
-    let env = ctx.data();
-
     #[cfg(feature = "sys-thread")]
     if duration == 0 {
+        let _ = wasi_try_ok!(WasiEnv::process_signals(&mut ctx)?);
         std::thread::yield_now();
     }
 
     if duration > 0 {
         let duration = Duration::from_nanos(duration);
-        let tasks = env.tasks().clone();
+        let tasks = ctx.data().tasks().clone();
         let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
             tasks.sleep_now(duration).await;
         })?;

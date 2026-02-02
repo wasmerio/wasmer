@@ -182,4 +182,18 @@ pub use thread_spawn::*;
 pub use tty_get::*;
 pub use tty_set::*;
 
+use super::{Errno, MemorySize, Tty, WasmPtr, to_offset};
 use tracing::{Span, debug_span, field, instrument, trace_span};
+
+/// Byte offset of `__wasi_tty_t::line_feeds` (api_wasix.h).
+const TTY_LINE_FEEDS_OFFSET: usize = 21;
+
+/// Returns a pointer to the `line_feeds` byte inside a serialized `__wasi_tty_t`.
+/// This field is not represented in `Tty`, so we read/write it by ABI offset.
+fn tty_line_feeds_ptr<M: MemorySize>(
+    tty_state: WasmPtr<Tty, M>,
+) -> Result<WasmPtr<u8, M>, Errno> {
+    let mut lf_offset = tty_state.offset();
+    lf_offset += to_offset::<M>(TTY_LINE_FEEDS_OFFSET)?;
+    Ok(WasmPtr::new(lf_offset))
+}
