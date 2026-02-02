@@ -572,8 +572,8 @@ impl From<io::Error> for FsError {
             io::ErrorKind::UnexpectedEof => FsError::UnexpectedEof,
             io::ErrorKind::WouldBlock => FsError::WouldBlock,
             io::ErrorKind::WriteZero => FsError::WriteZero,
-            // NOTE: Add this once the "io_error_more" Rust feature is stabilized
-            // io::ErrorKind::StorageFull => FsError::StorageFull,
+            io::ErrorKind::DirectoryNotEmpty => FsError::DirectoryNotEmpty,
+            io::ErrorKind::StorageFull => FsError::StorageFull,
             io::ErrorKind::Other => FsError::IOError,
             // if the following triggers, a new error type was added to this non-exhaustive enum
             _ => FsError::UnknownError,
