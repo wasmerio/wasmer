@@ -1,6 +1,6 @@
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
-use crate::translator::{FuncTranslator, LLVMIR_LARGE_FUNCTION_THRESHOLD};
+use crate::translator::FuncTranslator;
 use inkwell::DLLStorageClass;
 use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
@@ -27,7 +27,10 @@ use wasmer_compiler::{
         symbols::{Symbol, SymbolRegistry},
     },
 };
-use wasmer_compiler::{build_function_buckets, translate_function_buckets};
+use wasmer_compiler::{
+    WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets,
+    translate_function_buckets,
+};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
@@ -386,10 +389,9 @@ impl Compiler for LLVMCompiler {
         let module = &compile_info.module;
         let module_hash = module.hash_string();
 
-        const TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1000;
         let total_function_call_trampolines = module.signatures.len();
         let total_dynamic_trampolines = module.num_imported_functions;
-        let total_steps = TRAMPOLINE_ESTIMATED_BODY_SIZE
+        let total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
             * ((total_dynamic_trampolines + total_function_call_trampolines) as u64)
             + function_body_inputs
                 .iter()
@@ -424,13 +426,15 @@ impl Compiler for LLVMCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
 
-        let buckets =
-            build_function_buckets(&function_body_inputs, LLVMIR_LARGE_FUNCTION_THRESHOLD / 3);
-
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
+
+        let buckets =
+            build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
+        let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
+        tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
         let functions = translate_function_buckets(
             &pool,
             || {
@@ -557,7 +561,7 @@ impl Compiler for LLVMCompiler {
                         let trampoline =
                             func_trampoline.trampoline(sig, self.config(), "", compile_info);
                         if let Some(progress) = progress.as_ref() {
-                            progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                            progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                         }
                         trampoline
                     },
@@ -596,7 +600,7 @@ impl Compiler for LLVMCompiler {
                         &module_hash,
                     )?;
                     if let Some(progress) = progress.as_ref() {
-                        progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                     }
                     Ok(trampoline)
                 })

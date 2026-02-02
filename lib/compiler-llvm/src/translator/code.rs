@@ -26,6 +26,7 @@ use inkwell::{
 use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
+use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
@@ -65,10 +66,6 @@ const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 // If you have 2 billion tags in a single module, you deserve what you get.
 // ( Arshia: that comment above is AI-generated... AI is savage XD )
 const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
-
-// Use the lowest optimization level for very large function bodies to reduce compile time.
-// See #5997 for more numbers connected to the change.
-pub(crate) const LLVMIR_LARGE_FUNCTION_THRESHOLD: usize = 100_000;
 
 pub struct FuncTranslator {
     ctx: Context,
@@ -441,7 +438,7 @@ impl FuncTranslator {
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
 
-        let target_machine = if function_body.data.len() > LLVMIR_LARGE_FUNCTION_THRESHOLD {
+        let target_machine = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
             self.target_machine_no_opt
                 .as_ref()
                 .unwrap_or(&self.target_machine)

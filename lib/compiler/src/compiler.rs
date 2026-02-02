@@ -213,7 +213,7 @@ impl<'a> FunctionBucket<'a> {
 /// Build buckets sized by function length to keep compilation units balanced for parallel compilation.
 pub fn build_function_buckets<'a>(
     function_body_inputs: &'a PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
-    bucket_threshold_size: usize,
+    bucket_threshold_size: u64,
 ) -> Vec<FunctionBucket<'a>> {
     let mut function_bodies = function_body_inputs
         .iter()
@@ -227,7 +227,7 @@ pub fn build_function_buckets<'a>(
         let mut bucket = FunctionBucket::new();
 
         for (fn_index, fn_body) in function_bodies.into_iter() {
-            if bucket.size + fn_body.data.len() <= bucket_threshold_size
+            if bucket.size + fn_body.data.len() <= bucket_threshold_size as usize
                 // Huge functions must fit into a bucket!
                 || bucket.size == 0
             {
@@ -331,3 +331,9 @@ where
         .map(|(_, body)| body)
         .collect_vec())
 }
+
+/// Byte size threshold for a function that is considered large.
+pub const WASM_LARGE_FUNCTION_THRESHOLD: u64 = 100_000;
+
+/// Estimated byte size of a trampoline (used for progress bar reporting).
+pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;

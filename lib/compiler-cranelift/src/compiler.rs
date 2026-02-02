@@ -38,6 +38,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
 use std::sync::Arc;
+use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 
 use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
@@ -118,10 +119,9 @@ impl CraneliftCompiler {
             .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
 
-        const TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1000;
         let total_function_call_trampolines = module.signatures.len();
         let total_dynamic_trampolines = module.num_imported_functions;
-        let total_steps = TRAMPOLINE_ESTIMATED_BODY_SIZE
+        let total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
             * ((total_dynamic_trampolines + total_function_call_trampolines) as u64)
             + function_body_inputs
                 .iter()
@@ -334,9 +334,10 @@ impl CraneliftCompiler {
             .collect::<Result<Vec<_>, CompileError>>()?;
         #[cfg(feature = "rayon")]
         let results = {
-            const CRANELIFT_LARGE_FUNCTION_THRESHOLD: usize = 50_000;
+            use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
+
             let buckets =
-                build_function_buckets(&function_body_inputs, CRANELIFT_LARGE_FUNCTION_THRESHOLD);
+                build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
             let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
             tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
             let num_threads = self.config.num_threads.get();
@@ -469,7 +470,7 @@ impl CraneliftCompiler {
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(trampoline)
             })
@@ -492,7 +493,7 @@ impl CraneliftCompiler {
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(trampoline)
             })
@@ -521,7 +522,7 @@ impl CraneliftCompiler {
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(trampoline)
             })
@@ -544,7 +545,7 @@ impl CraneliftCompiler {
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(trampoline)
             })
