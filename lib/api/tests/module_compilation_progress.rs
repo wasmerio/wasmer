@@ -11,7 +11,7 @@ use wasmer_types::{CompilationProgress, UserAbort};
 fn test_module_compilation_progress_singlepass() {
     let compiler = wasmer::sys::Singlepass::default();
     let engine: wasmer::Engine = wasmer::sys::EngineBuilder::new(compiler).engine().into();
-    test_module_compilation_progress(engine, false);
+    test_module_compilation_progress(engine);
 }
 
 #[cfg(feature = "singlepass")]
@@ -27,7 +27,7 @@ fn test_module_compilation_abort_singlepass() {
 fn test_module_compilation_progress_cranelift() {
     let compiler = wasmer::sys::Cranelift::default();
     let engine: wasmer::Engine = wasmer::sys::EngineBuilder::new(compiler).engine().into();
-    test_module_compilation_progress(engine, true);
+    test_module_compilation_progress(engine);
 }
 
 #[cfg(feature = "cranelift")]
@@ -43,7 +43,7 @@ fn test_module_compilation_abort_cranelift() {
 fn test_module_compilation_progress_llvm() {
     let compiler = wasmer::sys::LLVM::default();
     let engine: wasmer::Engine = wasmer::sys::EngineBuilder::new(compiler).engine().into();
-    test_module_compilation_progress(engine, true);
+    test_module_compilation_progress(engine);
 }
 
 #[cfg(feature = "llvm")]
@@ -66,7 +66,7 @@ const SIMPLE_WAT: &str = r#"(module
     i32.sub)
 ) "#;
 
-fn test_module_compilation_progress(engine: Engine, fn_body_progress: bool) {
+fn test_module_compilation_progress(engine: Engine) {
     let items = Arc::new(Mutex::new(Vec::<CompilationProgress>::new()));
 
     let cb = wasmer_types::CompilationProgressCallback::new({
@@ -88,18 +88,9 @@ fn test_module_compilation_progress(engine: Engine, fn_body_progress: bool) {
         .clone();
 
     // LLVM/Cranelift compiler uses bitcode size for the total.
-    if fn_body_progress {
-        const TOTAL_STEPS: u64 = 2014;
-        assert_eq!(last.phase_step_count(), Some(TOTAL_STEPS));
-        assert_eq!(last.phase_step(), Some(TOTAL_STEPS));
-    } else {
-        // 4 total steps:
-        // - 2 functions
-        // - 1 trampoline for exports (both share same signature)
-        // - 1 trampoline for imported function
-        assert_eq!(last.phase_step_count(), Some(4));
-        assert_eq!(last.phase_step(), Some(4));
-    }
+    const TOTAL_STEPS: u64 = 2014;
+    assert_eq!(last.phase_step_count(), Some(TOTAL_STEPS));
+    assert_eq!(last.phase_step(), Some(TOTAL_STEPS));
 }
 
 fn test_module_compilation_abort(engine: Engine) {
