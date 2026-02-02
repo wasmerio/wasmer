@@ -235,37 +235,45 @@ where
             return Err(FsError::EntryNotFound);
         }
 
-        // Check if it's a directory or file from metadata
-        let is_dir = self.metadata(path).map(|m| m.ft.dir).unwrap_or(false);
+        // Handle file removal (unlink is for files only)
+        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
+            fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
+        });
 
-        if is_dir {
-            // Handle directory removal
-            let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
-                fs.read_dir(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
-            });
+        match self.primary.unlink(path) {
+            Err(e) if should_continue(e) => {}
+            other => return other,
+        }
 
-            match self.primary.unlink(path) {
-                Err(e) if should_continue(e) => {}
-                other => return other,
-            }
+        if had_at_least_one_success {
+            return Ok(());
+        }
 
-            if had_at_least_one_success {
-                return Ok(());
-            }
-        } else {
-            // Handle file removal
-            let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
-                fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
-            });
+        self.permission_error_or_not_found(path)
+    }
 
-            match self.primary.unlink(path) {
-                Err(e) if should_continue(e) => {}
-                other => return other,
-            }
+    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
+        // Whiteout files can not be removed
+        if ops::is_white_out(path).is_some() {
+            tracing::trace!(
+                path=%path.display(),
+                "Unable to remove a whited out entry",
+            );
+            return Err(FsError::EntryNotFound);
+        }
 
-            if had_at_least_one_success {
-                return Ok(());
-            }
+        // Handle directory removal (rmdir is for directories only)
+        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
+            fs.read_dir(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
+        });
+
+        match self.primary.rmdir(path) {
+            Err(e) if should_continue(e) => {}
+            other => return other,
+        }
+
+        if had_at_least_one_success {
+            return Ok(());
         }
 
         self.permission_error_or_not_found(path)
@@ -1147,7 +1155,7 @@ mod tests {
         let overlay = OverlayFileSystem::new(primary, [secondary]);
 
         // Delete a folder on the primary filesystem
-        overlay.unlink(first).unwrap();
+        overlay.rmdir(first).unwrap();
         assert_eq!(
             overlay.primary().metadata(first).unwrap_err(),
             FsError::EntryNotFound,
@@ -1157,7 +1165,7 @@ mod tests {
 
         // Directory on the primary fs isn't empty
         assert_eq!(
-            overlay.unlink(second).unwrap_err(),
+            overlay.rmdir(second).unwrap_err(),
             FsError::DirectoryNotEmpty,
         );
 

@@ -148,16 +148,37 @@ impl crate::FileSystem for FileSystem {
             return Err(FsError::BaseNotDirectory);
         }
 
-        // Check if it's a directory or file
+        // Check if it's a file (not a directory)
         let metadata = fs::metadata(&path).map_err(FsError::from)?;
 
         if metadata.is_dir() {
-            // remove_dir already does the emptyness check
-            fs::remove_dir(path).map_err(Into::into)
-        } else {
-            // For files
-            fs::remove_file(path).map_err(Into::into)
+            return Err(FsError::NotAFile);
         }
+
+        // For files
+        fs::remove_file(path).map_err(Into::into)
+    }
+
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        if path == Path::new("/") {
+            return Err(FsError::PermissionDenied);
+        }
+
+        let path = self.prepare_path(path);
+
+        if path.parent().is_none() {
+            return Err(FsError::BaseNotDirectory);
+        }
+
+        // Check if it's a directory (not a file)
+        let metadata = fs::metadata(&path).map_err(FsError::from)?;
+
+        if !metadata.is_dir() {
+            return Err(FsError::NotADirectory);
+        }
+
+        // remove_dir already does the emptyness check
+        fs::remove_dir(path).map_err(Into::into)
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
@@ -1117,7 +1138,7 @@ mod tests {
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
         assert_eq!(
-            fs.unlink(Path::new("/foo")),
+            fs.rmdir(Path::new("/foo")),
             Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
@@ -1137,18 +1158,18 @@ mod tests {
         assert!(temp.path().join("foo/bar").exists(), "./foo/bar exists");
 
         assert_eq!(
-            fs.unlink(Path::new("foo")),
+            fs.rmdir(Path::new("foo")),
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.unlink(Path::new("foo/bar")),
+            fs.rmdir(Path::new("foo/bar")),
             Ok(()),
             "removing a sub-directory",
         );
 
-        assert_eq!(fs.unlink(Path::new("foo")), Ok(()), "removing a directory",);
+        assert_eq!(fs.rmdir(Path::new("foo")), Ok(()), "removing a directory",);
 
         let cur_dir = read_dir_names(&fs, "/");
 

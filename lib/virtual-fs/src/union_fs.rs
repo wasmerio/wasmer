@@ -280,6 +280,19 @@ impl FileSystem for UnionFileSystem {
             }
         }
     }
+
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
+            Err(FsError::PermissionDenied)
+        } else {
+            match self.find_mount(path.to_owned()) {
+                Some((_, path, fs)) => fs.rmdir(&path),
+                _ => Err(FsError::EntryNotFound),
+            }
+        }
+    }
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
@@ -624,13 +637,13 @@ mod tests {
         let fs = gen_filesystem();
 
         assert_eq!(
-            fs.unlink(Path::new("/")),
+            fs.rmdir(Path::new("/")),
             Err(FsError::PermissionDenied),
             "cannot remove the root directory",
         );
 
         assert_eq!(
-            fs.unlink(Path::new("/foo")),
+            fs.rmdir(Path::new("/foo")),
             Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
@@ -655,19 +668,19 @@ mod tests {
         );
 
         assert_eq!(
-            fs.unlink(Path::new("/test_remove_dir/foo")),
+            fs.rmdir(Path::new("/test_remove_dir/foo")),
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.unlink(Path::new("/test_remove_dir/foo/bar")),
+            fs.rmdir(Path::new("/test_remove_dir/foo/bar")),
             Ok(()),
             "removing a sub-directory",
         );
 
         assert_eq!(
-            fs.unlink(Path::new("/test_remove_dir/foo")),
+            fs.rmdir(Path::new("/test_remove_dir/foo")),
             Ok(()),
             "removing a directory",
         );

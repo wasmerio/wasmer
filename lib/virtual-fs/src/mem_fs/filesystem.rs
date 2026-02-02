@@ -385,9 +385,8 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn unlink(&self, path: &Path) -> Result<()> {
-        // Unified unlink implementation that handles both files and directories
-        // This matches POSIX unlink semantics
-        let (inode_of_parent, position, inode_to_unlink, is_directory) = {
+        // POSIX unlink(2) implementation - removes files only
+        let (inode_of_parent, position, inode_to_unlink) = {
             // Read lock.
             let guard = self.inner.read().map_err(|_| FsError::Lock)?;
 
@@ -413,8 +412,7 @@ impl crate::FileSystem for FileSystem {
                 }
             };
 
-            // Try to find the entry as either a file or directory
-            // First try as a file
+            // Try to find the entry as a file
             match guard.as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_entry)? {
                 Some((position, inode_resolution)) => {
                     let inode = match inode_resolution {
@@ -424,32 +422,21 @@ impl crate::FileSystem for FileSystem {
                             return fs.unlink(path.as_path());
                         }
                     };
-                    (inode_of_parent, position, inode, false)
+                    (inode_of_parent, position, inode)
                 }
                 None => {
-                    // Try as a directory
-                    // Note: if this fails, we propagate the error (might be DirectoryNotEmpty, etc.)
-                    let (position, inode_resolution) = guard
+                    // Check if it's a directory to provide better error message
+                    if guard
                         .as_parent_get_position_and_inode_of_directory(
                             inode_of_parent,
                             &name_of_entry,
-                            DirectoryMustBeEmpty::Yes,
+                            DirectoryMustBeEmpty::No,
                         )
-                        .map_err(|e| match e {
-                            // If it's not found as a file or directory, return EntryNotFound
-                            FsError::InvalidInput => FsError::EntryNotFound,
-                            // Otherwise propagate the error (e.g., DirectoryNotEmpty)
-                            other => other,
-                        })?;
-
-                    let inode = match inode_resolution {
-                        InodeResolution::Found(a) => a,
-                        InodeResolution::Redirect(fs, path) => {
-                            drop(guard);
-                            return fs.unlink(path.as_path());
-                        }
-                    };
-                    (inode_of_parent, position, inode, true)
+                        .is_ok()
+                    {
+                        return Err(FsError::NotAFile);
+                    }
+                    return Err(FsError::EntryNotFound);
                 }
             }
         };
@@ -458,54 +445,127 @@ impl crate::FileSystem for FileSystem {
             // Write lock.
             let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
-            if is_directory {
-                // For directories, just remove from storage
-                fs.storage.remove(inode_to_unlink);
-            } else {
-                // For files, handle reference counting for open handles
-                if let Some(node) = fs.storage.get_mut(inode_to_unlink) {
-                    match node {
-                        Node::File(FileNode {
-                            is_unlinked,
-                            ref_count,
-                            ..
-                        })
-                        | Node::ReadOnlyFile(ReadOnlyFileNode {
-                            is_unlinked,
-                            ref_count,
-                            ..
-                        })
-                        | Node::OffloadedFile(OffloadedFileNode {
-                            is_unlinked,
-                            ref_count,
-                            ..
-                        })
-                        | Node::ArcFile(ArcFileNode {
-                            is_unlinked,
-                            ref_count,
-                            ..
-                        })
-                        | Node::CustomFile(CustomFileNode {
-                            is_unlinked,
-                            ref_count,
-                            ..
-                        }) => {
-                            is_unlinked.store(true, Ordering::SeqCst);
+            // Handle reference counting for open handles
+            if let Some(node) = fs.storage.get_mut(inode_to_unlink) {
+                match node {
+                    Node::File(FileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::ReadOnlyFile(ReadOnlyFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::OffloadedFile(OffloadedFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::ArcFile(ArcFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::CustomFile(CustomFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    }) => {
+                        is_unlinked.store(true, Ordering::SeqCst);
 
-                            // If ref_count is 0, remove immediately (no open handles)
-                            if ref_count.load(Ordering::SeqCst) == 0 {
-                                fs.storage.remove(inode_to_unlink);
-                            }
-                        }
-                        _ => {
-                            // For other types (shouldn't happen for files), just remove
+                        // If ref_count is 0, remove immediately (no open handles)
+                        if ref_count.load(Ordering::SeqCst) == 0 {
                             fs.storage.remove(inode_to_unlink);
                         }
                     }
-                } else {
-                    // If node doesn't exist (shouldn't happen), that's ok
+                    _ => {
+                        // For other types (shouldn't happen for files), just remove
+                        fs.storage.remove(inode_to_unlink);
+                    }
                 }
             }
+
+            // Remove the child from the parent directory.
+            fs.remove_child_from_node(inode_of_parent, position)?;
+        }
+
+        Ok(())
+    }
+
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        // POSIX rmdir(2) implementation - removes empty directories only
+        let (inode_of_parent, position, inode_to_unlink) = {
+            // Read lock.
+            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+            // Canonicalize the path.
+            let path = guard.canonicalize_without_inode(path)?;
+
+            // Check the path has a parent.
+            let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
+
+            // Check the entry name.
+            let name_of_entry = path
+                .file_name()
+                .ok_or(FsError::InvalidInput)?
+                .to_os_string();
+
+            // Find the parent inode.
+            let inode_of_parent = match guard.inode_of_parent(parent_of_path)? {
+                InodeResolution::Found(a) => a,
+                InodeResolution::Redirect(fs, mut parent_path) => {
+                    drop(guard);
+                    parent_path.push(name_of_entry);
+                    return fs.rmdir(parent_path.as_path());
+                }
+            };
+
+            // Try as a directory - must be empty
+            let (position, inode_resolution) = guard
+                .as_parent_get_position_and_inode_of_directory(
+                    inode_of_parent,
+                    &name_of_entry,
+                    DirectoryMustBeEmpty::Yes,
+                )
+                .map_err(|e| match e {
+                    // If it's not found, check if it's a file to provide better error
+                    FsError::InvalidInput => {
+                        if guard
+                            .as_parent_get_position_and_inode_of_file(
+                                inode_of_parent,
+                                &name_of_entry,
+                            )
+                            .ok()
+                            .flatten()
+                            .is_some()
+                        {
+                            FsError::NotADirectory
+                        } else {
+                            FsError::EntryNotFound
+                        }
+                    }
+                    // Propagate errors like DirectoryNotEmpty
+                    other => other,
+                })?;
+
+            let inode = match inode_resolution {
+                InodeResolution::Found(a) => a,
+                InodeResolution::Redirect(fs, path) => {
+                    drop(guard);
+                    return fs.rmdir(path.as_path());
+                }
+            };
+            (inode_of_parent, position, inode)
+        };
+
+        {
+            // Write lock.
+            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+            // For directories, just remove from storage
+            fs.storage.remove(inode_to_unlink);
 
             // Remove the child from the parent directory.
             fs.remove_child_from_node(inode_of_parent, position)?;
@@ -1301,13 +1361,13 @@ mod test_filesystem {
         let fs = FileSystem::default();
 
         assert_eq!(
-            fs.unlink(path!("/")),
+            fs.rmdir(path!("/")),
             Err(FsError::BaseNotDirectory),
             "removing a directory that has no parent",
         );
 
         assert_eq!(
-            fs.unlink(path!("/foo")),
+            fs.rmdir(path!("/foo")),
             Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
@@ -1330,18 +1390,18 @@ mod test_filesystem {
         }
 
         assert_eq!(
-            fs.unlink(path!("/foo")),
+            fs.rmdir(path!("/foo")),
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.unlink(path!("/foo/bar")),
+            fs.rmdir(path!("/foo/bar")),
             Ok(()),
             "removing a sub-directory",
         );
 
-        assert_eq!(fs.unlink(path!("/foo")), Ok(()), "removing a directory");
+        assert_eq!(fs.rmdir(path!("/foo")), Ok(()), "removing a directory");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -2019,8 +2079,14 @@ mod test_filesystem {
         // Verify directory exists
         assert!(fs.metadata(Path::new("/testdir")).is_ok());
 
-        // Unlink the directory
-        assert!(fs.unlink(Path::new("/testdir")).is_ok());
+        // Try to unlink the directory - should fail because it's a directory
+        assert!(matches!(
+            fs.unlink(Path::new("/testdir")),
+            Err(FsError::NotAFile)
+        ));
+
+        // Use rmdir instead - should succeed
+        assert!(fs.rmdir(Path::new("/testdir")).is_ok());
 
         // Verify directory no longer exists
         assert!(matches!(
@@ -2031,7 +2097,7 @@ mod test_filesystem {
 
     #[tokio::test]
     async fn test_unlink_nonempty_directory_fails() {
-        // Test that unlinking a non-empty directory fails
+        // Test that rmdir on a non-empty directory fails
         let fs = FileSystem::default();
 
         // Create a directory with a file
@@ -2042,9 +2108,15 @@ mod test_filesystem {
             .open(Path::new("/testdir/file.txt"))
             .unwrap();
 
-        // Try to unlink the directory - should fail because it's not empty
+        // Try to unlink the directory - should fail because it's a directory
         assert!(matches!(
             fs.unlink(Path::new("/testdir")),
+            Err(FsError::NotAFile)
+        ));
+
+        // Try to rmdir the directory - should fail because it's not empty
+        assert!(matches!(
+            fs.rmdir(Path::new("/testdir")),
             Err(FsError::DirectoryNotEmpty)
         ));
 
@@ -2054,7 +2126,7 @@ mod test_filesystem {
 
     #[tokio::test]
     async fn test_unlink_file_succeeds() {
-        // Test that unlinking a file with unified unlink works
+        // Test that unlinking a file works
         let fs = FileSystem::default();
 
         // Create a file
@@ -2064,7 +2136,7 @@ mod test_filesystem {
             .open(Path::new("/test.txt"))
             .unwrap();
 
-        // Unlink the file - should succeed with unified unlink
+        // Unlink the file - should succeed
         assert!(fs.unlink(Path::new("/test.txt")).is_ok());
 
         // File should no longer exist
@@ -2073,14 +2145,20 @@ mod test_filesystem {
 
     #[tokio::test]
     async fn test_unlink_empty_directory_succeeds() {
-        // Test that unlinking an empty directory with unified unlink works
+        // Test that rmdir on an empty directory works
         let fs = FileSystem::default();
 
         // Create a directory
         fs.create_dir(Path::new("/testdir")).unwrap();
 
-        // Unlink the directory - should succeed with unified unlink
-        assert!(fs.unlink(Path::new("/testdir")).is_ok());
+        // Try unlink - should fail because it's a directory
+        assert!(matches!(
+            fs.unlink(Path::new("/testdir")),
+            Err(FsError::NotAFile)
+        ));
+
+        // Use rmdir - should succeed
+        assert!(fs.rmdir(Path::new("/testdir")).is_ok());
 
         // Directory should no longer exist
         assert!(fs.metadata(Path::new("/testdir")).is_err());

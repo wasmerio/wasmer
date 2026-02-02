@@ -322,17 +322,32 @@ impl FileSystem for StaticFileSystem {
         let path = normalizes_path(path);
         // First unlink from memory, to make sure it is removed from there
         let result = self.memory.unlink(Path::new(&path));
-        // TODO: Using `get_file_entry` for directories is not correct, but this was the previous behavior
+        // Check if file exists in WebC volumes
         if self
             .volumes
             .values()
             .any(|v| v.get_file_entry(&path).is_ok())
         {
-            // If found in WebC, return Ok
-            // TODO: Why is this not be PermissionDenied instead?
+            // If found in WebC, return Ok (old behavior was to silently succeed)
+            // TODO: This should probably be PermissionDenied instead?
             Ok(())
         } else {
             // If not found in WebC, return the result from memory unlink
+            result
+        }
+    }
+
+    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
+        let path = normalizes_path(path);
+        // First rmdir from memory
+        let result = self.memory.rmdir(Path::new(&path));
+        // Check if directory exists in WebC volumes
+        if self.volumes.values().any(|v| v.read_dir(&path).is_ok()) {
+            // If found in WebC, return Ok (old behavior was to silently succeed)
+            // TODO: This should probably be PermissionDenied instead?
+            Ok(())
+        } else {
+            // If not found in WebC, return the result from memory rmdir
             result
         }
     }

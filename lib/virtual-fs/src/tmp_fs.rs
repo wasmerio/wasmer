@@ -89,6 +89,10 @@ impl FileSystem for TmpFileSystem {
         self.fs.unlink(path)
     }
 
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        self.fs.rmdir(path)
+    }
+
     fn new_open_options(&self) -> OpenOptions<'_> {
         self.fs.new_open_options()
     }

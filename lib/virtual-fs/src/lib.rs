@@ -96,12 +96,19 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
 
-    /// Remove a file or empty directory at the specified path.
-    /// This matches POSIX unlink semantics:
-    /// - For files: removes the directory entry for the file
-    /// - For directories: only succeeds if directory is empty
-    /// - Unlinked files will only be deleted once all references to them (e.g. open file handles, directory entries) are removed.
+    /// Remove a file at the specified path.
+    /// This matches POSIX unlink(2) semantics:
+    /// - Removes the directory entry for the file
+    /// - Fails with NotADirectory or similar error if path is a directory
+    /// - Unlinked files will only be deleted once all references to them (e.g. open file handles) are removed
     fn unlink(&self, path: &Path) -> Result<()>;
+
+    /// Remove an empty directory at the specified path.
+    /// This matches POSIX rmdir(2) semantics:
+    /// - Only succeeds if directory is empty
+    /// - Fails with NotAFile or similar error if path is a file
+    /// - Fails with DirectoryNotEmpty if directory contains entries
+    fn rmdir(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions<'_>;
 
@@ -152,6 +159,10 @@ where
 
     fn unlink(&self, path: &Path) -> Result<()> {
         (**self).unlink(path)
+    }
+
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        (**self).rmdir(path)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -472,6 +483,9 @@ pub enum FsError {
     /// The fd given as a base was not a directory so the operation was not possible
     #[error("fd not a directory")]
     BaseNotDirectory,
+    /// Expected a directory but found not a directory
+    #[error("not a directory")]
+    NotADirectory,
     /// Expected a file but found not a file
     #[error("fd not a file")]
     NotAFile,
@@ -603,6 +617,7 @@ impl From<FsError> for io::Error {
             FsError::WriteZero => io::ErrorKind::WriteZero,
             FsError::IOError => io::ErrorKind::Other,
             FsError::BaseNotDirectory => io::ErrorKind::Other,
+            FsError::NotADirectory => io::ErrorKind::Other,
             FsError::NotAFile => io::ErrorKind::Other,
             FsError::InvalidFd => io::ErrorKind::Other,
             FsError::Lock => io::ErrorKind::Other,

@@ -137,6 +137,14 @@ impl FileSystem for WebcVolumeFileSystem {
         Err(FsError::PermissionDenied)
     }
 
+    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
+        // Check if entry exists - metadata will return appropriate error if not found
+        let _meta = self.metadata(path)?;
+
+        // We are a readonly filesystem, so you can't modify anything
+        Err(FsError::PermissionDenied)
+    }
+
     fn new_open_options(&self) -> crate::OpenOptions<'_> {
         crate::OpenOptions::new(self)
     }

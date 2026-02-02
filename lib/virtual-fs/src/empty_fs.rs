@@ -60,6 +60,10 @@ impl FileSystem for EmptyFileSystem {
         Err(FsError::EntryNotFound)
     }
 
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        Err(FsError::EntryNotFound)
+    }
+
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
