@@ -406,9 +406,7 @@ impl LLVMCompiler {
                         &name,
                         &module_hash,
                     )?;
-                    let bitcode = module.write_bitcode_to_memory().as_slice().to_vec();
-                    dbg!(bitcode.len());
-                    Ok(bitcode)
+                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
             );
 
