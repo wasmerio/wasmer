@@ -108,20 +108,24 @@ fn build_function_buckets<'a>(
 
 // Compile function buckets largest-first via the channel (instead of Rayon's par_iter).
 #[allow(clippy::too_many_arguments)]
-fn translate_function_buckets<'a>(
-    compiler: &LLVMCompiler,
+fn translate_function_buckets<'a, F, G>(
     pool: &rayon::ThreadPool,
-    target: &Target,
-    compile_info: &CompileModuleInfo,
-    module_translation: &ModuleTranslationState,
-    symbol_registry: &dyn SymbolRegistry,
-    binary_format: target_lexicon::BinaryFormat,
+    func_translator_builder: F,
+    translate_fn: G,
     progress: Option<ProgressContext>,
     buckets: &[FunctionBucket<'a>],
-) -> Result<Vec<crate::object_file::CompiledFunction>, CompileError> {
-    let module = &compile_info.module;
-    let memory_styles = &compile_info.memory_styles;
-    let table_styles = &compile_info.table_styles;
+) -> Result<Vec<crate::object_file::CompiledFunction>, CompileError>
+where
+    F: Fn() -> FuncTranslator + Send + Sync + Copy,
+    G: Fn(
+            &FuncTranslator,
+            &LocalFunctionIndex,
+            &FunctionBodyData,
+        ) -> Result<crate::object_file::CompiledFunction, CompileError>
+        + Send
+        + Sync
+        + Copy,
+{
     let progress = progress.as_ref();
 
     let functions = pool.install(|| {
@@ -143,35 +147,13 @@ fn translate_function_buckets<'a>(
                 let bucket_rx = bucket_rx.clone();
                 let result_tx = result_tx.clone();
                 s.spawn(move |_| {
-                    let target_machine = compiler.config().target_machine_with_opt(target, true);
-                    let target_machine_no_opt =
-                        compiler.config().target_machine_with_opt(target, false);
-                    let pointer_width = target.triple().pointer_width().unwrap().bytes();
-                    let func_translator = FuncTranslator::new(
-                        target.triple().clone(),
-                        target_machine,
-                        Some(target_machine_no_opt),
-                        binary_format,
-                        pointer_width,
-                    )
-                    .unwrap();
+                    let func_translator = func_translator_builder();
 
                     while let Ok(bucket) = bucket_rx.recv() {
                         let bucket_result = (|| {
                             let mut translated_functions = Vec::new();
                             for (i, input) in bucket.functions.iter() {
-                                let translated = func_translator.translate(
-                                    module,
-                                    module_translation,
-                                    i,
-                                    input,
-                                    compiler.config(),
-                                    memory_styles,
-                                    table_styles,
-                                    symbol_registry,
-                                    target.triple(),
-                                )?;
-
+                                let translated = translate_fn(&func_translator, i, input)?;
                                 if let Some(progress) = progress {
                                     progress.notify_steps(input.data.len() as u64)?;
                                 }
@@ -245,7 +227,7 @@ impl SymbolRegistry for ShortNames {
     }
 }
 
-struct ModuleBasedSymbolRegistry {
+pub(crate) struct ModuleBasedSymbolRegistry {
     wasm_module: Arc<ModuleInfo>,
     local_func_names: HashMap<String, LocalFunctionIndex>,
     short_names: ShortNames,
@@ -573,6 +555,9 @@ impl Compiler for LLVMCompiler {
         };
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
+        let module = &compile_info.module;
+        let memory_styles = &compile_info.memory_styles;
+        let table_styles = &compile_info.table_styles;
 
         let buckets =
             build_function_buckets(&function_body_inputs, LLVMIR_LARGE_FUNCTION_THRESHOLD / 3);
@@ -582,13 +567,35 @@ impl Compiler for LLVMCompiler {
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
         let functions = translate_function_buckets(
-            self,
             &pool,
-            target,
-            compile_info,
-            module_translation,
-            &symbol_registry,
-            binary_format,
+            || {
+                let compiler = &self;
+                let target_machine = compiler.config().target_machine_with_opt(target, true);
+                let target_machine_no_opt =
+                    compiler.config().target_machine_with_opt(target, false);
+                let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                FuncTranslator::new(
+                    target.triple().clone(),
+                    target_machine,
+                    Some(target_machine_no_opt),
+                    binary_format,
+                    pointer_width,
+                )
+                .unwrap()
+            },
+            |func_translator, i, input| {
+                func_translator.translate(
+                    module,
+                    module_translation,
+                    i,
+                    input,
+                    self.config(),
+                    memory_styles,
+                    table_styles,
+                    &symbol_registry,
+                    target.triple(),
+                )
+            },
             progress.clone(),
             &buckets,
         )?;
