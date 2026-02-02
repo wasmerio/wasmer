@@ -404,7 +404,9 @@ impl LLVMCompiler {
                         &name,
                         &module_hash,
                     )?;
-                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                    let bitcode = module.write_bitcode_to_memory().as_slice().to_vec();
+                    dbg!(bitcode.len());
+                    Ok(bitcode)
                 },
             );
 
@@ -535,22 +537,22 @@ impl Compiler for LLVMCompiler {
 
         let module = &compile_info.module;
         let module_hash = module.hash_string();
-        // TODO
-        let _total_functions = function_body_inputs.len() as u64;
-        let _total_function_call_trampolines = module.signatures.len() as u64;
-        let _total_dynamic_trampolines = module.num_imported_functions as u64;
+
+        const TRAMPOLINE_ESTIMATED_BODY_SIZE: usize = 1000;
+        let total_function_call_trampolines = module.signatures.len();
+        let total_dynamic_trampolines = module.num_imported_functions;
+        let total_steps = TRAMPOLINE_ESTIMATED_BODY_SIZE
+            * (total_dynamic_trampolines + total_function_call_trampolines)
+            + function_body_inputs
+                .iter()
+                .map(|(_, body)| body.data.len())
+                .sum::<usize>();
+
         //let _total_steps =
         //total_functions + total_function_call_trampolines + total_dynamic_trampolines;
-        let progress = progress_callback.cloned().map(|cb| {
-            ProgressContext::new(
-                cb,
-                function_body_inputs
-                    .iter()
-                    .map(|(_, body)| body.data.len())
-                    .sum::<usize>() as u64,
-                "Compiling functions",
-            )
-        });
+        let progress = progress_callback
+            .cloned()
+            .map(|cb| ProgressContext::new(cb, total_steps as u64, "Compiling functions"));
 
         // TODO: merge constants in sections.
 
