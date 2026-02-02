@@ -20,14 +20,14 @@ int test_unlink() {
     debug_printf("open succeeded\n");
 
     // 1. The file needs to be unlinked
-    unlink("/tmp/test.txt");
-    if (errno != 0) {
+    int unlink_result = unlink("/tmp/test.txt");
+    if (unlink_result == -1) {
         perror("unlink");
         return 1;
     }
     debug_printf("unlink succeeded\n");
 
-    FILE* fp = fdopen(fd, "wr");
+    FILE* fp = fdopen(fd, "w+");
     if (fp == NULL) {
         perror("fdopen");
         return 1;
@@ -36,7 +36,7 @@ int test_unlink() {
 
     // 2. The write must be larger than 1024 bytes. Smaller writes succeed for some reason.
     char memory_buffer[1025];
-    size_t n = fwrite(memory_buffer, 1, 1025, fp);
+    ssize_t n = fwrite(memory_buffer, 1, 1025, fp);
     if (ferror(fp)) {
         perror("fwrite");
         return 1;
@@ -56,24 +56,24 @@ int test_unlink_twice() {
     }
     debug_printf("open succeeded\n");
 
-    close(fd);
-    if (errno != 0) {
+    int close_result = close(fd);
+    if (close_result == -1) {
         perror("close");
         return 1;
     }
     debug_printf("close succeeded\n");
 
     // 1. The file needs to be unlinked
-    unlink("/tmp/test.txt");
-    if (errno != 0) {
+    int unlink_result = unlink("/tmp/test.txt");
+    if (unlink_result == -1) {
         perror("unlink");
         return 1;
     }
     debug_printf("unlink succeeded\n");
 
         // 1. The file needs to be unlinked
-    unlink("/tmp/test.txt");
-    if (errno == 0) {
+    int unlink_result2 = unlink("/tmp/test.txt");
+    if (unlink_result2 == 0) {
         fprintf(stderr, "Expected error on second unlink, but got none\n");
         return 1;
     }
@@ -94,15 +94,15 @@ int test_unlink_twice_with_open_fd() {
     debug_printf("open succeeded\n");
 
     // 1. The file needs to be unlinked
-    unlink("/tmp/test.txt");
-    if (errno != 0) {
+    int unlink_result = unlink("/tmp/test.txt");
+    if (unlink_result == -1) {
         perror("unlink");
         return 1;
     }
     debug_printf("unlink succeeded\n");
 
-    unlink("/tmp/test.txt");
-    if (errno == 0) {
+    int unlink_result2 = unlink("/tmp/test.txt");
+    if (unlink_result2 == 0) {
         fprintf(stderr, "Expected error on second unlink, but got none\n");
         return 1;
     }
@@ -120,16 +120,16 @@ int test_open_after_unlink() {
     }
     debug_printf("open succeeded\n");
 
-    close(fd);
-    if (errno != 0) {
+    int close_result = close(fd);
+    if (close_result == -1) {
         perror("close");
         return 1;
     }
     debug_printf("close succeeded\n");
 
     // 1. The file needs to be unlinked
-    unlink("/tmp/test.txt");
-    if (errno != 0) {
+    int unlink_result = unlink("/tmp/test.txt");
+    if (unlink_result == -1) {
         perror("unlink");
         return 1;
     }
@@ -158,8 +158,8 @@ int test_new_file_after_unlink_is_new_file() {
     debug_printf("open succeeded\n");
 
     // 1. The file needs to be unlinked
-    unlink("/tmp/test.txt");
-    if (errno != 0) {
+    int unlink_result = unlink("/tmp/test.txt");
+    if (unlink_result == -1) {
         perror("unlink");
         return 1;
     }
@@ -176,7 +176,7 @@ int test_new_file_after_unlink_is_new_file() {
 
     char* memory_buffer = malloc(WRITE_SIZE);
     memset(memory_buffer, 'A', WRITE_SIZE-1);
-    size_t n = write(fd, memory_buffer, WRITE_SIZE-1);
+    ssize_t n = write(fd, memory_buffer, WRITE_SIZE-1);
     if (n != WRITE_SIZE-1) {
         fprintf(stderr, "Expected to write %d bytes to first file, but wrote %zu\n", WRITE_SIZE-1, n);
         return 1;
@@ -184,7 +184,7 @@ int test_new_file_after_unlink_is_new_file() {
 
     char* memory_buffer2 = malloc(WRITE_SIZE);
     memset(memory_buffer2, 'B', WRITE_SIZE-1);
-    size_t n2 = write(fd2, memory_buffer2, WRITE_SIZE-1);
+    ssize_t n2 = write(fd2, memory_buffer2, WRITE_SIZE-1);
     if (n2 != WRITE_SIZE-1) {
         fprintf(stderr, "Expected to write %d bytes to second file, but wrote %zu\n", WRITE_SIZE-1, n2);
         return 1;
@@ -204,7 +204,7 @@ int test_new_file_after_unlink_is_new_file() {
     }
     for (int i = 0; i < WRITE_SIZE-1; i++) {
         if (memory_buffer2[i] != 'A') {
-            fprintf(stderr, "Expected to read 'B' from first file, but got different data\n");
+            fprintf(stderr, "Expected to read 'A' from first file, but got different data\n");
             return 1;
         }
     }
@@ -212,7 +212,7 @@ int test_new_file_after_unlink_is_new_file() {
 
     ssize_t read_size2 = read(fd2, memory_buffer, WRITE_SIZE-1);
     if (read_size2 != WRITE_SIZE-1) {
-        fprintf(stderr, "Expected to read %d bytes from second file, but got %zd\n", WRITE_SIZE-1, read_size);
+        fprintf(stderr, "Expected to read %d bytes from second file, but got %zd\n", WRITE_SIZE-1, read_size2);
         return 1;
     }
     for (int i = 0; i < WRITE_SIZE-1; i++) {
@@ -250,8 +250,8 @@ int test_unlink_with_two_fds() {
     }
 
     // 1. The file needs to be unlinked
-    unlink("/tmp/test.txt");
-    if (errno != 0) {
+    int unlink_result = unlink("/tmp/test.txt");
+    if (unlink_result == -1) {
         perror("unlink");
         return 1;
     }
@@ -261,7 +261,7 @@ int test_unlink_with_two_fds() {
 
     char* memory_buffer = malloc(WRITE_SIZE);
     memset(memory_buffer, 'A', WRITE_SIZE-1);
-    size_t n = write(fd, memory_buffer, WRITE_SIZE-1);
+    ssize_t n = write(fd, memory_buffer, WRITE_SIZE-1);
     if (n != WRITE_SIZE-1) {
         fprintf(stderr, "Expected to write %d bytes to first file, but wrote %zu\n", WRITE_SIZE-1, n);
         return 1;
@@ -269,7 +269,7 @@ int test_unlink_with_two_fds() {
 
     char* memory_buffer2 = malloc(WRITE_SIZE);
     memset(memory_buffer2, 'B', WRITE_SIZE-1);
-    size_t n2 = write(fd2, memory_buffer2, WRITE_SIZE-1);
+    ssize_t n2 = write(fd2, memory_buffer2, WRITE_SIZE-1);
     if (n2 != WRITE_SIZE-1) {
         fprintf(stderr, "Expected to write %d bytes to second file, but wrote %zu\n", WRITE_SIZE-1, n2);
         return 1;
