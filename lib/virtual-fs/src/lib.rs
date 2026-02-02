@@ -98,9 +98,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
 
     /// Remove a file or empty directory at the specified path.
     /// This matches POSIX unlink semantics:
-    /// - For files: removes the directory entry and decrements link count
+    /// - For files: removes the directory entry for the file
     /// - For directories: only succeeds if directory is empty
-    /// - Files with open handles remain accessible until all handles are closed
+    /// - Unlinked files will only be deleted once all references to them (e.g. open file handles, directory entries) are removed.
     fn unlink(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions<'_>;
