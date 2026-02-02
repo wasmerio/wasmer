@@ -3,6 +3,7 @@
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 
+use crate::eh::FunctionLsdaData;
 #[cfg(feature = "unwind")]
 use crate::eh::{build_function_lsda, build_lsda_section, build_tag_section};
 
@@ -25,6 +26,7 @@ use cranelift_codegen::{
     ir::{self, ExternalName, UserFuncName},
 };
 
+use gimli::write::FrameDescriptionEntry;
 #[cfg(feature = "unwind")]
 use gimli::{
     constants::DW_EH_PE_absptr,
@@ -51,6 +53,8 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationTarget},
     },
 };
+#[cfg(feature = "rayon")]
+use wasmer_compiler::{build_function_buckets, translate_function_buckets};
 #[cfg(feature = "unwind")]
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
@@ -61,6 +65,14 @@ use wasmer_types::{
     CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
     SignatureIndex, TrapCode, TrapInformation,
 };
+
+pub struct CraneliftCompiledFunction {
+    function: CompiledFunction,
+    fde: Option<FrameDescriptionEntry>,
+    function_lsda: Option<FunctionLsdaData>,
+}
+
+impl wasmer_compiler::CompiledFunction for CraneliftCompiledFunction {}
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
@@ -106,11 +118,15 @@ impl CraneliftCompiler {
             .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
 
-        let total_functions = function_body_inputs.len() as u64;
-        let total_function_call_trampolines = module.signatures.len() as u64;
-        let total_dynamic_trampolines = module.num_imported_functions as u64;
-        let total_steps =
-            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
+        const TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1000;
+        let total_function_call_trampolines = module.signatures.len();
+        let total_dynamic_trampolines = module.num_imported_functions;
+        let total_steps = TRAMPOLINE_ESTIMATED_BODY_SIZE
+            * ((total_dynamic_trampolines + total_function_call_trampolines) as u64)
+            + function_body_inputs
+                .iter()
+                .map(|(_, body)| body.data.len() as u64)
+                .sum::<u64>();
         let progress = progress_callback
             .cloned()
             .map(|cb| ProgressContext::new(cb, total_steps, "cranelift::functions"));
@@ -147,160 +163,156 @@ impl CraneliftCompiler {
 
         // The `compile_function` closure is used for both the sequential and
         // parallel compilation paths to avoid code duplication.
-        let compile_function =
-            |func_translator: &mut FuncTranslator,
-             (i, input): (&LocalFunctionIndex, &FunctionBodyData)| {
-                let func_index = module.func_index(*i);
-                let mut context = Context::new();
-                let mut func_env = FuncEnvironment::new(
-                    isa.frontend_config(),
-                    module,
-                    &signatures,
-                    memory_styles,
-                    table_styles,
-                );
-                context.func.name = match get_function_name(&mut context.func, func_index) {
-                    ExternalName::User(nameref) => {
-                        if context.func.params.user_named_funcs().is_valid(nameref) {
-                            let name = &context.func.params.user_named_funcs()[nameref];
-                            UserFuncName::User(name.clone())
-                        } else {
-                            UserFuncName::default()
-                        }
+        let compile_function = |func_translator: &mut FuncTranslator,
+                                i: &LocalFunctionIndex,
+                                input: &FunctionBodyData| {
+            let func_index = module.func_index(*i);
+            let mut context = Context::new();
+            let mut func_env = FuncEnvironment::new(
+                isa.frontend_config(),
+                module,
+                &signatures,
+                memory_styles,
+                table_styles,
+            );
+            context.func.name = match get_function_name(&mut context.func, func_index) {
+                ExternalName::User(nameref) => {
+                    if context.func.params.user_named_funcs().is_valid(nameref) {
+                        let name = &context.func.params.user_named_funcs()[nameref];
+                        UserFuncName::User(name.clone())
+                    } else {
+                        UserFuncName::default()
                     }
-                    ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
-                    _ => UserFuncName::default(),
-                };
-                context.func.signature = signatures[module.functions[func_index]].clone();
-                // if generate_debug_info {
-                //     context.func.collect_debug_info();
-                // }
-
-                let mut reader =
-                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
-                reader.set_middleware_chain(
-                    self.config
-                        .middlewares
-                        .generate_function_middleware_chain(*i),
-                );
-
-                func_translator.translate(
-                    module_translation_state,
-                    &mut reader,
-                    &mut context.func,
-                    &mut func_env,
-                    *i,
-                )?;
-
-                if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    use wasmer_compiler::misc::CompiledKind;
-
-                    callbacks.preopt_ir(
-                        &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
-                        &compile_info.module.hash_string(),
-                        context.func.display().to_string().as_bytes(),
-                    );
                 }
-
-                let mut code_buf: Vec<u8> = Vec::new();
-                let mut ctrl_plane = Default::default();
-                let func_name_map = context.func.params.user_named_funcs().clone();
-                let result = context
-                    .compile(&*isa, &mut ctrl_plane)
-                    .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
-                code_buf.extend_from_slice(result.code_buffer());
-
-                if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    use wasmer_compiler::misc::CompiledKind;
-
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
-                        &compile_info.module.hash_string(),
-                        &code_buf,
-                    );
-                    callbacks.asm_memory_buffer(
-                        &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
-                        &compile_info.module.hash_string(),
-                        target.triple().architecture,
-                        &code_buf,
-                    )?;
-                }
-
-                let func_relocs = result
-                    .buffer
-                    .relocs()
-                    .iter()
-                    .map(|r| mach_reloc_to_reloc(module, &func_name_map, r))
-                    .collect::<Vec<_>>();
-
-                let traps = result
-                    .buffer
-                    .traps()
-                    .iter()
-                    .map(mach_trap_to_trap)
-                    .collect::<Vec<_>>();
-
-                #[cfg(feature = "unwind")]
-                let function_lsda = if dwarf_frametable.is_some() {
-                    build_function_lsda(
-                        result.buffer.call_sites(),
-                        result.buffer.data().len(),
-                        pointer_bytes,
-                    )
-                } else {
-                    None
-                };
-
-                #[cfg(not(feature = "unwind"))]
-                let function_lsda = ();
-
-                let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
-                    #[cfg(feature = "unwind")]
-                    CraneliftUnwindInfo::Fde(fde) => {
-                        if dwarf_frametable.is_some() {
-                            let fde = fde.to_fde(Address::Symbol {
-                                // The symbol is the kind of relocation.
-                                // "0" is used for functions
-                                symbol: WriterRelocate::FUNCTION_SYMBOL,
-                                // We use the addend as a way to specify the
-                                // function index
-                                addend: i.index() as _,
-                            });
-                            // The unwind information is inserted into the dwarf section
-                            (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
-                        } else {
-                            (None, None)
-                        }
-                    }
-                    #[cfg(feature = "unwind")]
-                    other => (other.maybe_into_to_windows_unwind(), None),
-
-                    // This is a bit hacky, but necessary since gimli is not
-                    // available when the "unwind" feature is disabled.
-                    #[cfg(not(feature = "unwind"))]
-                    other => (other.maybe_into_to_windows_unwind(), None::<()>),
-                };
-
-                let range = reader.range();
-                let address_map = get_function_address_map(&context, range, code_buf.len());
-
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify()?;
-                }
-
-                Ok((
-                    CompiledFunction {
-                        body: FunctionBody {
-                            body: code_buf,
-                            unwind_info,
-                        },
-                        relocations: func_relocs,
-                        frame_info: CompiledFunctionFrameInfo { address_map, traps },
-                    },
-                    fde,
-                    function_lsda,
-                ))
+                ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
+                _ => UserFuncName::default(),
             };
+            context.func.signature = signatures[module.functions[func_index]].clone();
+            // if generate_debug_info {
+            //     context.func.collect_debug_info();
+            // }
+
+            let mut reader =
+                MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+            reader.set_middleware_chain(
+                self.config
+                    .middlewares
+                    .generate_function_middleware_chain(*i),
+            );
+
+            func_translator.translate(
+                module_translation_state,
+                &mut reader,
+                &mut context.func,
+                &mut func_env,
+                *i,
+            )?;
+
+            if let Some(callbacks) = self.config.callbacks.as_ref() {
+                use wasmer_compiler::misc::CompiledKind;
+
+                callbacks.preopt_ir(
+                    &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                    &compile_info.module.hash_string(),
+                    context.func.display().to_string().as_bytes(),
+                );
+            }
+
+            let mut code_buf: Vec<u8> = Vec::new();
+            let mut ctrl_plane = Default::default();
+            let func_name_map = context.func.params.user_named_funcs().clone();
+            let result = context
+                .compile(&*isa, &mut ctrl_plane)
+                .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
+            code_buf.extend_from_slice(result.code_buffer());
+
+            if let Some(callbacks) = self.config.callbacks.as_ref() {
+                use wasmer_compiler::misc::CompiledKind;
+
+                callbacks.obj_memory_buffer(
+                    &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                    &compile_info.module.hash_string(),
+                    &code_buf,
+                );
+                callbacks.asm_memory_buffer(
+                    &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                    &compile_info.module.hash_string(),
+                    target.triple().architecture,
+                    &code_buf,
+                )?;
+            }
+
+            let func_relocs = result
+                .buffer
+                .relocs()
+                .iter()
+                .map(|r| mach_reloc_to_reloc(module, &func_name_map, r))
+                .collect::<Vec<_>>();
+
+            let traps = result
+                .buffer
+                .traps()
+                .iter()
+                .map(mach_trap_to_trap)
+                .collect::<Vec<_>>();
+
+            #[cfg(feature = "unwind")]
+            let function_lsda = if dwarf_frametable.is_some() {
+                build_function_lsda(
+                    result.buffer.call_sites(),
+                    result.buffer.data().len(),
+                    pointer_bytes,
+                )
+            } else {
+                None
+            };
+
+            #[cfg(not(feature = "unwind"))]
+            let function_lsda = ();
+
+            let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
+                #[cfg(feature = "unwind")]
+                CraneliftUnwindInfo::Fde(fde) => {
+                    if dwarf_frametable.is_some() {
+                        let fde = fde.to_fde(Address::Symbol {
+                            // The symbol is the kind of relocation.
+                            // "0" is used for functions
+                            symbol: WriterRelocate::FUNCTION_SYMBOL,
+                            // We use the addend as a way to specify the
+                            // function index
+                            addend: i.index() as _,
+                        });
+                        // The unwind information is inserted into the dwarf section
+                        (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
+                    } else {
+                        (None, None)
+                    }
+                }
+                #[cfg(feature = "unwind")]
+                other => (other.maybe_into_to_windows_unwind(), None),
+
+                // This is a bit hacky, but necessary since gimli is not
+                // available when the "unwind" feature is disabled.
+                #[cfg(not(feature = "unwind"))]
+                other => (other.maybe_into_to_windows_unwind(), None::<()>),
+            };
+
+            let range = reader.range();
+            let address_map = get_function_address_map(&context, range, code_buf.len());
+
+            Ok(CraneliftCompiledFunction {
+                function: CompiledFunction {
+                    body: FunctionBody {
+                        body: code_buf,
+                        unwind_info,
+                    },
+                    relocations: func_relocs,
+                    frame_info: CompiledFunctionFrameInfo { address_map, traps },
+                },
+                fde,
+                function_lsda,
+            })
+        };
 
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections = PrimaryMap::new();
@@ -312,26 +324,49 @@ impl CraneliftCompiler {
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .into_iter()
-            .map(|(i, input)| compile_function(&mut func_translator, (&i, input)))
-            .collect::<Result<Vec<_>, CompileError>>()?;
-        #[cfg(feature = "rayon")]
-        let results = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
-            .map_init(FuncTranslator::new, |func_translator, &(i, input)| {
-                compile_function(func_translator, (&i, input))
+            .map(|(i, input)| {
+                let result = compile_function(&mut func_translator, &i, input)?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify_steps(input.data.len() as u64)?;
+                }
+                Ok(result)
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
+        #[cfg(feature = "rayon")]
+        let results = {
+            const CRANELIFT_LARGE_FUNCTION_THRESHOLD: usize = 50_000;
+            let buckets =
+                build_function_buckets(&function_body_inputs, CRANELIFT_LARGE_FUNCTION_THRESHOLD);
+            let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
+            tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
+            let num_threads = self.config.num_threads.get();
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()
+                .unwrap();
+
+            translate_function_buckets(
+                &pool,
+                FuncTranslator::new,
+                |func_translator, i, input| compile_function(func_translator, i, input),
+                progress.clone(),
+                &buckets,
+            )?
+        };
 
         let mut functions = Vec::with_capacity(function_body_inputs.len());
         let mut fdes = Vec::with_capacity(function_body_inputs.len());
         let mut lsda_data = Vec::with_capacity(function_body_inputs.len());
 
-        for (func, fde, lsda) in results {
-            functions.push(func);
+        for CraneliftCompiledFunction {
+            function,
+            fde,
+            function_lsda,
+        } in results
+        {
+            functions.push(function);
             fdes.push(fde);
-            lsda_data.push(lsda);
+            lsda_data.push(function_lsda);
         }
 
         #[cfg(feature = "unwind")]
@@ -434,7 +469,7 @@ impl CraneliftCompiler {
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify()?;
+                    progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(trampoline)
             })
@@ -457,7 +492,7 @@ impl CraneliftCompiler {
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify()?;
+                    progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(trampoline)
             })
@@ -486,7 +521,7 @@ impl CraneliftCompiler {
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify()?;
+                    progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(trampoline)
             })
@@ -509,7 +544,7 @@ impl CraneliftCompiler {
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify()?;
+                    progress.notify_steps(TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(trampoline)
             })
@@ -558,35 +593,13 @@ impl Compiler for CraneliftCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
-        #[cfg(feature = "rayon")]
-        {
-            let num_threads = self.config.num_threads.get();
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .build()
-                .unwrap();
-
-            pool.install(|| {
-                self.compile_module_internal(
-                    target,
-                    compile_info,
-                    module_translation_state,
-                    function_body_inputs,
-                    progress_callback,
-                )
-            })
-        }
-
-        #[cfg(not(feature = "rayon"))]
-        {
-            self.compile_module_internal(
-                target,
-                compile_info,
-                module_translation_state,
-                function_body_inputs,
-                progress_callback,
-            )
-        }
+        self.compile_module_internal(
+            target,
+            compile_info,
+            module_translation_state,
+            function_body_inputs,
+            progress_callback,
+        )
     }
 }
 

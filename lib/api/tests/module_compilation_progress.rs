@@ -27,7 +27,7 @@ fn test_module_compilation_abort_singlepass() {
 fn test_module_compilation_progress_cranelift() {
     let compiler = wasmer::sys::Cranelift::default();
     let engine: wasmer::Engine = wasmer::sys::EngineBuilder::new(compiler).engine().into();
-    test_module_compilation_progress(engine, false);
+    test_module_compilation_progress(engine, true);
 }
 
 #[cfg(feature = "cranelift")]
@@ -66,7 +66,7 @@ const SIMPLE_WAT: &str = r#"(module
     i32.sub)
 ) "#;
 
-fn test_module_compilation_progress(engine: Engine, is_llvm: bool) {
+fn test_module_compilation_progress(engine: Engine, fn_body_progress: bool) {
     let items = Arc::new(Mutex::new(Vec::<CompilationProgress>::new()));
 
     let cb = wasmer_types::CompilationProgressCallback::new({
@@ -87,8 +87,8 @@ fn test_module_compilation_progress(engine: Engine, is_llvm: bool) {
         .expect("expected at least one progress item")
         .clone();
 
-    // LLVM compiler uses bitcode size for the total.
-    if is_llvm {
+    // LLVM/Cranelift compiler uses bitcode size for the total.
+    if fn_body_progress {
         const TOTAL_STEPS: u64 = 2014;
         assert_eq!(last.phase_step_count(), Some(TOTAL_STEPS));
         assert_eq!(last.phase_step(), Some(TOTAL_STEPS));

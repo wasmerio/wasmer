@@ -196,7 +196,8 @@ pub trait Compiler: Send + std::fmt::Debug {
 /// A bucket containing a group of functions and their total size, used to balance compilation units for parallel compilation.
 pub struct FunctionBucket<'a> {
     functions: Vec<(LocalFunctionIndex, &'a FunctionBodyData<'a>)>,
-    size: usize,
+    /// IR size of the bucket (in bytes).
+    pub size: usize,
 }
 
 impl<'a> FunctionBucket<'a> {
@@ -263,7 +264,7 @@ where
     T: FuncTranslator,
     C: CompiledFunction + Send + Sync,
     F: Fn() -> T + Send + Sync + Copy,
-    G: Fn(&T, &LocalFunctionIndex, &FunctionBodyData) -> Result<C, CompileError>
+    G: Fn(&mut T, &LocalFunctionIndex, &FunctionBodyData) -> Result<C, CompileError>
         + Send
         + Sync
         + Copy,
@@ -288,13 +289,13 @@ where
                 let bucket_rx = bucket_rx.clone();
                 let result_tx = result_tx.clone();
                 s.spawn(move |_| {
-                    let func_translator = func_translator_builder();
+                    let mut func_translator = func_translator_builder();
 
                     while let Ok(bucket) = bucket_rx.recv() {
                         let bucket_result = (|| {
                             let mut translated_functions = Vec::new();
                             for (i, input) in bucket.functions.iter() {
-                                let translated = translate_fn(&func_translator, i, input)?;
+                                let translated = translate_fn(&mut func_translator, i, input)?;
                                 if let Some(progress) = progress {
                                     progress.notify_steps(input.data.len() as u64)?;
                                 }

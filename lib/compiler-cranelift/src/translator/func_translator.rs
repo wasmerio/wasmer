@@ -33,6 +33,8 @@ pub struct FuncTranslator {
     state: FuncTranslationState,
 }
 
+impl wasmer_compiler::FuncTranslator for FuncTranslator {}
+
 impl FuncTranslator {
     /// Create a new translator.
     pub fn new() -> Self {

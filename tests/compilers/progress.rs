@@ -46,8 +46,8 @@ fn reports_progress_steps(mut config: crate::Config) -> Result<()> {
         "expected at least one progress notification"
     );
     let last = events.last().unwrap();
-    // LLVM compiler uses bitcode size for the total.
-    if matches!(config.compiler, Compiler::LLVM) {
+    // LLVM/Cranelift compiler uses bitcode size for the total.
+    if matches!(config.compiler, Compiler::LLVM | Compiler::Cranelift) {
         assert_eq!(last.phase_step_count(), Some(2014));
         assert_eq!(last.phase_step(), Some(2014));
     } else {
