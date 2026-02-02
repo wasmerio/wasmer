@@ -49,6 +49,8 @@ rangemap.workspace = true
 wasmer-vm = { path = "../vm", version = "=7.0.0" }
 region.workspace = true
 which.workspace = true
+rayon.workspace = true
+crossbeam-channel.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true, features = [

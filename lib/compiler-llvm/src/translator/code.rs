@@ -81,6 +81,8 @@ pub struct FuncTranslator {
     pointer_width: u8,
 }
 
+impl wasmer_compiler::FuncTranslator for FuncTranslator {}
+
 impl FuncTranslator {
     pub fn new(
         target_triple: Triple,

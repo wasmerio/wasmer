@@ -1,6 +1,9 @@
 //! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
+use std::cmp::Reverse;
+
+use crate::progress::ProgressContext;
 use crate::types::{module::CompileModuleInfo, symbols::SymbolRegistry};
 use crate::{
     FunctionBodyData, ModuleTranslationState,
@@ -8,7 +11,9 @@ use crate::{
     translator::ModuleMiddleware,
     types::function::Compilation,
 };
+use crossbeam_channel::unbounded;
 use enumset::EnumSet;
+use itertools::Itertools;
 use wasmer_types::{
     CompilationProgressCallback, Features, LocalFunctionIndex,
     entity::PrimaryMap,
@@ -186,4 +191,142 @@ pub trait Compiler: Send + std::fmt::Debug {
     fn get_perfmap_enabled(&self) -> bool {
         false
     }
+}
+
+/// A bucket containing a group of functions and their total size, used to balance compilation units for parallel compilation.
+pub struct FunctionBucket<'a> {
+    functions: Vec<(LocalFunctionIndex, &'a FunctionBodyData<'a>)>,
+    size: usize,
+}
+
+impl<'a> FunctionBucket<'a> {
+    /// Creates a new, empty `FunctionBucket`.
+    pub fn new() -> Self {
+        Self {
+            functions: Vec::new(),
+            size: 0,
+        }
+    }
+}
+
+/// Build buckets sized by function length to keep compilation units balanced for parallel compilation.
+pub fn build_function_buckets<'a>(
+    function_body_inputs: &'a PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
+    bucket_threshold_size: usize,
+) -> Vec<FunctionBucket<'a>> {
+    let mut function_bodies = function_body_inputs
+        .iter()
+        .sorted_by_key(|(id, body)| Reverse((body.data.len(), id.as_u32())))
+        .collect_vec();
+
+    let mut buckets = Vec::new();
+
+    while !function_bodies.is_empty() {
+        let mut next_function_body = Vec::with_capacity(function_bodies.len());
+        let mut bucket = FunctionBucket::new();
+
+        for (fn_index, fn_body) in function_bodies.into_iter() {
+            if bucket.size + fn_body.data.len() <= bucket_threshold_size
+                // Huge functions must fit into a bucket!
+                || bucket.size == 0
+            {
+                bucket.size += fn_body.data.len();
+                bucket.functions.push((fn_index, fn_body));
+            } else {
+                next_function_body.push((fn_index, fn_body));
+            }
+        }
+
+        function_bodies = next_function_body;
+        buckets.push(bucket);
+    }
+
+    buckets
+}
+
+/// Represents a function that has been compiled by the backend compiler.
+pub trait CompiledFunction {}
+
+/// Translates a function from its input representation to a compiled form.
+pub trait FuncTranslator {}
+
+/// Compile function buckets largest-first via the channel (instead of Rayon's par_iter).
+#[allow(clippy::too_many_arguments)]
+pub fn translate_function_buckets<'a, C, T, F, G>(
+    pool: &rayon::ThreadPool,
+    func_translator_builder: F,
+    translate_fn: G,
+    progress: Option<ProgressContext>,
+    buckets: &[FunctionBucket<'a>],
+) -> Result<Vec<C>, CompileError>
+where
+    T: FuncTranslator,
+    C: CompiledFunction + Send + Sync,
+    F: Fn() -> T + Send + Sync + Copy,
+    G: Fn(&T, &LocalFunctionIndex, &FunctionBodyData) -> Result<C, CompileError>
+        + Send
+        + Sync
+        + Copy,
+{
+    let progress = progress.as_ref();
+
+    let functions = pool.install(|| {
+        let (bucket_tx, bucket_rx) = unbounded::<&FunctionBucket<'a>>();
+        for bucket in buckets {
+            bucket_tx.send(bucket).map_err(|e| {
+                CompileError::Resource(format!("cannot allocate crossbeam channel item: {e}"))
+            })?;
+        }
+        drop(bucket_tx);
+
+        let (result_tx, result_rx) =
+            unbounded::<Result<Vec<(LocalFunctionIndex, C)>, CompileError>>();
+
+        pool.scope(|s| {
+            let worker_count = pool.current_num_threads().max(1);
+            for _ in 0..worker_count {
+                let bucket_rx = bucket_rx.clone();
+                let result_tx = result_tx.clone();
+                s.spawn(move |_| {
+                    let func_translator = func_translator_builder();
+
+                    while let Ok(bucket) = bucket_rx.recv() {
+                        let bucket_result = (|| {
+                            let mut translated_functions = Vec::new();
+                            for (i, input) in bucket.functions.iter() {
+                                let translated = translate_fn(&func_translator, i, input)?;
+                                if let Some(progress) = progress {
+                                    progress.notify_steps(input.data.len() as u64)?;
+                                }
+                                translated_functions.push((*i, translated));
+                            }
+                            Ok(translated_functions)
+                        })();
+
+                        if result_tx.send(bucket_result).is_err() {
+                            break;
+                        }
+                    }
+                });
+            }
+        });
+
+        drop(result_tx);
+        let mut functions = Vec::with_capacity(buckets.iter().map(|b| b.functions.len()).sum());
+        for _ in 0..buckets.len() {
+            match result_rx.recv().map_err(|e| {
+                CompileError::Resource(format!("cannot allocate crossbeam channel item: {e}"))
+            })? {
+                Ok(bucket_functions) => functions.extend(bucket_functions),
+                Err(err) => return Err(err),
+            }
+        }
+        Ok(functions)
+    })?;
+
+    Ok(functions
+        .into_iter()
+        .sorted_by_key(|x| x.0)
+        .map(|(_, body)| body)
+        .collect_vec())
 }
