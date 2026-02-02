@@ -242,7 +242,7 @@
 <a href=#242 id=242 data-nosnippet>242</a>
 <a href=#243 id=243 data-nosnippet>243</a>        <span class="kw">if let </span>ExecutableTarget::Package(<span class="kw-2">ref </span>pkg) = target {
 <a href=#244 id=244 data-nosnippet>244</a>            <span class="self">self</span>.wasi
-<a href=#245 id=245 data-nosnippet>245</a>                .all_volumes()
+<a href=#245 id=245 data-nosnippet>245</a>                .volumes
 <a href=#246 id=246 data-nosnippet>246</a>                .extend(pkg.additional_host_mapped_directories.clone());
 <a href=#247 id=247 data-nosnippet>247</a>        }
 <a href=#248 id=248 data-nosnippet>248</a>
@@ -557,14 +557,14 @@
 <a href=#557 id=557 data-nosnippet>557</a>
 <a href=#558 id=558 data-nosnippet>558</a>        <span class="kw">let </span><span class="kw-2">mut </span>runner = WasiRunner::new();
 <a href=#559 id=559 data-nosnippet>559</a>
-<a href=#560 id=560 data-nosnippet>560</a>        <span class="kw">let </span>(is_home_mapped, mapped_diretories) = <span class="self">self</span>.wasi.build_mapped_directories(is_wasix)<span class="question-mark">?</span>;
+<a href=#560 id=560 data-nosnippet>560</a>        <span class="kw">let </span>(is_home_mapped, mapped_directories) = <span class="self">self</span>.wasi.build_mapped_directories(is_wasix)<span class="question-mark">?</span>;
 <a href=#561 id=561 data-nosnippet>561</a>
 <a href=#562 id=562 data-nosnippet>562</a>        runner
 <a href=#563 id=563 data-nosnippet>563</a>            .with_args(<span class="kw-2">&amp;</span><span class="self">self</span>.args)
 <a href=#564 id=564 data-nosnippet>564</a>            .with_injected_packages(packages)
 <a href=#565 id=565 data-nosnippet>565</a>            .with_envs(<span class="self">self</span>.wasi.env_vars.clone())
 <a href=#566 id=566 data-nosnippet>566</a>            .with_mapped_host_commands(<span class="self">self</span>.wasi.build_mapped_commands()<span class="question-mark">?</span>)
-<a href=#567 id=567 data-nosnippet>567</a>            .with_mapped_directories(mapped_diretories)
+<a href=#567 id=567 data-nosnippet>567</a>            .with_mapped_directories(mapped_directories)
 <a href=#568 id=568 data-nosnippet>568</a>            .with_home_mapped(is_home_mapped)
 <a href=#569 id=569 data-nosnippet>569</a>            .with_forward_host_env(<span class="self">self</span>.wasi.forward_host_env)
 <a href=#570 id=570 data-nosnippet>570</a>            .with_capabilities(<span class="self">self</span>.wasi.capabilities());
