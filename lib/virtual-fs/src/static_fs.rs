@@ -320,17 +320,19 @@ impl FileSystem for StaticFileSystem {
     }
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
+        // First unlink from memory, to make sure it is removed from there
         let result = self.memory.unlink(Path::new(&path));
-        // Only check for files in volumes, not directories
-        // This matches the previous remove_file behavior
+        // TODO: Using `get_file_entry` for directories is not correct, but this was the previous behavior
         if self
             .volumes
             .values()
-            .find_map(|v| v.get_file_entry(&path).ok())
-            .is_some()
+            .any(|v| v.get_file_entry(&path).is_ok())
         {
+            // If found in WebC, return Ok
+            // TODO: Why is this not be PermissionDenied instead?
             Ok(())
         } else {
+            // If not found in WebC, return the result from memory unlink
             result
         }
     }
