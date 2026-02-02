@@ -23,18 +23,19 @@ fn short_version_string() {
 #[test]
 fn long_version_string() {
     let long_version_number = format!("wasmer {}", env!("CARGO_PKG_VERSION"),);
-    let git_version = format!(
-        "commit-hash: {}",
-        git_version!(
-            args = [
-                "--abbrev=40",
-                "--always",
-                "--dirty=-modified",
-                "--exclude=*"
-            ],
-            fallback = "",
-        ),
-    );
+    let mut git_version = git_version!(
+        args = [
+            "--abbrev=40",
+            "--always",
+            "--dirty=-modified",
+            "--exclude=*"
+        ],
+        fallback = "",
+    )
+    .to_string();
+    if !git_version.is_empty() {
+        git_version = format!("commit-hash: {git_version}");
+    }
     let build_date = format!("commit-date: {}", env!("WASMER_BUILD_DATE"));
 
     cargo_bin_cmd!("wasmer")

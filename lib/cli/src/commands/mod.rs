@@ -524,18 +524,18 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
 
     println!("wasmer {}", env!("CARGO_PKG_VERSION"));
     println!("binary: {}", env!("CARGO_PKG_NAME"));
-    println!(
-        "commit-hash: {}",
-        git_version!(
-            args = [
-                "--abbrev=40",
-                "--always",
-                "--dirty=-modified",
-                "--exclude=*"
-            ],
-            fallback = "",
-        ),
+    let git_hash = git_version!(
+        args = [
+            "--abbrev=40",
+            "--always",
+            "--dirty=-modified",
+            "--exclude=*"
+        ],
+        fallback = "",
     );
+    if !git_hash.is_empty() {
+        println!("commit-hash: {git_hash}",);
+    }
     if !env!("WASMER_REPRODUCIBLE_BUILD")
         .parse::<bool>()
         .expect("build-time variable expected")
