@@ -111,9 +111,40 @@ static void test_roundtrip_flags(void)
     check(tcsetattr(STDIN_FILENO, TCSANOW, &orig) == 0, "tcsetattr restore should succeed");
 }
 
+static void test_tty_line_feeds_roundtrip(void)
+{
+    printf("Test 4: __wasi_tty_set/get line_feeds round-trip\n");
+    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO) || !isatty(STDERR_FILENO)) {
+        fprintf(stderr,
+                "\n==============================\n"
+                "WARNING: tty_set line_feeds round-trip requires an interactive TTY.\n"
+                "Skipping this test in non-interactive mode.\n"
+                "==============================\n");
+        return;
+    }
+    __wasi_tty_t orig;
+    __wasi_errno_t err = __wasi_tty_get(&orig);
+    check(err == __WASI_ERRNO_SUCCESS, "__wasi_tty_get should succeed");
+
+    __wasi_tty_t set = orig;
+    set.line_feeds = (orig.line_feeds == __WASI_BOOL_TRUE) ? __WASI_BOOL_FALSE : __WASI_BOOL_TRUE;
+    err = __wasi_tty_set(&set);
+    check(err == __WASI_ERRNO_SUCCESS, "__wasi_tty_set should succeed");
+
+    __wasi_tty_t got;
+    memset(&got, 0, sizeof(got));
+    err = __wasi_tty_get(&got);
+    check(err == __WASI_ERRNO_SUCCESS, "__wasi_tty_get after set should succeed");
+    check(got.line_feeds == set.line_feeds,
+          "tty.line_feeds should round-trip via __wasi_tty_set/get");
+
+    err = __wasi_tty_set(&orig);
+    check(err == __WASI_ERRNO_SUCCESS, "restore tty state should succeed");
+}
+
 static void test_extproc_icanon(void)
 {
-    printf("Test 4: tcsetattr EXTPROC|ICANON\n");
+    printf("Test 5: tcsetattr EXTPROC|ICANON\n");
     struct termios tio;
 
     if (!isatty(STDIN_FILENO)) {
@@ -130,7 +161,7 @@ static void test_extproc_icanon(void)
 
 static void test_non_tty_fd(void)
 {
-    printf("Test 5: tcsetattr on non-tty fd\n");
+    printf("Test 6: tcsetattr on non-tty fd\n");
     int fd = open("tty_set_regular_file", O_CREAT | O_TRUNC | O_RDWR, 0644);
     check(fd >= 0, "open regular file should succeed");
 
@@ -148,7 +179,7 @@ static void test_non_tty_fd(void)
 
 static void test_invalid_fd(void)
 {
-    printf("Test 6: tcsetattr on invalid fd\n");
+    printf("Test 7: tcsetattr on invalid fd\n");
     struct termios tio;
     memset(&tio, 0, sizeof(tio));
 
@@ -163,6 +194,7 @@ int main(void)
     test_invalid_actions();
     test_isatty_behavior();
     test_roundtrip_flags();
+    test_tty_line_feeds_roundtrip();
     test_extproc_icanon();
     test_non_tty_fd();
     test_invalid_fd();

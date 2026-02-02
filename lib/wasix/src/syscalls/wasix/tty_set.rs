@@ -16,7 +16,10 @@ pub fn tty_set<M: MemorySize>(
     let state = wasi_try_mem_ok!(tty_state.read(&memory));
     let echo = state.echo;
     let line_buffered = state.line_buffered;
-    let line_feeds = true;
+    let line_feeds = {
+        let line_feeds_ptr = wasi_try_ok!(tty_line_feeds_ptr(tty_state));
+        wasi_try_mem_ok!(line_feeds_ptr.read(&memory)) != 0
+    };
     debug!(
         %echo,
         %line_buffered,

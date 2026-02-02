@@ -28,8 +28,8 @@ use virtual_fs::{FileSystem, FsError, VirtualFile};
 use virtual_mio::block_on;
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
-    Module,
+    AsStoreMut, AsStoreRef, ExportError, Function, FunctionEnvMut, Instance, Memory, MemoryType,
+    MemoryView, Module, Value,
 };
 use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
@@ -639,7 +639,14 @@ impl WasiEnv {
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
-        if !inner.signal_set {
+        let has_handler = inner.signal.is_some()
+            || inner
+                .instance
+                .exports
+                .get_typed_function::<i32, ()>(ctx, "__wasm_signal")
+                .is_ok()
+            || inner.instance.exports.get_function("__wasm_signal").is_ok();
+        if !has_handler {
             let signals = env.thread.pop_signals();
             if !signals.is_empty() {
                 for sig in signals {
@@ -676,7 +683,14 @@ impl WasiEnv {
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
-        if !inner.signal_set {
+        let has_handler = inner.signal.is_some()
+            || inner
+                .instance
+                .exports
+                .get_typed_function::<i32, ()>(ctx, "__wasm_signal")
+                .is_ok()
+            || inner.instance.exports.get_function("__wasm_signal").is_ok();
+        if !has_handler {
             return Ok(Ok(false));
         }
 
@@ -701,7 +715,32 @@ impl WasiEnv {
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
-        if let Some(handler) = inner.signal.clone() {
+        enum SignalHandler {
+            Typed(wasmer::TypedFunction<i32, ()>),
+            Untyped(Function),
+        }
+
+        let handler = inner
+            .signal
+            .clone()
+            .map(SignalHandler::Typed)
+            .or_else(|| {
+                inner
+                    .instance
+                    .exports
+                    .get_typed_function::<i32, ()>(ctx, "__wasm_signal")
+                    .ok()
+                    .map(SignalHandler::Typed)
+            })
+            .or_else(|| {
+                inner
+                    .instance
+                    .exports
+                    .get_function("__wasm_signal")
+                    .ok()
+                    .map(|func| SignalHandler::Untyped(func.clone()))
+            });
+        if let Some(handler) = handler {
             // We might also have signals that trigger on timers
             let mut now = 0;
             {
@@ -741,7 +780,13 @@ impl WasiEnv {
                     ?signal,
                     "processing signal via handler",
                 );
-                if let Err(err) = handler.call(ctx, signal as i32) {
+                let handler_result = match &handler {
+                    SignalHandler::Typed(handler) => handler.call(ctx, signal as i32).map(|_| ()),
+                    SignalHandler::Untyped(handler) => handler
+                        .call(ctx, &[Value::I32(signal as i32)])
+                        .map(|_| ()),
+                };
+                if let Err(err) = handler_result {
                     match err.downcast::<WasiError>() {
                         Ok(wasi_err) => {
                             tracing::warn!(

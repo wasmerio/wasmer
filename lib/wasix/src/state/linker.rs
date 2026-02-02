@@ -1935,7 +1935,10 @@ impl Linker {
             .filter(|tid| *tid != self_thread_id)
         {
             // Signal all threads to wake them up if they're sleeping or idle
-            wasi_process.signal_thread(&thread, wasmer_wasix_types::wasi::Signal::Sigwakeup);
+            let _ = wasi_process.signal_thread(
+                &thread,
+                wasmer_wasix_types::wasi::Signal::Sigwakeup,
+            );
         }
 
         trace!("Waiting at barrier");

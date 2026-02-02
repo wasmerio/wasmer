@@ -132,6 +132,8 @@ TESTS := \
   sock_send \
   sock_shutdown \
   sock_status \
+  thread_exit \
+  thread_signal \
   thread_sleep \
   thread_id \
   thread_parallelism \

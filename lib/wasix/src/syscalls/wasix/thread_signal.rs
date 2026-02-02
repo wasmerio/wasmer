@@ -15,7 +15,9 @@ pub fn thread_signal(
 ) -> Result<Errno, WasiError> {
     {
         let tid: WasiThreadId = tid.into();
-        ctx.data().process.signal_thread(&tid, sig);
+        if !ctx.data().process.signal_thread(&tid, sig) {
+            return Ok(Errno::Srch);
+        }
     }
 
     let env = ctx.data();

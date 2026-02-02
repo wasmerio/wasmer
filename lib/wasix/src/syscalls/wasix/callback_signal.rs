@@ -40,7 +40,6 @@ pub fn callback_signal<M: MemorySize>(
         let mut env_inner = ctx.data_mut().inner_mut();
         let inner = env_inner.main_module_instance_handles_mut();
         inner.signal = funct;
-        inner.signal_set = true;
     }
 
     WasiEnv::do_pending_operations(&mut ctx)?;
