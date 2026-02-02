@@ -74,6 +74,7 @@ impl<'a> FunctionBucket<'a> {
 // Build buckets sized by function length to keep compilation units balanced for parallel compilation.
 fn build_function_buckets<'a>(
     function_body_inputs: &'a PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
+    bucket_threshold_size: usize,
 ) -> Vec<FunctionBucket<'a>> {
     let mut function_bodies = function_body_inputs
         .iter()
@@ -87,7 +88,7 @@ fn build_function_buckets<'a>(
         let mut bucket = FunctionBucket::new();
 
         for (fn_index, fn_body) in function_bodies.into_iter() {
-            if bucket.size + fn_body.data.len() <= LLVMIR_LARGE_FUNCTION_THRESHOLD / 3
+            if bucket.size + fn_body.data.len() <= bucket_threshold_size
                 // Huge functions must fit into a bucket!
                 || bucket.size == 0
             {
@@ -573,7 +574,8 @@ impl Compiler for LLVMCompiler {
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
 
-        let buckets = build_function_buckets(&function_body_inputs);
+        let buckets =
+            build_function_buckets(&function_body_inputs, LLVMIR_LARGE_FUNCTION_THRESHOLD / 3);
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())

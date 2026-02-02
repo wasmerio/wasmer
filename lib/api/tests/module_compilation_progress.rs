@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 
 use wasmer::sys::NativeEngineExt as _;
 use wasmer::{CompileError, Engine};
-use wasmer_compiler::Compiler;
 use wasmer_types::{CompilationProgress, UserAbort};
 
 #[cfg(feature = "singlepass")]
