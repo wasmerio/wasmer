@@ -12,22 +12,22 @@ RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
 WASMER_CONFIGS = (
-    ("Wasmer LLVM", "/home/marxin/Programming/testcases/wasmer-default", "-l"),
+    ("Wasmer LLVM", "wasmer-7", "-l"),
     (
-        "Wasmer LLVM pass-params",
-        "/home/marxin/Programming/testcases/wasmer-default",
+        "Wasmer LLVM pass-params (g0 only)",
+        "wasmer-next",
         "-l --enable-pass-params-opt",
     ),
-    (
-        "Wasmer LLVM pass-params O2",
-        "/home/marxin/Programming/testcases/wasmer-O2",
-        "-l --enable-pass-params-opt",
-    ),
-    (
-        "Wasmer LLVM pass-params O3",
-        "/home/marxin/Programming/testcases/wasmer-O3",
-        "-l --enable-pass-params-opt",
-    ),
+    # (
+    #     "Wasmer LLVM pass-params O2",
+    #     "/home/marxin/Programming/testcases/wasmer-O2",
+    #     "-l --enable-pass-params-opt",
+    # ),
+    # (
+    #     "Wasmer LLVM pass-params O3",
+    #     "/home/marxin/Programming/testcases/wasmer-O3",
+    #     "-l --enable-pass-params-opt",
+    # ),
     # ("Wasmer Cranelift", "-c"),
 )
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
@@ -45,7 +45,9 @@ def parse_report(report):
             wall_time = float(wall_time["secs"]) + float(wall_time["nanos"]) / 1e9
             wall_times.append(wall_time)
         # TODO: 12x slower
-        if benchmark_name != "hashmap_find_misses_1m":
+        if benchmark_name != "hashmap_find_misses_1m" and not benchmark_name.startswith(
+            "regex-"
+        ):
             results[benchmark_name] = statistics.geometric_mean(wall_times)
     return results
 
