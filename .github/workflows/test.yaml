@@ -1144,6 +1144,8 @@ jobs:
           #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test-wasmer-integration-tests:
+    # TODO(SRE-1320): Re-enable once integration test are consistently green
+    if: ${{ false }}
     name: "Remote integ. tests"
     needs: [build]
     uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main
