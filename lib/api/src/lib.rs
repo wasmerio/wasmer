@@ -488,9 +488,9 @@ mod entities;
 pub use wasmer_types::{
     Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
     FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
-    MemoryType, ModuleInfo, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
-    TableStyle, TableType, TagKind, TagType, Type, ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES,
-    WASM_PAGE_SIZE, WasmError, WasmResult, is_wasm,
+    MemoryType, ModuleInfo, Mutability, OnCalledAction, Pages, ParseCpuFeatureError,
+    SerializeError, TableStyle, TableType, TagKind, TagType, Type, ValueType, WASM_MAX_PAGES,
+    WASM_MIN_PAGES, WASM_PAGE_SIZE, WasmError, WasmResult, is_wasm,
 };
 
 #[cfg(feature = "wasmparser")]
