@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["mach_reloc_to_reloc","mach_trap_to_trap","translate_ir_trapcode"],"struct":["CraneliftCompiler"]};
+window.SIDEBAR_ITEMS = {"fn":["mach_reloc_to_reloc","mach_trap_to_trap","translate_ir_trapcode"],"struct":["CraneliftCompiledFunction","CraneliftCompiler"]};

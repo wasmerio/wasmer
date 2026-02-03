@@ -27,447 +27,447 @@
 <a href=#27 id=27 data-nosnippet>27</a>        symbols::{Symbol, SymbolRegistry},
 <a href=#28 id=28 data-nosnippet>28</a>    },
 <a href=#29 id=29 data-nosnippet>29</a>};
-<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
-<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>wasmer_types::target::Target;
-<a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>wasmer_types::{
-<a href=#33 id=33 data-nosnippet>33</a>    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
-<a href=#34 id=34 data-nosnippet>34</a>    SignatureIndex,
-<a href=#35 id=35 data-nosnippet>35</a>};
-<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>wasmer_vm::LibCall;
-<a href=#37 id=37 data-nosnippet>37</a>
-<a href=#38 id=38 data-nosnippet>38</a><span class="doccomment">/// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
-<a href=#39 id=39 data-nosnippet>39</a>/// optimizing it and then translating to assembly.
-<a href=#40 id=40 data-nosnippet>40</a></span><span class="attr">#[derive(Debug)]
-<a href=#41 id=41 data-nosnippet>41</a></span><span class="kw">pub struct </span>LLVMCompiler {
-<a href=#42 id=42 data-nosnippet>42</a>    config: LLVM,
-<a href=#43 id=43 data-nosnippet>43</a>}
-<a href=#44 id=44 data-nosnippet>44</a>
-<a href=#45 id=45 data-nosnippet>45</a><span class="kw">impl </span>LLVMCompiler {
-<a href=#46 id=46 data-nosnippet>46</a>    <span class="doccomment">/// Creates a new LLVM compiler
-<a href=#47 id=47 data-nosnippet>47</a>    </span><span class="kw">pub fn </span>new(config: LLVM) -&gt; LLVMCompiler {
-<a href=#48 id=48 data-nosnippet>48</a>        LLVMCompiler { config }
-<a href=#49 id=49 data-nosnippet>49</a>    }
-<a href=#50 id=50 data-nosnippet>50</a>
-<a href=#51 id=51 data-nosnippet>51</a>    <span class="doccomment">/// Gets the config for this Compiler
-<a href=#52 id=52 data-nosnippet>52</a>    </span><span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>LLVM {
-<a href=#53 id=53 data-nosnippet>53</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config
-<a href=#54 id=54 data-nosnippet>54</a>    }
-<a href=#55 id=55 data-nosnippet>55</a>}
-<a href=#56 id=56 data-nosnippet>56</a>
-<a href=#57 id=57 data-nosnippet>57</a><span class="kw">struct </span>ShortNames {}
-<a href=#58 id=58 data-nosnippet>58</a>
-<a href=#59 id=59 data-nosnippet>59</a><span class="kw">impl </span>SymbolRegistry <span class="kw">for </span>ShortNames {
-<a href=#60 id=60 data-nosnippet>60</a>    <span class="kw">fn </span>symbol_to_name(<span class="kw-2">&amp;</span><span class="self">self</span>, symbol: Symbol) -&gt; String {
-<a href=#61 id=61 data-nosnippet>61</a>        <span class="kw">match </span>symbol {
-<a href=#62 id=62 data-nosnippet>62</a>            Symbol::Metadata =&gt; <span class="string">"M"</span>.to_string(),
-<a href=#63 id=63 data-nosnippet>63</a>            Symbol::LocalFunction(index) =&gt; <span class="macro">format!</span>(<span class="string">"f{}"</span>, index.index()),
-<a href=#64 id=64 data-nosnippet>64</a>            Symbol::Section(index) =&gt; <span class="macro">format!</span>(<span class="string">"s{}"</span>, index.index()),
-<a href=#65 id=65 data-nosnippet>65</a>            Symbol::FunctionCallTrampoline(index) =&gt; <span class="macro">format!</span>(<span class="string">"t{}"</span>, index.index()),
-<a href=#66 id=66 data-nosnippet>66</a>            Symbol::DynamicFunctionTrampoline(index) =&gt; <span class="macro">format!</span>(<span class="string">"d{}"</span>, index.index()),
-<a href=#67 id=67 data-nosnippet>67</a>        }
-<a href=#68 id=68 data-nosnippet>68</a>    }
-<a href=#69 id=69 data-nosnippet>69</a>
-<a href=#70 id=70 data-nosnippet>70</a>    <span class="kw">fn </span>name_to_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
-<a href=#71 id=71 data-nosnippet>71</a>        <span class="kw">if </span>name.len() &lt; <span class="number">2 </span>{
-<a href=#72 id=72 data-nosnippet>72</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#73 id=73 data-nosnippet>73</a>        }
-<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">let </span>(ty, idx) = name.split_at(<span class="number">1</span>);
-<a href=#75 id=75 data-nosnippet>75</a>        <span class="kw">if </span>ty.starts_with(<span class="string">'M'</span>) {
-<a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">return </span><span class="prelude-val">Some</span>(Symbol::Metadata);
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>wasmer_compiler::{
+<a href=#31 id=31 data-nosnippet>31</a>    WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets,
+<a href=#32 id=32 data-nosnippet>32</a>    translate_function_buckets,
+<a href=#33 id=33 data-nosnippet>33</a>};
+<a href=#34 id=34 data-nosnippet>34</a><span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>wasmer_types::target::Target;
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>wasmer_types::{
+<a href=#37 id=37 data-nosnippet>37</a>    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
+<a href=#38 id=38 data-nosnippet>38</a>    SignatureIndex,
+<a href=#39 id=39 data-nosnippet>39</a>};
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>wasmer_vm::LibCall;
+<a href=#41 id=41 data-nosnippet>41</a>
+<a href=#42 id=42 data-nosnippet>42</a><span class="doccomment">/// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
+<a href=#43 id=43 data-nosnippet>43</a>/// optimizing it and then translating to assembly.
+<a href=#44 id=44 data-nosnippet>44</a></span><span class="attr">#[derive(Debug)]
+<a href=#45 id=45 data-nosnippet>45</a></span><span class="kw">pub struct </span>LLVMCompiler {
+<a href=#46 id=46 data-nosnippet>46</a>    config: LLVM,
+<a href=#47 id=47 data-nosnippet>47</a>}
+<a href=#48 id=48 data-nosnippet>48</a>
+<a href=#49 id=49 data-nosnippet>49</a><span class="kw">impl </span>LLVMCompiler {
+<a href=#50 id=50 data-nosnippet>50</a>    <span class="doccomment">/// Creates a new LLVM compiler
+<a href=#51 id=51 data-nosnippet>51</a>    </span><span class="kw">pub fn </span>new(config: LLVM) -&gt; LLVMCompiler {
+<a href=#52 id=52 data-nosnippet>52</a>        LLVMCompiler { config }
+<a href=#53 id=53 data-nosnippet>53</a>    }
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a>    <span class="doccomment">/// Gets the config for this Compiler
+<a href=#56 id=56 data-nosnippet>56</a>    </span><span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>LLVM {
+<a href=#57 id=57 data-nosnippet>57</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config
+<a href=#58 id=58 data-nosnippet>58</a>    }
+<a href=#59 id=59 data-nosnippet>59</a>}
+<a href=#60 id=60 data-nosnippet>60</a>
+<a href=#61 id=61 data-nosnippet>61</a><span class="kw">struct </span>ShortNames {}
+<a href=#62 id=62 data-nosnippet>62</a>
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">impl </span>SymbolRegistry <span class="kw">for </span>ShortNames {
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="kw">fn </span>symbol_to_name(<span class="kw-2">&amp;</span><span class="self">self</span>, symbol: Symbol) -&gt; String {
+<a href=#65 id=65 data-nosnippet>65</a>        <span class="kw">match </span>symbol {
+<a href=#66 id=66 data-nosnippet>66</a>            Symbol::Metadata =&gt; <span class="string">"M"</span>.to_string(),
+<a href=#67 id=67 data-nosnippet>67</a>            Symbol::LocalFunction(index) =&gt; <span class="macro">format!</span>(<span class="string">"f{}"</span>, index.index()),
+<a href=#68 id=68 data-nosnippet>68</a>            Symbol::Section(index) =&gt; <span class="macro">format!</span>(<span class="string">"s{}"</span>, index.index()),
+<a href=#69 id=69 data-nosnippet>69</a>            Symbol::FunctionCallTrampoline(index) =&gt; <span class="macro">format!</span>(<span class="string">"t{}"</span>, index.index()),
+<a href=#70 id=70 data-nosnippet>70</a>            Symbol::DynamicFunctionTrampoline(index) =&gt; <span class="macro">format!</span>(<span class="string">"d{}"</span>, index.index()),
+<a href=#71 id=71 data-nosnippet>71</a>        }
+<a href=#72 id=72 data-nosnippet>72</a>    }
+<a href=#73 id=73 data-nosnippet>73</a>
+<a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">fn </span>name_to_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
+<a href=#75 id=75 data-nosnippet>75</a>        <span class="kw">if </span>name.len() &lt; <span class="number">2 </span>{
+<a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#77 id=77 data-nosnippet>77</a>        }
-<a href=#78 id=78 data-nosnippet>78</a>
-<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">let </span>idx = idx.parse::&lt;u32&gt;().ok()<span class="question-mark">?</span>;
-<a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">match </span>ty.chars().next().unwrap() {
-<a href=#81 id=81 data-nosnippet>81</a>            <span class="string">'f' </span>=&gt; <span class="prelude-val">Some</span>(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
-<a href=#82 id=82 data-nosnippet>82</a>            <span class="string">'s' </span>=&gt; <span class="prelude-val">Some</span>(Symbol::Section(SectionIndex::from_u32(idx))),
-<a href=#83 id=83 data-nosnippet>83</a>            <span class="string">'t' </span>=&gt; <span class="prelude-val">Some</span>(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
-<a href=#84 id=84 data-nosnippet>84</a>                idx,
-<a href=#85 id=85 data-nosnippet>85</a>            ))),
-<a href=#86 id=86 data-nosnippet>86</a>            <span class="string">'d' </span>=&gt; <span class="prelude-val">Some</span>(Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(
-<a href=#87 id=87 data-nosnippet>87</a>                idx,
-<a href=#88 id=88 data-nosnippet>88</a>            ))),
-<a href=#89 id=89 data-nosnippet>89</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#90 id=90 data-nosnippet>90</a>        }
-<a href=#91 id=91 data-nosnippet>91</a>    }
-<a href=#92 id=92 data-nosnippet>92</a>}
-<a href=#93 id=93 data-nosnippet>93</a>
-<a href=#94 id=94 data-nosnippet>94</a><span class="kw">struct </span>ModuleBasedSymbolRegistry {
-<a href=#95 id=95 data-nosnippet>95</a>    wasm_module: Arc&lt;ModuleInfo&gt;,
-<a href=#96 id=96 data-nosnippet>96</a>    local_func_names: HashMap&lt;String, LocalFunctionIndex&gt;,
-<a href=#97 id=97 data-nosnippet>97</a>    short_names: ShortNames,
-<a href=#98 id=98 data-nosnippet>98</a>}
-<a href=#99 id=99 data-nosnippet>99</a>
-<a href=#100 id=100 data-nosnippet>100</a><span class="kw">impl </span>ModuleBasedSymbolRegistry {
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">const </span>PROBLEMATIC_PREFIXES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str] = <span class="kw-2">&amp;</span>[
-<a href=#102 id=102 data-nosnippet>102</a>        <span class="string">".L"</span>,    <span class="comment">// .L is used for local symbols
-<a href=#103 id=103 data-nosnippet>103</a>        </span><span class="string">"llvm."</span>, <span class="comment">// llvm. is used for LLVM's own intrinsics
-<a href=#104 id=104 data-nosnippet>104</a>    </span>];
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">fn </span>new(wasm_module: Arc&lt;ModuleInfo&gt;) -&gt; <span class="self">Self </span>{
-<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">let </span>local_func_names = HashMap::from_iter(
-<a href=#108 id=108 data-nosnippet>108</a>            wasm_module
-<a href=#109 id=109 data-nosnippet>109</a>                .function_names
-<a href=#110 id=110 data-nosnippet>110</a>                .iter()
-<a href=#111 id=111 data-nosnippet>111</a>                .map(|(f, v)| (wasm_module.local_func_index(<span class="kw-2">*</span>f), v))
-<a href=#112 id=112 data-nosnippet>112</a>                .filter(|(f, <span class="kw">_</span>)| f.is_some())
-<a href=#113 id=113 data-nosnippet>113</a>                .map(|(f, v)| (<span class="macro">format!</span>(<span class="string">"{}_{}"</span>, v.clone(), f.unwrap().as_u32()), f.unwrap())),
-<a href=#114 id=114 data-nosnippet>114</a>        );
-<a href=#115 id=115 data-nosnippet>115</a>        <span class="self">Self </span>{
-<a href=#116 id=116 data-nosnippet>116</a>            wasm_module,
-<a href=#117 id=117 data-nosnippet>117</a>            local_func_names,
-<a href=#118 id=118 data-nosnippet>118</a>            short_names: ShortNames {},
-<a href=#119 id=119 data-nosnippet>119</a>        }
-<a href=#120 id=120 data-nosnippet>120</a>    }
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>    <span class="comment">// If the name starts with a problematic prefix, we prefix it with an underscore.
-<a href=#123 id=123 data-nosnippet>123</a>    </span><span class="kw">fn </span>fixup_problematic_name(name: <span class="kw-2">&amp;</span>str) -&gt; Cow&lt;<span class="lifetime">'_</span>, str&gt; {
-<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">for </span>prefix <span class="kw">in </span><span class="self">Self</span>::PROBLEMATIC_PREFIXES {
-<a href=#125 id=125 data-nosnippet>125</a>            <span class="kw">if </span>name.starts_with(prefix) {
-<a href=#126 id=126 data-nosnippet>126</a>                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"_{name}"</span>).into();
-<a href=#127 id=127 data-nosnippet>127</a>            }
-<a href=#128 id=128 data-nosnippet>128</a>        }
-<a href=#129 id=129 data-nosnippet>129</a>        name.into()
-<a href=#130 id=130 data-nosnippet>130</a>    }
-<a href=#131 id=131 data-nosnippet>131</a>
-<a href=#132 id=132 data-nosnippet>132</a>    <span class="comment">// If the name starts with an underscore and the rest starts with a problematic prefix,
-<a href=#133 id=133 data-nosnippet>133</a>    // remove the underscore to get back the original name. This is necessary to be able
-<a href=#134 id=134 data-nosnippet>134</a>    // to match the name back to the original name in the wasm module.
-<a href=#135 id=135 data-nosnippet>135</a>    </span><span class="kw">fn </span>unfixup_problematic_name(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span>str {
-<a href=#136 id=136 data-nosnippet>136</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped_name) = name.strip_prefix(<span class="string">'_'</span>) {
-<a href=#137 id=137 data-nosnippet>137</a>            <span class="kw">for </span>prefix <span class="kw">in </span><span class="self">Self</span>::PROBLEMATIC_PREFIXES {
-<a href=#138 id=138 data-nosnippet>138</a>                <span class="kw">if </span>stripped_name.starts_with(prefix) {
-<a href=#139 id=139 data-nosnippet>139</a>                    <span class="kw">return </span>stripped_name;
-<a href=#140 id=140 data-nosnippet>140</a>                }
-<a href=#141 id=141 data-nosnippet>141</a>            }
-<a href=#142 id=142 data-nosnippet>142</a>        }
-<a href=#143 id=143 data-nosnippet>143</a>
-<a href=#144 id=144 data-nosnippet>144</a>        name
-<a href=#145 id=145 data-nosnippet>145</a>    }
-<a href=#146 id=146 data-nosnippet>146</a>}
+<a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">let </span>(ty, idx) = name.split_at(<span class="number">1</span>);
+<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">if </span>ty.starts_with(<span class="string">'M'</span>) {
+<a href=#80 id=80 data-nosnippet>80</a>            <span class="kw">return </span><span class="prelude-val">Some</span>(Symbol::Metadata);
+<a href=#81 id=81 data-nosnippet>81</a>        }
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">let </span>idx = idx.parse::&lt;u32&gt;().ok()<span class="question-mark">?</span>;
+<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">match </span>ty.chars().next().unwrap() {
+<a href=#85 id=85 data-nosnippet>85</a>            <span class="string">'f' </span>=&gt; <span class="prelude-val">Some</span>(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
+<a href=#86 id=86 data-nosnippet>86</a>            <span class="string">'s' </span>=&gt; <span class="prelude-val">Some</span>(Symbol::Section(SectionIndex::from_u32(idx))),
+<a href=#87 id=87 data-nosnippet>87</a>            <span class="string">'t' </span>=&gt; <span class="prelude-val">Some</span>(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
+<a href=#88 id=88 data-nosnippet>88</a>                idx,
+<a href=#89 id=89 data-nosnippet>89</a>            ))),
+<a href=#90 id=90 data-nosnippet>90</a>            <span class="string">'d' </span>=&gt; <span class="prelude-val">Some</span>(Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(
+<a href=#91 id=91 data-nosnippet>91</a>                idx,
+<a href=#92 id=92 data-nosnippet>92</a>            ))),
+<a href=#93 id=93 data-nosnippet>93</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#94 id=94 data-nosnippet>94</a>        }
+<a href=#95 id=95 data-nosnippet>95</a>    }
+<a href=#96 id=96 data-nosnippet>96</a>}
+<a href=#97 id=97 data-nosnippet>97</a>
+<a href=#98 id=98 data-nosnippet>98</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ModuleBasedSymbolRegistry {
+<a href=#99 id=99 data-nosnippet>99</a>    wasm_module: Arc&lt;ModuleInfo&gt;,
+<a href=#100 id=100 data-nosnippet>100</a>    local_func_names: HashMap&lt;String, LocalFunctionIndex&gt;,
+<a href=#101 id=101 data-nosnippet>101</a>    short_names: ShortNames,
+<a href=#102 id=102 data-nosnippet>102</a>}
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a><span class="kw">impl </span>ModuleBasedSymbolRegistry {
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="kw">const </span>PROBLEMATIC_PREFIXES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str] = <span class="kw-2">&amp;</span>[
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="string">".L"</span>,    <span class="comment">// .L is used for local symbols
+<a href=#107 id=107 data-nosnippet>107</a>        </span><span class="string">"llvm."</span>, <span class="comment">// llvm. is used for LLVM's own intrinsics
+<a href=#108 id=108 data-nosnippet>108</a>    </span>];
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">fn </span>new(wasm_module: Arc&lt;ModuleInfo&gt;) -&gt; <span class="self">Self </span>{
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">let </span>local_func_names = HashMap::from_iter(
+<a href=#112 id=112 data-nosnippet>112</a>            wasm_module
+<a href=#113 id=113 data-nosnippet>113</a>                .function_names
+<a href=#114 id=114 data-nosnippet>114</a>                .iter()
+<a href=#115 id=115 data-nosnippet>115</a>                .map(|(f, v)| (wasm_module.local_func_index(<span class="kw-2">*</span>f), v))
+<a href=#116 id=116 data-nosnippet>116</a>                .filter(|(f, <span class="kw">_</span>)| f.is_some())
+<a href=#117 id=117 data-nosnippet>117</a>                .map(|(f, v)| (<span class="macro">format!</span>(<span class="string">"{}_{}"</span>, v.clone(), f.unwrap().as_u32()), f.unwrap())),
+<a href=#118 id=118 data-nosnippet>118</a>        );
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="self">Self </span>{
+<a href=#120 id=120 data-nosnippet>120</a>            wasm_module,
+<a href=#121 id=121 data-nosnippet>121</a>            local_func_names,
+<a href=#122 id=122 data-nosnippet>122</a>            short_names: ShortNames {},
+<a href=#123 id=123 data-nosnippet>123</a>        }
+<a href=#124 id=124 data-nosnippet>124</a>    }
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>    <span class="comment">// If the name starts with a problematic prefix, we prefix it with an underscore.
+<a href=#127 id=127 data-nosnippet>127</a>    </span><span class="kw">fn </span>fixup_problematic_name(name: <span class="kw-2">&amp;</span>str) -&gt; Cow&lt;<span class="lifetime">'_</span>, str&gt; {
+<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">for </span>prefix <span class="kw">in </span><span class="self">Self</span>::PROBLEMATIC_PREFIXES {
+<a href=#129 id=129 data-nosnippet>129</a>            <span class="kw">if </span>name.starts_with(prefix) {
+<a href=#130 id=130 data-nosnippet>130</a>                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"_{name}"</span>).into();
+<a href=#131 id=131 data-nosnippet>131</a>            }
+<a href=#132 id=132 data-nosnippet>132</a>        }
+<a href=#133 id=133 data-nosnippet>133</a>        name.into()
+<a href=#134 id=134 data-nosnippet>134</a>    }
+<a href=#135 id=135 data-nosnippet>135</a>
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="comment">// If the name starts with an underscore and the rest starts with a problematic prefix,
+<a href=#137 id=137 data-nosnippet>137</a>    // remove the underscore to get back the original name. This is necessary to be able
+<a href=#138 id=138 data-nosnippet>138</a>    // to match the name back to the original name in the wasm module.
+<a href=#139 id=139 data-nosnippet>139</a>    </span><span class="kw">fn </span>unfixup_problematic_name(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span>str {
+<a href=#140 id=140 data-nosnippet>140</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped_name) = name.strip_prefix(<span class="string">'_'</span>) {
+<a href=#141 id=141 data-nosnippet>141</a>            <span class="kw">for </span>prefix <span class="kw">in </span><span class="self">Self</span>::PROBLEMATIC_PREFIXES {
+<a href=#142 id=142 data-nosnippet>142</a>                <span class="kw">if </span>stripped_name.starts_with(prefix) {
+<a href=#143 id=143 data-nosnippet>143</a>                    <span class="kw">return </span>stripped_name;
+<a href=#144 id=144 data-nosnippet>144</a>                }
+<a href=#145 id=145 data-nosnippet>145</a>            }
+<a href=#146 id=146 data-nosnippet>146</a>        }
 <a href=#147 id=147 data-nosnippet>147</a>
-<a href=#148 id=148 data-nosnippet>148</a><span class="kw">impl </span>SymbolRegistry <span class="kw">for </span>ModuleBasedSymbolRegistry {
-<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">fn </span>symbol_to_name(<span class="kw-2">&amp;</span><span class="self">self</span>, symbol: Symbol) -&gt; String {
-<a href=#150 id=150 data-nosnippet>150</a>        <span class="kw">match </span>symbol {
-<a href=#151 id=151 data-nosnippet>151</a>            Symbol::LocalFunction(index) =&gt; <span class="self">self
-<a href=#152 id=152 data-nosnippet>152</a>                </span>.wasm_module
-<a href=#153 id=153 data-nosnippet>153</a>                .function_names
-<a href=#154 id=154 data-nosnippet>154</a>                .get(<span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.func_index(index))
-<a href=#155 id=155 data-nosnippet>155</a>                .map(|name| <span class="macro">format!</span>(<span class="string">"{}_{}"</span>, <span class="self">Self</span>::fixup_problematic_name(name), index.as_u32()))
-<a href=#156 id=156 data-nosnippet>156</a>                .unwrap_or(<span class="self">self</span>.short_names.symbol_to_name(symbol)),
-<a href=#157 id=157 data-nosnippet>157</a>            <span class="kw">_ </span>=&gt; <span class="self">self</span>.short_names.symbol_to_name(symbol),
-<a href=#158 id=158 data-nosnippet>158</a>        }
-<a href=#159 id=159 data-nosnippet>159</a>    }
-<a href=#160 id=160 data-nosnippet>160</a>
-<a href=#161 id=161 data-nosnippet>161</a>    <span class="kw">fn </span>name_to_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
-<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>name = <span class="self">Self</span>::unfixup_problematic_name(name);
-<a href=#163 id=163 data-nosnippet>163</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.local_func_names.get(name) {
-<a href=#164 id=164 data-nosnippet>164</a>            <span class="prelude-val">Some</span>(Symbol::LocalFunction(<span class="kw-2">*</span>idx))
-<a href=#165 id=165 data-nosnippet>165</a>        } <span class="kw">else </span>{
-<a href=#166 id=166 data-nosnippet>166</a>            <span class="self">self</span>.short_names.name_to_symbol(name)
-<a href=#167 id=167 data-nosnippet>167</a>        }
-<a href=#168 id=168 data-nosnippet>168</a>    }
-<a href=#169 id=169 data-nosnippet>169</a>}
-<a href=#170 id=170 data-nosnippet>170</a>
-<a href=#171 id=171 data-nosnippet>171</a><span class="kw">impl </span>LLVMCompiler {
-<a href=#172 id=172 data-nosnippet>172</a>    <span class="attr">#[allow(clippy::too_many_arguments)]
-<a href=#173 id=173 data-nosnippet>173</a>    </span><span class="kw">fn </span>compile_native_object(
-<a href=#174 id=174 data-nosnippet>174</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#175 id=175 data-nosnippet>175</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#176 id=176 data-nosnippet>176</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
-<a href=#177 id=177 data-nosnippet>177</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#178 id=178 data-nosnippet>178</a>        function_body_inputs: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#179 id=179 data-nosnippet>179</a>        symbol_registry: <span class="kw-2">&amp;</span><span class="kw">dyn </span>SymbolRegistry,
-<a href=#180 id=180 data-nosnippet>180</a>        wasmer_metadata: <span class="kw-2">&amp;</span>[u8],
-<a href=#181 id=181 data-nosnippet>181</a>        binary_format: target_lexicon::BinaryFormat,
-<a href=#182 id=182 data-nosnippet>182</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
-<a href=#183 id=183 data-nosnippet>183</a>        <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
-<a href=#184 id=184 data-nosnippet>184</a>        <span class="kw">let </span>ctx = Context::create();
-<a href=#185 id=185 data-nosnippet>185</a>
-<a href=#186 id=186 data-nosnippet>186</a>        <span class="comment">// TODO: https:/github.com/rayon-rs/rayon/issues/822
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a>        </span><span class="kw">let </span>merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
-<a href=#189 id=189 data-nosnippet>189</a>            || {
-<a href=#190 id=190 data-nosnippet>190</a>                <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
-<a href=#191 id=191 data-nosnippet>191</a>                <span class="kw">let </span>target_machine_no_opt = <span class="self">self</span>.config().target_machine_with_opt(target, <span class="bool-val">false</span>);
-<a href=#192 id=192 data-nosnippet>192</a>                <span class="kw">let </span>pointer_width = target.triple().pointer_width().unwrap().bytes();
-<a href=#193 id=193 data-nosnippet>193</a>                FuncTranslator::new(
-<a href=#194 id=194 data-nosnippet>194</a>                    target.triple().clone(),
-<a href=#195 id=195 data-nosnippet>195</a>                    target_machine,
-<a href=#196 id=196 data-nosnippet>196</a>                    <span class="prelude-val">Some</span>(target_machine_no_opt),
-<a href=#197 id=197 data-nosnippet>197</a>                    binary_format,
-<a href=#198 id=198 data-nosnippet>198</a>                    pointer_width,
-<a href=#199 id=199 data-nosnippet>199</a>                )
-<a href=#200 id=200 data-nosnippet>200</a>                .unwrap()
-<a href=#201 id=201 data-nosnippet>201</a>            },
-<a href=#202 id=202 data-nosnippet>202</a>            |func_translator, (i, input)| {
-<a href=#203 id=203 data-nosnippet>203</a>                <span class="kw">let </span>module = func_translator.translate_to_module(
-<a href=#204 id=204 data-nosnippet>204</a>                    <span class="kw-2">&amp;</span>compile_info.module,
-<a href=#205 id=205 data-nosnippet>205</a>                    module_translation,
-<a href=#206 id=206 data-nosnippet>206</a>                    <span class="kw-2">&amp;</span>i,
-<a href=#207 id=207 data-nosnippet>207</a>                    input,
-<a href=#208 id=208 data-nosnippet>208</a>                    <span class="self">self</span>.config(),
-<a href=#209 id=209 data-nosnippet>209</a>                    <span class="kw-2">&amp;</span>compile_info.memory_styles,
-<a href=#210 id=210 data-nosnippet>210</a>                    <span class="kw-2">&amp;</span>compile_info.table_styles,
-<a href=#211 id=211 data-nosnippet>211</a>                    symbol_registry,
-<a href=#212 id=212 data-nosnippet>212</a>                    target.triple(),
-<a href=#213 id=213 data-nosnippet>213</a>                )<span class="question-mark">?</span>;
-<a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a>                <span class="prelude-val">Ok</span>(module.write_bitcode_to_memory().as_slice().to_vec())
-<a href=#216 id=216 data-nosnippet>216</a>            },
-<a href=#217 id=217 data-nosnippet>217</a>        );
+<a href=#148 id=148 data-nosnippet>148</a>        name
+<a href=#149 id=149 data-nosnippet>149</a>    }
+<a href=#150 id=150 data-nosnippet>150</a>}
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a><span class="kw">impl </span>SymbolRegistry <span class="kw">for </span>ModuleBasedSymbolRegistry {
+<a href=#153 id=153 data-nosnippet>153</a>    <span class="kw">fn </span>symbol_to_name(<span class="kw-2">&amp;</span><span class="self">self</span>, symbol: Symbol) -&gt; String {
+<a href=#154 id=154 data-nosnippet>154</a>        <span class="kw">match </span>symbol {
+<a href=#155 id=155 data-nosnippet>155</a>            Symbol::LocalFunction(index) =&gt; <span class="self">self
+<a href=#156 id=156 data-nosnippet>156</a>                </span>.wasm_module
+<a href=#157 id=157 data-nosnippet>157</a>                .function_names
+<a href=#158 id=158 data-nosnippet>158</a>                .get(<span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.func_index(index))
+<a href=#159 id=159 data-nosnippet>159</a>                .map(|name| <span class="macro">format!</span>(<span class="string">"{}_{}"</span>, <span class="self">Self</span>::fixup_problematic_name(name), index.as_u32()))
+<a href=#160 id=160 data-nosnippet>160</a>                .unwrap_or(<span class="self">self</span>.short_names.symbol_to_name(symbol)),
+<a href=#161 id=161 data-nosnippet>161</a>            <span class="kw">_ </span>=&gt; <span class="self">self</span>.short_names.symbol_to_name(symbol),
+<a href=#162 id=162 data-nosnippet>162</a>        }
+<a href=#163 id=163 data-nosnippet>163</a>    }
+<a href=#164 id=164 data-nosnippet>164</a>
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="kw">fn </span>name_to_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
+<a href=#166 id=166 data-nosnippet>166</a>        <span class="kw">let </span>name = <span class="self">Self</span>::unfixup_problematic_name(name);
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.local_func_names.get(name) {
+<a href=#168 id=168 data-nosnippet>168</a>            <span class="prelude-val">Some</span>(Symbol::LocalFunction(<span class="kw-2">*</span>idx))
+<a href=#169 id=169 data-nosnippet>169</a>        } <span class="kw">else </span>{
+<a href=#170 id=170 data-nosnippet>170</a>            <span class="self">self</span>.short_names.name_to_symbol(name)
+<a href=#171 id=171 data-nosnippet>171</a>        }
+<a href=#172 id=172 data-nosnippet>172</a>    }
+<a href=#173 id=173 data-nosnippet>173</a>}
+<a href=#174 id=174 data-nosnippet>174</a>
+<a href=#175 id=175 data-nosnippet>175</a><span class="kw">impl </span>LLVMCompiler {
+<a href=#176 id=176 data-nosnippet>176</a>    <span class="attr">#[allow(clippy::too_many_arguments)]
+<a href=#177 id=177 data-nosnippet>177</a>    </span><span class="kw">fn </span>compile_native_object(
+<a href=#178 id=178 data-nosnippet>178</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#179 id=179 data-nosnippet>179</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#180 id=180 data-nosnippet>180</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#181 id=181 data-nosnippet>181</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#182 id=182 data-nosnippet>182</a>        function_body_inputs: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#183 id=183 data-nosnippet>183</a>        symbol_registry: <span class="kw-2">&amp;</span><span class="kw">dyn </span>SymbolRegistry,
+<a href=#184 id=184 data-nosnippet>184</a>        wasmer_metadata: <span class="kw-2">&amp;</span>[u8],
+<a href=#185 id=185 data-nosnippet>185</a>        binary_format: target_lexicon::BinaryFormat,
+<a href=#186 id=186 data-nosnippet>186</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
+<a href=#187 id=187 data-nosnippet>187</a>        <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
+<a href=#188 id=188 data-nosnippet>188</a>        <span class="kw">let </span>ctx = Context::create();
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a>        <span class="comment">// TODO: https:/github.com/rayon-rs/rayon/issues/822
+<a href=#191 id=191 data-nosnippet>191</a>
+<a href=#192 id=192 data-nosnippet>192</a>        </span><span class="kw">let </span>merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
+<a href=#193 id=193 data-nosnippet>193</a>            || {
+<a href=#194 id=194 data-nosnippet>194</a>                <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
+<a href=#195 id=195 data-nosnippet>195</a>                <span class="kw">let </span>target_machine_no_opt = <span class="self">self</span>.config().target_machine_with_opt(target, <span class="bool-val">false</span>);
+<a href=#196 id=196 data-nosnippet>196</a>                <span class="kw">let </span>pointer_width = target.triple().pointer_width().unwrap().bytes();
+<a href=#197 id=197 data-nosnippet>197</a>                FuncTranslator::new(
+<a href=#198 id=198 data-nosnippet>198</a>                    target.triple().clone(),
+<a href=#199 id=199 data-nosnippet>199</a>                    target_machine,
+<a href=#200 id=200 data-nosnippet>200</a>                    <span class="prelude-val">Some</span>(target_machine_no_opt),
+<a href=#201 id=201 data-nosnippet>201</a>                    binary_format,
+<a href=#202 id=202 data-nosnippet>202</a>                    pointer_width,
+<a href=#203 id=203 data-nosnippet>203</a>                )
+<a href=#204 id=204 data-nosnippet>204</a>                .unwrap()
+<a href=#205 id=205 data-nosnippet>205</a>            },
+<a href=#206 id=206 data-nosnippet>206</a>            |func_translator, (i, input)| {
+<a href=#207 id=207 data-nosnippet>207</a>                <span class="kw">let </span>module = func_translator.translate_to_module(
+<a href=#208 id=208 data-nosnippet>208</a>                    <span class="kw-2">&amp;</span>compile_info.module,
+<a href=#209 id=209 data-nosnippet>209</a>                    module_translation,
+<a href=#210 id=210 data-nosnippet>210</a>                    <span class="kw-2">&amp;</span>i,
+<a href=#211 id=211 data-nosnippet>211</a>                    input,
+<a href=#212 id=212 data-nosnippet>212</a>                    <span class="self">self</span>.config(),
+<a href=#213 id=213 data-nosnippet>213</a>                    <span class="kw-2">&amp;</span>compile_info.memory_styles,
+<a href=#214 id=214 data-nosnippet>214</a>                    <span class="kw-2">&amp;</span>compile_info.table_styles,
+<a href=#215 id=215 data-nosnippet>215</a>                    symbol_registry,
+<a href=#216 id=216 data-nosnippet>216</a>                    target.triple(),
+<a href=#217 id=217 data-nosnippet>217</a>                )<span class="question-mark">?</span>;
 <a href=#218 id=218 data-nosnippet>218</a>
-<a href=#219 id=219 data-nosnippet>219</a>        <span class="kw">let </span>trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
-<a href=#220 id=220 data-nosnippet>220</a>            || {
-<a href=#221 id=221 data-nosnippet>221</a>                <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
-<a href=#222 id=222 data-nosnippet>222</a>                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format).unwrap()
-<a href=#223 id=223 data-nosnippet>223</a>            },
-<a href=#224 id=224 data-nosnippet>224</a>            |func_trampoline, (i, sig)| {
-<a href=#225 id=225 data-nosnippet>225</a>                <span class="kw">let </span>name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
-<a href=#226 id=226 data-nosnippet>226</a>                <span class="kw">let </span>module = func_trampoline.trampoline_to_module(
-<a href=#227 id=227 data-nosnippet>227</a>                    sig,
-<a href=#228 id=228 data-nosnippet>228</a>                    <span class="self">self</span>.config(),
-<a href=#229 id=229 data-nosnippet>229</a>                    <span class="kw-2">&amp;</span>name,
-<a href=#230 id=230 data-nosnippet>230</a>                    compile_info,
-<a href=#231 id=231 data-nosnippet>231</a>                )<span class="question-mark">?</span>;
-<a href=#232 id=232 data-nosnippet>232</a>                <span class="prelude-val">Ok</span>(module.write_bitcode_to_memory().as_slice().to_vec())
-<a href=#233 id=233 data-nosnippet>233</a>            },
-<a href=#234 id=234 data-nosnippet>234</a>        );
-<a href=#235 id=235 data-nosnippet>235</a>
-<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">let </span>module_hash = compile_info.module.hash_string();
-<a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">let </span>dynamic_trampolines_bitcode =
-<a href=#238 id=238 data-nosnippet>238</a>            compile_info.module.functions.iter().par_bridge().map_init(
-<a href=#239 id=239 data-nosnippet>239</a>                || {
-<a href=#240 id=240 data-nosnippet>240</a>                    <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
-<a href=#241 id=241 data-nosnippet>241</a>                    (
-<a href=#242 id=242 data-nosnippet>242</a>                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
-<a href=#243 id=243 data-nosnippet>243</a>                            .unwrap(),
-<a href=#244 id=244 data-nosnippet>244</a>                        <span class="kw-2">&amp;</span>compile_info.module.signatures,
-<a href=#245 id=245 data-nosnippet>245</a>                    )
-<a href=#246 id=246 data-nosnippet>246</a>                },
-<a href=#247 id=247 data-nosnippet>247</a>                |(func_trampoline, signatures), (i, sig)| {
-<a href=#248 id=248 data-nosnippet>248</a>                    <span class="kw">let </span>sig = <span class="kw-2">&amp;</span>signatures[<span class="kw-2">*</span>sig];
-<a href=#249 id=249 data-nosnippet>249</a>                    <span class="kw">let </span>name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(i));
-<a href=#250 id=250 data-nosnippet>250</a>                    <span class="kw">let </span>module = func_trampoline.dynamic_trampoline_to_module(
-<a href=#251 id=251 data-nosnippet>251</a>                        sig,
-<a href=#252 id=252 data-nosnippet>252</a>                        <span class="self">self</span>.config(),
-<a href=#253 id=253 data-nosnippet>253</a>                        <span class="kw-2">&amp;</span>name,
-<a href=#254 id=254 data-nosnippet>254</a>                        <span class="kw-2">&amp;</span>module_hash,
-<a href=#255 id=255 data-nosnippet>255</a>                    )<span class="question-mark">?</span>;
-<a href=#256 id=256 data-nosnippet>256</a>                    <span class="prelude-val">Ok</span>(module.write_bitcode_to_memory().as_slice().to_vec())
-<a href=#257 id=257 data-nosnippet>257</a>                },
-<a href=#258 id=258 data-nosnippet>258</a>            );
-<a href=#259 id=259 data-nosnippet>259</a>
-<a href=#260 id=260 data-nosnippet>260</a>        <span class="kw">let </span>merged_bitcode = merged_bitcode
-<a href=#261 id=261 data-nosnippet>261</a>            .chain(trampolines_bitcode)
-<a href=#262 id=262 data-nosnippet>262</a>            .chain(dynamic_trampolines_bitcode)
-<a href=#263 id=263 data-nosnippet>263</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
-<a href=#264 id=264 data-nosnippet>264</a>            </span>.into_par_iter()
-<a href=#265 id=265 data-nosnippet>265</a>            .reduce_with(|bc1, bc2| {
-<a href=#266 id=266 data-nosnippet>266</a>                <span class="kw">let </span>ctx = Context::create();
-<a href=#267 id=267 data-nosnippet>267</a>                <span class="kw">let </span>membuf = MemoryBuffer::create_from_memory_range(<span class="kw-2">&amp;</span>bc1, <span class="string">""</span>);
-<a href=#268 id=268 data-nosnippet>268</a>                <span class="kw">let </span>m1 = Module::parse_bitcode_from_buffer(<span class="kw-2">&amp;</span>membuf, <span class="kw-2">&amp;</span>ctx).unwrap();
-<a href=#269 id=269 data-nosnippet>269</a>                <span class="kw">let </span>membuf = MemoryBuffer::create_from_memory_range(<span class="kw-2">&amp;</span>bc2, <span class="string">""</span>);
-<a href=#270 id=270 data-nosnippet>270</a>                <span class="kw">let </span>m2 = Module::parse_bitcode_from_buffer(<span class="kw-2">&amp;</span>membuf, <span class="kw-2">&amp;</span>ctx).unwrap();
-<a href=#271 id=271 data-nosnippet>271</a>                m1.link_in_module(m2).unwrap();
-<a href=#272 id=272 data-nosnippet>272</a>                m1.write_bitcode_to_memory().as_slice().to_vec()
-<a href=#273 id=273 data-nosnippet>273</a>            });
-<a href=#274 id=274 data-nosnippet>274</a>        <span class="kw">let </span>merged_module = <span class="kw">if let </span><span class="prelude-val">Some</span>(bc) = merged_bitcode {
-<a href=#275 id=275 data-nosnippet>275</a>            <span class="kw">let </span>membuf = MemoryBuffer::create_from_memory_range(<span class="kw-2">&amp;</span>bc, <span class="string">""</span>);
-<a href=#276 id=276 data-nosnippet>276</a>            Module::parse_bitcode_from_buffer(<span class="kw-2">&amp;</span>membuf, <span class="kw-2">&amp;</span>ctx).unwrap()
-<a href=#277 id=277 data-nosnippet>277</a>        } <span class="kw">else </span>{
-<a href=#278 id=278 data-nosnippet>278</a>            ctx.create_module(<span class="string">""</span>)
-<a href=#279 id=279 data-nosnippet>279</a>        };
-<a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span>i8_ty = ctx.i8_type();
-<a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">let </span>metadata_init = i8_ty.const_array(
-<a href=#283 id=283 data-nosnippet>283</a>            wasmer_metadata
-<a href=#284 id=284 data-nosnippet>284</a>                .iter()
-<a href=#285 id=285 data-nosnippet>285</a>                .map(|v| i8_ty.const_int(<span class="kw-2">*</span>v <span class="kw">as </span>u64, <span class="bool-val">false</span>))
-<a href=#286 id=286 data-nosnippet>286</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#287 id=287 data-nosnippet>287</a>                .as_slice(),
-<a href=#288 id=288 data-nosnippet>288</a>        );
-<a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">let </span>metadata_gv = merged_module.add_global(
-<a href=#290 id=290 data-nosnippet>290</a>            metadata_init.get_type(),
-<a href=#291 id=291 data-nosnippet>291</a>            <span class="prelude-val">None</span>,
-<a href=#292 id=292 data-nosnippet>292</a>            <span class="kw-2">&amp;</span>symbol_registry.symbol_to_name(wasmer_compiler::types::symbols::Symbol::Metadata),
-<a href=#293 id=293 data-nosnippet>293</a>        );
-<a href=#294 id=294 data-nosnippet>294</a>        metadata_gv.set_initializer(<span class="kw-2">&amp;</span>metadata_init);
-<a href=#295 id=295 data-nosnippet>295</a>        metadata_gv.set_linkage(Linkage::DLLExport);
-<a href=#296 id=296 data-nosnippet>296</a>        metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
-<a href=#297 id=297 data-nosnippet>297</a>        metadata_gv.set_alignment(<span class="number">16</span>);
-<a href=#298 id=298 data-nosnippet>298</a>
-<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">if </span><span class="self">self</span>.config().enable_verifier {
-<a href=#300 id=300 data-nosnippet>300</a>            merged_module.verify().unwrap();
-<a href=#301 id=301 data-nosnippet>301</a>        }
+<a href=#219 id=219 data-nosnippet>219</a>                <span class="prelude-val">Ok</span>(module.write_bitcode_to_memory().as_slice().to_vec())
+<a href=#220 id=220 data-nosnippet>220</a>            },
+<a href=#221 id=221 data-nosnippet>221</a>        );
+<a href=#222 id=222 data-nosnippet>222</a>
+<a href=#223 id=223 data-nosnippet>223</a>        <span class="kw">let </span>trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
+<a href=#224 id=224 data-nosnippet>224</a>            || {
+<a href=#225 id=225 data-nosnippet>225</a>                <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
+<a href=#226 id=226 data-nosnippet>226</a>                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format).unwrap()
+<a href=#227 id=227 data-nosnippet>227</a>            },
+<a href=#228 id=228 data-nosnippet>228</a>            |func_trampoline, (i, sig)| {
+<a href=#229 id=229 data-nosnippet>229</a>                <span class="kw">let </span>name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
+<a href=#230 id=230 data-nosnippet>230</a>                <span class="kw">let </span>module = func_trampoline.trampoline_to_module(
+<a href=#231 id=231 data-nosnippet>231</a>                    sig,
+<a href=#232 id=232 data-nosnippet>232</a>                    <span class="self">self</span>.config(),
+<a href=#233 id=233 data-nosnippet>233</a>                    <span class="kw-2">&amp;</span>name,
+<a href=#234 id=234 data-nosnippet>234</a>                    compile_info,
+<a href=#235 id=235 data-nosnippet>235</a>                )<span class="question-mark">?</span>;
+<a href=#236 id=236 data-nosnippet>236</a>                <span class="prelude-val">Ok</span>(module.write_bitcode_to_memory().as_slice().to_vec())
+<a href=#237 id=237 data-nosnippet>237</a>            },
+<a href=#238 id=238 data-nosnippet>238</a>        );
+<a href=#239 id=239 data-nosnippet>239</a>
+<a href=#240 id=240 data-nosnippet>240</a>        <span class="kw">let </span>module_hash = compile_info.module.hash_string();
+<a href=#241 id=241 data-nosnippet>241</a>        <span class="kw">let </span>dynamic_trampolines_bitcode =
+<a href=#242 id=242 data-nosnippet>242</a>            compile_info.module.functions.iter().par_bridge().map_init(
+<a href=#243 id=243 data-nosnippet>243</a>                || {
+<a href=#244 id=244 data-nosnippet>244</a>                    <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
+<a href=#245 id=245 data-nosnippet>245</a>                    (
+<a href=#246 id=246 data-nosnippet>246</a>                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+<a href=#247 id=247 data-nosnippet>247</a>                            .unwrap(),
+<a href=#248 id=248 data-nosnippet>248</a>                        <span class="kw-2">&amp;</span>compile_info.module.signatures,
+<a href=#249 id=249 data-nosnippet>249</a>                    )
+<a href=#250 id=250 data-nosnippet>250</a>                },
+<a href=#251 id=251 data-nosnippet>251</a>                |(func_trampoline, signatures), (i, sig)| {
+<a href=#252 id=252 data-nosnippet>252</a>                    <span class="kw">let </span>sig = <span class="kw-2">&amp;</span>signatures[<span class="kw-2">*</span>sig];
+<a href=#253 id=253 data-nosnippet>253</a>                    <span class="kw">let </span>name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(i));
+<a href=#254 id=254 data-nosnippet>254</a>                    <span class="kw">let </span>module = func_trampoline.dynamic_trampoline_to_module(
+<a href=#255 id=255 data-nosnippet>255</a>                        sig,
+<a href=#256 id=256 data-nosnippet>256</a>                        <span class="self">self</span>.config(),
+<a href=#257 id=257 data-nosnippet>257</a>                        <span class="kw-2">&amp;</span>name,
+<a href=#258 id=258 data-nosnippet>258</a>                        <span class="kw-2">&amp;</span>module_hash,
+<a href=#259 id=259 data-nosnippet>259</a>                    )<span class="question-mark">?</span>;
+<a href=#260 id=260 data-nosnippet>260</a>                    <span class="prelude-val">Ok</span>(module.write_bitcode_to_memory().as_slice().to_vec())
+<a href=#261 id=261 data-nosnippet>261</a>                },
+<a href=#262 id=262 data-nosnippet>262</a>            );
+<a href=#263 id=263 data-nosnippet>263</a>
+<a href=#264 id=264 data-nosnippet>264</a>        <span class="kw">let </span>merged_bitcode = merged_bitcode
+<a href=#265 id=265 data-nosnippet>265</a>            .chain(trampolines_bitcode)
+<a href=#266 id=266 data-nosnippet>266</a>            .chain(dynamic_trampolines_bitcode)
+<a href=#267 id=267 data-nosnippet>267</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+<a href=#268 id=268 data-nosnippet>268</a>            </span>.into_par_iter()
+<a href=#269 id=269 data-nosnippet>269</a>            .reduce_with(|bc1, bc2| {
+<a href=#270 id=270 data-nosnippet>270</a>                <span class="kw">let </span>ctx = Context::create();
+<a href=#271 id=271 data-nosnippet>271</a>                <span class="kw">let </span>membuf = MemoryBuffer::create_from_memory_range(<span class="kw-2">&amp;</span>bc1, <span class="string">""</span>);
+<a href=#272 id=272 data-nosnippet>272</a>                <span class="kw">let </span>m1 = Module::parse_bitcode_from_buffer(<span class="kw-2">&amp;</span>membuf, <span class="kw-2">&amp;</span>ctx).unwrap();
+<a href=#273 id=273 data-nosnippet>273</a>                <span class="kw">let </span>membuf = MemoryBuffer::create_from_memory_range(<span class="kw-2">&amp;</span>bc2, <span class="string">""</span>);
+<a href=#274 id=274 data-nosnippet>274</a>                <span class="kw">let </span>m2 = Module::parse_bitcode_from_buffer(<span class="kw-2">&amp;</span>membuf, <span class="kw-2">&amp;</span>ctx).unwrap();
+<a href=#275 id=275 data-nosnippet>275</a>                m1.link_in_module(m2).unwrap();
+<a href=#276 id=276 data-nosnippet>276</a>                m1.write_bitcode_to_memory().as_slice().to_vec()
+<a href=#277 id=277 data-nosnippet>277</a>            });
+<a href=#278 id=278 data-nosnippet>278</a>        <span class="kw">let </span>merged_module = <span class="kw">if let </span><span class="prelude-val">Some</span>(bc) = merged_bitcode {
+<a href=#279 id=279 data-nosnippet>279</a>            <span class="kw">let </span>membuf = MemoryBuffer::create_from_memory_range(<span class="kw-2">&amp;</span>bc, <span class="string">""</span>);
+<a href=#280 id=280 data-nosnippet>280</a>            Module::parse_bitcode_from_buffer(<span class="kw-2">&amp;</span>membuf, <span class="kw-2">&amp;</span>ctx).unwrap()
+<a href=#281 id=281 data-nosnippet>281</a>        } <span class="kw">else </span>{
+<a href=#282 id=282 data-nosnippet>282</a>            ctx.create_module(<span class="string">""</span>)
+<a href=#283 id=283 data-nosnippet>283</a>        };
+<a href=#284 id=284 data-nosnippet>284</a>
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">let </span>i8_ty = ctx.i8_type();
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">let </span>metadata_init = i8_ty.const_array(
+<a href=#287 id=287 data-nosnippet>287</a>            wasmer_metadata
+<a href=#288 id=288 data-nosnippet>288</a>                .iter()
+<a href=#289 id=289 data-nosnippet>289</a>                .map(|v| i8_ty.const_int(<span class="kw-2">*</span>v <span class="kw">as </span>u64, <span class="bool-val">false</span>))
+<a href=#290 id=290 data-nosnippet>290</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#291 id=291 data-nosnippet>291</a>                .as_slice(),
+<a href=#292 id=292 data-nosnippet>292</a>        );
+<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">let </span>metadata_gv = merged_module.add_global(
+<a href=#294 id=294 data-nosnippet>294</a>            metadata_init.get_type(),
+<a href=#295 id=295 data-nosnippet>295</a>            <span class="prelude-val">None</span>,
+<a href=#296 id=296 data-nosnippet>296</a>            <span class="kw-2">&amp;</span>symbol_registry.symbol_to_name(wasmer_compiler::types::symbols::Symbol::Metadata),
+<a href=#297 id=297 data-nosnippet>297</a>        );
+<a href=#298 id=298 data-nosnippet>298</a>        metadata_gv.set_initializer(<span class="kw-2">&amp;</span>metadata_init);
+<a href=#299 id=299 data-nosnippet>299</a>        metadata_gv.set_linkage(Linkage::DLLExport);
+<a href=#300 id=300 data-nosnippet>300</a>        metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
+<a href=#301 id=301 data-nosnippet>301</a>        metadata_gv.set_alignment(<span class="number">16</span>);
 <a href=#302 id=302 data-nosnippet>302</a>
-<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">let </span>memory_buffer = target_machine
-<a href=#304 id=304 data-nosnippet>304</a>            .write_to_memory_buffer(<span class="kw-2">&amp;</span>merged_module, FileType::Object)
-<a href=#305 id=305 data-nosnippet>305</a>            .unwrap();
-<a href=#306 id=306 data-nosnippet>306</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>callbacks) = <span class="self">self</span>.config.callbacks {
-<a href=#307 id=307 data-nosnippet>307</a>            callbacks.obj_memory_buffer(
-<a href=#308 id=308 data-nosnippet>308</a>                <span class="kw-2">&amp;</span>CompiledKind::Module,
-<a href=#309 id=309 data-nosnippet>309</a>                <span class="kw-2">&amp;</span>compile_info.module.hash_string(),
-<a href=#310 id=310 data-nosnippet>310</a>                <span class="kw-2">&amp;</span>memory_buffer,
-<a href=#311 id=311 data-nosnippet>311</a>            );
-<a href=#312 id=312 data-nosnippet>312</a>        }
-<a href=#313 id=313 data-nosnippet>313</a>
-<a href=#314 id=314 data-nosnippet>314</a>        <span class="macro">tracing::trace!</span>(<span class="string">"Finished compling the module!"</span>);
-<a href=#315 id=315 data-nosnippet>315</a>        <span class="prelude-val">Ok</span>(memory_buffer.as_slice().to_vec())
-<a href=#316 id=316 data-nosnippet>316</a>    }
-<a href=#317 id=317 data-nosnippet>317</a>}
-<a href=#318 id=318 data-nosnippet>318</a>
-<a href=#319 id=319 data-nosnippet>319</a><span class="kw">impl </span>Compiler <span class="kw">for </span>LLVMCompiler {
-<a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-<a href=#321 id=321 data-nosnippet>321</a>        <span class="string">"llvm"
-<a href=#322 id=322 data-nosnippet>322</a>    </span>}
-<a href=#323 id=323 data-nosnippet>323</a>
-<a href=#324 id=324 data-nosnippet>324</a>    <span class="kw">fn </span>get_perfmap_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#325 id=325 data-nosnippet>325</a>        <span class="self">self</span>.config.enable_perfmap
-<a href=#326 id=326 data-nosnippet>326</a>    }
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">if </span><span class="self">self</span>.config().enable_verifier {
+<a href=#304 id=304 data-nosnippet>304</a>            merged_module.verify().unwrap();
+<a href=#305 id=305 data-nosnippet>305</a>        }
+<a href=#306 id=306 data-nosnippet>306</a>
+<a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">let </span>memory_buffer = target_machine
+<a href=#308 id=308 data-nosnippet>308</a>            .write_to_memory_buffer(<span class="kw-2">&amp;</span>merged_module, FileType::Object)
+<a href=#309 id=309 data-nosnippet>309</a>            .unwrap();
+<a href=#310 id=310 data-nosnippet>310</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>callbacks) = <span class="self">self</span>.config.callbacks {
+<a href=#311 id=311 data-nosnippet>311</a>            callbacks.obj_memory_buffer(
+<a href=#312 id=312 data-nosnippet>312</a>                <span class="kw-2">&amp;</span>CompiledKind::Module,
+<a href=#313 id=313 data-nosnippet>313</a>                <span class="kw-2">&amp;</span>compile_info.module.hash_string(),
+<a href=#314 id=314 data-nosnippet>314</a>                <span class="kw-2">&amp;</span>memory_buffer,
+<a href=#315 id=315 data-nosnippet>315</a>            );
+<a href=#316 id=316 data-nosnippet>316</a>        }
+<a href=#317 id=317 data-nosnippet>317</a>
+<a href=#318 id=318 data-nosnippet>318</a>        <span class="macro">tracing::trace!</span>(<span class="string">"Finished compling the module!"</span>);
+<a href=#319 id=319 data-nosnippet>319</a>        <span class="prelude-val">Ok</span>(memory_buffer.as_slice().to_vec())
+<a href=#320 id=320 data-nosnippet>320</a>    }
+<a href=#321 id=321 data-nosnippet>321</a>}
+<a href=#322 id=322 data-nosnippet>322</a>
+<a href=#323 id=323 data-nosnippet>323</a><span class="kw">impl </span>Compiler <span class="kw">for </span>LLVMCompiler {
+<a href=#324 id=324 data-nosnippet>324</a>    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+<a href=#325 id=325 data-nosnippet>325</a>        <span class="string">"llvm"
+<a href=#326 id=326 data-nosnippet>326</a>    </span>}
 <a href=#327 id=327 data-nosnippet>327</a>
-<a href=#328 id=328 data-nosnippet>328</a>    <span class="kw">fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="macro">format!</span>(
-<a href=#330 id=330 data-nosnippet>330</a>            <span class="string">"llvm-{}"</span>,
-<a href=#331 id=331 data-nosnippet>331</a>            <span class="kw">match </span><span class="self">self</span>.config.opt_level {
-<a href=#332 id=332 data-nosnippet>332</a>                inkwell::OptimizationLevel::None =&gt; <span class="string">"opt0"</span>,
-<a href=#333 id=333 data-nosnippet>333</a>                inkwell::OptimizationLevel::Less =&gt; <span class="string">"optl"</span>,
-<a href=#334 id=334 data-nosnippet>334</a>                inkwell::OptimizationLevel::Default =&gt; <span class="string">"optd"</span>,
-<a href=#335 id=335 data-nosnippet>335</a>                inkwell::OptimizationLevel::Aggressive =&gt; <span class="string">"opta"</span>,
-<a href=#336 id=336 data-nosnippet>336</a>            }
-<a href=#337 id=337 data-nosnippet>337</a>        );
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a>        <span class="kw">if </span><span class="self">self</span>.config.enable_g0m0_opt {
-<a href=#340 id=340 data-nosnippet>340</a>            ret.push_str(<span class="string">"-g0m0"</span>);
-<a href=#341 id=341 data-nosnippet>341</a>        }
+<a href=#328 id=328 data-nosnippet>328</a>    <span class="kw">fn </span>get_perfmap_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#329 id=329 data-nosnippet>329</a>        <span class="self">self</span>.config.enable_perfmap
+<a href=#330 id=330 data-nosnippet>330</a>    }
+<a href=#331 id=331 data-nosnippet>331</a>
+<a href=#332 id=332 data-nosnippet>332</a>    <span class="kw">fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+<a href=#333 id=333 data-nosnippet>333</a>        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="macro">format!</span>(
+<a href=#334 id=334 data-nosnippet>334</a>            <span class="string">"llvm-{}"</span>,
+<a href=#335 id=335 data-nosnippet>335</a>            <span class="kw">match </span><span class="self">self</span>.config.opt_level {
+<a href=#336 id=336 data-nosnippet>336</a>                inkwell::OptimizationLevel::None =&gt; <span class="string">"opt0"</span>,
+<a href=#337 id=337 data-nosnippet>337</a>                inkwell::OptimizationLevel::Less =&gt; <span class="string">"optl"</span>,
+<a href=#338 id=338 data-nosnippet>338</a>                inkwell::OptimizationLevel::Default =&gt; <span class="string">"optd"</span>,
+<a href=#339 id=339 data-nosnippet>339</a>                inkwell::OptimizationLevel::Aggressive =&gt; <span class="string">"opta"</span>,
+<a href=#340 id=340 data-nosnippet>340</a>            }
+<a href=#341 id=341 data-nosnippet>341</a>        );
 <a href=#342 id=342 data-nosnippet>342</a>
-<a href=#343 id=343 data-nosnippet>343</a>        ret
-<a href=#344 id=344 data-nosnippet>344</a>    }
-<a href=#345 id=345 data-nosnippet>345</a>
-<a href=#346 id=346 data-nosnippet>346</a>    <span class="doccomment">/// Get the middlewares for this compiler
-<a href=#347 id=347 data-nosnippet>347</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
-<a href=#348 id=348 data-nosnippet>348</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
-<a href=#349 id=349 data-nosnippet>349</a>    }
-<a href=#350 id=350 data-nosnippet>350</a>
-<a href=#351 id=351 data-nosnippet>351</a>    <span class="kw">fn </span>experimental_native_compile_module(
-<a href=#352 id=352 data-nosnippet>352</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#353 id=353 data-nosnippet>353</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#354 id=354 data-nosnippet>354</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
-<a href=#355 id=355 data-nosnippet>355</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#356 id=356 data-nosnippet>356</a>        <span class="comment">// The list of function bodies
-<a href=#357 id=357 data-nosnippet>357</a>        </span>function_body_inputs: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#358 id=358 data-nosnippet>358</a>        symbol_registry: <span class="kw-2">&amp;</span><span class="kw">dyn </span>SymbolRegistry,
-<a href=#359 id=359 data-nosnippet>359</a>        <span class="comment">// The metadata to inject into the wasmer_metadata section of the object file.
-<a href=#360 id=360 data-nosnippet>360</a>        </span>wasmer_metadata: <span class="kw-2">&amp;</span>[u8],
-<a href=#361 id=361 data-nosnippet>361</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt;&gt; {
-<a href=#362 id=362 data-nosnippet>362</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.compile_native_object(
-<a href=#363 id=363 data-nosnippet>363</a>            target,
-<a href=#364 id=364 data-nosnippet>364</a>            compile_info,
-<a href=#365 id=365 data-nosnippet>365</a>            module_translation,
-<a href=#366 id=366 data-nosnippet>366</a>            function_body_inputs,
-<a href=#367 id=367 data-nosnippet>367</a>            symbol_registry,
-<a href=#368 id=368 data-nosnippet>368</a>            wasmer_metadata,
-<a href=#369 id=369 data-nosnippet>369</a>            <span class="self">self</span>.config.target_binary_format(target),
-<a href=#370 id=370 data-nosnippet>370</a>        ))
-<a href=#371 id=371 data-nosnippet>371</a>    }
-<a href=#372 id=372 data-nosnippet>372</a>
-<a href=#373 id=373 data-nosnippet>373</a>    <span class="doccomment">/// Compile the module using LLVM, producing a compilation result with
-<a href=#374 id=374 data-nosnippet>374</a>    /// associated relocations.
-<a href=#375 id=375 data-nosnippet>375</a>    </span><span class="kw">fn </span>compile_module(
-<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#377 id=377 data-nosnippet>377</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#378 id=378 data-nosnippet>378</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
-<a href=#379 id=379 data-nosnippet>379</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#380 id=380 data-nosnippet>380</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#381 id=381 data-nosnippet>381</a>        progress_callback: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CompilationProgressCallback&gt;,
-<a href=#382 id=382 data-nosnippet>382</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
-<a href=#383 id=383 data-nosnippet>383</a>        <span class="comment">//let data = Arc::new(Mutex::new(0));
-<a href=#384 id=384 data-nosnippet>384</a>
-<a href=#385 id=385 data-nosnippet>385</a>        </span><span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
-<a href=#386 id=386 data-nosnippet>386</a>        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
+<a href=#343 id=343 data-nosnippet>343</a>        <span class="kw">if </span><span class="self">self</span>.config.enable_g0m0_opt {
+<a href=#344 id=344 data-nosnippet>344</a>            ret.push_str(<span class="string">"-g0m0"</span>);
+<a href=#345 id=345 data-nosnippet>345</a>        }
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a>        ret
+<a href=#348 id=348 data-nosnippet>348</a>    }
+<a href=#349 id=349 data-nosnippet>349</a>
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="doccomment">/// Get the middlewares for this compiler
+<a href=#351 id=351 data-nosnippet>351</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
+<a href=#352 id=352 data-nosnippet>352</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
+<a href=#353 id=353 data-nosnippet>353</a>    }
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">fn </span>experimental_native_compile_module(
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#357 id=357 data-nosnippet>357</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#358 id=358 data-nosnippet>358</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#359 id=359 data-nosnippet>359</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#360 id=360 data-nosnippet>360</a>        <span class="comment">// The list of function bodies
+<a href=#361 id=361 data-nosnippet>361</a>        </span>function_body_inputs: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#362 id=362 data-nosnippet>362</a>        symbol_registry: <span class="kw-2">&amp;</span><span class="kw">dyn </span>SymbolRegistry,
+<a href=#363 id=363 data-nosnippet>363</a>        <span class="comment">// The metadata to inject into the wasmer_metadata section of the object file.
+<a href=#364 id=364 data-nosnippet>364</a>        </span>wasmer_metadata: <span class="kw-2">&amp;</span>[u8],
+<a href=#365 id=365 data-nosnippet>365</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt;&gt; {
+<a href=#366 id=366 data-nosnippet>366</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.compile_native_object(
+<a href=#367 id=367 data-nosnippet>367</a>            target,
+<a href=#368 id=368 data-nosnippet>368</a>            compile_info,
+<a href=#369 id=369 data-nosnippet>369</a>            module_translation,
+<a href=#370 id=370 data-nosnippet>370</a>            function_body_inputs,
+<a href=#371 id=371 data-nosnippet>371</a>            symbol_registry,
+<a href=#372 id=372 data-nosnippet>372</a>            wasmer_metadata,
+<a href=#373 id=373 data-nosnippet>373</a>            <span class="self">self</span>.config.target_binary_format(target),
+<a href=#374 id=374 data-nosnippet>374</a>        ))
+<a href=#375 id=375 data-nosnippet>375</a>    }
+<a href=#376 id=376 data-nosnippet>376</a>
+<a href=#377 id=377 data-nosnippet>377</a>    <span class="doccomment">/// Compile the module using LLVM, producing a compilation result with
+<a href=#378 id=378 data-nosnippet>378</a>    /// associated relocations.
+<a href=#379 id=379 data-nosnippet>379</a>    </span><span class="kw">fn </span>compile_module(
+<a href=#380 id=380 data-nosnippet>380</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#381 id=381 data-nosnippet>381</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#382 id=382 data-nosnippet>382</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#383 id=383 data-nosnippet>383</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#384 id=384 data-nosnippet>384</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#385 id=385 data-nosnippet>385</a>        progress_callback: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CompilationProgressCallback&gt;,
+<a href=#386 id=386 data-nosnippet>386</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
 <a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">let </span>binary_format = <span class="self">self</span>.config.target_binary_format(target);
 <a href=#388 id=388 data-nosnippet>388</a>
 <a href=#389 id=389 data-nosnippet>389</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
 <a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">let </span>module_hash = module.hash_string();
-<a href=#391 id=391 data-nosnippet>391</a>        <span class="kw">let </span>total_functions = function_body_inputs.len() <span class="kw">as </span>u64;
-<a href=#392 id=392 data-nosnippet>392</a>        <span class="kw">let </span>total_function_call_trampolines = module.signatures.len() <span class="kw">as </span>u64;
-<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">let </span>total_dynamic_trampolines = module.num_imported_functions <span class="kw">as </span>u64;
-<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw">let </span>total_steps =
-<a href=#395 id=395 data-nosnippet>395</a>            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
-<a href=#396 id=396 data-nosnippet>396</a>        <span class="kw">let </span>progress = progress_callback
-<a href=#397 id=397 data-nosnippet>397</a>            .cloned()
-<a href=#398 id=398 data-nosnippet>398</a>            .map(|cb| ProgressContext::new(cb, total_steps, <span class="string">"Compiling functions"</span>));
-<a href=#399 id=399 data-nosnippet>399</a>
-<a href=#400 id=400 data-nosnippet>400</a>        <span class="comment">// TODO: merge constants in sections.
-<a href=#401 id=401 data-nosnippet>401</a>
-<a href=#402 id=402 data-nosnippet>402</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>module_custom_sections = PrimaryMap::new();
-<a href=#403 id=403 data-nosnippet>403</a>
-<a href=#404 id=404 data-nosnippet>404</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_bytes = <span class="macro">vec!</span>[];
-<a href=#405 id=405 data-nosnippet>405</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_relocations = <span class="macro">vec!</span>[];
+<a href=#391 id=391 data-nosnippet>391</a>
+<a href=#392 id=392 data-nosnippet>392</a>        <span class="kw">let </span>total_function_call_trampolines = module.signatures.len();
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">let </span>total_dynamic_trampolines = module.num_imported_functions;
+<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw">let </span>total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
+<a href=#395 id=395 data-nosnippet>395</a>            * ((total_dynamic_trampolines + total_function_call_trampolines) <span class="kw">as </span>u64)
+<a href=#396 id=396 data-nosnippet>396</a>            + function_body_inputs
+<a href=#397 id=397 data-nosnippet>397</a>                .iter()
+<a href=#398 id=398 data-nosnippet>398</a>                .map(|(<span class="kw">_</span>, body)| body.data.len() <span class="kw">as </span>u64)
+<a href=#399 id=399 data-nosnippet>399</a>                .sum::&lt;u64&gt;();
+<a href=#400 id=400 data-nosnippet>400</a>
+<a href=#401 id=401 data-nosnippet>401</a>        <span class="kw">let </span>progress = progress_callback
+<a href=#402 id=402 data-nosnippet>402</a>            .cloned()
+<a href=#403 id=403 data-nosnippet>403</a>            .map(|cb| ProgressContext::new(cb, total_steps, <span class="string">"Compiling functions"</span>));
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>        <span class="comment">// TODO: merge constants in sections.
 <a href=#406 id=406 data-nosnippet>406</a>
-<a href=#407 id=407 data-nosnippet>407</a>        <span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_bytes = <span class="macro">vec!</span>[];
-<a href=#408 id=408 data-nosnippet>408</a>        <span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_relocations = <span class="macro">vec!</span>[];
-<a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">let </span><span class="kw-2">mut </span>got_targets: HashSet&lt;wasmer_compiler::types::relocation::RelocationTarget&gt; = <span class="kw">if </span><span class="macro">matches!</span>(
-<a href=#411 id=411 data-nosnippet>411</a>            target.triple().binary_format,
-<a href=#412 id=412 data-nosnippet>412</a>            target_lexicon::BinaryFormat::Macho
-<a href=#413 id=413 data-nosnippet>413</a>        ) {
-<a href=#414 id=414 data-nosnippet>414</a>            HashSet::from_iter(<span class="macro">vec!</span>[RelocationTarget::LibCall(LibCall::EHPersonality)])
-<a href=#415 id=415 data-nosnippet>415</a>        } <span class="kw">else </span>{
-<a href=#416 id=416 data-nosnippet>416</a>            HashSet::default()
-<a href=#417 id=417 data-nosnippet>417</a>        };
-<a href=#418 id=418 data-nosnippet>418</a>
-<a href=#419 id=419 data-nosnippet>419</a>        <span class="kw">let </span>symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
-<a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a>        <span class="kw">let </span>progress = progress.clone();
-<a href=#422 id=422 data-nosnippet>422</a>        <span class="kw">let </span>pool = ThreadPoolBuilder::new()
-<a href=#423 id=423 data-nosnippet>423</a>            .num_threads(<span class="self">self</span>.config.num_threads.get())
-<a href=#424 id=424 data-nosnippet>424</a>            .build()
-<a href=#425 id=425 data-nosnippet>425</a>            .map_err(|e| CompileError::Resource(e.to_string()))<span class="question-mark">?</span>;
-<a href=#426 id=426 data-nosnippet>426</a>        <span class="kw">let </span>functions = pool.install(|| {
-<a href=#427 id=427 data-nosnippet>427</a>            function_body_inputs
-<a href=#428 id=428 data-nosnippet>428</a>                .iter()
-<a href=#429 id=429 data-nosnippet>429</a>                .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;)&gt;&gt;()
-<a href=#430 id=430 data-nosnippet>430</a>                .par_iter()
-<a href=#431 id=431 data-nosnippet>431</a>                .map_init(
-<a href=#432 id=432 data-nosnippet>432</a>                    || {
-<a href=#433 id=433 data-nosnippet>433</a>                        <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine_with_opt(target, <span class="bool-val">true</span>);
-<a href=#434 id=434 data-nosnippet>434</a>                        <span class="kw">let </span>target_machine_no_opt =
-<a href=#435 id=435 data-nosnippet>435</a>                            <span class="self">self</span>.config().target_machine_with_opt(target, <span class="bool-val">false</span>);
-<a href=#436 id=436 data-nosnippet>436</a>                        <span class="kw">let </span>pointer_width = target.triple().pointer_width().unwrap().bytes();
-<a href=#437 id=437 data-nosnippet>437</a>                        FuncTranslator::new(
-<a href=#438 id=438 data-nosnippet>438</a>                            target.triple().clone(),
-<a href=#439 id=439 data-nosnippet>439</a>                            target_machine,
-<a href=#440 id=440 data-nosnippet>440</a>                            <span class="prelude-val">Some</span>(target_machine_no_opt),
-<a href=#441 id=441 data-nosnippet>441</a>                            binary_format,
-<a href=#442 id=442 data-nosnippet>442</a>                            pointer_width,
-<a href=#443 id=443 data-nosnippet>443</a>                        )
-<a href=#444 id=444 data-nosnippet>444</a>                        .unwrap()
-<a href=#445 id=445 data-nosnippet>445</a>                    },
-<a href=#446 id=446 data-nosnippet>446</a>                    |func_translator, (i, input)| {
-<a href=#447 id=447 data-nosnippet>447</a>                        <span class="comment">// TODO: remove (to serialize)
-<a href=#448 id=448 data-nosnippet>448</a>                        //let _data = data.lock().unwrap();
-<a href=#449 id=449 data-nosnippet>449</a>
-<a href=#450 id=450 data-nosnippet>450</a>                        </span><span class="kw">let </span>translated = func_translator.translate(
-<a href=#451 id=451 data-nosnippet>451</a>                            module,
-<a href=#452 id=452 data-nosnippet>452</a>                            module_translation,
-<a href=#453 id=453 data-nosnippet>453</a>                            i,
-<a href=#454 id=454 data-nosnippet>454</a>                            input,
-<a href=#455 id=455 data-nosnippet>455</a>                            <span class="self">self</span>.config(),
-<a href=#456 id=456 data-nosnippet>456</a>                            memory_styles,
-<a href=#457 id=457 data-nosnippet>457</a>                            table_styles,
-<a href=#458 id=458 data-nosnippet>458</a>                            <span class="kw-2">&amp;</span>symbol_registry,
-<a href=#459 id=459 data-nosnippet>459</a>                            target.triple(),
-<a href=#460 id=460 data-nosnippet>460</a>                        );
-<a href=#461 id=461 data-nosnippet>461</a>
-<a href=#462 id=462 data-nosnippet>462</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
-<a href=#463 id=463 data-nosnippet>463</a>                            progress.notify()<span class="question-mark">?</span>;
-<a href=#464 id=464 data-nosnippet>464</a>                        }
-<a href=#465 id=465 data-nosnippet>465</a>
-<a href=#466 id=466 data-nosnippet>466</a>                        translated
-<a href=#467 id=467 data-nosnippet>467</a>                    },
-<a href=#468 id=468 data-nosnippet>468</a>                )
-<a href=#469 id=469 data-nosnippet>469</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()
-<a href=#470 id=470 data-nosnippet>470</a>        })<span class="question-mark">?</span>;
+<a href=#407 id=407 data-nosnippet>407</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>module_custom_sections = PrimaryMap::new();
+<a href=#408 id=408 data-nosnippet>408</a>
+<a href=#409 id=409 data-nosnippet>409</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_bytes = <span class="macro">vec!</span>[];
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_relocations = <span class="macro">vec!</span>[];
+<a href=#411 id=411 data-nosnippet>411</a>
+<a href=#412 id=412 data-nosnippet>412</a>        <span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_bytes = <span class="macro">vec!</span>[];
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_relocations = <span class="macro">vec!</span>[];
+<a href=#414 id=414 data-nosnippet>414</a>
+<a href=#415 id=415 data-nosnippet>415</a>        <span class="kw">let </span><span class="kw-2">mut </span>got_targets: HashSet&lt;wasmer_compiler::types::relocation::RelocationTarget&gt; = <span class="kw">if </span><span class="macro">matches!</span>(
+<a href=#416 id=416 data-nosnippet>416</a>            target.triple().binary_format,
+<a href=#417 id=417 data-nosnippet>417</a>            target_lexicon::BinaryFormat::Macho
+<a href=#418 id=418 data-nosnippet>418</a>        ) {
+<a href=#419 id=419 data-nosnippet>419</a>            HashSet::from_iter(<span class="macro">vec!</span>[RelocationTarget::LibCall(LibCall::EHPersonality)])
+<a href=#420 id=420 data-nosnippet>420</a>        } <span class="kw">else </span>{
+<a href=#421 id=421 data-nosnippet>421</a>            HashSet::default()
+<a href=#422 id=422 data-nosnippet>422</a>        };
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a>        <span class="kw">let </span>symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
+<a href=#425 id=425 data-nosnippet>425</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
+<a href=#426 id=426 data-nosnippet>426</a>        <span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
+<a href=#427 id=427 data-nosnippet>427</a>        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
+<a href=#428 id=428 data-nosnippet>428</a>
+<a href=#429 id=429 data-nosnippet>429</a>        <span class="kw">let </span>pool = ThreadPoolBuilder::new()
+<a href=#430 id=430 data-nosnippet>430</a>            .num_threads(<span class="self">self</span>.config.num_threads.get())
+<a href=#431 id=431 data-nosnippet>431</a>            .build()
+<a href=#432 id=432 data-nosnippet>432</a>            .map_err(|e| CompileError::Resource(e.to_string()))<span class="question-mark">?</span>;
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a>        <span class="kw">let </span>buckets =
+<a href=#435 id=435 data-nosnippet>435</a>            build_function_buckets(<span class="kw-2">&amp;</span>function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / <span class="number">3</span>);
+<a href=#436 id=436 data-nosnippet>436</a>        <span class="kw">let </span>largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
+<a href=#437 id=437 data-nosnippet>437</a>        <span class="macro">tracing::debug!</span>(buckets = buckets.len(), largest_bucket, <span class="string">"buckets built"</span>);
+<a href=#438 id=438 data-nosnippet>438</a>        <span class="kw">let </span>functions = translate_function_buckets(
+<a href=#439 id=439 data-nosnippet>439</a>            <span class="kw-2">&amp;</span>pool,
+<a href=#440 id=440 data-nosnippet>440</a>            || {
+<a href=#441 id=441 data-nosnippet>441</a>                <span class="kw">let </span>compiler = <span class="kw-2">&amp;</span><span class="self">self</span>;
+<a href=#442 id=442 data-nosnippet>442</a>                <span class="kw">let </span>target_machine = compiler.config().target_machine_with_opt(target, <span class="bool-val">true</span>);
+<a href=#443 id=443 data-nosnippet>443</a>                <span class="kw">let </span>target_machine_no_opt =
+<a href=#444 id=444 data-nosnippet>444</a>                    compiler.config().target_machine_with_opt(target, <span class="bool-val">false</span>);
+<a href=#445 id=445 data-nosnippet>445</a>                <span class="kw">let </span>pointer_width = target.triple().pointer_width().unwrap().bytes();
+<a href=#446 id=446 data-nosnippet>446</a>                FuncTranslator::new(
+<a href=#447 id=447 data-nosnippet>447</a>                    target.triple().clone(),
+<a href=#448 id=448 data-nosnippet>448</a>                    target_machine,
+<a href=#449 id=449 data-nosnippet>449</a>                    <span class="prelude-val">Some</span>(target_machine_no_opt),
+<a href=#450 id=450 data-nosnippet>450</a>                    binary_format,
+<a href=#451 id=451 data-nosnippet>451</a>                    pointer_width,
+<a href=#452 id=452 data-nosnippet>452</a>                )
+<a href=#453 id=453 data-nosnippet>453</a>                .unwrap()
+<a href=#454 id=454 data-nosnippet>454</a>            },
+<a href=#455 id=455 data-nosnippet>455</a>            |func_translator, i, input| {
+<a href=#456 id=456 data-nosnippet>456</a>                func_translator.translate(
+<a href=#457 id=457 data-nosnippet>457</a>                    module,
+<a href=#458 id=458 data-nosnippet>458</a>                    module_translation,
+<a href=#459 id=459 data-nosnippet>459</a>                    i,
+<a href=#460 id=460 data-nosnippet>460</a>                    input,
+<a href=#461 id=461 data-nosnippet>461</a>                    <span class="self">self</span>.config(),
+<a href=#462 id=462 data-nosnippet>462</a>                    memory_styles,
+<a href=#463 id=463 data-nosnippet>463</a>                    table_styles,
+<a href=#464 id=464 data-nosnippet>464</a>                    <span class="kw-2">&amp;</span>symbol_registry,
+<a href=#465 id=465 data-nosnippet>465</a>                    target.triple(),
+<a href=#466 id=466 data-nosnippet>466</a>                )
+<a href=#467 id=467 data-nosnippet>467</a>            },
+<a href=#468 id=468 data-nosnippet>468</a>            progress.clone(),
+<a href=#469 id=469 data-nosnippet>469</a>            <span class="kw-2">&amp;</span>buckets,
+<a href=#470 id=470 data-nosnippet>470</a>        )<span class="question-mark">?</span>;
 <a href=#471 id=471 data-nosnippet>471</a>
 <a href=#472 id=472 data-nosnippet>472</a>        <span class="kw">let </span>functions = functions
 <a href=#473 id=473 data-nosnippet>473</a>            .into_iter()
@@ -561,7 +561,7 @@
 <a href=#561 id=561 data-nosnippet>561</a>                        <span class="kw">let </span>trampoline =
 <a href=#562 id=562 data-nosnippet>562</a>                            func_trampoline.trampoline(sig, <span class="self">self</span>.config(), <span class="string">""</span>, compile_info);
 <a href=#563 id=563 data-nosnippet>563</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
-<a href=#564 id=564 data-nosnippet>564</a>                            progress.notify()<span class="question-mark">?</span>;
+<a href=#564 id=564 data-nosnippet>564</a>                            progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)<span class="question-mark">?</span>;
 <a href=#565 id=565 data-nosnippet>565</a>                        }
 <a href=#566 id=566 data-nosnippet>566</a>                        trampoline
 <a href=#567 id=567 data-nosnippet>567</a>                    },
@@ -600,7 +600,7 @@
 <a href=#600 id=600 data-nosnippet>600</a>                        <span class="kw-2">&amp;</span>module_hash,
 <a href=#601 id=601 data-nosnippet>601</a>                    )<span class="question-mark">?</span>;
 <a href=#602 id=602 data-nosnippet>602</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
-<a href=#603 id=603 data-nosnippet>603</a>                        progress.notify()<span class="question-mark">?</span>;
+<a href=#603 id=603 data-nosnippet>603</a>                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)<span class="question-mark">?</span>;
 <a href=#604 id=604 data-nosnippet>604</a>                    }
 <a href=#605 id=605 data-nosnippet>605</a>                    <span class="prelude-val">Ok</span>(trampoline)
 <a href=#606 id=606 data-nosnippet>606</a>                })
@@ -675,24 +675,23 @@
 <a href=#675 id=675 data-nosnippet>675</a>            got.index = <span class="prelude-val">Some</span>(got_idx);
 <a href=#676 id=676 data-nosnippet>676</a>        };
 <a href=#677 id=677 data-nosnippet>677</a>
-<a href=#678 id=678 data-nosnippet>678</a>        <span class="macro">tracing::trace!</span>(<span class="string">"Finished compling the module!"</span>);
-<a href=#679 id=679 data-nosnippet>679</a>        <span class="prelude-val">Ok</span>(Compilation {
-<a href=#680 id=680 data-nosnippet>680</a>            functions,
-<a href=#681 id=681 data-nosnippet>681</a>            custom_sections: module_custom_sections,
-<a href=#682 id=682 data-nosnippet>682</a>            function_call_trampolines,
-<a href=#683 id=683 data-nosnippet>683</a>            dynamic_function_trampolines,
-<a href=#684 id=684 data-nosnippet>684</a>            unwind_info,
-<a href=#685 id=685 data-nosnippet>685</a>            got,
-<a href=#686 id=686 data-nosnippet>686</a>        })
-<a href=#687 id=687 data-nosnippet>687</a>    }
-<a href=#688 id=688 data-nosnippet>688</a>
-<a href=#689 id=689 data-nosnippet>689</a>    <span class="kw">fn </span>with_opts(
-<a href=#690 id=690 data-nosnippet>690</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#691 id=691 data-nosnippet>691</a>        suggested_compiler_opts: <span class="kw-2">&amp;</span>wasmer_types::target::UserCompilerOptimizations,
-<a href=#692 id=692 data-nosnippet>692</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#693 id=693 data-nosnippet>693</a>        <span class="kw">if </span>suggested_compiler_opts.pass_params.is_some_and(|v| v) {
-<a href=#694 id=694 data-nosnippet>694</a>            <span class="self">self</span>.config.enable_g0m0_opt = <span class="bool-val">true</span>;
-<a href=#695 id=695 data-nosnippet>695</a>        }
-<a href=#696 id=696 data-nosnippet>696</a>        <span class="prelude-val">Ok</span>(())
-<a href=#697 id=697 data-nosnippet>697</a>    }
-<a href=#698 id=698 data-nosnippet>698</a>}</code></pre></div></section></main></body></html>
+<a href=#678 id=678 data-nosnippet>678</a>        <span class="prelude-val">Ok</span>(Compilation {
+<a href=#679 id=679 data-nosnippet>679</a>            functions,
+<a href=#680 id=680 data-nosnippet>680</a>            custom_sections: module_custom_sections,
+<a href=#681 id=681 data-nosnippet>681</a>            function_call_trampolines,
+<a href=#682 id=682 data-nosnippet>682</a>            dynamic_function_trampolines,
+<a href=#683 id=683 data-nosnippet>683</a>            unwind_info,
+<a href=#684 id=684 data-nosnippet>684</a>            got,
+<a href=#685 id=685 data-nosnippet>685</a>        })
+<a href=#686 id=686 data-nosnippet>686</a>    }
+<a href=#687 id=687 data-nosnippet>687</a>
+<a href=#688 id=688 data-nosnippet>688</a>    <span class="kw">fn </span>with_opts(
+<a href=#689 id=689 data-nosnippet>689</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#690 id=690 data-nosnippet>690</a>        suggested_compiler_opts: <span class="kw-2">&amp;</span>wasmer_types::target::UserCompilerOptimizations,
+<a href=#691 id=691 data-nosnippet>691</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#692 id=692 data-nosnippet>692</a>        <span class="kw">if </span>suggested_compiler_opts.pass_params.is_some_and(|v| v) {
+<a href=#693 id=693 data-nosnippet>693</a>            <span class="self">self</span>.config.enable_g0m0_opt = <span class="bool-val">true</span>;
+<a href=#694 id=694 data-nosnippet>694</a>        }
+<a href=#695 id=695 data-nosnippet>695</a>        <span class="prelude-val">Ok</span>(())
+<a href=#696 id=696 data-nosnippet>696</a>    }
+<a href=#697 id=697 data-nosnippet>697</a>}</code></pre></div></section></main></body></html>

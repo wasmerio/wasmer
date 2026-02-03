@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["CATCH_ALL_TAG_VALUE","FUNCTION_SECTION_ELF","FUNCTION_SECTION_MACHO","FUNCTION_SEGMENT_MACHO","LLVMIR_LARGE_FUNCTION_THRESHOLD"],"fn":["is_f32_arithmetic","is_f64_arithmetic"],"struct":["FuncTranslator","LLVMFunctionCodeGenerator"]};
+window.SIDEBAR_ITEMS = {"constant":["CATCH_ALL_TAG_VALUE","FUNCTION_SECTION_ELF","FUNCTION_SECTION_MACHO","FUNCTION_SEGMENT_MACHO"],"fn":["is_f32_arithmetic","is_f64_arithmetic"],"struct":["FuncTranslator","LLVMFunctionCodeGenerator"]};

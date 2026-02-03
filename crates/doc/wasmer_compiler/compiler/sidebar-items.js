@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["Compiler","CompilerConfig"]};
+window.SIDEBAR_ITEMS = {"constant":["WASM_LARGE_FUNCTION_THRESHOLD","WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE"],"fn":["build_function_buckets","translate_function_buckets"],"struct":["FunctionBucket"],"trait":["CompiledFunction","Compiler","CompilerConfig","FuncTranslator"]};
