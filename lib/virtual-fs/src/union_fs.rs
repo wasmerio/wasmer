@@ -211,6 +211,18 @@ impl FileSystem for UnionFileSystem {
             }
         }
     }
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
+            Err(FsError::PermissionDenied)
+        } else {
+            match self.find_mount(path.to_owned()) {
+                Some((_, path, fs)) => fs.rmdir(&path),
+                _ => Err(FsError::EntryNotFound),
+            }
+        }
+    }
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
             let from = self.prepare_path(from);
@@ -276,19 +288,6 @@ impl FileSystem for UnionFileSystem {
         } else {
             match self.find_mount(path.to_owned()) {
                 Some((_, path, fs)) => fs.unlink(&path),
-                _ => Err(FsError::EntryNotFound),
-            }
-        }
-    }
-
-    fn rmdir(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
-
-        if path.as_os_str().is_empty() {
-            Err(FsError::PermissionDenied)
-        } else {
-            match self.find_mount(path.to_owned()) {
-                Some((_, path, fs)) => fs.rmdir(&path),
                 _ => Err(FsError::EntryNotFound),
             }
         }
