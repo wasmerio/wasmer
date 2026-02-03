@@ -150,10 +150,11 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
                             pb.set_length(step_count);
                             pb.set_position(step);
                             // Note: writing to strings can not fail.
-                            msg.push_str(&format!(
+                            let _ = write!(
+                                &mut msg,
                                 " ({:.0}%)",
                                 100.0 * step as f32 / step_count as f32
-                            ));
+                            );
                         };
                         pb.tick();
 
