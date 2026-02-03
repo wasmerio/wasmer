@@ -99,14 +99,14 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// Remove a file at the specified path.
     /// This matches POSIX unlink(2) semantics:
     /// - Removes the directory entry for the file
-    /// - Fails with NotADirectory or similar error if path is a directory
+    /// - Fails with NotAFile if path is a directory
     /// - Unlinked files will only be deleted once all references to them (e.g. open file handles) are removed
     fn unlink(&self, path: &Path) -> Result<()>;
 
     /// Remove an empty directory at the specified path.
     /// This matches POSIX rmdir(2) semantics:
     /// - Only succeeds if directory is empty
-    /// - Fails with NotAFile or similar error if path is a file
+    /// - Fails with NotADirectory if it is not a directory
     /// - Fails with DirectoryNotEmpty if directory contains entries
     fn rmdir(&self, path: &Path) -> Result<()>;
 
