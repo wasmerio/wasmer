@@ -275,6 +275,20 @@ impl FileSystem for StaticFileSystem {
         let path = normalizes_path(path);
         self.memory.create_dir(Path::new(&path))
     }
+    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
+        let path = normalizes_path(path);
+        // First rmdir from memory
+        let result = self.memory.rmdir(Path::new(&path));
+        // Check if directory exists in WebC volumes
+        if self.volumes.values().any(|v| v.read_dir(&path).is_ok()) {
+            // If found in WebC, return Ok (old behavior was to silently succeed)
+            // TODO: This should probably be PermissionDenied instead?
+            Ok(())
+        } else {
+            // If not found in WebC, return the result from memory rmdir
+            result
+        }
+    }
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async {
             let from = normalizes_path(from);
@@ -337,20 +351,6 @@ impl FileSystem for StaticFileSystem {
         }
     }
 
-    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
-        let path = normalizes_path(path);
-        // First rmdir from memory
-        let result = self.memory.rmdir(Path::new(&path));
-        // Check if directory exists in WebC volumes
-        if self.volumes.values().any(|v| v.read_dir(&path).is_ok()) {
-            // If found in WebC, return Ok (old behavior was to silently succeed)
-            // TODO: This should probably be PermissionDenied instead?
-            Ok(())
-        } else {
-            // If not found in WebC, return the result from memory rmdir
-            result
-        }
-    }
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
