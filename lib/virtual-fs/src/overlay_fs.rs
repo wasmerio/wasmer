@@ -225,33 +225,6 @@ where
         self.permission_error_or_not_found(path)
     }
 
-    fn unlink(&self, path: &Path) -> Result<(), FsError> {
-        // Whiteout files can not be removed
-        if ops::is_white_out(path).is_some() {
-            tracing::trace!(
-                path=%path.display(),
-                "Unable to remove a whited out entry",
-            );
-            return Err(FsError::EntryNotFound);
-        }
-
-        // Handle file removal (unlink is for files only)
-        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
-            fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
-        });
-
-        match self.primary.unlink(path) {
-            Err(e) if should_continue(e) => {}
-            other => return other,
-        }
-
-        if had_at_least_one_success {
-            return Ok(());
-        }
-
-        self.permission_error_or_not_found(path)
-    }
-
     fn rmdir(&self, path: &Path) -> Result<(), FsError> {
         // Whiteout files can not be removed
         if ops::is_white_out(path).is_some() {
@@ -406,6 +379,33 @@ where
         }
 
         Err(FsError::EntryNotFound)
+    }
+
+    fn unlink(&self, path: &Path) -> Result<(), FsError> {
+        // Whiteout files can not be removed
+        if ops::is_white_out(path).is_some() {
+            tracing::trace!(
+                path=%path.display(),
+                "Unable to remove a whited out entry",
+            );
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Handle file removal (unlink is for files only)
+        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
+            fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
+        });
+
+        match self.primary.unlink(path) {
+            Err(e) if should_continue(e) => {}
+            other => return other,
+        }
+
+        if had_at_least_one_success {
+            return Ok(());
+        }
+
+        self.permission_error_or_not_found(path)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
