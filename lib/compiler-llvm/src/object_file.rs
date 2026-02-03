@@ -34,6 +34,8 @@ pub struct CompiledFunction {
     pub data_dw_ref_personality_section_indices: Vec<SectionIndex>,
 }
 
+impl wasmer_compiler::CompiledFunction for CompiledFunction {}
+
 static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "ceilf" => LibCall::CeilF32,
     "ceil" => LibCall::CeilF64,

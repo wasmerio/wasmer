@@ -36,6 +36,7 @@ inkwell = { workspace = true, features = [
 	"target-riscv",
 	"target-loongarch",
 ] }
+crossbeam-channel.workspace = true
 
 [build-dependencies]
 cc.workspace = true

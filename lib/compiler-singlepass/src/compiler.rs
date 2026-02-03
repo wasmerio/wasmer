@@ -22,6 +22,7 @@ use gimli::write::{EhFrame, FrameTable, Writer};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
+use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::{
@@ -92,11 +93,14 @@ impl SinglepassCompiler {
         };
 
         let module = &compile_info.module;
-        let total_functions = function_body_inputs.len() as u64;
         let total_function_call_trampolines = module.signatures.len() as u64;
         let total_dynamic_trampolines = module.num_imported_functions as u64;
-        let total_steps =
-            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
+        let total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
+            * ((total_dynamic_trampolines + total_function_call_trampolines) as u64)
+            + function_body_inputs
+                .iter()
+                .map(|(_, body)| body.data.len() as u64)
+                .sum::<u64>();
         let progress = progress_callback
             .cloned()
             .map(|cb| ProgressContext::new(cb, total_steps, "singlepass::functions"));
@@ -237,7 +241,7 @@ impl SinglepassCompiler {
                 }?;
 
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify()?;
+                    progress.notify_steps(input.data.len() as u64)?;
                 }
 
                 Ok(res)
@@ -269,7 +273,7 @@ impl SinglepassCompiler {
                     )?;
                 }
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify()?;
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
 
                 Ok(body)
@@ -304,7 +308,7 @@ impl SinglepassCompiler {
                     )?;
                 }
                 if let Some(progress) = progress.as_ref() {
-                    progress.notify()?;
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
                 Ok(body)
             })
