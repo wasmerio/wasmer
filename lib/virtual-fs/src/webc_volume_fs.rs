@@ -99,6 +99,14 @@ impl FileSystem for WebcVolumeFileSystem {
         }
     }
 
+    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
+        // Check if entry exists - metadata will return appropriate error if not found
+        let _meta = self.metadata(path)?;
+
+        // We are a readonly filesystem, so you can't modify anything
+        Err(FsError::PermissionDenied)
+    }
+
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async {
             // The original file should exist
@@ -130,14 +138,6 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
-        // Check if entry exists - metadata will return appropriate error if not found
-        let _meta = self.metadata(path)?;
-
-        // We are a readonly filesystem, so you can't modify anything
-        Err(FsError::PermissionDenied)
-    }
-
-    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
         // Check if entry exists - metadata will return appropriate error if not found
         let _meta = self.metadata(path)?;
 
