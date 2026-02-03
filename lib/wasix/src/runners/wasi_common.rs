@@ -220,6 +220,7 @@ fn prepare_filesystem(
 ) -> Result<WasiFsRoot, Error> {
     let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
     let mount_fs = MountFileSystem::new();
+    let mut opaque_prefixes = Vec::new();
 
     for MountedDirectory { guest, fs } in mounted_dirs {
         let guest_path = normalized_mount_path(guest)?;
@@ -228,6 +229,7 @@ fn prepare_filesystem(
         if guest_path == Path::new("/") {
             root_layers.push(fs.clone());
         } else {
+            opaque_prefixes.push(guest_path.clone());
             match conflict_behavior {
                 ExistingMountConflictBehavior::Fail => mount_fs
                     .mount(&guest_path, fs.clone())
@@ -265,9 +267,10 @@ fn prepare_filesystem(
     let root_mount: Arc<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
         base_root
     } else {
-        Arc::new(OverlayFileSystem::new(
+        Arc::new(OverlayFileSystem::new_with_opaque_prefixes(
             ArcFileSystem::new(base_root),
             root_layers,
+            opaque_prefixes,
         ))
     };
 
@@ -853,6 +856,58 @@ mod tests {
                 .to_string()
                 .contains("parent traversal escapes the virtual root"),
             "{error:#}"
+        );
+    }
+
+    #[tokio::test]
+    async fn user_mount_replaces_container_root_subtree() {
+        use virtual_fs::FileSystem;
+
+        let user_mount = TmpFileSystem::new();
+        user_mount
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/diag.php"))
+            .unwrap();
+
+        let package_root = TmpFileSystem::new();
+        virtual_fs::create_dir_all(&package_root, Path::new("/app/wp-content/themes")).unwrap();
+        package_root
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/app/wp-content/themes/style.css"))
+            .unwrap();
+
+        let mounted_dirs = [MountedDirectory {
+            guest: "/app/wp-content".to_string(),
+            fs: Arc::new(user_mount),
+        }];
+
+        let container_mounts = MountFileSystem::new();
+        container_mounts
+            .mount(Path::new("/"), Arc::new(package_root))
+            .unwrap();
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(
+            base_root(&root_fs),
+            None,
+            &mounted_dirs,
+            Some(&package_mounts(container_mounts)),
+            ExistingMountConflictBehavior::Override,
+        )
+        .unwrap();
+
+        assert!(
+            fs.metadata(Path::new("/app/wp-content/diag.php"))
+                .unwrap()
+                .is_file()
+        );
+        assert_eq!(
+            fs.metadata(Path::new("/app/wp-content/themes")),
+            Err(virtual_fs::FsError::EntryNotFound)
         );
     }
 
