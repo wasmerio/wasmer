@@ -112,7 +112,7 @@ build-deps = "0.1.4"
 bus = "2.4.1"
 bytecheck = { version = "0.8.2" }
 byteorder = "1.3"
-bytes = "1"
+bytes = "1.11.1"
 bytesize = "2.3.1"
 cargo_metadata = "0.23.1"
 cbindgen = { version = "0.29", default-features = false }
@@ -208,7 +208,7 @@ mio = "1"
 more-asserts = "0.3.1"
 normpath = "1.5.0"
 num_enum = "0.7.3"
-object = "0.38.0"
+object = "0.38.1"
 once_cell = "1.17.1"
 opener = "0.8.3"
 parking = "2.2"
@@ -252,7 +252,7 @@ serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
 serde_yaml = { version = "0.9.34" }
 serial_test = { version = "3.2.0", default-features = false }
-sha2 = "0.11.0-rc.3"
+sha2 = "0.11.0-rc.5"
 slab = "0.4"
 smallvec = "1.6"
 smoltcp = { version = "0.12.0", default-features = false }
