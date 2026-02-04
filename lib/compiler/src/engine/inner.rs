@@ -561,13 +561,17 @@ impl EngineInner {
 
             let filename = format!("/tmp/perf-{}.map", std::process::id());
             // We might be loading shared libraries and so we must append to the file.
-            let mut file = std::io::BufWriter::new(
-                OpenOptions::new()
-                    .append(true)
-                    .create(true)
-                    .open(filename)
-                    .unwrap(),
-            );
+            let file = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&filename)
+                .map_err(|e| {
+                    CompileError::Codegen(format!(
+                        "failed to open perf map file {}: {}",
+                        filename, e
+                    ))
+                })?;
+            let mut file = std::io::BufWriter::new(file);
 
             for (func_index, code) in finished_functions.iter() {
                 let func_index = module_info.func_index(func_index);
