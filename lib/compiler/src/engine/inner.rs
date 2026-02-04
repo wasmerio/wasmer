@@ -566,10 +566,7 @@ impl EngineInner {
                 .create(true)
                 .open(&filename)
                 .map_err(|e| {
-                    CompileError::Codegen(format!(
-                        "failed to open perf map file {}: {}",
-                        filename, e
-                    ))
+                    CompileError::Codegen(format!("failed to open perf map file {filename}: {e}"))
                 })?;
             let mut file = std::io::BufWriter::new(file);
 
@@ -578,8 +575,8 @@ impl EngineInner {
                 if let Some(func_name) = module_info.function_names.get(&func_index) {
                     let sanitized_name = func_name.replace(['\n', '\r'], "_");
                     let line = format!(
-                        "{:p} {:x} {}\n",
-                        code.ptr.0 as *const _, code.length, sanitized_name
+                        "{:p} {:x} {sanitized_name}\n",
+                        code.ptr.0 as *const _, code.length
                     );
                     write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
                 }
