@@ -32,9 +32,9 @@ def run_timed(cmd):
     return statistics.geometric_mean([run_timed_one(cmd) for _ in range(10)])
 
 
-def wasmer_cmd(engine_args, module, args):
+def wasmer_cmd(bin, engine_args, module, args):
     engine = " ".join(engine_args).strip()
-    return f"wasmer-7 run {engine} {module} --mapdir /x:{BENCH_ROOT} /x/{args}"
+    return f"{bin} run {engine} {module} --mapdir /x:{BENCH_ROOT} /x/{args}"
 
 
 def native_cmd(cmd):
@@ -43,6 +43,7 @@ def native_cmd(cmd):
 
 php_wasmer_pass = run_timed(
     wasmer_cmd(
+        "wasmer-next",
         ["-l", "--enable-pass-params-opt"],
         "php/php-32",
         "php-benchmark.php",
@@ -50,6 +51,7 @@ php_wasmer_pass = run_timed(
 )
 php_wasmer_base = run_timed(
     wasmer_cmd(
+        "wasmer-7",
         ["-l"],
         "php/php-32",
         "php-benchmark.php",
@@ -61,6 +63,7 @@ PYSTONE_ITERATIONS = 100000
 
 python_wasmer_pass = run_timed(
     wasmer_cmd(
+        "wasmer-next",
         ["--llvm", "--enable-pass-params-opt"],
         "python/python@=3.13.3",
         f"pystone.py {PYSTONE_ITERATIONS}",
@@ -68,13 +71,14 @@ python_wasmer_pass = run_timed(
 )
 python_wasmer_base = run_timed(
     wasmer_cmd(
+        "wasmer-7",
         ["--llvm"],
         "python/python@=3.13.3",
         f"pystone.py {PYSTONE_ITERATIONS}",
     )
 )
 python_native = run_timed(
-    native_cmd(f"python3 {BENCH_ROOT}/pystone.py {PYSTONE_ITERATIONS}")
+    native_cmd(f"python3.13 {BENCH_ROOT}/pystone.py {PYSTONE_ITERATIONS}")
 )
 
 benchmarks = ["php-benchmark", "pystone"]
