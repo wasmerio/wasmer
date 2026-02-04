@@ -1001,10 +1001,7 @@ jobs:
 
     container: ${{ matrix.container }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.10.0
+      - uses: actions/checkout@v6      
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
         run: |
