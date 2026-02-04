@@ -1139,7 +1139,6 @@ impl WasiFs {
                                     fd: None,
                                 }
                             } else if file_type.is_symlink() {
-                                should_insert = false;
                                 let link_value =
                                     self.root_fs.readlink(&file).ok().ok_or(Errno::Noent)?;
                                 debug!("attempting to decompose path {:?}", link_value);
@@ -1150,10 +1149,15 @@ impl WasiFs {
                                     tracing::error!("Absolute symlinks are not yet supported");
                                     return Err(Errno::Notsup);
                                 };
-                                loop_for_symlink = true;
-                                symlink_count += 1;
-                                if symlink_count >= MAX_SYMLINKS {
-                                    return Err(Errno::Loop);
+                                if follow_symlinks {
+                                    should_insert = false;
+                                    loop_for_symlink = true;
+                                    symlink_count += 1;
+                                    if symlink_count >= MAX_SYMLINKS {
+                                        return Err(Errno::Loop);
+                                    }
+                                } else {
+                                    should_insert = true;
                                 }
                                 Kind::Symlink {
                                     base_po_dir: pre_open_dir_fd,

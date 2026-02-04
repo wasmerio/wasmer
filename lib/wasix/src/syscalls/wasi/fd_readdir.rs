@@ -1,4 +1,6 @@
 use super::*;
+use crate::fs::Inode;
+use std::collections::HashSet;
 use crate::syscalls::*;
 
 /// ### `fd_readdir()`
@@ -41,8 +43,18 @@ pub fn fd_readdir<M: MemorySize>(
     let entries: Vec<(String, Filetype, u64)> = {
         let guard = working_dir.inode.read();
         match guard.deref() {
-            Kind::Dir { path, entries, .. } => {
+            Kind::Dir {
+                path,
+                entries,
+                parent,
+                ..
+            } => {
                 trace!("reading dir {:?}", path);
+                let dot_ino = working_dir.inode.stat.read().unwrap().st_ino;
+                let dotdot_ino = parent
+                    .upgrade()
+                    .map(|inode| inode.stat.read().unwrap().st_ino)
+                    .unwrap_or(dot_ino);
                 // TODO: refactor this code
                 // we need to support multiple calls,
                 // simple and obviously correct implementation for now:
@@ -61,26 +73,31 @@ pub fn fd_readdir<M: MemorySize>(
                             let filetype = virtual_file_type_to_wasi_file_type(
                                 entry.file_type().map_err(fs_error_into_wasi_err)?,
                             );
-                            Ok((
-                                filename, filetype, 0, // TODO: inode
-                            ))
+                            let ino = entries
+                                .get(&filename)
+                                .map(|inode| inode.stat.read().unwrap().st_ino)
+                                .unwrap_or_else(|| {
+                                    Inode::from_path(entry.path().to_string_lossy().as_ref())
+                                        .as_u64()
+                                });
+                            Ok((filename, filetype, ino))
                         })
                         .collect::<Result<Vec<(String, Filetype, u64)>, _>>()
                 );
-                entry_vec.extend(entries.iter().filter(|(_, inode)| inode.is_preopened).map(
-                    |(name, inode)| {
-                        let stat = inode.stat.read().unwrap();
-                        (
-                            inode.name.read().unwrap().to_string(),
-                            stat.st_filetype,
-                            stat.st_ino,
-                        )
-                    },
-                ));
+                let mut seen_names: HashSet<String> =
+                    entry_vec.iter().map(|(name, _, _)| name.clone()).collect();
+                entry_vec.extend(entries.iter().filter_map(|(name, inode)| {
+                    if seen_names.contains(name) {
+                        return None;
+                    }
+                    seen_names.insert(name.clone());
+                    let stat = inode.stat.read().unwrap();
+                    Some((name.clone(), stat.st_filetype, stat.st_ino))
+                }));
                 // adding . and .. special folders
                 // TODO: inode
-                entry_vec.push((".".to_string(), Filetype::Directory, 0));
-                entry_vec.push(("..".to_string(), Filetype::Directory, 0));
+                entry_vec.push((".".to_string(), Filetype::Directory, dot_ino));
+                entry_vec.push(("..".to_string(), Filetype::Directory, dotdot_ino));
                 entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
                 entry_vec
             }
@@ -118,6 +135,13 @@ pub fn fd_readdir<M: MemorySize>(
         }
     };
 
+    let buf_len_u64: u64 = buf_len.into();
+    if buf_len_u64 < std::mem::size_of::<Dirent>() as u64 {
+        let zero = wasi_try_ok!(to_offset::<M>(0));
+        wasi_try_mem_ok!(bufused_ref.write(zero));
+        return Ok(Errno::Inval);
+    }
+
     for (entry_path_str, wasi_file_type, ino) in entries.iter().skip(cookie as usize) {
         cur_cookie += 1;
         let namlen = entry_path_str.len();
@@ -129,9 +153,8 @@ pub fn fd_readdir<M: MemorySize>(
             d_type: *wasi_file_type,
         };
         let dirent_bytes = dirent_to_le_bytes(&dirent);
-        let buf_len: u64 = buf_len.into();
         let upper_limit = std::cmp::min(
-            (buf_len - buf_idx as u64) as usize,
+            (buf_len_u64 - buf_idx as u64) as usize,
             std::mem::size_of::<Dirent>(),
         );
         for (i, b) in dirent_bytes.iter().enumerate().take(upper_limit) {
@@ -141,7 +164,7 @@ pub fn fd_readdir<M: MemorySize>(
         if upper_limit != std::mem::size_of::<Dirent>() {
             break;
         }
-        let upper_limit = std::cmp::min((buf_len - buf_idx as u64) as usize, namlen);
+        let upper_limit = std::cmp::min((buf_len_u64 - buf_idx as u64) as usize, namlen);
         for (i, b) in entry_path_str.bytes().take(upper_limit).enumerate() {
             wasi_try_mem_ok!(buf_arr.index((i + buf_idx) as u64).write(b));
         }
