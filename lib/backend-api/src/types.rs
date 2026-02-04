@@ -1026,6 +1026,18 @@ mod queries {
         pub deleted: bool,
         pub aliases: AppAliasConnection,
         pub s3_url: Option<Url>,
+        pub will_perish_at: Option<DateTime>,
+        pub perish_reason: Option<DeployDeployAppPerishReasonChoices>,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum DeployDeployAppPerishReasonChoices {
+        #[cynic(rename = "USER_PENDING_VERIFICATION")]
+        UserPendingVerification,
+        #[cynic(rename = "USER_REQUESTED")]
+        UserRequested,
+        #[cynic(rename = "APP_UNCLAIMED")]
+        AppUnclaimed,
     }
 
     #[derive(cynic::QueryFragment, Serialize, Debug, Clone)]

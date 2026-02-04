@@ -12,14 +12,18 @@ use crate::{
 use anyhow::Context;
 use bytesize::ByteSize;
 use colored::Colorize;
+use comfy_table::{ContentArrangement, Table, presets::UTF8_FULL};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use indexmap::IndexMap;
 use std::io::IsTerminal as _;
 use std::io::Write;
 use std::{path::Path, path::PathBuf, str::FromStr, time::Duration};
+use time::{Duration as TimeDuration, OffsetDateTime};
 use wasmer_backend_api::{
     WasmerClient,
-    types::{AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion},
+    types::{
+        AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion, DeployDeployAppPerishReasonChoices,
+    },
 };
 use wasmer_config::{
     app::AppConfigV1,
@@ -1148,14 +1152,22 @@ pub async fn wait_app(
 
     if !quiet {
         eprintln!(
-            "App {} ({}) was successfully deployed 🚀",
-            app.name.bold(),
-            app.owner.global_name.bold()
+            "{}",
+            format!(
+                "{} App {} ({}) deployed successfully.",
+                "✔".green(),
+                app.name,
+                app.owner.global_name,
+            )
+            .bold()
         );
-        eprintln!("{}", app.url.blue().bold().underline());
         eprintln!();
-        eprintln!("→ Unique URL: {}", version.url);
-        eprintln!("→ Dashboard:  {}", app.admin_url);
+        eprintln!("Live:    {}", app.url.blue().bold().underline());
+        eprintln!("Manage:  {}", app.admin_url);
+
+        if let Some(banner) = build_perish_banner(&app) {
+            eprintln!("\n{}", banner.yellow().bold());
+        }
     }
 
     match wait {
@@ -1263,6 +1275,71 @@ pub async fn wait_app(
     }
 
     Ok((app, version))
+}
+
+fn build_perish_banner(app: &DeployApp) -> Option<String> {
+    let perish_reason = app.perish_reason?;
+    let will_perish_at = app.will_perish_at.as_ref()?;
+    let time_left = format_time_left(will_perish_at)?;
+    let mut banner = format!("⚠️ Your site will be live for {time_left}.");
+
+    if let Some(link) = perish_reason_link(perish_reason, app.id.inner()) {
+        banner.push('\n');
+        banner.push_str(&link);
+    }
+
+    let mut table = Table::new();
+    table.load_preset(UTF8_FULL);
+    table.set_content_arrangement(ContentArrangement::Dynamic);
+    table.add_row(vec![banner]);
+
+    Some(table.to_string())
+}
+
+fn format_time_left(will_perish_at: &wasmer_backend_api::types::DateTime) -> Option<String> {
+    let will_perish_at = OffsetDateTime::try_from(will_perish_at.clone()).ok()?;
+    let now = OffsetDateTime::now_utc();
+    let remaining = will_perish_at - now;
+    let remaining = if remaining.is_negative() {
+        TimeDuration::ZERO
+    } else {
+        remaining
+    };
+
+    Some(format_duration_words(remaining))
+}
+
+fn format_duration_words(duration: TimeDuration) -> String {
+    let total_seconds = duration.whole_seconds().max(0);
+
+    if total_seconds >= 86_400 {
+        let days = total_seconds / 86_400;
+        format!("{days} day{}", if days == 1 { "" } else { "s" })
+    } else if total_seconds >= (3_600 - 60) {
+        let hours = (total_seconds + 60) / 3_600;
+        format!("{hours} hour{}", if hours == 1 { "" } else { "s" })
+    } else if total_seconds >= (60 - 1) {
+        let minutes = (total_seconds + 1) / 60;
+        format!("{minutes} minute{}", if minutes == 1 { "" } else { "s" })
+    } else {
+        let seconds = total_seconds.max(0);
+        format!("{seconds} second{}", if seconds == 1 { "" } else { "s" })
+    }
+}
+
+fn perish_reason_link(
+    perish_reason: DeployDeployAppPerishReasonChoices,
+    app_id: &str,
+) -> Option<String> {
+    match perish_reason {
+        DeployDeployAppPerishReasonChoices::AppUnclaimed => Some(format!(
+            "Claim it to keep it online: https://wasmer.io/apps/claim/{app_id}"
+        )),
+        DeployDeployAppPerishReasonChoices::UserPendingVerification => {
+            Some("Verify now to keep it online: https://wasmer.io/verify".to_string())
+        }
+        DeployDeployAppPerishReasonChoices::UserRequested => None,
+    }
 }
 
 pub fn app_config_from_api(version: &DeployAppVersion) -> Result<AppConfigV1, anyhow::Error> {
