@@ -34,7 +34,7 @@ pub fn futex_wake_all<M: MemorySize>(
             true
         } else {
             tracing::trace!("wake_all (miss) on {pointer}");
-            true
+            false
         }
     };
     //Span::current().record("woken", woken);

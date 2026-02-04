@@ -68,6 +68,7 @@ TESTS := \
   dlsym \
   dylink-needed \
   epoll_create \
+  epoll_ctl \
   fd_advise \
   fd_allocate \
   fd_close \
@@ -91,6 +92,8 @@ TESTS := \
   fd_sync \
   fd_tell \
   fd_pipe \
+  futex_wake \
+  futex_wake_all \
   getcwd \
   path_create_directory \
   path_filestat_get \
@@ -103,6 +106,7 @@ TESTS := \
   path_unlink_file \
   proc_id \
   proc_parent \
+  proc_signal \
   proc_signals_sizes_get \
   proc_signals_get \
   proc_exit_code_1 \
@@ -114,17 +118,24 @@ TESTS := \
   proc_exit_fpr \
   proc_exit2__exit_65 \
   proc_exit2_exit_65 \
+  proc_join \
   proc_raise \
   port_addr_list \
+  port_addr_add \
   port_addr_clear \
   port_addr_remove \
+  port_gateway_set \
   port_route_list \
+  port_route_remove \
   port_route_clear \
+  port_unbridge \
   port_mac \
+  resolve \
   reflect_signature \
   random_get \
   sched_yield \
   sock_addr_peer \
+  sock_accept \
   sock_bind \
   sock_get_opt_flag \
   sock_get_opt_size \
@@ -145,7 +156,7 @@ TESTS := \
   tty_set \
   tty_get
 
-BUILD_TARGETS := libside1.so libside2.so libcache1.so libcache2.so libtls.so $(addsuffix .wasm,$(TESTS))
+BUILD_TARGETS := libside1.so libside2.so libcache1.so libcache2.so libtls.so $(addsuffix .wasm,$(TESTS)) proc_join_child.wasm proc_signal_child.wasm
 
 libside1.so: side1.c libside2.so | check-sysroot
 	$(call build_shared,-L. -lside2)
@@ -164,6 +175,18 @@ libtls.so: tls_dlsym.c | check-sysroot
 
 dylink-needed.wasm: dylink-needed.c libside1.so
 	$(call build_wasm,-L. -lside1)
+
+proc_join.wasm: proc_join.c proc_join_child.wasm | check-sysroot
+	$(call build_wasm,)
+
+proc_join_child.wasm: proc_join_child.c | check-sysroot
+	$(call build_wasm,)
+
+proc_signal.wasm: proc_signal.c proc_signal_child.wasm | check-sysroot
+	$(call build_wasm,)
+
+proc_signal_child.wasm: proc_signal_child.c | check-sysroot
+	$(call build_wasm,)
 
 %.wasm: %.c | check-sysroot
 	$(call build_wasm,)
@@ -198,7 +221,7 @@ run: $(BUILD_TARGETS)
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
 			dlopen|dlsym|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
-			fd_close|fd_filestat_set_size|port_addr_list|port_addr_clear|port_addr_remove|port_route_list|port_route_clear|port_mac|sock_addr_peer|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_leave_multicast_v4|sock_leave_multicast_v6|sock_listen|sock_open|sock_recv|sock_send|sock_shutdown|sock_status) flags="$$flags --net" ;; \
+			fd_close|fd_filestat_set_size|port_addr_list|port_addr_add|port_addr_clear|port_addr_remove|port_gateway_set|port_route_list|port_route_remove|port_route_clear|port_unbridge|port_mac|resolve|sock_addr_peer|sock_accept|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_leave_multicast_v4|sock_leave_multicast_v6|sock_listen|sock_open|sock_recv|sock_send|sock_shutdown|sock_status) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \
 		if [ $$rc -ne $$expected ]; then \

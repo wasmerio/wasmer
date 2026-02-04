@@ -89,6 +89,10 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
+    let tag = wasi_try_mem_ok!(pid_ptr.cast::<u8>().read(&memory));
+    if tag != OptionTag::None as u8 && tag != OptionTag::Some as u8 {
+        return Ok(Errno::Inval);
+    }
     let option_pid = wasi_try_mem_ok!(pid_ptr.read(&memory));
     let option_pid = match option_pid.tag {
         OptionTag::None => None,

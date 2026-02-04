@@ -187,6 +187,14 @@ pub(crate) fn write_ip_port<M: MemorySize>(
     ip: IpAddr,
     port: u16,
 ) -> Result<(), Errno> {
+    let base: u64 = ptr.offset().into();
+    let end = base
+        .checked_add(std::mem::size_of::<__wasi_addr_port_t>() as u64)
+        .ok_or(Errno::Memviolation)?;
+    if end > memory.data_size() {
+        return Err(Errno::Memviolation);
+    }
+
     let p = port.to_be_bytes();
     let ipport = match ip {
         IpAddr::V4(ip) => {

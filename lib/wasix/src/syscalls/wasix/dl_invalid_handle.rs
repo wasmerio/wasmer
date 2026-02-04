@@ -16,6 +16,8 @@ pub fn dl_invalid_handle(
     let handle = if handle == 0 {
         // Handle zero is the main module, and never a valid side module handle
         return Ok(Errno::Noexec);
+    } else if handle == u32::from(state::MAIN_MODULE_HANDLE) {
+        return Ok(Errno::Success);
     } else {
         ModuleHandle::from(handle)
     };

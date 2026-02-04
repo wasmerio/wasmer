@@ -52,7 +52,7 @@ pub fn dlopen<M: MemorySize>(
         module_spec: Path::new(&path),
         ld_library_path: ld_library_path.as_slice(),
     };
-    let module_handle = linker.load_module(location, &mut ctx);
+    let module_handle = linker.load_module(location, flags.contains(DlFlags::GLOBAL), &mut ctx);
 
     // Reborrow to keep rust happy
     let (env, mut store) = ctx.data_and_store_mut();

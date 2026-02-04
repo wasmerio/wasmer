@@ -380,7 +380,7 @@ pub fn closure_prepare<M: MemorySize>(
         module_name: &module_name,
         bytes: &wasm_bytes,
     };
-    let module_handle = match linker.load_module(wasm_loader, &mut ctx) {
+    let module_handle = match linker.load_module(wasm_loader, false, &mut ctx) {
         Ok(m) => m,
         Err(e) => {
             // Should never happen

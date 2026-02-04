@@ -68,7 +68,21 @@ pub(crate) fn epoll_ctl_internal(
     fd: WasiFd,
     event_ctl: Option<&EpollEventCtl>,
 ) -> Result<Result<(), Errno>, WasiError> {
+    if let EpollCtl::Unknown = op {
+        return Ok(Err(Errno::Inval));
+    }
+    if matches!(op, EpollCtl::Add | EpollCtl::Mod) && event_ctl.is_none() {
+        return Ok(Err(Errno::Inval));
+    }
+    if matches!(op, EpollCtl::Add | EpollCtl::Mod | EpollCtl::Del) && fd == epfd {
+        return Ok(Err(Errno::Inval));
+    }
     let env = ctx.data();
+    if matches!(op, EpollCtl::Add | EpollCtl::Mod | EpollCtl::Del)
+        && env.state.fs.get_fd(fd).is_err()
+    {
+        return Ok(Err(Errno::Badf));
+    }
     let fd_entry = wasi_try_ok_ok!(env.state.fs.get_fd(epfd));
 
     let mut inode_guard = fd_entry.inode.read();
