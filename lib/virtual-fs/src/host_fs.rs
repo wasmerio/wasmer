@@ -114,7 +114,7 @@ impl crate::FileSystem for FileSystem {
                     .to_owned();
                 let path = Path::new("/").join(path);
 
-                let metadata = entry.metadata()?;
+                let metadata = fs::symlink_metadata(entry.path())?;
 
                 Ok(DirEntry {
                     path,

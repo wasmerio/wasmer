@@ -58,11 +58,14 @@ TESTS := \
   chdir \
   clock_time_get \
   clock_time_set \
+  call_dynamic \
   closure_allocate \
   closure_free \
   closure_prepare \
+  context_create \
   context_destroy \
   dlopen \
+  dlsym \
   dylink-needed \
   epoll_create \
   fd_advise \
@@ -79,6 +82,7 @@ TESTS := \
   fd_event \
   fd_write \
   fd_read \
+  fd_readdir \
   fd_filestat_set_size \
   fd_filestat_set_times \
   fd_filestat_get \
@@ -91,6 +95,7 @@ TESTS := \
   path_create_directory \
   path_filestat_get \
   path_filestat_set_times \
+  path_rename \
   path_link \
   path_readlink \
   path_remove_directory \
@@ -140,12 +145,21 @@ TESTS := \
   tty_set \
   tty_get
 
-BUILD_TARGETS := libside1.so libside2.so $(addsuffix .wasm,$(TESTS))
+BUILD_TARGETS := libside1.so libside2.so libcache1.so libcache2.so libtls.so $(addsuffix .wasm,$(TESTS))
 
 libside1.so: side1.c libside2.so | check-sysroot
 	$(call build_shared,-L. -lside2)
 
 libside2.so: side2.c | check-sysroot
+	$(call build_shared,)
+
+libcache1.so: cache1.c | check-sysroot
+	$(call build_shared,)
+
+libcache2.so: cache2.c | check-sysroot
+	$(call build_shared,)
+
+libtls.so: tls_dlsym.c | check-sysroot
 	$(call build_shared,)
 
 dylink-needed.wasm: dylink-needed.c libside1.so
@@ -183,7 +197,7 @@ run: $(BUILD_TARGETS)
 		esac; \
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
-			dlopen|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
+			dlopen|dlsym|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
 			fd_close|fd_filestat_set_size|port_addr_list|port_addr_clear|port_addr_remove|port_route_list|port_route_clear|port_mac|sock_addr_peer|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_leave_multicast_v4|sock_leave_multicast_v6|sock_listen|sock_open|sock_recv|sock_send|sock_shutdown|sock_status) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \

@@ -32,7 +32,7 @@ pub fn lookup_typechecked_entrypoint(
     #[cfg(not(feature = "js"))]
     {
         let entrypoint_type = entrypoint.ty(&store);
-        if !entrypoint_type.params().is_empty() && !entrypoint_type.results().is_empty() {
+        if !entrypoint_type.params().is_empty() || !entrypoint_type.results().is_empty() {
             tracing::trace!(
                 "Entrypoint function {entrypoint_id} has invalid signature: expected () -> (), got {:?} -> {:?}",
                 entrypoint_type.params(),

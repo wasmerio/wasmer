@@ -181,10 +181,9 @@ pub fn path_symlink_internal(
         path_to_symlink: path_to_symlink.clone(),
         relative_path: relative_path.clone(),
     };
-    let new_inode =
-        state
-            .fs
-            .create_inode_with_default_stat(inodes, kind, false, entry_name.clone().into());
+    let new_inode = state
+        .fs
+        .create_inode(inodes, kind, false, entry_name.clone().into())?;
 
     {
         let mut guard = target_parent_inode.write();
