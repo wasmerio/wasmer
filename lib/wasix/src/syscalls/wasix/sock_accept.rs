@@ -1,4 +1,5 @@
 use std::task::Waker;
+use std::mem::size_of;
 
 use super::*;
 use crate::{net::socket::TimeType, syscalls::*};
@@ -28,6 +29,14 @@ pub fn sock_accept<M: MemorySize>(
 
     let env = ctx.data();
     let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let base: u64 = ro_fd.offset().into();
+    let end = match base.checked_add(size_of::<WasiFd>() as u64) {
+        Some(end) => end,
+        None => return Ok(Errno::Memviolation),
+    };
+    if end > memory.data_size() {
+        return Ok(Errno::Memviolation);
+    }
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
@@ -69,6 +78,22 @@ pub fn sock_accept_v2<M: MemorySize>(
 
     let env = ctx.data();
     let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let fd_base: u64 = ro_fd.offset().into();
+    let fd_end = match fd_base.checked_add(size_of::<WasiFd>() as u64) {
+        Some(end) => end,
+        None => return Ok(Errno::Memviolation),
+    };
+    if fd_end > memory.data_size() {
+        return Ok(Errno::Memviolation);
+    }
+    let addr_base: u64 = ro_addr.offset().into();
+    let addr_end = match addr_base.checked_add(size_of::<__wasi_addr_port_t>() as u64) {
+        Some(end) => end,
+        None => return Ok(Errno::Memviolation),
+    };
+    if addr_end > memory.data_size() {
+        return Ok(Errno::Memviolation);
+    }
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
