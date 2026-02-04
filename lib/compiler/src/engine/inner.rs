@@ -584,6 +584,9 @@ impl EngineInner {
                     write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
                 }
             }
+
+            file.flush()
+                .map_err(|e| CompileError::Codegen(e.to_string()))?;
         }
 
         Ok(())
