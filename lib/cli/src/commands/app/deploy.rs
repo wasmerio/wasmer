@@ -18,7 +18,7 @@ use indexmap::IndexMap;
 use std::io::IsTerminal as _;
 use std::io::Write;
 use std::{path::Path, path::PathBuf, str::FromStr, time::Duration};
-use time::{Duration as TimeDuration, OffsetDateTime};
+use time::{Duration as TimeDuration, OffsetDateTime, format_description};
 use wasmer_backend_api::{
     WasmerClient,
     types::{
@@ -1012,18 +1012,6 @@ pub struct DeployAppOpts<'a> {
     pub wait: WaitMode,
 }
 
-fn format_autobuild_kind(kind: AutoBuildDeployAppLogKind) -> &'static str {
-    match kind {
-        AutoBuildDeployAppLogKind::Log => "log",
-        AutoBuildDeployAppLogKind::PreparingToDeployStatus => "prepare",
-        AutoBuildDeployAppLogKind::FetchingPlanStatus => "plan",
-        AutoBuildDeployAppLogKind::BuildStatus => "build",
-        AutoBuildDeployAppLogKind::DeployStatus => "deploy",
-        AutoBuildDeployAppLogKind::Complete => "complete",
-        AutoBuildDeployAppLogKind::Failed => "failed",
-    }
-}
-
 fn remote_progress_handler(quiet: bool) -> impl FnMut(DeployRemoteEvent) {
     move |event| {
         if quiet {
@@ -1066,20 +1054,21 @@ fn remote_progress_handler(quiet: bool) -> impl FnMut(DeployRemoteEvent) {
                 eprintln!("Requesting remote build...");
             }
             DeployRemoteEvent::StreamingAutobuildLogs { build_id } => {
-                eprintln!("Streaming autobuild logs (build id {build_id})");
+                eprintln!("Streaming build logs (build id: {build_id})");
             }
             DeployRemoteEvent::AutobuildLog { log } => {
                 let kind = log.kind;
+                let datetime = format_autobuild_datetime(&log.datetime);
                 let message = log.message;
 
                 if let Some(msg) = message {
-                    eprintln!("[{}] {}", format_autobuild_kind(kind), msg);
+                    eprintln!("{}  {}", datetime.dimmed(), msg);
                 } else if matches!(kind, AutoBuildDeployAppLogKind::Complete) {
-                    eprintln!("[{}] complete", format_autobuild_kind(kind));
+                    eprintln!("Streaming build logs complete");
                 }
             }
             DeployRemoteEvent::Finished => {
-                eprintln!("Remote autobuild finished successfully.\n");
+                eprintln!("Remote build finished successfully.\n");
             }
             _ => {
                 eprintln!("Unknown event: {event:?}");
@@ -1307,6 +1296,20 @@ fn format_time_left(will_perish_at: &wasmer_backend_api::types::DateTime) -> Opt
     };
 
     Some(format_duration_words(remaining))
+}
+
+fn format_autobuild_datetime(datetime: &wasmer_backend_api::types::DateTime) -> String {
+    let format = format_description::parse(
+        "[month repr:short] [day padding:none] [hour]:[minute]:[second].[subsecond digits:3]",
+    );
+    let Ok(format) = format else {
+        return datetime.0.clone();
+    };
+
+    OffsetDateTime::try_from(datetime.clone())
+        .ok()
+        .and_then(|value| value.format(&format).ok())
+        .unwrap_or_else(|| datetime.0.clone())
 }
 
 fn format_duration_words(duration: TimeDuration) -> String {
