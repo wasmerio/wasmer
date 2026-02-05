@@ -85,6 +85,7 @@ TESTS := \
   fd_fdflags_set \
   fd_event \
   fd_write \
+  poll_oneoff \
   fd_read \
   fd_readdir \
   fd_filestat_set_size \
@@ -105,13 +106,23 @@ TESTS := \
   path_open \
   path_open2 \
   path_rename \
+  port_bridge \
+  port_route_add \
   path_link \
   path_readlink \
   path_remove_directory \
   path_symlink \
   path_unlink_file \
   proc_id \
+  proc_spawn \
+  proc_spawn2 \
+  proc_exec \
+  proc_exec2 \
+  proc_exec3 \
+  proc_exec3_errors \
+  proc_exec3_empty_argv \
   proc_parent \
+  proc_snapshot \
   proc_signal \
   proc_signals_sizes_get \
   proc_signals_get \
@@ -156,7 +167,8 @@ TESTS := \
   sock_recv \
   sock_recv_from \
   sock_send \
-  sock_send_to \
+  sock_send_to  \
+  sock_send_file \
   sock_shutdown \
   sock_status \
   thread_join \
@@ -169,7 +181,7 @@ TESTS := \
   tty_set \
   tty_get
 
-BUILD_TARGETS := libside1.so libside2.so libcache1.so libcache2.so libtls.so dlopen_dso.so tls_init_dso.so tls_align_dso.so tls_get_new-dtv_dso.so $(addsuffix .wasm,$(TESTS)) proc_join_child.wasm proc_signal_child.wasm
+BUILD_TARGETS := libside1.so libside2.so libcache1.so libcache2.so libtls.so dlopen_dso.so tls_init_dso.so tls_align_dso.so tls_get_new-dtv_dso.so $(addsuffix .wasm,$(TESTS)) proc_join_child.wasm proc_signal_child.wasm proc_spawn_file_actions_child.wasm proc_spawn_stdout_child.wasm proc_exec_child.wasm proc_exec2_child.wasm proc_exec3_child.wasm proc_exec3_empty_argv_child.wasm
 
 libside1.so: side1.c libside2.so | check-sysroot
 	$(call build_shared,-L. -lside2)
@@ -213,6 +225,12 @@ proc_signal.wasm: proc_signal.c proc_signal_child.wasm | check-sysroot
 proc_signal_child.wasm: proc_signal_child.c | check-sysroot
 	$(call build_wasm,)
 
+proc_spawn_file_actions_child.wasm: proc_spawn_file_actions_child.c | check-sysroot
+	$(call build_wasm,)
+
+proc_spawn_stdout_child.wasm: proc_spawn_stdout_child.c | check-sysroot
+	$(call build_wasm,)
+
 %.wasm: %.c | check-sysroot
 	$(call build_wasm,)
 
@@ -246,7 +264,7 @@ run: $(BUILD_TARGETS)
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
 			dlopen|dlopen_libc|dlsym|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
-			fd_close|fd_filestat_set_size|port_addr_list|port_addr_add|port_addr_clear|port_addr_remove|port_gateway_set|port_route_list|port_route_remove|port_route_clear|port_unbridge|port_mac|resolve|sock_addr_peer|sock_connect|sock_accept|sock_join_multicast|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_leave_multicast_v4|sock_leave_multicast_v6|sock_listen|sock_open|sock_recv|sock_recv_from|sock_send|sock_send_to|sock_shutdown|sock_status) flags="$$flags --net" ;; \
+			fd_close|fd_filestat_set_size|port_addr_list|port_addr_add|port_addr_clear|port_addr_remove|port_dhcp_acquire|port_bridge|port_gateway_set|port_route_add|port_route_list|port_route_remove|port_route_clear|port_unbridge|port_mac|resolve|sock_addr_peer|sock_connect|sock_accept|sock_join_multicast|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_leave_multicast_v4|sock_leave_multicast_v6|sock_listen|sock_open|sock_recv|sock_recv_from|sock_send|sock_send_to|sock_send_file|sock_shutdown|sock_status) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \
 		if [ $$rc -ne $$expected ]; then \

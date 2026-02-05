@@ -1545,6 +1545,10 @@ pub(crate) fn conv_spawn_err_to_errno(err: &SpawnError) -> Errno {
     match err {
         SpawnError::AccessDenied => Errno::Access,
         SpawnError::Unsupported => Errno::Noexec,
+        SpawnError::CompileError { .. } => Errno::Noexec,
+        SpawnError::InvalidABI => Errno::Noexec,
+        SpawnError::MissingEntrypoint { .. } => Errno::Noexec,
+        SpawnError::ModuleLoad { .. } => Errno::Noexec,
         _ if err.is_not_found() => Errno::Noent,
         _ => Errno::Inval,
     }
