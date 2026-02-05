@@ -27,7 +27,16 @@ pub fn sock_connect<M: MemorySize>(
     let peer_addr = SocketAddr::new(addr.0, addr.1);
     Span::current().record("addr", format!("{peer_addr:?}"));
 
-    wasi_try_ok!(sock_connect_internal(&mut ctx, sock, peer_addr)?);
+    match sock_connect_internal(&mut ctx, sock, peer_addr)? {
+        Ok(()) => {}
+        Err(err) => {
+            let err = match err {
+                Errno::Addrnotavail => Errno::Connrefused,
+                _ => err,
+            };
+            return Ok(err);
+        }
+    }
 
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {

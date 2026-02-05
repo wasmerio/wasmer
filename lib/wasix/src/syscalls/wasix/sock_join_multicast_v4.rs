@@ -47,6 +47,17 @@ pub(crate) fn sock_join_multicast_v4_internal(
     iface: Ipv4Addr,
 ) -> Result<Result<(), Errno>, WasiError> {
     let env = ctx.data();
+    let net = env.net().clone();
+    let tasks = env.tasks().clone();
+
+    // Allow joining on a UDP pre-socket by auto-binding to an ephemeral port.
+    wasi_try_ok_ok!(__sock_upgrade(
+        ctx,
+        sock,
+        Rights::empty(),
+        move |mut socket, _flags| async move { socket.auto_bind_udp(tasks.deref(), net.deref()).await }
+    ));
+
     wasi_try_ok_ok!(__sock_actor_mut(ctx, sock, Rights::empty(), |socket, _| {
         socket.join_multicast_v4(multiaddr, iface)
     }));

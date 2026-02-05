@@ -43,6 +43,16 @@ pub fn sock_pair<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
+    match af {
+        Addressfamily::Inet4 | Addressfamily::Inet6 | Addressfamily::Unix => {}
+        _ => return Ok(Errno::Afnosupport),
+    }
+
+    match ty {
+        Socktype::Stream | Socktype::Dgram => {}
+        _ => return Ok(Errno::Inval),
+    }
+
     // only certain combinations are supported
     match pt {
         SockProto::Tcp => {

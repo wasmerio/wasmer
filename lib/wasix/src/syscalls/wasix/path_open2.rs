@@ -137,6 +137,13 @@ pub(crate) fn path_open_internal(
 
     let working_dir = wasi_try_ok_ok!(state.fs.get_fd(dirfd));
     let working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
+    {
+        let guard = working_dir.inode.read();
+        match &*guard {
+            Kind::Dir { .. } | Kind::Root { .. } => {}
+            _ => return Ok(Err(Errno::Notdir)),
+        }
+    }
 
     // ASSUMPTION: open rights apply recursively
     if !working_dir.inner.rights.contains(Rights::PATH_OPEN) {
@@ -281,6 +288,11 @@ pub(crate) fn path_open_internal(
                 *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
                     open_options.open(&path).map_err(fs_error_into_wasi_err)
                 ))));
+
+                if minimum_rights.truncate {
+                    let mut stat = processing_inode.stat.write().unwrap();
+                    stat.st_size = 0;
+                }
 
                 if let Some(handle) = handle {
                     let handle = handle.read().unwrap();

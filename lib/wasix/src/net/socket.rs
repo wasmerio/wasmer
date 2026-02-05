@@ -658,10 +658,8 @@ impl InodeSocket {
                     target_peer.replace(peer);
                     return Ok(None);
                 }
-                InodeSocketKind::RemoteSocket { peer_addr, .. } => {
-                    *peer_addr = peer;
-                    return Ok(None);
-                }
+                InodeSocketKind::RemoteSocket { .. } => return Err(Errno::Isconn),
+                InodeSocketKind::TcpStream { .. } => return Err(Errno::Isconn),
                 _ => return Err(Errno::Notsup),
             }
         };
@@ -742,10 +740,16 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.addr_peer().map_err(net_error_into_wasi_err)?
             }
-            InodeSocketKind::UdpSocket { socket, .. } => socket
-                .addr_peer()
-                .map_err(net_error_into_wasi_err)?
-                .ok_or(Errno::Notconn)?,
+            InodeSocketKind::UdpSocket { socket, peer } => {
+                if let Some(peer) = peer {
+                    *peer
+                } else {
+                    socket
+                        .addr_peer()
+                        .map_err(net_error_into_wasi_err)?
+                        .ok_or(Errno::Notconn)?
+                }
+            }
             InodeSocketKind::RemoteSocket { peer_addr, .. } => *peer_addr,
             _ => return Err(Errno::Notsup),
         })

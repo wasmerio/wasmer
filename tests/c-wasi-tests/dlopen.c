@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
@@ -25,6 +26,7 @@ int main()
         fprintf(stderr, "failed to open dl: %s\n", dlerror());
         return 1;
     }
+    assert(handle && "dlopen should succeed");
 
     printf("finding data_export...\n");
     int *data_export = dlsym(handle, "data_export");
@@ -33,11 +35,13 @@ int main()
         fprintf(stderr, "failed to find data_export symbol: %s\n", dlerror());
         return 1;
     }
+    assert(data_export && "dlsym(data_export) should succeed");
     if (*data_export != 42)
     {
         fprintf(stderr, "data_export expected to be 42: %d\n", *data_export);
         return 1;
     }
+    assert(*data_export == 42 && "data_export should be 42");
     printf("data_export = %d\n", *data_export);
 
     printf("finding func_export...\n");
@@ -47,6 +51,7 @@ int main()
         fprintf(stderr, "failed to find func_export symbol: %s\n", dlerror());
         return 1;
     }
+    assert(func_export && "dlsym(func_export) should succeed");
 
     printf("calling func_export\n");
     printf("result: %d\n", func_export());
@@ -57,55 +62,67 @@ int main()
         fprintf(stderr, "local_function should not be found since it's private\n");
         return 1;
     }
+    assert(!local_function && "local_function should not be exported");
 
     printf("closing side\n");
-    if (dlclose(handle) != 0)
+    int rc = dlclose(handle);
+    if (rc != 0)
     {
         fprintf(stderr, "failed to unload library: %s\n", dlerror());
         return 1;
     }
+    assert(rc == 0 && "dlclose should succeed");
 
     // Test dl_invalid_handle: invalid handle 0 (NULL) - should fail
     printf("testing invalid handle 0 (NULL)...\n");
-    if (dlclose((void *)0) == 0)
+    rc = dlclose((void *)0);
+    if (rc == 0)
     {
         fprintf(stderr, "expected dlclose to fail for NULL handle\n");
         return 1;
     }
+    assert(rc != 0 && "dlclose(NULL) should fail");
     char *error = dlerror();
     if (!error || *error == '\0')
     {
         fprintf(stderr, "dlerror should not be empty after NULL dlclose\n");
         return 1;
     }
+    assert(error && *error != '\0');
 
     // Test dl_invalid_handle: invalid handle 0xffffff
     printf("testing invalid handle 0xffffff...\n");
-    if (dlclose((void *)(uintptr_t)0xffffff) == 0)
+    rc = dlclose((void *)(uintptr_t)0xffffff);
+    if (rc == 0)
     {
         fprintf(stderr, "expected dlclose to fail for bad handle 0xffffff\n");
         return 1;
     }
+    assert(rc != 0 && "dlclose(bad handle) should fail");
     error = dlerror();
     if (!error || *error == '\0')
     {
         fprintf(stderr, "dlerror should not be empty after bad dlclose\n");
         return 1;
     }
+    assert(error && *error != '\0');
 
     // Test dl_invalid_handle: invalid handle with max u32 value
     printf("testing invalid handle 0xFFFFFFFF...\n");
-    if (dlclose((void *)(uintptr_t)0xFFFFFFFF) == 0)
+    rc = dlclose((void *)(uintptr_t)0xFFFFFFFF);
+    if (rc == 0)
     {
         fprintf(stderr, "expected dlclose to fail for max u32 handle\n");
         return 1;
     }
+    assert(rc != 0 && "dlclose(max u32 handle) should fail");
     error = dlerror();
     if (!error || *error == '\0')
     {
         fprintf(stderr, "dlerror should not be empty after max u32 dlclose\n");
         return 1;
     }
+    assert(error && *error != '\0');
 
     printf("skipping small-handle invalidation checks (handles may be valid in WASIX)\n");
 #if 0
