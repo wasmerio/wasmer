@@ -184,11 +184,6 @@ wasmer = { path = "../api", version = "=7.0.1", default-features = false, featur
 	"cranelift",
 ] }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
-# Enable the wasm JS backend for getrandom on wasm32-unknown-unknown/none.
-workspace = true
-features = ["wasm_js"]
-
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom03]
 # Enable wasm_js for the getrandom 0.3.x instance pulled in by rand 0.9.
 package = "getrandom"
