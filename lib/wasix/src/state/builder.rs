@@ -918,7 +918,7 @@ impl WasiEnvBuilder {
 
         let state = WasiState {
             fs: wasi_fs,
-            secret: rand::thread_rng().r#gen::<[u8; 32]>(),
+            secret: rand::rng().random::<[u8; 32]>(),
             inodes,
             args: std::sync::Mutex::new(self.args.clone()),
             preopen: self.vfs_preopens.clone(),

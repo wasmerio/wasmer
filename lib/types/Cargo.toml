@@ -32,7 +32,7 @@ wasmparser = { workspace = true, default-features = false, optional = true }
 # compile the project for `js`, we need to enable this feature
 [dependencies.getrandom]
 workspace = true
-features = ["js"]
+features = ["wasm_js"]
 
 [dev-dependencies]
 memoffset.workspace = true
