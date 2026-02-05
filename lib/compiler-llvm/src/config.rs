@@ -128,7 +128,7 @@ impl LLVM {
             is_pic: false,
             callbacks: None,
             middlewares: vec![],
-            enable_g0m0_opt: true,
+            enable_g0m0_opt: false,
             verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
