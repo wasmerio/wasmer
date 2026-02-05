@@ -265,6 +265,7 @@ use std::{
     fmt::Display,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
+    os::unix::ffi::OsStrExt,
     sync::{
         Arc, Barrier, Mutex, MutexGuard, RwLock, RwLockWriteGuard, TryLockError,
         atomic::{AtomicBool, Ordering},
@@ -275,7 +276,9 @@ use bus::Bus;
 use derive_more::Debug;
 use shared_buffer::OwnedBuffer;
 use tracing::trace;
-use virtual_fs::{AsyncReadExt, FileSystem, FsError};
+use vfs_core::flags::{OpenFlags, OpenOptions, ResolveFlags};
+use vfs_core::path_types::VfsPath;
+use vfs_core::{VfsBaseDirAsync, VfsError};
 use virtual_mio::block_on;
 use wasmer::{
     AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
@@ -287,7 +290,7 @@ use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{
     Runtime, SpawnError, WasiEnv, WasiError, WasiFs, WasiFunctionEnv, WasiModuleTreeHandles,
-    WasiProcess, WasiThreadId, fs::WasiFsRoot, import_object_for_all_wasi_versions,
+    WasiProcess, WasiThreadId, import_object_for_all_wasi_versions,
     runtime::module_cache::HashedModuleData,
 };
 
@@ -533,8 +536,8 @@ pub enum LinkError {
 
 #[derive(Debug)]
 pub enum LocateModuleError {
-    Single(FsError),
-    Multiple(Vec<(PathBuf, FsError)>),
+    Single(VfsError),
+    Multiple(Vec<(PathBuf, VfsError)>),
 }
 
 impl std::fmt::Display for LocateModuleError {
@@ -3991,34 +3994,56 @@ async fn locate_module(
     fs: &WasiFs,
 ) -> Result<(PathBuf, OwnedBuffer), LinkError> {
     async fn try_load(
-        fs: &WasiFsRoot,
+        fs: &WasiFs,
         path: impl AsRef<Path>,
-    ) -> Result<(PathBuf, OwnedBuffer), FsError> {
-        let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
-            Ok(f) => f,
-            // Fallback for cases where the module thinks it's running on unix,
-            // but the compiled side module is a .wasm file
-            Err(_) if path.as_ref().extension() == Some(OsStr::new("so")) => fs
-                .new_open_options()
-                .read(true)
-                .open(path.as_ref().with_extension("wasm"))?,
-            Err(e) => return Err(e),
+    ) -> Result<(PathBuf, OwnedBuffer), VfsError> {
+        let ctx = fs.ctx.read().unwrap().clone();
+        let path = path.as_ref();
+        let mut candidate = path.to_owned();
+
+        let open = |candidate: &Path| async {
+            let path_bytes = candidate.as_os_str().as_bytes().to_vec();
+            fs.vfs
+                .openat_async(
+                    &ctx,
+                    VfsBaseDirAsync::Cwd,
+                    VfsPath::new(&path_bytes),
+                    OpenOptions {
+                        flags: OpenFlags::READ,
+                        mode: None,
+                        resolve: ResolveFlags::empty(),
+                    },
+                )
+                .await
         };
 
-        let buf = if let Some(buf) = file.as_owned_buffer() {
-            buf
-        } else {
-            let mut buf = Vec::new();
-            file.read_to_end(&mut buf).await?;
-            OwnedBuffer::from(buf)
+        let handle = match open(&candidate).await {
+            Ok(handle) => handle,
+            Err(err) if candidate.extension() == Some(OsStr::new("so")) => {
+                candidate = candidate.with_extension("wasm");
+                open(&candidate).await?
+            }
+            Err(err) => return Err(err),
         };
 
-        Ok((path.as_ref().to_owned(), buf))
+        let meta = handle.get_metadata().await?;
+        let mut data = vec![0u8; meta.size as usize];
+        let mut read = 0usize;
+        while read < data.len() {
+            let n = handle.read(&mut data[read..]).await?;
+            if n == 0 {
+                break;
+            }
+            read += n;
+        }
+        data.truncate(read);
+
+        Ok((candidate, OwnedBuffer::from_bytes(data.into())))
     }
 
     if module_path.is_absolute() {
         trace!(?module_path, "Locating module with absolute path");
-        try_load(&fs.root_fs, module_path).await.map_err(|e| {
+        try_load(fs, module_path).await.map_err(|e| {
             LinkError::SharedLibraryMissing(
                 module_path.to_string_lossy().into_owned(),
                 LocateModuleError::Single(e),
@@ -4026,12 +4051,10 @@ async fn locate_module(
         })
     } else if module_path.components().count() > 1 {
         trace!(?module_path, "Locating module with relative path");
-        try_load(
-            &fs.root_fs,
-            fs.relative_path_to_absolute(module_path.to_string_lossy().into_owned()),
-        )
-        .await
-        .map_err(|e| {
+        let mut cwd = fs.current_dir();
+        cwd.push(VfsPath::new(module_path.as_os_str().as_bytes()));
+        let absolute = PathBuf::from(String::from_utf8_lossy(cwd.as_bytes()).into_owned());
+        try_load(fs, absolute).await.map_err(|e| {
             LinkError::SharedLibraryMissing(
                 module_path.to_string_lossy().into_owned(),
                 LocateModuleError::Single(e),
@@ -4070,14 +4093,7 @@ async fn locate_module(
                             no calling module path provided"
                         );
                     };
-                    Cow::Owned(PathBuf::from(
-                        fs.relative_path_to_absolute(
-                            calling_module_dir
-                                .join(relative)
-                                .to_string_lossy()
-                                .into_owned(),
-                        ),
-                    ))
+                    Cow::Owned(calling_module_dir.join(relative))
                 }
                 None => Cow::Borrowed(Path::new(path)),
             }
@@ -4094,11 +4110,11 @@ async fn locate_module(
                     .map(|path| Cow::Borrowed(Path::new(path))),
             );
 
-        let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
+        let mut errors: Vec<(PathBuf, VfsError)> = Vec::new();
         for path in search_paths {
             let full_path = path.join(module_path);
             trace!(search_path = ?path, full_path = ?full_path, "Searching module");
-            match try_load(&fs.root_fs, &full_path).await {
+            match try_load(fs, &full_path).await {
                 Ok(ret) => {
                     trace!(?module_path, full_path = ?ret.0, "Located module");
                     return Ok(ret);

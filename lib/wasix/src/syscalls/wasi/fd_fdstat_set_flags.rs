@@ -1,5 +1,7 @@
 use super::*;
 use crate::syscalls::*;
+use vfs_core::flags::HandleStatusFlags;
+use vfs_unix::errno::vfs_error_to_wasi_errno;
 
 /// ### `fd_fdstat_set_flags()`
 /// Set file descriptor flags for a file descriptor
@@ -37,21 +39,28 @@ pub(crate) fn fd_fdstat_set_flags_internal(
     fd: WasiFd,
     flags: Fdflags,
 ) -> Result<Errno, WasiError> {
-    {
-        let env = ctx.data();
-        let (_, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        let fd_map = state.fs.fd_map.read().unwrap();
-        let fd_entry = wasi_try_ok!(fd_map.get(fd).ok_or(Errno::Badf));
+    let env = ctx.data();
+    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let mut fd_map = state.fs.fd_map.write().unwrap();
+    let fd_entry = wasi_try_ok!(fd_map.get_entry_mut(fd).ok_or(Errno::Badf));
+    if !fd_entry.inner.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
+        return Ok(Errno::Access);
+    }
+    fd_entry.inner.flags = flags;
 
-        if !fd_entry.inner.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
-            return Ok(Errno::Access);
+    let mut status_flags = HandleStatusFlags::empty();
+    status_flags.set(HandleStatusFlags::APPEND, flags.contains(Fdflags::APPEND));
+    status_flags.set(
+        HandleStatusFlags::NONBLOCK,
+        flags.contains(Fdflags::NONBLOCK),
+    );
+    status_flags.set(HandleStatusFlags::SYNC, flags.contains(Fdflags::SYNC));
+    status_flags.set(HandleStatusFlags::DSYNC, flags.contains(Fdflags::DSYNC));
+
+    if let Kind::VfsFile { handle } = &fd_entry.kind {
+        if let Err(err) = handle.set_status_flags(status_flags) {
+            return Ok(vfs_error_to_wasi_errno(&err));
         }
     }
-
-    let env = ctx.data();
-    let (_, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    let mut fd_map = state.fs.fd_map.write().unwrap();
-    let mut fd_entry = wasi_try_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
-    fd_entry.flags = flags;
     Ok(Errno::Success)
 }

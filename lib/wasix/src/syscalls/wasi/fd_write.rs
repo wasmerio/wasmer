@@ -34,19 +34,12 @@ pub fn fd_write<M: MemorySize>(
 
     let env = ctx.data();
     let enable_journal = env.enable_journal;
-    let offset = {
-        let state = env.state.clone();
-        let inodes = state.inodes.clone();
-
-        let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-        fd_entry.inner.offset.load(Ordering::Acquire) as usize
-    };
 
     let bytes_written = wasi_try_ok!(fd_write_internal::<M>(
         &mut ctx,
         fd,
         FdWriteSource::Iovs { iovs, iovs_len },
-        offset as u64,
+        0,
         true,
         enable_journal,
     )?);
@@ -89,7 +82,7 @@ pub fn fd_pwrite<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let enable_snapshot_capture = ctx.data().enable_journal;
-
+    let offset = usize::try_from(offset).map_err(|_| Errno::Overflow)? as u64;
     let bytes_written = wasi_try_ok!(fd_write_internal::<M>(
         &mut ctx,
         fd,
@@ -120,7 +113,7 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
 }
 
 #[allow(clippy::await_holding_lock)]
-#[cfg(feature = "legacy-fs")]
+#[cfg(any())]
 pub(crate) fn fd_write_internal<M: MemorySize>(
     mut ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -555,14 +548,14 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     Ok(Ok(bytes_written))
 }
 
-#[cfg(not(feature = "legacy-fs"))]
 pub(crate) fn fd_write_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
-    iovs_len: M::Offset,
-    offset: Option<usize>,
-) -> WasiResult<usize> {
+    data: FdWriteSource<'_, M>,
+    offset: u64,
+    should_update_cursor: bool,
+    should_snapshot: bool,
+) -> Result<Result<usize, Errno>, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state();
@@ -572,9 +565,19 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         return Ok(Err(Errno::Access));
     }
 
-    let iovs_arr = iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-    let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+    let journal_iovs = match data {
+        FdWriteSource::Iovs { iovs, iovs_len } => Some((iovs, iovs_len)),
+        FdWriteSource::Buffer(_) => None,
+    };
     let fd_flags = fd_entry.inner.flags;
+    let mut snapshot_offset = offset;
+    let can_snapshot = matches!(fd_entry.kind, Kind::VfsFile { .. });
+
+    if should_update_cursor {
+        if let Kind::VfsFile { handle } = &fd_entry.kind {
+            snapshot_offset = handle.tell();
+        }
+    }
 
     let res = match fd_entry.kind {
         Kind::VfsFile { handle } => {
@@ -588,24 +591,39 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                 },
                 async move {
                     let mut total_written = 0usize;
-                    for iov in iovs_arr.iter() {
-                        let buf = WasmPtr::<u8, M>::new(iov.buf)
-                            .slice(&memory, iov.buf_len)
-                            .map_err(mem_error_to_wasi)?
-                            .access()
-                            .map_err(mem_error_to_wasi)?;
-                        let written = match offset {
-                            Some(base) => {
-                                handle
-                                    .pwrite_at((base + total_written) as u64, buf.as_ref())
-                                    .await
+                    match data {
+                        FdWriteSource::Iovs { iovs, iovs_len } => {
+                            let iovs_arr =
+                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                            for iov in iovs_arr.iter() {
+                                let buf = WasmPtr::<u8, M>::new(iov.buf)
+                                    .slice(&memory, iov.buf_len)
+                                    .map_err(mem_error_to_wasi)?
+                                    .access()
+                                    .map_err(mem_error_to_wasi)?;
+                                let written = if should_update_cursor {
+                                    handle.write(buf.as_ref()).await
+                                } else {
+                                    handle
+                                        .pwrite_at(offset + total_written as u64, buf.as_ref())
+                                        .await
+                                }
+                                .map_err(|err| vfs_unix::errno::vfs_error_to_wasi_errno(&err))?;
+                                total_written += written;
+                                if written != buf.len() {
+                                    break;
+                                }
                             }
-                            None => handle.write(buf.as_ref()).await,
                         }
-                        .map_err(|err| vfs_unix::errno::vfs_error_to_wasi_errno(&err))?;
-                        total_written += written;
-                        if written != buf.len() {
-                            break;
+                        FdWriteSource::Buffer(data) => {
+                            let written = if should_update_cursor {
+                                handle.write(&data).await
+                            } else {
+                                handle.pwrite_at(offset, &data).await
+                            }
+                            .map_err(|err| vfs_unix::errno::vfs_error_to_wasi_errno(&err))?;
+                            total_written += written;
                         }
                     }
                     Ok(total_written)
@@ -616,16 +634,27 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             let handle = handle.clone();
             __asyncify_light(env, None, async move {
                 let mut total_written = 0usize;
-                for iov in iovs_arr.iter() {
-                    let buf = WasmPtr::<u8, M>::new(iov.buf)
-                        .slice(&memory, iov.buf_len)
-                        .map_err(mem_error_to_wasi)?
-                        .access()
-                        .map_err(mem_error_to_wasi)?;
-                    let written = handle.write(buf.as_ref()).await?;
-                    total_written += written;
-                    if written != buf.len() {
-                        break;
+                match data {
+                    FdWriteSource::Iovs { iovs, iovs_len } => {
+                        let iovs_arr =
+                            iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                        let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                        for iov in iovs_arr.iter() {
+                            let buf = WasmPtr::<u8, M>::new(iov.buf)
+                                .slice(&memory, iov.buf_len)
+                                .map_err(mem_error_to_wasi)?
+                                .access()
+                                .map_err(mem_error_to_wasi)?;
+                            let written = handle.write(buf.as_ref()).await?;
+                            total_written += written;
+                            if written != buf.len() {
+                                break;
+                            }
+                        }
+                    }
+                    FdWriteSource::Buffer(data) => {
+                        let written = handle.write(&data).await?;
+                        total_written += written;
                     }
                 }
                 Ok(total_written)
@@ -635,16 +664,27 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             let tx = tx.clone();
             __asyncify_light(env, None, async move {
                 let mut total_written = 0usize;
-                for iov in iovs_arr.iter() {
-                    let buf = WasmPtr::<u8, M>::new(iov.buf)
-                        .slice(&memory, iov.buf_len)
-                        .map_err(mem_error_to_wasi)?
-                        .access()
-                        .map_err(mem_error_to_wasi)?;
-                    let written = tx.write(buf.as_ref()).await?;
-                    total_written += written;
-                    if written != buf.len() {
-                        break;
+                match data {
+                    FdWriteSource::Iovs { iovs, iovs_len } => {
+                        let iovs_arr =
+                            iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                        let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                        for iov in iovs_arr.iter() {
+                            let buf = WasmPtr::<u8, M>::new(iov.buf)
+                                .slice(&memory, iov.buf_len)
+                                .map_err(mem_error_to_wasi)?
+                                .access()
+                                .map_err(mem_error_to_wasi)?;
+                            let written = tx.write(buf.as_ref()).await?;
+                            total_written += written;
+                            if written != buf.len() {
+                                break;
+                            }
+                        }
+                    }
+                    FdWriteSource::Buffer(data) => {
+                        let written = tx.write(&data).await?;
+                        total_written += written;
                     }
                 }
                 Ok(total_written)
@@ -654,16 +694,27 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             let pipe = pipe.clone();
             __asyncify_light(env, None, async move {
                 let mut total_written = 0usize;
-                for iov in iovs_arr.iter() {
-                    let buf = WasmPtr::<u8, M>::new(iov.buf)
-                        .slice(&memory, iov.buf_len)
-                        .map_err(mem_error_to_wasi)?
-                        .access()
-                        .map_err(mem_error_to_wasi)?;
-                    let written = pipe.write(buf.as_ref()).await?;
-                    total_written += written;
-                    if written != buf.len() {
-                        break;
+                match data {
+                    FdWriteSource::Iovs { iovs, iovs_len } => {
+                        let iovs_arr =
+                            iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                        let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                        for iov in iovs_arr.iter() {
+                            let buf = WasmPtr::<u8, M>::new(iov.buf)
+                                .slice(&memory, iov.buf_len)
+                                .map_err(mem_error_to_wasi)?
+                                .access()
+                                .map_err(mem_error_to_wasi)?;
+                            let written = pipe.write(buf.as_ref()).await?;
+                            total_written += written;
+                            if written != buf.len() {
+                                break;
+                            }
+                        }
+                    }
+                    FdWriteSource::Buffer(data) => {
+                        let written = pipe.write(&data).await?;
+                        total_written += written;
                     }
                 }
                 Ok(total_written)
@@ -676,6 +727,22 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         Errno::Timedout => Errno::Again,
         other => other,
     }));
+
+    #[cfg(feature = "journal")]
+    if should_snapshot
+        && can_snapshot
+        && let Some((iovs, iovs_len)) = journal_iovs
+    {
+        JournalEffector::save_fd_write(ctx, fd, snapshot_offset, bytes_written, iovs, iovs_len)
+            .map_err(|err| {
+                tracing::error!("failed to save fd_write event - {}", err);
+                WasiError::Exit(Errno::Fault.into())
+            })?;
+    }
+    #[cfg(not(feature = "journal"))]
+    {
+        let _ = (should_snapshot, can_snapshot, journal_iovs, snapshot_offset);
+    }
 
     Ok(Ok(bytes_written))
 }

@@ -580,11 +580,11 @@ fn strip_root_prefix(path: &Path) -> PathBuf {
 mod tests {
     use std::{
         collections::{BTreeMap, HashMap},
-        path::{Path, PathBuf},
+        path::PathBuf,
     };
 
     use ciborium::value::Value;
-    use virtual_fs::FileSystem;
+    use vfs_core::{StatOptions, VfsBaseDir, VfsFileType, VfsPath};
     use wasmer_config::package::PackageId;
     use webc::{
         Container,
@@ -601,9 +601,10 @@ mod tests {
     };
 
     use super::{ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2};
+    use crate::fs::build_default_fs;
 
-    #[test]
-    fn v2_filesystem_mapping_resolves_mount_paths() {
+    #[tokio::test]
+    async fn v2_filesystem_mapping_resolves_mount_paths() {
         // Regression test: v2 fs mounts are already relative to the mount root,
         // so stripping the mount path again breaks lookups like /public.
         let mut manifest = Manifest::default();
@@ -658,14 +659,31 @@ mod tests {
             }],
         };
 
-        let union_fs = filesystem_v2(&packages, &pkg, false).unwrap();
-        assert!(union_fs.metadata(Path::new("/public")).unwrap().is_dir());
-        assert!(
-            union_fs
-                .metadata(Path::new("/public/index.html"))
-                .unwrap()
-                .is_file()
-        );
+        let mappings = filesystem_v2(&packages, &pkg, false).unwrap();
+        let wasi_fs = build_default_fs(&[], &[], &[], &mappings).unwrap();
+        let ctx = wasi_fs.ctx.read().unwrap();
+
+        let public_meta = wasi_fs
+            .vfs
+            .statat(
+                &ctx,
+                VfsBaseDir::Cwd,
+                VfsPath::new(b"/public"),
+                StatOptions::default(),
+            )
+            .unwrap();
+        assert_eq!(public_meta.file_type, VfsFileType::Directory);
+
+        let index_meta = wasi_fs
+            .vfs
+            .statat(
+                &ctx,
+                VfsBaseDir::Cwd,
+                VfsPath::new(b"/public/index.html"),
+                StatOptions::default(),
+            )
+            .unwrap();
+        assert_eq!(index_meta.file_type, VfsFileType::RegularFile);
     }
 }
 // Legacy virtual-fs mapping adapter removed in favor of VFS mappings.

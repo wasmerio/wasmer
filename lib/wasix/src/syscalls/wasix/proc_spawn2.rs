@@ -1,5 +1,6 @@
 use wasmer::FromToNativeWasmType;
 use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
+use vfs_core::VfsPath;
 
 use super::*;
 use crate::{
@@ -106,15 +107,23 @@ pub fn proc_spawn2<M: MemorySize>(
             path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
             path_str.split(':').collect()
         };
-        let (_, state, inodes) =
-            unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), &name) {
+        let state = ctx.data().state();
+        match find_executable_in_path(ctx.data(), &state.fs, path.iter().map(AsRef::as_ref), &name)
+        {
             FindExecutableResult::Found(p) => name = p,
             FindExecutableResult::AccessError => return Ok(Errno::Access),
             FindExecutableResult::NotFound => return Ok(Errno::Noexec),
         }
     } else if name.starts_with("./") {
-        name = ctx.data().state.fs.relative_path_to_absolute(name);
+        let state = ctx.data().state();
+        let mut cwd = state.fs.current_dir();
+        cwd.push(VfsPath::new(name.trim_start_matches("./").as_bytes()));
+        name = String::from_utf8_lossy(cwd.as_bytes()).into_owned();
+    } else if !name.starts_with('/') {
+        let state = ctx.data().state();
+        let mut cwd = state.fs.current_dir();
+        cwd.push(VfsPath::new(name.as_bytes()));
+        name = String::from_utf8_lossy(cwd.as_bytes()).into_owned();
     }
 
     Span::current().record("full_path", &name);
@@ -193,9 +202,13 @@ fn apply_fd_op<M: MemorySize>(
 ) -> Result<(), Errno> {
     match op.cmd {
         ProcSpawnFdOpName::Close => {
-            if let Ok(fd) = env.state.fs.get_fd(op.fd)
-                && !fd.is_stdio
-                && fd.inode.is_preopened
+            if env
+                .state
+                .fs
+                .preopen_fds
+                .read()
+                .unwrap()
+                .contains(&op.fd)
             {
                 trace!("Skipping close FD action for pre-opened FD ({})", op.fd);
                 return Ok(());
@@ -203,9 +216,13 @@ fn apply_fd_op<M: MemorySize>(
             env.state.fs.close_fd(op.fd)
         }
         ProcSpawnFdOpName::Dup2 => {
-            if let Ok(fd) = env.state.fs.get_fd(op.fd)
-                && !fd.is_stdio
-                && fd.inode.is_preopened
+            if env
+                .state
+                .fs
+                .preopen_fds
+                .read()
+                .unwrap()
+                .contains(&op.fd)
             {
                 warn!(
                     "FD {} is a pre-open and should not be closed, \
@@ -217,31 +234,21 @@ fn apply_fd_op<M: MemorySize>(
 
             // According to POSIX dup2 semantics, the target fd should always be closed before duplication
             // EXCEPT when duplicating a fd to itself (src_fd == fd), which is a no-op.
-            if op.src_fd != op.fd && env.state.fs.get_fd(op.fd).is_ok() {
+            if op.src_fd == op.fd {
+                return Ok(());
+            }
+            if env.state.fs.get_fd(op.fd).is_ok() {
                 env.state.fs.close_fd(op.fd)?;
             }
 
-            let mut fd_map = env.state.fs.fd_map.write().unwrap();
-            let fd_entry = fd_map.get(op.src_fd).ok_or(Errno::Badf)?;
-
-            let new_fd_entry = Fd {
-                // TODO: verify this is correct
-                inner: FdInner {
-                    offset: fd_entry.inner.offset.clone(),
-                    rights: fd_entry.inner.rights_inheriting,
-                    fd_flags: {
-                        let mut f = fd_entry.inner.fd_flags;
-                        f.set(Fdflagsext::CLOEXEC, false);
-                        f
-                    },
-                    ..fd_entry.inner
-                },
-                inode: fd_entry.inode.clone(),
-                ..*fd_entry
-            };
+            let fd_entry = env.state.fs.get_fd(op.src_fd)?;
+            let mut new_fd_entry = fd_entry.clone();
+            new_fd_entry.inner.fd_flags.set(Fdflagsext::CLOEXEC, false);
+            new_fd_entry.is_stdio = matches!(op.fd, 0 | 1 | 2);
 
             // Exclusive insert because we expect `to` to be empty after closing it above
-            fd_map.insert(true, op.fd, new_fd_entry);
+            let mut fd_table = env.state.fs.fd_table.write().unwrap();
+            fd_table.insert(true, op.fd, new_fd_entry);
             Ok(())
         }
         ProcSpawnFdOpName::Open => {
@@ -250,7 +257,11 @@ fn apply_fd_op<M: MemorySize>(
                     .read_utf8_string(memory, op.name_len)
                     .map_err(mem_error_to_wasi)?
             };
-            name = env.state.fs.relative_path_to_absolute(name.to_owned());
+            if !name.starts_with('/') {
+                let mut cwd = env.state.fs.current_dir();
+                cwd.push(VfsPath::new(name.as_bytes()));
+                name = String::from_utf8_lossy(cwd.as_bytes()).into_owned();
+            }
             match path_open_internal(
                 env,
                 VIRTUAL_ROOT_FD,
@@ -277,18 +288,17 @@ fn apply_fd_op<M: MemorySize>(
                     .read_utf8_string(memory, op.name_len)
                     .map_err(mem_error_to_wasi)?
             };
-            path = env.state.fs.relative_path_to_absolute(path.to_owned());
+            if !path.starts_with('/') {
+                let mut cwd = env.state.fs.current_dir();
+                cwd.push(VfsPath::new(path.as_bytes()));
+                path = String::from_utf8_lossy(cwd.as_bytes()).into_owned();
+            }
             chdir_internal(env, &path)
         }
         ProcSpawnFdOpName::Fchdir => {
             let fd = env.state.fs.get_fd(op.fd)?;
-            let inode_kind = fd.inode.read();
-            match inode_kind.deref() {
-                Kind::Dir { path, .. } => {
-                    let path = path.to_str().ok_or(Errno::Notsup)?;
-                    env.state.fs.set_current_dir(path);
-                    Ok(())
-                }
+            match fd.kind {
+                Kind::VfsDir { .. } => Err(Errno::Notsup),
                 _ => Err(Errno::Notdir),
             }
         }
