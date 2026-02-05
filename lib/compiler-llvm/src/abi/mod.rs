@@ -86,7 +86,7 @@ pub trait Abi {
     /// Given a function definition, retrieve the parameter that is the pointer to the base of the
     /// local globals array.
     #[allow(unused)]
-    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
+    fn get_globals_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
         // g0 is always after the vmctx.
         let vmctx_idx = u32::from(
             func_value
@@ -103,13 +103,11 @@ pub trait Abi {
         param.into_pointer_value()
     }
 
-    /// Given a function definition, retrieve the parameter that is the pointer to the first --
-    /// number 0 -- local memory.
+    /// Given a function definition, retrieve the parameter that is the pointer to the first local memory.
     ///
     /// # Notes
     /// This function assumes that g0m0 is enabled.
-    fn get_m0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
-        // m0 is always after g0.
+    fn get_memory_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
         let vmctx_idx = u32::from(
             func_value
                 .get_enum_attribute(
@@ -120,7 +118,7 @@ pub trait Abi {
         );
 
         let param = func_value.get_nth_param(vmctx_idx + 2).unwrap();
-        param.set_name("m0_base_ptr");
+        param.set_name("memory_base_ptr");
 
         param.into_pointer_value()
     }
