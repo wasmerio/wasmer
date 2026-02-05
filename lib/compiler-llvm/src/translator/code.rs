@@ -301,9 +301,9 @@ impl FuncTranslator {
         let mut globals_base_ptr = None;
 
         if g0m0_is_enabled {
-            let g0 = self.abi.get_g0_ptr_param(&func);
+            let g0 = self.abi.get_globals_ptr_param(&func);
             g0.set_name("globals_base_ptr");
-            let m0 = self.abi.get_m0_ptr_param(&func);
+            let m0 = self.abi.get_memory_ptr_param(&func);
             m0.set_name("m0_base_ptr");
 
             globals_base_ptr = Some(g0);
