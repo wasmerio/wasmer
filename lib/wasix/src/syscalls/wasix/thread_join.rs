@@ -24,16 +24,19 @@ pub(super) fn thread_join_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     join_tid: Tid,
 ) -> Result<Errno, WasiError> {
+    let tid: WasiThreadId = join_tid.into();
     if let Some(_child_exit_code) = unsafe { handle_rewind::<M, i32>(&mut ctx) } {
+        let env = ctx.data();
+        env.process.remove_thread(&tid);
         return Ok(Errno::Success);
     }
 
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     let env = ctx.data();
-    let tid: WasiThreadId = join_tid.into();
     let other_thread = env.process.get_thread(&tid);
     if let Some(other_thread) = other_thread {
+        let process = env.process.clone();
         let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
             other_thread
                 .join()
@@ -42,8 +45,9 @@ pub(super) fn thread_join_internal<M: MemorySize + 'static>(
                 .unwrap_or_else(|a| a)
                 .raw()
         })?;
+        process.remove_thread(&tid);
         Ok(Errno::Success)
     } else {
-        Ok(Errno::Success)
+        Ok(Errno::Srch)
     }
 }

@@ -62,13 +62,16 @@ TESTS := \
   closure_allocate \
   closure_free \
   closure_prepare \
+  context_switch \
   context_create \
   context_destroy \
   dlopen \
+  dlopen_libc \
   dlsym \
   dylink-needed \
   epoll_create \
   epoll_ctl \
+  epoll_wait \
   fd_advise \
   fd_allocate \
   fd_close \
@@ -94,10 +97,13 @@ TESTS := \
   fd_pipe \
   futex_wake \
   futex_wake_all \
+  futex_wait \
   getcwd \
   path_create_directory \
   path_filestat_get \
   path_filestat_set_times \
+  path_open \
+  path_open2 \
   path_rename \
   path_link \
   path_readlink \
@@ -135,7 +141,9 @@ TESTS := \
   random_get \
   sched_yield \
   sock_addr_peer \
+  sock_connect \
   sock_accept \
+  sock_join_multicast \
   sock_bind \
   sock_get_opt_flag \
   sock_get_opt_size \
@@ -144,10 +152,15 @@ TESTS := \
   sock_leave_multicast_v6 \
   sock_listen \
   sock_open \
+  sock_pair \
   sock_recv \
+  sock_recv_from \
   sock_send \
+  sock_send_to \
   sock_shutdown \
   sock_status \
+  thread_join \
+  thread_spawn \
   thread_exit \
   thread_signal \
   thread_sleep \
@@ -156,7 +169,7 @@ TESTS := \
   tty_set \
   tty_get
 
-BUILD_TARGETS := libside1.so libside2.so libcache1.so libcache2.so libtls.so $(addsuffix .wasm,$(TESTS)) proc_join_child.wasm proc_signal_child.wasm
+BUILD_TARGETS := libside1.so libside2.so libcache1.so libcache2.so libtls.so dlopen_dso.so tls_init_dso.so tls_align_dso.so tls_get_new-dtv_dso.so $(addsuffix .wasm,$(TESTS)) proc_join_child.wasm proc_signal_child.wasm
 
 libside1.so: side1.c libside2.so | check-sysroot
 	$(call build_shared,-L. -lside2)
@@ -171,6 +184,18 @@ libcache2.so: cache2.c | check-sysroot
 	$(call build_shared,)
 
 libtls.so: tls_dlsym.c | check-sysroot
+	$(call build_shared,)
+
+dlopen_dso.so: dlopen_dso.c | check-sysroot
+	$(call build_shared,)
+
+tls_init_dso.so: tls_init_dso.c | check-sysroot
+	$(call build_shared,)
+
+tls_align_dso.so: tls_align_dso.c | check-sysroot
+	$(call build_shared,)
+
+tls_get_new-dtv_dso.so: tls_get_new-dtv_dso.c | check-sysroot
 	$(call build_shared,)
 
 dylink-needed.wasm: dylink-needed.c libside1.so
@@ -220,8 +245,8 @@ run: $(BUILD_TARGETS)
 		esac; \
 		flags="--enable-threads --dir=. --dir=/dev"; \
 		case "$$t" in \
-			dlopen|dlsym|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
-			fd_close|fd_filestat_set_size|port_addr_list|port_addr_add|port_addr_clear|port_addr_remove|port_gateway_set|port_route_list|port_route_remove|port_route_clear|port_unbridge|port_mac|resolve|sock_addr_peer|sock_accept|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_leave_multicast_v4|sock_leave_multicast_v6|sock_listen|sock_open|sock_recv|sock_send|sock_shutdown|sock_status) flags="$$flags --net" ;; \
+			dlopen|dlopen_libc|dlsym|dylink-needed) flags="$$flags --mapdir /lib:$(CURDIR)" ;; \
+			fd_close|fd_filestat_set_size|port_addr_list|port_addr_add|port_addr_clear|port_addr_remove|port_gateway_set|port_route_list|port_route_remove|port_route_clear|port_unbridge|port_mac|resolve|sock_addr_peer|sock_connect|sock_accept|sock_join_multicast|sock_bind|sock_get_opt_flag|sock_get_opt_size|sock_get_opt_time|sock_leave_multicast_v4|sock_leave_multicast_v6|sock_listen|sock_open|sock_recv|sock_recv_from|sock_send|sock_send_to|sock_shutdown|sock_status) flags="$$flags --net" ;; \
 		esac; \
 		"$(WASMER)" run $$flags "$$t.wasm"; rc=$$?; \
 		if [ $$rc -ne $$expected ]; then \
@@ -236,7 +261,7 @@ run: $(BUILD_TARGETS)
 		exit 1; \
 	fi
 
-install: libside1.so libside2.so dlopen.wasm dylink-needed.wasm proc_id.wasm thread_id.wasm fd_tell.wasm random_get.wasm sched_yield.wasm closure_free.wasm fd_fdstat_get.wasm fd_fdflags_get.wasm getcwd.wasm
+install: libside1.so libside2.so dlopen_dso.so tls_init_dso.so tls_align_dso.so tls_get_new-dtv_dso.so dlopen.wasm dlopen_libc.wasm dylink-needed.wasm proc_id.wasm thread_id.wasm fd_tell.wasm random_get.wasm sched_yield.wasm closure_free.wasm fd_fdstat_get.wasm fd_fdflags_get.wasm getcwd.wasm
 	cp -f $^ ../integration/cli/tests/wasm
 
 clean:

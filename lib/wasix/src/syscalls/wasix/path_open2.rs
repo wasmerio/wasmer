@@ -142,6 +142,13 @@ pub(crate) fn path_open_internal(
         .fs
         .get_inode_at_path(inodes, effective_dirfd, path, follow_symlinks);
     let working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
+    {
+        let guard = working_dir.inode.read();
+        match &*guard {
+            Kind::Dir { .. } | Kind::Root { .. } => {}
+            _ => return Ok(Err(Errno::Notdir)),
+        }
+    }
 
     // ASSUMPTION: open rights apply recursively
     if !working_dir.inner.rights.contains(Rights::PATH_OPEN) {
@@ -293,6 +300,11 @@ pub(crate) fn path_open_internal(
                 }
                 if fs_rights_base.contains(Rights::FD_WRITE) {
                     open_flags |= Fd::WRITE;
+                }
+
+                if minimum_rights.truncate {
+                    let mut stat = processing_inode.stat.write().unwrap();
+                    stat.st_size = 0;
                 }
 
                 if let Some(handle) = handle {
