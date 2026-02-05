@@ -8,7 +8,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects, VMTag};
 use wasmer_vm::{MemoryStyle, TableStyle};
-use wasmer_vm::{VMConfig, VMGlobal, VMMemory, VMTable};
+use wasmer_vm::{VMConfig, VMGlobal, VMGlobalDefinition, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 
 /// An engine delegates the creation of memories, tables, and globals
@@ -55,6 +55,18 @@ pub trait Tunables {
     /// Create a global with an unset value.
     fn create_global(&self, ty: GlobalType) -> Result<VMGlobal, String> {
         Ok(VMGlobal::new(ty))
+    }
+
+    /// Create a global owned by the VM with backing storage in the `VMContext`.
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid location in VM memory.
+    unsafe fn create_vm_global(
+        &self,
+        ty: GlobalType,
+        vm_definition_location: NonNull<VMGlobalDefinition>,
+    ) -> Result<VMGlobal, String> {
+        Ok(VMGlobal::new_instance(ty, vm_definition_location))
     }
 
     /// Create a new tag.
@@ -141,15 +153,26 @@ pub trait Tunables {
         &self,
         context: &mut StoreObjects,
         module: &ModuleInfo,
+        vm_definition_locations: &[NonNull<VMGlobalDefinition>],
     ) -> Result<PrimaryMap<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>, LinkError> {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
-        for &global_type in module.globals.values().skip(num_imports) {
+        debug_assert_eq!(
+            vm_definition_locations.len(),
+            module.globals.len() - num_imports
+        );
+
+        for (i, &global_type) in module.globals.values().skip(num_imports).enumerate() {
+            let location = vm_definition_locations
+                .get(i)
+                .ok_or_else(|| LinkError::Resource("global definition location missing".into()))?;
             vmctx_globals.push(InternalStoreHandle::new(
                 context,
-                self.create_global(global_type)
-                    .map_err(LinkError::Resource)?,
+                unsafe {
+                    self.create_vm_global(global_type, *location)
+                        .map_err(LinkError::Resource)?
+                },
             ));
         }
 

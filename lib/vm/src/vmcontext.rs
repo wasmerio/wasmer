@@ -521,7 +521,7 @@ mod test_vmglobal_definition {
         let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
-            size_of::<*const VMGlobalDefinition>(),
+            size_of::<VMGlobalDefinition>(),
             usize::from(offsets.size_of_vmglobal_local())
         );
     }
@@ -781,7 +781,6 @@ impl VMBuiltinFunctionsArray {
 /// we can't describe them in Rust's type system. Sufficient memory is
 /// allocated at runtime.
 ///
-/// TODO: We could move the globals into the `vmctx` allocation too.
 #[derive(Debug)]
 #[repr(C, align(16))] // align 16 since globals are aligned to that and contained inside
 pub struct VMContext {}

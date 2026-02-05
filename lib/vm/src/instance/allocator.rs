@@ -1,10 +1,11 @@
 use super::{Instance, VMInstance};
 use crate::VMMemoryDefinition;
-use crate::vmcontext::VMTableDefinition;
+use crate::vmcontext::{VMGlobalDefinition, VMTableDefinition};
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
+use wasmer_types::LocalGlobalIndex;
 use wasmer_types::VMOffsets;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
@@ -74,6 +75,7 @@ impl InstanceAllocator {
         Self,
         Vec<NonNull<VMMemoryDefinition>>,
         Vec<NonNull<VMTableDefinition>>,
+        Vec<NonNull<VMGlobalDefinition>>,
     ) {
         let offsets = VMOffsets::new(mem::size_of::<usize>() as u8, module);
         let instance_layout = Self::instance_layout(&offsets);
@@ -100,8 +102,9 @@ impl InstanceAllocator {
         // Thus there will be enough valid memory for both of them.
         let memories = unsafe { allocator.memory_definition_locations() };
         let tables = unsafe { allocator.table_definition_locations() };
+        let globals = unsafe { allocator.global_definition_locations() };
 
-        (allocator, memories, tables)
+        (allocator, memories, tables, globals)
     }
 
     /// Calculate the appropriate layout for the internal `Instance` structure.
@@ -186,6 +189,40 @@ impl InstanceAllocator {
 
                 out.push(new_ptr.cast());
             }
+            out
+        }
+    }
+
+    /// Get the locations of where the [`VMGlobalDefinition`]s should be stored.
+    ///
+    /// This function lets us create [`Global`] objects on the host with backing
+    /// memory in the VM.
+    ///
+    /// # Safety
+    ///
+    /// - `Self.instance_ptr` must point to enough memory that all of
+    ///   the offsets in `Self.offsets` point to valid locations in
+    ///   memory, i.e. `Self.instance_ptr` must have been allocated by
+    ///   `Self::new`.
+    unsafe fn global_definition_locations(&self) -> Vec<NonNull<VMGlobalDefinition>> {
+        unsafe {
+            let num_globals = self.offsets.num_local_globals();
+            let num_globals = usize::try_from(num_globals).unwrap();
+            let mut out = Vec::with_capacity(num_globals);
+
+            let ptr = self.instance_ptr.cast::<u8>().as_ptr();
+            let base_ptr = ptr.add(std::mem::size_of::<Instance>());
+
+            for i in 0..num_globals {
+                let global_offset = self
+                    .offsets
+                    .vmctx_vmglobal_definition(LocalGlobalIndex::new(i));
+                let global_offset = usize::try_from(global_offset).unwrap();
+
+                let new_ptr = NonNull::new_unchecked(base_ptr.add(global_offset));
+                out.push(new_ptr.cast());
+            }
+
             out
         }
     }

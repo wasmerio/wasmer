@@ -1701,76 +1701,60 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let global_value_type = global_type.ty;
 
                 let global_mutability = global_type.mutability;
-                let global_ptr = {
-                    let global_ptr_ptr = if let Some(local_global_index) =
-                        wasm_module.local_global_index(index)
-                    {
-                        if let Some(globals_base_ptr) = globals_base_ptr {
-                            let local_offset = local_global_index.as_u32()
-                                * u32::from(offsets.size_of_vmglobal_local());
-                            let local_offset =
-                                intrinsics.i32_ty.const_int(local_offset.into(), false);
-                            let global_ptr_ptr = unsafe {
-                                err!(cache_builder.build_gep(
-                                    intrinsics.i8_ty,
-                                    globals_base_ptr,
-                                    &[local_offset],
-                                    ""
-                                ))
-                            };
-                            err!(cache_builder.build_bit_cast(
-                                global_ptr_ptr,
-                                intrinsics.ptr_ty,
+                let global_ptr = if let Some(local_global_index) =
+                    wasm_module.local_global_index(index)
+                {
+                    if let Some(globals_base_ptr) = globals_base_ptr {
+                        let local_offset = local_global_index.as_u32()
+                            * u32::from(offsets.size_of_vmglobal_local());
+                        let local_offset =
+                            intrinsics.i32_ty.const_int(local_offset.into(), false);
+                        unsafe {
+                            err!(cache_builder.build_gep(
+                                intrinsics.i8_ty,
+                                globals_base_ptr,
+                                &[local_offset],
                                 ""
                             ))
-                            .into_pointer_value()
-                        } else {
-                            let offset = offsets.vmctx_vmglobal_definition(local_global_index);
-                            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                            let global_ptr_ptr = unsafe {
-                                err!(cache_builder.build_gep(
-                                    intrinsics.i8_ty,
-                                    ctx_ptr_value,
-                                    &[offset],
-                                    ""
-                                ))
-                            };
-                            err!(cache_builder.build_bit_cast(
-                                global_ptr_ptr,
-                                intrinsics.ptr_ty,
-                                ""
-                            ))
-                            .into_pointer_value()
                         }
                     } else {
-                        let offset = offsets.vmctx_vmglobal_import(index);
+                        let offset = offsets.vmctx_vmglobal_definition(local_global_index);
                         let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        let global_ptr_ptr = unsafe {
+                        unsafe {
                             err!(cache_builder.build_gep(
                                 intrinsics.i8_ty,
                                 ctx_ptr_value,
                                 &[offset],
                                 ""
                             ))
-                        };
-                        err!(cache_builder.build_bit_cast(
-                            global_ptr_ptr,
-                            intrinsics.ptr_ty,
+                        }
+                    }
+                } else {
+                    let offset = offsets.vmctx_vmglobal_import(index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    let global_ptr_ptr = unsafe {
+                        err!(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            ctx_ptr_value,
+                            &[offset],
                             ""
                         ))
-                        .into_pointer_value()
                     };
-                    let global_ptr =
-                        err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
-                            .into_pointer_value();
-                    tbaa_label(
-                        module,
-                        intrinsics,
-                        format!("global_ptr {}", index.as_u32()),
-                        global_ptr.as_instruction_value().unwrap(),
-                    );
-                    global_ptr
+                    let global_ptr_ptr = err!(cache_builder.build_bit_cast(
+                        global_ptr_ptr,
+                        intrinsics.ptr_ty,
+                        ""
+                    ))
+                    .into_pointer_value();
+                    err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
+                        .into_pointer_value()
                 };
+                tbaa_label(
+                    module,
+                    intrinsics,
+                    format!("global_ptr {}", index.as_u32()),
+                    global_ptr.as_instruction_value().unwrap(),
+                );
                 let global_ptr = err!(cache_builder.build_bit_cast(
                     global_ptr,
                     type_to_llvm_ptr(intrinsics, global_value_type)?,
