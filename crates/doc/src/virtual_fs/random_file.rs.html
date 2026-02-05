@@ -54,7 +54,7 @@
 <a href=#54 id=54 data-nosnippet>54</a>        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#55 id=55 data-nosnippet>55</a>    ) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
 <a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[<span class="number">0u8</span>; buf.remaining()];
-<a href=#57 id=57 data-nosnippet>57</a>        getrandom::getrandom(<span class="kw-2">&amp;mut </span>data).ok();
+<a href=#57 id=57 data-nosnippet>57</a>        getrandom::fill(<span class="kw-2">&amp;mut </span>data).ok();
 <a href=#58 id=58 data-nosnippet>58</a>        buf.put_slice(<span class="kw-2">&amp;</span>data[..]);
 <a href=#59 id=59 data-nosnippet>59</a>        Poll::Ready(<span class="prelude-val">Ok</span>(()))
 <a href=#60 id=60 data-nosnippet>60</a>    }

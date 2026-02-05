@@ -918,7 +918,7 @@
 <a href=#918 id=918 data-nosnippet>918</a>
 <a href=#919 id=919 data-nosnippet>919</a>        <span class="kw">let </span>state = WasiState {
 <a href=#920 id=920 data-nosnippet>920</a>            fs: wasi_fs,
-<a href=#921 id=921 data-nosnippet>921</a>            secret: rand::thread_rng().r#gen::&lt;[u8; <span class="number">32</span>]&gt;(),
+<a href=#921 id=921 data-nosnippet>921</a>            secret: rand::rng().random::&lt;[u8; <span class="number">32</span>]&gt;(),
 <a href=#922 id=922 data-nosnippet>922</a>            inodes,
 <a href=#923 id=923 data-nosnippet>923</a>            args: std::sync::Mutex::new(<span class="self">self</span>.args.clone()),
 <a href=#924 id=924 data-nosnippet>924</a>            preopen: <span class="self">self</span>.vfs_preopens.clone(),

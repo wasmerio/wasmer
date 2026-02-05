@@ -18,7 +18,7 @@
 <a href=#18 id=18 data-nosnippet>18</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 <a href=#19 id=19 data-nosnippet>19</a>    <span class="kw">let </span>buf_len64: u64 = buf_len.into();
 <a href=#20 id=20 data-nosnippet>20</a>    <span class="kw">let </span><span class="kw-2">mut </span>u8_buffer = <span class="macro">vec!</span>[<span class="number">0</span>; buf_len64 <span class="kw">as </span>usize];
-<a href=#21 id=21 data-nosnippet>21</a>    <span class="kw">let </span>res = getrandom::getrandom(<span class="kw-2">&amp;mut </span>u8_buffer);
+<a href=#21 id=21 data-nosnippet>21</a>    <span class="kw">let </span>res = getrandom::fill(<span class="kw-2">&amp;mut </span>u8_buffer);
 <a href=#22 id=22 data-nosnippet>22</a>    <span class="kw">match </span>res {
 <a href=#23 id=23 data-nosnippet>23</a>        <span class="prelude-val">Ok</span>(()) =&gt; {
 <a href=#24 id=24 data-nosnippet>24</a>            <span class="kw">let </span>buf = <span class="macro">wasi_try_mem!</span>(buf.slice(<span class="kw-2">&amp;</span>memory, buf_len));
