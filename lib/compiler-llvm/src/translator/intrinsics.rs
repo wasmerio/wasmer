@@ -1304,6 +1304,7 @@ pub struct FunctionCache<'ctx> {
 
 pub struct CtxType<'ctx, 'a> {
     ctx_ptr_value: PointerValue<'ctx>,
+    globals_base_ptr: Option<PointerValue<'ctx>>,
 
     config: &'a LLVM,
     wasm_module: &'a WasmerCompilerModule,
@@ -1328,10 +1329,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         abi: &'a dyn Abi,
         config: &'a LLVM,
         pointer_width: u8,
+        globals_base_ptr: Option<PointerValue<'ctx>>,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
             config,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
+            globals_base_ptr,
 
             wasm_module,
             cache_builder,
@@ -1682,13 +1685,15 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> Result<&GlobalCache<'ctx>, CompileError> {
-        let (cached_globals, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
-            &mut self.cached_globals,
-            self.wasm_module,
-            self.ctx_ptr_value,
-            &self.cache_builder,
-            &self.offsets,
-        );
+        let (cached_globals, wasm_module, ctx_ptr_value, globals_base_ptr, cache_builder, offsets) =
+            (
+                &mut self.cached_globals,
+                self.wasm_module,
+                self.ctx_ptr_value,
+                self.globals_base_ptr,
+                &self.cache_builder,
+                &self.offsets,
+            );
         match cached_globals.entry(index) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
             Entry::Vacant(entry) => {
@@ -1696,25 +1701,65 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let global_value_type = global_type.ty;
 
                 let global_mutability = global_type.mutability;
-                let offset = if let Some(local_global_index) = wasm_module.local_global_index(index)
-                {
-                    offsets.vmctx_vmglobal_definition(local_global_index)
-                } else {
-                    offsets.vmctx_vmglobal_import(index)
-                };
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
                 let global_ptr = {
-                    let global_ptr_ptr = unsafe {
-                        err!(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            ctx_ptr_value,
-                            &[offset],
+                    let global_ptr_ptr = if let Some(local_global_index) =
+                        wasm_module.local_global_index(index)
+                    {
+                        if let Some(globals_base_ptr) = globals_base_ptr {
+                            let local_offset = local_global_index.as_u32()
+                                * u32::from(offsets.size_of_vmglobal_local());
+                            let local_offset =
+                                intrinsics.i32_ty.const_int(local_offset.into(), false);
+                            let global_ptr_ptr = unsafe {
+                                err!(cache_builder.build_gep(
+                                    intrinsics.i8_ty,
+                                    globals_base_ptr,
+                                    &[local_offset],
+                                    ""
+                                ))
+                            };
+                            err!(cache_builder.build_bit_cast(
+                                global_ptr_ptr,
+                                intrinsics.ptr_ty,
+                                ""
+                            ))
+                            .into_pointer_value()
+                        } else {
+                            let offset = offsets.vmctx_vmglobal_definition(local_global_index);
+                            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                            let global_ptr_ptr = unsafe {
+                                err!(cache_builder.build_gep(
+                                    intrinsics.i8_ty,
+                                    ctx_ptr_value,
+                                    &[offset],
+                                    ""
+                                ))
+                            };
+                            err!(cache_builder.build_bit_cast(
+                                global_ptr_ptr,
+                                intrinsics.ptr_ty,
+                                ""
+                            ))
+                            .into_pointer_value()
+                        }
+                    } else {
+                        let offset = offsets.vmctx_vmglobal_import(index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        let global_ptr_ptr = unsafe {
+                            err!(cache_builder.build_gep(
+                                intrinsics.i8_ty,
+                                ctx_ptr_value,
+                                &[offset],
+                                ""
+                            ))
+                        };
+                        err!(cache_builder.build_bit_cast(
+                            global_ptr_ptr,
+                            intrinsics.ptr_ty,
                             ""
                         ))
+                        .into_pointer_value()
                     };
-                    let global_ptr_ptr =
-                        err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
-                            .into_pointer_value();
                     let global_ptr =
                         err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
                             .into_pointer_value();

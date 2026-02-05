@@ -380,7 +380,7 @@ impl Instance {
         unsafe {
             // Even though we already know the type of the function we need to call, in certain
             // specific cases trampoline prepare callee arguments for specific optimizations, such
-            // as passing g0 and m0_base_ptr as paramters.
+            // as passing the globals base pointer and m0_base_ptr as parameters.
             wasmer_call_trampoline(
                 trap_handler,
                 config,
