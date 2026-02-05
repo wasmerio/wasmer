@@ -53,11 +53,15 @@ pub fn proc_exec3<M: MemorySize>(
         warn!("failed to execve as the args could not be read - {}", err);
         WasiError::Exit(Errno::Inval.into())
     })?;
-    let args: Vec<_> = args
+    let mut args: Vec<_> = args
         .split(&['\n', '\r'])
         .map(|a| a.to_string())
         .filter(|a| !a.is_empty())
         .collect();
+    if args.is_empty() {
+        // POSIX expects argv[0] to be present even if caller passed empty argv.
+        args.push(name.clone());
+    }
 
     let envs = if !envs.is_null() {
         let envs = envs.read_utf8_string(&memory, envs_len).map_err(|err| {
@@ -100,13 +104,34 @@ pub fn proc_exec3<M: MemorySize>(
         match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), &name) {
             FindExecutableResult::Found(p) => name = p,
             FindExecutableResult::AccessError => return Ok(Errno::Access),
-            FindExecutableResult::NotFound => return Ok(Errno::Noexec),
+            FindExecutableResult::NotFound => return Ok(Errno::Noent),
         }
     } else if name.starts_with("./") {
         name = ctx.data().state.fs.relative_path_to_absolute(name);
     }
 
+    if search_path == Bool::False && !name.starts_with('/') {
+        name = ctx.data().state.fs.relative_path_to_absolute(name);
+    }
+
     trace!(name);
+
+    // ENAMETOOLONG: any path component > 255 bytes
+    if name.split('/').any(|seg| seg.len() > 255) {
+        return Ok(Errno::Nametoolong);
+    }
+
+    if name.contains('/') {
+        let (_, state, inodes) =
+            unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+        match state.fs.get_inode_at_path(inodes, VIRTUAL_ROOT_FD, &name, true) {
+            Ok(_) => (),
+            Err(Errno::Notdir) => return Ok(Errno::Notdir),
+            Err(Errno::Noent) => return Ok(Errno::Noent),
+            Err(Errno::Access) => return Ok(Errno::Access),
+            Err(_) => (),
+        }
+    }
 
     // Convert the preopen directories
     let preopen = ctx.data().state.preopen.clone();
@@ -184,7 +209,7 @@ pub fn proc_exec3<M: MemorySize>(
 
                                 debug!(%child_pid, "process failed with (err={})", err_exit_code);
 
-                                Err(Errno::Noexec)
+                                Err(conv_spawn_err_to_errno(&err))
                             }
                         }
                     })
@@ -308,7 +333,7 @@ pub fn proc_exec3<M: MemorySize>(
                     "failed to execve as the process could not be spawned (fork)[0] - {}",
                     err
                 );
-                Ok(Errno::Noexec)
+                Ok(conv_spawn_err_to_errno(&err))
             }
         }
     }

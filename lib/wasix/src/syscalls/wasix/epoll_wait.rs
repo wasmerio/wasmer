@@ -29,6 +29,24 @@ pub fn epoll_wait<M: MemorySize + 'static>(
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
+    if maxevents <= 0 {
+        return Ok(Errno::Inval);
+    }
+
+    {
+        let env = ctx.data();
+        let memory = unsafe { env.memory_view(&ctx) };
+        let maxevents_offset: M::Offset = match maxevents.try_into() {
+            Ok(v) => v,
+            Err(_) => return Ok(Errno::Overflow),
+        };
+        let event_array = wasi_try_mem_ok!(events.slice(&memory, maxevents_offset));
+        if maxevents > 0 {
+            let _ = wasi_try_mem_ok!(event_array.index(0).read());
+        }
+        wasi_try_mem_ok!(ret_nevents.read(&memory));
+    }
+
     if timeout == TIMEOUT_FOREVER {
         tracing::trace!(maxevents, epfd, "waiting forever on wakers");
     } else {
