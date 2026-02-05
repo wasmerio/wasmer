@@ -51,9 +51,9 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, Type,
+    ModuleInfo, SignatureIndex, TableIndex, TagIndex, Type, entity::PrimaryMap,
+    entity::packed_option::ReservedValue,
 };
-use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
 const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_function";
@@ -1572,10 +1572,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
         let mut local_func_indices = vec![];
         let mut foreign_func_indices = vec![];
+        let mut has_null = false;
 
         for t in &self.wasm_module.table_initializers {
             if t.table_index.as_u32() == table_index {
                 for (func_in_table_idx, func_idx) in t.elements.iter().enumerate() {
+                    if func_idx.is_reserved_value() {
+                        has_null = true;
+                        continue;
+                    }
                     if self.wasm_module.local_func_index(*func_idx).is_some() {
                         local_func_indices.push(func_in_table_idx)
                     } else {
@@ -1587,8 +1592,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
 
         let needs_switch = self.g0m0.is_some()
-            && !local_func_indices.is_empty()
-            && !foreign_func_indices.is_empty();
+            && (has_null || (!local_func_indices.is_empty() && !foreign_func_indices.is_empty()));
 
         if needs_switch {
             let foreign_idx_block = self
