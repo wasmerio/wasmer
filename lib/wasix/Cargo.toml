@@ -61,8 +61,7 @@ anyhow.workspace = true
 sha2.workspace = true
 waker-fn.workspace = true
 cooked-waker.workspace = true
-# TODO: port to newer version
-rand = "0.8"
+rand.workspace = true
 tokio = { workspace = true, features = [
 	"sync",
 	"macros",
@@ -185,9 +184,16 @@ wasmer = { path = "../api", version = "=7.0.1", default-features = false, featur
 	"cranelift",
 ] }
 
-[target.'cfg(all(target_arch = "wasm32", any(target_os = "unknown", target_os = "none")))'.dependencies]
-# Enable the wasm JS backend for the getrandom 0.3.x instance pulled in by other deps.
-getrandom_wasm_js = { package = "getrandom", version = "0.3.4", features = ["wasm_js"] }
+[target.'cfg(all(target_arch = "wasm32", any(target_os = "unknown", target_os = "none")))'.dependencies.getrandom]
+# Enable the wasm JS backend for getrandom on wasm32-unknown-unknown/none.
+workspace = true
+features = ["wasm_js"]
+
+[target.'cfg(all(target_arch = "wasm32", any(target_os = "unknown", target_os = "none")))'.dependencies.getrandom03]
+# Enable wasm_js for the getrandom 0.3.x instance pulled in by rand 0.9.
+package = "getrandom"
+version = "0.3.4"
+features = ["wasm_js"]
 
 [features]
 default = ["sys-default"]
@@ -242,7 +248,7 @@ compiler = []
 
 js = [
 	"virtual-fs/js",
-	"getrandom/js",
+	"getrandom/wasm_js",
 	"chrono",
 	"js-sys",
 	"wasm-bindgen",

@@ -51,7 +51,7 @@ async-tungstenite = { workspace = true, features = [
 
 [target.'cfg(target_family = "wasm")'.dependencies.getrandom]
 workspace = true
-features = ["js"]
+features = ["wasm_js"]
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
