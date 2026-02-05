@@ -322,6 +322,11 @@ impl VMOffsets {
         self.num_local_memories
     }
 
+    /// Number of local globals defined in the module
+    pub fn num_local_globals(&self) -> u32 {
+        self.num_local_globals
+    }
+
     fn precompute(&mut self) {
         /// Offset base by num_items items of size item_size, panicking on overflow
         fn offset_by(base: u32, num_items: u32, item_size: u32) -> u32 {
@@ -577,14 +582,14 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for a non-null pointer to a `VMGlobalDefinition` used as a local global.
+/// Offsets for a `VMGlobalDefinition` used as a local global.
 impl VMOffsets {
-    /// Return the size of a pointer to a `VMGlobalDefinition`;
+    /// Return the size of a `VMGlobalDefinition`.
     ///
-    /// The underlying global itself is the size of the largest value type (i.e. a V128),
-    /// however the size of this type is just the size of a pointer.
+    /// Local globals are stored inline in the `VMContext`, and the definition
+    /// is a 16-byte `RawValue` aligned to 16.
     pub const fn size_of_vmglobal_local(&self) -> u8 {
-        self.pointer_size
+        16
     }
 }
 

@@ -872,8 +872,12 @@ impl Artifact {
             // Get pointers to where metadata about local memories should live in VM memory.
             // Get pointers to where metadata about local tables should live in VM memory.
 
-            let (allocator, memory_definition_locations, table_definition_locations) =
-                InstanceAllocator::new(&module);
+            let (
+                allocator,
+                memory_definition_locations,
+                table_definition_locations,
+                global_definition_locations,
+            ) = InstanceAllocator::new(&module);
             let finished_memories = tunables
                 .create_memories(
                     context,
@@ -893,7 +897,7 @@ impl Artifact {
                 .map_err(InstantiationError::Link)?
                 .into_boxed_slice();
             let finished_globals = tunables
-                .create_globals(context, &module)
+                .create_globals(context, &module, &global_definition_locations)
                 .map_err(InstantiationError::Link)?
                 .into_boxed_slice();
 

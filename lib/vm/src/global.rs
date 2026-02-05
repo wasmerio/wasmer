@@ -14,11 +14,27 @@ impl VMGlobal {
     pub fn new(global_type: GlobalType) -> Self {
         Self {
             ty: global_type,
-            // TODO: Currently all globals are host-owned, we should inline the
-            // VMGlobalDefinition in VMContext for instance-defined globals.
             vm_global_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
                 VMGlobalDefinition::new(),
             ))),
+        }
+    }
+
+    /// Create a new global backed by a `VMGlobalDefinition` stored inline in a `VMContext`.
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must be a valid, properly aligned location for
+    ///   a `VMGlobalDefinition`.
+    pub unsafe fn new_instance(
+        global_type: GlobalType,
+        vm_definition_location: NonNull<VMGlobalDefinition>,
+    ) -> Self {
+        unsafe {
+            vm_definition_location.as_ptr().write(VMGlobalDefinition::new());
+        }
+        Self {
+            ty: global_type,
+            vm_global_definition: MaybeInstanceOwned::Instance(vm_definition_location),
         }
     }
 
