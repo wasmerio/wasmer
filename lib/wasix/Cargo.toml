@@ -185,6 +185,10 @@ wasmer = { path = "../api", version = "=7.0.1", default-features = false, featur
 	"cranelift",
 ] }
 
+[target.'cfg(all(target_arch = "wasm32", any(target_os = "unknown", target_os = "none")))'.dependencies]
+# Enable the wasm JS backend for the getrandom 0.3.x instance pulled in by other deps.
+getrandom_wasm_js = { package = "getrandom", version = "0.3.4", features = ["wasm_js"] }
+
 [features]
 default = ["sys-default"]
 

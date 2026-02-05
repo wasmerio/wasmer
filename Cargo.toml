@@ -34,6 +34,10 @@ tokio = { workspace = true, features = [
 	"macros",
 ], optional = true }
 
+[target.'cfg(all(target_arch = "wasm32", any(target_os = "unknown", target_os = "none")))'.dependencies]
+# Enable the wasm JS backend for getrandom 0.3.x when targeting wasm32-unknown-unknown/none.
+getrandom = { version = "0.3.4", features = ["wasm_js"] }
+
 [workspace]
 members = [
 	"fuzz",
@@ -91,7 +95,7 @@ wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
-webc = "=10.0.1"
+webc = "=11.0.0"
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
