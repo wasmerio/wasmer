@@ -304,7 +304,7 @@ impl FuncTranslator {
             let g0 = self.abi.get_globals_ptr_param(&func);
             g0.set_name("globals_base_ptr");
             let m0 = self.abi.get_memory_ptr_param(&func);
-            m0.set_name("m0_base_ptr");
+            m0.set_name("memory_base_ptr");
 
             globals_base_ptr = Some(g0);
             g0m0_params = Some((g0, m0));
