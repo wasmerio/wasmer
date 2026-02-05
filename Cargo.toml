@@ -34,10 +34,6 @@ tokio = { workspace = true, features = [
 	"macros",
 ], optional = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-# Enable the wasm JS backend for getrandom when targeting wasm32-unknown-unknown/none.
-getrandom = { version = "0.4.1", features = ["wasm_js"] }
-
 [workspace]
 members = [
 	"fuzz",

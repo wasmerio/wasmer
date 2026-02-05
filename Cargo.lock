@@ -7514,7 +7514,6 @@ dependencies = [
  "compiler-test-derive",
  "criterion",
  "crossbeam-queue",
- "getrandom 0.4.1",
  "glob",
  "itertools 0.14.0",
  "reqwest",
