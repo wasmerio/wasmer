@@ -495,59 +495,24 @@ impl FuncTrampoline {
             let wasm_module = &compile_info.module;
             let memory_styles = &compile_info.memory_styles;
             let callee_vmctx_ptr_value = callee_vmctx_ptr.into_pointer_value();
-            // get value of G0, get a pointer to M0's base
+            // get a pointer to the locals globals array and a pointer to M0's base
 
             let offsets = wasmer_vm::VMOffsets::new(8, wasm_module);
 
-            let global_index = wasmer_types::GlobalIndex::from_u32(0);
-            let global_type = wasm_module.globals[global_index];
-            let global_value_type = global_type.ty;
-            let global_mutability = global_type.mutability;
-
-            let offset =
-                if let Some(local_global_index) = wasm_module.local_global_index(global_index) {
-                    offsets.vmctx_vmglobal_definition(local_global_index)
-                } else {
-                    offsets.vmctx_vmglobal_import(global_index)
-                };
-            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-            let global_ptr = {
-                let global_ptr_ptr = unsafe {
-                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
-                };
-                let global_ptr_ptr =
-                    err!(builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
-                        .into_pointer_value();
-
-                err!(builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, "")).into_pointer_value()
+            let globals_base_offset = offsets.vmctx_globals_begin();
+            let globals_base_offset =
+                intrinsics.i32_ty.const_int(globals_base_offset.into(), false);
+            let globals_base_ptr = unsafe {
+                err!(builder.build_gep(
+                    intrinsics.i8_ty,
+                    callee_vmctx_ptr_value,
+                    &[globals_base_offset],
+                    "trmpl_globals_base_ptr"
+                ))
             };
 
-            let global_ptr = err!(builder.build_bit_cast(
-                global_ptr,
-                type_to_llvm_ptr(intrinsics, global_value_type)?,
-                "",
-            ))
-            .into_pointer_value();
-
-            let global_value = match global_mutability {
-                wasmer_types::Mutability::Const => {
-                    err!(builder.build_load(
-                        type_to_llvm(intrinsics, global_value_type)?,
-                        global_ptr,
-                        "g0",
-                    ))
-                }
-                wasmer_types::Mutability::Var => {
-                    err!(builder.build_load(
-                        type_to_llvm(intrinsics, global_value_type)?,
-                        global_ptr,
-                        ""
-                    ))
-                }
-            };
-
-            global_value.set_name("trmpl_g0");
-            args_vec.push(global_value.into());
+            globals_base_ptr.set_name("trmpl_globals_base_ptr");
+            args_vec.push(globals_base_ptr.into());
 
             // load mem
             let memory_index = wasmer_types::MemoryIndex::from_u32(0);

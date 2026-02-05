@@ -34,8 +34,8 @@ impl Abi for X86_64SystemV {
 
         let mut param_types = vec![Ok(intrinsics.ptr_ty.as_basic_type_enum())];
         if function_kind.is_some_and(|v| v.is_local()) {
-            // The value of g0
-            param_types.push(Ok(intrinsics.i32_ty.as_basic_type_enum()));
+            // The base pointer to the local globals array.
+            param_types.push(Ok(intrinsics.ptr_ty.as_basic_type_enum()));
             // The base pointer to m0
             param_types.push(Ok(intrinsics.ptr_ty.as_basic_type_enum()));
         }

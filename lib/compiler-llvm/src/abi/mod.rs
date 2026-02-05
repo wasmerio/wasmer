@@ -14,7 +14,7 @@ use inkwell::{
     context::Context,
     targets::TargetMachine,
     types::FunctionType,
-    values::{BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
+    values::{BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
 };
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
@@ -59,7 +59,7 @@ impl G0M0FunctionKind {
 }
 
 /// The two additional parameters needed for g0m0 optimization.
-pub(crate) type LocalFunctionG0M0params<'ctx> = Option<(IntValue<'ctx>, PointerValue<'ctx>)>;
+pub(crate) type LocalFunctionG0M0params<'ctx> = Option<(PointerValue<'ctx>, PointerValue<'ctx>)>;
 
 /// We need to produce different LLVM IR for different platforms. (Contrary to
 /// popular knowledge LLVM IR is not intended to be portable in that way.) This
@@ -83,10 +83,10 @@ pub trait Abi {
         param.into_pointer_value()
     }
 
-    /// Given a function definition, retrieve the parameter that is the pointer to the first --
-    /// number 0 -- local global.
+    /// Given a function definition, retrieve the parameter that is the pointer to the base of the
+    /// local globals array.
     #[allow(unused)]
-    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> IntValue<'ctx> {
+    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
         // g0 is always after the vmctx.
         let vmctx_idx = u32::from(
             func_value
@@ -98,9 +98,9 @@ pub trait Abi {
         );
 
         let param = func_value.get_nth_param(vmctx_idx + 1).unwrap();
-        param.set_name("g0");
+        param.set_name("globals_base_ptr");
 
-        param.into_int_value()
+        param.into_pointer_value()
     }
 
     /// Given a function definition, retrieve the parameter that is the pointer to the first --

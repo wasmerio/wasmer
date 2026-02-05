@@ -298,15 +298,15 @@ impl FuncTranslator {
         params_locals.extend(locals.iter().cloned());
 
         let mut g0m0_params = None;
+        let mut globals_base_ptr = None;
 
         if g0m0_is_enabled {
-            let value = self.abi.get_g0_ptr_param(&func);
-            let g0 = insert_alloca(intrinsics.i32_ty.as_basic_type_enum(), "g0".to_string())?;
-            err!(cache_builder.build_store(g0, value));
-            g0.set_name("g0");
+            let g0 = self.abi.get_g0_ptr_param(&func);
+            g0.set_name("globals_base_ptr");
             let m0 = self.abi.get_m0_ptr_param(&func);
             m0.set_name("m0_base_ptr");
 
+            globals_base_ptr = Some(g0);
             g0m0_params = Some((g0, m0));
         }
 
@@ -326,6 +326,7 @@ impl FuncTranslator {
                 &*self.abi,
                 config,
                 self.pointer_width,
+                globals_base_ptr,
             ),
             unreachable_depth: 0,
             memory_styles,
@@ -1585,10 +1586,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
         }
 
-        // removed with mem2reg.
-        //
-        let g0_value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, "g0"));
-
         let needs_switch = self.g0m0.is_some()
             && !local_func_indices.is_empty()
             && !foreign_func_indices.is_empty();
@@ -1635,7 +1632,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 func_type,
                 func_ptr,
                 Some(G0M0FunctionKind::Local),
-                Some((g0_value.into_int_value(), m0)),
+                Some((g0, m0)),
             )?;
 
             let local_rets = self.abi.rets_from_call(
@@ -1681,7 +1678,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 func_type,
                 func_ptr,
                 Some(G0M0FunctionKind::Local),
-                Some((g0_value.into_int_value(), m0)),
+                Some((g0, m0)),
             )?;
 
             self.abi
@@ -1694,7 +1691,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 func_type,
                 func_ptr,
                 Some(G0M0FunctionKind::Imported),
-                Some((g0_value.into_int_value(), m0)),
+                None,
             )?;
             self.abi
                 .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
@@ -2826,75 +2823,52 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
 
             Operator::GlobalGet { global_index } => {
-                if self.g0m0.is_some() && global_index == 0 {
-                    let Some((g0, _)) = self.g0m0 else {
-                        unreachable!()
-                    };
-
-                    // Removed with mem2reg.
-                    let value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, ""));
-
-                    self.state.push1(value);
-                } else {
-                    let global_index = GlobalIndex::from_u32(global_index);
-                    match self
-                        .ctx
-                        .global(global_index, self.intrinsics, self.module)?
-                    {
-                        GlobalCache::Const { value } => {
-                            self.state.push1(*value);
-                        }
-                        GlobalCache::Mut {
-                            ptr_to_value,
-                            value_type,
-                        } => {
-                            let value =
-                                err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
-                            tbaa_label(
-                                self.module,
-                                self.intrinsics,
-                                format!("global {}", global_index.as_u32()),
-                                value.as_instruction_value().unwrap(),
-                            );
-                            self.state.push1(value);
-                        }
+                let global_index = GlobalIndex::from_u32(global_index);
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
+                    GlobalCache::Const { value } => {
+                        self.state.push1(*value);
+                    }
+                    GlobalCache::Mut {
+                        ptr_to_value,
+                        value_type,
+                    } => {
+                        let value = err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("global {}", global_index.as_u32()),
+                            value.as_instruction_value().unwrap(),
+                        );
+                        self.state.push1(value);
                     }
                 }
             }
             Operator::GlobalSet { global_index } => {
-                if self.g0m0.is_some() && global_index == 0 {
-                    let Some((g0, _)) = self.g0m0 else {
-                        unreachable!()
-                    };
-                    let ptr_to_value = g0;
-                    let (value, info) = self.state.pop1_extra()?;
-                    let value = self.apply_pending_canonicalization(value, info)?;
-                    let store = err!(self.builder.build_store(ptr_to_value, value));
-                    tbaa_label(self.module, self.intrinsics, "global 0".to_string(), store);
-                } else {
-                    let global_index = GlobalIndex::from_u32(global_index);
-                    match self
-                        .ctx
-                        .global(global_index, self.intrinsics, self.module)?
-                    {
-                        GlobalCache::Const { value: _ } => {
-                            return Err(CompileError::Codegen(format!(
-                                "global.set on immutable global index {}",
-                                global_index.as_u32()
-                            )));
-                        }
-                        GlobalCache::Mut { ptr_to_value, .. } => {
-                            let ptr_to_value = *ptr_to_value;
-                            let (value, info) = self.state.pop1_extra()?;
-                            let value = self.apply_pending_canonicalization(value, info)?;
-                            let store = err!(self.builder.build_store(ptr_to_value, value));
-                            tbaa_label(
-                                self.module,
-                                self.intrinsics,
-                                format!("global {}", global_index.as_u32()),
-                                store,
-                            );
-                        }
+                let global_index = GlobalIndex::from_u32(global_index);
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
+                    GlobalCache::Const { value: _ } => {
+                        return Err(CompileError::Codegen(format!(
+                            "global.set on immutable global index {}",
+                            global_index.as_u32()
+                        )));
+                    }
+                    GlobalCache::Mut { ptr_to_value, .. } => {
+                        let ptr_to_value = *ptr_to_value;
+                        let (value, info) = self.state.pop1_extra()?;
+                        let value = self.apply_pending_canonicalization(value, info)?;
+                        let store = err!(self.builder.build_store(ptr_to_value, value));
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("global {}", global_index.as_u32()),
+                            store,
+                        );
                     }
                 }
             }
@@ -2957,10 +2931,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
                     if let Some((g0, m0)) = &self.g0m0 {
-                        // removed with mem2reg.
-                        let value = err!(self.builder.build_load(self.intrinsics.i32_ty, *g0, ""));
-
-                        g0m0_params = Some((value.into_int_value(), *m0));
+                        g0m0_params = Some((*g0, *m0));
                     }
 
                     let function_name = self
