@@ -500,8 +500,9 @@ impl FuncTrampoline {
             let offsets = wasmer_vm::VMOffsets::new(8, wasm_module);
 
             let globals_base_offset = offsets.vmctx_globals_begin();
-            let globals_base_offset =
-                intrinsics.i32_ty.const_int(globals_base_offset.into(), false);
+            let globals_base_offset = intrinsics
+                .i32_ty
+                .const_int(globals_base_offset.into(), false);
             let globals_base_ptr = unsafe {
                 err!(builder.build_gep(
                     intrinsics.i8_ty,
@@ -515,48 +516,67 @@ impl FuncTrampoline {
             args_vec.push(globals_base_ptr.into());
 
             // load mem
-            let memory_index = wasmer_types::MemoryIndex::from_u32(0);
-            let memory_definition_ptr = if let Some(local_memory_index) =
-                wasm_module.local_memory_index(memory_index)
-            {
-                let offset = offsets.vmctx_vmmemory_definition(local_memory_index);
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                unsafe {
-                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
-                }
+            if wasm_module.memories.is_empty() {
+                let null_ptr = intrinsics.ptr_ty.const_zero();
+                args_vec.push(null_ptr.into());
             } else {
-                let offset = offsets.vmctx_vmmemory_import(memory_index);
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                let memory_definition_ptr_ptr = unsafe {
-                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
-                };
-                let memory_definition_ptr_ptr =
-                    err!(builder.build_bit_cast(memory_definition_ptr_ptr, intrinsics.ptr_ty, "",))
-                        .into_pointer_value();
-
-                err!(builder.build_load(intrinsics.ptr_ty, memory_definition_ptr_ptr, ""))
-                    .into_pointer_value()
-            };
-            let memory_definition_ptr =
-                err!(builder.build_bit_cast(memory_definition_ptr, intrinsics.ptr_ty, "",))
+                let memory_index = wasmer_types::MemoryIndex::from_u32(0);
+                let memory_definition_ptr = if let Some(local_memory_index) =
+                    wasm_module.local_memory_index(memory_index)
+                {
+                    let offset = offsets.vmctx_vmmemory_definition(local_memory_index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    unsafe {
+                        err!(builder.build_gep(
+                            intrinsics.i8_ty,
+                            callee_vmctx_ptr_value,
+                            &[offset],
+                            ""
+                        ))
+                    }
+                } else {
+                    let offset = offsets.vmctx_vmmemory_import(memory_index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    let memory_definition_ptr_ptr = unsafe {
+                        err!(builder.build_gep(
+                            intrinsics.i8_ty,
+                            callee_vmctx_ptr_value,
+                            &[offset],
+                            ""
+                        ))
+                    };
+                    let memory_definition_ptr_ptr = err!(builder.build_bit_cast(
+                        memory_definition_ptr_ptr,
+                        intrinsics.ptr_ty,
+                        "",
+                    ))
                     .into_pointer_value();
-            let base_ptr = err!(builder.build_struct_gep(
-                intrinsics.vmmemory_definition_ty,
-                memory_definition_ptr,
-                intrinsics.vmmemory_definition_base_element,
-                "",
-            ));
 
-            let memory_style = &memory_styles[memory_index];
-            let base_ptr = if let MemoryStyle::Dynamic { .. } = memory_style {
-                base_ptr
-            } else {
-                err!(builder.build_load(intrinsics.ptr_ty, base_ptr, "")).into_pointer_value()
-            };
+                    err!(builder.build_load(intrinsics.ptr_ty, memory_definition_ptr_ptr, ""))
+                        .into_pointer_value()
+                };
+                let memory_definition_ptr =
+                    err!(builder.build_bit_cast(memory_definition_ptr, intrinsics.ptr_ty, "",))
+                        .into_pointer_value();
+                let base_ptr = err!(builder.build_struct_gep(
+                    intrinsics.vmmemory_definition_ty,
+                    memory_definition_ptr,
+                    intrinsics.vmmemory_definition_base_element,
+                    "",
+                ));
 
-            base_ptr.set_name("trmpl_m0_base_ptr");
+                let memory_style = &memory_styles[memory_index];
+                let base_ptr = if let MemoryStyle::Dynamic { .. } = memory_style {
+                    base_ptr
+                } else {
+                    err!(builder.build_load(intrinsics.ptr_ty, base_ptr, ""))
+                        .into_pointer_value()
+                };
 
-            args_vec.push(base_ptr.into());
+                base_ptr.set_name("trmpl_m0_base_ptr");
+
+                args_vec.push(base_ptr.into());
+            }
         }
 
         for (i, param_ty) in func_sig.params().iter().enumerate() {
