@@ -30,9 +30,7 @@ wasmparser = { workspace = true, default-features = false, optional = true }
 
 # `rand` uses `getrandom` transitively, and to be able to
 # compile the project for `js`, we need to enable this feature
-[dependencies.getrandom]
-workspace = true
-features = ["js"]
+getrandom = { workspace = true, features = ["wasm_js"] }
 
 [dev-dependencies]
 memoffset.workspace = true

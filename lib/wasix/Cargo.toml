@@ -238,7 +238,7 @@ compiler = []
 
 js = [
 	"virtual-fs/js",
-	"getrandom/js",
+	"getrandom/wasm_js",
 	"chrono",
 	"js-sys",
 	"wasm-bindgen",
