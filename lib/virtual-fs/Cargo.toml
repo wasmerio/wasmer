@@ -65,7 +65,7 @@ host-fs = [
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
 enable-serde = ["typetag", "serde"]
-js = ["dep:web-time", "getrandom/js"]
+js = ["dep:web-time", "getrandom/wasm_js"]
 # Enables memory tracking/limiting functionality for the in-memory filesystem.
 tracking = []
 futures = []
