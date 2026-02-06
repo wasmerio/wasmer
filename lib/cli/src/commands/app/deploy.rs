@@ -1313,18 +1313,17 @@ fn format_autobuild_datetime(datetime: &wasmer_backend_api::types::DateTime) -> 
 }
 
 fn format_duration_words(duration: TimeDuration) -> String {
-    const ONE_SECOND: TimeDuration = Duration::from_seconds(1);
-    const ONE_MINUTE: TimeDuration = Duration::from_minutes(1);
-    const ONE_HOUR: TimeDuration = Duration::from_hours(1);
-    const ONE_DAY: TimeDuration = Duration::from_hours(24);
+    const ONE_MINUTE: TimeDuration = TimeDuration::MINUTE;
+    const ONE_HOUR: TimeDuration = TimeDuration::HOUR;
+    const ONE_DAY: TimeDuration = TimeDuration::DAY;
 
-    if duration >= ONE_DAY - ONE_HOUR {
+    if duration >= ONE_DAY {
         let days = duration.whole_days();
         format!("{days} day{}", if days == 1 { "" } else { "s" })
-    } else if duration >= ONE_HOUR - ONE_MINUTE {
+    } else if duration >= ONE_HOUR {
         let hours = duration.whole_hours();
         format!("{hours} hour{}", if hours == 1 { "" } else { "s" })
-    } else if duration >= ONE_MINUTE - ONE_SECOND {
+    } else if duration >= ONE_MINUTE {
         let minutes = duration.whole_minutes();
         format!("{minutes} minute{}", if minutes == 1 { "" } else { "s" })
     } else {
@@ -1363,4 +1362,45 @@ pub fn app_config_from_api(version: &DeployAppVersion) -> Result<AppConfigV1, an
 
     cfg.app_id = Some(app_id);
     Ok(cfg)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_duration_words;
+    use time::Duration as TimeDuration;
+
+    #[test]
+    fn format_duration_words_seconds() {
+        assert_eq!(format_duration_words(TimeDuration::ZERO), "0 seconds");
+        assert_eq!(format_duration_words(TimeDuration::seconds(1)), "1 second");
+        assert_eq!(
+            format_duration_words(TimeDuration::seconds(59)),
+            "59 seconds"
+        );
+    }
+
+    #[test]
+    fn format_duration_words_minutes() {
+        assert_eq!(format_duration_words(TimeDuration::seconds(60)), "1 minute");
+        assert_eq!(format_duration_words(TimeDuration::seconds(61)), "1 minute");
+        assert_eq!(format_duration_words(TimeDuration::minutes(2)), "2 minutes");
+    }
+
+    #[test]
+    fn format_duration_words_hours() {
+        assert_eq!(format_duration_words(TimeDuration::minutes(60)), "1 hour");
+        assert_eq!(format_duration_words(TimeDuration::minutes(119)), "1 hour");
+        assert_eq!(format_duration_words(TimeDuration::hours(5)), "5 hours");
+    }
+
+    #[test]
+    fn format_duration_words_days() {
+        assert_eq!(format_duration_words(TimeDuration::hours(24)), "1 day");
+        assert_eq!(format_duration_words(TimeDuration::hours(47)), "1 day");
+        assert_eq!(format_duration_words(TimeDuration::days(3)), "3 days");
+        assert_eq!(
+            format_duration_words(TimeDuration::days(4) - TimeDuration::SECOND),
+            "3 days"
+        );
+    }
 }
