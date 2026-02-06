@@ -54,11 +54,11 @@ pub fn proc_exec3<M: MemorySize>(
         warn!("failed to execve as the args could not be read - {}", err);
         WasiError::Exit(Errno::Inval.into())
     })?;
-    let args: Vec<_> = args
-        .split(&['\n', '\r'])
-        .dropping_back(1) // `split` returns one last (empty) element
-        .map(|a| a.to_string())
-        .collect();
+    let args = args
+        .trim_end_matches(&['\r', '\n'])
+        .lines()
+        .map(str::to_owned)
+        .collect_vec();
 
     let envs = if !envs.is_null() {
         let envs = envs.read_utf8_string(&memory, envs_len).map_err(|err| {
