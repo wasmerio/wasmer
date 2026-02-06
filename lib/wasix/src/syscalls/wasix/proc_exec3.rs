@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use wasmer::FromToNativeWasmType;
 
 use super::*;
