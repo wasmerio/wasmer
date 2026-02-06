@@ -1685,15 +1685,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> Result<&GlobalCache<'ctx>, CompileError> {
-        let (cached_globals, wasm_module, ctx_ptr_value, globals_base_ptr, cache_builder, offsets) =
-            (
-                &mut self.cached_globals,
-                self.wasm_module,
-                self.ctx_ptr_value,
-                self.globals_base_ptr,
-                &self.cache_builder,
-                &self.offsets,
-            );
+        let (cached_globals, wasm_module, ctx_ptr_value, globals_base_ptr, cache_builder, offsets) = (
+            &mut self.cached_globals,
+            self.wasm_module,
+            self.ctx_ptr_value,
+            self.globals_base_ptr,
+            &self.cache_builder,
+            &self.offsets,
+        );
         match cached_globals.entry(index) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
             Entry::Vacant(entry) => {
@@ -1707,8 +1706,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     if let Some(globals_base_ptr) = globals_base_ptr {
                         let local_offset = local_global_index.as_u32()
                             * u32::from(offsets.size_of_vmglobal_local());
-                        let local_offset =
-                            intrinsics.i32_ty.const_int(local_offset.into(), false);
+                        let local_offset = intrinsics.i32_ty.const_int(local_offset.into(), false);
                         unsafe {
                             err!(cache_builder.build_gep(
                                 intrinsics.i8_ty,
@@ -1740,21 +1738,19 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                             ""
                         ))
                     };
-                    let global_ptr_ptr = err!(cache_builder.build_bit_cast(
-                        global_ptr_ptr,
-                        intrinsics.ptr_ty,
-                        ""
-                    ))
-                    .into_pointer_value();
+                    let global_ptr_ptr =
+                        err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
+                            .into_pointer_value();
                     err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
                         .into_pointer_value()
                 };
-                tbaa_label(
-                    module,
-                    intrinsics,
-                    format!("global_ptr {}", index.as_u32()),
-                    global_ptr.as_instruction_value().unwrap(),
-                );
+                // TODO: investigate
+                // tbaa_label(
+                //     module,
+                //     intrinsics,
+                //     format!("global_ptr {}", index.as_u32()),
+                //     global_ptr.as_instruction_value().unwrap(),
+                // );
                 let global_ptr = err!(cache_builder.build_bit_cast(
                     global_ptr,
                     type_to_llvm_ptr(intrinsics, global_value_type)?,
