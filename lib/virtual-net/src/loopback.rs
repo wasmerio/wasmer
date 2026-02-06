@@ -235,3 +235,58 @@ impl VirtualTcpListener for LoopbackTcpListener {
         Ok(64)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem::MaybeUninit;
+    use crate::VirtualConnectedSocket;
+
+    fn listen_and_connect() -> (LoopbackNetworking, Box<dyn VirtualTcpListener + Sync>, TcpSocketHalf) {
+        let net = LoopbackNetworking::new();
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let listen_addr: SocketAddr = "10.0.0.2:8080".parse().unwrap();
+        let listener = rt.block_on(net.listen_tcp(listen_addr, false, false, false)).unwrap();
+        let client = net
+            .loopback_connect_to(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)), listen_addr)
+            .expect("loopback connect failed");
+        (net, listener, client)
+    }
+
+    #[test]
+    fn test_bidirectional_tcp_communication() {
+        let (_net, mut listener, mut client) = listen_and_connect();
+
+        let (mut server, _peer) = loop {
+            match listener.try_accept() {
+                Ok(pair) => break pair,
+                Err(NetworkError::WouldBlock) => continue,
+                Err(err) => panic!("unexpected accept error: {err:?}"),
+            }
+        };
+
+        let c2s = b"Hello from client!";
+        let sent = client.try_send(c2s).unwrap();
+        assert_eq!(sent, c2s.len());
+
+        let mut buf: [MaybeUninit<u8>; 128] = [MaybeUninit::uninit(); 128];
+        let read = server.try_recv(&mut buf, false).unwrap();
+        assert_eq!(read, c2s.len());
+        let got = unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, read) };
+        assert_eq!(got, c2s);
+
+        let s2c = b"Hello from server!";
+        let sent = server.try_send(s2c).unwrap();
+        assert_eq!(sent, s2c.len());
+
+        let mut buf2: [MaybeUninit<u8>; 128] = [MaybeUninit::uninit(); 128];
+        let read = client.try_recv(&mut buf2, false).unwrap();
+        assert_eq!(read, s2c.len());
+        let got = unsafe { std::slice::from_raw_parts(buf2.as_ptr() as *const u8, read) };
+        assert_eq!(got, s2c);
+    }
+}

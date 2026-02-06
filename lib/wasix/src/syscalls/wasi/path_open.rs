@@ -110,3 +110,313 @@ pub fn path_open<M: MemorySize>(
 
     Ok(Errno::Success)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::ALL_RIGHTS;
+    use std::sync::Arc;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+    use virtual_fs::TmpFileSystem;
+    use wasmer::{imports, Instance, Module, Store};
+
+    fn setup_env_with_tmpfs() -> (tokio::runtime::Runtime, Store, WasiFunctionEnv, WasiFd) {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let handle = runtime.handle().clone();
+        let _guard = handle.enter();
+
+        let tmp_fs = TmpFileSystem::new();
+        tmp_fs.create_dir(Path::new("/sandbox")).unwrap();
+        let mut store = Store::default();
+        let mut func_env = WasiEnv::builder("test")
+            .engine(wasmer::Engine::default())
+            .fs(Arc::new(tmp_fs) as Arc<dyn virtual_fs::FileSystem + Send + Sync>)
+            .preopen_dir("/sandbox")
+            .unwrap()
+            .finalize(&mut store)
+            .unwrap();
+
+        let wat = r#"(module (memory (export "memory") 1))"#;
+        let module = Module::new(&store, wat).unwrap();
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+        func_env.initialize(&mut store, instance).unwrap();
+
+        let env = func_env.data(&store);
+        let mut preopen_fd = None;
+        for fd in env.state.fs.preopen_fds.read().unwrap().iter().copied() {
+            if let Ok(entry) = env.state.fs.get_fd(fd) {
+                if !entry.inner.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
+                    continue;
+                }
+                let is_root = matches!(*entry.inode.read(), Kind::Root { .. });
+                if is_root {
+                    continue;
+                }
+                preopen_fd = Some(fd);
+                break;
+            }
+        }
+        let preopen_fd = preopen_fd.expect("no non-root preopen with PATH_CREATE_DIRECTORY rights");
+        (runtime, store, func_env, preopen_fd)
+    }
+
+    fn open_file(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        root_fd: WasiFd,
+        path: &str,
+        oflags: Oflags,
+    ) -> Result<WasiFd, Errno> {
+        path_open_internal(
+            ctx.data(),
+            root_fd,
+            0,
+            path,
+            oflags,
+            ALL_RIGHTS,
+            ALL_RIGHTS,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            None,
+        )
+        .unwrap()
+    }
+
+
+    fn close_fd(ctx: &FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) {
+        ctx.data().state.fs.close_fd(fd).unwrap();
+    }
+
+    fn write_all(runtime: &tokio::runtime::Runtime, ctx: &FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, data: &[u8]) {
+        let env = ctx.data();
+        let fd_entry = env.state.fs.get_fd(fd).unwrap();
+        let inode = fd_entry.inode.clone();
+        let mut guard = inode.write();
+        let file = match &mut *guard {
+            Kind::File { handle: Some(handle), .. } => handle,
+            other => panic!("expected file handle, got {other:?}"),
+        };
+        let mut file = file.write().unwrap();
+        runtime.block_on(async {
+            file.write_all(data).await.unwrap();
+        });
+    }
+
+
+    fn read_all(runtime: &tokio::runtime::Runtime, ctx: &FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Vec<u8> {
+        let env = ctx.data();
+        let fd_entry = env.state.fs.get_fd(fd).unwrap();
+        let inode = fd_entry.inode.clone();
+        let mut guard = inode.write();
+        let file = match &mut *guard {
+            Kind::File { handle: Some(handle), .. } => handle,
+            other => panic!("expected file handle, got {other:?}"),
+        };
+        let mut file = file.write().unwrap();
+        let mut buf = Vec::new();
+        runtime.block_on(async {
+            file.seek(std::io::SeekFrom::Start(0)).await.unwrap();
+            file.read_to_end(&mut buf).await.unwrap();
+        });
+        buf
+    }
+
+    fn read_exact(runtime: &tokio::runtime::Runtime, ctx: &FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, size: usize) -> Vec<u8> {
+        let env = ctx.data();
+        let fd_entry = env.state.fs.get_fd(fd).unwrap();
+        let inode = fd_entry.inode.clone();
+        let mut guard = inode.write();
+        let file = match &mut *guard {
+            Kind::File { handle: Some(handle), .. } => handle,
+            other => panic!("expected file handle, got {other:?}"),
+        };
+        let mut file = file.write().unwrap();
+        let mut buf = vec![0u8; size];
+        runtime.block_on(async {
+            file.seek(std::io::SeekFrom::Start(0)).await.unwrap();
+            file.read_exact(&mut buf).await.unwrap();
+        });
+        buf
+    }
+
+    #[test]
+    fn test_fs_flags_o_directory() {
+        let (runtime, mut store, func_env, root_fd) = setup_env_with_tmpfs();
+        let mut ctx = func_env.env.clone().into_mut(&mut store);
+
+        path_create_directory_internal(&mut ctx, root_fd, "testdir").unwrap();
+        let file_fd = open_file(&mut ctx, root_fd, "testfile", Oflags::CREATE | Oflags::TRUNC).unwrap();
+        let _ = close_fd(&ctx, file_fd);
+
+        let dir_fd = open_file(&mut ctx, root_fd, "testdir", Oflags::DIRECTORY).unwrap();
+        let _ = close_fd(&ctx, dir_fd);
+
+        let err = open_file(&mut ctx, root_fd, "testfile", Oflags::DIRECTORY).unwrap_err();
+        assert_eq!(err, Errno::Notdir);
+
+        let err = open_file(&mut ctx, root_fd, "missing", Oflags::DIRECTORY).unwrap_err();
+        assert_eq!(err, Errno::Noent);
+
+        let fd = open_file(
+            &mut ctx,
+            root_fd,
+            "newfile",
+            Oflags::CREATE | Oflags::DIRECTORY | Oflags::TRUNC,
+        )
+        .unwrap();
+        let _ = close_fd(&ctx, fd);
+
+        // Verify it is not a directory by attempting to open with O_DIRECTORY only.
+        let err = open_file(&mut ctx, root_fd, "newfile", Oflags::DIRECTORY).unwrap_err();
+        assert_eq!(err, Errno::Notdir);
+
+        let dir_fd = open_file(&mut ctx, root_fd, "testdir", Oflags::DIRECTORY).unwrap();
+        let _ = close_fd(&ctx, dir_fd);
+
+
+        drop(runtime);
+    }
+
+    #[test]
+    fn test_fs_flags_o_excl() {
+        let (runtime, mut store, func_env, root_fd) = setup_env_with_tmpfs();
+        let mut ctx = func_env.env.clone().into_mut(&mut store);
+
+        // O_CREAT | O_EXCL on new file should succeed.
+        let fd = open_file(&mut ctx, root_fd, "newfile", Oflags::CREATE | Oflags::EXCL).unwrap();
+        write_all(&runtime, &ctx, fd, b"test data");
+        let _ = close_fd(&ctx, fd);
+
+        // O_CREAT | O_EXCL on existing file should fail with EXIST.
+        let err = open_file(&mut ctx, root_fd, "newfile", Oflags::CREATE | Oflags::EXCL).unwrap_err();
+        assert_eq!(err, Errno::Exist);
+
+        // O_EXCL without O_CREAT should be ignored (open should succeed).
+        let fd = open_file(&mut ctx, root_fd, "newfile", Oflags::EXCL).unwrap();
+        let buf = read_exact(&runtime, &ctx, fd, 9);
+        assert_eq!(&buf, b"test data");
+        let _ = close_fd(&ctx, fd);
+
+        // O_CREAT without O_EXCL on existing file should succeed.
+        let fd = open_file(&mut ctx, root_fd, "newfile", Oflags::CREATE).unwrap();
+        let _ = close_fd(&ctx, fd);
+
+        // O_CREAT | O_EXCL on directory should fail with EXIST.
+        path_create_directory_internal(&mut ctx, root_fd, "testdir").unwrap();
+        let err = open_file(&mut ctx, root_fd, "testdir", Oflags::CREATE | Oflags::EXCL).unwrap_err();
+        assert_eq!(err, Errno::Exist);
+
+        drop(runtime);
+    }
+
+    #[test]
+    fn test_fs_flags_trunc() {
+        let (runtime, mut store, func_env, root_fd) = setup_env_with_tmpfs();
+        let mut ctx = func_env.env.clone().into_mut(&mut store);
+
+        // Create file with initial content.
+        let fd = open_file(&mut ctx, root_fd, "testfile", Oflags::CREATE | Oflags::TRUNC).unwrap();
+        write_all(&runtime, &ctx, fd, b"Hello, world! This is initial content.");
+        let _ = close_fd(&ctx, fd);
+
+        // O_TRUNC | O_WRONLY should truncate.
+        let fd = open_file(&mut ctx, root_fd, "testfile", Oflags::TRUNC).unwrap();
+        write_all(&runtime, &ctx, fd, b"New content");
+        let _ = close_fd(&ctx, fd);
+
+        // Verify file contains only new content.
+        let fd = open_file(&mut ctx, root_fd, "testfile", Oflags::empty()).unwrap();
+        let buf = read_all(&runtime, &ctx, fd);
+        assert_eq!(&buf, b"New content");
+        let _ = close_fd(&ctx, fd);
+
+        drop(runtime);
+    }
+    fn test_fs_basic_create_read_write_unlink_rmdir() {
+        let (runtime, mut store, func_env, root_fd) = setup_env_with_tmpfs();
+        let mut ctx = func_env.env.clone().into_mut(&mut store);
+
+        // Ensure we have a fd with full path create rights
+        let root_fd = {
+            let env = ctx.data();
+            let entry = env.state.fs.get_fd(root_fd).unwrap();
+            env.state
+                .fs
+                .create_fd(
+                    ALL_RIGHTS,
+                    ALL_RIGHTS,
+                    Fdflags::empty(),
+                    Fdflagsext::empty(),
+                    0,
+                    entry.inode.clone(),
+                )
+                .unwrap()
+        };
+
+        // mkdir /tmp
+        path_create_directory_internal(&mut ctx, root_fd, "tmp").unwrap();
+
+        // create + open file
+        let fd = path_open_internal(
+            ctx.data(),
+            root_fd,
+            0,
+            "tmp/testfile",
+            Oflags::CREATE | Oflags::TRUNC,
+            ALL_RIGHTS,
+            ALL_RIGHTS,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            None,
+        )
+        .unwrap()
+        .unwrap();
+
+        // write and read back
+        {
+            let env = ctx.data();
+            let fd_entry = env.state.fs.get_fd(fd).unwrap();
+            let inode = fd_entry.inode.clone();
+            let mut guard = inode.write();
+            let file = match &mut *guard {
+                Kind::File { handle: Some(handle), .. } => handle,
+                other => panic!("expected file handle, got {other:?}"),
+            };
+            let mut file = file.write().unwrap();
+            runtime.block_on(async {
+                file.write_all(b"hello").await.unwrap();
+                file.seek(std::io::SeekFrom::Start(0)).await.unwrap();
+                let mut buf = [0u8; 5];
+                file.read_exact(&mut buf).await.unwrap();
+                assert_eq!(&buf, b"hello");
+            });
+        }
+
+        // unlink file
+        let ret = path_unlink_file_internal(&mut ctx, root_fd, "tmp/testfile").unwrap();
+        assert_eq!(ret, Errno::Success);
+
+        // open should fail after unlink
+        let missing = path_open_internal(
+            ctx.data(),
+            root_fd,
+            0,
+            "tmp/testfile",
+            Oflags::empty(),
+            ALL_RIGHTS,
+            ALL_RIGHTS,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            None,
+        )
+        .unwrap()
+        .unwrap_err();
+        assert_eq!(missing, Errno::Noent);
+
+        // rmdir /tmp
+        path_remove_directory_internal(&mut ctx, root_fd, "tmp").unwrap();
+    }
+}

@@ -174,3 +174,153 @@ pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
     }
     Ok(Errno::Success)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::task::{RawWaker, RawWakerVTable};
+    use wasmer::{imports, Instance, Module, Store};
+
+    fn setup_env_with_memory() -> (Store, WasiFunctionEnv) {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let handle = runtime.handle().clone();
+        let _guard = handle.enter();
+
+        let mut store = Store::default();
+        let mut func_env = WasiEnv::builder("test")
+            .engine(wasmer::Engine::default())
+            .finalize(&mut store)
+            .unwrap();
+
+        // Minimal module exporting memory for syscall memory access.
+        let wat = r#"(module (memory (export "memory") 1))"#;
+        let module = Module::new(&store, wat).unwrap();
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+        func_env.initialize(&mut store, instance).unwrap();
+
+        (store, func_env)
+    }
+
+    fn counting_waker(counter: Arc<AtomicUsize>) -> Waker {
+        unsafe fn clone(data: *const ()) -> RawWaker {
+            let arc = unsafe { Arc::<AtomicUsize>::from_raw(data as *const AtomicUsize) };
+            let _clone = arc.clone();
+            let _ = Arc::into_raw(arc);
+            RawWaker::new(data, &VTABLE)
+        }
+        unsafe fn wake(data: *const ()) {
+            let arc = unsafe { Arc::<AtomicUsize>::from_raw(data as *const AtomicUsize) };
+            arc.fetch_add(1, Ordering::SeqCst);
+            let _ = Arc::into_raw(arc);
+        }
+        unsafe fn wake_by_ref(data: *const ()) {
+            let arc = unsafe { &*(data as *const AtomicUsize) };
+            arc.fetch_add(1, Ordering::SeqCst);
+        }
+        unsafe fn drop(data: *const ()) {
+            let _ = unsafe { Arc::<AtomicUsize>::from_raw(data as *const AtomicUsize) };
+        }
+        static VTABLE: RawWakerVTable = RawWakerVTable::new(clone, wake, wake_by_ref, drop);
+
+        let raw = RawWaker::new(Arc::into_raw(counter) as *const (), &VTABLE);
+        unsafe { Waker::from_raw(raw) }
+    }
+
+    #[test]
+    fn test_futex_wait_wake_single() {
+        let (mut store, func_env) = setup_env_with_memory();
+        let futex_ptr: WasmPtr<u32, Memory32> = WasmPtr::new(0);
+        let ret_woken_ptr: WasmPtr<Bool, Memory32> = WasmPtr::new(4);
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let waker = counting_waker(counter.clone());
+
+        {
+            let env = func_env.data(&store);
+            let mut guard = env.state.futexs.lock().unwrap();
+            guard.poller_seed += 1;
+            let poller_idx = guard.poller_seed;
+            let futex = guard.futexes.entry(futex_ptr.offset().into()).or_default();
+            futex.wakers.insert(poller_idx, Some(waker));
+        }
+
+        let ctx = func_env.env.clone().into_mut(&mut store);
+        let err = futex_wake::<Memory32>(ctx, futex_ptr, ret_woken_ptr).unwrap();
+        assert_eq!(err, Errno::Success);
+
+        let env = func_env.data(&store);
+        let memory = unsafe { env.memory_view(&store) };
+        let woken = ret_woken_ptr.read(&memory).unwrap();
+        assert_eq!(woken, Bool::True);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_futex_wait_timeout_ready() {
+        let (mut store, func_env) = setup_env_with_memory();
+        let futex_idx = 0u64;
+        let poller_idx = 1u64;
+
+        {
+            let env = func_env.data(&store);
+            let mut guard = env.state.futexs.lock().unwrap();
+            let futex = guard.futexes.entry(futex_idx).or_default();
+            futex.wakers.insert(poller_idx, Default::default());
+        }
+
+        let poller = FutexPoller {
+            state: func_env.data(&store).state.clone(),
+            poller_idx,
+            futex_idx,
+            expected: 0,
+            timeout: Some(Box::pin(std::future::ready(()))),
+        };
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let waker = counting_waker(counter);
+        let mut ctx = Context::from_waker(&waker);
+        let res = Pin::new(&mut Box::pin(poller)).poll(&mut ctx);
+        assert_eq!(res, Poll::Ready(false));
+    }
+
+    #[test]
+    fn test_futex_wake_all_multiple_waiters() {
+        let (mut store, func_env) = setup_env_with_memory();
+        let futex_ptr: WasmPtr<u32, Memory32> = WasmPtr::new(0);
+        let ret_woken_ptr: WasmPtr<Bool, Memory32> = WasmPtr::new(4);
+
+        let counters = (0..3)
+            .map(|_| Arc::new(AtomicUsize::new(0)))
+            .collect::<Vec<_>>();
+        let wakers = counters
+            .iter()
+            .map(|c| counting_waker(c.clone()))
+            .collect::<Vec<_>>();
+
+        {
+            let env = func_env.data(&store);
+            let mut guard = env.state.futexs.lock().unwrap();
+            let futex = guard.futexes.entry(futex_ptr.offset().into()).or_default();
+            for (i, waker) in wakers.into_iter().enumerate() {
+                futex.wakers.insert((i + 1) as u64, Some(waker));
+            }
+        }
+
+        let ctx = func_env.env.clone().into_mut(&mut store);
+        let err = futex_wake_all::<Memory32>(ctx, futex_ptr, ret_woken_ptr).unwrap();
+        assert_eq!(err, Errno::Success);
+
+        let env = func_env.data(&store);
+        let memory = unsafe { env.memory_view(&store) };
+        let woken = ret_woken_ptr.read(&memory).unwrap();
+        assert_eq!(woken, Bool::True);
+        for c in counters {
+            assert_eq!(c.load(Ordering::SeqCst), 1);
+        }
+    }
+}
