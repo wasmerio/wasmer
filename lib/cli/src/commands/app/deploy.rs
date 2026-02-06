@@ -1313,17 +1313,13 @@ fn format_autobuild_datetime(datetime: &wasmer_backend_api::types::DateTime) -> 
 }
 
 fn format_duration_words(duration: TimeDuration) -> String {
-    const ONE_MINUTE: TimeDuration = TimeDuration::MINUTE;
-    const ONE_HOUR: TimeDuration = TimeDuration::HOUR;
-    const ONE_DAY: TimeDuration = TimeDuration::DAY;
-
-    if duration >= ONE_DAY {
+    if duration >= TimeDuration::DAY {
         let days = duration.whole_days();
         format!("{days} day{}", if days == 1 { "" } else { "s" })
-    } else if duration >= ONE_HOUR {
+    } else if duration >= TimeDuration::HOUR {
         let hours = duration.whole_hours();
         format!("{hours} hour{}", if hours == 1 { "" } else { "s" })
-    } else if duration >= ONE_MINUTE {
+    } else if duration >= TimeDuration::MINUTE {
         let minutes = duration.whole_minutes();
         format!("{minutes} minute{}", if minutes == 1 { "" } else { "s" })
     } else {
