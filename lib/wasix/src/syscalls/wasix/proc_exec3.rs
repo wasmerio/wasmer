@@ -54,7 +54,7 @@ pub fn proc_exec3<M: MemorySize>(
         WasiError::Exit(Errno::Inval.into())
     })?;
     let args = args
-        .trim_end_matches(&['\r', '\n'])
+        .trim_end_matches(['\r', '\n'])
         .lines()
         .map(str::to_owned)
         .collect();
