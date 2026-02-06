@@ -317,9 +317,8 @@ pub(crate) fn path_open_internal(
                 }
             }
             Kind::Dir { .. } => {
-                if fs_rights_base.contains(Rights::FD_WRITE) {
-                    return Ok(Err(Errno::Isdir));
-                }
+                // Opening a directory should be allowed; O_DIRECTORY just enforces
+                // that the target is a directory, not that it must be read-only.
             }
             Kind::Socket { .. }
             | Kind::PipeTx { .. }
@@ -341,9 +340,7 @@ pub(crate) fn path_open_internal(
     } else {
         // less-happy path, we have to try to create the file
         if o_flags.contains(Oflags::CREATE) {
-            if o_flags.contains(Oflags::DIRECTORY) {
-                return Ok(Err(Errno::Notdir));
-            }
+            // O_DIRECTORY is ignored when creating a file (matches Linux behavior).
 
             // Trailing slash matters. But the underlying opener normalizes it away later.
             if path.ends_with('/') {

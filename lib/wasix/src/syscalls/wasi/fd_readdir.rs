@@ -178,3 +178,186 @@ pub fn fd_readdir<M: MemorySize>(
     wasi_try_mem_ok!(bufused_ref.write(buf_idx));
     Ok(Errno::Success)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use wasmer::{imports, Instance, Module, Store};
+    use wasmer::FromToNativeWasmType;
+    use virtual_fs::TmpFileSystem;
+
+    fn setup_env_with_tmpfs() -> (Store, WasiFunctionEnv, WasiFd) {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let handle = runtime.handle().clone();
+        let _guard = handle.enter();
+
+        let tmp_fs = TmpFileSystem::new();
+        tmp_fs.create_dir(Path::new("/sandbox")).unwrap();
+        let mut store = Store::default();
+        let mut func_env = WasiEnv::builder("test")
+            .engine(wasmer::Engine::default())
+            .fs(Arc::new(tmp_fs) as Arc<dyn virtual_fs::FileSystem + Send + Sync>)
+            .preopen_dir("/sandbox")
+            .unwrap()
+            .finalize(&mut store)
+            .unwrap();
+
+        let wat = r#"(module (memory (export "memory") 1))"#;
+        let module = Module::new(&store, wat).unwrap();
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+        func_env.initialize(&mut store, instance).unwrap();
+
+        let env = func_env.data(&store);
+        let mut preopen_fd = None;
+        for fd in env.state.fs.preopen_fds.read().unwrap().iter().copied() {
+            if let Ok(entry) = env.state.fs.get_fd(fd) {
+                if !entry.inner.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
+                    continue;
+                }
+                let is_root = matches!(*entry.inode.read(), Kind::Root { .. });
+                if is_root {
+                    continue;
+                }
+                preopen_fd = Some(fd);
+                break;
+            }
+        }
+        let preopen_fd = preopen_fd.expect("no non-root preopen with PATH_CREATE_DIRECTORY rights");
+        (store, func_env, preopen_fd)
+    }
+
+    fn open_path(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        root_fd: WasiFd,
+        path: &str,
+        oflags: Oflags,
+    ) -> Result<WasiFd, Errno> {
+        path_open_internal(
+            ctx.data(),
+            root_fd,
+            0,
+            path,
+            oflags,
+            Rights::all(),
+            Rights::all(),
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            None,
+        )
+        .unwrap()
+    }
+
+    fn read_dir_entries(
+        store: &mut Store,
+        func_env: &WasiFunctionEnv,
+        fd: WasiFd,
+    ) -> Vec<(String, Filetype)> {
+        let buf_ptr: WasmPtr<u8, Memory32> = WasmPtr::new(0);
+        let bufused_ptr: WasmPtr<u32, Memory32> = WasmPtr::new(8192);
+        let buf_len: u32 = 4096;
+
+        let ctx = func_env.env.clone().into_mut(store);
+        let err = fd_readdir::<Memory32>(ctx, fd, buf_ptr, buf_len, 0, bufused_ptr).unwrap();
+        assert_eq!(err, Errno::Success);
+
+        let env = func_env.data(store);
+        let memory = unsafe { env.memory_view(store) };
+        let used = bufused_ptr.read(&memory).unwrap() as usize;
+        let buf = buf_ptr.slice(&memory, used as u32).unwrap();
+
+        let mut bytes = vec![0u8; used];
+        for i in 0..used {
+            bytes[i] = buf.index(i as u64).read().unwrap();
+        }
+
+        let dirent_size = std::mem::size_of::<Dirent>();
+        let mut out = Vec::new();
+        let mut pos = 0usize;
+        while pos + dirent_size <= bytes.len() {
+            let d_next = u64::from_le_bytes(bytes[pos..pos + 8].try_into().unwrap());
+            let _d_ino = u64::from_le_bytes(bytes[pos + 8..pos + 16].try_into().unwrap());
+            let d_namlen = u32::from_le_bytes(bytes[pos + 16..pos + 20].try_into().unwrap()) as usize;
+            let d_type = bytes[pos + 20];
+            pos += dirent_size;
+            if pos + d_namlen > bytes.len() {
+                break;
+            }
+            let name = String::from_utf8(bytes[pos..pos + d_namlen].to_vec()).unwrap();
+            pos += d_namlen;
+            let ftype = <Filetype as FromToNativeWasmType>::from_native(d_type as i32);
+            out.push((name, ftype));
+            if d_next == 0 {
+                break;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn test_readdir_empty() {
+        let (mut store, func_env, root_fd) = setup_env_with_tmpfs();
+        let entries = read_dir_entries(&mut store, &func_env, root_fd);
+        let mut names: Vec<_> = entries.iter().map(|(n, _)| n.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(names, vec![".", ".."]); 
+    }
+
+    #[test]
+    fn test_readdir_with_files_and_dirs() {
+        let (mut store, func_env, root_fd) = setup_env_with_tmpfs();
+        {
+            let mut ctx = func_env.env.clone().into_mut(&mut store);
+            path_create_directory_internal(&mut ctx, root_fd, "testdir").unwrap();
+            let fd1 = open_path(&mut ctx, root_fd, "testfile1", Oflags::CREATE | Oflags::TRUNC).unwrap();
+            ctx.data().state.fs.close_fd(fd1).unwrap();
+            let fd2 = open_path(&mut ctx, root_fd, "testfile2", Oflags::CREATE | Oflags::TRUNC).unwrap();
+            ctx.data().state.fs.close_fd(fd2).unwrap();
+        }
+
+        let entries = read_dir_entries(&mut store, &func_env, root_fd);
+        let mut names: Vec<_> = entries.iter().map(|(n, _)| n.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(names, vec![".", "..", "testdir", "testfile1", "testfile2"]);
+
+        for (name, ftype) in entries.iter() {
+            match name.as_str() {
+                "." | ".." | "testdir" => assert_eq!(*ftype, Filetype::Directory),
+                "testfile1" | "testfile2" => assert_eq!(*ftype, Filetype::RegularFile),
+                other => panic!("unexpected entry {other}"),
+            }
+        }
+
+        let dir_fd = {
+            let mut ctx = func_env.env.clone().into_mut(&mut store);
+            open_path(&mut ctx, root_fd, "testdir", Oflags::DIRECTORY).unwrap()
+        };
+        let sub_entries = read_dir_entries(&mut store, &func_env, dir_fd);
+        let mut sub_names: Vec<_> = sub_entries.iter().map(|(n, _)| n.as_str()).collect();
+        sub_names.sort_unstable();
+        assert_eq!(sub_names, vec![".", ".."]); 
+        let mut ctx = func_env.env.clone().into_mut(&mut store);
+        ctx.data().state.fs.close_fd(dir_fd).unwrap();
+    }
+
+    #[test]
+    fn test_readdir_on_file_not_directory() {
+        let (mut store, func_env, root_fd) = setup_env_with_tmpfs();
+        let file_fd = {
+            let mut ctx = func_env.env.clone().into_mut(&mut store);
+            let fd = open_path(&mut ctx, root_fd, "testfile", Oflags::CREATE | Oflags::TRUNC).unwrap();
+            fd
+        };
+        let ctx2 = func_env.env.clone().into_mut(&mut store);
+        let buf_ptr: WasmPtr<u8, Memory32> = WasmPtr::new(0);
+        let bufused_ptr: WasmPtr<u32, Memory32> = WasmPtr::new(8192);
+        let err = fd_readdir::<Memory32>(ctx2, file_fd, buf_ptr, 256, 0, bufused_ptr).unwrap();
+        assert_eq!(err, Errno::Notdir);
+        let mut ctx = func_env.env.clone().into_mut(&mut store);
+        ctx.data().state.fs.close_fd(file_fd).unwrap();
+    }
+}

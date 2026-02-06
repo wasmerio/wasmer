@@ -1093,3 +1093,52 @@ impl VirtualIoSource for LocalUdpSocket {
         Poll::Pending
     }
 }
+
+
+#[cfg(test)]
+mod udp_tests {
+    use super::*;
+    use std::mem::MaybeUninit;
+    use std::net::{Ipv4Addr, SocketAddr};
+
+    #[tokio::test]
+    async fn udp_send_recv_loopback() {
+        let net = LocalNetworking::new();
+        let mut sock = net
+            .bind_udp(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), false, false)
+            .await
+            .unwrap();
+        let local = sock.addr_local().unwrap();
+
+        // Empty recv should wouldblock
+        let mut buf: [MaybeUninit<u8>; 16] = [MaybeUninit::uninit(); 16];
+        let err = sock.try_recv_from(&mut buf, false).unwrap_err();
+        assert_eq!(err, NetworkError::WouldBlock);
+
+        // Send to self and read back
+        let sent = sock.try_send_to(b"hi", local).unwrap();
+        assert_eq!(sent, 2);
+
+        let mut read = None;
+        let mut addr = None;
+        for _ in 0..50 {
+            match sock.try_recv_from(&mut buf, false) {
+                Ok((n, a)) => {
+                    read = Some(n);
+                    addr = Some(a);
+                    break;
+                }
+                Err(NetworkError::WouldBlock) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+                }
+                Err(err) => panic!("unexpected recv error: {err:?}"),
+            }
+        }
+        let read = read.expect("no udp data received");
+        let addr = addr.expect("no udp addr received");
+        assert_eq!(read, 2);
+        assert_eq!(addr, local);
+        let got = unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, read) };
+        assert_eq!(got, b"hi");
+    }
+}

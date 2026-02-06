@@ -135,3 +135,130 @@ pub fn fd_pipe_internal(
 
     Ok((read_fd, write_fd))
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fs::Kind;
+    use std::io::{Read, Write};
+    use std::sync::Arc;
+    use std::thread;
+    use wasmer::{imports, Instance, Module, Store};
+
+    fn setup_env_with_memory() -> (Store, WasiFunctionEnv) {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let handle = runtime.handle().clone();
+        let _guard = handle.enter();
+
+        let mut store = Store::default();
+        let mut func_env = WasiEnv::builder("test")
+            .engine(wasmer::Engine::default())
+            .finalize(&mut store)
+            .unwrap();
+
+        // Minimal module exporting memory for syscall memory access.
+        let wat = r#"(module (memory (export "memory") 1))"#;
+        let module = Module::new(&store, wat).unwrap();
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+        func_env.initialize(&mut store, instance).unwrap();
+
+        (store, func_env)
+    }
+
+    fn get_pipe_ends(
+        store: &Store,
+        func_env: &WasiFunctionEnv,
+        read_fd: WasiFd,
+        write_fd: WasiFd,
+    ) -> (virtual_fs::PipeRx, virtual_fs::PipeTx) {
+        let env = func_env.data(store);
+        let fs = &env.state.fs;
+
+        let read_entry = fs.get_fd(read_fd).unwrap();
+        let write_entry = fs.get_fd(write_fd).unwrap();
+
+        let rx = match &*read_entry.inode.read() {
+            Kind::PipeRx { rx } => rx.clone(),
+            other => panic!("expected PipeRx, got {other:?}"),
+        };
+        let tx = match &*write_entry.inode.read() {
+            Kind::PipeTx { tx } => tx.clone(),
+            other => panic!("expected PipeTx, got {other:?}"),
+        };
+
+        (rx, tx)
+    }
+
+    #[test]
+    fn test_pipe_blocking_channel() {
+        let (mut store, func_env) = setup_env_with_memory();
+        let mut ctx = func_env.env.clone().into_mut(&mut store);
+        let (read_fd, write_fd) = fd_pipe_internal(&mut ctx, None, None).unwrap();
+
+        let (mut rx, mut tx) = get_pipe_ends(&store, &func_env, read_fd, write_fd);
+
+        let writer = thread::spawn(move || {
+            let data = [1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+            let mut written = 0;
+            while written < data.len() {
+                let n = std::io::Write::write(&mut tx, &data[written..]).unwrap();
+                written += n;
+            }
+            tx.close();
+            assert_eq!(written, data.len());
+        });
+
+        let mut buf = [0u8; 10];
+        let mut read = 0;
+        while read < buf.len() {
+            let n = rx.read(&mut buf[read..]).unwrap();
+            assert!(n > 0, "unexpected EOF before full read");
+            read += n;
+        }
+        writer.join().unwrap();
+        assert_eq!(buf, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    }
+
+    #[test]
+    fn test_pipe_nonblocking_channel() {
+        let (mut store, func_env) = setup_env_with_memory();
+        let mut ctx = func_env.env.clone().into_mut(&mut store);
+        let (read_fd, write_fd) = fd_pipe_internal(&mut ctx, None, None).unwrap();
+
+        let (mut rx, tx) = get_pipe_ends(&store, &func_env, read_fd, write_fd);
+
+        // Fill the pipe until it blocks.
+        let mut bytes_written = 0usize;
+        loop {
+            match tx.try_write_nonblocking(&[0u8; 1024]) {
+                Ok(n) => bytes_written += n,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) => panic!("unexpected write error: {e}")
+            }
+        }
+        assert!(bytes_written > 0);
+
+        // Drain some bytes and ensure we can write again.
+        let mut read_buf = [0u8; 2048];
+        let mut drained = 0usize;
+        loop {
+            match rx.try_read(&mut read_buf) {
+                Some(n) if n > 0 => {
+                    drained += n;
+                    break;
+                }
+                Some(0) => break,
+                Some(_) => continue,
+                None => continue,
+            }
+        }
+        assert!(drained > 0);
+
+        let n = tx.try_write_nonblocking(&[1u8; 16]).unwrap();
+        assert_eq!(n, 16);
+    }
+}
