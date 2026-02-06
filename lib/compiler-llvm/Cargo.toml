@@ -37,6 +37,7 @@ inkwell = { workspace = true, features = [
 	"target-loongarch",
 ] }
 crossbeam-channel.workspace = true
+perfetto-recorder.workspace = true
 
 [build-dependencies]
 cc.workspace = true

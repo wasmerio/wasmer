@@ -29,6 +29,7 @@ loupe = { workspace = true, optional = true, features = [
 backtrace.workspace = true
 memmap2.workspace = true
 more-asserts.workspace = true
+perfetto-recorder.workspace = true
 
 cfg-if.workspace = true
 leb128.workspace = true

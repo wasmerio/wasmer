@@ -2,6 +2,7 @@
 //! compilers will need to implement.
 
 use std::cmp::Reverse;
+use std::sync::Mutex;
 
 use crate::progress::ProgressContext;
 use crate::types::{module::CompileModuleInfo, symbols::SymbolRegistry};
@@ -251,6 +252,10 @@ pub trait CompiledFunction {}
 /// Translates a function from its input representation to a compiled form.
 pub trait FuncTranslator {}
 
+use perfetto_recorder::ThreadTraceData;
+use perfetto_recorder::TraceBuilder;
+use perfetto_recorder::scope;
+
 /// Compile function buckets largest-first via the channel (instead of Rayon's par_iter).
 #[allow(clippy::too_many_arguments)]
 pub fn translate_function_buckets<'a, C, T, F, G>(
@@ -270,6 +275,14 @@ where
         + Copy,
 {
     let progress = progress.as_ref();
+    perfetto_recorder::start().unwrap();
+
+    let mut trace = TraceBuilder::new().unwrap();
+
+    // Record data from the main thread.
+    trace.process_thread_data(&ThreadTraceData::take_current_thread());
+
+    let trace = Arc::new(Mutex::new(trace));
 
     let functions = pool.install(|| {
         let (bucket_tx, bucket_rx) = unbounded::<&FunctionBucket<'a>>();
@@ -292,9 +305,15 @@ where
                     let mut func_translator = func_translator_builder();
 
                     while let Ok(bucket) = bucket_rx.recv() {
+                        scope!(
+                            "translate bucket",
+                            bucket_size = bucket.size,
+                            functions = bucket.functions.len()
+                        );
                         let bucket_result = (|| {
                             let mut translated_functions = Vec::new();
                             for (i, input) in bucket.functions.iter() {
+                                scope!("translate function", body_size = input.data.len());
                                 let translated = translate_fn(&mut func_translator, i, input)?;
                                 if let Some(progress) = progress {
                                     progress.notify_steps(input.data.len() as u64)?;
@@ -322,8 +341,19 @@ where
                 Err(err) => return Err(err),
             }
         }
+
+        let trace = trace.clone();
+        pool.spawn_broadcast(move |_| {
+            let thread_trace = ThreadTraceData::take_current_thread();
+            trace.lock().unwrap().process_thread_data(&thread_trace);
+        });
+
         Ok(functions)
     })?;
+
+    let trace_file = "trace.ptrace";
+    eprintln!("Saving to: {trace_file}");
+    trace.lock().unwrap().write_to_file(&trace_file).unwrap();
 
     Ok(functions
         .into_iter()
