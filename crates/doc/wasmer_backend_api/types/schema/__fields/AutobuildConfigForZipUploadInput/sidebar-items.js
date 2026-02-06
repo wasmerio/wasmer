@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","uploadUrl"]};
+window.SIDEBAR_ITEMS = {"struct":["clientMutationId","presetName","uploadUrl"]};

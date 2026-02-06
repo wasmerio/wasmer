@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["_live_config_arguments"],"struct":["__typename","adminUrl","liveConfig"]};
+window.SIDEBAR_ITEMS = {"mod":["_live_config_arguments"],"struct":["__typename","adminUrl","liveConfig","wordpressCronjobEnabled"]};
