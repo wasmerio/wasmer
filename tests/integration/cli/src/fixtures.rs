@@ -51,11 +51,6 @@ pub fn wabt() -> PathBuf {
     c_asset_path().join("wabt-1.0.37.wasmer")
 }
 
-/// A WEBC file containing the WCGI static server.
-pub fn static_server() -> PathBuf {
-    c_asset_path().join("staticserver.webc")
-}
-
 /// The QuickJS interpreter, compiled to a WASI module.
 pub fn qjs() -> PathBuf {
     c_asset_path().join("qjs.wasm")

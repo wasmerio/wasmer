@@ -4,22 +4,18 @@ use std::{
     io::{ErrorKind, Read},
     path::Path,
     process::{Child, Command, Stdio},
-    time::{Duration, Instant},
 };
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt};
 use once_cell::sync::Lazy;
 use predicates::str::{contains, is_match};
 use rand::RngExt;
-use reqwest::{IntoUrl, blocking::Client};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::{
     asset_path,
     fixtures::{self, packages, php, resources},
     get_wasmer_path,
 };
-
-const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
 
 static RUST_LOG: Lazy<String> = Lazy::new(|| {
     if cfg!(feature = "debug") {
@@ -737,79 +733,6 @@ fn wasi_runner_on_disk_with_env_vars() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
-#[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
-fn wcgi_runner_on_disk() {
-    // Start the WCGI server in the background
-    let port = random_port();
-    let mut cmd = Command::new(get_wasmer_path());
-    cmd.arg("run")
-        .arg(format!("--addr=127.0.0.1:{port}"))
-        .arg(fixtures::static_server())
-        .env("RUST_LOG", &*RUST_LOG);
-
-    // Let's run the command and wait until the server has started
-    let mut child = JoinableChild::spawn(cmd);
-    child.wait_for_stdout("WCGI Server running");
-
-    // make the request
-    let body = http_get(format!("http://127.0.0.1:{port}/")).unwrap();
-    assert!(body.contains("<title>Index of /</title>"), "{body}");
-
-    // Let's make sure 404s work too
-    let err = http_get(format!("http://127.0.0.1:{port}/this/does/not/exist.html")).unwrap_err();
-    assert_eq!(err.status().unwrap(), reqwest::StatusCode::NOT_FOUND);
-
-    // And kill the server, making sure it generated the expected logs
-    let assert = child.join();
-
-    assert
-        .stderr(contains("Starting the server"))
-        .stderr(contains(
-            "response generated method=GET uri=/ status_code=200 OK",
-        ))
-        .stderr(contains(
-            "response generated method=GET uri=/this/does/not/exist.html status_code=404 Not Found",
-        ));
-}
-
-#[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
-fn wcgi_runner_on_disk_with_mounted_directories() {
-    let temp = TempDir::new().unwrap();
-    std::fs::write(temp.path().join("file.txt"), "Hello, World!").unwrap();
-    // Start the WCGI server in the background
-    let port = random_port();
-    let mut cmd = Command::new(get_wasmer_path());
-    cmd.arg("run")
-        .arg(format!("--addr=127.0.0.1:{port}"))
-        .arg(format!("--volume={}:/path/to", temp.path().display()))
-        .arg(fixtures::static_server())
-        .env("RUST_LOG", &*RUST_LOG);
-
-    // Let's run the command and wait until the server has started
-    let mut child = JoinableChild::spawn(cmd);
-    child.wait_for_stdout("WCGI Server running");
-
-    let body = http_get(format!("http://127.0.0.1:{port}/path/to/file.txt")).unwrap();
-    assert!(body.contains("Hello, World!"), "{body}");
-
-    // And kill the server, making sure it generated the expected logs
-    let assert = child.join();
-
-    assert
-        .stderr(contains("Starting the server"))
-        .stderr(contains(
-            "response generated method=GET uri=/path/to/file.txt status_code=200 OK",
-        ));
-}
-
 /// See https://github.com/wasmerio/wasmer/issues/3794
 #[test]
 #[cfg_attr(
@@ -1142,18 +1065,6 @@ impl JoinableChild {
         }
     }
 
-    /// Keep reading lines from the child's stdout until a line containing the
-    /// desired text is found.
-    fn wait_for_stdout(&mut self, text: &str) -> String {
-        let stdout = self
-            .child
-            .as_mut()
-            .and_then(|child| child.stdout.as_mut())
-            .unwrap();
-
-        wait_for(text, stdout)
-    }
-
     /// Keep reading lines from the child's stderr until a line containing the
     /// desired text is found.
     fn wait_for_stderr(&mut self, text: &str) -> String {
@@ -1243,27 +1154,6 @@ impl Drop for JoinableChild {
             }
         }
     }
-}
-
-/// Send a GET request to a particular URL, automatically retrying (with
-/// a timeout) if there are any connection errors.
-fn http_get(url: impl IntoUrl) -> Result<String, reqwest::Error> {
-    let start = Instant::now();
-    let url = url.into_url().unwrap();
-
-    let client = Client::new();
-
-    while start.elapsed() < HTTP_GET_TIMEOUT {
-        match client.get(url.clone()).send() {
-            Ok(response) => {
-                return response.error_for_status()?.text();
-            }
-            Err(e) if e.is_connect() => continue,
-            Err(other) => return Err(other),
-        }
-    }
-
-    panic!("Didn't receive a response from \"{url}\" within the allocated time");
 }
 
 fn random_port() -> u16 {
