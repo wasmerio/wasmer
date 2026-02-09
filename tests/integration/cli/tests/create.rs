@@ -78,9 +78,9 @@ fn wasmer_create_template() -> anyhow::Result<()> {
 
     let want = format!(
         r#"kind: wasmer.io/App.v0
-package: .
 name: {app_name}
 owner: {username}
+package: .
 "#
     );
     let got = std::fs::read_to_string(app_dir.join("app.yaml"))?;
@@ -95,6 +95,7 @@ owner: {username}
 
 [[command]]
 name = "script"
+package = .
 module = "wasmer/static-web-server:webserver"
 runner = "https://webc.org/runner/wasi"
 

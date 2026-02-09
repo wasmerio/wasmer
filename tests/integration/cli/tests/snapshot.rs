@@ -190,9 +190,8 @@ impl TestBuilder {
     }
 
     pub fn use_coreutils(self) -> Self {
-        // TODO: use custom compiled coreutils
-        self.use_pkg("sharrattj/coreutils")
-            .include_static_package("sharrattj/coreutils@1.0.16", WEBC_COREUTILS_16)
+        self.use_pkg("syrusakbary/coreutils")
+            .include_static_package("syrusakbary/coreutils@0.0.1", WEBC_COREUTILS_16)
     }
 
     pub fn use_dash(self) -> Self {

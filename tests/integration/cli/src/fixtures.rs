@@ -26,7 +26,7 @@ pub fn php() -> (PathBuf, PathBuf, PathBuf) {
 
 /// A WEBC file containing the Python interpreter, compiled to WASI.
 pub fn python() -> PathBuf {
-    c_asset_path().join("python-0.1.0.wasmer")
+    c_asset_path().join("python--python@3.13.5.webc")
 }
 
 /// A WEBC file containing the coreutils.
