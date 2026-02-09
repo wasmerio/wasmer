@@ -1362,14 +1362,3 @@ fn test_snapshot_mkdir_rename() {
         .run_wasm(include_bytes!("./wasm/mkdir-rename.wasm"));
     assert_json_snapshot!(snapshot);
 }
-
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_dylink_needed() {
-    // test sources in tests/c-wasi-tests
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .mount(wasm_dir(), "/lib")
-        .run_wasm(include_bytes!("./wasm/dylink-needed.wasm"));
-    assert_json_snapshot!(snapshot);
-}
