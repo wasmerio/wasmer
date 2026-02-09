@@ -61,13 +61,6 @@ pub fn qjs() -> PathBuf {
     c_asset_path().join("qjs.wasm")
 }
 
-pub fn hello() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("webc")
-        .join("hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc")
-}
-
 /// The `wasmer.toml` file for QuickJS.
 pub fn qjs_wasmer_toml() -> PathBuf {
     c_asset_path().join("qjs-wasmer.toml")

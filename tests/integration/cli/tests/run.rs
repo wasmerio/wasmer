@@ -679,7 +679,7 @@ fn wasi_runner_on_disk_with_dependencies() {
     let port = random_port();
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("run")
-        .arg(fixtures::hello())
+        .arg("wasmer/hello")
         .arg(format!("--env=SERVER_PORT={port}"))
         .arg("--net")
         .arg("--")
@@ -693,7 +693,7 @@ fn wasi_runner_on_disk_with_dependencies() {
         .unwrap()
         .text()
         .unwrap();
-    assert!(html.contains("<title>Hello World</title>"), "{html}");
+    assert!(html.contains("<title>wasmer/hello</title>"), "{html}");
 
     // and make sure our request was logged
     child
