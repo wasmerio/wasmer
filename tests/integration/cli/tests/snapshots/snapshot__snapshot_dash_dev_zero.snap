@@ -6,13 +6,9 @@ expression: snapshot
   "spec": {
     "name": "snapshot::test_snapshot_dash_dev_zero",
     "use_packages": [
-      "syrusakbary/coreutils"
+      "wasmer/bash"
     ],
-    "include_webcs": [
-      {
-        "name": "syrusakbary/coreutils@0.0.1"
-      }
-    ],
+    "include_webcs": [],
     "cli_args": [],
     "stdin_hash": "a911ff36e7a2d67baba7c3dcb45ac5c9",
     "enable_threads": true,

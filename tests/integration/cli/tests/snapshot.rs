@@ -1122,7 +1122,7 @@ fn test_snapshot_python_3_11_3() {
 fn test_snapshot_dash_dev_zero() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .use_coreutils()
+        .use_bash()
         .stdin_str("head -c 10 /dev/zero")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -1133,7 +1133,7 @@ fn test_snapshot_dash_dev_zero() {
 fn test_snapshot_dash_dev_urandom() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .use_coreutils()
+        .use_bash()
         .stdin_str("head -c 10 /dev/urandom | wc -c")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
