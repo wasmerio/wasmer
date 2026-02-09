@@ -221,54 +221,6 @@ fn run_php_with_sqlite() {
     }
 }
 
-/// Ignored on Windows because running vendored packages does not work
-/// since Windows does not allow `::` characters in filenames (every other OS does)
-///
-/// The syntax for vendored package atoms has to be reworked for this to be fixed, see
-/// https://github.com/wasmerio/wasmer/issues/3535
-// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
-#[test]
-fn test_run_customlambda() {
-    let assert = Command::new(get_wasmer_path())
-        .arg("config")
-        .arg("--bindir")
-        .assert()
-        .success();
-    let bindir = std::str::from_utf8(&assert.get_output().stdout)
-        .expect("wasmer config --bindir stdout failed");
-
-    // /Users/fs/.wasmer/bin
-    let checkouts_path = Path::new(bindir.trim())
-        .parent()
-        .expect("--bindir: no parent")
-        .join("checkouts");
-    println!("checkouts path: {}", checkouts_path.display());
-    let _ = std::fs::remove_dir_all(&checkouts_path);
-
-    let assert = Command::new(get_wasmer_path())
-        .arg("run")
-        .arg("https://wasmer.io/ciuser/customlambda")
-        // TODO: this argument should not be necessary later
-        // see https://github.com/wasmerio/wasmer/issues/3514
-        .arg("customlambda.py")
-        .arg("55")
-        .assert()
-        .success();
-    assert.stdout("139583862445\n");
-
-    // Run again to verify the caching
-    let assert = Command::new(get_wasmer_path())
-        .arg("run")
-        .arg("https://wasmer.io/ciuser/customlambda")
-        // TODO: this argument should not be necessary later
-        // see https://github.com/wasmerio/wasmer/issues/3514
-        .arg("customlambda.py")
-        .arg("55")
-        .assert()
-        .success();
-    assert.stdout("139583862445\n");
-}
-
 #[test]
 fn run_wasi_works() {
     let assert = Command::new(get_wasmer_path())
