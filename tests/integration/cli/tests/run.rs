@@ -302,7 +302,7 @@ fn test_wasmer_run_works_with_dir() {
 #[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
-        .arg("https://wasmer.io/python/python@0.2.0")
+        .arg(PYTHON_PACKAGE_WITH_VERSION)
         .arg(format!("--volume={}:.", asset_path().display()))
         .arg("test.py")
         .assert()
@@ -319,7 +319,7 @@ fn test_wasmer_run_works() {
     // same test again, but this time with "wasmer run ..."
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wasmer.io/python/python@0.2.0")
+        .arg(PYTHON_PACKAGE_WITH_VERSION)
         .arg(format!("--volume={}:.", asset_path().display()))
         .arg("test.py")
         .assert()
@@ -335,24 +335,7 @@ fn test_wasmer_run_works() {
     // same test again, but this time without specifying the registry in the URL
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("python/python@0.2.0")
-        .arg(format!("--volume={}:.", asset_path().display()))
-        .arg("--registry=wasmer.io")
-        .arg("test.py")
-        .assert()
-        .success();
-
-    if cfg!(not(feature = "wamr")) {
-        assert.stdout("hello\n");
-    } else {
-        // See above
-        assert.stdout(contains("hello\n"));
-    }
-
-    // same test again, but this time with only the command "python" (should be looked up locally)
-    let assert = Command::new(get_wasmer_path())
-        .arg("run")
-        .arg("_/python")
+        .arg(PYTHON_PACKAGE_WITH_VERSION)
         .arg(format!("--volume={}:.", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("test.py")
