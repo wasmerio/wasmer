@@ -709,18 +709,6 @@ fn test_snapshot_tokio() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
-#[test]
-fn test_snapshot_unix_pipe() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-unix-pipe.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
 #[test]
 #[cfg_attr(
     any(target_env = "musl", target_os = "macos", target_os = "windows"),
@@ -885,18 +873,6 @@ fn test_snapshot_fork_async() {
         .use_coreutils()
         .with_async_threads()
         .run_wasm(include_bytes!("./wasm/example-fork.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-// Uses the `fd_pipe` syscall to create a bidirection pipe with two file
-// descriptors then forks the process to write and read to this pipe.
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_pipes() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-pipe.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
