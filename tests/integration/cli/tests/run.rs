@@ -392,7 +392,7 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
         .stderr(contains(
             "Unable to find \"does-not/exist\" in the registry",
         ))
-        .stderr(contains("1: Not found"));
+        .stderr(contains("1: failed to query package"));
 
     Ok(())
 }
