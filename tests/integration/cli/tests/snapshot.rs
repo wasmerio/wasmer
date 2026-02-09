@@ -62,10 +62,6 @@ fn is_false(b: &bool) -> bool {
 
 static WEBC_COREUTILS_16: &[u8] =
     include_bytes!("./webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
-static WEBC_COREUTILS_11: &[u8] =
-    include_bytes!("./webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
-static WEBC_DASH: &[u8] =
-    include_bytes!("./webc/dash-1.0.18-f0d13233-bcda-4cf1-9a23-3460bffaae2a.webc");
 static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
 static WEBC_WEB_SERVER: &[u8] = include_bytes!(
     "./webc/static-web-server-async-1.0.3-5d739d1a-20b7-4edf-8cf4-44e813f96b25.webc"
@@ -190,13 +186,6 @@ impl TestBuilder {
     pub fn use_coreutils(self) -> Self {
         self.use_pkg("syrusakbary/coreutils")
             .include_static_package("syrusakbary/coreutils@0.0.1", WEBC_COREUTILS_16)
-    }
-
-    pub fn use_dash(self) -> Self {
-        // TODO: use custom compiled dash
-        self.use_pkg("sharrattj/dash")
-            .include_static_package("sharrattj/dash@1.0.16", WEBC_DASH)
-            .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
     }
 
     pub fn use_bash(self) -> Self {
@@ -1145,7 +1134,7 @@ fn test_snapshot_dash_dev_urandom() {
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .use_dash()
+        .use_bash()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -1236,7 +1225,7 @@ fn test_snapshot_bash_bash() {
 fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .use_dash()
+        .use_bash()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
