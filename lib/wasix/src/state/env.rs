@@ -15,7 +15,7 @@ use crate::{
     syscalls::platform_clock_time_get,
 };
 use futures::future::BoxFuture;
-use rand::Rng;
+use rand::RngExt;
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -91,7 +91,7 @@ impl WasiEnvInit {
 
         Self {
             state: WasiState {
-                secret: rand::thread_rng().r#gen::<[u8; 32]>(),
+                secret: rand::rng().random::<[u8; 32]>(),
                 inodes,
                 fs,
                 futexs: Default::default(),

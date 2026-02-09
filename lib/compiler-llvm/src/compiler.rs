@@ -9,10 +9,13 @@ use inkwell::targets::FileType;
 use rayon::ThreadPoolBuilder;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use wasmer_compiler::misc::CompiledKind;
+use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
@@ -24,9 +27,16 @@ use wasmer_compiler::{
         symbols::{Symbol, SymbolRegistry},
     },
 };
+use wasmer_compiler::{
+    WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets,
+    translate_function_buckets,
+};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
-use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex};
+use wasmer_types::{
+    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
+    SignatureIndex,
+};
 use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
@@ -85,7 +95,7 @@ impl SymbolRegistry for ShortNames {
     }
 }
 
-struct ModuleBasedSymbolRegistry {
+pub(crate) struct ModuleBasedSymbolRegistry {
     wasm_module: Arc<ModuleInfo>,
     local_func_names: HashMap<String, LocalFunctionIndex>,
     short_names: ShortNames,
@@ -185,6 +195,7 @@ impl LLVMCompiler {
                 let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
                 let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
+                    target.triple().clone(),
                     target_machine,
                     Some(target_machine_no_opt),
                     binary_format,
@@ -212,7 +223,7 @@ impl LLVMCompiler {
         let trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTrampoline::new(target_machine, binary_format).unwrap()
+                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format).unwrap()
             },
             |func_trampoline, (i, sig)| {
                 let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
@@ -226,20 +237,26 @@ impl LLVMCompiler {
             },
         );
 
+        let module_hash = compile_info.module.hash_string();
         let dynamic_trampolines_bitcode =
             compile_info.module.functions.iter().par_bridge().map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
                     (
-                        FuncTrampoline::new(target_machine, binary_format).unwrap(),
+                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                            .unwrap(),
                         &compile_info.module.signatures,
                     )
                 },
                 |(func_trampoline, signatures), (i, sig)| {
                     let sig = &signatures[*sig];
                     let name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(i));
-                    let module =
-                        func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
+                    let module = func_trampoline.dynamic_trampoline_to_module(
+                        sig,
+                        self.config(),
+                        &name,
+                        &module_hash,
+                    )?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
             );
@@ -291,7 +308,11 @@ impl LLVMCompiler {
             .write_to_memory_buffer(&merged_module, FileType::Object)
             .unwrap();
         if let Some(ref callbacks) = self.config.callbacks {
-            callbacks.obj_memory_buffer(&CompiledKind::Module, &memory_buffer);
+            callbacks.obj_memory_buffer(
+                &CompiledKind::Module,
+                &compile_info.module.hash_string(),
+                &memory_buffer,
+            );
         }
 
         tracing::trace!("Finished compling the module!");
@@ -361,14 +382,25 @@ impl Compiler for LLVMCompiler {
         compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
-        //let data = Arc::new(Mutex::new(0));
-
-        let memory_styles = &compile_info.memory_styles;
-        let table_styles = &compile_info.table_styles;
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
+        let module_hash = module.hash_string();
+
+        let total_function_call_trampolines = module.signatures.len();
+        let total_dynamic_trampolines = module.num_imported_functions;
+        let total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
+            * ((total_dynamic_trampolines + total_function_call_trampolines) as u64)
+            + function_body_inputs
+                .iter()
+                .map(|(_, body)| body.data.len() as u64)
+                .sum::<u64>();
+
+        let progress = progress_callback
+            .cloned()
+            .map(|cb| ProgressContext::new(cb, total_steps, "Compiling functions"));
 
         // TODO: merge constants in sections.
 
@@ -390,49 +422,52 @@ impl Compiler for LLVMCompiler {
         };
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
+        let module = &compile_info.module;
+        let memory_styles = &compile_info.memory_styles;
+        let table_styles = &compile_info.table_styles;
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
-        let functions = pool.install(|| {
-            function_body_inputs
-                .iter()
-                .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-                .par_iter()
-                .map_init(
-                    || {
-                        let target_machine = self.config().target_machine_with_opt(target, true);
-                        let target_machine_no_opt =
-                            self.config().target_machine_with_opt(target, false);
-                        let pointer_width = target.triple().pointer_width().unwrap().bytes();
-                        FuncTranslator::new(
-                            target_machine,
-                            Some(target_machine_no_opt),
-                            binary_format,
-                            pointer_width,
-                        )
-                        .unwrap()
-                    },
-                    |func_translator, (i, input)| {
-                        // TODO: remove (to serialize)
-                        //let _data = data.lock().unwrap();
 
-                        func_translator.translate(
-                            module,
-                            module_translation,
-                            i,
-                            input,
-                            self.config(),
-                            memory_styles,
-                            table_styles,
-                            &symbol_registry,
-                            target.triple(),
-                        )
-                    },
+        let buckets =
+            build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
+        let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
+        tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
+        let functions = translate_function_buckets(
+            &pool,
+            || {
+                let compiler = &self;
+                let target_machine = compiler.config().target_machine_with_opt(target, true);
+                let target_machine_no_opt =
+                    compiler.config().target_machine_with_opt(target, false);
+                let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                FuncTranslator::new(
+                    target.triple().clone(),
+                    target_machine,
+                    Some(target_machine_no_opt),
+                    binary_format,
+                    pointer_width,
                 )
-                .collect::<Result<Vec<_>, CompileError>>()
-        })?;
+                .unwrap()
+            },
+            |func_translator, i, input| {
+                func_translator.translate(
+                    module,
+                    module_translation,
+                    i,
+                    input,
+                    self.config(),
+                    memory_styles,
+                    table_styles,
+                    &symbol_registry,
+                    target.triple(),
+                )
+            },
+            progress.clone(),
+            &buckets,
+        )?;
 
         let functions = functions
             .into_iter()
@@ -509,6 +544,7 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
+        let progress = progress.clone();
         let function_call_trampolines = pool.install(|| {
             module
                 .signatures
@@ -518,10 +554,16 @@ impl Compiler for LLVMCompiler {
                 .map_init(
                     || {
                         let target_machine = self.config().target_machine(target);
-                        FuncTrampoline::new(target_machine, binary_format).unwrap()
+                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                            .unwrap()
                     },
                     |func_trampoline, sig| {
-                        func_trampoline.trampoline(sig, self.config(), "", compile_info)
+                        let trampoline =
+                            func_trampoline.trampoline(sig, self.config(), "", compile_info);
+                        if let Some(progress) = progress.as_ref() {
+                            progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                        }
+                        trampoline
                     },
                 )
                 .collect::<Vec<_>>()
@@ -534,15 +576,18 @@ impl Compiler for LLVMCompiler {
         // We can move that logic out and re-enable parallel processing. Hopefully, there aren't
         // enough dynamic trampolines to actually cause a noticeable performance degradation.
         let dynamic_function_trampolines = {
+            let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
-            let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
+            let func_trampoline =
+                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+                    .unwrap();
             module
                 .imported_function_types()
                 .collect::<Vec<_>>()
                 .into_iter()
                 .enumerate()
                 .map(|(index, func_type)| {
-                    func_trampoline.dynamic_trampoline(
+                    let trampoline = func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
                         "",
@@ -552,7 +597,12 @@ impl Compiler for LLVMCompiler {
                         &mut eh_frame_section_relocations,
                         &mut compact_unwind_section_bytes,
                         &mut compact_unwind_section_relocations,
-                    )
+                        &module_hash,
+                    )?;
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    }
+                    Ok(trampoline)
                 })
                 .collect::<Vec<_>>()
                 .into_iter()
@@ -625,7 +675,6 @@ impl Compiler for LLVMCompiler {
             got.index = Some(got_idx);
         };
 
-        tracing::trace!("Finished compling the module!");
         Ok(Compilation {
             functions,
             custom_sections: module_custom_sections,

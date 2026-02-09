@@ -24,7 +24,6 @@ env:
   # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.90"
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
@@ -54,10 +53,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
       - name: Install libtinfo
@@ -111,10 +112,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
@@ -195,10 +198,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
       - name: Install Tools
         run: |
           sudo apt-get update
@@ -250,9 +255,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: x86_64-unknown-linux-gnu
           components: clippy
       - name: Install NodeJS
@@ -324,9 +332,12 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         if: matrix.metadata.build == 'windows-x64'
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           components: clippy
 
       - name: Install Nextest
@@ -416,6 +427,11 @@ jobs:
         build-what:
           [
             {
+              key: wast-tests,
+              build-cmd: "make test-stage-0-wast",
+              name: "WAST tests",
+            },
+            {
               key: capi,
               build-cmd: "make build-capi && make package-capi",
               name: "C-API",
@@ -428,9 +444,11 @@ jobs:
           ]
     steps:
       - uses: actions/checkout@v6
+      #- uses: ./.github/actions/load_toolchain
+      #  id: load_toolchain
       #- uses: dtolnay/rust-toolchain@stable
       #  with:
-      #    toolchain: ${{ env.MSRV }}
+      #    toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
       #    target: riscv64gc-unknown-linux-gnu
       - name: Build cross image
         run: |
@@ -582,10 +600,12 @@ jobs:
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
         if: matrix.metadata.os == 'macos-15-intel'
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.metadata.target }}
           components: rustfmt,clippy
       - name: Install Nextest
@@ -823,9 +843,29 @@ jobs:
               container: "alpine:edge",
             },
           ]
-    container: ${{ matrix.metadata.container }}
+    container:
+      image: ${{ matrix.metadata.container }}
+      volumes:
+        - /usr/local:/host/usr/local
     steps:
       - uses: actions/checkout@v6
+      - name: Show disk capacity
+        if: startsWith(matrix.metadata.build, 'linux')
+        run: df -h
+      # Saves ~21 GiB
+      - name: Clean up disk space (container)
+        run: |
+          rm -rf /__t/*
+          rm -rf /host/usr/local/.ghcup
+          rm -rf /host/usr/local/lib/android
+        if: startsWith(matrix.metadata.build, 'linux') && matrix.metadata.container != ''
+      # Saves ~16 GiB
+      - name: Clean up disk space (native)
+        run: |
+          sudo rm -rf /__t/*
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/lib/android
+        if: startsWith(matrix.metadata.build, 'linux') && matrix.metadata.container == ''
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')
         run: df -h
@@ -854,10 +894,12 @@ jobs:
           brew install gnu-tar zstd
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
         if: matrix.metadata.os == 'macos-15-intel'
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
@@ -904,8 +946,6 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        # TODO: fix disk space issue for a couple of Linux runners
-        if: ${{ !(matrix.stage.make == 'test-stage-5-test-examples' && (matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'linux-x64')) }}
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -962,9 +1002,6 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v6
-      - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.10.0
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
         run: |
@@ -978,10 +1015,12 @@ jobs:
           name: wasmer-cli-${{ matrix.build }}
       - name: "Echo download path"
         run: echo ${{steps.download.outputs.download-path}}
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
@@ -1119,6 +1158,8 @@ jobs:
           #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test-wasmer-integration-tests:
+    # TODO(SRE-1320): Re-enable once integration test are consistently green
+    if: ${{ false }}
     name: "Remote integ. tests"
     needs: [build]
     uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main

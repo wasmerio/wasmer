@@ -23,7 +23,6 @@ enum-iterator.workspace = true
 target-lexicon = { workspace = true}
 enumset.workspace = true
 bytecheck.workspace = true
-xxhash-rust = { workspace = true, features = ["xxh64"] }
 sha2.workspace = true
 hex.workspace = true
 loupe = { workspace = true, optional = true }
@@ -33,7 +32,7 @@ wasmparser = { workspace = true, default-features = false, optional = true }
 # compile the project for `js`, we need to enable this feature
 [dependencies.getrandom]
 workspace = true
-features = ["js"]
+features = ["wasm_js"]
 
 [dev-dependencies]
 memoffset.workspace = true

@@ -1,7 +1,7 @@
-use std::sync::atomic::Ordering;
-
 #[cfg(unix)]
 use crate::engine::unwind::EXIT_CALLED;
+#[cfg(unix)]
+use std::sync::atomic::Ordering;
 
 use super::frame_info::{FRAME_INFO, GlobalFrameInfo};
 use backtrace::Backtrace;

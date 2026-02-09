@@ -21,6 +21,7 @@ use std::{
 
 use anyhow::{Context, Error, anyhow, bail};
 use clap::{Parser, ValueEnum};
+use colored::Colorize;
 use futures::future::BoxFuture;
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
@@ -67,7 +68,6 @@ use webc::metadata::Manifest;
 use crate::{
     backend::RuntimeOptions,
     commands::run::{target::TargetOnDisk, wasi::Wasi},
-    common::HashAlgorithm,
     config::WasmerEnv,
     error::PrettyError,
     logging::Output,
@@ -107,9 +107,6 @@ pub struct Run {
     input: CliPackageSource,
     /// Command-line arguments passed to the package
     args: Vec<String>,
-    /// Hashing algorithm to be used for module hash
-    #[clap(long, value_enum)]
-    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Run {
@@ -120,6 +117,8 @@ impl Run {
 
     #[tracing::instrument(level = "debug", name = "wasmer_run", skip_all)]
     fn execute_inner(mut self, output: Output) -> Result<(), Error> {
+        self.print_option_warnings();
+
         let pb = ProgressBar::new_spinner();
         pb.set_draw_target(output.draw_target());
         pb.enable_steady_tick(TICK);
@@ -215,12 +214,8 @@ impl Run {
         tracing::info!("Executing on backend {engine_kind:?}");
 
         #[cfg(feature = "sys")]
-        if engine.is_sys() {
-            if self.stack_size.is_some() {
-                wasmer_vm::set_stack_size(self.stack_size.unwrap());
-            }
-            let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
-            engine.set_hash_algorithm(Some(hash_algorithm));
+        if engine.is_sys() && self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
         let engine = engine.clone();
@@ -247,7 +242,7 @@ impl Run {
 
         if let ExecutableTarget::Package(ref pkg) = target {
             self.wasi
-                .mapped_dirs
+                .volumes
                 .extend(pkg.additional_host_mapped_directories.clone());
         }
 
@@ -323,7 +318,7 @@ impl Run {
                             }
                         }
                     }
-                    self.execute_webc(&pkg, runtime.clone())
+                    self.execute_webc(&pkg, monitoring_runtime)
                 }
             }
         };
@@ -449,7 +444,7 @@ impl Run {
             .args(self.args.clone())
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.clone())
+            .map_directories(self.wasi.all_volumes())
             .callbacks(Callbacks::new(self.wcgi.addr))
             .inject_packages(uses);
         *config.capabilities() = self.wasi.capabilities();
@@ -562,14 +557,14 @@ impl Run {
 
         let mut runner = WasiRunner::new();
 
-        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories(is_wasix)?;
+        let (is_home_mapped, mapped_directories) = self.wasi.build_mapped_directories(is_wasix)?;
 
         runner
             .with_args(&self.args)
             .with_injected_packages(packages)
             .with_envs(self.wasi.env_vars.clone())
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
-            .with_mapped_directories(mapped_diretories)
+            .with_mapped_directories(mapped_directories)
             .with_home_mapped(is_home_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
@@ -646,6 +641,25 @@ impl Run {
                 error = &*e as &dyn std::error::Error,
                 coredump_path=%coredump.display(),
                 "Unable to generate a coredump",
+            );
+        }
+    }
+
+    fn print_option_warnings(&self) {
+        if !self.wasi.mapped_dirs.is_empty() {
+            eprintln!(
+                "{}The `{}` option is deprecated and will be removed in the next major release. Please use `{}` instead.",
+                "warning: ".yellow(),
+                "--mapdir".yellow(),
+                "--volume".green()
+            );
+        }
+        if !self.wasi.pre_opened_directories.is_empty() {
+            eprintln!(
+                "{}The `{}` option is deprecated and will be removed in the next major release. Please use `{}` instead.",
+                "warning: ".yellow(),
+                "--dir".yellow(),
+                "--volume".green()
             );
         }
     }

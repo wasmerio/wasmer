@@ -25,6 +25,7 @@ WASI_WASM_LD_SUFFIX := \
   ${WASIX_SYSROOT_PIC}/lib/wasm32-wasi/crt1.o \
   -lc -lresolv -lrt -lm -lpthread \
   -lwasi-emulated-mman \
+  -lcommon-tag-stubs \
   ${WASIX_SYSROOT_PIC}/lib/wasm32-wasi/libclang_rt.builtins-wasm32.a \
   --max-memory=4294967296 --import-memory --shared-memory \
   --extra-features=atomics,bulk-memory,mutable-globals \
@@ -231,6 +232,9 @@ proc_spawn_file_actions_child.wasm: proc_spawn_file_actions_child.c | check-sysr
 proc_spawn_stdout_child.wasm: proc_spawn_stdout_child.c | check-sysroot
 	$(call build_wasm,)
 
+poll_oneoff_zero.wasm: poll_oneoff_zero.c | check-sysroot
+	$(call build_wasm,)
+
 %.wasm: %.c | check-sysroot
 	$(call build_wasm,)
 
@@ -279,7 +283,7 @@ run: $(BUILD_TARGETS)
 		exit 1; \
 	fi
 
-install: libside1.so libside2.so dlopen_dso.so tls_init_dso.so tls_align_dso.so tls_get_new-dtv_dso.so dlopen.wasm dlopen_libc.wasm dylink-needed.wasm proc_id.wasm thread_id.wasm fd_tell.wasm random_get.wasm sched_yield.wasm closure_free.wasm fd_fdstat_get.wasm fd_fdflags_get.wasm getcwd.wasm
+install: libside1.so libside2.so dlopen_dso.so tls_init_dso.so tls_align_dso.so tls_get_new-dtv_dso.so dlopen.wasm dlopen_libc.wasm dylink-needed.wasm proc_id.wasm thread_id.wasm fd_tell.wasm random_get.wasm sched_yield.wasm closure_free.wasm fd_fdstat_get.wasm getcwd.wasm poll_oneoff_zero.wasm
 	cp -f $^ ../integration/cli/tests/wasm
 
 clean:

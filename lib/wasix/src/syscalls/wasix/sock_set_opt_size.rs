@@ -47,7 +47,7 @@ pub(crate) fn sock_set_opt_size_internal(
     ) {
         return Ok(Err(Errno::Inval));
     }
-    let option: crate::net::socket::WasiSocketOption = match opt.try_into() {
+    let option: WasiSocketOption = match opt.try_into() {
         Ok(o) => o,
         Err(_) => return Ok(Err(Errno::Inval)),
     };

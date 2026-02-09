@@ -7,7 +7,6 @@ pub enum Size {
 }
 
 impl Size {
-    #[allow(dead_code)]
     pub fn bits(&self) -> u32 {
         8 * self.bytes()
     }

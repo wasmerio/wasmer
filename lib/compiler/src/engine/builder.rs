@@ -1,7 +1,7 @@
 use super::Engine;
 #[cfg(feature = "compiler")]
 use crate::CompilerConfig;
-use wasmer_types::{Features, HashAlgorithm, target::Target};
+use wasmer_types::{Features, target::Target};
 
 /// The Builder contents of `Engine`
 pub struct EngineBuilder {
@@ -12,8 +12,6 @@ pub struct EngineBuilder {
     target: Option<Target>,
     /// The features to compile the Wasm module with
     features: Option<Features>,
-    /// The hashing algorithm
-    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl EngineBuilder {
@@ -27,7 +25,6 @@ impl EngineBuilder {
             compiler_config: Some(compiler_config.into()),
             target: None,
             features: None,
-            hash_algorithm: None,
         }
     }
 
@@ -38,7 +35,6 @@ impl EngineBuilder {
             compiler_config: None,
             target: None,
             features: None,
-            hash_algorithm: None,
         }
     }
 
@@ -54,12 +50,6 @@ impl EngineBuilder {
         self
     }
 
-    /// Set the hashing algorithm
-    pub fn set_hash_algorithm(mut self, hash_algorithm: Option<HashAlgorithm>) -> Self {
-        self.hash_algorithm = hash_algorithm;
-        self
-    }
-
     /// Build the `Engine` for this configuration
     #[cfg(feature = "compiler")]
     pub fn engine(self) -> Engine {
@@ -68,11 +58,7 @@ impl EngineBuilder {
             let features = self
                 .features
                 .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
-            let mut engine = Engine::new(compiler_config, target, features);
-
-            engine.set_hash_algorithm(self.hash_algorithm);
-
-            engine
+            Engine::new(compiler_config, target, features)
         } else {
             Engine::headless()
         }

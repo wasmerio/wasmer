@@ -5,8 +5,8 @@ use std::sync::Arc;
 use bytes::Bytes;
 use wasmer_compiler::{Artifact, ArtifactCreate, Engine};
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
-    ModuleInfo, SerializeError,
+    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
+    ImportType, ImportsIterator, ModuleInfo, SerializeError,
 };
 
 use crate::{
@@ -45,12 +45,26 @@ impl Module {
         unsafe { Self::from_binary_unchecked(engine, binary) }
     }
 
+    pub(crate) fn from_binary_with_progress(
+        engine: &impl AsEngineRef,
+        binary: &[u8],
+        callback: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        Self::validate(engine, binary)?;
+
+        let artifact = engine
+            .as_engine_ref()
+            .engine()
+            .as_sys()
+            .compile_with_progress(binary, Some(callback))?;
+        Ok(Self::from_artifact(artifact))
+    }
+
     pub(crate) unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let module = Self::compile(engine, binary)?;
-        Ok(module)
+        Self::compile(engine, binary)
     }
 
     #[cfg(feature = "compiler")]

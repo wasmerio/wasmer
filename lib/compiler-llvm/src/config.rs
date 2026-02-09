@@ -37,22 +37,47 @@ impl LLVMCallbacks {
         Ok(Self { debug_dir })
     }
 
-    pub fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
+    fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
+        if let Some(hash) = module_hash {
+            path.push(hash);
+        }
+        std::fs::create_dir_all(&path)
+            .unwrap_or_else(|_| panic!("cannot create debug directory: {}", path.display()));
+        path
+    }
+
+    pub fn preopt_ir(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        module: &InkwellModule,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".preopt.ll"));
         module
             .print_to_file(&path)
             .expect("Error while dumping pre optimized LLVM IR");
     }
-    pub fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
-        let mut path = self.debug_dir.clone();
+    pub fn postopt_ir(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        module: &InkwellModule,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".postopt.ll"));
         module
             .print_to_file(&path)
             .expect("Error while dumping post optimized LLVM IR");
     }
-    pub fn obj_memory_buffer(&self, kind: &CompiledKind, memory_buffer: &InkwellMemoryBuffer) {
-        let mut path = self.debug_dir.clone();
+    pub fn obj_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        memory_buffer: &InkwellMemoryBuffer,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".o"));
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file =
@@ -60,8 +85,13 @@ impl LLVMCallbacks {
         file.write_all(mem_buf_slice).unwrap();
     }
 
-    pub fn asm_memory_buffer(&self, kind: &CompiledKind, asm_memory_buffer: &InkwellMemoryBuffer) {
-        let mut path = self.debug_dir.clone();
+    pub fn asm_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        asm_memory_buffer: &InkwellMemoryBuffer,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".s"));
         let mem_buf_slice = asm_memory_buffer.as_slice();
         let mut file =
@@ -83,6 +113,7 @@ pub struct LLVM {
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     /// Number of threads to use when compiling a module.
     pub(crate) num_threads: NonZero<usize>,
+    pub(crate) verbose_asm: bool,
 }
 
 impl LLVM {
@@ -98,6 +129,7 @@ impl LLVM {
             callbacks: None,
             middlewares: vec![],
             enable_g0m0_opt: false,
+            verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
     }
@@ -118,6 +150,11 @@ impl LLVM {
 
     pub fn num_threads(&mut self, num_threads: NonZero<usize>) -> &mut Self {
         self.num_threads = num_threads;
+        self
+    }
+
+    pub fn verbose_asm(&mut self, verbose_asm: bool) -> &mut Self {
+        self.verbose_asm = verbose_asm;
         self
     }
 
@@ -264,14 +301,6 @@ impl LLVM {
                     machine_code: true,
                 })
             }
-            // Architecture::Arm(_) => InkwellTarget::initialize_arm(&InitializationConfig {
-            //     asm_parser: true,
-            //     asm_printer: true,
-            //     base: true,
-            //     disassembler: true,
-            //     info: true,
-            //     machine_code: true,
-            // }),
             _ => unimplemented!("target {} not yet supported in Wasmer", triple),
         }
 
@@ -313,9 +342,11 @@ impl LLVM {
         if let Architecture::Riscv64(_) = triple.architecture {
             llvm_target_machine_options = llvm_target_machine_options.set_abi("lp64d");
         }
-        llvm_target
+        let target_machine = llvm_target
             .create_target_machine_from_options(&target_triple, llvm_target_machine_options)
-            .unwrap()
+            .unwrap();
+        target_machine.set_asm_verbosity(self.verbose_asm);
+        target_machine
     }
 }
 

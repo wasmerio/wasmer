@@ -35,9 +35,19 @@ impl CraneliftCallbacks {
         Ok(Self { debug_dir })
     }
 
-    /// Writes the pre-optimization intermediate representation to a debug file.
-    pub fn preopt_ir(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
+    fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
+        if let Some(hash) = module_hash {
+            path.push(hash);
+        }
+        std::fs::create_dir_all(&path)
+            .unwrap_or_else(|_| panic!("cannot create debug directory: {}", path.display()));
+        path
+    }
+
+    /// Writes the pre-optimization intermediate representation to a debug file.
+    pub fn preopt_ir(&self, kind: &CompiledKind, module_hash: &Option<String>, mem_buffer: &[u8]) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".preopt.clif"));
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift IR");
@@ -45,8 +55,13 @@ impl CraneliftCallbacks {
     }
 
     /// Writes the object file memory buffer to a debug file.
-    pub fn obj_memory_buffer(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
-        let mut path = self.debug_dir.clone();
+    pub fn obj_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        mem_buffer: &[u8],
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".o"));
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift object");
@@ -57,10 +72,11 @@ impl CraneliftCallbacks {
     pub fn asm_memory_buffer(
         &self,
         kind: &CompiledKind,
+        module_hash: &Option<String>,
         arch: Architecture,
         mem_buffer: &[u8],
     ) -> Result<(), wasmer_types::CompileError> {
-        let mut path = self.debug_dir.clone();
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".s"));
         save_assembly_to_file(arch, path, mem_buffer, HashMap::<usize, String>::new())
     }
@@ -224,13 +240,8 @@ impl Cranelift {
             .expect("should be a valid flag");
 
         // Invert cranelift's default-on verification to instead default off.
-        let enable_verifier = if self.enable_verifier {
-            "true"
-        } else {
-            "false"
-        };
         flags
-            .set("enable_verifier", enable_verifier)
+            .set("enable_verifier", &self.enable_verifier.to_string())
             .expect("should be valid flag");
 
         flags
@@ -244,13 +255,11 @@ impl Cranelift {
             )
             .expect("should be valid flag");
 
-        let enable_nan_canonicalization = if self.enable_nan_canonicalization {
-            "true"
-        } else {
-            "false"
-        };
         flags
-            .set("enable_nan_canonicalization", enable_nan_canonicalization)
+            .set(
+                "enable_nan_canonicalization",
+                &self.enable_nan_canonicalization.to_string(),
+            )
             .expect("should be valid flag");
 
         settings::Flags::new(flags)

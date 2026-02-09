@@ -19,7 +19,7 @@ use inkwell::{
     values::{BasicMetadataValueEnum, FunctionValue},
 };
 use std::{cmp, convert::TryInto};
-use target_lexicon::BinaryFormat;
+use target_lexicon::{BinaryFormat, Triple};
 use wasmer_compiler::{
     misc::CompiledKind,
     types::{
@@ -37,6 +37,7 @@ use wasmer_vm::MemoryStyle;
 pub struct FuncTrampoline {
     ctx: Context,
     target_machine: TargetMachine,
+    target_triple: Triple,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
@@ -48,12 +49,14 @@ const FUNCTION_SECTION_MACHO: &str = "wasmer_trmpl"; // Needs to be between 1 an
 impl FuncTrampoline {
     pub fn new(
         target_machine: TargetMachine,
+        target_triple: Triple,
         binary_fmt: BinaryFormat,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
             target_machine,
+            target_triple,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -80,10 +83,16 @@ impl FuncTrampoline {
         let module = self.ctx.create_module("");
         let target_machine = &self.target_machine;
         let target_triple = target_machine.get_triple();
-        let target_data = target_machine.get_target_data();
+        let target_data: inkwell::targets::TargetData = target_machine.get_target_data();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let intrinsics = Intrinsics::declare(
+            &module,
+            &self.ctx,
+            &target_data,
+            &self.target_triple,
+            &self.binary_fmt,
+        );
 
         let func_kind = if config.enable_g0m0_opt {
             Some(G0M0FunctionKind::Local)
@@ -127,7 +136,7 @@ impl FuncTrampoline {
         )?;
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.preopt_ir(&function, &module);
+            callbacks.preopt_ir(&function, &compile_info.module.hash_string(), &module);
         }
 
         let mut passes = vec![];
@@ -146,7 +155,7 @@ impl FuncTrampoline {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.postopt_ir(&function, &module);
+            callbacks.postopt_ir(&function, &compile_info.module.hash_string(), &module);
         }
         Ok(module)
     }
@@ -167,11 +176,12 @@ impl FuncTrampoline {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.obj_memory_buffer(&function, &memory_buffer);
+            let module_hash = compile_info.module.hash_string();
+            callbacks.obj_memory_buffer(&function, &module_hash, &memory_buffer);
             let asm_buffer = target_machine
                 .write_to_memory_buffer(&module, FileType::Assembly)
                 .unwrap();
-            callbacks.asm_memory_buffer(&function, &asm_buffer);
+            callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer);
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
@@ -242,6 +252,7 @@ impl FuncTrampoline {
         ty: &FuncType,
         config: &LLVM,
         name: &str,
+        module_hash: &Option<String>,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
@@ -251,7 +262,13 @@ impl FuncTrampoline {
         let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let intrinsics = Intrinsics::declare(
+            &module,
+            &self.ctx,
+            &target_data,
+            &self.target_triple,
+            &self.binary_fmt,
+        );
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi
@@ -274,7 +291,7 @@ impl FuncTrampoline {
         self.generate_dynamic_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.preopt_ir(&function, &module);
+            callbacks.preopt_ir(&function, module_hash, &module);
         }
 
         let mut passes = vec![];
@@ -293,7 +310,7 @@ impl FuncTrampoline {
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.postopt_ir(&function, &module);
+            callbacks.postopt_ir(&function, module_hash, &module);
         }
 
         Ok(module)
@@ -311,22 +328,23 @@ impl FuncTrampoline {
         eh_frame_section_relocations: &mut Vec<Relocation>,
         compact_unwind_section_bytes: &mut Vec<u8>,
         compact_unwind_section_relocations: &mut Vec<Relocation>,
+        module_hash: &Option<String>,
     ) -> Result<FunctionBody, CompileError> {
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
-        let module = self.dynamic_trampoline_to_module(ty, config, name)?;
+        let module = self.dynamic_trampoline_to_module(ty, config, name, module_hash)?;
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
-            callbacks.obj_memory_buffer(&function, &memory_buffer);
+            callbacks.obj_memory_buffer(&function, module_hash, &memory_buffer);
             let asm_buffer = target_machine
                 .write_to_memory_buffer(&module, FileType::Assembly)
                 .unwrap();
-            callbacks.asm_memory_buffer(&function, &asm_buffer)
+            callbacks.asm_memory_buffer(&function, module_hash, &asm_buffer)
         }
 
         let mem_buf_slice = memory_buffer.as_slice();

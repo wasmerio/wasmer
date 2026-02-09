@@ -1172,7 +1172,7 @@ impl Linker {
                 &wasi_env.state,
                 runtime_path.as_ref(),
                 // HACK: The main module doesn't have to exist in the virtual FS at all; e.g.
-                // if one runs `wasmer ../module.wasm --dir .`, we won't have access to the
+                // if one runs `wasmer ../module.wasm --volume .`, we won't have access to the
                 // main module's folder within the virtual FS. This is why we're picking PWD
                 // as the $ORIGIN of the main module, which should at least be slightly
                 // sensible. The `main.wasm` file name will be stripped and only the `./`

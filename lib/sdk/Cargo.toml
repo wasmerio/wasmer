@@ -11,9 +11,9 @@ version.workspace = true
 readme = "README.md"
 
 [dependencies]
-wasmer-backend-api = { path = "../backend-api", version = "=0.700.0-alpha.1" }
-wasmer-config = { path = "../config", version = "=0.700.0-alpha.1" }
-wasmer-package = { path = "../package", version = "=0.700.0-alpha.1" }
+wasmer-backend-api = { path = "../backend-api", version = "=0.700.1" }
+wasmer-config = { path = "../config", version = "=0.700.1" }
+wasmer-package = { path = "../package", version = "=0.700.1" }
 
 reqwest = { workspace = true, default-features = false, features = ["json", "multipart", "gzip", "stream"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
