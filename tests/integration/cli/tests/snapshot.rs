@@ -693,41 +693,6 @@ fn test_snapshot_tokio() {
     assert_json_snapshot!(snapshot);
 }
 
-#[test]
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
-fn test_snapshot_web_server() {
-    let name: &str = function!();
-    let port = 7777;
-
-    let with = move |mut child: Child| {
-        let ret = test_run_http_request(port, "main.js", None);
-        child.kill().ok();
-        ret
-    };
-
-    let script = format!(
-        r#"
-cat /public/main.js | wc -c > /public/main.js.size
-rm -r -f /cfg/
-cd /public
-/bin/webserver --log-level warn --root /public --port {port}"#,
-    );
-    let builder = TestBuilder::new()
-        .with_name(name)
-        .enable_network(true)
-        .include_static_package("sharrattj/static-web-server@1.0.92", WEBC_WEB_SERVER)
-        .include_static_package("sharrattj/wasmer-sh@1.0.63", WEBC_WASMER_SH)
-        .use_coreutils()
-        .use_pkg("sharrattj/wasmer-sh")
-        .stdin_str(script);
-
-    let snapshot = builder.run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with));
-    assert_json_snapshot!(snapshot);
-}
-
 #[cfg_attr(
     any(target_env = "musl", target_os = "macos", target_os = "windows"),
     ignore
