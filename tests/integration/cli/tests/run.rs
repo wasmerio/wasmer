@@ -10,7 +10,7 @@ use std::{
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt};
 use once_cell::sync::Lazy;
 use predicates::str::{contains, is_match};
-use rand::Rng;
+use rand::RngExt;
 use reqwest::{IntoUrl, blocking::Client};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::{
