@@ -60,8 +60,6 @@ fn is_false(b: &bool) -> bool {
     !(*b)
 }
 
-static WEBC_BASH: &[u8] =
-    include_bytes!("./webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc");
 static WEBC_COREUTILS_16: &[u8] =
     include_bytes!("./webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
 static WEBC_COREUTILS_11: &[u8] =
@@ -202,10 +200,7 @@ impl TestBuilder {
     }
 
     pub fn use_bash(self) -> Self {
-        // TODO: use custom compiled bash
-        self.use_pkg("sharrattj/bash")
-            .include_static_package("sharrattj/bash@1.0.12", WEBC_BASH)
-            .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
+        self.use_pkg("wasmer/bash")
     }
 
     // Enable thread support.
@@ -1195,7 +1190,7 @@ fn test_snapshot_bash_cd_ls() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("cd bin\nls\nexit\n")
-        .use_coreutils()
+        .use_bash()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
