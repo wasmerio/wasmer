@@ -29,14 +29,6 @@ pub fn python() -> PathBuf {
     c_asset_path().join("python--python@3.13.5.webc")
 }
 
-/// A WEBC file containing the coreutils.
-pub fn coreutils() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("webc")
-        .join("coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc")
-}
-
 /// A WEBC file containing bash.
 pub fn bash() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

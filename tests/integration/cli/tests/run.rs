@@ -683,12 +683,9 @@ fn issue_3794_unable_to_mount_relative_paths() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg(fixtures::coreutils())
+        .arg("wasmer/bash")
         .arg(format!("--volume={}:./some-dir/", temp.path().display()))
-        .arg("--command-name=cat")
-        .arg("--")
-        .arg("./some-dir/message.txt")
-        .env("RUST_LOG", &*RUST_LOG)
+        .arg("cat ./some-dir/message.txt")
         .assert();
 
     assert.success().stdout(contains("Hello, World!"));
