@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
+use virtual_fs::FsError;
 
 use super::*;
 use crate::syscalls::*;
@@ -62,6 +63,15 @@ pub fn path_rename_internal(
     target_fd: WasiFd,
     target_path: &str,
 ) -> Result<Errno, WasiError> {
+    let ends_with_dot = |path: &str| {
+        path == "." || path == ".." || path.ends_with("/.") || path.ends_with("/..")
+    };
+    if ends_with_dot(source_path) || ends_with_dot(target_path) {
+        return Ok(Errno::Busy);
+    }
+    let source_path_arg = Path::new(source_path);
+    let target_path_arg = Path::new(target_path);
+
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
@@ -80,24 +90,27 @@ pub fn path_rename_internal(
     wasi_try_ok!(
         state
             .fs
-            .get_inode_at_path(inodes, source_fd, source_path, true)
+            .get_inode_at_path(inodes, source_fd, source_path, false)
     );
     // Create the destination inode if the file exists.
     let _ = state
         .fs
-        .get_inode_at_path(inodes, target_fd, target_path, true);
+        .get_inode_at_path(inodes, target_fd, target_path, false);
     let (source_parent_inode, source_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         source_fd,
-        Path::new(source_path),
+        source_path_arg,
         true
     ));
     let (target_parent_inode, target_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         target_fd,
-        Path::new(target_path),
+        target_path_arg,
         true
     ));
+    if target_entry_name.as_bytes().len() > 255 {
+        return Ok(Errno::Nametoolong);
+    }
     let mut need_create = true;
     let host_adjusted_target_path = {
         let guard = target_parent_inode.read();
@@ -148,14 +161,42 @@ pub fn path_rename_internal(
         let mut guard = source_entry.write();
         match guard.deref_mut() {
             Kind::File { path, .. } => {
+                match state.fs.root_fs.symlink_metadata(&host_adjusted_target_path) {
+                    Ok(metadata) => {
+                        if metadata.is_dir() {
+                            drop(guard);
+                            let mut guard = source_parent_inode.write();
+                            if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                                entries.insert(source_entry_name, source_entry);
+                            }
+                            return Ok(Errno::Isdir);
+                        }
+                    }
+                    Err(FsError::EntryNotFound) => {}
+                    Err(err) => {
+                        drop(guard);
+                        let mut guard = source_parent_inode.write();
+                        if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                            entries.insert(source_entry_name, source_entry);
+                        }
+                        return Ok(fs_error_into_wasi_err(err));
+                    }
+                }
+                let source_host_path = {
+                    let guard = source_parent_inode.read();
+                    match guard.deref() {
+                        Kind::Dir { path, .. } => path.join(&source_entry_name),
+                        Kind::Root { .. } => PathBuf::from(&source_entry_name),
+                        _ => return Ok(Errno::Inval),
+                    }
+                };
                 let result = {
-                    let path_clone = path.clone();
                     drop(guard);
                     let state = state;
                     let host_adjusted_target_path = host_adjusted_target_path.clone();
                     __asyncify_light(env, None, async move {
                         state
-                            .fs_rename(path_clone, &host_adjusted_target_path)
+                            .fs_rename(source_host_path, &host_adjusted_target_path)
                             .await
                     })?
                 };
@@ -176,6 +217,58 @@ pub fn path_rename_internal(
                 }
             }
             Kind::Dir { path, .. } => {
+                if host_adjusted_target_path.starts_with(path.as_path())
+                    && host_adjusted_target_path != *path
+                {
+                    drop(guard);
+                    let mut guard = source_parent_inode.write();
+                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                        entries.insert(source_entry_name, source_entry);
+                    }
+                    return Ok(Errno::Inval);
+                }
+                match state.fs.root_fs.symlink_metadata(&host_adjusted_target_path) {
+                    Ok(metadata) => {
+                        if metadata.is_dir() {
+                            match state.fs.root_fs.read_dir(&host_adjusted_target_path) {
+                                Ok(entries) => {
+                                    if !entries.is_empty() {
+                                        drop(guard);
+                                        let mut guard = source_parent_inode.write();
+                                        if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                                            entries.insert(source_entry_name, source_entry);
+                                        }
+                                        return Ok(Errno::Notempty);
+                                    }
+                                }
+                                Err(err) => {
+                                    drop(guard);
+                                    let mut guard = source_parent_inode.write();
+                                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                                        entries.insert(source_entry_name, source_entry);
+                                    }
+                                    return Ok(fs_error_into_wasi_err(err));
+                                }
+                            }
+                        } else {
+                            drop(guard);
+                            let mut guard = source_parent_inode.write();
+                            if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                                entries.insert(source_entry_name, source_entry);
+                            }
+                            return Ok(Errno::Notdir);
+                        }
+                    }
+                    Err(FsError::EntryNotFound) => {}
+                    Err(err) => {
+                        drop(guard);
+                        let mut guard = source_parent_inode.write();
+                        if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                            entries.insert(source_entry_name, source_entry);
+                        }
+                        return Ok(fs_error_into_wasi_err(err));
+                    }
+                }
                 let cloned_path = path.clone();
                 let res = {
                     let state = state;
@@ -187,6 +280,11 @@ pub fn path_rename_internal(
                     })?
                 };
                 if let Err(e) = res {
+                    drop(guard);
+                    let mut guard = source_parent_inode.write();
+                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                        entries.insert(source_entry_name, source_entry);
+                    }
                     return Ok(e);
                 }
                 {
@@ -196,35 +294,92 @@ pub fn path_rename_internal(
                 }
             }
             Kind::Buffer { .. }
-            | Kind::Symlink { .. }
             | Kind::Socket { .. }
             | Kind::PipeTx { .. }
             | Kind::PipeRx { .. }
             | Kind::DuplexPipe { .. }
             | Kind::Epoll { .. }
             | Kind::EventNotifications { .. } => {}
+            Kind::Symlink {
+                base_po_dir,
+                path_to_symlink,
+                ..
+            } => {
+                let source_host_path = {
+                    let guard = source_parent_inode.read();
+                    match guard.deref() {
+                        Kind::Dir { path, .. } => path.join(&source_entry_name),
+                        Kind::Root { .. } => PathBuf::from(&source_entry_name),
+                        _ => return Ok(Errno::Inval),
+                    }
+                };
+                let host_symlink_exists =
+                    match state.fs.root_fs.symlink_metadata(&source_host_path) {
+                        Ok(_) => true,
+                        Err(FsError::EntryNotFound) => false,
+                        Err(err) => {
+                            drop(guard);
+                            let mut guard = source_parent_inode.write();
+                            if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                                entries.insert(source_entry_name, source_entry);
+                            }
+                            return Ok(fs_error_into_wasi_err(err));
+                        }
+                    };
+                if host_symlink_exists {
+                    drop(guard);
+                    let res = {
+                        let state = state;
+                        let host_adjusted_target_path = host_adjusted_target_path.clone();
+                        __asyncify_light(env, None, async move {
+                            state
+                                .fs_rename(source_host_path, &host_adjusted_target_path)
+                                .await
+                        })?
+                    };
+                    if let Err(e) = res {
+                        let mut guard = source_parent_inode.write();
+                        if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                            entries.insert(source_entry_name, source_entry);
+                        }
+                        return Ok(e);
+                    }
+                    let mut guard = source_entry.write();
+                    if let Kind::Symlink {
+                        base_po_dir,
+                        path_to_symlink,
+                        ..
+                    } = guard.deref_mut()
+                    {
+                        *base_po_dir = target_fd;
+                        *path_to_symlink = PathBuf::from(target_path);
+                    }
+                } else {
+                    *base_po_dir = target_fd;
+                    *path_to_symlink = PathBuf::from(target_path);
+                }
+            }
             Kind::Root { .. } => unreachable!("The root can not be moved"),
         }
     }
 
     let source_size = source_entry.stat.read().unwrap().st_size;
 
-    if need_create {
+    let target_inode = {
         let mut guard = target_parent_inode.write();
         if let Kind::Dir { entries, .. } = guard.deref_mut() {
-            let result = entries.insert(target_entry_name.clone(), source_entry);
-            assert!(
-                result.is_none(),
-                "fatal error: race condition on filesystem detected or internal logic error"
-            );
+            let replaced = entries.insert(target_entry_name.clone(), source_entry.clone());
+            if need_create {
+                assert!(
+                    replaced.is_none(),
+                    "fatal error: race condition on filesystem detected or internal logic error"
+                );
+            }
+            source_entry
+        } else {
+            return Ok(Errno::Inval);
         }
-    }
-
-    // The target entry is created, one way or the other
-    let target_inode = state
-        .fs
-        .get_inode_at_path(inodes, target_fd, target_path, true)
-        .expect("Expected target inode to exist, and it's too late to safely fail");
+    };
     *target_inode.name.write().unwrap() = target_entry_name.into();
     target_inode.stat.write().unwrap().st_size = source_size;
 

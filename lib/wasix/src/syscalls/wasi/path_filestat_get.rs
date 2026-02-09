@@ -28,6 +28,10 @@ pub fn path_filestat_get<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
+    if flags & !__WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
+        return Errno::Inval;
+    }
+
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
 
     // Convert relative paths into absolute paths
@@ -86,6 +90,7 @@ pub(crate) fn path_filestat_get_internal(
         let guard = file_inode.read();
         state.fs.get_stat_for_kind(guard.deref())?
     };
+    stat.st_nlink = file_inode.stat.read().unwrap().st_nlink;
     stat.st_ino = st_ino;
     Ok(stat)
 }

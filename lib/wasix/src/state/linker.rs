@@ -260,7 +260,7 @@
 
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     ffi::OsStr,
     fmt::Display,
     ops::{Deref, DerefMut},
@@ -840,6 +840,7 @@ struct LinkerState {
     side_modules: BTreeMap<ModuleHandle, DlModule>,
     side_modules_by_name: HashMap<PathBuf, ModuleHandle>,
     next_module_handle: u32,
+    global_modules: HashSet<ModuleHandle>,
 
     memory_allocator: MemoryAllocator,
     heap_base: u64,
@@ -1102,6 +1103,7 @@ impl Linker {
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
             next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
+            global_modules: HashSet::from([MAIN_MODULE_HANDLE]),
             memory_allocator: MemoryAllocator::new(),
             allocated_closure_functions: BTreeMap::new(),
             available_closure_functions: Vec::new(),
@@ -1177,6 +1179,9 @@ impl Linker {
                 // will be taken into account by `locate_module`.
                 Some(Path::new("./main.wasm")),
             )?;
+        }
+        for module in &link_state.new_modules {
+            linker_state.global_modules.insert(module.handle);
         }
 
         for module_handle in link_state
@@ -1607,6 +1612,7 @@ impl Linker {
     pub fn load_module(
         &self,
         module_spec: DlModuleSpec,
+        is_global: bool,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
         trace!(?module_spec, "Loading module");
@@ -1645,6 +1651,12 @@ impl Linker {
             .iter()
             .map(|m| m.handle)
             .collect::<Vec<_>>();
+        if is_global {
+            linker_state.global_modules.insert(module_handle);
+            for handle in &new_modules {
+                linker_state.global_modules.insert(*handle);
+            }
+        }
 
         for handle in &new_modules {
             trace!(?module_handle, "Instantiating module");
@@ -1847,9 +1859,32 @@ impl Linker {
                 })
             }
             PartiallyResolvedExport::Function(func) => {
-                let func_ptr = group_state
-                    .append_to_function_table(&mut store, func.clone())
-                    .map_err(ResolveError::TableAllocationError)?;
+                let mut func_ptr = group_state.find_function_in_table(&mut store, &func);
+                if func_ptr.is_none()
+                    && resolved_from == MAIN_MODULE_HANDLE
+                    && symbol == "main"
+                    && let Ok((PartiallyResolvedExport::Function(original), _)) =
+                        group_state.resolve_export(
+                            &linker_state,
+                            &mut store,
+                            Some(MAIN_MODULE_HANDLE),
+                            "__original_main",
+                            false,
+                        )
+                {
+                    func_ptr = group_state.find_function_in_table(&mut store, &original);
+                }
+
+                let (func_ptr, appended) = if let Some(existing) = func_ptr {
+                    (existing, false)
+                } else {
+                    (
+                        group_state
+                            .append_to_function_table(&mut store, func.clone())
+                            .map_err(ResolveError::TableAllocationError)?,
+                        true,
+                    )
+                };
                 trace!(
                     ?func_ptr,
                     table_size = group_state.indirect_function_table.size(&store),
@@ -1863,17 +1898,19 @@ impl Linker {
                     },
                 );
 
-                self.synchronize_link_operation(
-                    DlOperation::ResolveFunction {
-                        name: symbol.to_string(),
-                        resolved_from,
-                        function_table_index: func_ptr,
-                    },
-                    linker_state,
-                    group_state,
-                    &ctx.data().process,
-                    ctx.data().tid(),
-                );
+                if appended {
+                    self.synchronize_link_operation(
+                        DlOperation::ResolveFunction {
+                            name: symbol.to_string(),
+                            resolved_from,
+                            function_table_index: func_ptr,
+                        },
+                        linker_state,
+                        group_state,
+                        &ctx.data().process,
+                        ctx.data().tid(),
+                    );
+                }
 
                 Ok(ResolvedExport::Function {
                     func_ptr: func_ptr as u64,
@@ -1935,7 +1972,10 @@ impl Linker {
             .filter(|tid| *tid != self_thread_id)
         {
             // Signal all threads to wake them up if they're sleeping or idle
-            wasi_process.signal_thread(&thread, wasmer_wasix_types::wasi::Signal::Sigwakeup);
+            let _ = wasi_process.signal_thread(
+                &thread,
+                wasmer_wasix_types::wasi::Signal::Sigwakeup,
+            );
         }
 
         trace!("Waiting at barrier");
@@ -2102,6 +2142,10 @@ impl LinkerState {
                 .expect("Internal error: bad module handle")
                 .dylink_info
         }
+    }
+
+    fn is_global_handle(&self, module_handle: ModuleHandle) -> bool {
+        module_handle == MAIN_MODULE_HANDLE || self.global_modules.contains(&module_handle)
     }
 
     // Resolves all imports for the given module, and places the results into
@@ -2531,6 +2575,25 @@ impl InstanceGroupState {
         trace!(?index, ?ty, "Appending function in table");
 
         table.grow(store, 1, func.into())
+    }
+
+    fn find_function_in_table(
+        &self,
+        store: &mut impl AsStoreMut,
+        func: &Function,
+    ) -> Option<u32> {
+        let table = &self.indirect_function_table;
+        let target_raw = unsafe { Value::FuncRef(Some(func.clone())).as_raw(store).funcref };
+        let size = table.size(store);
+        for index in 0..size {
+            if let Some(Value::FuncRef(Some(existing))) = table.get(store, index) {
+                let existing_raw = unsafe { Value::FuncRef(Some(existing)).as_raw(store).funcref };
+                if existing_raw == target_raw {
+                    return Some(index);
+                }
+            }
+        }
+        None
     }
 
     fn place_in_function_table_at(
@@ -3581,6 +3644,9 @@ impl InstanceGroupState {
                 // whereas self.side_instances is a HashMap with undetermined
                 // iteration order.
                 for (handle, module) in &linker_state.side_modules {
+                    if !allow_hidden && !linker_state.is_global_handle(*handle) {
+                        continue;
+                    }
                     let instance = &self.side_instances[handle];
                     match self.resolve_export_from(
                         store,

@@ -682,3 +682,73 @@ impl TcpSocketHalf {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem::MaybeUninit;
+
+    #[test]
+    fn tcp_channel_send_recv() {
+        let (mut a, mut b) = TcpSocketHalf::channel(
+            1024,
+            "127.0.0.1:10000".parse().unwrap(),
+            "127.0.0.1:10001".parse().unwrap(),
+        );
+        let data = b"Hello, TCP";
+        let sent = a.try_send(data).unwrap();
+        assert_eq!(sent, data.len());
+
+        let mut buf: [MaybeUninit<u8>; 32] = [MaybeUninit::uninit(); 32];
+        let read = b.try_recv(&mut buf, false).unwrap();
+        assert_eq!(read, data.len());
+        let got = unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, read) };
+        assert_eq!(got, data);
+    }
+
+    #[test]
+    fn tcp_channel_wouldblock_on_empty() {
+        let (_a, mut b) = TcpSocketHalf::channel(
+            16,
+            "127.0.0.1:11000".parse().unwrap(),
+            "127.0.0.1:11001".parse().unwrap(),
+        );
+        let mut buf: [MaybeUninit<u8>; 8] = [MaybeUninit::uninit(); 8];
+        let err = b.try_recv(&mut buf, false).unwrap_err();
+        assert_eq!(err, NetworkError::WouldBlock);
+    }
+
+    #[test]
+    fn tcp_channel_partial_read() {
+        let (mut a, mut b) = TcpSocketHalf::channel(
+            256,
+            "127.0.0.1:12000".parse().unwrap(),
+            "127.0.0.1:12001".parse().unwrap(),
+        );
+        let data = [42u8; 100];
+        let sent = a.try_send(&data).unwrap();
+        assert_eq!(sent, data.len());
+
+        let mut buf: [MaybeUninit<u8>; 50] = [MaybeUninit::uninit(); 50];
+        let read = b.try_recv(&mut buf, false).unwrap();
+        assert_eq!(read, 50);
+
+        let mut buf2: [MaybeUninit<u8>; 50] = [MaybeUninit::uninit(); 50];
+        let read2 = b.try_recv(&mut buf2, false).unwrap();
+        assert_eq!(read2, 50);
+    }
+
+    #[test]
+    fn tcp_channel_write_full_nonblocking() {
+        let (mut a, _b) = TcpSocketHalf::channel(
+            4,
+            "127.0.0.1:13000".parse().unwrap(),
+            "127.0.0.1:13001".parse().unwrap(),
+        );
+        let sent = a.try_send(b"abcd").unwrap();
+        assert_eq!(sent, 4);
+        let err = a.try_send(b"e").unwrap_err();
+        assert_eq!(err, NetworkError::WouldBlock);
+    }
+}

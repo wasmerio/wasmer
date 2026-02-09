@@ -599,8 +599,10 @@ impl Drop for WasiThreadHandleProtected {
             let mut inner = inner.0.lock().unwrap();
             if let Some(ctrl) = inner.threads.remove(&id) {
                 ctrl.set_status_finished(Ok(Errno::Success.into()));
+                if inner.thread_count > 0 {
+                    inner.thread_count -= 1;
+                }
             }
-            inner.thread_count -= 1;
         }
     }
 }

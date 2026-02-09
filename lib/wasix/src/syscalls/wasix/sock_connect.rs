@@ -27,7 +27,16 @@ pub fn sock_connect<M: MemorySize>(
     let peer_addr = SocketAddr::new(addr.0, addr.1);
     Span::current().record("addr", format!("{peer_addr:?}"));
 
-    wasi_try_ok!(sock_connect_internal(&mut ctx, sock, peer_addr)?);
+    match sock_connect_internal(&mut ctx, sock, peer_addr)? {
+        Ok(()) => {}
+        Err(err) => {
+            let err = match err {
+                Errno::Addrnotavail => Errno::Connrefused,
+                _ => err,
+            };
+            return Ok(err);
+        }
+    }
 
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
@@ -61,12 +70,13 @@ pub(crate) fn sock_connect_internal(
         sock,
         Rights::SOCK_CONNECT,
         move |mut socket, flags| async move {
-            // Auto-bind UDP
-            socket = socket
-                .auto_bind_udp(tasks.deref(), net.deref())
-                .await?
-                .unwrap_or(socket);
-            socket
+            // Auto-bind UDP. If this upgrades a pre-socket, we must return
+            // the new socket so the inode is swapped.
+            let upgraded = socket.auto_bind_udp(tasks.deref(), net.deref()).await?;
+            let upgraded_socket = upgraded.is_some();
+            let mut socket = upgraded.unwrap_or(socket);
+
+            let res = socket
                 .connect(
                     tasks.deref(),
                     net.deref(),
@@ -74,7 +84,19 @@ pub(crate) fn sock_connect_internal(
                     None,
                     flags.contains(Fdflags::NONBLOCK),
                 )
-                .await
+                .await;
+
+            match res {
+                Ok(Some(new_socket)) => Ok(Some(new_socket)),
+                Ok(None) => {
+                    if upgraded_socket {
+                        Ok(Some(socket))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                Err(err) => Err(err),
+            }
         }
     ));
 

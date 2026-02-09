@@ -605,16 +605,15 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
-
     let mut work = {
         let inode = fd_entry.inode.clone();
         let tasks = env.tasks().clone();
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::Socket { socket } => {
+                if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+                    return Err(Errno::Access);
+                }
                 // Clone the socket and release the lock
                 let socket = socket.clone();
                 drop(guard);
@@ -649,14 +648,13 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
-
     let inode = fd_entry.inode.clone();
     let mut guard = inode.write();
     match guard.deref_mut() {
         Kind::Socket { socket } => {
+            if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+                return Err(Errno::Access);
+            }
             // Clone the socket and release the lock
             let socket = socket.clone();
             drop(guard);
@@ -688,16 +686,15 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
-
     let inode = fd_entry.inode.clone();
 
     let tasks = env.tasks().clone();
     let mut guard = inode.write();
     match guard.deref_mut() {
         Kind::Socket { socket } => {
+            if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+                return Err(Errno::Access);
+            }
             // Clone the socket and release the lock
             let socket = socket.clone();
             drop(guard);
@@ -759,6 +756,14 @@ where
 {
     let env = ctx.data();
     let fd_entry = env.state.fs.get_fd(sock)?;
+    {
+        let inode = fd_entry.inode.clone();
+        let guard = inode.read();
+        if !matches!(guard.deref(), Kind::Socket { .. }) {
+            return Err(Errno::Notsock);
+        }
+    }
+
     if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         tracing::warn!(
             "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade",
@@ -852,7 +857,8 @@ pub(crate) fn write_buffer_array<M: MemorySize>(
 }
 
 pub(crate) fn get_current_time_in_nanos() -> Result<Timestamp, Errno> {
-    let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+    // ATIM_NOW/MTIM_NOW semantics require realtime (wall clock), not monotonic.
+    let now = platform_clock_time_get(Snapshot0Clockid::Realtime, 1_000_000).unwrap() as u128;
     Ok(now as Timestamp)
 }
 
@@ -1539,6 +1545,10 @@ pub(crate) fn conv_spawn_err_to_errno(err: &SpawnError) -> Errno {
     match err {
         SpawnError::AccessDenied => Errno::Access,
         SpawnError::Unsupported => Errno::Noexec,
+        SpawnError::CompileError { .. } => Errno::Noexec,
+        SpawnError::InvalidABI => Errno::Noexec,
+        SpawnError::MissingEntrypoint { .. } => Errno::Noexec,
+        SpawnError::ModuleLoad { .. } => Errno::Noexec,
         _ if err.is_not_found() => Errno::Noent,
         _ => Errno::Inval,
     }

@@ -12,13 +12,27 @@ use crate::syscalls::*;
 pub fn proc_signal(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid: Pid,
-    sig: Signal,
+    sig: i32,
 ) -> Result<Errno, WasiError> {
+    let sig_u8 = match u8::try_from(sig) {
+        Ok(value) => value,
+        Err(_) => return Ok(Errno::Inval),
+    };
+    if sig_u8 > Signal::Sigsys as u8 {
+        return Ok(Errno::Inval);
+    }
+    let sig = Signal::try_from(sig_u8).unwrap_or(Signal::Signone);
+
     let process = {
         let pid: WasiProcessId = pid.into();
         ctx.data().control_plane.get_process(pid)
     };
-    if let Some(process) = process {
+    let process = match process {
+        Some(process) => process,
+        None => return Ok(Errno::Srch),
+    };
+
+    if sig != Signal::Signone {
         process.signal_process(sig);
     }
 

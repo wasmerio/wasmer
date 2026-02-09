@@ -44,23 +44,61 @@ pub(crate) fn fd_allocate_internal(
     let fd_entry = state.fs.get_fd(fd)?;
     let inode = fd_entry.inode;
 
+    {
+        let guard = inode.read();
+        match guard.deref() {
+            Kind::File { .. } | Kind::Buffer { .. } => {}
+            Kind::Socket { .. }
+            | Kind::PipeRx { .. }
+            | Kind::PipeTx { .. }
+            | Kind::DuplexPipe { .. }
+            | Kind::Symlink { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. }
+            | Kind::Dir { .. }
+            | Kind::Root { .. } => return Err(Errno::Badf),
+        }
+    }
+
     if !fd_entry.inner.rights.contains(Rights::FD_ALLOCATE) {
         return Err(Errno::Access);
     }
+    if len == 0 {
+        return Err(Errno::Inval);
+    }
     let new_size = offset.checked_add(len).ok_or(Errno::Inval)?;
+    let mut current_size = inode.stat.read().unwrap().st_size;
+    let mut resized = false;
     {
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
                     let mut handle = handle.write().unwrap();
-                    handle.set_len(new_size).map_err(fs_error_into_wasi_err)?;
+                    let handle_size = handle.size();
+                    if handle_size > current_size {
+                        current_size = handle_size;
+                    }
+                    if new_size > current_size {
+                        handle.set_len(new_size).map_err(fs_error_into_wasi_err)?;
+                        resized = true;
+                        current_size = new_size;
+                    }
                 } else {
                     return Err(Errno::Badf);
                 }
             }
             Kind::Buffer { buffer } => {
-                buffer.resize(new_size as usize, 0);
+                let buffer_size = buffer.len() as u64;
+                if buffer_size > current_size {
+                    current_size = buffer_size;
+                }
+                if new_size > current_size {
+                    let new_size: usize = new_size.try_into().map_err(|_| Errno::Inval)?;
+                    buffer.resize(new_size, 0);
+                    resized = true;
+                    current_size = new_size as u64;
+                }
             }
             Kind::Socket { .. }
             | Kind::PipeRx { .. }
@@ -68,12 +106,20 @@ pub(crate) fn fd_allocate_internal(
             | Kind::DuplexPipe { .. }
             | Kind::Symlink { .. }
             | Kind::EventNotifications { .. }
-            | Kind::Epoll { .. } => return Err(Errno::Badf),
-            Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
+            | Kind::Epoll { .. }
+            | Kind::Dir { .. }
+            | Kind::Root { .. } => return Err(Errno::Badf),
         }
     }
-    inode.stat.write().unwrap().st_size = new_size;
-    debug!(%new_size);
+    {
+        let mut stat = inode.stat.write().unwrap();
+        if stat.st_size != current_size {
+            stat.st_size = current_size;
+        }
+    }
+    if resized {
+        debug!(%new_size);
+    }
 
     Ok(())
 }

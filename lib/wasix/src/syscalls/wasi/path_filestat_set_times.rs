@@ -1,5 +1,6 @@
 use super::*;
 use crate::syscalls::*;
+use virtual_fs::FileSystem;
 
 /// ### `path_filestat_set_times()`
 /// Update time metadata on a file or directory
@@ -98,10 +99,13 @@ pub(crate) fn path_filestat_set_times_internal(
         state
             .fs
             .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)?;
-    let stat = {
+    {
         let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())?
-    };
+        state.fs.get_stat_for_kind(guard.deref())?;
+    }
+
+    let mut atime = None;
+    let mut mtime = None;
 
     if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
         let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {
@@ -109,7 +113,8 @@ pub(crate) fn path_filestat_set_times_internal(
         } else {
             get_current_time_in_nanos()?
         };
-        fd_inode.stat.write().unwrap().st_atim = time_to_set;
+        file_inode.stat.write().unwrap().st_atim = time_to_set;
+        atime = Some(time_to_set);
     }
     if fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
         let time_to_set = if fst_flags.contains(Fstflags::SET_MTIM) {
@@ -117,7 +122,34 @@ pub(crate) fn path_filestat_set_times_internal(
         } else {
             get_current_time_in_nanos()?
         };
-        fd_inode.stat.write().unwrap().st_mtim = time_to_set;
+        file_inode.stat.write().unwrap().st_mtim = time_to_set;
+        mtime = Some(time_to_set);
+    }
+
+    if atime.is_some() || mtime.is_some() {
+        let kind_guard = file_inode.kind.write().unwrap();
+        match kind_guard.deref() {
+            Kind::File {
+                handle: Some(handle),
+                ..
+            } => {
+                let mut handle = handle.write().unwrap();
+                handle
+                    .set_times(atime, mtime)
+                    .map_err(fs_error_into_wasi_err)?;
+            }
+            Kind::File { handle: None, path, .. } | Kind::Dir { path, .. } => {
+                let mut open_options = state.fs.root_fs.new_open_options();
+                let mut handle = open_options
+                    .read(true)
+                    .open(path)
+                    .map_err(fs_error_into_wasi_err)?;
+                handle
+                    .set_times(atime, mtime)
+                    .map_err(fs_error_into_wasi_err)?;
+            }
+            _ => {}
+        }
     }
 
     Ok(())

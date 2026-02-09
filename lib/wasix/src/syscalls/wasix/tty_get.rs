@@ -18,7 +18,7 @@ pub fn tty_get<M: MemorySize>(
     };
 
     let state = bridge.tty_get();
-    let state = Tty {
+    let tty_out = Tty {
         cols: state.cols,
         rows: state.rows,
         width: state.width,
@@ -31,7 +31,12 @@ pub fn tty_get<M: MemorySize>(
     };
 
     let memory = unsafe { env.memory_view(&ctx) };
-    wasi_try_mem!(tty_state.write(&memory, state));
+    wasi_try_mem!(tty_state.write(&memory, tty_out));
+    {
+        let line_feeds_ptr = wasi_try!(tty_line_feeds_ptr(tty_state));
+        let line_feeds_raw = if state.line_feeds { 1u8 } else { 0u8 };
+        wasi_try_mem!(line_feeds_ptr.write(&memory, line_feeds_raw));
+    }
 
     Errno::Success
 }

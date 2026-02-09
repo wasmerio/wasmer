@@ -567,8 +567,21 @@ impl WasiProcess {
         inner.threads.get(tid).cloned()
     }
 
+    /// Removes a thread from the process (used after a successful join).
+    pub fn remove_thread(&self, tid: &WasiThreadId) -> bool {
+        let mut inner = self.inner.0.lock().unwrap();
+        if inner.threads.remove(tid).is_some() {
+            if inner.thread_count > 0 {
+                inner.thread_count -= 1;
+            }
+            true
+        } else {
+            false
+        }
+    }
+
     /// Signals a particular thread in the process
-    pub fn signal_thread(&self, tid: &WasiThreadId, signal: Signal) {
+    pub fn signal_thread(&self, tid: &WasiThreadId, signal: Signal) -> bool {
         // Sometimes we will signal the process rather than the thread hence this libc hardcoded value
         let mut tid = tid.raw();
         if tid == 1073741823 {
@@ -582,6 +595,7 @@ impl WasiProcess {
         let inner = self.inner.0.lock().unwrap();
         if let Some(thread) = inner.threads.get(&tid) {
             thread.signal(signal);
+            true
         } else {
             trace!(
                 "wasi[{}]::lost-signal(tid={}, sig={:?})",
@@ -589,6 +603,7 @@ impl WasiProcess {
                 tid,
                 signal
             );
+            false
         }
     }
 

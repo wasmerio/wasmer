@@ -280,6 +280,28 @@ impl InodeSocket {
         Self::bind_internal(tasks, net, set_addr, timeout, inner).await
     }
 
+    async fn validate_bind_addr(
+        net: &dyn VirtualNetworking,
+        set_addr: SocketAddr,
+    ) -> Result<(), Errno> {
+        let ip = set_addr.ip();
+        let v4 = match ip {
+            IpAddr::V4(v4) => v4,
+            IpAddr::V6(_) => return Ok(()),
+        };
+        if v4.is_unspecified() {
+            return Ok(());
+        }
+
+        if let Ok(cidrs) = net.ip_list().await {
+            if !cidrs.is_empty() && !cidrs.iter().any(|cidr| cidr.ip == ip) {
+                return Err(Errno::Addrnotavail);
+            }
+        }
+
+        Ok(())
+    }
+
     // The lock is dropped before awaiting, but clippy doesn't realize it
     #[allow(clippy::await_holding_lock)]
     async fn bind_internal(
@@ -319,6 +341,7 @@ impl InodeSocket {
 
                     match props.ty {
                         Socktype::Stream => {
+                            Self::validate_bind_addr(net, addr).await?;
                             // we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             return Ok(None);
@@ -364,6 +387,7 @@ impl InodeSocket {
 
                     match props.ty {
                         Socktype::Stream => {
+                            Self::validate_bind_addr(net, addr).await?;
                             // we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             return Ok(None);
@@ -634,10 +658,8 @@ impl InodeSocket {
                     target_peer.replace(peer);
                     return Ok(None);
                 }
-                InodeSocketKind::RemoteSocket { peer_addr, .. } => {
-                    *peer_addr = peer;
-                    return Ok(None);
-                }
+                InodeSocketKind::RemoteSocket { .. } => return Err(Errno::Isconn),
+                InodeSocketKind::TcpStream { .. } => return Err(Errno::Isconn),
                 _ => return Err(Errno::Notsup),
             }
         };
@@ -714,35 +736,20 @@ impl InodeSocket {
     pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
-            InodeSocketKind::PreSocket { props, .. } => SocketAddr::new(
-                match props.family {
-                    Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                    Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                    _ => return Err(Errno::Inval),
-                },
-                0,
-            ),
+            InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.addr_peer().map_err(net_error_into_wasi_err)?
             }
-            InodeSocketKind::UdpSocket { socket, .. } => socket
-                .addr_peer()
-                .map_err(net_error_into_wasi_err)?
-                .map(Ok)
-                .unwrap_or_else(|| {
+            InodeSocketKind::UdpSocket { socket, peer } => {
+                if let Some(peer) = peer {
+                    *peer
+                } else {
                     socket
-                        .addr_local()
-                        .map_err(net_error_into_wasi_err)
-                        .map(|addr| {
-                            SocketAddr::new(
-                                match addr {
-                                    SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                                    SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                                },
-                                0,
-                            )
-                        })
-                })?,
+                        .addr_peer()
+                        .map_err(net_error_into_wasi_err)?
+                        .ok_or(Errno::Notconn)?
+                }
+            }
             InodeSocketKind::RemoteSocket { peer_addr, .. } => *peer_addr,
             _ => return Err(Errno::Notsup),
         })

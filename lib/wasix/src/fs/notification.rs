@@ -4,6 +4,8 @@ use std::{
     task::{Poll, Waker},
 };
 
+use wasmer_wasix_types::wasi::Errno;
+
 use virtual_mio::{InterestHandler, InterestType};
 
 #[derive(Debug)]
@@ -47,17 +49,19 @@ impl NotificationState {
     }
 
     fn dec(&mut self) -> u64 {
-        let val = self.counter;
         if self.is_semaphore {
             if self.counter > 0 {
                 self.counter -= 1;
                 if self.counter > 0 {
                     self.wake_all();
                 }
+                return 1;
             }
-        } else {
-            self.counter = 0;
+            return 0;
         }
+
+        let val = self.counter;
+        self.counter = 0;
         val
     }
 }
@@ -94,9 +98,17 @@ impl NotificationInner {
         }
     }
 
-    pub fn write(&self, val: u64) {
+    pub fn write(&self, val: u64, non_blocking: bool) -> Result<(), Errno> {
+        if val == u64::MAX {
+            return Err(Errno::Inval);
+        }
         let mut state = self.state.lock().unwrap();
+        let max = u64::MAX - 1;
+        if val > max.saturating_sub(state.counter) {
+            return Err(if non_blocking { Errno::Again } else { Errno::Again });
+        }
         state.inc(val);
+        Ok(())
     }
 
     pub fn read(&self, waker: &Waker) -> Poll<u64> {

@@ -88,6 +88,12 @@ pub(crate) fn path_link_internal(
     {
         return Err(Errno::Access);
     }
+    if new_path.as_bytes().last() == Some(&b'/') {
+        return Err(Errno::Noent);
+    }
+    if old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
+        return Err(Errno::Inval);
+    }
 
     Span::current().record("old_path", old_path);
     Span::current().record("new_path", new_path);
@@ -98,11 +104,23 @@ pub(crate) fn path_link_internal(
         old_path,
         old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
+    if old_path.is_empty() {
+        return Err(Errno::Noent);
+    }
+    {
+        let guard = source_inode.read();
+        if matches!(guard.deref(), Kind::Dir { .. } | Kind::Root { .. }) {
+            return Err(Errno::Perm);
+        }
+    }
     let target_path_arg = std::path::PathBuf::from(new_path);
     let (target_parent_inode, new_entry_name) =
         state
             .fs
             .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, false)?;
+    if new_entry_name.as_bytes().len() > 255 {
+        return Err(Errno::Nametoolong);
+    }
 
     if source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
         return Err(Errno::Mlink);
@@ -110,8 +128,13 @@ pub(crate) fn path_link_internal(
     {
         let mut guard = target_parent_inode.write();
         match guard.deref_mut() {
-            Kind::Dir { entries, .. } => {
+            Kind::Dir { entries, path, .. } => {
                 if entries.contains_key(&new_entry_name) {
+                    return Err(Errno::Exist);
+                }
+                let mut target_path = path.clone();
+                target_path.push(&new_entry_name);
+                if state.fs.root_fs.symlink_metadata(&target_path).is_ok() {
                     return Err(Errno::Exist);
                 }
                 entries.insert(new_entry_name, source_inode.clone());

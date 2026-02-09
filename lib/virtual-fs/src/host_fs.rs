@@ -114,7 +114,7 @@ impl crate::FileSystem for FileSystem {
                     .to_owned();
                 let path = Path::new("/").join(path);
 
-                let metadata = entry.metadata()?;
+                let metadata = fs::symlink_metadata(entry.path())?;
 
                 Ok(DirEntry {
                     path,
@@ -519,8 +519,21 @@ impl VirtualFile for File {
     }
 
     fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
-        let atime = atime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
-        let mtime = mtime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+        let to_filetime = |t: u64| -> crate::Result<filetime::FileTime> {
+            let secs = t / 1_000_000_000;
+            let nanos = (t % 1_000_000_000) as u32;
+            let secs = i64::try_from(secs).map_err(|_| crate::FsError::IOError)?;
+            Ok(filetime::FileTime::from_unix_time(secs, nanos))
+        };
+
+        let atime = match atime {
+            Some(t) => Some(to_filetime(t)?),
+            None => None,
+        };
+        let mtime = match mtime {
+            Some(t) => Some(to_filetime(t)?),
+            None => None,
+        };
 
         filetime::set_file_handle_times(&self.inner_std, atime, mtime)
             .map_err(|_| crate::FsError::IOError)

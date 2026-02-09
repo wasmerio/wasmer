@@ -80,7 +80,21 @@ pub(crate) fn epoll_ctl_internal(
     fd: WasiFd,
     event_ctl: Option<&EpollEventCtl>,
 ) -> Result<Result<(), Errno>, WasiError> {
+    if let EpollCtl::Unknown = op {
+        return Ok(Err(Errno::Inval));
+    }
+    if matches!(op, EpollCtl::Add | EpollCtl::Mod) && event_ctl.is_none() {
+        return Ok(Err(Errno::Inval));
+    }
+    if matches!(op, EpollCtl::Add | EpollCtl::Mod | EpollCtl::Del) && fd == epfd {
+        return Ok(Err(Errno::Inval));
+    }
     let env = ctx.data();
+    if matches!(op, EpollCtl::Add | EpollCtl::Mod | EpollCtl::Del)
+        && env.state.fs.get_fd(fd).is_err()
+    {
+        return Ok(Err(Errno::Badf));
+    }
     let fd_entry = wasi_try_ok_ok!(env.state.fs.get_fd(epfd));
 
     let tasks = env.tasks().clone();
@@ -91,13 +105,27 @@ pub(crate) fn epoll_ctl_internal(
         } => {
             if let EpollCtl::Del | EpollCtl::Mod = op {
                 let mut guard = subscriptions.lock().unwrap();
-                guard.remove(&fd);
+                if guard.remove(&fd).is_none() {
+                    return Ok(Err(Errno::Noent));
+                }
 
                 tracing::trace!(fd, "unregistering waker");
             }
             if let EpollCtl::Add | EpollCtl::Mod = op
                 && let Some(event) = event_ctl
             {
+                if event.events.is_empty()
+                    || (event.events.bits() & !EpollType::all().bits()) != 0
+                {
+                    return Ok(Err(Errno::Inval));
+                }
+                if let EpollCtl::Add = op {
+                    let guard = subscriptions.lock().unwrap();
+                    if guard.contains_key(&event.fd) {
+                        return Ok(Err(Errno::Exist));
+                    }
+                }
+
                 let epoll_fd = EpollFd {
                     events: event.events,
                     ptr: event.ptr,

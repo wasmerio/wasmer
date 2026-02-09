@@ -36,6 +36,22 @@ pub fn fd_event_internal(
     flags: EventFdFlags,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
+    if initial_val == u64::MAX {
+        return Ok(Err(Errno::Inval));
+    }
+
+    let nonblock_flag: EventFdFlags = Fdflags::NONBLOCK.bits();
+    let allowed_flags: EventFdFlags = EVENT_FD_FLAGS_SEMAPHORE | nonblock_flag;
+    if flags & !allowed_flags != 0 {
+        return Ok(Err(Errno::Inval));
+    }
+
+    let fd_flags = if flags & nonblock_flag != 0 {
+        Fdflags::NONBLOCK
+    } else {
+        Fdflags::empty()
+    };
+
     let env = ctx.data();
     let (memory, state, mut inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
@@ -58,7 +74,7 @@ pub fn fd_event_internal(
             .with_fd(
                 rights,
                 rights,
-                Fdflags::empty(),
+                fd_flags,
                 Fdflagsext::empty(),
                 0,
                 inode,
@@ -69,7 +85,7 @@ pub fn fd_event_internal(
         state.fs.create_fd(
             rights,
             rights,
-            Fdflags::empty(),
+            fd_flags,
             Fdflagsext::empty(),
             0,
             inode,
