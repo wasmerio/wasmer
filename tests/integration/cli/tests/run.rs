@@ -123,8 +123,7 @@ fn nested_mounted_paths() {
         .arg(package)
         .output()
         .unwrap();
-    let host_stdout = host_output.stdout;
-    println!("{}", String::from_utf8(host_output.stderr).unwrap());
+    let host_stdout = String::from_utf8(host_output.stdout).unwrap();
 
     let webc_output = Command::new(get_wasmer_path())
         .arg("run")
@@ -133,8 +132,7 @@ fn nested_mounted_paths() {
         .output()
         .unwrap();
 
-    let webc_stdout = webc_output.stdout;
-    println!("{}", String::from_utf8(webc_output.stderr).unwrap());
+    let webc_stdout = String::from_utf8(webc_output.stdout).unwrap();
 
     let expected = "/:
 .
@@ -146,6 +144,7 @@ bin
 dev
 etc
 tmp
+usr
 
 /app:
 .
@@ -162,9 +161,7 @@ data-a.txt
 .
 ..
 data-b.txt
-"
-    .as_bytes()
-    .to_vec();
+";
 
     assert_eq!(&host_stdout, &expected);
     assert_eq!(&webc_stdout, &expected);
