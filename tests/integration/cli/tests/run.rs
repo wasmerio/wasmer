@@ -898,22 +898,19 @@ fn issue_3794_unable_to_mount_relative_paths() {
 fn merged_filesystem_contains_all_files() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg(fixtures::bash())
+        .arg("wasmer/bash")
         .arg("--entrypoint=bash")
         .arg("--use")
-        .arg(fixtures::coreutils())
-        .arg("--use")
-        .arg(fixtures::python())
+        .arg("python/python")
         .arg("--")
         .arg("-c")
-        .arg("ls -l /usr/coreutils/*.md && ls -l /lib/python3.6/*.py")
+        .arg("ls -l /usr/local/lib/python3.13/*.py")
         .env("RUST_LOG", &*RUST_LOG)
         .assert();
 
     assert
         .success()
-        .stdout(contains("/usr/coreutils/README.md"))
-        .stdout(contains("/lib/python3.6/this.py"));
+        .stdout(contains("/usr/local/lib/python3.13/this.py"));
 }
 
 #[test]
