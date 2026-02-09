@@ -1293,7 +1293,7 @@ fn test_snapshot_worker_panicking() {
         .run_wasm(include_bytes!("./wasm/worker-panicking.wasm"));
     assert!(matches!(
         snapshot.result,
-        TestResult::Success(TestOutput { exit_code: 173, .. })
+        TestResult::Success(TestOutput { exit_code: 129, .. })
     ));
     assert_json_snapshot!(snapshot);
 }
