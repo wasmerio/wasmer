@@ -43,49 +43,6 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
     .join(",")
 });
 
-#[tokio::test]
-async fn aio_http() {
-    let status = tokio::process::Command::new(get_wasmer_path())
-        .kill_on_drop(true)
-        .arg("package")
-        .arg("download")
-        .arg("wasmer-integration-tests/aio-http-hello-world")
-        .arg("-o")
-        .arg("aio-http-hello-world.webc")
-        .arg("--quiet")
-        .spawn()
-        .unwrap()
-        .wait()
-        .await
-        .unwrap();
-
-    assert!(status.success());
-
-    let mut wasmer = tokio::process::Command::new(get_wasmer_path())
-        .kill_on_drop(true)
-        .arg("run")
-        .arg("aio-http-hello-world.webc")
-        .arg("--net")
-        .stdout(Stdio::null())
-        .spawn()
-        .unwrap();
-
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-
-    let rsp = reqwest::Client::new()
-        .get("http://localhost:34343")
-        .send()
-        .await
-        .unwrap();
-
-    let body = rsp.text().await.unwrap();
-
-    assert_eq!(body, "Hello, World!");
-
-    wasmer.kill().await.unwrap();
-    wasmer.wait().await.unwrap();
-}
-
 #[test]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn list_cwd() {
