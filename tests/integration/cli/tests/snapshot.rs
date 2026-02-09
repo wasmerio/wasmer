@@ -63,11 +63,6 @@ fn is_false(b: &bool) -> bool {
 static WEBC_COREUTILS_16: &[u8] =
     include_bytes!("./webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
 static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
-static WEBC_WEB_SERVER: &[u8] = include_bytes!(
-    "./webc/static-web-server-async-1.0.3-5d739d1a-20b7-4edf-8cf4-44e813f96b25.webc"
-);
-static WEBC_WASMER_SH: &[u8] =
-    include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
 impl std::fmt::Debug for TestSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
