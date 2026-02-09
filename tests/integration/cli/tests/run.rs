@@ -488,7 +488,7 @@ fn run_no_start_wasm_report_error() {
         .assert()
         .failure();
 
-    assert.stderr(contains("The module doesn't contain a \"_start\" function"));
+    assert.stderr(contains("The module doesn't export a \"_start\" function"));
 }
 
 // Test that wasmer can run a complex path
