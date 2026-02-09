@@ -709,11 +709,11 @@ fn wasi_runner_on_disk_with_dependencies() {
 fn webc_files_on_disk_with_multiple_commands_require_an_entrypoint_flag() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg(fixtures::wabt())
+        .arg("wabt")
         .env("RUST_LOG", &*RUST_LOG)
         .assert();
 
-    let msg = r#"Unable to determine the WEBC file's entrypoint. Please choose one of ["wasm-interp", "wasm-strip", "wasm-validate", "wasm2wat", "wast2json", "wat2wasm"]"#;
+    let msg = r#"Unable to determine the package's entrypoint. Please choose one of ["wasm-interp", "wasm-strip", "wasm-validate", "wasm2wat", "wast2json", "wat2wasm"]"#;
     assert.failure().stderr(contains(msg));
 }
 
