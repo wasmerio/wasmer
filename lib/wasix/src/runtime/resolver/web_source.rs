@@ -573,7 +573,7 @@ mod tests {
         assert_eq!(summaries.len(), 1);
         assert_eq!(
             summaries[0].pkg.id.as_named().unwrap().full_name,
-            "sharrattj/coreutils"
+            "syrusakbary/coreutils"
         );
         // both a HEAD and GET request were sent
         let requests = client.requests.lock().unwrap();
