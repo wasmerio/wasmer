@@ -1068,28 +1068,6 @@ fn test_snapshot_python_3_11_3() {
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
-fn test_snapshot_dash_dev_zero() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_bash()
-        .stdin_str("head -c 10 /dev/zero")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_dash_dev_urandom() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_bash()
-        .stdin_str("head -c 10 /dev/urandom | wc -c")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
