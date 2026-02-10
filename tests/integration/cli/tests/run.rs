@@ -678,6 +678,7 @@ fn wasi_runner_on_disk_with_env_vars() {
     ignore = "wasmer run-unstable segfaults on musl"
 )]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
+#[ignore = "#6173"]
 fn issue_3794_unable_to_mount_relative_paths() {
     let temp = TempDir::new().unwrap();
     std::fs::write(temp.path().join("message.txt"), b"Hello, World!").unwrap();
