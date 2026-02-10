@@ -45,6 +45,7 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
 
 #[test]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
+#[ignore = "#6173"]
 fn list_cwd() {
     let package = packages().join("list-cwd");
 

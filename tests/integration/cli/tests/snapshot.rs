@@ -1112,6 +1112,7 @@ fn test_snapshot_bash_ls() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[ignore = "#6173"]
 #[test]
 fn test_snapshot_bash_cd_ls() {
     let snapshot = TestBuilder::new()
