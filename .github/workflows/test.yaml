@@ -798,6 +798,10 @@ jobs:
               description: "Examples",
               make: "test-stage-5-test-examples",
             },
+            {
+              description: "CLI integ. tests",
+              make: test-integration-cli-ci
+            }
           ]
         metadata: [
             {
