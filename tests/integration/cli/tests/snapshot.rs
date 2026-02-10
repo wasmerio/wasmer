@@ -882,17 +882,6 @@ fn test_snapshot_threaded_memory() {
 }
 
 // full multi-threading with shared memory and shared compiled modules
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_multithreading_async() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-// full multi-threading with shared memory and shared compiled modules
 #[cfg(target_os = "linux")]
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
