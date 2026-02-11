@@ -58,8 +58,8 @@ impl G0M0FunctionKind {
     }
 }
 
-/// The two additional parameters needed for g0m0 optimization.
-pub(crate) type LocalFunctionG0M0params<'ctx> = Option<(PointerValue<'ctx>, PointerValue<'ctx>)>;
+/// The additional parameter needed for g0m0 optimization.
+pub(crate) type LocalFunctionG0M0params<'ctx> = Option<PointerValue<'ctx>>;
 
 /// We need to produce different LLVM IR for different platforms. (Contrary to
 /// popular knowledge LLVM IR is not intended to be portable in that way.) This
@@ -83,26 +83,6 @@ pub trait Abi {
         param.into_pointer_value()
     }
 
-    /// Given a function definition, retrieve the parameter that is the pointer to the base of the
-    /// local globals array.
-    #[allow(unused)]
-    fn get_globals_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
-        // g0 is always after the vmctx.
-        let vmctx_idx = u32::from(
-            func_value
-                .get_enum_attribute(
-                    AttributeLoc::Param(0),
-                    Attribute::get_named_enum_kind_id("sret"),
-                )
-                .is_some(),
-        );
-
-        let param = func_value.get_nth_param(vmctx_idx + 1).unwrap();
-        param.set_name("globals_base_ptr");
-
-        param.into_pointer_value()
-    }
-
     /// Given a function definition, retrieve the parameter that is the pointer to the first local memory.
     ///
     /// # Notes
@@ -117,7 +97,7 @@ pub trait Abi {
                 .is_some(),
         );
 
-        let param = func_value.get_nth_param(vmctx_idx + 2).unwrap();
+        let param = func_value.get_nth_param(vmctx_idx + 1).unwrap();
         param.set_name("memory_base_ptr");
 
         param.into_pointer_value()
@@ -165,8 +145,7 @@ pub trait Abi {
 
         let mut args = vec![ctx_ptr.as_basic_value_enum()];
 
-        if let Some((g0, m0)) = g0m0 {
-            args.push(g0.into());
+        if let Some(m0) = g0m0 {
             args.push(m0.into());
         }
 

@@ -473,7 +473,7 @@ impl FuncTrampoline {
 
         let mut args_vec: Vec<BasicMetadataValueEnum> =
             Vec::with_capacity(if config.enable_g0m0_opt {
-                func_sig.params().len() + 3
+                func_sig.params().len() + 2
             } else {
                 func_sig.params().len() + 1
             });
@@ -495,25 +495,9 @@ impl FuncTrampoline {
             let wasm_module = &compile_info.module;
             let memory_styles = &compile_info.memory_styles;
             let callee_vmctx_ptr_value = callee_vmctx_ptr.into_pointer_value();
-            // get a pointer to the locals globals array and a pointer to M0's base
+            // Get a pointer to M0's base.
 
             let offsets = wasmer_vm::VMOffsets::new(8, wasm_module);
-
-            let globals_base_offset = offsets.vmctx_globals_begin();
-            let globals_base_offset = intrinsics
-                .i32_ty
-                .const_int(globals_base_offset.into(), false);
-            let globals_base_ptr = unsafe {
-                err!(builder.build_gep(
-                    intrinsics.i8_ty,
-                    callee_vmctx_ptr_value,
-                    &[globals_base_offset],
-                    "trmpl_globals_base_ptr"
-                ))
-            };
-
-            globals_base_ptr.set_name("trmpl_globals_base_ptr");
-            args_vec.push(globals_base_ptr.into());
 
             // load mem
             if wasm_module.memories.is_empty() {

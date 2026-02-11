@@ -237,9 +237,9 @@ impl FuncTranslator {
         let mut params = vec![];
         let first_param =
             if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
-                if g0m0_is_enabled { 4 } else { 2 }
+                if g0m0_is_enabled { 3 } else { 2 }
             } else if g0m0_is_enabled {
-                3
+                2
             } else {
                 1
             };
@@ -301,13 +301,24 @@ impl FuncTranslator {
         let mut globals_base_ptr = None;
 
         if g0m0_is_enabled {
-            let g0 = self.abi.get_globals_ptr_param(&func);
+            let vmctx = self.abi.get_vmctx_ptr_param(&func);
+            let globals_base_offset = intrinsics
+                .i32_ty
+                .const_int(offsets.vmctx_globals_begin().into(), false);
+            let g0 = unsafe {
+                err!(cache_builder.build_gep(
+                    intrinsics.i8_ty,
+                    vmctx,
+                    &[globals_base_offset],
+                    "globals_base_ptr"
+                ))
+            };
             g0.set_name("globals_base_ptr");
             let m0 = self.abi.get_memory_ptr_param(&func);
             m0.set_name("memory_base_ptr");
 
             globals_base_ptr = Some(g0);
-            g0m0_params = Some((g0, m0));
+            g0m0_params = Some(m0);
         }
 
         let mut fcg = LLVMFunctionCodeGenerator {
@@ -1270,7 +1281,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = if let Some((_, ref m0)) = self.g0m0 {
+        let base_ptr = if let Some(ref m0) = self.g0m0 {
             *m0
         } else {
             match self
@@ -1564,7 +1575,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         func_index: IntValue<'ctx>,
     ) -> Result<(), CompileError> {
-        let Some((g0, m0)) = self.g0m0 else {
+        let Some(m0) = self.g0m0 else {
             return Err(CompileError::Codegen(
                 "Call to build_g0m0_indirect_call without g0m0 parameters!".to_string(),
             ));
@@ -1638,7 +1649,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 func_type,
                 func_ptr,
                 Some(G0M0FunctionKind::Local),
-                Some((g0, m0)),
+                Some(m0),
             )?;
 
             let local_rets = self.abi.rets_from_call(
@@ -1684,7 +1695,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 func_type,
                 func_ptr,
                 Some(G0M0FunctionKind::Local),
-                Some((g0, m0)),
+                Some(m0),
             )?;
 
             self.abi
@@ -1905,7 +1916,7 @@ fn finalize_opcode_stack_map<'ctx>(
  */
 
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
-    g0m0: Option<(PointerValue<'ctx>, PointerValue<'ctx>)>,
+    g0m0: Option<PointerValue<'ctx>>,
     context: &'ctx Context,
     builder: Builder<'ctx>,
     alloca_builder: Builder<'ctx>,
@@ -2936,8 +2947,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     vmctx: callee_vmctx,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    if let Some((g0, m0)) = &self.g0m0 {
-                        g0m0_params = Some((*g0, *m0));
+                    if let Some(m0) = &self.g0m0 {
+                        g0m0_params = Some(*m0);
                     }
 
                     let function_name = self
