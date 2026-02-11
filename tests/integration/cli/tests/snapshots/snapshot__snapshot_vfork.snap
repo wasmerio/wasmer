@@ -6,7 +6,7 @@ expression: snapshot
   "spec": {
     "name": "snapshot::test_snapshot_vfork",
     "use_packages": [
-      "syrusakbary/coreutils"
+      "wasmer/coreutils"
     ],
     "include_webcs": [],
     "cli_args": [],

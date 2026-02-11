@@ -177,7 +177,7 @@ impl TestBuilder {
     }
 
     pub fn use_coreutils(self) -> Self {
-        self.use_pkg("syrusakbary/coreutils")
+        self.use_pkg("wasmer/coreutils")
     }
 
     pub fn use_bash(self) -> Self {

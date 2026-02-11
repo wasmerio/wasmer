@@ -4,7 +4,7 @@ description: "\n            [package]\n            name = \"sharrattj/bash\"\n  
 expression: "&transformed"
 ---
 use:
-  syrusakbary/coreutils: syrusakbary/coreutils@^0.0.1
+  wasmer/coreutils: wasmer/coreutils@^1.0.19
 package:
   wapm:
     name: sharrattj/bash
