@@ -1,5 +1,4 @@
 use assert_cmd::prelude::OutputAssertExt;
-use predicates::str::contains;
 use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]

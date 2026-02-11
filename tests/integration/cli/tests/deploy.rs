@@ -1,5 +1,5 @@
 use assert_cmd::prelude::OutputAssertExt;
-use std::{fs::OpenOptions, path::Path};
+use std::path::Path;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 fn project_root() -> &'static Path {
