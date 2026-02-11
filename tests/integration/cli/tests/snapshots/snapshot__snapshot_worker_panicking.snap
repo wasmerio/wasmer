@@ -1,6 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 1298
+assertion_line: 1266
 expression: snapshot
 ---
 {
@@ -15,7 +15,7 @@ expression: snapshot
   "result": {
     "Success": {
       "stdout": "",
-      "stderr": "thread '<unnamed>' panicked at src/bin/worker-panicking.rs:3:9:\nchild thread panicking\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nThread 2 of process 1 failed with runtime error: RuntimeError: unreachable\n    at std::panicking::rust_panic_with_hook::h49784c71a32f7fc2 (worker_panicking-8c7d8618f4b70259.wasm[22]:0xffffffff)\n    at core::panicking::panic_fmt::h606ecfe5cf634e56 (worker_panicking-8c7d8618f4b70259.wasm[127]:0xffffffff)\n    at core::ops::function::FnOnce::call_once{{vtable.shim}}::hd679694c1a0d3f63 (worker_panicking-8c7d8618f4b70259.wasm[130]:0xffffffff)\n    at std::sys::pal::wasi::thread::Thread::new::thread_start::h92a2e302b0b05159 (worker_panicking-8c7d8618f4b70259.wasm[129]:0xffffffff)\n    at wasi_thread_start (worker_panicking-8c7d8618f4b70259.wasm[146]:0xffffffff)\n",
+      "stderr": "thread '<unnamed>' panicked at src/bin/worker-panicking.rs:3:9:\nchild thread panicking\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nThread 2 of process 1 failed with runtime error: RuntimeError: unreachable\n    at std::panicking::rust_panic_with_hook::h49784c71a32f7fc2 (worker_panicking-8c7d8618f4b70259.wasm[22]:0x561b)\n    at core::panicking::panic_fmt::h606ecfe5cf634e56 (worker_panicking-8c7d8618f4b70259.wasm[127]:0x1745f)\n    at core::ops::function::FnOnce::call_once{{vtable.shim}}::hd679694c1a0d3f63 (worker_panicking-8c7d8618f4b70259.wasm[130]:0x17924)\n    at std::sys::pal::wasi::thread::Thread::new::thread_start::h92a2e302b0b05159 (worker_panicking-8c7d8618f4b70259.wasm[129]:0x1773f)\n    at wasi_thread_start (worker_panicking-8c7d8618f4b70259.wasm[146]:0x18ab3)\n",
       "exit_code": 129
     }
   }
