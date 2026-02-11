@@ -3,7 +3,7 @@ use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[test]
 fn wasmer_create_package() -> anyhow::Result<()> {
-    let wapm_dev_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
+    let ciuser_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
 
     let username = "ciuser";
     let app_name = format!("ci-create-replica-{}", rand::random::<u32>());
@@ -22,7 +22,7 @@ fn wasmer_create_package() -> anyhow::Result<()> {
         .arg("--non-interactive")
         .arg("--registry=https://registry.wasmer.wtf/graphql");
 
-    if let Some(token) = wapm_dev_token {
+    if let Some(token) = ciuser_token {
         // Special case: GitHub secrets aren't visible to outside collaborators
         if token.is_empty() {
             return Ok(());

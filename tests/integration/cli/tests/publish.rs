@@ -3,7 +3,7 @@ use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]
 fn wasmer_publish_bump() {
-    let wapm_dev_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
+    let ciuser_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path();
     let username = "ciuser";
@@ -30,7 +30,7 @@ fn wasmer_publish_bump() {
         .arg("--registry=wasmer.wtf")
         .arg(path);
 
-    if let Some(token) = wapm_dev_token {
+    if let Some(token) = ciuser_token {
         // Special case: GitHub secrets aren't visible to outside collaborators
         if token.is_empty() {
             return;
@@ -50,7 +50,7 @@ fn wasmer_publish_bump() {
 
 #[test]
 fn wasmer_publish() {
-    let wapm_dev_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
+    let ciuser_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path();
     let username = "ciuser";
@@ -76,7 +76,7 @@ fn wasmer_publish() {
         .arg("--registry=wasmer.wtf")
         .arg(path);
 
-    if let Some(token) = wapm_dev_token {
+    if let Some(token) = ciuser_token {
         // Special case: GitHub secrets aren't visible to outside collaborators
         if token.is_empty() {
             return;
