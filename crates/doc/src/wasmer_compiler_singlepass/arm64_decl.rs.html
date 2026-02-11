@@ -372,7 +372,7 @@
 <a href=#372 id=372 data-nosnippet>372</a>                    NEON::V7,
 <a href=#373 id=373 data-nosnippet>373</a>                ];
 <a href=#374 id=374 data-nosnippet>374</a>                <span class="kw">match </span>ty {
-<a href=#375 id=375 data-nosnippet>375</a>                    Type::I32 | Type::I64 =&gt; {
+<a href=#375 id=375 data-nosnippet>375</a>                    Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef =&gt; {
 <a href=#376 id=376 data-nosnippet>376</a>                        <span class="kw">if </span><span class="self">self</span>.n_gprs &lt; GPR_SEQ.len() {
 <a href=#377 id=377 data-nosnippet>377</a>                            <span class="kw">let </span>gpr = GPR_SEQ[<span class="self">self</span>.n_gprs];
 <a href=#378 id=378 data-nosnippet>378</a>                            <span class="self">self</span>.n_gprs += <span class="number">1</span>;

@@ -249,7 +249,7 @@
 <a href=#249 id=249 data-nosnippet>249</a>                <span class="kw">static </span>XMM_SEQ: <span class="kw-2">&amp;</span>[XMM] = <span class="kw-2">&amp;</span>[XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3];
 <a href=#250 id=250 data-nosnippet>250</a>                <span class="kw">let </span>idx = <span class="self">self</span>.n_gprs + <span class="self">self</span>.n_xmms;
 <a href=#251 id=251 data-nosnippet>251</a>                <span class="kw">match </span>ty {
-<a href=#252 id=252 data-nosnippet>252</a>                    Type::I32 | Type::I64 =&gt; {
+<a href=#252 id=252 data-nosnippet>252</a>                    Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef =&gt; {
 <a href=#253 id=253 data-nosnippet>253</a>                        <span class="kw">if </span>idx &lt; <span class="number">4 </span>{
 <a href=#254 id=254 data-nosnippet>254</a>                            <span class="kw">let </span>gpr = GPR_SEQ[idx];
 <a href=#255 id=255 data-nosnippet>255</a>                            <span class="self">self</span>.n_gprs += <span class="number">1</span>;
@@ -288,7 +288,7 @@
 <a href=#288 id=288 data-nosnippet>288</a>                    XMM::XMM7,
 <a href=#289 id=289 data-nosnippet>289</a>                ];
 <a href=#290 id=290 data-nosnippet>290</a>                <span class="kw">match </span>ty {
-<a href=#291 id=291 data-nosnippet>291</a>                    Type::I32 | Type::I64 =&gt; {
+<a href=#291 id=291 data-nosnippet>291</a>                    Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef =&gt; {
 <a href=#292 id=292 data-nosnippet>292</a>                        <span class="kw">if </span><span class="self">self</span>.n_gprs &lt; GPR_SEQ.len() {
 <a href=#293 id=293 data-nosnippet>293</a>                            <span class="kw">let </span>gpr = GPR_SEQ[<span class="self">self</span>.n_gprs];
 <a href=#294 id=294 data-nosnippet>294</a>                            <span class="self">self</span>.n_gprs += <span class="number">1</span>;

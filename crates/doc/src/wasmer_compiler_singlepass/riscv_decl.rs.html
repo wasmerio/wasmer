@@ -407,7 +407,7 @@
 <a href=#407 id=407 data-nosnippet>407</a>                FPR::F17,
 <a href=#408 id=408 data-nosnippet>408</a>            ];
 <a href=#409 id=409 data-nosnippet>409</a>            <span class="kw">match </span>ty {
-<a href=#410 id=410 data-nosnippet>410</a>                Type::I32 | Type::I64 =&gt; {
+<a href=#410 id=410 data-nosnippet>410</a>                Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef =&gt; {
 <a href=#411 id=411 data-nosnippet>411</a>                    <span class="kw">if </span><span class="self">self</span>.n_gprs &lt; GPR_SEQ.len() {
 <a href=#412 id=412 data-nosnippet>412</a>                        <span class="kw">let </span>gpr = GPR_SEQ[<span class="self">self</span>.n_gprs];
 <a href=#413 id=413 data-nosnippet>413</a>                        <span class="self">self</span>.n_gprs += <span class="number">1</span>;
