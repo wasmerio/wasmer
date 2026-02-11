@@ -372,7 +372,7 @@ impl ArgumentRegisterAllocator {
                     NEON::V7,
                 ];
                 match ty {
-                    Type::I32 | Type::I64 => {
+                    Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef => {
                         if self.n_gprs < GPR_SEQ.len() {
                             let gpr = GPR_SEQ[self.n_gprs];
                             self.n_gprs += 1;
