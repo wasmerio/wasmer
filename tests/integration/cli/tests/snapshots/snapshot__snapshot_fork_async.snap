@@ -8,11 +8,7 @@ expression: snapshot
     "use_packages": [
       "syrusakbary/coreutils"
     ],
-    "include_webcs": [
-      {
-        "name": "syrusakbary/coreutils@0.0.1"
-      }
-    ],
+    "include_webcs": [],
     "cli_args": [],
     "enable_threads": true,
     "enable_network": false,

@@ -10,9 +10,6 @@ expression: snapshot
     ],
     "include_webcs": [
       {
-        "name": "syrusakbary/coreutils@0.0.1"
-      },
-      {
         "name": "syrusakbary/python@0.1.0"
       }
     ],

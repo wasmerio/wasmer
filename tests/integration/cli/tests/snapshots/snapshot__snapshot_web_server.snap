@@ -17,9 +17,6 @@ expression: snapshot
       {
         "name": "sharrattj/wasmer-sh@1.0.63"
       },
-      {
-        "name": "syrusakbary/coreutils@0.0.1"
-      }
     ],
     "cli_args": [],
     "stdin_hash": "ea308175bb22236a4c3ab8ac6643d3ce",

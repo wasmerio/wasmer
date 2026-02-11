@@ -60,8 +60,6 @@ fn is_false(b: &bool) -> bool {
     !(*b)
 }
 
-static WEBC_COREUTILS_16: &[u8] =
-    include_bytes!("./webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
 static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
 
 impl std::fmt::Debug for TestSpec {
@@ -180,7 +178,6 @@ impl TestBuilder {
 
     pub fn use_coreutils(self) -> Self {
         self.use_pkg("syrusakbary/coreutils")
-            .include_static_package("syrusakbary/coreutils@0.0.1", WEBC_COREUTILS_16)
     }
 
     pub fn use_bash(self) -> Self {
