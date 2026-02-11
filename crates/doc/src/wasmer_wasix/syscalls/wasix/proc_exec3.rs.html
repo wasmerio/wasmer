@@ -53,10 +53,10 @@
 <a href=#53 id=53 data-nosnippet>53</a>        <span class="macro">warn!</span>(<span class="string">"failed to execve as the args could not be read - {}"</span>, err);
 <a href=#54 id=54 data-nosnippet>54</a>        WasiError::Exit(Errno::Inval.into())
 <a href=#55 id=55 data-nosnippet>55</a>    })<span class="question-mark">?</span>;
-<a href=#56 id=56 data-nosnippet>56</a>    <span class="kw">let </span>args: Vec&lt;<span class="kw">_</span>&gt; = args
-<a href=#57 id=57 data-nosnippet>57</a>        .split(<span class="kw-2">&amp;</span>[<span class="string">'\n'</span>, <span class="string">'\r'</span>])
-<a href=#58 id=58 data-nosnippet>58</a>        .map(|a| a.to_string())
-<a href=#59 id=59 data-nosnippet>59</a>        .filter(|a| !a.is_empty())
+<a href=#56 id=56 data-nosnippet>56</a>    <span class="kw">let </span>args = args
+<a href=#57 id=57 data-nosnippet>57</a>        .trim_end_matches([<span class="string">'\r'</span>, <span class="string">'\n'</span>])
+<a href=#58 id=58 data-nosnippet>58</a>        .lines()
+<a href=#59 id=59 data-nosnippet>59</a>        .map(str::to_owned)
 <a href=#60 id=60 data-nosnippet>60</a>        .collect();
 <a href=#61 id=61 data-nosnippet>61</a>
 <a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">let </span>envs = <span class="kw">if </span>!envs.is_null() {
