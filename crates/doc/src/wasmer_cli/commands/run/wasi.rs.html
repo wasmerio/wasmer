@@ -548,234 +548,235 @@
 <a href=#548 id=548 data-nosnippet>548</a>        pkg_cache_path: <span class="kw-2">&amp;</span>Path,
 <a href=#549 id=549 data-nosnippet>549</a>        rt_or_handle: I,
 <a href=#550 id=550 data-nosnippet>550</a>        preferred_webc_version: webc::Version,
-<a href=#551 id=551 data-nosnippet>551</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync + <span class="kw">use</span>&lt;I&gt;&gt;
-<a href=#552 id=552 data-nosnippet>552</a>    <span class="kw">where
-<a href=#553 id=553 data-nosnippet>553</a>        </span>I: Into&lt;RuntimeOrHandle&gt;,
-<a href=#554 id=554 data-nosnippet>554</a>    {
-<a href=#555 id=555 data-nosnippet>555</a>        <span class="kw">let </span>tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
-<a href=#556 id=556 data-nosnippet>556</a>        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(tokio_task_manager.clone());
-<a href=#557 id=557 data-nosnippet>557</a>
-<a href=#558 id=558 data-nosnippet>558</a>        <span class="kw">let </span>has_networking = <span class="self">self</span>.networking.is_some()
-<a href=#559 id=559 data-nosnippet>559</a>            || capabilities::get_cached_capability(pkg_cache_path)
-<a href=#560 id=560 data-nosnippet>560</a>                .ok()
-<a href=#561 id=561 data-nosnippet>561</a>                .is_some_and(|v| v.enable_networking);
-<a href=#562 id=562 data-nosnippet>562</a>
-<a href=#563 id=563 data-nosnippet>563</a>        <span class="kw">let </span>ruleset = <span class="self">self
-<a href=#564 id=564 data-nosnippet>564</a>            </span>.networking
-<a href=#565 id=565 data-nosnippet>565</a>            .clone()
-<a href=#566 id=566 data-nosnippet>566</a>            .flatten()
-<a href=#567 id=567 data-nosnippet>567</a>            .map(|ruleset| Ruleset::from_str(<span class="kw-2">&amp;</span>ruleset))
-<a href=#568 id=568 data-nosnippet>568</a>            .transpose()<span class="question-mark">?</span>;
-<a href=#569 id=569 data-nosnippet>569</a>
-<a href=#570 id=570 data-nosnippet>570</a>        <span class="kw">let </span>network = <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = ruleset {
-<a href=#571 id=571 data-nosnippet>571</a>            virtual_net::host::LocalNetworking::with_ruleset(ruleset)
-<a href=#572 id=572 data-nosnippet>572</a>        } <span class="kw">else </span>{
-<a href=#573 id=573 data-nosnippet>573</a>            virtual_net::host::LocalNetworking::default()
-<a href=#574 id=574 data-nosnippet>574</a>        };
-<a href=#575 id=575 data-nosnippet>575</a>
-<a href=#576 id=576 data-nosnippet>576</a>        <span class="kw">if </span>has_networking {
-<a href=#577 id=577 data-nosnippet>577</a>            rt.set_networking_implementation(network);
-<a href=#578 id=578 data-nosnippet>578</a>        } <span class="kw">else </span>{
-<a href=#579 id=579 data-nosnippet>579</a>            <span class="kw">let </span>net = <span class="kw">super</span>::capabilities::net::AskingNetworking::new(
-<a href=#580 id=580 data-nosnippet>580</a>                pkg_cache_path.to_path_buf(),
-<a href=#581 id=581 data-nosnippet>581</a>                Arc::new(network),
-<a href=#582 id=582 data-nosnippet>582</a>            );
-<a href=#583 id=583 data-nosnippet>583</a>
-<a href=#584 id=584 data-nosnippet>584</a>            rt.set_networking_implementation(net);
-<a href=#585 id=585 data-nosnippet>585</a>        }
-<a href=#586 id=586 data-nosnippet>586</a>
-<a href=#587 id=587 data-nosnippet>587</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#588 id=588 data-nosnippet>588</a>        </span>{
-<a href=#589 id=589 data-nosnippet>589</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.build_journals()<span class="question-mark">?</span>;
-<a href=#590 id=590 data-nosnippet>590</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
-<a href=#591 id=591 data-nosnippet>591</a>                rt.add_read_only_journal(journal);
-<a href=#592 id=592 data-nosnippet>592</a>            }
-<a href=#593 id=593 data-nosnippet>593</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
-<a href=#594 id=594 data-nosnippet>594</a>                rt.add_writable_journal(journal);
-<a href=#595 id=595 data-nosnippet>595</a>            }
-<a href=#596 id=596 data-nosnippet>596</a>        }
-<a href=#597 id=597 data-nosnippet>597</a>
-<a href=#598 id=598 data-nosnippet>598</a>        <span class="kw">if </span>!<span class="self">self</span>.no_tty {
-<a href=#599 id=599 data-nosnippet>599</a>            <span class="kw">let </span>tty = Arc::new(SysTty);
-<a href=#600 id=600 data-nosnippet>600</a>            tty.reset();
-<a href=#601 id=601 data-nosnippet>601</a>            rt.set_tty(tty);
-<a href=#602 id=602 data-nosnippet>602</a>        }
-<a href=#603 id=603 data-nosnippet>603</a>
-<a href=#604 id=604 data-nosnippet>604</a>        <span class="kw">let </span>client =
-<a href=#605 id=605 data-nosnippet>605</a>            wasmer_wasix::http::default_http_client().context(<span class="string">"No HTTP client available"</span>)<span class="question-mark">?</span>;
-<a href=#606 id=606 data-nosnippet>606</a>        <span class="kw">let </span>client = Arc::new(client);
-<a href=#607 id=607 data-nosnippet>607</a>
-<a href=#608 id=608 data-nosnippet>608</a>        <span class="kw">let </span>package_loader = <span class="self">self
-<a href=#609 id=609 data-nosnippet>609</a>            </span>.prepare_package_loader(env, client.clone())
-<a href=#610 id=610 data-nosnippet>610</a>            .context(<span class="string">"Unable to prepare the package loader"</span>)<span class="question-mark">?</span>;
-<a href=#611 id=611 data-nosnippet>611</a>
-<a href=#612 id=612 data-nosnippet>612</a>        <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client, preferred_webc_version)<span class="question-mark">?</span>;
-<a href=#613 id=613 data-nosnippet>613</a>
-<a href=#614 id=614 data-nosnippet>614</a>        <span class="kw">if </span>!<span class="self">self</span>.disable_cache {
-<a href=#615 id=615 data-nosnippet>615</a>            <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"compiled"</span>);
-<a href=#616 id=616 data-nosnippet>616</a>            <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-<a href=#617 id=617 data-nosnippet>617</a>                .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
-<a href=#618 id=618 data-nosnippet>618</a>            rt.set_module_cache(module_cache);
-<a href=#619 id=619 data-nosnippet>619</a>        }
-<a href=#620 id=620 data-nosnippet>620</a>
-<a href=#621 id=621 data-nosnippet>621</a>        rt.set_package_loader(package_loader)
-<a href=#622 id=622 data-nosnippet>622</a>            .set_source(registry)
-<a href=#623 id=623 data-nosnippet>623</a>            .set_engine(engine);
-<a href=#624 id=624 data-nosnippet>624</a>
-<a href=#625 id=625 data-nosnippet>625</a>        <span class="prelude-val">Ok</span>(rt)
-<a href=#626 id=626 data-nosnippet>626</a>    }
-<a href=#627 id=627 data-nosnippet>627</a>
-<a href=#628 id=628 data-nosnippet>628</a>    <span class="doccomment">/// Helper function for instantiating a module with Wasi imports for the `Run` command.
-<a href=#629 id=629 data-nosnippet>629</a>    </span><span class="kw">pub fn </span>instantiate(
-<a href=#630 id=630 data-nosnippet>630</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#631 id=631 data-nosnippet>631</a>        module: <span class="kw-2">&amp;</span>Module,
-<a href=#632 id=632 data-nosnippet>632</a>        module_hash: ModuleHash,
-<a href=#633 id=633 data-nosnippet>633</a>        program_name: String,
-<a href=#634 id=634 data-nosnippet>634</a>        args: Vec&lt;String&gt;,
-<a href=#635 id=635 data-nosnippet>635</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#636 id=636 data-nosnippet>636</a>        store: <span class="kw-2">&amp;mut </span>Store,
-<a href=#637 id=637 data-nosnippet>637</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFunctionEnv, Instance)&gt; {
-<a href=#638 id=638 data-nosnippet>638</a>        <span class="kw">let </span>builder = <span class="self">self</span>.prepare(module, program_name, args, runtime)<span class="question-mark">?</span>;
-<a href=#639 id=639 data-nosnippet>639</a>        <span class="kw">let </span>(instance, wasi_env) = builder.instantiate_ext(module.clone(), module_hash, store)<span class="question-mark">?</span>;
-<a href=#640 id=640 data-nosnippet>640</a>
-<a href=#641 id=641 data-nosnippet>641</a>        <span class="prelude-val">Ok</span>((wasi_env, instance))
-<a href=#642 id=642 data-nosnippet>642</a>    }
-<a href=#643 id=643 data-nosnippet>643</a>
-<a href=#644 id=644 data-nosnippet>644</a>    <span class="kw">pub fn </span>for_binfmt_interpreter() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-<a href=#645 id=645 data-nosnippet>645</a>        <span class="kw">let </span>dir = std::env::var_os(<span class="string">"WASMER_BINFMT_MISC_PREOPEN"</span>)
-<a href=#646 id=646 data-nosnippet>646</a>            .map(Into::into)
-<a href=#647 id=647 data-nosnippet>647</a>            .unwrap_or_else(|| PathBuf::from(<span class="string">"."</span>));
-<a href=#648 id=648 data-nosnippet>648</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-<a href=#649 id=649 data-nosnippet>649</a>            deny_multiple_wasi_versions: <span class="bool-val">true</span>,
-<a href=#650 id=650 data-nosnippet>650</a>            env_vars: std::env::vars().collect(),
-<a href=#651 id=651 data-nosnippet>651</a>            volumes: <span class="macro">vec!</span>[MappedDirectory {
-<a href=#652 id=652 data-nosnippet>652</a>                host: dir.clone(),
-<a href=#653 id=653 data-nosnippet>653</a>                guest: dir
-<a href=#654 id=654 data-nosnippet>654</a>                    .to_str()
-<a href=#655 id=655 data-nosnippet>655</a>                    .expect(<span class="string">"dir must be a valid string"</span>)
-<a href=#656 id=656 data-nosnippet>656</a>                    .to_string(),
-<a href=#657 id=657 data-nosnippet>657</a>            }],
-<a href=#658 id=658 data-nosnippet>658</a>            ..<span class="self">Self</span>::default()
-<a href=#659 id=659 data-nosnippet>659</a>        })
-<a href=#660 id=660 data-nosnippet>660</a>    }
-<a href=#661 id=661 data-nosnippet>661</a>
-<a href=#662 id=662 data-nosnippet>662</a>    <span class="kw">fn </span>prepare_package_loader(
-<a href=#663 id=663 data-nosnippet>663</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#664 id=664 data-nosnippet>664</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
-<a href=#665 id=665 data-nosnippet>665</a>        client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
-<a href=#666 id=666 data-nosnippet>666</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BuiltinPackageLoader&gt; {
-<a href=#667 id=667 data-nosnippet>667</a>        <span class="kw">let </span>checkout_dir = env.cache_dir().join(<span class="string">"checkouts"</span>);
-<a href=#668 id=668 data-nosnippet>668</a>        <span class="kw">let </span>tokens = tokens_by_authority(env)<span class="question-mark">?</span>;
-<a href=#669 id=669 data-nosnippet>669</a>
-<a href=#670 id=670 data-nosnippet>670</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
-<a href=#671 id=671 data-nosnippet>671</a>            .with_cache_dir(checkout_dir)
-<a href=#672 id=672 data-nosnippet>672</a>            .with_shared_http_client(client)
-<a href=#673 id=673 data-nosnippet>673</a>            .with_tokens(tokens);
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a>        <span class="prelude-val">Ok</span>(loader)
-<a href=#676 id=676 data-nosnippet>676</a>    }
-<a href=#677 id=677 data-nosnippet>677</a>
-<a href=#678 id=678 data-nosnippet>678</a>    <span class="kw">fn </span>prepare_source(
-<a href=#679 id=679 data-nosnippet>679</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#680 id=680 data-nosnippet>680</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
-<a href=#681 id=681 data-nosnippet>681</a>        client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
-<a href=#682 id=682 data-nosnippet>682</a>        preferred_webc_version: webc::Version,
-<a href=#683 id=683 data-nosnippet>683</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;MultiSource&gt; {
-<a href=#684 id=684 data-nosnippet>684</a>        <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::default();
-<a href=#685 id=685 data-nosnippet>685</a>
-<a href=#686 id=686 data-nosnippet>686</a>        <span class="comment">// Note: This should be first so our "preloaded" sources get a chance to
-<a href=#687 id=687 data-nosnippet>687</a>        // override the main registry.
-<a href=#688 id=688 data-nosnippet>688</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>preloaded = InMemorySource::new();
-<a href=#689 id=689 data-nosnippet>689</a>        <span class="kw">for </span>path <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.include_webcs {
-<a href=#690 id=690 data-nosnippet>690</a>            preloaded
-<a href=#691 id=691 data-nosnippet>691</a>                .add_webc(path)
-<a href=#692 id=692 data-nosnippet>692</a>                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
-<a href=#693 id=693 data-nosnippet>693</a>        }
-<a href=#694 id=694 data-nosnippet>694</a>        source.add_source(preloaded);
-<a href=#695 id=695 data-nosnippet>695</a>
-<a href=#696 id=696 data-nosnippet>696</a>        <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
-<a href=#697 id=697 data-nosnippet>697</a>        <span class="kw">let </span>cache_dir = env
-<a href=#698 id=698 data-nosnippet>698</a>            .cache_dir()
-<a href=#699 id=699 data-nosnippet>699</a>            .join(<span class="string">"queries"</span>)
-<a href=#700 id=700 data-nosnippet>700</a>            .join(endpoint_to_folder(<span class="kw-2">&amp;</span>graphql_endpoint));
-<a href=#701 id=701 data-nosnippet>701</a>        <span class="kw">let </span><span class="kw-2">mut </span>wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
-<a href=#702 id=702 data-nosnippet>702</a>            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
-<a href=#703 id=703 data-nosnippet>703</a>            .with_preferred_webc_version(preferred_webc_version);
-<a href=#704 id=704 data-nosnippet>704</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = env
-<a href=#705 id=705 data-nosnippet>705</a>            .config()<span class="question-mark">?
-<a href=#706 id=706 data-nosnippet>706</a>            </span>.registry
-<a href=#707 id=707 data-nosnippet>707</a>            .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
-<a href=#708 id=708 data-nosnippet>708</a>        {
-<a href=#709 id=709 data-nosnippet>709</a>            wapm_source = wapm_source.with_auth_token(token);
-<a href=#710 id=710 data-nosnippet>710</a>        }
-<a href=#711 id=711 data-nosnippet>711</a>        source.add_source(wapm_source);
-<a href=#712 id=712 data-nosnippet>712</a>
-<a href=#713 id=713 data-nosnippet>713</a>        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"downloads"</span>);
-<a href=#714 id=714 data-nosnippet>714</a>        source.add_source(WebSource::new(cache_dir, client));
-<a href=#715 id=715 data-nosnippet>715</a>
-<a href=#716 id=716 data-nosnippet>716</a>        source.add_source(FileSystemSource::default());
-<a href=#717 id=717 data-nosnippet>717</a>
-<a href=#718 id=718 data-nosnippet>718</a>        <span class="prelude-val">Ok</span>(source)
-<a href=#719 id=719 data-nosnippet>719</a>    }
-<a href=#720 id=720 data-nosnippet>720</a>
-<a href=#721 id=721 data-nosnippet>721</a>    <span class="kw">fn </span>graphql_endpoint(<span class="kw-2">&amp;</span><span class="self">self</span>, env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
-<a href=#722 id=722 data-nosnippet>722</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(endpoint) = env.registry_endpoint() {
-<a href=#723 id=723 data-nosnippet>723</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(endpoint);
-<a href=#724 id=724 data-nosnippet>724</a>        }
-<a href=#725 id=725 data-nosnippet>725</a>
-<a href=#726 id=726 data-nosnippet>726</a>        <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
-<a href=#727 id=727 data-nosnippet>727</a>        <span class="kw">let </span>graphql_endpoint = config.registry.get_graphql_url();
-<a href=#728 id=728 data-nosnippet>728</a>        <span class="kw">let </span>graphql_endpoint = graphql_endpoint
-<a href=#729 id=729 data-nosnippet>729</a>            .parse()
-<a href=#730 id=730 data-nosnippet>730</a>            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{graphql_endpoint}\" as a URL"</span>))<span class="question-mark">?</span>;
-<a href=#731 id=731 data-nosnippet>731</a>
-<a href=#732 id=732 data-nosnippet>732</a>        <span class="prelude-val">Ok</span>(graphql_endpoint)
-<a href=#733 id=733 data-nosnippet>733</a>    }
-<a href=#734 id=734 data-nosnippet>734</a>}
-<a href=#735 id=735 data-nosnippet>735</a>
-<a href=#736 id=736 data-nosnippet>736</a><span class="kw">fn </span>parse_registry(r: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
-<a href=#737 id=737 data-nosnippet>737</a>    UserRegistry::from(r).graphql_endpoint()
-<a href=#738 id=738 data-nosnippet>738</a>}
-<a href=#739 id=739 data-nosnippet>739</a>
-<a href=#740 id=740 data-nosnippet>740</a><span class="kw">fn </span>tokens_by_authority(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, String&gt;&gt; {
-<a href=#741 id=741 data-nosnippet>741</a>    <span class="kw">let </span><span class="kw-2">mut </span>tokens = HashMap::new();
-<a href=#742 id=742 data-nosnippet>742</a>    <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
-<a href=#743 id=743 data-nosnippet>743</a>
-<a href=#744 id=744 data-nosnippet>744</a>    <span class="kw">for </span>credentials <span class="kw">in </span>config.registry.tokens {
-<a href=#745 id=745 data-nosnippet>745</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(url) = Url::parse(<span class="kw-2">&amp;</span>credentials.registry)
-<a href=#746 id=746 data-nosnippet>746</a>            &amp;&amp; url.has_authority()
-<a href=#747 id=747 data-nosnippet>747</a>        {
-<a href=#748 id=748 data-nosnippet>748</a>            tokens.insert(url.authority().to_string(), credentials.token);
-<a href=#749 id=749 data-nosnippet>749</a>        }
-<a href=#750 id=750 data-nosnippet>750</a>    }
-<a href=#751 id=751 data-nosnippet>751</a>
-<a href=#752 id=752 data-nosnippet>752</a>    <span class="kw">if let </span>(<span class="prelude-val">Ok</span>(current_registry), <span class="prelude-val">Some</span>(token)) = (env.registry_endpoint(), env.token())
-<a href=#753 id=753 data-nosnippet>753</a>        &amp;&amp; current_registry.has_authority()
-<a href=#754 id=754 data-nosnippet>754</a>    {
-<a href=#755 id=755 data-nosnippet>755</a>        tokens.insert(current_registry.authority().to_string(), token);
-<a href=#756 id=756 data-nosnippet>756</a>    }
-<a href=#757 id=757 data-nosnippet>757</a>
-<a href=#758 id=758 data-nosnippet>758</a>    <span class="comment">// Note: The global wasmer.toml config file stores URLs for the GraphQL
-<a href=#759 id=759 data-nosnippet>759</a>    // endpoint, however that's often on the backend (i.e.
-<a href=#760 id=760 data-nosnippet>760</a>    // https://registry.wasmer.io/graphql) and we also want to use the same API
-<a href=#761 id=761 data-nosnippet>761</a>    // token when sending requests to the frontend (e.g. downloading a package
-<a href=#762 id=762 data-nosnippet>762</a>    // using the `Accept: application/webc` header).
-<a href=#763 id=763 data-nosnippet>763</a>    //
-<a href=#764 id=764 data-nosnippet>764</a>    // As a workaround to avoid needing to query *all* backends to find out
-<a href=#765 id=765 data-nosnippet>765</a>    // their frontend URL every time the `wasmer` CLI runs, we'll assume that
-<a href=#766 id=766 data-nosnippet>766</a>    // when a backend is called something like `registry.wasmer.io`, the
-<a href=#767 id=767 data-nosnippet>767</a>    // frontend will be at `wasmer.io`. This works everywhere except for people
-<a href=#768 id=768 data-nosnippet>768</a>    // developing the backend locally... Sorry, Ayush.
-<a href=#769 id=769 data-nosnippet>769</a>
-<a href=#770 id=770 data-nosnippet>770</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>frontend_tokens = HashMap::new();
-<a href=#771 id=771 data-nosnippet>771</a>    <span class="kw">for </span>(hostname, token) <span class="kw">in </span><span class="kw-2">&amp;</span>tokens {
-<a href=#772 id=772 data-nosnippet>772</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(frontend_url) = hostname.strip_prefix(<span class="string">"registry."</span>)
-<a href=#773 id=773 data-nosnippet>773</a>            &amp;&amp; !tokens.contains_key(frontend_url)
-<a href=#774 id=774 data-nosnippet>774</a>        {
-<a href=#775 id=775 data-nosnippet>775</a>            frontend_tokens.insert(frontend_url.to_string(), token.clone());
-<a href=#776 id=776 data-nosnippet>776</a>        }
-<a href=#777 id=777 data-nosnippet>777</a>    }
-<a href=#778 id=778 data-nosnippet>778</a>    tokens.extend(frontend_tokens);
-<a href=#779 id=779 data-nosnippet>779</a>
-<a href=#780 id=780 data-nosnippet>780</a>    <span class="prelude-val">Ok</span>(tokens)
-<a href=#781 id=781 data-nosnippet>781</a>}</code></pre></div></section></main></body></html>
+<a href=#551 id=551 data-nosnippet>551</a>        compiler_debug_dir_used: bool,
+<a href=#552 id=552 data-nosnippet>552</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync + <span class="kw">use</span>&lt;I&gt;&gt;
+<a href=#553 id=553 data-nosnippet>553</a>    <span class="kw">where
+<a href=#554 id=554 data-nosnippet>554</a>        </span>I: Into&lt;RuntimeOrHandle&gt;,
+<a href=#555 id=555 data-nosnippet>555</a>    {
+<a href=#556 id=556 data-nosnippet>556</a>        <span class="kw">let </span>tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
+<a href=#557 id=557 data-nosnippet>557</a>        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(tokio_task_manager.clone());
+<a href=#558 id=558 data-nosnippet>558</a>
+<a href=#559 id=559 data-nosnippet>559</a>        <span class="kw">let </span>has_networking = <span class="self">self</span>.networking.is_some()
+<a href=#560 id=560 data-nosnippet>560</a>            || capabilities::get_cached_capability(pkg_cache_path)
+<a href=#561 id=561 data-nosnippet>561</a>                .ok()
+<a href=#562 id=562 data-nosnippet>562</a>                .is_some_and(|v| v.enable_networking);
+<a href=#563 id=563 data-nosnippet>563</a>
+<a href=#564 id=564 data-nosnippet>564</a>        <span class="kw">let </span>ruleset = <span class="self">self
+<a href=#565 id=565 data-nosnippet>565</a>            </span>.networking
+<a href=#566 id=566 data-nosnippet>566</a>            .clone()
+<a href=#567 id=567 data-nosnippet>567</a>            .flatten()
+<a href=#568 id=568 data-nosnippet>568</a>            .map(|ruleset| Ruleset::from_str(<span class="kw-2">&amp;</span>ruleset))
+<a href=#569 id=569 data-nosnippet>569</a>            .transpose()<span class="question-mark">?</span>;
+<a href=#570 id=570 data-nosnippet>570</a>
+<a href=#571 id=571 data-nosnippet>571</a>        <span class="kw">let </span>network = <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = ruleset {
+<a href=#572 id=572 data-nosnippet>572</a>            virtual_net::host::LocalNetworking::with_ruleset(ruleset)
+<a href=#573 id=573 data-nosnippet>573</a>        } <span class="kw">else </span>{
+<a href=#574 id=574 data-nosnippet>574</a>            virtual_net::host::LocalNetworking::default()
+<a href=#575 id=575 data-nosnippet>575</a>        };
+<a href=#576 id=576 data-nosnippet>576</a>
+<a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">if </span>has_networking {
+<a href=#578 id=578 data-nosnippet>578</a>            rt.set_networking_implementation(network);
+<a href=#579 id=579 data-nosnippet>579</a>        } <span class="kw">else </span>{
+<a href=#580 id=580 data-nosnippet>580</a>            <span class="kw">let </span>net = <span class="kw">super</span>::capabilities::net::AskingNetworking::new(
+<a href=#581 id=581 data-nosnippet>581</a>                pkg_cache_path.to_path_buf(),
+<a href=#582 id=582 data-nosnippet>582</a>                Arc::new(network),
+<a href=#583 id=583 data-nosnippet>583</a>            );
+<a href=#584 id=584 data-nosnippet>584</a>
+<a href=#585 id=585 data-nosnippet>585</a>            rt.set_networking_implementation(net);
+<a href=#586 id=586 data-nosnippet>586</a>        }
+<a href=#587 id=587 data-nosnippet>587</a>
+<a href=#588 id=588 data-nosnippet>588</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#589 id=589 data-nosnippet>589</a>        </span>{
+<a href=#590 id=590 data-nosnippet>590</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.build_journals()<span class="question-mark">?</span>;
+<a href=#591 id=591 data-nosnippet>591</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
+<a href=#592 id=592 data-nosnippet>592</a>                rt.add_read_only_journal(journal);
+<a href=#593 id=593 data-nosnippet>593</a>            }
+<a href=#594 id=594 data-nosnippet>594</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
+<a href=#595 id=595 data-nosnippet>595</a>                rt.add_writable_journal(journal);
+<a href=#596 id=596 data-nosnippet>596</a>            }
+<a href=#597 id=597 data-nosnippet>597</a>        }
+<a href=#598 id=598 data-nosnippet>598</a>
+<a href=#599 id=599 data-nosnippet>599</a>        <span class="kw">if </span>!<span class="self">self</span>.no_tty {
+<a href=#600 id=600 data-nosnippet>600</a>            <span class="kw">let </span>tty = Arc::new(SysTty);
+<a href=#601 id=601 data-nosnippet>601</a>            tty.reset();
+<a href=#602 id=602 data-nosnippet>602</a>            rt.set_tty(tty);
+<a href=#603 id=603 data-nosnippet>603</a>        }
+<a href=#604 id=604 data-nosnippet>604</a>
+<a href=#605 id=605 data-nosnippet>605</a>        <span class="kw">let </span>client =
+<a href=#606 id=606 data-nosnippet>606</a>            wasmer_wasix::http::default_http_client().context(<span class="string">"No HTTP client available"</span>)<span class="question-mark">?</span>;
+<a href=#607 id=607 data-nosnippet>607</a>        <span class="kw">let </span>client = Arc::new(client);
+<a href=#608 id=608 data-nosnippet>608</a>
+<a href=#609 id=609 data-nosnippet>609</a>        <span class="kw">let </span>package_loader = <span class="self">self
+<a href=#610 id=610 data-nosnippet>610</a>            </span>.prepare_package_loader(env, client.clone())
+<a href=#611 id=611 data-nosnippet>611</a>            .context(<span class="string">"Unable to prepare the package loader"</span>)<span class="question-mark">?</span>;
+<a href=#612 id=612 data-nosnippet>612</a>
+<a href=#613 id=613 data-nosnippet>613</a>        <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client, preferred_webc_version)<span class="question-mark">?</span>;
+<a href=#614 id=614 data-nosnippet>614</a>
+<a href=#615 id=615 data-nosnippet>615</a>        <span class="kw">if </span>!<span class="self">self</span>.disable_cache &amp;&amp; !compiler_debug_dir_used {
+<a href=#616 id=616 data-nosnippet>616</a>            <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"compiled"</span>);
+<a href=#617 id=617 data-nosnippet>617</a>            <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
+<a href=#618 id=618 data-nosnippet>618</a>                .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
+<a href=#619 id=619 data-nosnippet>619</a>            rt.set_module_cache(module_cache);
+<a href=#620 id=620 data-nosnippet>620</a>        }
+<a href=#621 id=621 data-nosnippet>621</a>
+<a href=#622 id=622 data-nosnippet>622</a>        rt.set_package_loader(package_loader)
+<a href=#623 id=623 data-nosnippet>623</a>            .set_source(registry)
+<a href=#624 id=624 data-nosnippet>624</a>            .set_engine(engine);
+<a href=#625 id=625 data-nosnippet>625</a>
+<a href=#626 id=626 data-nosnippet>626</a>        <span class="prelude-val">Ok</span>(rt)
+<a href=#627 id=627 data-nosnippet>627</a>    }
+<a href=#628 id=628 data-nosnippet>628</a>
+<a href=#629 id=629 data-nosnippet>629</a>    <span class="doccomment">/// Helper function for instantiating a module with Wasi imports for the `Run` command.
+<a href=#630 id=630 data-nosnippet>630</a>    </span><span class="kw">pub fn </span>instantiate(
+<a href=#631 id=631 data-nosnippet>631</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#632 id=632 data-nosnippet>632</a>        module: <span class="kw-2">&amp;</span>Module,
+<a href=#633 id=633 data-nosnippet>633</a>        module_hash: ModuleHash,
+<a href=#634 id=634 data-nosnippet>634</a>        program_name: String,
+<a href=#635 id=635 data-nosnippet>635</a>        args: Vec&lt;String&gt;,
+<a href=#636 id=636 data-nosnippet>636</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#637 id=637 data-nosnippet>637</a>        store: <span class="kw-2">&amp;mut </span>Store,
+<a href=#638 id=638 data-nosnippet>638</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFunctionEnv, Instance)&gt; {
+<a href=#639 id=639 data-nosnippet>639</a>        <span class="kw">let </span>builder = <span class="self">self</span>.prepare(module, program_name, args, runtime)<span class="question-mark">?</span>;
+<a href=#640 id=640 data-nosnippet>640</a>        <span class="kw">let </span>(instance, wasi_env) = builder.instantiate_ext(module.clone(), module_hash, store)<span class="question-mark">?</span>;
+<a href=#641 id=641 data-nosnippet>641</a>
+<a href=#642 id=642 data-nosnippet>642</a>        <span class="prelude-val">Ok</span>((wasi_env, instance))
+<a href=#643 id=643 data-nosnippet>643</a>    }
+<a href=#644 id=644 data-nosnippet>644</a>
+<a href=#645 id=645 data-nosnippet>645</a>    <span class="kw">pub fn </span>for_binfmt_interpreter() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+<a href=#646 id=646 data-nosnippet>646</a>        <span class="kw">let </span>dir = std::env::var_os(<span class="string">"WASMER_BINFMT_MISC_PREOPEN"</span>)
+<a href=#647 id=647 data-nosnippet>647</a>            .map(Into::into)
+<a href=#648 id=648 data-nosnippet>648</a>            .unwrap_or_else(|| PathBuf::from(<span class="string">"."</span>));
+<a href=#649 id=649 data-nosnippet>649</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+<a href=#650 id=650 data-nosnippet>650</a>            deny_multiple_wasi_versions: <span class="bool-val">true</span>,
+<a href=#651 id=651 data-nosnippet>651</a>            env_vars: std::env::vars().collect(),
+<a href=#652 id=652 data-nosnippet>652</a>            volumes: <span class="macro">vec!</span>[MappedDirectory {
+<a href=#653 id=653 data-nosnippet>653</a>                host: dir.clone(),
+<a href=#654 id=654 data-nosnippet>654</a>                guest: dir
+<a href=#655 id=655 data-nosnippet>655</a>                    .to_str()
+<a href=#656 id=656 data-nosnippet>656</a>                    .expect(<span class="string">"dir must be a valid string"</span>)
+<a href=#657 id=657 data-nosnippet>657</a>                    .to_string(),
+<a href=#658 id=658 data-nosnippet>658</a>            }],
+<a href=#659 id=659 data-nosnippet>659</a>            ..<span class="self">Self</span>::default()
+<a href=#660 id=660 data-nosnippet>660</a>        })
+<a href=#661 id=661 data-nosnippet>661</a>    }
+<a href=#662 id=662 data-nosnippet>662</a>
+<a href=#663 id=663 data-nosnippet>663</a>    <span class="kw">fn </span>prepare_package_loader(
+<a href=#664 id=664 data-nosnippet>664</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#665 id=665 data-nosnippet>665</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
+<a href=#666 id=666 data-nosnippet>666</a>        client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
+<a href=#667 id=667 data-nosnippet>667</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BuiltinPackageLoader&gt; {
+<a href=#668 id=668 data-nosnippet>668</a>        <span class="kw">let </span>checkout_dir = env.cache_dir().join(<span class="string">"checkouts"</span>);
+<a href=#669 id=669 data-nosnippet>669</a>        <span class="kw">let </span>tokens = tokens_by_authority(env)<span class="question-mark">?</span>;
+<a href=#670 id=670 data-nosnippet>670</a>
+<a href=#671 id=671 data-nosnippet>671</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
+<a href=#672 id=672 data-nosnippet>672</a>            .with_cache_dir(checkout_dir)
+<a href=#673 id=673 data-nosnippet>673</a>            .with_shared_http_client(client)
+<a href=#674 id=674 data-nosnippet>674</a>            .with_tokens(tokens);
+<a href=#675 id=675 data-nosnippet>675</a>
+<a href=#676 id=676 data-nosnippet>676</a>        <span class="prelude-val">Ok</span>(loader)
+<a href=#677 id=677 data-nosnippet>677</a>    }
+<a href=#678 id=678 data-nosnippet>678</a>
+<a href=#679 id=679 data-nosnippet>679</a>    <span class="kw">fn </span>prepare_source(
+<a href=#680 id=680 data-nosnippet>680</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#681 id=681 data-nosnippet>681</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
+<a href=#682 id=682 data-nosnippet>682</a>        client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
+<a href=#683 id=683 data-nosnippet>683</a>        preferred_webc_version: webc::Version,
+<a href=#684 id=684 data-nosnippet>684</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;MultiSource&gt; {
+<a href=#685 id=685 data-nosnippet>685</a>        <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::default();
+<a href=#686 id=686 data-nosnippet>686</a>
+<a href=#687 id=687 data-nosnippet>687</a>        <span class="comment">// Note: This should be first so our "preloaded" sources get a chance to
+<a href=#688 id=688 data-nosnippet>688</a>        // override the main registry.
+<a href=#689 id=689 data-nosnippet>689</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>preloaded = InMemorySource::new();
+<a href=#690 id=690 data-nosnippet>690</a>        <span class="kw">for </span>path <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.include_webcs {
+<a href=#691 id=691 data-nosnippet>691</a>            preloaded
+<a href=#692 id=692 data-nosnippet>692</a>                .add_webc(path)
+<a href=#693 id=693 data-nosnippet>693</a>                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
+<a href=#694 id=694 data-nosnippet>694</a>        }
+<a href=#695 id=695 data-nosnippet>695</a>        source.add_source(preloaded);
+<a href=#696 id=696 data-nosnippet>696</a>
+<a href=#697 id=697 data-nosnippet>697</a>        <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
+<a href=#698 id=698 data-nosnippet>698</a>        <span class="kw">let </span>cache_dir = env
+<a href=#699 id=699 data-nosnippet>699</a>            .cache_dir()
+<a href=#700 id=700 data-nosnippet>700</a>            .join(<span class="string">"queries"</span>)
+<a href=#701 id=701 data-nosnippet>701</a>            .join(endpoint_to_folder(<span class="kw-2">&amp;</span>graphql_endpoint));
+<a href=#702 id=702 data-nosnippet>702</a>        <span class="kw">let </span><span class="kw-2">mut </span>wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
+<a href=#703 id=703 data-nosnippet>703</a>            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
+<a href=#704 id=704 data-nosnippet>704</a>            .with_preferred_webc_version(preferred_webc_version);
+<a href=#705 id=705 data-nosnippet>705</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = env
+<a href=#706 id=706 data-nosnippet>706</a>            .config()<span class="question-mark">?
+<a href=#707 id=707 data-nosnippet>707</a>            </span>.registry
+<a href=#708 id=708 data-nosnippet>708</a>            .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
+<a href=#709 id=709 data-nosnippet>709</a>        {
+<a href=#710 id=710 data-nosnippet>710</a>            wapm_source = wapm_source.with_auth_token(token);
+<a href=#711 id=711 data-nosnippet>711</a>        }
+<a href=#712 id=712 data-nosnippet>712</a>        source.add_source(wapm_source);
+<a href=#713 id=713 data-nosnippet>713</a>
+<a href=#714 id=714 data-nosnippet>714</a>        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"downloads"</span>);
+<a href=#715 id=715 data-nosnippet>715</a>        source.add_source(WebSource::new(cache_dir, client));
+<a href=#716 id=716 data-nosnippet>716</a>
+<a href=#717 id=717 data-nosnippet>717</a>        source.add_source(FileSystemSource::default());
+<a href=#718 id=718 data-nosnippet>718</a>
+<a href=#719 id=719 data-nosnippet>719</a>        <span class="prelude-val">Ok</span>(source)
+<a href=#720 id=720 data-nosnippet>720</a>    }
+<a href=#721 id=721 data-nosnippet>721</a>
+<a href=#722 id=722 data-nosnippet>722</a>    <span class="kw">fn </span>graphql_endpoint(<span class="kw-2">&amp;</span><span class="self">self</span>, env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
+<a href=#723 id=723 data-nosnippet>723</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(endpoint) = env.registry_endpoint() {
+<a href=#724 id=724 data-nosnippet>724</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(endpoint);
+<a href=#725 id=725 data-nosnippet>725</a>        }
+<a href=#726 id=726 data-nosnippet>726</a>
+<a href=#727 id=727 data-nosnippet>727</a>        <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
+<a href=#728 id=728 data-nosnippet>728</a>        <span class="kw">let </span>graphql_endpoint = config.registry.get_graphql_url();
+<a href=#729 id=729 data-nosnippet>729</a>        <span class="kw">let </span>graphql_endpoint = graphql_endpoint
+<a href=#730 id=730 data-nosnippet>730</a>            .parse()
+<a href=#731 id=731 data-nosnippet>731</a>            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{graphql_endpoint}\" as a URL"</span>))<span class="question-mark">?</span>;
+<a href=#732 id=732 data-nosnippet>732</a>
+<a href=#733 id=733 data-nosnippet>733</a>        <span class="prelude-val">Ok</span>(graphql_endpoint)
+<a href=#734 id=734 data-nosnippet>734</a>    }
+<a href=#735 id=735 data-nosnippet>735</a>}
+<a href=#736 id=736 data-nosnippet>736</a>
+<a href=#737 id=737 data-nosnippet>737</a><span class="kw">fn </span>parse_registry(r: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
+<a href=#738 id=738 data-nosnippet>738</a>    UserRegistry::from(r).graphql_endpoint()
+<a href=#739 id=739 data-nosnippet>739</a>}
+<a href=#740 id=740 data-nosnippet>740</a>
+<a href=#741 id=741 data-nosnippet>741</a><span class="kw">fn </span>tokens_by_authority(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, String&gt;&gt; {
+<a href=#742 id=742 data-nosnippet>742</a>    <span class="kw">let </span><span class="kw-2">mut </span>tokens = HashMap::new();
+<a href=#743 id=743 data-nosnippet>743</a>    <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
+<a href=#744 id=744 data-nosnippet>744</a>
+<a href=#745 id=745 data-nosnippet>745</a>    <span class="kw">for </span>credentials <span class="kw">in </span>config.registry.tokens {
+<a href=#746 id=746 data-nosnippet>746</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(url) = Url::parse(<span class="kw-2">&amp;</span>credentials.registry)
+<a href=#747 id=747 data-nosnippet>747</a>            &amp;&amp; url.has_authority()
+<a href=#748 id=748 data-nosnippet>748</a>        {
+<a href=#749 id=749 data-nosnippet>749</a>            tokens.insert(url.authority().to_string(), credentials.token);
+<a href=#750 id=750 data-nosnippet>750</a>        }
+<a href=#751 id=751 data-nosnippet>751</a>    }
+<a href=#752 id=752 data-nosnippet>752</a>
+<a href=#753 id=753 data-nosnippet>753</a>    <span class="kw">if let </span>(<span class="prelude-val">Ok</span>(current_registry), <span class="prelude-val">Some</span>(token)) = (env.registry_endpoint(), env.token())
+<a href=#754 id=754 data-nosnippet>754</a>        &amp;&amp; current_registry.has_authority()
+<a href=#755 id=755 data-nosnippet>755</a>    {
+<a href=#756 id=756 data-nosnippet>756</a>        tokens.insert(current_registry.authority().to_string(), token);
+<a href=#757 id=757 data-nosnippet>757</a>    }
+<a href=#758 id=758 data-nosnippet>758</a>
+<a href=#759 id=759 data-nosnippet>759</a>    <span class="comment">// Note: The global wasmer.toml config file stores URLs for the GraphQL
+<a href=#760 id=760 data-nosnippet>760</a>    // endpoint, however that's often on the backend (i.e.
+<a href=#761 id=761 data-nosnippet>761</a>    // https://registry.wasmer.io/graphql) and we also want to use the same API
+<a href=#762 id=762 data-nosnippet>762</a>    // token when sending requests to the frontend (e.g. downloading a package
+<a href=#763 id=763 data-nosnippet>763</a>    // using the `Accept: application/webc` header).
+<a href=#764 id=764 data-nosnippet>764</a>    //
+<a href=#765 id=765 data-nosnippet>765</a>    // As a workaround to avoid needing to query *all* backends to find out
+<a href=#766 id=766 data-nosnippet>766</a>    // their frontend URL every time the `wasmer` CLI runs, we'll assume that
+<a href=#767 id=767 data-nosnippet>767</a>    // when a backend is called something like `registry.wasmer.io`, the
+<a href=#768 id=768 data-nosnippet>768</a>    // frontend will be at `wasmer.io`. This works everywhere except for people
+<a href=#769 id=769 data-nosnippet>769</a>    // developing the backend locally... Sorry, Ayush.
+<a href=#770 id=770 data-nosnippet>770</a>
+<a href=#771 id=771 data-nosnippet>771</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>frontend_tokens = HashMap::new();
+<a href=#772 id=772 data-nosnippet>772</a>    <span class="kw">for </span>(hostname, token) <span class="kw">in </span><span class="kw-2">&amp;</span>tokens {
+<a href=#773 id=773 data-nosnippet>773</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(frontend_url) = hostname.strip_prefix(<span class="string">"registry."</span>)
+<a href=#774 id=774 data-nosnippet>774</a>            &amp;&amp; !tokens.contains_key(frontend_url)
+<a href=#775 id=775 data-nosnippet>775</a>        {
+<a href=#776 id=776 data-nosnippet>776</a>            frontend_tokens.insert(frontend_url.to_string(), token.clone());
+<a href=#777 id=777 data-nosnippet>777</a>        }
+<a href=#778 id=778 data-nosnippet>778</a>    }
+<a href=#779 id=779 data-nosnippet>779</a>    tokens.extend(frontend_tokens);
+<a href=#780 id=780 data-nosnippet>780</a>
+<a href=#781 id=781 data-nosnippet>781</a>    <span class="prelude-val">Ok</span>(tokens)
+<a href=#782 id=782 data-nosnippet>782</a>}</code></pre></div></section></main></body></html>

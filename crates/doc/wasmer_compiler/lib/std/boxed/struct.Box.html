@@ -1927,18 +1927,18 @@ and the value might be rounded to sane value is needed.</div></details></div></d
 ) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_ref_get_desc" class="method trait-impl"><a href="#method.visit_ref_get_desc" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_ref_get_desc</a>(
     &amp;mut self,
     type_index: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.u32.html">u32</a>,
-) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_ref_cast_desc_non_null" class="method trait-impl"><a href="#method.visit_ref_cast_desc_non_null" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_ref_cast_desc_non_null</a>(
+) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_ref_cast_desc_eq_non_null" class="method trait-impl"><a href="#method.visit_ref_cast_desc_eq_non_null" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_ref_cast_desc_eq_non_null</a>(
     &amp;mut self,
     hty: HeapType,
-) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_ref_cast_desc_nullable" class="method trait-impl"><a href="#method.visit_ref_cast_desc_nullable" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_ref_cast_desc_nullable</a>(
+) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_ref_cast_desc_eq_nullable" class="method trait-impl"><a href="#method.visit_ref_cast_desc_eq_nullable" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_ref_cast_desc_eq_nullable</a>(
     &amp;mut self,
     hty: HeapType,
-) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_br_on_cast_desc" class="method trait-impl"><a href="#method.visit_br_on_cast_desc" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_br_on_cast_desc</a>(
+) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_br_on_cast_desc_eq" class="method trait-impl"><a href="#method.visit_br_on_cast_desc_eq" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_br_on_cast_desc_eq</a>(
     &amp;mut self,
     relative_depth: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.u32.html">u32</a>,
     from_ref_type: RefType,
     to_ref_type: RefType,
-) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_br_on_cast_desc_fail" class="method trait-impl"><a href="#method.visit_br_on_cast_desc_fail" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_br_on_cast_desc_fail</a>(
+) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_br_on_cast_desc_eq_fail" class="method trait-impl"><a href="#method.visit_br_on_cast_desc_eq_fail" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_br_on_cast_desc_eq_fail</a>(
     &amp;mut self,
     relative_depth: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.u32.html">u32</a>,
     from_ref_type: RefType,
@@ -2402,6 +2402,10 @@ and the value might be rounded to sane value is needed.</div></details></div></d
     &amp;mut self,
     cont_type_index: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.u32.html">u32</a>,
     tag_index: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.u32.html">u32</a>,
+    resume_table: ResumeTable,
+) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_resume_throw_ref" class="method trait-impl"><a href="#method.visit_resume_throw_ref" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_resume_throw_ref</a>(
+    &amp;mut self,
+    cont_type_index: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.u32.html">u32</a>,
     resume_table: ResumeTable,
 ) -&gt; &lt;<a class="struct" href="struct.Box.html" title="struct wasmer_compiler::lib::std::boxed::Box">Box</a>&lt;V&gt; as VisitOperator&lt;'a&gt;&gt;::Output</h4></section><section id="method.visit_switch" class="method trait-impl"><a href="#method.visit_switch" class="anchor">§</a><h4 class="code-header">fn <a class="fn">visit_switch</a>(
     &amp;mut self,
