@@ -524,10 +524,6 @@ fn test_wasmer_run_complex_url() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn wasi_runner_on_disk() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -561,10 +557,6 @@ fn wasi_runner_on_disk_mount_using_relative_directory_on_the_host() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn wasi_runner_on_disk_with_mounted_directories() {
     let temp = TempDir::new().unwrap();
     std::fs::write(temp.path().join("index.js"), "console.log('Hello, World!')").unwrap();
@@ -582,10 +574,6 @@ fn wasi_runner_on_disk_with_mounted_directories() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn wasi_runner_on_disk_with_mounted_directories_and_webc_volumes() {
     let temp = TempDir::new().unwrap();
     std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -604,10 +592,6 @@ fn wasi_runner_on_disk_with_mounted_directories_and_webc_volumes() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 #[cfg_attr(feature = "wamr", ignore = "wamr does not support multiple memories")]
 fn wasi_runner_on_disk_with_dependencies() {
     let port = random_port();
@@ -636,10 +620,6 @@ fn wasi_runner_on_disk_with_dependencies() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn webc_files_on_disk_with_multiple_commands_require_an_entrypoint_flag() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -652,10 +632,6 @@ fn webc_files_on_disk_with_multiple_commands_require_an_entrypoint_flag() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn wasi_runner_on_disk_with_env_vars() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -673,10 +649,6 @@ fn wasi_runner_on_disk_with_env_vars() {
 
 /// See https://github.com/wasmerio/wasmer/issues/3794
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 #[ignore = "#6173"]
 fn issue_3794_unable_to_mount_relative_paths() {
@@ -694,14 +666,6 @@ fn issue_3794_unable_to_mount_relative_paths() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
-#[cfg_attr(
-    windows,
-    ignore = "FIXME(Michael-F-Bryan): Temporarily broken on Windows - https://github.com/wasmerio/wasmer/issues/3929"
-)]
 #[cfg_attr(
     feature = "wamr",
     ignore = "FIXME(xdoardo): Bash is currently not working in wamr"
@@ -750,10 +714,6 @@ fn wasm_file_with_no_abi() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn error_if_no_start_function_found() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -767,10 +727,6 @@ fn error_if_no_start_function_found() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 #[cfg_attr(
     any(feature = "wamr", feature = "v8", feature = "wasmi"),
     ignore = "wasmer using a c_api backend only may not have the 'compile' command"
@@ -803,10 +759,6 @@ fn run_a_pre_compiled_wasm_file() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn wasmer_run_some_directory() {
     let temp = TempDir::new().unwrap();
     std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
@@ -825,10 +777,6 @@ fn wasmer_run_some_directory() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn run_quickjs_via_package_name() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -845,10 +793,6 @@ fn run_quickjs_via_package_name() {
 }
 
 #[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
 fn run_quickjs_via_url() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -865,14 +809,6 @@ fn run_quickjs_via_url() {
 
 #[test]
 #[allow(unused_attributes)]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
-#[cfg_attr(
-    windows,
-    ignore = "TODO(Michael-F-Bryan): Figure out why WasiFs::get_inode_at_path_inner() returns Errno::notcapable on Windows"
-)]
 #[cfg_attr(
     feature = "wamr",
     ignore = "FIXME(xdoardo): Bash is currently not working in wamr"
