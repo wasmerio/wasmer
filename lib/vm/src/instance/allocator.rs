@@ -69,6 +69,7 @@ impl InstanceAllocator {
     /// calling [`VMInstance::new`].
     ///
     /// [`VMInstance::new`]: super::VMInstance::new
+    #[allow(clippy::type_complexity)]
     pub fn new(
         module: &ModuleInfo,
     ) -> (

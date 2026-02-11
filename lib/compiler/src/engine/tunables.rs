@@ -66,7 +66,7 @@ pub trait Tunables {
         ty: GlobalType,
         vm_definition_location: NonNull<VMGlobalDefinition>,
     ) -> Result<VMGlobal, String> {
-        Ok(VMGlobal::new_instance(ty, vm_definition_location))
+        unsafe { Ok(VMGlobal::new_instance(ty, vm_definition_location)) }
     }
 
     /// Create a new tag.
