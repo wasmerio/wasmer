@@ -158,22 +158,14 @@ pub trait Tunables {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
-        debug_assert_eq!(
-            vm_definition_locations.len(),
-            module.globals.len() - num_imports
-        );
-
         for (i, &global_type) in module.globals.values().skip(num_imports).enumerate() {
             let location = vm_definition_locations
                 .get(i)
                 .ok_or_else(|| LinkError::Resource("global definition location missing".into()))?;
-            vmctx_globals.push(InternalStoreHandle::new(
-                context,
-                unsafe {
-                    self.create_vm_global(global_type, *location)
-                        .map_err(LinkError::Resource)?
-                },
-            ));
+            vmctx_globals.push(InternalStoreHandle::new(context, unsafe {
+                self.create_vm_global(global_type, *location)
+                    .map_err(LinkError::Resource)?
+            }));
         }
 
         Ok(vmctx_globals)
