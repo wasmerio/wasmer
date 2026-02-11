@@ -1231,7 +1231,7 @@ mod tests {
             wasmer-extra-flags = "--enable-threads --enable-bulk-memory"
 
             [dependencies]
-            "syrusakbary/coreutils" = "1.0.16"
+            "syrusakbary/coreutils" = "0.0.1"
 
             [[module]]
             name = "bash"
