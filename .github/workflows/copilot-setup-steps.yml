@@ -81,6 +81,8 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          # TODO: move to latest once the Action is fixed
+          version: 0.2.7
 
       - name: Install wasm-tools
         run: |
