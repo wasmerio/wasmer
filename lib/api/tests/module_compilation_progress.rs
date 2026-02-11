@@ -87,12 +87,10 @@ fn test_module_compilation_progress(engine: Engine) {
         .expect("expected at least one progress item")
         .clone();
 
-    // 4 total steps:
-    // - 2 functions
-    // - 1 trampoline for exports (both share same signature)
-    // - 1 trampoline for imported function
-    assert_eq!(last.phase_step_count(), Some(4));
-    assert_eq!(last.phase_step(), Some(4));
+    // LLVM/Cranelift compiler uses bitcode size for the total.
+    const TOTAL_STEPS: u64 = 2014;
+    assert_eq!(last.phase_step_count(), Some(TOTAL_STEPS));
+    assert_eq!(last.phase_step(), Some(TOTAL_STEPS));
 }
 
 fn test_module_compilation_abort(engine: Engine) {

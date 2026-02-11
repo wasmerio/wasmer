@@ -67,7 +67,7 @@ pub struct Wasi {
         name = "[HOST_DIR:]GUEST_DIR",
         value_parser = parse_volume,
     )]
-    volumes: Vec<MappedDirectory>,
+    pub(crate) volumes: Vec<MappedDirectory>,
 
     // Legacy option
     #[clap(long = "dir", group = "wasi", hide = true)]

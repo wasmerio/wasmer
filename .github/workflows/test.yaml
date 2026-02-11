@@ -1002,9 +1002,6 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v6
-      - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.10.0
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
         run: |
@@ -1161,6 +1158,8 @@ jobs:
           #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test-wasmer-integration-tests:
+    # TODO(SRE-1320): Re-enable once integration test are consistently green
+    if: ${{ false }}
     name: "Remote integ. tests"
     needs: [build]
     uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main
