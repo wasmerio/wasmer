@@ -1744,13 +1744,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
                         .into_pointer_value()
                 };
-                // TODO: investigate
-                // tbaa_label(
-                //     module,
-                //     intrinsics,
-                //     format!("global_ptr {}", index.as_u32()),
-                //     global_ptr.as_instruction_value().unwrap(),
-                // );
                 let global_ptr = err!(cache_builder.build_bit_cast(
                     global_ptr,
                     type_to_llvm_ptr(intrinsics, global_value_type)?,
