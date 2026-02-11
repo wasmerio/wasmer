@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 
-use rand::Rng;
+use rand::RngExt;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Engine, Instance, Module};

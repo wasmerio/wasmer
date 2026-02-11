@@ -15,7 +15,7 @@ use crate::{
     syscalls::platform_clock_time_get,
 };
 use futures::future::BoxFuture;
-use rand::Rng;
+use rand::RngExt;
 use std::{
     collections::HashMap,
     ops::Deref,
