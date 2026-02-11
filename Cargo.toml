@@ -299,19 +299,19 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.37"
 wasm-bindgen-test = "0.3.0"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.244.0", default-features = false, features = [
+wasm-encoder = { version = "0.245.0", default-features = false, features = [
 	"std",
 ] }
-wasm-smith = "0.244.0"
+wasm-smith = "0.245.0"
 wasmi_c_api_impl = "1.0.4"
-wasmparser = { version = "0.244.0", default-features = false, features = [
+wasmparser = { version = "0.245.0", default-features = false, features = [
 	"validate",
 	"features",
 	"simd",
 ] }
-wasmprinter = "0.244.0"
+wasmprinter = "0.245.0"
 wasmer-inline-c = "0.1.1"
-wast = "244.0.0"
+wast = "245.0.0"
 wat = "1.243.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
