@@ -312,7 +312,7 @@ wasmparser = { version = "0.245.0", default-features = false, features = [
 wasmprinter = "0.245.0"
 wasmer-inline-c = "0.1.1"
 wast = "245.0.0"
-wat = "1.243.0"
+wat = "1.245.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
