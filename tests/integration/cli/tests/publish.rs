@@ -3,7 +3,7 @@ use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]
 fn wasmer_publish_bump() {
-    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
+    let wapm_dev_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path();
     let username = "ciuser";
@@ -50,7 +50,7 @@ fn wasmer_publish_bump() {
 
 #[test]
 fn wasmer_publish() {
-    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
+    let wapm_dev_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path();
     let username = "ciuser";

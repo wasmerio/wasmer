@@ -14,7 +14,8 @@ fn login_works() {
     if std::env::var("GITHUB_TOKEN").is_err() {
         return;
     }
-    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
+    let wapm_dev_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN")
+        .expect("DEV_BACKEND_CIUSER_TOKEN env var not set");
     // Special case: GitHub secrets aren't visible to outside collaborators
     if wapm_dev_token.is_empty() {
         return;
@@ -41,7 +42,8 @@ fn run_whoami_works() {
         return;
     }
 
-    let ciuser_token = std::env::var("WAPM_DEV_TOKEN").expect("no CIUSER / WAPM_DEV_TOKEN token");
+    let ciuser_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN")
+        .expect("no CIUSER / DEV_BACKEND_CIUSER_TOKEN token");
     // Special case: GitHub secrets aren't visible to outside collaborators
     if ciuser_token.is_empty() {
         return;

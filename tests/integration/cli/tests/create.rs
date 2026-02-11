@@ -3,7 +3,7 @@ use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[test]
 fn wasmer_create_package() -> anyhow::Result<()> {
-    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
+    let wapm_dev_token = std::env::var("DEV_BACKEND_CIUSER_TOKEN").ok();
 
     let username = "ciuser";
     let app_name = format!("ci-create-replica-{}", rand::random::<u32>());
