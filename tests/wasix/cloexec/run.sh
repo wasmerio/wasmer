@@ -1,4 +1,5 @@
-set -ex
+#!/usr/bin/env bash
+set -e
 
 wasixcc main.c -o main.wasm
 
