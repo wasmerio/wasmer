@@ -1029,7 +1029,8 @@ fn test_snapshot_dash_echo_to_cat() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_dash_python() {
     let snapshot = TestBuilder::new()
@@ -1120,7 +1121,8 @@ fn test_snapshot_bash_pipe() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_bash_python() {
     let snapshot = TestBuilder::new()
@@ -1250,7 +1252,8 @@ fn test_snapshot_worker_terminating_normally() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+// The backtrace is different on non-Linux platforms
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_worker_panicking() {
     let snapshot = TestBuilder::new()

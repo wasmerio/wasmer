@@ -125,6 +125,8 @@ data-b.txt
     assert_eq!(&webc_stdout, &expected);
 }
 
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn run_python_create_temp_dir_in_subprocess() {
     let resources = resources().join("python").join("temp-dir-in-child");
@@ -205,6 +207,8 @@ fn test_wasmer_run_pirita_works() {
     output.assert().success().stdout("hello\n");
 }
 
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_wasmer_run_pirita_url_works() {
     let assert = Command::new(get_wasmer_path())
@@ -335,6 +339,8 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
 
 const PYTHON_PACKAGE_WITH_VERSION: &str = "python/python@3.13.5";
 
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn run_test_caching_works_for_packages() {
     // we're testing the cache, so we don't want to reuse the current user's
@@ -374,6 +380,8 @@ fn run_test_caching_works_for_packages() {
         .stderr(contains("module_cache::filesystem: Cache hit!"));
 }
 
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn run_test_caching_works_for_packages_with_versions() {
     let wasmer_dir = TempDir::new().unwrap();
@@ -411,6 +419,8 @@ fn run_test_caching_works_for_packages_with_versions() {
         .stderr(contains("module_cache::filesystem: Cache hit!"));
 }
 
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn run_test_caching_works_for_urls() {
     let wasmer_dir = TempDir::new().unwrap();
