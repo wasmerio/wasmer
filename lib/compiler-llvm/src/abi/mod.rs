@@ -78,7 +78,7 @@ pub trait Abi {
                     .is_some(),
             ))
             .unwrap();
-        //param.set_name("vmctx");
+        param.set_name("vmctx");
 
         param.into_pointer_value()
     }
