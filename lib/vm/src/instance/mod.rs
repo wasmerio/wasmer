@@ -318,7 +318,7 @@ impl Instance {
     fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
         // Globals are stored inline in the VMContext.
-        unsafe { NonNull::new_unchecked(self.globals_ptr().add(index)) }
+        NonNull::new(self.globals_ptr().add(index)).unwrap()
     }
 
     /// Return a pointer to the `VMGlobalDefinition`s.
