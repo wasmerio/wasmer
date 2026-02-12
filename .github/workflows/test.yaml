@@ -213,6 +213,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.2.7
 
       - name: Tool versions
         run: |
@@ -915,6 +916,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.2.7
 
       - name: Install LLVM
         shell: bash
