@@ -1,1 +1,9 @@
 */*.test.wasm
+*/*.out
+wasix-tests
+*/*/*
+!*/*/build.sh
+!*/*/*.c
+!*/*/*.cpp
+!*/*/*.hpp
+!*/*/*.h
