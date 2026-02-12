@@ -62,11 +62,11 @@ impl Drop for InstanceAllocator {
 impl InstanceAllocator {
     /// Allocates instance data for use with [`VMInstance::new`].
     ///
-    /// Returns a wrapper type around the allocation and 2 vectors of
+    /// Returns a wrapper type around the allocation and 3 vectors of
     /// pointers into the allocated buffer. These lists of pointers
-    /// correspond to the location in memory for the local memories and
-    /// tables respectively. These pointers should be written to before
-    /// calling [`VMInstance::new`].
+    /// correspond to the locations in memory for the local memories,
+    /// tables, and globals respectively. These pointers should be
+    /// written to before calling [`VMInstance::new`].
     ///
     /// [`VMInstance::new`]: super::VMInstance::new
     #[allow(clippy::type_complexity)]
