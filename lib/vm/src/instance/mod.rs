@@ -318,7 +318,7 @@ impl Instance {
     fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
         // Globals are stored inline in the VMContext.
-        NonNull::new(self.globals_ptr().add(index)).unwrap()
+        unsafe { NonNull::new(self.globals_ptr().add(index)).unwrap() }
     }
 
     /// Return a pointer to the `VMGlobalDefinition`s.
@@ -1066,11 +1066,6 @@ impl VMInstance {
                 .map(|m: &InternalStoreHandle<VMTag>| VMSharedTagIndex::new(m.index() as u32))
                 .collect::<PrimaryMap<TagIndex, VMSharedTagIndex>>()
                 .into_boxed_slice();
-            let vmctx_globals = finished_globals
-                .values()
-                .map(|m: &InternalStoreHandle<VMGlobal>| m.get(context).vmglobal())
-                .collect::<PrimaryMap<LocalGlobalIndex, NonNull<VMGlobalDefinition>>>()
-                .into_boxed_slice();
 
             let passive_data = RefCell::new(
                 module
@@ -1158,12 +1153,6 @@ impl VMInstance {
             // these should already be set, add asserts here? for:
             // - instance.tables_ptr() as *mut VMTableDefinition
             // - instance.memories_ptr() as *mut VMMemoryDefinition
-            ptr::copy(
-                vmctx_globals.values().as_slice().as_ptr(),
-                instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,
-                vmctx_globals.len(),
-            );
-
             ptr::write(
                 instance.builtin_functions_ptr(),
                 VMBuiltinFunctionsArray::initialized(),
