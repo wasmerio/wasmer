@@ -610,6 +610,8 @@ fn wasi_runner_on_disk_with_mounted_directories_and_webc_volumes() {
 }
 
 #[test]
+// For some reason the port forwarding does not work on macOS
+#[cfg_attr(target_os = "macos", ignore)]
 #[cfg_attr(feature = "wamr", ignore = "wamr does not support multiple memories")]
 fn wasi_runner_on_disk_with_dependencies() {
     let port = random_port();
