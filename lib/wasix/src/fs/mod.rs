@@ -2277,6 +2277,9 @@ impl FileSystem for FallbackFileSystem {
     fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
+    fn rmdir(&self, _path: &Path) -> Result<(), FsError> {
+        Self::fail();
+    }
     fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> BoxFuture<'a, Result<(), FsError>> {
         Self::fail();
     }
@@ -2337,6 +2340,7 @@ pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
         Errno::Again => FsError::WouldBlock,
         Errno::Nospc => FsError::WriteZero,
         Errno::Notempty => FsError::DirectoryNotEmpty,
+        Errno::Notdir => FsError::NotADirectory,
         _ => FsError::UnknownError,
     }
 }
@@ -2369,6 +2373,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::StorageFull => Errno::Overflow,
         FsError::Lock | FsError::UnknownError => Errno::Io,
         FsError::Unsupported => Errno::Notsup,
+        FsError::NotADirectory => Errno::Notdir,
     }
 }
 
