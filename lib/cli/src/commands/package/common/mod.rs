@@ -136,7 +136,7 @@ pub(super) async fn upload(
 pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
     // Check if the path is a .webc file
     if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("webc") {
-        return get_manifest_from_webc(path);
+        return Ok((path.to_path_buf(), get_manifest_from_webc(path)?));
     }
 
     load_package_manifest(path).and_then(|j| {
@@ -145,7 +145,7 @@ pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
 }
 
 /// Load a manifest from a .webc file
-fn get_manifest_from_webc(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
+fn get_manifest_from_webc(path: &Path) -> anyhow::Result<Manifest> {
     use wasmer_package::utils::from_disk;
 
     let container = from_disk(path)
@@ -182,7 +182,6 @@ fn get_manifest_from_webc(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
         manifest.package = Some(package);
     } else {
         // No WAPM annotation found - create an empty package
-        // Users will need to provide --namespace, --name, and --version flags
         manifest.package = Some(wasmer_config::package::Package::new_empty());
     }
 
@@ -191,7 +190,7 @@ fn get_manifest_from_webc(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
     // We only need the package metadata for namespace/name/version extraction.
     // If these are not present in the webc, users can provide them via CLI flags.
 
-    Ok((path.to_path_buf(), manifest))
+    Ok(manifest)
 }
 
 pub(super) async fn login_user(
@@ -345,9 +344,6 @@ data = "data"
             "manifest.package should be present"
         );
 
-        // Note: Package::from_manifest() strips name/version/description from the WAPM annotation
-        // when creating a webc, so these fields will be None. This is by design.
-        // Users publishing a pre-built webc should provide --namespace, --name, and --version flags.
         let package = manifest.package.unwrap();
 
         // These should be None because Package strips them
