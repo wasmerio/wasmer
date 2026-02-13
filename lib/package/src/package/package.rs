@@ -2078,11 +2078,11 @@ mod tests {
         std::fs::write(&manifest_path, wasmer_toml)?;
         std::fs::write(temp.path().join("test.wasm"), b"")?;
 
-        // Create a package and manually strip metadata to simulate old behavior
+        // Create a package from the minimal manifest to produce a webc without metadata fields
         let pkg = Package::from_manifest(&manifest_path)?;
         let webc_bytes = pkg.serialize()?;
 
-        // Parse and modify to remove metadata
+        // Parse the serialized webc as-is to simulate loading an older webc without metadata
         let webc = from_bytes(webc_bytes.clone())?;
 
         // Verify we can load and unpack a webc without metadata
