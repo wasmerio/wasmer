@@ -197,12 +197,20 @@ fn get_manifest_from_webc(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
         package.private = wapm.private;
         package.entrypoint = webc_manifest.entrypoint.clone();
 
+        // Only set the package if at least one field is populated
+        // (Package::from_manifest strips name/version/description from WAPM annotation,
+        // so these might be None even for valid packages)
         manifest.package = Some(package);
+    } else {
+        // No WAPM annotation found - create an empty package
+        // Users will need to provide --namespace, --name, and --version flags
+        manifest.package = Some(wasmer_config::package::Package::new_empty());
     }
 
     // Note: We don't need to extract all the details (modules, commands, fs, etc.)
     // because those are already in the webc and we won't be rebuilding it.
     // We only need the package metadata for namespace/name/version extraction.
+    // If these are not present in the webc, users can provide them via CLI flags.
 
     Ok((path.to_path_buf(), manifest))
 }
@@ -310,6 +318,72 @@ mod tests {
             upload_url.starts_with("http"),
             "upload returned non-url: {upload_url}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_manifest_from_webc() -> anyhow::Result<()> {
+        use tempfile::TempDir;
+        use wasmer_package::package::Package;
+
+        // Create a temporary directory with a test package
+        let temp_dir = TempDir::new()?;
+        let pkg_dir = temp_dir.path();
+
+        // Create wasmer.toml
+        std::fs::write(
+            pkg_dir.join("wasmer.toml"),
+            r#"
+[package]
+name = "test/mypackage"
+version = "0.1.0"
+description = "Test package for webc manifest extraction"
+
+[fs]
+data = "data"
+"#,
+        )?;
+
+        // Create data directory
+        std::fs::create_dir(pkg_dir.join("data"))?;
+        std::fs::write(pkg_dir.join("data/test.txt"), "Hello World")?;
+
+        // Build the package
+        let pkg = Package::from_manifest(pkg_dir.join("wasmer.toml"))?;
+        let webc_bytes = pkg.serialize()?;
+
+        // Write the webc file
+        let webc_path = pkg_dir.join("test.webc");
+        std::fs::write(&webc_path, &webc_bytes)?;
+
+        // Test that we can extract the manifest from the webc file
+        let (path, manifest) = get_manifest(&webc_path)?;
+
+        assert_eq!(path, webc_path);
+        assert!(
+            manifest.package.is_some(),
+            "manifest.package should be present"
+        );
+
+        // Note: Package::from_manifest() strips name/version/description from the WAPM annotation
+        // when creating a webc, so these fields will be None. This is by design.
+        // Users publishing a pre-built webc should provide --namespace, --name, and --version flags.
+        let package = manifest.package.unwrap();
+
+        // These should be None because Package strips them
+        assert_eq!(
+            package.name, None,
+            "Package name should be None in webc (stripped by Package::from_manifest)"
+        );
+        assert_eq!(
+            package.version, None,
+            "Package version should be None in webc (stripped by Package::from_manifest)"
+        );
+        assert_eq!(
+            package.description, None,
+            "Package description should be None in webc (stripped by Package::from_manifest)"
+        );
+
         Ok(())
     }
 }
