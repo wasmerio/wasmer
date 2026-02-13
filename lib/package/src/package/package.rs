@@ -2058,9 +2058,9 @@ mod tests {
         Ok(())
     }
 
-    /// Test that webcs without metadata (created before the metadata preservation fix)
-    /// can still be loaded and unpacked successfully.
-    /// This ensures backward compatibility with existing webc files.
+    /// Test that webcs without a `[package]` section can still be loaded and unpacked.
+    /// This ensures the unpack process handles missing package metadata gracefully.
+    ///
     #[test]
     fn webc_without_metadata_still_works() -> anyhow::Result<()> {
         use crate::utils::from_bytes;
@@ -2078,7 +2078,8 @@ mod tests {
         std::fs::write(&manifest_path, wasmer_toml)?;
         std::fs::write(temp.path().join("test.wasm"), b"")?;
 
-        // Create a package from the minimal manifest to produce a webc without metadata fields
+        // Create a package from a manifest that omits the [package] section,
+        // which will result in a webc without package metadata fields
         let pkg = Package::from_manifest(&manifest_path)?;
         let webc_bytes = pkg.serialize()?;
 
