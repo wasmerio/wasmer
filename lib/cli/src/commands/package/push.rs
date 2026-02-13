@@ -4,12 +4,13 @@ use crate::{
     config::WasmerEnv,
 };
 use anyhow::Context;
+use bytes::Bytes;
 use colored::Colorize;
+use sha2::Digest;
 use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageHash};
-use wasmer_package::package::Package;
 
 /// Push a package to the registry.
 ///
@@ -120,65 +121,13 @@ impl PackagePush {
         client: &WasmerClient,
         namespace: &str,
         name: Option<String>,
-        package: &Package,
+        package_bytes: Bytes,
         package_hash: &PackageHash,
         private: bool,
     ) -> anyhow::Result<()> {
         let pb = make_spinner!(self.quiet, "Uploading the package..");
 
         let signed_url = upload(
-            client,
-            package_hash,
-            self.timeout,
-            package,
-            pb.clone(),
-            self.env.proxy()?,
-        )
-        .await?;
-        spinner_ok!(pb, "Package correctly uploaded");
-
-        let pb = make_spinner!(self.quiet, "Waiting for package to become available...");
-        match wasmer_backend_api::query::push_package_release(
-            client,
-            name.as_deref(),
-            namespace,
-            &signed_url,
-            Some(private),
-        )
-        .await?
-        {
-            Some(r) => {
-                if r.success {
-                    r.package_webc.unwrap().id
-                } else {
-                    anyhow::bail!(
-                        "An unidentified error occurred while publishing the package. (response had success: false)"
-                    )
-                }
-            }
-            None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
-        };
-
-        let msg = format!("Successfully pushed release to namespace {namespace} on the registry");
-        spinner_ok!(pb, msg);
-
-        Ok(())
-    }
-
-    async fn do_push_bytes(
-        &self,
-        client: &WasmerClient,
-        namespace: &str,
-        name: Option<String>,
-        package_bytes: bytes::Bytes,
-        package_hash: &PackageHash,
-        private: bool,
-    ) -> anyhow::Result<()> {
-        use super::common::upload_package_bytes;
-
-        let pb = make_spinner!(self.quiet, "Uploading the package..");
-
-        let signed_url = upload_package_bytes(
             client,
             package_hash,
             self.timeout,
@@ -211,7 +160,7 @@ impl PackagePush {
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
         };
 
-        let msg = format!("Successfully pushed release to namespace {namespace} on the registry");
+        let msg = format!("Succesfully pushed release to namespace {namespace} on the registry");
         spinner_ok!(pb, msg);
 
         Ok(())
@@ -227,11 +176,7 @@ impl PackagePush {
         let is_webc = manifest_path.is_file()
             && manifest_path.extension().and_then(|s| s.to_str()) == Some("webc");
 
-        let namespace = self.get_namespace(client, manifest).await?;
-        let name = self.get_name(manifest).await?;
-        let private = self.get_privacy(manifest);
-
-        let hash = if is_webc {
+        let (hash, package_bytes) = if is_webc {
             tracing::info!("Loading pre-built package from webc");
             let pb = make_spinner!(self.quiet, "Loading the package...");
 
@@ -241,7 +186,6 @@ impl PackagePush {
             })?;
 
             // Calculate hash
-            use sha2::Digest;
             let hash_bytes: [u8; 32] = sha2::Sha256::digest(&package_data).into();
             let hash = PackageHash::from_sha256_bytes(hash_bytes);
 
@@ -252,34 +196,8 @@ impl PackagePush {
             })?;
 
             spinner_ok!(pb, "Correctly loaded pre-built package");
-            tracing::info!("Package has hash: {hash}");
 
-            tracing::info!(
-                "If published, package privacy is {private}, namespace is {namespace} and name is {name:?}"
-            );
-
-            let pb = make_spinner!(
-                self.quiet,
-                "Checking if package is already in the registry.."
-            );
-            if self.should_push(client, &hash).await.map_err(on_error)? {
-                if !self.dry_run {
-                    tracing::info!("Package should be published");
-                    pb.finish_and_clear();
-
-                    self.do_push_bytes(client, &namespace, name, package_bytes, &hash, private)
-                        .await
-                        .map_err(on_error)?;
-                } else {
-                    tracing::info!("Package should be published, but dry-run is set");
-                    spinner_ok!(pb, "Skipping push as dry-run is set");
-                }
-            } else {
-                tracing::info!("Package should not be published");
-                spinner_ok!(pb, "Package was already in the registry, no push needed");
-            }
-
-            hash
+            (hash, package_bytes)
         } else {
             tracing::info!("Building package");
             let pb = make_spinner!(self.quiet, "Creating the package locally...");
@@ -288,36 +206,43 @@ impl PackagePush {
                 .context("While trying to build the package locally")?;
 
             spinner_ok!(pb, "Correctly built package locally");
-            tracing::info!("Package has hash: {hash}");
 
-            tracing::info!(
-                "If published, package privacy is {private}, namespace is {namespace} and name is {name:?}"
-            );
+            let package_bytes = package.serialize()?;
 
-            let pb = make_spinner!(
-                self.quiet,
-                "Checking if package is already in the registry.."
-            );
-            if self.should_push(client, &hash).await.map_err(on_error)? {
-                if !self.dry_run {
-                    tracing::info!("Package should be published");
-                    pb.finish_and_clear();
-                    // spinner_ok!(pb, "Package not in the registry yet!");
-
-                    self.do_push(client, &namespace, name, &package, &hash, private)
-                        .await
-                        .map_err(on_error)?;
-                } else {
-                    tracing::info!("Package should be published, but dry-run is set");
-                    spinner_ok!(pb, "Skipping push as dry-run is set");
-                }
-            } else {
-                tracing::info!("Package should not be published");
-                spinner_ok!(pb, "Package was already in the registry, no push needed");
-            }
-
-            hash
+            (hash, package_bytes)
         };
+
+        tracing::info!("Package has hash: {hash}");
+
+        let namespace = self.get_namespace(client, manifest).await?;
+        let name = self.get_name(manifest).await?;
+
+        let private = self.get_privacy(manifest);
+        tracing::info!(
+            "If published, package privacy is {private}, namespace is {namespace} and name is {name:?}"
+        );
+
+        let pb = make_spinner!(
+            self.quiet,
+            "Checking if package is already in the registry.."
+        );
+        if self.should_push(client, &hash).await.map_err(on_error)? {
+            if !self.dry_run {
+                tracing::info!("Package should be published");
+                pb.finish_and_clear();
+                // spinner_ok!(pb, "Package not in the registry yet!");
+
+                self.do_push(client, &namespace, name, package_bytes, &hash, private)
+                    .await
+                    .map_err(on_error)?;
+            } else {
+                tracing::info!("Package should be published, but dry-run is set");
+                spinner_ok!(pb, "Skipping push as dry-run is set");
+            }
+        } else {
+            tracing::info!("Package should not be published");
+            spinner_ok!(pb, "Package was already in the registry, no push needed");
+        }
 
         tracing::info!("Proceeding to invalidate query cache..");
 

@@ -3,6 +3,7 @@ use crate::{
     config::WasmerEnv,
     utils::load_package_manifest,
 };
+use bytes::Bytes;
 use colored::Colorize;
 use dialoguer::Confirm;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -10,7 +11,6 @@ use reqwest::Body;
 use std::path::{Path, PathBuf};
 use wasmer_backend_api::{WasmerClient, query::UploadMethod};
 use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash};
-use wasmer_package::package::Package;
 
 pub mod macros;
 pub mod wait;
@@ -39,20 +39,7 @@ pub(super) async fn upload(
     client: &WasmerClient,
     hash: &PackageHash,
     timeout: humantime::Duration,
-    package: &Package,
-    pb: ProgressBar,
-    proxy: Option<reqwest::Proxy>,
-) -> anyhow::Result<String> {
-    let bytes = package.serialize()?;
-    upload_package_bytes(client, hash, timeout, bytes, pb, proxy).await
-}
-
-// Upload pre-serialized package bytes to a signed url.
-pub(super) async fn upload_package_bytes(
-    client: &WasmerClient,
-    hash: &PackageHash,
-    timeout: humantime::Duration,
-    bytes: bytes::Bytes,
+    bytes: Bytes,
     pb: ProgressBar,
     proxy: Option<reqwest::Proxy>,
 ) -> anyhow::Result<String> {
@@ -93,14 +80,6 @@ pub(super) async fn upload_package_bytes(
 
         builder.build().unwrap()
     };
-
-    /* XXX: If the package is large this line may result in
-     * a surge in memory use.
-     *
-     * In the future, we might want a way to stream bytes
-     * from the webc instead of a complete in-memory
-     * representation.
-     */
 
     let total_bytes = bytes.len();
     pb.set_length(total_bytes.try_into().unwrap());
@@ -286,6 +265,7 @@ mod tests {
     use indicatif::ProgressBar;
     use sha2::{Digest, Sha256};
     use url::Url;
+    use wasmer_package::package::Package;
 
     #[tokio::test]
     #[ignore = "Requires WASMER_REGISTRY_URL/WASMER_TOKEN"]
@@ -309,7 +289,7 @@ mod tests {
             &client,
             &hash,
             HumanDuration::from(std::time::Duration::from_secs(300)),
-            &package,
+            package.serialize().unwrap(),
             pb,
             None,
         )
