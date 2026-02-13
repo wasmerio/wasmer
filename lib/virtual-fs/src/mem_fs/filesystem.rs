@@ -132,6 +132,7 @@ impl FileSystem {
                 let rm = next.to_string_lossy();
                 let rm = &rm[".wh.".len()..];
                 let rm = PathBuf::from(rm);
+                let _ = self.rmdir(rm.as_path());
                 let _ = self.unlink(rm.as_path());
                 continue;
             }
@@ -163,6 +164,7 @@ impl FileSystem {
                             let rm = next.to_string_lossy();
                             let rm = &rm[".wh.".len()..];
                             let rm = PathBuf::from(rm);
+                            let _ = self.rmdir(rm.as_path());
                             let _ = self.unlink(rm.as_path());
                             continue;
                         }
@@ -384,130 +386,19 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
-    fn unlink(&self, path: &Path) -> Result<()> {
-        // POSIX unlink(2) implementation - removes files only
-        let (inode_of_parent, position, inode_to_unlink) = {
-            // Read lock.
-            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
-
-            // Canonicalize the path.
-            let path = guard.canonicalize_without_inode(path)?;
-
-            // Check the path has a parent.
-            let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
-
-            // Check the entry name.
-            let name_of_entry = path
-                .file_name()
-                .ok_or(FsError::InvalidInput)?
-                .to_os_string();
-
-            // Find the parent inode.
-            let inode_of_parent = match guard.inode_of_parent(parent_of_path)? {
-                InodeResolution::Found(a) => a,
-                InodeResolution::Redirect(fs, mut parent_path) => {
-                    drop(guard);
-                    parent_path.push(name_of_entry);
-                    return fs.unlink(parent_path.as_path());
-                }
-            };
-
-            // Try to find the entry as a file
-            match guard.as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_entry)? {
-                Some((position, inode_resolution)) => {
-                    let inode = match inode_resolution {
-                        InodeResolution::Found(a) => a,
-                        InodeResolution::Redirect(fs, path) => {
-                            drop(guard);
-                            return fs.unlink(path.as_path());
-                        }
-                    };
-                    (inode_of_parent, position, inode)
-                }
-                None => {
-                    // Check if it's a directory to provide better error message
-                    if guard
-                        .as_parent_get_position_and_inode_of_directory(
-                            inode_of_parent,
-                            &name_of_entry,
-                            DirectoryMustBeEmpty::No,
-                        )
-                        .is_ok()
-                    {
-                        return Err(FsError::NotAFile);
-                    }
-                    return Err(FsError::EntryNotFound);
-                }
-            }
-        };
-
-        {
-            // Write lock.
-            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
-
-            // Handle reference counting for open handles
-            if let Some(node) = fs.storage.get_mut(inode_to_unlink) {
-                match node {
-                    Node::File(FileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    })
-                    | Node::ReadOnlyFile(ReadOnlyFileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    })
-                    | Node::OffloadedFile(OffloadedFileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    })
-                    | Node::ArcFile(ArcFileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    })
-                    | Node::CustomFile(CustomFileNode {
-                        is_unlinked,
-                        ref_count,
-                        ..
-                    }) => {
-                        is_unlinked.store(true, Ordering::SeqCst);
-
-                        // If ref_count is 0, remove immediately (no open handles)
-                        if ref_count.load(Ordering::SeqCst) == 0 {
-                            fs.storage.remove(inode_to_unlink);
-                        }
-                    }
-                    _ => {
-                        // For other types (shouldn't happen for files), just remove
-                        fs.storage.remove(inode_to_unlink);
-                    }
-                }
-            }
-
-            // Remove the child from the parent directory.
-            fs.remove_child_from_node(inode_of_parent, position)?;
-        }
-
-        Ok(())
-    }
-
     fn rmdir(&self, path: &Path) -> Result<()> {
-        // POSIX rmdir(2) implementation - removes empty directories only
-        let (inode_of_parent, position, inode_to_unlink) = {
+        let (inode_of_parent, position, inode_of_directory) = {
             // Read lock.
             let guard = self.inner.read().map_err(|_| FsError::Lock)?;
 
             // Canonicalize the path.
-            let path = guard.canonicalize_without_inode(path)?;
+            let (path, _) = guard.canonicalize(path)?;
 
             // Check the path has a parent.
             let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
 
-            // Check the entry name.
-            let name_of_entry = path
+            // Check the directory name.
+            let name_of_directory = path
                 .file_name()
                 .ok_or(FsError::InvalidInput)?
                 .to_os_string();
@@ -517,55 +408,36 @@ impl crate::FileSystem for FileSystem {
                 InodeResolution::Found(a) => a,
                 InodeResolution::Redirect(fs, mut parent_path) => {
                     drop(guard);
-                    parent_path.push(name_of_entry);
+                    parent_path.push(name_of_directory);
                     return fs.rmdir(parent_path.as_path());
                 }
             };
 
-            // Try as a directory - must be empty
-            let (position, inode_resolution) = guard
+            // Get the child index to remove in the parent node, in
+            // addition to the inode of the directory to remove.
+            let (position, inode_of_directory) = guard
                 .as_parent_get_position_and_inode_of_directory(
                     inode_of_parent,
-                    &name_of_entry,
+                    &name_of_directory,
                     DirectoryMustBeEmpty::Yes,
-                )
-                .map_err(|e| match e {
-                    // If it's not found, check if it's a file to provide better error
-                    FsError::InvalidInput => {
-                        if guard
-                            .as_parent_get_position_and_inode_of_file(
-                                inode_of_parent,
-                                &name_of_entry,
-                            )
-                            .ok()
-                            .flatten()
-                            .is_some()
-                        {
-                            FsError::NotADirectory
-                        } else {
-                            FsError::EntryNotFound
-                        }
-                    }
-                    // Propagate errors like DirectoryNotEmpty
-                    other => other,
-                })?;
+                )?;
 
-            let inode = match inode_resolution {
-                InodeResolution::Found(a) => a,
-                InodeResolution::Redirect(fs, path) => {
-                    drop(guard);
-                    return fs.rmdir(path.as_path());
-                }
-            };
-            (inode_of_parent, position, inode)
+            (inode_of_parent, position, inode_of_directory)
+        };
+
+        let inode_of_directory = match inode_of_directory {
+            InodeResolution::Found(a) => a,
+            InodeResolution::Redirect(fs, path) => {
+                return fs.rmdir(path.as_path());
+            }
         };
 
         {
             // Write lock.
             let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
-            // For directories, just remove from storage
-            fs.storage.remove(inode_to_unlink);
+            // Remove the directory from the storage.
+            fs.storage.remove(inode_of_directory);
 
             // Remove the child from the parent directory.
             fs.remove_child_from_node(inode_of_parent, position)?;
@@ -765,6 +637,117 @@ impl crate::FileSystem for FileSystem {
                 fs.symlink_metadata(path.as_path())
             }
         }
+    }
+
+    fn unlink(&self, path: &Path) -> Result<()> {
+        let (inode_of_parent, position, inode_of_file) = {
+            // Read lock.
+            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+            // Canonicalize the path.
+            let path = guard.canonicalize_without_inode(path)?;
+
+            // Check the path has a parent.
+            let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
+
+            // Check the file name.
+            let name_of_file = path
+                .file_name()
+                .ok_or(FsError::InvalidInput)?
+                .to_os_string();
+
+            // Find the parent inode.
+            let inode_of_parent = match guard.inode_of_parent(parent_of_path)? {
+                InodeResolution::Found(a) => a,
+                InodeResolution::Redirect(fs, mut parent_path) => {
+                    drop(guard);
+                    parent_path.push(name_of_file);
+                    return fs.unlink(parent_path.as_path());
+                }
+            };
+
+            // Find the inode of the file if it exists, along with its position.
+            let maybe_position_and_inode_of_file =
+                guard.as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?;
+            match maybe_position_and_inode_of_file {
+                Some((position, inode_resolution)) => {
+                    let inode = match inode_resolution {
+                        InodeResolution::Found(a) => a,
+                        InodeResolution::Redirect(fs, path) => {
+                            drop(guard);
+                            return fs.unlink(path.as_path());
+                        }
+                    };
+                    (inode_of_parent, position, inode)
+                }
+                None => {
+                    // Check if it's a directory to provide better error message
+                    if guard
+                        .as_parent_get_position_and_inode_of_directory(
+                            inode_of_parent,
+                            &name_of_file,
+                            DirectoryMustBeEmpty::No,
+                        )
+                        .is_ok()
+                    {
+                        return Err(FsError::NotAFile);
+                    }
+                    return Err(FsError::EntryNotFound);
+                }
+            }
+        };
+
+        {
+            // Write lock.
+            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+            // Remove the file from the storage.
+            if let Some(node) = fs.storage.get_mut(inode_of_file) {
+                match node {
+                    Node::File(FileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::ReadOnlyFile(ReadOnlyFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::OffloadedFile(OffloadedFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::ArcFile(ArcFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    })
+                    | Node::CustomFile(CustomFileNode {
+                        is_unlinked,
+                        ref_count,
+                        ..
+                    }) => {
+                        is_unlinked.store(true, Ordering::SeqCst);
+
+                        // If ref_count is 0, remove immediately (no open handles)
+                        if ref_count.load(Ordering::SeqCst) == 0 {
+                            fs.storage.remove(inode_of_file);
+                        }
+                    }
+                    _ => {
+                        // For other types (shouldn't happen for files), just remove
+                        fs.storage.remove(inode_of_file);
+                    }
+                }
+            }
+
+            // Remove the child from the parent directory.
+            fs.remove_child_from_node(inode_of_parent, position)?;
+        }
+
+        Ok(())
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
