@@ -100,11 +100,20 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn rmdir(&self, path: &Path) -> Result<(), FsError> {
-        // Check if entry exists - metadata will return appropriate error if not found
-        let _meta = self.metadata(path)?;
+        let meta = self.metadata(path)?;
 
-        // We are a readonly filesystem, so you can't modify anything
-        Err(FsError::PermissionDenied)
+        // TODO: Handle symlinks once we have them in WebC.
+        if meta.is_dir() {
+            // We are a readonly filesystem, so you can't modify anything
+            return Err(FsError::PermissionDenied);
+        }
+
+        // TODO: Handle symlinks once we have them in WebC.
+        // if meta.is_symlink() {
+        //     return Err(FsError::PermissionDenied);
+        // }
+
+        Err(FsError::NotADirectory)
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
@@ -138,11 +147,19 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
-        // Check if entry exists - metadata will return appropriate error if not found
-        let _meta = self.metadata(path)?;
+        let meta = self.metadata(path)?;
 
-        // We are a readonly filesystem, so you can't modify anything
-        Err(FsError::PermissionDenied)
+        if meta.is_file() {
+            // We are a readonly filesystem, so you can't modify anything
+            return Err(FsError::PermissionDenied);
+        }
+
+        // TODO: Handle symlinks once we have them in WebC.
+        // if meta.is_symlink() {
+        //     return Err(FsError::PermissionDenied);
+        // }
+
+        Err(FsError::NotAFile)
     }
 
     fn new_open_options(&self) -> crate::OpenOptions<'_> {
