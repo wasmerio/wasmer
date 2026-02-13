@@ -43,6 +43,19 @@ pub(super) async fn upload(
     pb: ProgressBar,
     proxy: Option<reqwest::Proxy>,
 ) -> anyhow::Result<String> {
+    let bytes = package.serialize()?;
+    upload_package_bytes(client, hash, timeout, bytes, pb, proxy).await
+}
+
+// Upload pre-serialized package bytes to a signed url.
+pub(super) async fn upload_package_bytes(
+    client: &WasmerClient,
+    hash: &PackageHash,
+    timeout: humantime::Duration,
+    bytes: bytes::Bytes,
+    pb: ProgressBar,
+    proxy: Option<reqwest::Proxy>,
+) -> anyhow::Result<String> {
     let hash_str = hash.to_string();
     let hash_str = hash_str.trim_start_matches("sha256:");
 
@@ -88,7 +101,6 @@ pub(super) async fn upload(
      * from the webc instead of a complete in-memory
      * representation.
      */
-    let bytes = package.serialize()?;
 
     let total_bytes = bytes.len();
     pb.set_length(total_bytes.try_into().unwrap());
@@ -143,9 +155,56 @@ pub(super) async fn upload(
 // The difference with the `load_package_manifest` is that
 // this function returns an error if no manifest is found.
 pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
+    // Check if the path is a .webc file
+    if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("webc") {
+        return get_manifest_from_webc(path);
+    }
+
     load_package_manifest(path).and_then(|j| {
         j.ok_or_else(|| anyhow::anyhow!("No valid manifest found in path '{}'", path.display()))
     })
+}
+
+/// Load a manifest from a .webc file
+fn get_manifest_from_webc(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
+    use wasmer_package::utils::from_disk;
+
+    let container = from_disk(path)
+        .map_err(|e| anyhow::anyhow!("Failed to load webc file '{}': {}", path.display(), e))?;
+
+    let webc_manifest = container.manifest();
+
+    // Extract package information from the webc manifest
+    let mut manifest = Manifest::new_empty();
+
+    // Get the wapm annotation which contains package metadata
+    let wapm_annotation = webc_manifest
+        .wapm()
+        .map_err(|e| anyhow::anyhow!("Failed to read package annotation from webc: {}", e))?;
+
+    if let Some(wapm) = wapm_annotation {
+        let mut package = wasmer_config::package::Package::new_empty();
+        package.name = wapm.name;
+        package.version = if let Some(v) = wapm.version {
+            Some(v.parse()?)
+        } else {
+            None
+        };
+        package.description = wapm.description;
+        package.license = wapm.license;
+        package.homepage = wapm.homepage;
+        package.repository = wapm.repository;
+        package.private = wapm.private;
+        package.entrypoint = webc_manifest.entrypoint.clone();
+
+        manifest.package = Some(package);
+    }
+
+    // Note: We don't need to extract all the details (modules, commands, fs, etc.)
+    // because those are already in the webc and we won't be rebuilding it.
+    // We only need the package metadata for namespace/name/version extraction.
+
+    Ok((path.to_path_buf(), manifest))
 }
 
 pub(super) async fn login_user(
