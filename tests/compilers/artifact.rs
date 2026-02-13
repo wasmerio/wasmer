@@ -61,7 +61,7 @@ fn artifact_serialization_build() {
 }
 
 #[test]
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
 fn artifact_deserialization_roundtrip() {
     // This test is included to make sure we don't break the serialized format
     // by mistake. Otherwise, everything in this test is already tested in
