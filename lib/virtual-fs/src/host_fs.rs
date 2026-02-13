@@ -137,28 +137,6 @@ impl crate::FileSystem for FileSystem {
         fs::create_dir(path).map_err(Into::into)
     }
 
-    fn unlink(&self, path: &Path) -> Result<()> {
-        if path == Path::new("/") {
-            return Err(FsError::PermissionDenied);
-        }
-
-        let path = self.prepare_path(path);
-
-        if path.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-
-        // Check if it's a file (not a directory)
-        let metadata = fs::metadata(&path).map_err(FsError::from)?;
-
-        if metadata.is_dir() {
-            return Err(FsError::NotAFile);
-        }
-
-        // For files
-        fs::remove_file(path).map_err(Into::into)
-    }
-
     fn rmdir(&self, path: &Path) -> Result<()> {
         if path == Path::new("/") {
             return Err(FsError::PermissionDenied);
@@ -170,14 +148,12 @@ impl crate::FileSystem for FileSystem {
             return Err(FsError::BaseNotDirectory);
         }
 
-        // Check if it's a directory (not a file)
-        let metadata = fs::metadata(&path).map_err(FsError::from)?;
-
-        if !metadata.is_dir() {
-            return Err(FsError::NotADirectory);
+        // https://github.com/rust-lang/rust/issues/86442
+        // DirectoryNotEmpty is not implemented consistently
+        // so we check it ourselves before trying to remove the directory.
+        if path.is_dir() && self.read_dir(&path).map(|s| !s.is_empty()).unwrap_or(false) {
+            return Err(FsError::DirectoryNotEmpty);
         }
-
-        // remove_dir already does the emptyness check
         fs::remove_dir(path).map_err(Into::into)
     }
 
@@ -233,6 +209,20 @@ impl crate::FileSystem for FileSystem {
             let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
             result
         })
+    }
+
+    fn unlink(&self, path: &Path) -> Result<()> {
+        if path == Path::new("/") {
+            return Err(FsError::NotAFile);
+        }
+
+        let path = self.prepare_path(path);
+
+        if path.parent().is_none() {
+            return Err(FsError::BaseNotDirectory);
+        }
+
+        fs::remove_file(path).map_err(Into::into)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {

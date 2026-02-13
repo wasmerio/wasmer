@@ -277,12 +277,15 @@ impl FileSystem for StaticFileSystem {
     }
     fn rmdir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        // First rmdir from memory
         let result = self.memory.rmdir(Path::new(&path));
         // Check if directory exists in WebC volumes
-        if self.volumes.values().any(|v| v.read_dir(&path).is_ok()) {
-            // If found in WebC, return Ok (old behavior was to silently succeed)
-            // TODO: This should probably be PermissionDenied instead?
+        if self
+            .volumes
+            .values()
+            .any(|v| v.get_file_entry(&path).is_ok())
+        {
+            // If found in WebC, return Ok
+            // TODO: This seems wrong. Also the get_file_entry check above seems wrong.
             Ok(())
         } else {
             // If not found in WebC, return the result from memory rmdir
@@ -334,7 +337,6 @@ impl FileSystem for StaticFileSystem {
     }
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        // First unlink from memory, to make sure it is removed from there
         let result = self.memory.unlink(Path::new(&path));
         // Check if file exists in WebC volumes
         if self
@@ -342,15 +344,14 @@ impl FileSystem for StaticFileSystem {
             .values()
             .any(|v| v.get_file_entry(&path).is_ok())
         {
-            // If found in WebC, return Ok (old behavior was to silently succeed)
-            // TODO: This should probably be PermissionDenied instead?
+            // If found in WebC, return Ok
+            // TODO: This seems wrong.
             Ok(())
         } else {
             // If not found in WebC, return the result from memory unlink
             result
         }
     }
-
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }

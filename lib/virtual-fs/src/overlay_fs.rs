@@ -226,20 +226,26 @@ where
     }
 
     fn rmdir(&self, path: &Path) -> Result<(), FsError> {
-        // Whiteout files can not be removed
+        // Whiteout files can not be removed, instead the original directory
+        // must be removed or recreated.
         if ops::is_white_out(path).is_some() {
             tracing::trace!(
                 path=%path.display(),
-                "Unable to remove a whited out entry",
+                "Unable to remove a whited out directory",
             );
             return Err(FsError::EntryNotFound);
         }
 
-        // Handle directory removal (rmdir is for directories only)
+        // If the directory is contained in a secondary file system then we need to create a
+        // whiteout file so that it is suppressed and is no longer returned in `readdir` calls.
+
         let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
             fs.read_dir(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
         });
 
+        // Attempt to remove it from the primary, if this succeeds then we may have also
+        // added the whiteout file in the earlier step, but are required in this case to
+        // properly delete the directory.
         match self.primary.rmdir(path) {
             Err(e) if should_continue(e) => {}
             other => return other,
@@ -248,7 +254,6 @@ where
         if had_at_least_one_success {
             return Ok(());
         }
-
         self.permission_error_or_not_found(path)
     }
 
@@ -382,7 +387,8 @@ where
     }
 
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
-        // Whiteout files can not be removed
+        // It is not possible to delete whiteout files directly, instead
+        // one must delete the original file
         if ops::is_white_out(path).is_some() {
             tracing::trace!(
                 path=%path.display(),
@@ -391,11 +397,13 @@ where
             return Err(FsError::EntryNotFound);
         }
 
-        // Handle file removal (unlink is for files only)
+        // If the file is contained in a secondary then then we need to create a
+        // whiteout file so that it is suppressed.
         let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
             fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
         });
 
+        // Attempt to remove it from the primary
         match self.primary.unlink(path) {
             Err(e) if should_continue(e) => {}
             other => return other,
@@ -404,7 +412,6 @@ where
         if had_at_least_one_success {
             return Ok(());
         }
-
         self.permission_error_or_not_found(path)
     }
 

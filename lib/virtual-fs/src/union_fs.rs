@@ -284,7 +284,7 @@ impl FileSystem for UnionFileSystem {
         let path = self.prepare_path(path);
 
         if path.as_os_str().is_empty() {
-            Err(FsError::PermissionDenied)
+            Err(FsError::NotAFile)
         } else {
             match self.find_mount(path.to_owned()) {
                 Some((_, path, fs)) => fs.unlink(&path),

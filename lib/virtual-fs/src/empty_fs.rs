@@ -31,6 +31,10 @@ impl FileSystem for EmptyFileSystem {
         Err(FsError::EntryNotFound)
     }
 
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        Err(FsError::EntryNotFound)
+    }
+
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async { Err(FsError::EntryNotFound) })
     }
@@ -57,10 +61,6 @@ impl FileSystem for EmptyFileSystem {
     }
 
     fn unlink(&self, path: &Path) -> Result<()> {
-        Err(FsError::EntryNotFound)
-    }
-
-    fn rmdir(&self, path: &Path) -> Result<()> {
         Err(FsError::EntryNotFound)
     }
 

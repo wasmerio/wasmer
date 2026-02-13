@@ -89,6 +89,14 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
+
+    /// Remove an empty directory at the specified path.
+    /// This matches POSIX rmdir(2) semantics:
+    /// - Only succeeds if directory is empty
+    /// - Fails with NotADirectory if it is not a directory
+    /// - Fails with DirectoryNotEmpty if directory contains entries
+    fn rmdir(&self, path: &Path) -> Result<()>;
+
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
     /// This method gets metadata without following symlinks in the path.
@@ -102,13 +110,6 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// - Fails with NotAFile if path is a directory
     /// - Unlinked files will only be deleted once all references to them (e.g. open file handles) are removed
     fn unlink(&self, path: &Path) -> Result<()>;
-
-    /// Remove an empty directory at the specified path.
-    /// This matches POSIX rmdir(2) semantics:
-    /// - Only succeeds if directory is empty
-    /// - Fails with NotADirectory if it is not a directory
-    /// - Fails with DirectoryNotEmpty if directory contains entries
-    fn rmdir(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions<'_>;
 
@@ -145,6 +146,10 @@ where
         (**self).create_dir(path)
     }
 
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        (**self).rmdir(path)
+    }
+
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async { (**self).rename(from, to).await })
     }
@@ -159,10 +164,6 @@ where
 
     fn unlink(&self, path: &Path) -> Result<()> {
         (**self).unlink(path)
-    }
-
-    fn rmdir(&self, path: &Path) -> Result<()> {
-        (**self).rmdir(path)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -588,6 +589,7 @@ impl From<io::Error> for FsError {
             io::ErrorKind::WriteZero => FsError::WriteZero,
             io::ErrorKind::DirectoryNotEmpty => FsError::DirectoryNotEmpty,
             io::ErrorKind::StorageFull => FsError::StorageFull,
+            io::ErrorKind::NotADirectory => FsError::NotADirectory,
             io::ErrorKind::Other => FsError::IOError,
             // if the following triggers, a new error type was added to this non-exhaustive enum
             _ => FsError::UnknownError,
@@ -615,9 +617,9 @@ impl From<FsError> for io::Error {
             FsError::UnexpectedEof => io::ErrorKind::UnexpectedEof,
             FsError::WouldBlock => io::ErrorKind::WouldBlock,
             FsError::WriteZero => io::ErrorKind::WriteZero,
+            FsError::NotADirectory => io::ErrorKind::NotADirectory,
             FsError::IOError => io::ErrorKind::Other,
             FsError::BaseNotDirectory => io::ErrorKind::Other,
-            FsError::NotADirectory => io::ErrorKind::Other,
             FsError::NotAFile => io::ErrorKind::Other,
             FsError::InvalidFd => io::ErrorKind::Other,
             FsError::Lock => io::ErrorKind::Other,
