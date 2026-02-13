@@ -89,18 +89,17 @@ pub(crate) fn path_unlink_file_internal(
         {
             let mut guard = removed_inode.read();
             match guard.deref() {
-                Kind::File { handle, path, .. } => {
-                    if let Some(h) = handle {
-                        let mut h = h.write().unwrap();
-                        wasi_try_ok!(h.unlink().map_err(fs_error_into_wasi_err));
-                    } else {
-                        // File is closed
-                        // problem with the abstraction, we can't call unlink because there's no handle
-                        // drop mutable borrow on `path`
-                        let path = path.clone();
-                        drop(guard);
-                        wasi_try_ok!(state.fs_unlink(path));
-                    }
+                Kind::File { path, .. } => {
+                    // In POSIX, when the link count reaches 0, the file should be unlinked
+                    // from the filesystem. If there are open file descriptors, the file
+                    // remains accessible through those descriptors until they are closed.
+                    // The Drop implementation of the file handles will clean up the file
+                    // when the last handle closes. We should NOT call unlink() on the file
+                    // handle itself as that's not POSIX-compliant (you cannot unlink through
+                    // a file descriptor).
+                    let path = path.clone();
+                    drop(guard);
+                    wasi_try_ok!(state.fs_unlink(path));
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(Errno::Isdir),
                 Kind::Symlink { .. } => {

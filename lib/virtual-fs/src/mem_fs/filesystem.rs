@@ -666,11 +666,11 @@ impl crate::FileSystem for FileSystem {
                 }
             };
 
-            // Find the inode of the file if it exists, along with its position.
-            let maybe_position_and_inode_of_file =
-                guard.as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?;
+            // Find the inode of the file/directory if it exists, along with its position.
+            let maybe_position_and_inode =
+                guard.as_parent_get_position_and_inode(inode_of_parent, &name_of_file)?;
 
-            match maybe_position_and_inode_of_file {
+            match maybe_position_and_inode {
                 Some((position, inode_resolution)) => {
                     let inode = match inode_resolution {
                         InodeResolution::Found(a) => a,
@@ -689,9 +689,13 @@ impl crate::FileSystem for FileSystem {
             // Write lock.
             let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
-            // Remove the file from the storage.
+            // Check if the inode is a directory and reject with NotAFile
             if let Some(node) = fs.storage.get_mut(inode_of_file) {
                 match node {
+                    Node::Directory(_) => {
+                        // unlink() is for files only, directories must use rmdir()
+                        return Err(FsError::NotAFile);
+                    }
                     Node::File(FileNode {
                         is_unlinked,
                         ref_count,
@@ -725,7 +729,7 @@ impl crate::FileSystem for FileSystem {
                         }
                     }
                     _ => {
-                        // For other types (shouldn't happen for files), just remove
+                        // For other types, just remove
                         fs.storage.remove(inode_of_file);
                     }
                 }

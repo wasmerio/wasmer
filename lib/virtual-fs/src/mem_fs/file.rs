@@ -300,89 +300,12 @@ impl VirtualFile for FileHandle {
     }
 
     fn unlink(&mut self) -> Result<()> {
-        let filesystem = self.filesystem.clone();
-        let inode = self.inode;
-
-        let (inode_of_parent, position) = {
-            // Read lock.
-            let fs = filesystem.inner.read().map_err(|_| FsError::Lock)?;
-
-            // The inode of the file.
-            let inode_of_file = inode;
-
-            // Find the position of the file in the parent, and the
-            // inode of the parent.
-            let (position, inode_of_parent) = fs
-                .storage
-                .iter()
-                .find_map(|(inode_of_parent, node)| match node {
-                    Node::Directory(DirectoryNode { children, .. }) => {
-                        children.iter().enumerate().find_map(|(nth, inode)| {
-                            if inode == &inode_of_file {
-                                Some((nth, inode_of_parent))
-                            } else {
-                                None
-                            }
-                        })
-                    }
-
-                    _ => None,
-                })
-                .ok_or(FsError::BaseNotDirectory)?;
-
-            (inode_of_parent, position)
-        };
-
-        {
-            // Write lock.
-            let mut fs = filesystem.inner.write().map_err(|_| FsError::Lock)?;
-
-            // Mark the file as unlinked so it will be deleted when the last handle closes.
-            // In POSIX, an unlinked file remains accessible through open file descriptors
-            // until all file descriptors are closed. We mark it as unlinked here, and
-            // the Drop implementation of FileHandle will remove it from storage when
-            // the reference count reaches 0.
-            if let Some(
-                Node::File(FileNode {
-                    is_unlinked,
-                    ref_count,
-                    ..
-                })
-                | Node::ReadOnlyFile(ReadOnlyFileNode {
-                    is_unlinked,
-                    ref_count,
-                    ..
-                })
-                | Node::OffloadedFile(OffloadedFileNode {
-                    is_unlinked,
-                    ref_count,
-                    ..
-                })
-                | Node::ArcFile(ArcFileNode {
-                    is_unlinked,
-                    ref_count,
-                    ..
-                })
-                | Node::CustomFile(CustomFileNode {
-                    is_unlinked,
-                    ref_count,
-                    ..
-                }),
-            ) = fs.storage.get_mut(inode)
-            {
-                is_unlinked.store(true, Ordering::SeqCst);
-
-                // If ref_count is 0, remove immediately (no open handles)
-                if ref_count.load(Ordering::SeqCst) == 0 {
-                    fs.storage.remove(inode);
-                }
-            }
-
-            // Remove the child from the parent directory.
-            fs.remove_child_from_node(inode_of_parent, position)?;
-        }
-
-        Ok(())
+        // In POSIX, you cannot unlink a file through its file descriptor.
+        // Attempting to unlink /proc/self/fd/N returns EPERM (Operation not permitted).
+        // The unlink operation should only be performed through the filesystem path.
+        // This matches Linux kernel behavior where unlinking through /proc/self/fd
+        // is explicitly denied.
+        Err(FsError::PermissionDenied)
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -753,9 +676,10 @@ mod test_virtual_file {
 
     #[tokio::test]
     async fn test_unlink() {
+        use crate::FileSystem as FileSystemTrait;
         let fs = FileSystem::default();
 
-        let mut file = fs
+        let file = fs
             .new_open_options()
             .write(true)
             .create_new(true)
@@ -791,7 +715,9 @@ mod test_virtual_file {
             );
         }
 
-        assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+        // In POSIX, you unlink through the filesystem path, not through a file descriptor.
+        // Calling unlink() on a file handle (like /proc/self/fd/N) is not permitted.
+        assert_eq!(fs.unlink(path!("/foo.txt")), Ok(()), "unlinking the file via filesystem path");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -831,6 +757,7 @@ mod test_virtual_file {
 
     #[tokio::test]
     async fn test_write_to_unlinked_file() {
+        use crate::FileSystem as FileSystemTrait;
         // This test verifies that writing to an unlinked file works correctly
         // matching POSIX behavior. In POSIX, a file that has been unlinked can
         // still be accessed through open file descriptors until all descriptors
@@ -845,8 +772,8 @@ mod test_virtual_file {
             .open(path!("/foo.txt"))
             .expect("failed to create a new file");
 
-        // Unlink the file
-        assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+        // Unlink the file through the filesystem (POSIX way), not through the file handle
+        assert_eq!(fs.unlink(path!("/foo.txt")), Ok(()), "unlinking the file via filesystem path");
 
         // Verify the file is no longer accessible by path
         assert!(
@@ -889,6 +816,7 @@ mod test_virtual_file {
 
     #[tokio::test]
     async fn test_unlinked_file_deleted_when_no_references() {
+        use crate::FileSystem as FileSystemTrait;
         // This test verifies that an unlinked file is actually deleted from storage
         // when there are no more file handles referencing it.
         let fs = FileSystem::default();
@@ -901,8 +829,8 @@ mod test_virtual_file {
                 .open(path!("/foo.txt"))
                 .expect("failed to create a new file");
 
-            // Unlink the file while it's still open
-            assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+            // Unlink the file through the filesystem (POSIX way), not through the file handle
+            assert_eq!(fs.unlink(path!("/foo.txt")), Ok(()), "unlinking the file via filesystem path");
 
             // File should still be in storage while handle exists
             {
