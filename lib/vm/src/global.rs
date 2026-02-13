@@ -30,7 +30,9 @@ impl VMGlobal {
         vm_definition_location: NonNull<VMGlobalDefinition>,
     ) -> Self {
         unsafe {
-            vm_definition_location.as_ptr().write(VMGlobalDefinition::new());
+            vm_definition_location
+                .as_ptr()
+                .write(VMGlobalDefinition::new());
         }
         Self {
             ty: global_type,

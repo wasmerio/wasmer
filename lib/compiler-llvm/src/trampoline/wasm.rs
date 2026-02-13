@@ -553,8 +553,7 @@ impl FuncTrampoline {
                 let base_ptr = if let MemoryStyle::Dynamic { .. } = memory_style {
                     base_ptr
                 } else {
-                    err!(builder.build_load(intrinsics.ptr_ty, base_ptr, ""))
-                        .into_pointer_value()
+                    err!(builder.build_load(intrinsics.ptr_ty, base_ptr, "")).into_pointer_value()
                 };
 
                 base_ptr.set_name("trmpl_m0_base_ptr");
