@@ -4,6 +4,9 @@ expression: pkg.manifest()
 ---
 package:
   wapm:
+    name: wiqar/cowsay
+    version: 0.3.0
+    description: cowsay is a program that generates ASCII pictures of a cow with a message
     readme:
       volume: metadata
       path: /README.md

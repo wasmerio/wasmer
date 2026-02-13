@@ -28,9 +28,10 @@ pub struct PackageUnpack {
     /// Output format.
     ///
     /// * package
-    ///   Restore a package directory with a wasmer.toml
-    ///   NOTE: this conversion is lossy, because webcs don't store the original
-    ///   wasmer.toml and the full contents can not be restored.
+    ///   Restore a package directory with a wasmer.toml.
+    ///   Package metadata (name, version, description, etc.) is preserved when
+    ///   unpacking. Note that some formatting details of the original wasmer.toml
+    ///   may not be preserved.
     ///
     /// * webc
     ///   Directly unpack the webc contents.

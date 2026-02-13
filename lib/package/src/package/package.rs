@@ -482,18 +482,11 @@ impl Package {
             annotated_atoms.insert(atom_name, (a, b, annotations));
         }
 
-        let (mut manifest, atoms) =
+        let (manifest, atoms) =
             super::manifest::in_memory_wasmer_manifest_to_webc(&manifest, &annotated_atoms)?;
 
-        if let Some(entry) = manifest.package.get_mut(Wapm::KEY) {
-            let mut wapm: Wapm = entry.deserialized()?;
-
-            wapm.name.take();
-            wapm.version.take();
-            wapm.description.take();
-
-            *entry = ciborium::value::Value::serialized(&wapm)?;
-        };
+        // NOTE: We preserve the name, description, and version in the webc file
+        // so they can be restored when unpacking the package.
 
         Ok(Package {
             base_dir: BaseDir::Path(Path::new("/").to_path_buf()),
@@ -516,19 +509,11 @@ impl Package {
             wasmer_toml.validate()?;
         }
 
-        let (mut manifest, atoms) =
+        let (manifest, atoms) =
             wasmer_manifest_to_webc(&wasmer_toml, base_dir.path(), strictness)?;
 
-        // remove name, description, and version before creating the webc file
-        if let Some(entry) = manifest.package.get_mut(Wapm::KEY) {
-            let mut wapm: Wapm = entry.deserialized()?;
-
-            wapm.name.take();
-            wapm.version.take();
-            wapm.description.take();
-
-            *entry = ciborium::value::Value::serialized(&wapm)?;
-        };
+        // NOTE: We preserve the name, description, and version in the webc file
+        // so they can be restored when unpacking the package.
 
         // Create volumes
         let base_dir_path = base_dir.path().to_path_buf();
@@ -913,9 +898,9 @@ mod tests {
         let package = Package::from_tarball_file(coreutils).unwrap();
 
         let wapm = package.manifest().wapm().unwrap().unwrap();
-        assert!(wapm.name.is_none());
-        assert!(wapm.version.is_none());
-        assert!(wapm.description.is_none());
+        assert_eq!(wapm.name.as_deref(), Some("sharrattj/coreutils"));
+        assert_eq!(wapm.version.as_deref(), Some("1.0.11"));
+        assert_eq!(wapm.description.as_deref(), Some("The GNU Core Utilities are the basic file, shell and text manipulation utilities of the GNU operating system. These are the core utilities which are expected to exist on every operating system."));
     }
 
     #[test]
@@ -948,9 +933,9 @@ mod tests {
         let package = Package::from_manifest(&manifest).unwrap();
 
         let wapm = package.manifest().wapm().unwrap().unwrap();
-        assert!(wapm.name.is_none());
-        assert!(wapm.version.is_none());
-        assert!(wapm.description.is_none());
+        assert_eq!(wapm.name.as_deref(), Some("some/package"));
+        assert_eq!(wapm.version.as_deref(), Some("0.0.0"));
+        assert_eq!(wapm.description.as_deref(), Some("A dummy package"));
     }
 
     #[test]
@@ -1058,9 +1043,9 @@ mod tests {
         let webc = from_bytes(webc).unwrap();
         let manifest = webc.manifest();
         let wapm_metadata = manifest.wapm().unwrap().unwrap();
-        assert!(wapm_metadata.name.is_none());
-        assert!(wapm_metadata.version.is_none());
-        assert!(wapm_metadata.description.is_none());
+        assert_eq!(wapm_metadata.name.as_deref(), Some("some/package"));
+        assert_eq!(wapm_metadata.version.as_deref(), Some("0.0.0"));
+        assert_eq!(wapm_metadata.description.as_deref(), Some("Test package"));
         let fs_table = manifest.filesystem().unwrap().unwrap();
         assert_eq!(
             fs_table,
@@ -1438,9 +1423,9 @@ mod tests {
         let manifest = webc.manifest();
         let wapm_metadata = manifest.wapm().unwrap().unwrap();
 
-        assert!(wapm_metadata.name.is_none());
-        assert!(wapm_metadata.version.is_none());
-        assert!(wapm_metadata.description.is_none());
+        assert_eq!(wapm_metadata.name.as_deref(), Some("some/package"));
+        assert_eq!(wapm_metadata.version.as_deref(), Some("0.0.0"));
+        assert_eq!(wapm_metadata.description.as_deref(), Some("Test package"));
 
         let fs_table = manifest.filesystem().unwrap().unwrap();
         assert_eq!(
@@ -1529,9 +1514,9 @@ mod tests {
         let manifest = webc.manifest();
         let wapm_metadata = manifest.wapm().unwrap().unwrap();
 
-        assert!(wapm_metadata.name.is_none());
-        assert!(wapm_metadata.version.is_none());
-        assert!(wapm_metadata.description.is_none());
+        assert_eq!(wapm_metadata.name.as_deref(), Some("some/package"));
+        assert_eq!(wapm_metadata.version.as_deref(), Some("0.0.0"));
+        assert_eq!(wapm_metadata.description.as_deref(), Some("Test package"));
 
         let fs_table = manifest.filesystem().unwrap().unwrap();
         assert_eq!(
@@ -1632,9 +1617,9 @@ mod tests {
         let manifest = webc.manifest();
         let wapm_metadata = manifest.wapm().unwrap().unwrap();
 
-        assert!(wapm_metadata.name.is_none());
-        assert!(wapm_metadata.version.is_none());
-        assert!(wapm_metadata.description.is_none());
+        assert_eq!(wapm_metadata.name.as_deref(), Some("some/package"));
+        assert_eq!(wapm_metadata.version.as_deref(), Some("0.0.0"));
+        assert_eq!(wapm_metadata.description.as_deref(), Some("Test package"));
 
         let fs_table = manifest.filesystem().unwrap().unwrap();
         assert_eq!(

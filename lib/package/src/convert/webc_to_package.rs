@@ -323,6 +323,9 @@ main-args = ["/mounted/script.py"]
             r#"
 
 [package]
+name = "testns/testpkg"
+version = "0.0.1"
+description = "descr1"
 license = "MIT"
 entrypoint = "run"
 

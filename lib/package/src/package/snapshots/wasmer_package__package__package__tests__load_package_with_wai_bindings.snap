@@ -1,10 +1,13 @@
 ---
-source: crates/webc/src/wasmer_package/package.rs
+source: lib/package/src/package/package.rs
 description: "\n            [package]\n            name = \"some/package\"\n            version = \"0.0.0\"\n            description = \"\"\n\n            [[module]]\n            name = \"my-lib\"\n            source = \"./my-lib.wasm\"\n            abi = \"none\"\n            bindings = { wai-version = \"0.2.0\", exports = \"./file.wai\", imports = [\"a.wai\", \"b.wai\"] }\n        "
 expression: webc.manifest()
 ---
 package:
-  wapm: {}
+  wapm:
+    name: some/package
+    version: 0.0.0
+    description: ""
 atoms:
   my-lib:
     kind: "https://webc.org/kind/wasm"
