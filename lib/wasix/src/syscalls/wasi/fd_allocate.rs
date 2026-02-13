@@ -48,7 +48,7 @@ pub(crate) fn fd_allocate_internal(
         return Err(Errno::Access);
     }
     let new_size = offset.checked_add(len).ok_or(Errno::Inval)?;
-    let mut current_size = new_size;
+    let mut current_size;
     {
         let mut guard = inode.write();
         match guard.deref_mut() {
