@@ -485,9 +485,6 @@ impl Package {
         let (manifest, atoms) =
             super::manifest::in_memory_wasmer_manifest_to_webc(&manifest, &annotated_atoms)?;
 
-        // NOTE: Package metadata (name, version, description) is preserved in webc files.
-        // See the detailed comment in Package::load() for historical context.
-
         Ok(Package {
             base_dir: BaseDir::Path(Path::new("/").to_path_buf()),
             manifest,
@@ -510,24 +507,6 @@ impl Package {
         }
 
         let (manifest, atoms) = wasmer_manifest_to_webc(&wasmer_toml, base_dir.path(), strictness)?;
-
-        // NOTE: Package metadata (name, version, description) is now preserved in webc files.
-        //
-        // Historical context: Prior to this change, metadata was explicitly stripped from
-        // webc manifests during serialization. The original code removed these fields with:
-        //   wapm.name.take();
-        //   wapm.version.take();
-        //   wapm.description.take();
-        //
-        // The reason for this stripping is unclear from the git history - it was present
-        // when the package.rs file was first created. However, this behavior prevented
-        // round-trip preservation of package manifests and made `wasmer package unpack`
-        // lose important metadata.
-        //
-        // The change to preserve metadata:
-        // - Allows full round-trip: wasmer.toml -> webc -> wasmer.toml
-        // - Maintains backward compatibility: webcs without metadata still work (see test)
-        // - No breaking changes: all existing tests pass with updated expectations
 
         // Create volumes
         let base_dir_path = base_dir.path().to_path_buf();
@@ -884,8 +863,8 @@ mod tests {
     use webc::{
         PathSegment, PathSegments,
         metadata::{
-            Binding, BindingsExtended, Manifest as WebcManifest, WaiBindings, WitBindings,
-            annotations::FileSystemMapping, annotations::VolumeSpecificPath,
+            Binding, BindingsExtended, WaiBindings, WitBindings,
+            annotations::{FileSystemMapping, VolumeSpecificPath},
         },
     };
 
