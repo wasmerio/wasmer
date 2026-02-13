@@ -807,6 +807,7 @@ jobs:
               target: x86_64-unknown-linux-gnu,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz",
+              run_on_pr: true,
             },
             {
               build: linux-arm64,
@@ -814,6 +815,7 @@ jobs:
               target: aarch64-unknown-linux-gnu,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz",
+              run_on_pr: true,
             },
             {
               build: macos-x64,
@@ -821,6 +823,7 @@ jobs:
               target: x86_64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz",
+              run_on_pr: false,
             },
             {
               build: macos-arm,
@@ -828,13 +831,15 @@ jobs:
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz",
+              run_on_pr: true,
             },
             {
               build: windows-x64,
               os: windows-2022,
               target: x86_64-pc-windows-msvc,
               exe: ".exe",
-              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz",
+              run_on_pr: true,
             },
             {
               build: linux-musl,
@@ -842,12 +847,16 @@ jobs:
               os: ubuntu-22.04,
               exe: "",
               container: "alpine:edge",
+              run_on_pr: true,
             },
           ]
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
         - /usr/local:/host/usr/local
+
+    if: ${{ github.event_name != 'pull_request' || matrix.metadata.run_on_pr }}
+
     steps:
       - uses: actions/checkout@v6
       - name: Show disk capacity
@@ -965,8 +974,6 @@ jobs:
       - name: ${{ matrix.stage.description }}
         shell: bash
         run: make ${{ matrix.stage.make }}
-        # For MacOS x64 - run tests only on main or release branches
-        if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-') || matrix.metadata.os != 'macos-15-intel'
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
