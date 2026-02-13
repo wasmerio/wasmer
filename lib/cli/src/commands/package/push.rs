@@ -159,7 +159,7 @@ impl PackagePush {
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
         };
 
-        let msg = format!("Succesfully pushed release to namespace {namespace} on the registry");
+        let msg = format!("Successfully pushed release to namespace {namespace} on the registry");
         spinner_ok!(pb, msg);
 
         Ok(())
@@ -211,7 +211,7 @@ impl PackagePush {
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
         };
 
-        let msg = format!("Succesfully pushed release to namespace {namespace} on the registry");
+        let msg = format!("Successfully pushed release to namespace {namespace} on the registry");
         spinner_ok!(pb, msg);
 
         Ok(())
@@ -245,8 +245,9 @@ impl PackagePush {
             let hash_bytes: [u8; 32] = sha2::Sha256::digest(&package_data).into();
             let hash = PackageHash::from_sha256_bytes(hash_bytes);
 
-            // Validate the webc file by parsing it
-            wasmer_package::utils::from_bytes(package_data.clone()).with_context(|| {
+            // Validate the webc file by parsing it (from_bytes consumes the data)
+            let package_bytes = bytes::Bytes::from(package_data);
+            wasmer_package::utils::from_bytes(package_bytes.clone()).with_context(|| {
                 format!("Failed to parse webc file '{}'", manifest_path.display())
             })?;
 
@@ -266,16 +267,9 @@ impl PackagePush {
                     tracing::info!("Package should be published");
                     pb.finish_and_clear();
 
-                    self.do_push_bytes(
-                        client,
-                        &namespace,
-                        name,
-                        bytes::Bytes::from(package_data),
-                        &hash,
-                        private,
-                    )
-                    .await
-                    .map_err(on_error)?;
+                    self.do_push_bytes(client, &namespace, name, package_bytes, &hash, private)
+                        .await
+                        .map_err(on_error)?;
                 } else {
                     tracing::info!("Package should be published, but dry-run is set");
                     spinner_ok!(pb, "Skipping push as dry-run is set");
@@ -374,10 +368,16 @@ impl AsyncCliCommand for PackagePush {
                     .bold()
                 )
             } else {
-                eprintln!("{} Succesfully pushed package ({hash})", "✔".green().bold());
+                eprintln!(
+                    "{} Successfully pushed package ({hash})",
+                    "✔".green().bold()
+                );
             }
         } else {
-            eprintln!("{} Succesfully pushed package ({hash})", "✔".green().bold());
+            eprintln!(
+                "{} Successfully pushed package ({hash})",
+                "✔".green().bold()
+            );
         }
 
         Ok(())
