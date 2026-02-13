@@ -81,7 +81,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
-          version: v0.2.7
+          version: v0.3.0
 
       - name: Install wasm-tools
         run: |
