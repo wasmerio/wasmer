@@ -180,6 +180,13 @@ impl WasiState {
             .map_err(fs_error_into_wasi_err)
     }
 
+    pub(crate) fn fs_rmdir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .rmdir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
     pub(crate) async fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
         &self,
         from: P,

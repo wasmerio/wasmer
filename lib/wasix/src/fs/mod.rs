@@ -413,6 +413,14 @@ impl FileSystem for WasiFsRoot {
         }
     }
 
+    fn rmdir(&self, path: &Path) -> virtual_fs::Result<()> {
+        match self {
+            Self::Sandbox(fs) => fs.rmdir(path),
+            Self::Overlay(overlay) => overlay.rmdir(path),
+            Self::Backing(fs) => fs.rmdir(path),
+        }
+    }
+
     fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
         let from = from.to_owned();
         let to = to.to_owned();

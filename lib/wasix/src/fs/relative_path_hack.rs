@@ -38,6 +38,10 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
         self.execute(path, |fs, p| fs.create_dir(p))
     }
 
+    fn rmdir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.execute(path, |fs, p| fs.rmdir(p))
+    }
+
     fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
         let from = from.to_owned();
         let to = to.to_owned();
