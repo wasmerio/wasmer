@@ -773,6 +773,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        is_pull_request:
+          - ${{ github.event_name == 'pull_request' }}
         stage:
           [
             {
@@ -807,7 +809,6 @@ jobs:
               target: x86_64-unknown-linux-gnu,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz",
-              run_on_pr: true,
             },
             {
               build: linux-arm64,
@@ -815,7 +816,6 @@ jobs:
               target: aarch64-unknown-linux-gnu,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz",
-              run_on_pr: true,
             },
             {
               build: macos-x64,
@@ -823,7 +823,6 @@ jobs:
               target: x86_64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz",
-              run_on_pr: false,
             },
             {
               build: macos-arm,
@@ -831,7 +830,6 @@ jobs:
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz",
-              run_on_pr: true,
             },
             {
               build: windows-x64,
@@ -839,7 +837,6 @@ jobs:
               target: x86_64-pc-windows-msvc,
               exe: ".exe",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz",
-              run_on_pr: true,
             },
             {
               build: linux-musl,
@@ -847,15 +844,20 @@ jobs:
               os: ubuntu-22.04,
               exe: "",
               container: "alpine:edge",
-              run_on_pr: true,
             },
           ]
+        exclude:
+          - is_pull_request: true
+            metadata:
+              build: macos-x64
+              os: macos-15-intel
+              target: x86_64-apple-darwin
+              exe: ""
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz"
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
         - /usr/local:/host/usr/local
-
-    if: ${{ github.event_name != 'pull_request' || matrix.metadata.run_on_pr }}
 
     steps:
       - uses: actions/checkout@v6
