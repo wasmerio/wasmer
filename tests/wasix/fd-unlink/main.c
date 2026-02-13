@@ -289,7 +289,7 @@ int test_unlink_with_two_fds() {
 
     ssize_t read_size2 = read(fd, memory_buffer, WRITE_SIZE-1);
     if (read_size2 != WRITE_SIZE-1) {
-        fprintf(stderr, "Expected to read %d bytes from fd, but got %zd\n", WRITE_SIZE-1, read_size);
+        fprintf(stderr, "Expected to read %d bytes from fd, but got %zd\n", WRITE_SIZE-1, read_size2);
         return 1;
     }
     for (int i = 0; i < WRITE_SIZE-1; i++) {
