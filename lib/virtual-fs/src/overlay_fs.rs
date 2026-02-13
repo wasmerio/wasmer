@@ -397,12 +397,11 @@ where
             return Err(FsError::EntryNotFound);
         }
 
-        // Check if any secondary has a *file* at this path; directories should not be whited out.
-        let has_secondary_file = self
-            .secondaries
-            .filesystems()
-            .into_iter()
-            .any(|fs| matches!(fs.metadata(path), Ok(meta) if meta.is_file()));
+        // If the file is contained in a secondary then then we need to create a
+        // whiteout file so that it is suppressed.
+        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
+            fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
+        });
 
         // Attempt to remove it from the primary
         match self.primary.unlink(path) {
@@ -410,12 +409,9 @@ where
             other => return other,
         }
 
-        // If the file is contained in a secondary then we need to create a
-        // whiteout file so that it is suppressed.
-        if has_secondary_file && ops::create_white_out(&self.primary, path).is_ok() {
+        if had_at_least_one_success {
             return Ok(());
         }
-
         self.permission_error_or_not_found(path)
     }
 

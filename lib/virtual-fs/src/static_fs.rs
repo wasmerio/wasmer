@@ -288,7 +288,6 @@ impl FileSystem for StaticFileSystem {
             // TODO: This seems wrong. Also the get_file_entry check above seems wrong.
             Ok(())
         } else {
-            // If not found in WebC, return the result from memory rmdir
             result
         }
     }
@@ -348,7 +347,6 @@ impl FileSystem for StaticFileSystem {
             // TODO: This seems wrong.
             Ok(())
         } else {
-            // If not found in WebC, return the result from memory unlink
             result
         }
     }

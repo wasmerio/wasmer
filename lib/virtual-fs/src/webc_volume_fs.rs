@@ -100,9 +100,10 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn rmdir(&self, path: &Path) -> Result<(), FsError> {
+        // The original directory should exist
         let meta = self.metadata(path)?;
 
-        // Check if it's a directory (rmdir only works on directories)
+        // and it should be a directory
         if !meta.is_dir() {
             // TODO: Handle symlinks once we have them in WebC.
             // if meta.is_symlink() {
@@ -111,7 +112,7 @@ impl FileSystem for WebcVolumeFileSystem {
             return Err(FsError::NotADirectory);
         }
 
-        // We are a readonly filesystem, so you can't modify anything
+        // but we are a readonly filesystem, so you can't modify anything
         Err(FsError::PermissionDenied)
     }
 
@@ -148,7 +149,6 @@ impl FileSystem for WebcVolumeFileSystem {
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
         let meta = self.metadata(path)?;
 
-        // Check if it's a file (unlink only works on files)
         if !meta.is_file() {
             // TODO: Handle symlinks once we have them in WebC.
             // if meta.is_symlink() {
@@ -157,7 +157,6 @@ impl FileSystem for WebcVolumeFileSystem {
             return Err(FsError::NotAFile);
         }
 
-        // We are a readonly filesystem, so you can't modify anything
         Err(FsError::PermissionDenied)
     }
 
@@ -618,10 +617,7 @@ mod tests {
 
         let fs = WebcVolumeFileSystem::new(volume);
 
-        assert_eq!(
-            fs.unlink("/lib".as_ref()).unwrap_err(),
-            FsError::NotAFile,
-        );
+        assert_eq!(fs.unlink("/lib".as_ref()).unwrap_err(), FsError::NotAFile,);
         assert_eq!(
             fs.unlink("/this/does/not/exist".as_ref()).unwrap_err(),
             FsError::EntryNotFound,

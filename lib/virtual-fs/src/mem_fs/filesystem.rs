@@ -669,6 +669,7 @@ impl crate::FileSystem for FileSystem {
             // Find the inode of the file if it exists, along with its position.
             let maybe_position_and_inode_of_file =
                 guard.as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?;
+
             match maybe_position_and_inode_of_file {
                 Some((position, inode_resolution)) => {
                     let inode = match inode_resolution {
@@ -680,20 +681,7 @@ impl crate::FileSystem for FileSystem {
                     };
                     (inode_of_parent, position, inode)
                 }
-                None => {
-                    // Check if it's a directory to provide better error message
-                    if guard
-                        .as_parent_get_position_and_inode_of_directory(
-                            inode_of_parent,
-                            &name_of_file,
-                            DirectoryMustBeEmpty::No,
-                        )
-                        .is_ok()
-                    {
-                        return Err(FsError::NotAFile);
-                    }
-                    return Err(FsError::EntryNotFound);
-                }
+                None => return Err(FsError::EntryNotFound),
             }
         };
 
