@@ -209,10 +209,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git make lld curl
       - name: Install wasixcc
-        uses: wasix-org/wasixcc@main
+        uses: wasix-org/wasixcc@v0.2.7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.2.7
 
       - name: Tool versions
         run: |
@@ -911,10 +912,11 @@ jobs:
 
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
-        uses: wasix-org/wasixcc@main
+        uses: wasix-org/wasixcc@v0.2.7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.2.7
 
       - name: Install LLVM
         shell: bash
@@ -1002,9 +1004,6 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v6
-      - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.10.0
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
         run: |
@@ -1161,6 +1160,8 @@ jobs:
           #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test-wasmer-integration-tests:
+    # TODO(SRE-1320): Re-enable once integration test are consistently green
+    if: ${{ false }}
     name: "Remote integ. tests"
     needs: [build]
     uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main

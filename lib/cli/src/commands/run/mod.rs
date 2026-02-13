@@ -226,6 +226,7 @@ impl Run {
             &capabilities::get_capability_cache_path(&self.env, &self.input)?,
             runtime,
             preferred_webc_version,
+            self.rt.compiler_debug_dir.is_some(),
         )?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
@@ -242,7 +243,7 @@ impl Run {
 
         if let ExecutableTarget::Package(ref pkg) = target {
             self.wasi
-                .all_volumes()
+                .volumes
                 .extend(pkg.additional_host_mapped_directories.clone());
         }
 
@@ -307,6 +308,7 @@ impl Run {
                                         .enable_all()
                                         .build()?,
                                     preferred_webc_version,
+                                    self.rt.compiler_debug_dir.is_some(),
                                 )?;
 
                                 let new_runtime = Arc::new(MonitoringRuntime::new(
@@ -557,14 +559,14 @@ impl Run {
 
         let mut runner = WasiRunner::new();
 
-        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories(is_wasix)?;
+        let (is_home_mapped, mapped_directories) = self.wasi.build_mapped_directories(is_wasix)?;
 
         runner
             .with_args(&self.args)
             .with_injected_packages(packages)
             .with_envs(self.wasi.env_vars.clone())
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
-            .with_mapped_directories(mapped_diretories)
+            .with_mapped_directories(mapped_directories)
             .with_home_mapped(is_home_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());

@@ -7,6 +7,7 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
+use crate::compiler::ModuleBasedSymbolRegistry;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
     attributes::{Attribute, AttributeLoc},
@@ -25,6 +26,7 @@ use inkwell::{
 use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
+use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
@@ -65,10 +67,6 @@ const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 // ( Arshia: that comment above is AI-generated... AI is savage XD )
 const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 
-// Use the lowest optimization level for very large function bodies to reduce compile time.
-// See #5997 for more numbers connected to the change.
-const LLVMIR_LARGE_FUNCTION_THRESHOLD: usize = 100_000;
-
 pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
@@ -79,6 +77,8 @@ pub struct FuncTranslator {
     func_section: String,
     pointer_width: u8,
 }
+
+impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 
 impl FuncTranslator {
     pub fn new(
@@ -419,7 +419,7 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        symbol_registry: &dyn SymbolRegistry,
+        symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
         let module = self.translate_to_module(
@@ -438,7 +438,7 @@ impl FuncTranslator {
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
 
-        let target_machine = if function_body.data.len() > LLVMIR_LARGE_FUNCTION_THRESHOLD {
+        let target_machine = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
             self.target_machine_no_opt
                 .as_ref()
                 .unwrap_or(&self.target_machine)

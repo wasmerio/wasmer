@@ -67,7 +67,7 @@ impl ModuleHash {
     /// Generate a random [`ModuleHash`]. For when you don't care about caches.
     pub fn random() -> Self {
         let mut bytes = [0_u8; _];
-        getrandom::getrandom(&mut bytes).unwrap();
+        getrandom::fill(&mut bytes).unwrap();
         Self::Sha256(bytes)
     }
 

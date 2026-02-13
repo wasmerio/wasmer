@@ -249,7 +249,7 @@ impl ArgumentRegisterAllocator {
                 static XMM_SEQ: &[XMM] = &[XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3];
                 let idx = self.n_gprs + self.n_xmms;
                 match ty {
-                    Type::I32 | Type::I64 => {
+                    Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef => {
                         if idx < 4 {
                             let gpr = GPR_SEQ[idx];
                             self.n_gprs += 1;
@@ -288,7 +288,7 @@ impl ArgumentRegisterAllocator {
                     XMM::XMM7,
                 ];
                 match ty {
-                    Type::I32 | Type::I64 => {
+                    Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef => {
                         if self.n_gprs < GPR_SEQ.len() {
                             let gpr = GPR_SEQ[self.n_gprs];
                             self.n_gprs += 1;

@@ -54,7 +54,7 @@ impl AsyncRead for RandomFile {
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
         let mut data = vec![0u8; buf.remaining()];
-        getrandom::getrandom(&mut data).ok();
+        getrandom::fill(&mut data).ok();
         buf.put_slice(&data[..]);
         Poll::Ready(Ok(()))
     }

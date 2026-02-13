@@ -32,7 +32,7 @@ jobs:
       - name: Read rust version
         id: read_rust_version
         run: |
-          rust_toolchain=$(head -n1 rust-toolchain | tr -d '\n')
+          rust_toolchain=$(grep channel rust-toolchain.toml | cut -f2 -d'"')
           echo "MSRV=$rust_toolchain" >> $GITHUB_ENV
           echo "MSRV=$rust_toolchain" >> $GITHUB_OUTPUT
 
@@ -77,10 +77,11 @@ jobs:
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz
 
       - name: Install wasixcc
-        uses: wasix-org/wasixcc@main
+        uses: wasix-org/wasixcc@v0.2.7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.2.7
 
       - name: Install wasm-tools
         run: |

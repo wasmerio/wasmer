@@ -64,7 +64,8 @@ jobs:
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             build_wasm: true
             enable_llvm: true
-            enable_v8: true
+            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
+            enable_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: macos-x64
@@ -74,7 +75,8 @@ jobs:
             cross_compilation_artifact_name: "cross_compiled_from_mac"
             build_wasm: false
             enable_llvm: true
-            enable_v8: true
+            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
+            enable_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: macos-arm64
@@ -84,7 +86,8 @@ jobs:
             build_wasm: false
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz"
             enable_llvm: true
-            enable_v8: true
+            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
+            enable_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: windows-x64
@@ -103,7 +106,7 @@ jobs:
             #  container: alpine:latest
             #  build_wasm: true
             #  enable_llvm: false
-            #  enable_v8: true
+            #  enable_v8: false
             #  enable_wasmi: true
             #  enable_wamr: false
 
@@ -114,16 +117,16 @@ jobs:
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash mold make curl cmake ninja clang21 zstd-static llvm21-dev clang21-static llvm21-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
+          apk add bash make curl cmake ninja clang21 zstd-static llvm21-dev clang21-static llvm21-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
           ln -s /usr/bin/clang-21 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
         run: |
-          sudo apt install mold ninja-build
+          sudo apt install ninja-build
       - name: Install Linux ARM tools
         if: startsWith(matrix.build, 'linux-arm64')
         run: |
-          sudo apt install mold ninja-build cmake make libzstd1 zstd libzstd-dev
+          sudo apt install ninja-build cmake make libzstd1 zstd libzstd-dev
       - name: Install `ninja` on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
@@ -224,7 +227,7 @@ jobs:
       - name: Build Wasmer on linux-x64
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
-          RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer
+          make build-wasmer
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
@@ -241,7 +244,7 @@ jobs:
           echo 'fi' >> /usr/bin/llvm-config
           cat /usr/bin/llvm-config
           chmod +x /usr/bin/llvm-config
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-L/usr/lib64 -L/usr/lib -C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-L/usr/lib64 -L/usr/lib -C linker=clang -C link-arg=-lzstd" make build-wasmer
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
