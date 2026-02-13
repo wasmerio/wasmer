@@ -209,10 +209,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git make lld curl
       - name: Install wasixcc
-        uses: wasix-org/wasixcc@main
+        uses: wasix-org/wasixcc@v0.2.7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.2.7
 
       - name: Tool versions
         run: |
@@ -911,10 +912,11 @@ jobs:
 
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
-        uses: wasix-org/wasixcc@main
+        uses: wasix-org/wasixcc@v0.2.7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.2.7
 
       - name: Install LLVM
         shell: bash

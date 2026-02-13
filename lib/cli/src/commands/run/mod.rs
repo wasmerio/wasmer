@@ -226,6 +226,7 @@ impl Run {
             &capabilities::get_capability_cache_path(&self.env, &self.input)?,
             runtime,
             preferred_webc_version,
+            self.rt.compiler_debug_dir.is_some(),
         )?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
@@ -307,6 +308,7 @@ impl Run {
                                         .enable_all()
                                         .build()?,
                                     preferred_webc_version,
+                                    self.rt.compiler_debug_dir.is_some(),
                                 )?;
 
                                 let new_runtime = Arc::new(MonitoringRuntime::new(

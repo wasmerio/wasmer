@@ -548,6 +548,7 @@ impl Wasi {
         pkg_cache_path: &Path,
         rt_or_handle: I,
         preferred_webc_version: webc::Version,
+        compiler_debug_dir_used: bool,
     ) -> Result<impl Runtime + Send + Sync + use<I>>
     where
         I: Into<RuntimeOrHandle>,
@@ -611,7 +612,7 @@ impl Wasi {
 
         let registry = self.prepare_source(env, client, preferred_webc_version)?;
 
-        if !self.disable_cache {
+        if !self.disable_cache && !compiler_debug_dir_used {
             let cache_dir = env.cache_dir().join("compiled");
             let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
                 .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
