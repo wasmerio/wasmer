@@ -24,7 +24,7 @@ use wasmer_config::package::Manifest as WasmerManifest;
 use webc::{
     AbstractVolume, AbstractWebc, Container, ContainerError, DetectError, PathSegment, Version,
     Volume,
-    metadata::{Manifest as WebcManifest, annotations::Wapm},
+    metadata::Manifest as WebcManifest,
     v3::{
         ChecksumAlgorithm, Timestamps,
         write::{FileEntry, Writer},
@@ -509,8 +509,7 @@ impl Package {
             wasmer_toml.validate()?;
         }
 
-        let (manifest, atoms) =
-            wasmer_manifest_to_webc(&wasmer_toml, base_dir.path(), strictness)?;
+        let (manifest, atoms) = wasmer_manifest_to_webc(&wasmer_toml, base_dir.path(), strictness)?;
 
         // NOTE: We preserve the name, description, and version in the webc file
         // so they can be restored when unpacking the package.
@@ -900,7 +899,12 @@ mod tests {
         let wapm = package.manifest().wapm().unwrap().unwrap();
         assert_eq!(wapm.name.as_deref(), Some("sharrattj/coreutils"));
         assert_eq!(wapm.version.as_deref(), Some("1.0.11"));
-        assert_eq!(wapm.description.as_deref(), Some("The GNU Core Utilities are the basic file, shell and text manipulation utilities of the GNU operating system. These are the core utilities which are expected to exist on every operating system."));
+        assert_eq!(
+            wapm.description.as_deref(),
+            Some(
+                "The GNU Core Utilities are the basic file, shell and text manipulation utilities of the GNU operating system. These are the core utilities which are expected to exist on every operating system."
+            )
+        );
     }
 
     #[test]
