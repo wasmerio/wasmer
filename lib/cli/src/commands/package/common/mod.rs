@@ -180,7 +180,7 @@ fn get_manifest_from_webc(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
     // Get the wapm annotation which contains package metadata
     let wapm_annotation = webc_manifest
         .wapm()
-        .map_err(|e| anyhow::anyhow!("Failed to read package annotation from webc: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to read package annotation from webc: {e}"))?;
 
     if let Some(wapm) = wapm_annotation {
         let mut package = wasmer_config::package::Package::new_empty();
