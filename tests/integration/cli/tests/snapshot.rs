@@ -1216,7 +1216,10 @@ fn test_snapshot_worker_terminating_normally() {
 }
 
 // The backtrace is different on non-Linux platforms
-#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
+#[cfg_attr(
+    any(target_os = "macos", target_os = "windows", target_env = "musl"),
+    ignore
+)]
 #[test]
 fn test_snapshot_worker_panicking() {
     let snapshot = TestBuilder::new()
