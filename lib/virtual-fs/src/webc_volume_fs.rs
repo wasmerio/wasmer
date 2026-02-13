@@ -102,18 +102,17 @@ impl FileSystem for WebcVolumeFileSystem {
     fn rmdir(&self, path: &Path) -> Result<(), FsError> {
         let meta = self.metadata(path)?;
 
-        // TODO: Handle symlinks once we have them in WebC.
-        if meta.is_dir() {
-            // We are a readonly filesystem, so you can't modify anything
-            return Err(FsError::PermissionDenied);
+        // Check if it's a directory (rmdir only works on directories)
+        if !meta.is_dir() {
+            // TODO: Handle symlinks once we have them in WebC.
+            // if meta.is_symlink() {
+            //     return Err(FsError::PermissionDenied);
+            // }
+            return Err(FsError::NotADirectory);
         }
 
-        // TODO: Handle symlinks once we have them in WebC.
-        // if meta.is_symlink() {
-        //     return Err(FsError::PermissionDenied);
-        // }
-
-        Err(FsError::NotADirectory)
+        // We are a readonly filesystem, so you can't modify anything
+        Err(FsError::PermissionDenied)
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
@@ -149,17 +148,17 @@ impl FileSystem for WebcVolumeFileSystem {
     fn unlink(&self, path: &Path) -> Result<(), FsError> {
         let meta = self.metadata(path)?;
 
-        if meta.is_file() {
-            // We are a readonly filesystem, so you can't modify anything
-            return Err(FsError::PermissionDenied);
+        // Check if it's a file (unlink only works on files)
+        if !meta.is_file() {
+            // TODO: Handle symlinks once we have them in WebC.
+            // if meta.is_symlink() {
+            //     return Err(FsError::PermissionDenied);
+            // }
+            return Err(FsError::NotAFile);
         }
 
-        // TODO: Handle symlinks once we have them in WebC.
-        // if meta.is_symlink() {
-        //     return Err(FsError::PermissionDenied);
-        // }
-
-        Err(FsError::NotAFile)
+        // We are a readonly filesystem, so you can't modify anything
+        Err(FsError::PermissionDenied)
     }
 
     fn new_open_options(&self) -> crate::OpenOptions<'_> {
@@ -621,7 +620,7 @@ mod tests {
 
         assert_eq!(
             fs.unlink("/lib".as_ref()).unwrap_err(),
-            FsError::PermissionDenied,
+            FsError::NotAFile,
         );
         assert_eq!(
             fs.unlink("/this/does/not/exist".as_ref()).unwrap_err(),

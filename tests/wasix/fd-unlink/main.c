@@ -36,14 +36,19 @@ int test_unlink() {
 
     // 2. The write must be larger than 1024 bytes. Smaller writes succeed for some reason.
     char memory_buffer[1025];
-    ssize_t n = fwrite(memory_buffer, 1, 1025, fp);
+    size_t bytes_written = fwrite(memory_buffer, 1, sizeof(memory_buffer), fp);
+    if (bytes_written != sizeof(memory_buffer)) {
+        fprintf(stderr, "fwrite wrote %zu bytes, expected %zu\n",
+                bytes_written, sizeof(memory_buffer));
+        return 1;
+    }
     if (ferror(fp)) {
         perror("fwrite");
         return 1;
     }
     debug_printf("writing succeeded\n");
 
-    close(fd);
+    fclose(fp);
     return 0;
 }
 

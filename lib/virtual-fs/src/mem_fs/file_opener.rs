@@ -159,7 +159,9 @@ impl FileSystem {
         other: Arc<dyn crate::FileSystem + Send + Sync>,
         source_path: PathBuf,
     ) -> Result<()> {
-        let _ = self.unlink(target_path.as_path());
+        // Try to remove any existing entry at the target path
+        let _ = self.unlink(target_path.as_path())
+            .or_else(|_| self.rmdir(target_path.as_path()));
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(target_path.as_path())?;
 

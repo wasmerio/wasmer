@@ -206,6 +206,13 @@ impl WasiState {
             .map_err(fs_error_into_wasi_err)
     }
 
+    pub(crate) fn fs_rmdir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .rmdir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
     pub(crate) fn fs_new_open_options(&self) -> OpenOptions<'_> {
         self.fs.root_fs.new_open_options()
     }

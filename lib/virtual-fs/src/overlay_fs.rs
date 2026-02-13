@@ -397,11 +397,12 @@ where
             return Err(FsError::EntryNotFound);
         }
 
-        // If the file is contained in a secondary then then we need to create a
-        // whiteout file so that it is suppressed.
-        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
-            fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
-        });
+        // Check if any secondary has a *file* at this path; directories should not be whited out.
+        let has_secondary_file = self
+            .secondaries
+            .filesystems()
+            .into_iter()
+            .any(|fs| matches!(fs.metadata(path), Ok(meta) if meta.is_file()));
 
         // Attempt to remove it from the primary
         match self.primary.unlink(path) {
@@ -409,9 +410,12 @@ where
             other => return other,
         }
 
-        if had_at_least_one_success {
+        // If the file is contained in a secondary then we need to create a
+        // whiteout file so that it is suppressed.
+        if has_secondary_file && ops::create_white_out(&self.primary, path).is_ok() {
             return Ok(());
         }
+
         self.permission_error_or_not_found(path)
     }
 
@@ -1177,7 +1181,7 @@ mod tests {
         );
 
         // Try to remove something on one of the overlay filesystems
-        assert_eq!(overlay.unlink(third), Ok(()));
+        assert_eq!(overlay.rmdir(third), Ok(()));
 
         // It should no longer exist
         assert_eq!(overlay.metadata(third).unwrap_err(), FsError::EntryNotFound);
@@ -1470,7 +1474,7 @@ mod tests {
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
         assert!(ops::is_dir(&fs, "/secondary"));
-        fs.unlink(Path::new("/secondary")).unwrap();
+        fs.rmdir(Path::new("/secondary")).unwrap();
 
         assert!(!ops::is_dir(&fs, "/secondary"));
         assert!(ops::is_file(&fs.primary, "/.wh.secondary"));
@@ -1492,7 +1496,7 @@ mod tests {
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
         assert!(ops::is_dir(&fs, "/first/secondary"));
-        fs.unlink(Path::new("/first/secondary")).unwrap();
+        fs.rmdir(Path::new("/first/secondary")).unwrap();
 
         assert!(!ops::is_dir(&fs, "/first/secondary"));
         assert!(ops::is_file(&fs.primary, "/first/.wh.secondary"));
@@ -1545,8 +1549,8 @@ mod tests {
 
         fs.metadata(Path::new("/secondary")).unwrap();
 
-        // Now delete the file and make sure its not found
-        fs.unlink(Path::new("/secondary")).unwrap();
+        // Now delete the directory and make sure its not found
+        fs.rmdir(Path::new("/secondary")).unwrap();
         assert_eq!(
             fs.metadata(Path::new("/secondary")).unwrap_err(),
             FsError::EntryNotFound
