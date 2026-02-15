@@ -61,6 +61,10 @@ pub fn type_to_llvm<'ctx>(
 pub struct X86_64Intrinsics<'ctx> {
     pub pshufb128: FunctionValue<'ctx>,
     pub pblendvb: FunctionValue<'ctx>,
+    pub min_ps: FunctionValue<'ctx>,
+    pub min_pd: FunctionValue<'ctx>,
+    pub max_ps: FunctionValue<'ctx>,
+    pub max_pd: FunctionValue<'ctx>,
     pub cvtps2dq: FunctionValue<'ctx>,
     pub cvtps2udq128: FunctionValue<'ctx>,
     pub cvtpd2dq: FunctionValue<'ctx>,
@@ -1325,6 +1329,26 @@ impl<'ctx> Intrinsics<'ctx> {
                 pblendvb: add_function_with_attrs(
                     "llvm.x86.sse41.pblendvb",
                     ret_i8x16_take_i8x16_i8x16_i8x16,
+                    None,
+                ),
+                min_ps: add_function_with_attrs(
+                    "llvm.x86.sse.min.ps",
+                    ret_f32x4_take_f32x4_f32x4,
+                    None,
+                ),
+                min_pd: add_function_with_attrs(
+                    "llvm.x86.sse2.min.pd",
+                    ret_f64x2_take_f64x2_f64x2,
+                    None,
+                ),
+                max_ps: add_function_with_attrs(
+                    "llvm.x86.sse.max.ps",
+                    ret_f32x4_take_f32x4_f32x4,
+                    None,
+                ),
+                max_pd: add_function_with_attrs(
+                    "llvm.x86.sse2.max.pd",
+                    ret_f64x2_take_f64x2_f64x2,
                     None,
                 ),
                 cvtps2dq: add_function_with_attrs(

@@ -5903,6 +5903,27 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
+            Operator::F32x4RelaxedMin if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
+                let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.min_ps,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1_extra(
+                    res,
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
+                );
+            }
             Operator::F32x4Min | Operator::F32x4RelaxedMin => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
@@ -5943,6 +5964,27 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
                 self.state.push1(res);
+            }
+            Operator::F64x2RelaxedMin if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
+                let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.min_pd,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1_extra(
+                    res,
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
+                );
             }
             Operator::F64x2Min | Operator::F64x2RelaxedMin => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
@@ -6031,6 +6073,27 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
+            Operator::F32x4RelaxedMax if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
+                let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.max_ps,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1_extra(
+                    res,
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
+                );
+            }
             Operator::F32x4Max | Operator::F32x4RelaxedMax => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
@@ -6072,6 +6135,27 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
                 );
                 self.state.push1(res);
+            }
+            Operator::F64x2RelaxedMax if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
+                let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.max_pd,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1_extra(
+                    res,
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
+                );
             }
             Operator::F64x2Max | Operator::F64x2RelaxedMax => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
