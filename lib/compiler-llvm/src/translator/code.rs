@@ -8102,6 +8102,30 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 )?;
                 self.state.push1(res);
             }
+            Operator::I32x4RelaxedTruncF32x4U
+                if self.cpu_features.contains(CpuFeature::AVX512F)
+                    && self.cpu_features.contains(CpuFeature::AVX512VL) =>
+            {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_f32x4(v, i)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.cvtps2udq128,
+                        &[
+                            v.into(),
+                            self.intrinsics.i32x4_ty.const_zero().into(),
+                            self.intrinsics.i8_ty.const_int(0xff, false).into(),
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
             Operator::I32x4TruncSatF32x4U | Operator::I32x4RelaxedTruncF32x4U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;

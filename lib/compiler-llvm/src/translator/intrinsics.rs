@@ -61,6 +61,7 @@ pub fn type_to_llvm<'ctx>(
 pub struct X86_64Intrinsics<'ctx> {
     pub pshufb128: FunctionValue<'ctx>,
     pub cvtps2dq: FunctionValue<'ctx>,
+    pub cvtps2udq128: FunctionValue<'ctx>,
 }
 
 /// Struct containing LLVM and VM intrinsics.
@@ -370,6 +371,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let f64_ty_basic_md: BasicMetadataTypeEnum = f64_ty.into();
         let i8x16_ty_basic_md: BasicMetadataTypeEnum = i8x16_ty.into();
         let i16x8_ty_basic_md: BasicMetadataTypeEnum = i16x8_ty.into();
+        let i32x4_ty_basic_md: BasicMetadataTypeEnum = i32x4_ty.into();
         let f32x4_ty_basic_md: BasicMetadataTypeEnum = f32x4_ty.into();
         let f64x2_ty_basic_md: BasicMetadataTypeEnum = f64x2_ty.into();
         let md_ty_basic_md: BasicMetadataTypeEnum = md_ty.into();
@@ -492,6 +494,10 @@ impl<'ctx> Intrinsics<'ctx> {
             false,
         );
         let ret_i32x4_take_f32x4 = i32x4_ty.fn_type(&[f32x4_ty_basic_md], false);
+        let ret_i32x4_take_f32x4_i32x4_i8 = i32x4_ty.fn_type(
+            &[f32x4_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()],
+            false,
+        );
 
         let add_function_with_attrs =
             |name: &str, ty: FunctionType<'ctx>, linkage: Option<Linkage>| -> FunctionValue<'ctx> {
@@ -1275,6 +1281,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 cvtps2dq: add_function_with_attrs(
                     "llvm.x86.sse2.cvtps2dq",
                     ret_i32x4_take_f32x4,
+                    None,
+                ),
+                cvtps2udq128: add_function_with_attrs(
+                    "llvm.x86.avx512.mask.cvtps2udq.128",
+                    ret_i32x4_take_f32x4_i32x4_i8,
                     None,
                 ),
             },
