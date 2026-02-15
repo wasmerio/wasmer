@@ -79,7 +79,7 @@
 (assert_return (invoke "i32x4.relaxed_trunc_f64x2_u_zero"
                        (v128.const f64x2 nan -nan))
                (either (v128.const i32x4 0 0 0 0)
-                       (v128.const i32x4 0 0 0xffffffff 0xffffffff)))
+                       (v128.const i32x4 0xffffffff 0xffffffff 0 0)))
 
 ;; Check that multiple calls to the relaxed instruction with same inputs returns same results.
 

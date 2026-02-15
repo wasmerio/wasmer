@@ -8068,9 +8068,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
-            Operator::I32x4RelaxedTruncF32x4S
-                if self.cpu_features.contains(CpuFeature::SSE2) =>
-            {
+            Operator::I32x4RelaxedTruncF32x4S if self.cpu_features.contains(CpuFeature::SSE2) => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f32x4(v, i)?;
                 let res = self
@@ -8139,6 +8137,49 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     u32::MAX as u64,
                     v,
                 )?;
+                self.state.push1(res);
+            }
+            Operator::I32x4RelaxedTruncF64x2SZero
+                if self.cpu_features.contains(CpuFeature::SSE2) =>
+            {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_f64x2(v, i)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.cvtpd2dq,
+                        &[v.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I32x4RelaxedTruncF64x2UZero
+                if self.cpu_features.contains(CpuFeature::AVX512F)
+                    && self.cpu_features.contains(CpuFeature::AVX512VL) =>
+            {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_f64x2(v, i)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.cvtpd2udq128,
+                        &[
+                            v.into(),
+                            self.intrinsics.i32x4_ty.const_zero().into(),
+                            self.intrinsics.i8_ty.const_int(0xff, false).into(),
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
                 self.state.push1(res);
             }
             Operator::I32x4TruncSatF64x2SZero

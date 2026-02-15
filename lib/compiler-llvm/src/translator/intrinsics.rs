@@ -62,6 +62,8 @@ pub struct X86_64Intrinsics<'ctx> {
     pub pshufb128: FunctionValue<'ctx>,
     pub cvtps2dq: FunctionValue<'ctx>,
     pub cvtps2udq128: FunctionValue<'ctx>,
+    pub cvtpd2dq: FunctionValue<'ctx>,
+    pub cvtpd2udq128: FunctionValue<'ctx>,
 }
 
 /// Struct containing LLVM and VM intrinsics.
@@ -496,6 +498,11 @@ impl<'ctx> Intrinsics<'ctx> {
         let ret_i32x4_take_f32x4 = i32x4_ty.fn_type(&[f32x4_ty_basic_md], false);
         let ret_i32x4_take_f32x4_i32x4_i8 = i32x4_ty.fn_type(
             &[f32x4_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()],
+            false,
+        );
+        let ret_i32x4_take_f64x2 = i32x4_ty.fn_type(&[f64x2_ty_basic_md], false);
+        let ret_i32x4_take_f64x2_i32x4_i8 = i32x4_ty.fn_type(
+            &[f64x2_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()],
             false,
         );
 
@@ -1286,6 +1293,16 @@ impl<'ctx> Intrinsics<'ctx> {
                 cvtps2udq128: add_function_with_attrs(
                     "llvm.x86.avx512.mask.cvtps2udq.128",
                     ret_i32x4_take_f32x4_i32x4_i8,
+                    None,
+                ),
+                cvtpd2dq: add_function_with_attrs(
+                    "llvm.x86.sse2.cvtpd2dq",
+                    ret_i32x4_take_f64x2,
+                    None,
+                ),
+                cvtpd2udq128: add_function_with_attrs(
+                    "llvm.x86.avx512.mask.cvtpd2udq.128",
+                    ret_i32x4_take_f64x2_i32x4_i8,
                     None,
                 ),
             },
