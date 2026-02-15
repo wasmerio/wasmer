@@ -99,6 +99,8 @@ pub struct Intrinsics<'ctx> {
     pub mul_f64: FunctionValue<'ctx>,
     pub mul_f32x4: FunctionValue<'ctx>,
     pub mul_f64x2: FunctionValue<'ctx>,
+    pub muladd_f32x4: FunctionValue<'ctx>,
+    pub muladd_f64x2: FunctionValue<'ctx>,
 
     pub div_f32: FunctionValue<'ctx>,
     pub div_f64: FunctionValue<'ctx>,
@@ -415,6 +417,26 @@ impl<'ctx> Intrinsics<'ctx> {
             f32x4_ty.fn_type(&[f32x4_ty_basic_md, f32x4_ty_basic_md], false);
         let ret_f64x2_take_f64x2_f64x2 =
             f64x2_ty.fn_type(&[f64x2_ty_basic_md, f64x2_ty_basic_md], false);
+        let ret_f32x4_take_f32x4_f32x4_f32x4_md_md = f32x4_ty.fn_type(
+            &[
+                f32x4_ty_basic_md,
+                f32x4_ty_basic_md,
+                f32x4_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
+        let ret_f64x2_take_f64x2_f64x2_f64x2_md_md = f64x2_ty.fn_type(
+            &[
+                f64x2_ty_basic_md,
+                f64x2_ty_basic_md,
+                f64x2_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
 
         let ret_f64_take_f32_md = f64_ty.fn_type(&[f32_ty_basic_md, md_ty_basic_md], false);
         let ret_f32_take_f64_md_md =
@@ -647,6 +669,16 @@ impl<'ctx> Intrinsics<'ctx> {
             mul_f64x2: add_function_with_attrs(
                 "llvm.experimental.constrained.fmul.v2f64",
                 ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+            muladd_f32x4: add_function_with_attrs(
+                "llvm.experimental.constrained.fmuladd.v4f32",
+                ret_f32x4_take_f32x4_f32x4_f32x4_md_md,
+                None,
+            ),
+            muladd_f64x2: add_function_with_attrs(
+                "llvm.experimental.constrained.fmuladd.v2f64",
+                ret_f64x2_take_f64x2_f64x2_f64x2_md_md,
                 None,
             ),
 

@@ -5509,6 +5509,41 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
                 );
             }
+            Operator::F32x4RelaxedMadd | Operator::F32x4RelaxedNmadd
+                if self.cpu_features.contains(CpuFeature::FMA) =>
+            {
+                let ((v1, i1), (v2, i2), (v3, i3)) = self.state.pop3_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
+                let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
+                let (v3, i3) = self.v128_into_f32x4(v3, i3)?;
+
+                let v1 = match op {
+                    Operator::F32x4RelaxedNmadd => err!(self.builder.build_float_neg(v1, "")),
+                    _ => v1,
+                };
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.muladd_f32x4,
+                        &[
+                            v1.into(),
+                            v2.into(),
+                            v3.into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                let info = (i1.strip_pending() & i2.strip_pending())?;
+                let info = (info & i3.strip_pending())?;
+                let info = (info | ExtraInfo::pending_f32_nan())?;
+                self.state.push1_extra(res, info);
+            }
             Operator::F32x4RelaxedMadd | Operator::F32x4RelaxedNmadd => {
                 let ((v1, i1), (v2, i2), (v3, i3)) = self.state.pop3_extra()?;
                 let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
@@ -5580,6 +5615,41 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     res,
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
                 );
+            }
+            Operator::F64x2RelaxedMadd | Operator::F64x2RelaxedNmadd
+                if self.cpu_features.contains(CpuFeature::FMA) =>
+            {
+                let ((v1, i1), (v2, i2), (v3, i3)) = self.state.pop3_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
+                let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
+                let (v3, i3) = self.v128_into_f64x2(v3, i3)?;
+
+                let v1 = match op {
+                    Operator::F64x2RelaxedNmadd => err!(self.builder.build_float_neg(v1, "")),
+                    _ => v1,
+                };
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.muladd_f64x2,
+                        &[
+                            v1.into(),
+                            v2.into(),
+                            v3.into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                let info = (i1.strip_pending() & i2.strip_pending())?;
+                let info = (info & i3.strip_pending())?;
+                let info = (info | ExtraInfo::pending_f64_nan())?;
+                self.state.push1_extra(res, info);
             }
             Operator::F64x2RelaxedMadd | Operator::F64x2RelaxedNmadd => {
                 let ((v1, i1), (v2, i2), (v3, i3)) = self.state.pop3_extra()?;
