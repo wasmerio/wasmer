@@ -305,6 +305,7 @@ impl CompilerConfig for Cranelift {
         if target.triple().operating_system == OperatingSystem::Linux {
             feats.exceptions(true);
         }
+        feats.relaxed_simd(true);
         feats
     }
 }
