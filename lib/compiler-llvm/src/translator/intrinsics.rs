@@ -60,6 +60,7 @@ pub fn type_to_llvm<'ctx>(
 #[allow(dead_code)]
 pub struct X86_64Intrinsics<'ctx> {
     pub pshufb128: FunctionValue<'ctx>,
+    pub pmulhrsw128: FunctionValue<'ctx>,
     pub pblendvb: FunctionValue<'ctx>,
     pub min_ps: FunctionValue<'ctx>,
     pub min_pd: FunctionValue<'ctx>,
@@ -1324,6 +1325,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 pshufb128: add_function_with_attrs(
                     "llvm.x86.ssse3.pshuf.b.128",
                     ret_i8x16_take_i8x16_i8x16,
+                    None,
+                ),
+                pmulhrsw128: add_function_with_attrs(
+                    "llvm.x86.ssse3.pmul.hr.sw.128",
+                    ret_i16x8_take_i16x8_i16x8,
                     None,
                 ),
                 pblendvb: add_function_with_attrs(

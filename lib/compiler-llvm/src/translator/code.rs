@@ -3739,6 +3739,24 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
+            Operator::I16x8RelaxedQ15mulrS if self.cpu_features.contains(CpuFeature::SSSE3) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1)?;
+                let (v2, _) = self.v128_into_i16x8(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pmulhrsw128,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
             Operator::I16x8Q15MulrSatS | Operator::I16x8RelaxedQ15mulrS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i16x8(v1, i1)?;
