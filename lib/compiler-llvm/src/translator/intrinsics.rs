@@ -56,6 +56,12 @@ pub fn type_to_llvm<'ctx>(
     }
 }
 
+/// Struct containing x86_64 SIMD LLVM intrinsics.
+#[allow(dead_code)]
+pub struct X86_64Intrinsics<'ctx> {
+    pub pshufb128: FunctionValue<'ctx>,
+}
+
 /// Struct containing LLVM and VM intrinsics.
 #[allow(dead_code)]
 pub struct Intrinsics<'ctx> {
@@ -194,6 +200,8 @@ pub struct Intrinsics<'ctx> {
     pub i32x8_ty: VectorType<'ctx>,
 
     pub ptr_ty: PointerType<'ctx>,
+
+    pub x86_64: X86_64Intrinsics<'ctx>,
 
     pub anyfunc_ty: StructType<'ctx>,
 
@@ -1255,6 +1263,14 @@ impl<'ctx> Intrinsics<'ctx> {
 
             // LLVM > 15 has a single type for pointers.
             ptr_ty,
+
+            x86_64: X86_64Intrinsics {
+                pshufb128: add_function_with_attrs(
+                    "llvm.x86.ssse3.pshuf.b.128",
+                    ret_i8x16_take_i8x16_i8x16,
+                    None,
+                ),
+            },
         };
 
         let noreturn =

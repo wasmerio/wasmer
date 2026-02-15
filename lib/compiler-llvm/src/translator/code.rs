@@ -8,6 +8,7 @@ use super::{
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
 use crate::compiler::ModuleBasedSymbolRegistry;
+use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
     attributes::{Attribute, AttributeLoc},
@@ -51,7 +52,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, Type,
+    ModuleInfo, SignatureIndex, TableIndex, Type, target::CpuFeature,
 };
 use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
@@ -76,6 +77,7 @@ pub struct FuncTranslator {
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
+    cpu_features: EnumSet<CpuFeature>,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -87,6 +89,7 @@ impl FuncTranslator {
         target_machine_no_opt: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
+        cpu_features: EnumSet<CpuFeature>,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
@@ -106,6 +109,7 @@ impl FuncTranslator {
             },
             binary_fmt,
             pointer_width,
+            cpu_features,
         })
     }
 
@@ -339,6 +343,7 @@ impl FuncTranslator {
             target_triple: self.target_triple.clone(),
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
+            cpu_features: self.cpu_features,
         };
 
         fcg.ctx.add_func(
@@ -1931,6 +1936,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     target_triple: Triple,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
+    cpu_features: EnumSet<CpuFeature>,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
@@ -9853,6 +9859,27 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     (i1.strip_pending() & i2.strip_pending())?
                 };
                 self.state.push1_extra(res, info);
+            }
+            Operator::I8x16RelaxedSwizzle if self.cpu_features.contains(CpuFeature::SSSE3) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let v1 = self.apply_pending_canonicalization(v1, i1)?;
+                let v2 = self.apply_pending_canonicalization(v2, i2)?;
+
+                let (v1, _) = self.v128_into_i8x16(v1, i1)?;
+                let (v2, _) = self.v128_into_i8x16(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pshufb128,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
             }
             Operator::I8x16Swizzle | Operator::I8x16RelaxedSwizzle => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
