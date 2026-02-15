@@ -192,7 +192,7 @@ pub struct RuntimeOptions {
     ///
     /// Available for cranelift, LLVM and singlepass.
     #[clap(long, alias = "llvm-debug-dir")]
-    compiler_debug_dir: Option<PathBuf>,
+    pub(crate) compiler_debug_dir: Option<PathBuf>,
 
     /// Enable a profiler.
     ///

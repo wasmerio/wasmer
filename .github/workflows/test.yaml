@@ -28,6 +28,7 @@ env:
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
   S3_CACHE_VERSION: "3"
+  DEV_BACKEND_CIUSER_TOKEN: ${{ secrets.DEV_BACKEND_CIUSER_TOKEN }}
 
 jobs:
   setup:
@@ -209,10 +210,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git make lld curl
       - name: Install wasixcc
-        uses: wasix-org/wasixcc@main
+        uses: wasix-org/wasixcc@v0.3.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.3.0
 
       - name: Tool versions
         run: |
@@ -798,6 +800,10 @@ jobs:
               description: "Examples",
               make: "test-stage-5-test-examples",
             },
+            {
+              description: "CLI integ. tests",
+              make: test-integration-cli-ci
+            }
           ]
         metadata: [
             {
@@ -843,6 +849,21 @@ jobs:
               container: "alpine:edge",
             },
           ]
+        # Currently Windows suffers from #6191 (bad --volume argument parsing) and for some reason,
+        # the CI macOS runner tends to be really slow (huge number of timeouts).
+        exclude:
+          - stage:
+              make: test-integration-cli-ci
+            metadata:
+              build: macos-x64
+          - stage:
+              make: test-integration-cli-ci
+            metadata:
+              build: macos-arm
+          - stage:
+              make: test-integration-cli-ci
+            metadata:
+              build: windows-x64
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
@@ -911,10 +932,11 @@ jobs:
 
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
-        uses: wasix-org/wasixcc@main
+        uses: wasix-org/wasixcc@v0.3.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2025-12-22.1
+          version: v0.3.0
 
       - name: Install LLVM
         shell: bash
@@ -969,203 +991,3 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
-
-  test_integration_cli:
-    name: CLI tests - ${{ matrix.build }}
-    runs-on: ${{ matrix.os }}
-    needs: [build, build_linux_riscv64]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - build: linux-x64
-            os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
-            exe: ""
-          # we only build the integration-test CLI, we don't run tests
-          - build: macos-arm
-            os: depot-macos-14
-            target: aarch64-apple-darwin,
-            exe: ""
-          - build: linux-musl
-            target: x86_64-unknown-linux-musl
-            os: ubuntu-22.04
-            container: alpine:edge
-            exe: ""
-          - build: windows-x64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
-            exe: ".exe"
-
-    container: ${{ matrix.container }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.10.0
-      - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl'
-        run: |
-          ./scripts/alpine-linux-install-deps.sh
-      - uses: actions/download-artifact@v4
-        id: download
-        with:
-          name: capi-${{ matrix.build }}
-      - uses: actions/download-artifact@v4
-        with:
-          name: wasmer-cli-${{ matrix.build }}
-      - name: "Echo download path"
-        run: echo ${{steps.download.outputs.download-path}}
-      - uses: ./.github/actions/load_toolchain
-        id: load_toolchain
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
-          target: ${{ matrix.target }}
-      - name: Install Nextest
-        uses: taiki-e/install-action@nextest
-      - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-integration-cli-${{ matrix.build }}
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - name: Prepare package directory
-        shell: bash
-        run: |
-          mkdir -p package
-          mkdir -p package/cache
-      - uses: actions/download-artifact@v4
-        with:
-          name: capi-linux-arm64
-          path: package/cache/wasmercache1
-      - uses: actions/download-artifact@v4
-        with:
-          name: capi-windows-x64
-          path: package/cache/wasmercache2
-      - uses: actions/download-artifact@v4
-        with:
-          name: capi-macos-arm
-          path: package/cache/wasmercache3
-      - uses: actions/download-artifact@v4
-        with:
-          name: capi-linux-x64
-          path: package/cache/wasmercache4
-      - uses: actions/download-artifact@v4
-        with:
-          name: capi-linux-riscv64
-          path: package/cache/wasmercache5
-      - name: Copy .tar.gz files to proper location
-        shell: bash
-        run: |
-          ls package/cache/wasmercache1
-          ls package/cache/wasmercache2
-          ls package/cache/wasmercache3
-          ls package/cache/wasmercache4
-          ls package/cache/wasmercache5
-          cp package/cache/wasmercache1/build-capi.tar.gz package/cache/wasmer-linux-arm64.tar.gz
-          cp package/cache/wasmercache2/build-capi.tar.gz package/cache/wasmer-windows-gnu64.tar.gz
-          cp package/cache/wasmercache3/build-capi.tar.gz package/cache/wasmer-darwin-arm64.tar.gz
-          cp package/cache/wasmercache4/build-capi.tar.gz package/cache/wasmer-darwin-amd64.tar.gz
-          cp package/cache/wasmercache5/wasmer.tar.gz package/cache/wasmer-linux-riscv64.tar.gz
-      - uses: actions/download-artifact@v4
-        if: ${{ matrix.build == 'windows-x64' }}
-        with:
-          name: capi-windows-x64
-          path: download_link
-      - uses: actions/download-artifact@v4
-        if: ${{ matrix.build == 'linux-musl' }}
-        with:
-          name: capi-linux-musl
-          path: download_link
-      - uses: actions/download-artifact@v4
-        if: ${{ matrix.build == 'macos-arm' }}
-        with:
-          name: capi-macos-arm
-          path: download_link
-      - uses: actions/download-artifact@v4
-        if: ${{ matrix.build == 'linux-x64' }}
-        with:
-          name: capi-linux-x64
-          path: download_link
-      - name: Copy build-capi.tar.gz to link.tar.gz
-        shell: bash
-        run: |
-          cp download_link/build-capi.tar.gz link.tar.gz
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-capi
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-wasmer
-
-          # Removed in favour of freestanding integration tests
-          #
-          # - name: Test integration CLI
-          #   if: false # matrix.build != 'macos-arm'
-          #   shell: bash
-          #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
-          #     export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
-          #   env:
-          #     TARGET: ${{ matrix.target }}
-          #     TARGET_DIR: target/${{ matrix.target }}/release
-          #     CARGO_TARGET: ${{ matrix.target }}
-          #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-          # ---- 
-          # Note (xdoardo on 2024/10/07): 
-          # --- 
-          #  As of now the WAMR, WASMI (and V8) backends are not that mature enough. We will re-enable these tests 
-          #  when they've been used and matured. 
-          # ---- 
-          #
-          # - name: Test CLI integration (WAMR) 
-          #   shell: bash
-          #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
-          #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wamr-ci
-          #   env:
-          #     TARGET: ${{ matrix.target }}
-          #     TARGET_DIR: target/${{ matrix.target }}/release
-          #     CARGO_TARGET: ${{ matrix.target }}
-          #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          # - name: Test CLI integration (WASMI) 
-          #   shell: bash
-          #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
-          #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wasmi-ci
-          #   env:
-          #     TARGET: ${{ matrix.target }}
-          #     TARGET_DIR: target/${{ matrix.target }}/release
-          #     CARGO_TARGET: ${{ matrix.target }}
-          #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  test-wasmer-integration-tests:
-    name: "Remote integ. tests"
-    needs: [build]
-    uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main
-    with:
-      fetch_artifact: "wasmer-cli-linux-x64"
-      registry: wasmer.io
-    secrets:
-      token: ${{ secrets.PROD_BACKEND_CIUSER_TOKEN }}

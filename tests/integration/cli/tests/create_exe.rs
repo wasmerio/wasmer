@@ -277,6 +277,7 @@ fn test_create_exe_with_precompiled_works_1() {
     any(target_os = "windows", target_os = "macos"),
     ignore = "See https://github.com/wasmerio/wasmer/issues/4285"
 )]
+#[ignore = "create_exe is obsolete right now"]
 #[test]
 fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;

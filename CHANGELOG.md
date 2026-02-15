@@ -6,6 +6,26 @@
 
 ## **Unreleased**
 
+## 7.0.1 - 02/02/2026
+
+## Added
+
+  - [#6154](https://github.com/wasmerio/wasmer/pull/6154) Add tests for #6146
+
+## Changed
+
+  - [#6134](https://github.com/wasmerio/wasmer/pull/6134) Switch from legacy `rust-toolchain` format
+
+## Fixed
+
+  - [#6146](https://github.com/wasmerio/wasmer/pull/6146) Fix mounts not being handled properly when running a package directly…
+  - [#6143](https://github.com/wasmerio/wasmer/pull/6143) wasix: fix sock_set_opt_size option validation
+  - [#6142](https://github.com/wasmerio/wasmer/pull/6142) fix rust-format warning
+  - [#6140](https://github.com/wasmerio/wasmer/pull/6140) Fix binfmt_misc
+  - [#6136](https://github.com/wasmerio/wasmer/pull/6136) fix(build): do not use legacy 1.0.3 mold release
+
+
+
 ## 7.0.0 - 28/01/2026
 
 This release adds:
