@@ -4042,6 +4042,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
+            Operator::I16x8RelaxedDotI8x16I7x16S
+                if self.cpu_features.contains(CpuFeature::SSSE3) =>
+            {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (a, _) = self.v128_into_i8x16(v1, i1)?;
+                let (b, _) = self.v128_into_i8x16(v2, i2)?;
+
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pmaddubsw128,
+                        &[b.into(), a.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic()
+                    .into_vector_value();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
             Operator::I16x8RelaxedDotI8x16I7x16S => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i8x16(v1, i1)?;
