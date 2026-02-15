@@ -61,6 +61,7 @@ pub fn type_to_llvm<'ctx>(
 pub struct X86_64Intrinsics<'ctx> {
     pub pshufb128: FunctionValue<'ctx>,
     pub pmaddubsw128: FunctionValue<'ctx>,
+    pub pmaddwd128: FunctionValue<'ctx>,
     pub pmulhrsw128: FunctionValue<'ctx>,
     pub pblendvb: FunctionValue<'ctx>,
     pub min_ps: FunctionValue<'ctx>,
@@ -1331,6 +1332,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 pmaddubsw128: add_function_with_attrs(
                     "llvm.x86.ssse3.pmadd.ub.sw.128",
                     i16x8_ty.fn_type(&[i8x16_ty_basic_md, i8x16_ty_basic_md], false),
+                    None,
+                ),
+                pmaddwd128: add_function_with_attrs(
+                    "llvm.x86.sse2.pmadd.wd",
+                    i32x4_ty.fn_type(&[i16x8_ty_basic_md, i16x8_ty_basic_md], false),
                     None,
                 ),
                 pmulhrsw128: add_function_with_attrs(

@@ -4145,6 +4145,42 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
+            Operator::I32x4RelaxedDotI8x16I7x16AddS
+                if self.cpu_features.contains(CpuFeature::SSSE3) =>
+            {
+                let ((v1, i1), (v2, i2), (acc, acc_info)) = self.state.pop3_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1)?;
+                let (v2, _) = self.v128_into_i8x16(v2, i2)?;
+                let (acc, _) = self.v128_into_i32x4(acc, acc_info)?;
+
+                // PMADDUBSW computes pairwise u8*i8 with i16 saturation, which
+                // is one of the valid relaxed dot-product behaviors.
+                let dot16 = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pmaddubsw128,
+                        &[v2.into(), v1.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic()
+                    .into_vector_value();
+                let ones = VectorType::const_vector(&[self.intrinsics.i16_ty.const_int(1, false); 8]);
+                let dot32 = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pmaddwd128,
+                        &[dot16.into(), ones.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic()
+                    .into_vector_value();
+                let res = err!(self.builder.build_int_add(dot32, acc, ""));
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
             Operator::I32x4RelaxedDotI8x16I7x16AddS => {
                 let ((v1, i1), (v2, i2), (acc, acc_info)) = self.state.pop3_extra()?;
                 let (v1, _) = self.v128_into_i8x16(v1, i1)?;
