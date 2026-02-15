@@ -60,6 +60,7 @@ pub fn type_to_llvm<'ctx>(
 #[allow(dead_code)]
 pub struct X86_64Intrinsics<'ctx> {
     pub pshufb128: FunctionValue<'ctx>,
+    pub cvtps2dq: FunctionValue<'ctx>,
 }
 
 /// Struct containing LLVM and VM intrinsics.
@@ -490,6 +491,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ],
             false,
         );
+        let ret_i32x4_take_f32x4 = i32x4_ty.fn_type(&[f32x4_ty_basic_md], false);
 
         let add_function_with_attrs =
             |name: &str, ty: FunctionType<'ctx>, linkage: Option<Linkage>| -> FunctionValue<'ctx> {
@@ -1268,6 +1270,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 pshufb128: add_function_with_attrs(
                     "llvm.x86.ssse3.pshuf.b.128",
                     ret_i8x16_take_i8x16_i8x16,
+                    None,
+                ),
+                cvtps2dq: add_function_with_attrs(
+                    "llvm.x86.sse2.cvtps2dq",
+                    ret_i32x4_take_f32x4,
                     None,
                 ),
             },
