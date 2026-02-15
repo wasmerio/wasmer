@@ -4347,6 +4347,34 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             | Operator::I16x8RelaxedLaneselect
             | Operator::I32x4RelaxedLaneselect
             | Operator::I64x2RelaxedLaneselect
+                if self.cpu_features.contains(CpuFeature::SSE41) =>
+            {
+                let ((v1, i1), (v2, i2), (mask, mask_info)) = self.state.pop3_extra()?;
+                let v1 = self.apply_pending_canonicalization(v1, i1)?;
+                let v2 = self.apply_pending_canonicalization(v2, i2)?;
+                let mask = self.apply_pending_canonicalization(mask, mask_info)?;
+
+                let (v1, _) = self.v128_into_i8x16(v1, i1)?;
+                let (v2, _) = self.v128_into_i8x16(v2, i2)?;
+                let (mask, _) = self.v128_into_i8x16(mask, mask_info)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pblendvb,
+                        &[v2.into(), v1.into(), mask.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I8x16RelaxedLaneselect
+            | Operator::I16x8RelaxedLaneselect
+            | Operator::I32x4RelaxedLaneselect
+            | Operator::I64x2RelaxedLaneselect
             | Operator::V128Bitselect => {
                 let ((v1, i1), (v2, i2), (cond, cond_info)) = self.state.pop3_extra()?;
                 let v1 = self.apply_pending_canonicalization(v1, i1)?;

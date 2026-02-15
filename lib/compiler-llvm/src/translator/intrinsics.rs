@@ -60,6 +60,7 @@ pub fn type_to_llvm<'ctx>(
 #[allow(dead_code)]
 pub struct X86_64Intrinsics<'ctx> {
     pub pshufb128: FunctionValue<'ctx>,
+    pub pblendvb: FunctionValue<'ctx>,
     pub cvtps2dq: FunctionValue<'ctx>,
     pub cvtps2udq128: FunctionValue<'ctx>,
     pub cvtpd2dq: FunctionValue<'ctx>,
@@ -397,6 +398,10 @@ impl<'ctx> Intrinsics<'ctx> {
         let ret_i8x16_take_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic_md], false);
         let ret_i8x16_take_i8x16_i8x16 =
             i8x16_ty.fn_type(&[i8x16_ty_basic_md, i8x16_ty_basic_md], false);
+        let ret_i8x16_take_i8x16_i8x16_i8x16 = i8x16_ty.fn_type(
+            &[i8x16_ty_basic_md, i8x16_ty_basic_md, i8x16_ty_basic_md],
+            false,
+        );
         let ret_i16x8_take_i16x8_i16x8 =
             i16x8_ty.fn_type(&[i16x8_ty_basic_md, i16x8_ty_basic_md], false);
 
@@ -1315,6 +1320,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 pshufb128: add_function_with_attrs(
                     "llvm.x86.ssse3.pshuf.b.128",
                     ret_i8x16_take_i8x16_i8x16,
+                    None,
+                ),
+                pblendvb: add_function_with_attrs(
+                    "llvm.x86.sse41.pblendvb",
+                    ret_i8x16_take_i8x16_i8x16_i8x16,
                     None,
                 ),
                 cvtps2dq: add_function_with_attrs(
