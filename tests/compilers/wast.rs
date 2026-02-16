@@ -68,6 +68,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: SIMD index out of bounds",
         "Validation error: constant expression required",
         "Unsupported feature: unsupported init expr in element section",
+        "Insufficient resources: Table minimum",
+        "Insufficient resources: Table maximum",
     ]);
     wast.fail_fast = false;
     let path = Path::new(wast_path);
