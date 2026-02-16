@@ -2,10 +2,10 @@
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 singlepass wasmer::simd_generated_ext_ops
 singlepass wasmer::simd
-singlepass spec::exception_handling # Singlepass doesn't support EH yet (no one asked for this feature)
-singlepass wasmer::exception_handling
-windows spec::exception_handling # No EH support on Windows yet
-macos+cranelift spec::exception_handling
+singlepass spec::exceptions # Singlepass doesn't support EH yet (no one asked for this feature)
+singlepass wasmer::exceptions
+windows spec::exceptions # No EH support on Windows yet
+macos+cranelift spec::exceptions
 
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
