@@ -298,34 +298,23 @@ jobs:
       fail-fast: false
       matrix:
         build-what:
-          [
-            {
-              key: wamr,
-              lint-cmd: "make lint-wamr",
-              build-cmd: "make test-wamr-api",
-              name: "API (wamr)",
-            },
-            {
-              key: wasmi,
-              lint-cmd: "make lint-wasmi",
-              build-cmd: "make test-wasmi-api",
-              name: "API (wasmi)",
-            },
-            {
-              key: v8,
-              lint-cmd: "make lint-v8",
-              build-cmd: "make test-v8-api",
-              name: "API (v8)",
-            },
-          ]
-        metadata: [
-            { build: linux-x64, os: ubuntu-22.04 },
-            { build: macos-arm, os: depot-macos-14 },
-            #{
-            #  build: windows-x64,
-            #  os: windows-2022,
-            #}
-          ]
+          - key: wamr
+            lint-cmd: "make lint-wamr"
+            build-cmd: "make test-wamr-api"
+            name: "API (wamr)"
+          - key: wasmi
+            lint-cmd: "make lint-wasmi"
+            build-cmd: "make test-wasmi-api"
+            name: "API (wasmi)"
+          - key: v8
+            lint-cmd: "make lint-v8"
+            build-cmd: "make test-v8-api"
+            name: "API (v8)"
+        metadata:
+          - build: linux-x64
+            os: ubuntu-22.04
+          - build: macos-arm
+            os: depot-macos-14
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v6
