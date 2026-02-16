@@ -774,6 +774,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        is_pull_request:
+          - ${{ github.event_name == 'pull_request' }}
         stage:
           [
             {
@@ -839,7 +841,7 @@ jobs:
               os: windows-2022,
               target: x86_64-pc-windows-msvc,
               exe: ".exe",
-              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz",
             },
             {
               build: linux-musl,
@@ -849,8 +851,15 @@ jobs:
               container: "alpine:edge",
             },
           ]
-        # The CI macOS runner tends to be really slow (huge number of timeouts).
         exclude:
+          - is_pull_request: true
+            metadata:
+              build: macos-x64
+              os: macos-15-intel
+              target: x86_64-apple-darwin
+              exe: ""
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz"
+          # The CI macOS runner tends to be really slow (huge number of timeouts).
           - stage:
               make: test-integration-cli-ci
             metadata:
@@ -863,6 +872,7 @@ jobs:
       image: ${{ matrix.metadata.container }}
       volumes:
         - /usr/local:/host/usr/local
+
     steps:
       - uses: actions/checkout@v6
       - name: Show disk capacity
@@ -980,8 +990,6 @@ jobs:
       - name: ${{ matrix.stage.description }}
         shell: bash
         run: make ${{ matrix.stage.make }}
-        # For MacOS x64 - run tests only on main or release branches
-        if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-') || matrix.metadata.os != 'macos-15-intel'
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
