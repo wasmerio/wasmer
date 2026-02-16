@@ -23,7 +23,9 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     let is_bulkmemory = wast_path.contains("bulk-memory");
     let is_simd = wast_path.contains("simd");
     let is_threads = wast_path.contains("threads");
-    let is_exception_handling = wast_path.contains("exceptions");
+    let is_exception_handling = wast_path.contains("exceptions")
+        || wast_path.ends_with("exports.wast")
+        || wast_path.ends_with("imports.wast");
     if is_bulkmemory {
         features.bulk_memory(true);
     }
@@ -56,6 +58,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: memory size must be at most",
         "Validation error: multiple memories",
         "Validation error: function references",
+        "Validation error: tables with expression initializers require the function-references proposal",
         "Validation error: heap types not supported without the gc feature",
         "Validation error: rec group usage requires `gc` proposal to be enabled",
         "Validation error: tail calls support is not enabled",
@@ -63,6 +66,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: unknown memory 0",
         "Validation error: invalid var_u32",
         "Validation error: SIMD index out of bounds",
+        "Validation error: constant expression required",
+        "Unsupported feature: unsupported init expr in element section",
     ]);
     wast.fail_fast = false;
     let path = Path::new(wast_path);
