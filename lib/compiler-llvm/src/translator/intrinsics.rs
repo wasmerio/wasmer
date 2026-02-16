@@ -530,15 +530,11 @@ impl<'ctx> Intrinsics<'ctx> {
             false,
         );
         let ret_i32x4_take_f32x4 = i32x4_ty.fn_type(&[f32x4_ty_basic_md], false);
-        let ret_i32x4_take_f32x4_i32x4_i8 = i32x4_ty.fn_type(
-            &[f32x4_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()],
-            false,
-        );
+        let ret_i32x4_take_f32x4_i32x4_i8 =
+            i32x4_ty.fn_type(&[f32x4_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()], false);
         let ret_i32x4_take_f64x2 = i32x4_ty.fn_type(&[f64x2_ty_basic_md], false);
-        let ret_i32x4_take_f64x2_i32x4_i8 = i32x4_ty.fn_type(
-            &[f64x2_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()],
-            false,
-        );
+        let ret_i32x4_take_f64x2_i32x4_i8 =
+            i32x4_ty.fn_type(&[f64x2_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()], false);
 
         let add_function_with_attrs =
             |name: &str, ty: FunctionType<'ctx>, linkage: Option<Linkage>| -> FunctionValue<'ctx> {

@@ -4164,7 +4164,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .try_as_basic_value()
                     .unwrap_basic()
                     .into_vector_value();
-                let ones = VectorType::const_vector(&[self.intrinsics.i16_ty.const_int(1, false); 8]);
+                let ones =
+                    VectorType::const_vector(&[self.intrinsics.i16_ty.const_int(1, false); 8]);
                 let dot32 = self
                     .build_call_with_param_attributes(
                         self.intrinsics.x86_64.pmaddwd128,
