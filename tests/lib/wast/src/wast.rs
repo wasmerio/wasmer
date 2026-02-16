@@ -569,8 +569,8 @@ impl Wast {
                 })),
             ) => true,
             (Value::FuncRef(Some(_)), WastRetCore::RefNull(_)) => false,
-            (Value::FuncRef(Some(_)), WastRetCore::RefFunc(None)) => false,
-            (Value::FuncRef(None), WastRetCore::RefFunc(None)) => true,
+            (Value::FuncRef(Some(_)), WastRetCore::RefFunc(None)) => true,
+            (Value::FuncRef(None), WastRetCore::RefFunc(None)) => false,
             (Value::FuncRef(None), WastRetCore::RefFunc(Some(_))) => false,
             (Value::FuncRef(None), WastRetCore::RefNull(_)) => true,
             (
