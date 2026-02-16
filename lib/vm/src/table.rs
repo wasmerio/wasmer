@@ -10,6 +10,7 @@ use crate::VMExternRef;
 use crate::VMFuncRef;
 use crate::store::MaybeInstanceOwned;
 use crate::vmcontext::VMTableDefinition;
+use bytesize::ByteSize;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
@@ -67,6 +68,8 @@ impl Default for TableElement {
         Self::FuncRef(None)
     }
 }
+
+const TABLE_MAX_SIZE: usize = ByteSize::mib(128).as_u64() as usize;
 
 /// A table instance.
 #[derive(Debug)]
@@ -130,6 +133,14 @@ impl VMTable {
                 return Err(format!(
                     "Table minimum ({}) is larger than maximum ({})!",
                     table.minimum, max
+                ));
+            }
+            if let Some(max) = table.maximum
+                && max as usize >= TABLE_MAX_SIZE
+            {
+                return Err(format!(
+                    "Table maximum ({}) is larger than maximum allowed size ({})!",
+                    max, TABLE_MAX_SIZE
                 ));
             }
             let table_minimum = usize::try_from(table.minimum)

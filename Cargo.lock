@@ -7392,6 +7392,7 @@ name = "wasmer-vm"
 version = "7.0.1"
 dependencies = [
  "backtrace",
+ "bytesize",
  "cc",
  "cfg-if",
  "corosensei",
