@@ -29,7 +29,7 @@ fn retrieve_alias_pathbuf(host_dir: &str, guest_dir: &str) -> Result<MappedDirec
 /// Parses a volume from a string
 pub fn parse_volume(entry: &str) -> Result<MappedDirectory> {
     // On Windows, colon is a valid path compoment (e.g. C:\)
-    if let Some((host_dir, guest_dir)) = entry.split_once(":") {
+    if let Some((host_dir, guest_dir)) = entry.rsplit_once(":") {
         retrieve_alias_pathbuf(host_dir, guest_dir)
     } else {
         retrieve_alias_pathbuf(entry, entry)
@@ -39,7 +39,7 @@ pub fn parse_volume(entry: &str) -> Result<MappedDirectory> {
 /// Parses a mapdir(legacy option) from a string.
 pub fn parse_mapdir(entry: &str) -> Result<MappedDirectory> {
     // On Windows, colon is a valid path compoment (e.g. C:\)
-    if let Some((host_dir, guest_dir)) = entry.split_once(":") {
+    if let Some((host_dir, guest_dir)) = entry.rsplit_once(":") {
         retrieve_alias_pathbuf(host_dir, guest_dir)
     } else {
         retrieve_alias_pathbuf(entry, entry)
