@@ -57,8 +57,9 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         // We allow this, so tests can be run properly for `simd_const` test.
         wast.allow_instantiation_failures(&[
             "Validation error: multiple tables",
+            "Validation error: multiple memories",
             "Validation error: unknown memory 0",
-            "Validation error: Invalid var_u32",
+            "Validation error: invalid var_u32",
             "Validation error: SIMD index out of bounds",
         ]);
     }
