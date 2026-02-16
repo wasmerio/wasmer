@@ -88,6 +88,12 @@
   )
   "unknown operator"
 )
+(assert_malformed
+  (module quote
+    "(func (block $l (i32.const 0) (br_table 0$\"l\")))"
+  )
+  "unknown operator"
+)
 
 (module
   (func (block $l (i32.const 0) (br_table $l 0)))
@@ -98,6 +104,12 @@
   )
   "unknown label"
 )
+(assert_malformed
+  (module quote
+    "(func (block $l (i32.const 0) (br_table $\"l\"0)))"
+  )
+  "unknown operator"
+)
 
 (module
   (func (block $l (i32.const 0) (br_table $l $l)))
@@ -107,6 +119,12 @@
     "(func (block $l (i32.const 0) (br_table $l$l)))"
   )
   "unknown label"
+)
+(assert_malformed
+  (module quote
+    "(func (block $l (i32.const 0) (br_table $\"l\"$l)))"
+  )
+  "unknown operator"
 )
 
 (module

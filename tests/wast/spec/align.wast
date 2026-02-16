@@ -888,7 +888,7 @@
 )
 
 ;; Unsigned 32-bit overflow
-(assert_malformed
+(assert_invalid
   (module binary 
     "\00asm" "\01\00\00\00"
     "\01\04\01\60\00\00"       ;; Type section: 1 type
@@ -903,11 +903,11 @@
     "\1a"                      ;; drop
     "\0b"                      ;; end
   )
-  "malformed memop flags"
+  "alignment must not be larger than natural"
 )
 
 ;; 32-bit out of range
-(assert_malformed
+(assert_invalid
   (module binary 
     "\00asm" "\01\00\00\00"
     "\01\04\01\60\00\00"       ;; Type section: 1 type
@@ -922,11 +922,11 @@
     "\1a"                      ;; drop
     "\0b"                      ;; end
   )
-  "malformed memop flags"
+  "alignment must not be larger than natural"
 )
 
 ;; Signed 64-bit overflow
-(assert_malformed
+(assert_invalid
   (module binary 
     "\00asm" "\01\00\00\00"
     "\01\04\01\60\00\00"       ;; Type section: 1 type
@@ -941,30 +941,11 @@
     "\1a"                      ;; drop
     "\0b"                      ;; end
   )
-  "malformed memop flags"
-)
-
-;; Unsigned 64-bit overflow
-(assert_malformed
-  (module binary 
-    "\00asm" "\01\00\00\00"
-    "\01\04\01\60\00\00"       ;; Type section: 1 type
-    "\03\02\01\00"             ;; Function section: 1 function
-    "\05\03\01\00\01"          ;; Memory section: 1 memory
-    "\0a\0a\01"                ;; Code section: 1 function
-
-    ;; function 0
-    "\08\00"
-    "\41\00"                   ;; i32.const 0
-    "\28\40\00"                ;; i32.load offset=0 align=2**64
-    "\1a"                      ;; drop
-    "\0b"                      ;; end
-  )
-  "malformed memop flags"
+  "alignment must not be larger than natural"
 )
 
 ;; 64-bit out of range
-(assert_malformed
+(assert_invalid
   (module binary 
     "\00asm" "\01\00\00\00"
     "\01\04\01\60\00\00"       ;; Type section: 1 type
@@ -975,9 +956,71 @@
     ;; function 0
     "\08\00"
     "\41\00"                   ;; i32.const 0
-    "\28\41\00"                ;; i32.load offset=0 align=2**65
+    "\28\41\00"                ;; i32.load offset=0 align=2**65 (parsed as align=1, memidx present)
+    "\1a"                      ;; drop
+    "\0b"                      ;; end
+  )
+  "type mismatch"
+)
+
+;; memop flags >= 0x80
+(assert_malformed
+  (module binary
+    "\00asm" "\01\00\00\00"
+    "\01\04\01\60\00\00"       ;; Type section: 1 type
+    "\03\02\01\00"             ;; Function section: 1 function
+    "\05\03\01\00\01"          ;; Memory section: 1 memory
+    "\0a\0b\01"                ;; Code section: 1 function
+
+    ;; function 0
+    "\09\00"
+    "\41\00"                   ;; i32.const 0
+    "\28\80\01\00"             ;; i32.load offset=0 align="2**128" (malformed)
     "\1a"                      ;; drop
     "\0b"                      ;; end
   )
   "malformed memop flags"
+)
+
+;; memop flags > 0xff (and & 0xff = 0)
+(assert_malformed
+  (module binary
+    "\00asm" "\01\00\00\00"
+    "\01\04\01\60\00\00"       ;; Type section: 1 type
+    "\03\02\01\00"             ;; Function section: 1 function
+    "\05\03\01\00\01"          ;; Memory section: 1 memory
+    "\0a\0b\01"                ;; Code section: 1 function
+
+    ;; function 0
+    "\09\00"
+    "\41\00"                   ;; i32.const 0
+    "\28\80\02\00"             ;; i32.load offset=0 align="2**256" (malformed)
+    "\1a"                      ;; drop
+    "\0b"                      ;; end
+  )
+  "malformed memop flags"
+)
+
+(assert_invalid
+  (module
+    (memory 1)
+    (func
+      i32.const 0
+      i32.load offset=0xFFFF_FFFF_FFFF_FFFF
+      drop
+    )
+  )
+  "offset out of range"
+)
+
+(assert_invalid
+  (module
+    (memory 1)
+    (func
+      i32.const 0
+      i32.load offset=0xFFFF_FFFF_FFFF_FFFF align=0x8000_0000_0000_0000
+      drop
+    )
+  )
+  "alignment must not be larger than natural"
 )

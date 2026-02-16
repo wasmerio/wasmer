@@ -94,37 +94,172 @@
 
 
 (module $Mref_ex
-  (global (export "g-const-func") funcref (ref.null func))
-  (global (export "g-var-func") (mut funcref) (ref.null func))
+  (type $t (func))
+  (func $f) (elem declare func $f)
+  (global (export "g-const-funcnull") (ref null func) (ref.null func))
+  (global (export "g-const-func") (ref func) (ref.func $f))
+  (global (export "g-const-refnull") (ref null $t) (ref.null $t))
+  (global (export "g-const-ref") (ref $t) (ref.func $f))
   (global (export "g-const-extern") externref (ref.null extern))
+  (global (export "g-var-funcnull") (mut (ref null func)) (ref.null func))
+  (global (export "g-var-func") (mut (ref func)) (ref.func $f))
+  (global (export "g-var-refnull") (mut (ref null $t)) (ref.null $t))
+  (global (export "g-var-ref") (mut (ref $t)) (ref.func $f))
   (global (export "g-var-extern") (mut externref) (ref.null extern))
 )
 (register "Mref_ex" $Mref_ex)
 
 (module $Mref_im
-  (global (import "Mref_ex" "g-const-func") funcref)
+  (type $t (func))
+  (global (import "Mref_ex" "g-const-funcnull") (ref null func))
+  (global (import "Mref_ex" "g-const-func") (ref null func))
+  (global (import "Mref_ex" "g-const-refnull") (ref null func))
+  (global (import "Mref_ex" "g-const-ref") (ref null func))
+  (global (import "Mref_ex" "g-const-func") (ref func))
+  (global (import "Mref_ex" "g-const-ref") (ref func))
+  (global (import "Mref_ex" "g-const-refnull") (ref null $t))
+  (global (import "Mref_ex" "g-const-ref") (ref null $t))
+  (global (import "Mref_ex" "g-const-ref") (ref $t))
   (global (import "Mref_ex" "g-const-extern") externref)
 
-  (global (import "Mref_ex" "g-var-func") (mut funcref))
+  (global (import "Mref_ex" "g-var-funcnull") (mut (ref null func)))
+  (global (import "Mref_ex" "g-var-func") (mut (ref func)))
+  (global (import "Mref_ex" "g-var-refnull") (mut (ref null $t)))
+  (global (import "Mref_ex" "g-var-ref") (mut (ref $t)))
   (global (import "Mref_ex" "g-var-extern") (mut externref))
 )
 
 (assert_unlinkable
-  (module (global (import "Mref_ex" "g-const-extern") funcref))
+  (module (global (import "Mref_ex" "g-const-extern") (ref null func)))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-funcnull") (ref func)))
   "incompatible import type"
 )
 (assert_unlinkable
-  (module (global (import "Mref_ex" "g-const-func") externref))
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-refnull") (ref func)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-extern") (ref func)))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-funcnull") (ref null $t)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-func") (ref null $t)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-extern") (ref null $t)))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-funcnull") (ref $t)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-func") (ref $t)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-refnull") (ref $t)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-const-extern") (ref $t)))
   "incompatible import type"
 )
 
 
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-func") (mut (ref null func))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-refnull") (mut (ref null func))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-ref") (mut (ref null func))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-extern") (mut (ref null func))))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-funcnull") (mut (ref func))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-refnull") (mut (ref func))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-ref") (mut (ref func))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-extern") (mut (ref func))))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-var-funcnull") (mut (ref null $t))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-var-func") (mut (ref null $t))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-var-ref") (mut (ref null $t))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-var-extern") (mut (ref null $t))))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-var-funcnull") (mut (ref $t))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-var-func") (mut (ref $t))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-var-refnull") (mut (ref $t))))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (global (import "Mref_ex" "g-var-extern") (mut (ref $t))))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-funcnull") (mut externref)))
+  "incompatible import type"
+)
 (assert_unlinkable
   (module (global (import "Mref_ex" "g-var-func") (mut externref)))
   "incompatible import type"
 )
 (assert_unlinkable
-  (module (global (import "Mref_ex" "g-var-extern") (mut funcref)))
+  (module (global (import "Mref_ex" "g-var-refnull") (mut externref)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (global (import "Mref_ex" "g-var-ref") (mut externref)))
   "incompatible import type"
 )
 
@@ -261,52 +396,72 @@
 )
 (assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized element")
 
-;; TODO: This test is temporarily disabled because Wasmer doesn't properly
-;; handle Instance lifetimes when funcrefs are involved.
-
 ;; Unlike in the v1 spec, active element segments stored before an
 ;; out-of-bounds access persist after the instantiation failure.
-;; (assert_trap
-;;   (module
-;;     (table (import "Mt" "tab") 10 funcref)
-;;     (func $f (result i32) (i32.const 0))
-;;     (elem (i32.const 7) $f)
-;;     (elem (i32.const 8) $f $f $f $f $f)  ;; (partially) out of bounds
-;;   )
-;;   "out of bounds table access"
-;; )
-;; (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
-;; (assert_trap (invoke $Mt "call" (i32.const 8)) "uninitialized element")
-;;
-;; (assert_trap
-;;   (module
-;;     (table (import "Mt" "tab") 10 funcref)
-;;     (func $f (result i32) (i32.const 0))
-;;     (elem (i32.const 7) $f)
-;;     (memory 1)
-;;     (data (i32.const 0x10000) "d")  ;; out of bounds
-;;   )
-;;   "out of bounds memory access"
-;; )
-;; (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
+(assert_trap
+  (module
+    (table (import "Mt" "tab") 10 funcref)
+    (func $f (result i32) (i32.const 0))
+    (elem (i32.const 7) $f)
+    (elem (i32.const 8) $f $f $f $f $f)  ;; (partially) out of bounds
+  )
+  "out of bounds table access"
+)
+(assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
+(assert_trap (invoke $Mt "call" (i32.const 8)) "uninitialized element")
+
+(assert_trap
+  (module
+    (table (import "Mt" "tab") 10 funcref)
+    (func $f (result i32) (i32.const 0))
+    (elem (i32.const 7) $f)
+    (memory 1)
+    (data (i32.const 0x10000) "d")  ;; out of bounds
+  )
+  "out of bounds memory access"
+)
+(assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
+
 
 (module $Mtable_ex
-  (table $t1 (export "t-func") 1 funcref)
-  (table $t2 (export "t-extern") 1 externref)
+  (type $t (func))
+  (table (export "t-funcnull") 1 (ref null func))
+  (table (export "t-refnull") 1 (ref null $t))
+  (table (export "t-extern") 1 externref)
 )
 (register "Mtable_ex" $Mtable_ex)
 
 (module
-  (table (import "Mtable_ex" "t-func") 1 funcref)
+  (type $t (func))
+  (table (import "Mtable_ex" "t-funcnull") 1 (ref null func))
+  (table (import "Mtable_ex" "t-refnull") 1 (ref null $t))
   (table (import "Mtable_ex" "t-extern") 1 externref)
 )
 
 (assert_unlinkable
-  (module (table (import "Mtable_ex" "t-func") 1 externref))
+  (module (table (import "Mtable_ex" "t-refnull") 1 (ref null func)))
   "incompatible import type"
 )
 (assert_unlinkable
-  (module (table (import "Mtable_ex" "t-extern") 1 funcref))
+  (module (table (import "Mtable_ex" "t-extern") 1 (ref null func)))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (type $t (func)) (table (import "Mtable_ex" "t-funcnull") 1 (ref null $t)))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (type $t (func)) (table (import "Mtable_ex" "t-extern") 1 (ref null $t)))
+  "incompatible import type"
+)
+
+(assert_unlinkable
+  (module (table (import "Mtable_ex" "t-funcnull") 1 externref))
+  "incompatible import type"
+)
+(assert_unlinkable
+  (module (table (import "Mtable_ex" "t-refnull") 1 externref))
   "incompatible import type"
 )
 
@@ -452,4 +607,4 @@
 )
 
 (assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
-;; (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
+(assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
