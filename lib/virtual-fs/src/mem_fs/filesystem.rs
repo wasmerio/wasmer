@@ -273,12 +273,21 @@ impl crate::FileSystem for FileSystem {
         // Read lock.
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
 
+        fn rebase_entries(entries: &mut ReadDir, base: &Path) {
+            for entry in &mut entries.data {
+                let name = entry.file_name();
+                entry.path = base.join(name);
+            }
+        }
+
         // Canonicalize the path.
-        let (path, inode_of_directory) = guard.canonicalize(path)?;
+        let (guest_path, inode_of_directory) = guard.canonicalize(path)?;
         let inode_of_directory = match inode_of_directory {
             InodeResolution::Found(a) => a,
-            InodeResolution::Redirect(fs, path) => {
-                return fs.read_dir(path.as_path());
+            InodeResolution::Redirect(fs, redirect_path) => {
+                let mut entries = fs.read_dir(redirect_path.as_path())?;
+                rebase_entries(&mut entries, &guest_path);
+                return Ok(entries);
             }
         };
 
@@ -299,8 +308,12 @@ impl crate::FileSystem for FileSystem {
                 })
                 .collect(),
 
-            Some(Node::ArcDirectory(ArcDirectoryNode { fs, path, .. })) => {
-                return fs.read_dir(path.as_path());
+            Some(Node::ArcDirectory(ArcDirectoryNode {
+                fs, path: fs_path, ..
+            })) => {
+                let mut entries = fs.read_dir(fs_path.as_path())?;
+                rebase_entries(&mut entries, &guest_path);
+                return Ok(entries);
             }
 
             _ => return Err(FsError::InvalidInput),
@@ -1151,7 +1164,7 @@ impl DirectoryMustBeEmpty {
 
 #[cfg(test)]
 mod test_filesystem {
-    use std::path::Path;
+    use std::{path::Path, sync::Arc};
 
     use shared_buffer::OwnedBuffer;
     use tokio::io::AsyncReadExt;
@@ -1934,6 +1947,24 @@ mod test_filesystem {
         assert!(ops::is_file(&fs, "/top-level/file.txt"));
         assert!(ops::is_dir(&fs, "/top-level/nested"));
         assert!(ops::is_file(&fs, "/top-level/nested/another-file.txt"));
+    }
+
+    #[tokio::test]
+    async fn read_dir_rebases_mount_paths() {
+        let mounted = FileSystem::default();
+        ops::touch(&mounted, "/file.txt").unwrap();
+        let mounted: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(mounted);
+
+        let fs = FileSystem::default();
+        fs.mount("/mnt".into(), &mounted, "/".into()).unwrap();
+
+        let entries: Vec<_> = fs
+            .read_dir(Path::new("/mnt"))
+            .unwrap()
+            .map(|e| e.unwrap().path)
+            .collect();
+
+        assert_eq!(entries, vec![Path::new("/mnt/file.txt").to_path_buf()]);
     }
 
     #[tokio::test]

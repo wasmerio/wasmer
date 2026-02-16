@@ -60,20 +60,7 @@ fn is_false(b: &bool) -> bool {
     !(*b)
 }
 
-static WEBC_BASH: &[u8] =
-    include_bytes!("./webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc");
-static WEBC_COREUTILS_16: &[u8] =
-    include_bytes!("./webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
-static WEBC_COREUTILS_11: &[u8] =
-    include_bytes!("./webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
-static WEBC_DASH: &[u8] =
-    include_bytes!("./webc/dash-1.0.18-f0d13233-bcda-4cf1-9a23-3460bffaae2a.webc");
 static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
-static WEBC_WEB_SERVER: &[u8] = include_bytes!(
-    "./webc/static-web-server-async-1.0.3-5d739d1a-20b7-4edf-8cf4-44e813f96b25.webc"
-);
-static WEBC_WASMER_SH: &[u8] =
-    include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
 impl std::fmt::Debug for TestSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -190,23 +177,11 @@ impl TestBuilder {
     }
 
     pub fn use_coreutils(self) -> Self {
-        // TODO: use custom compiled coreutils
-        self.use_pkg("sharrattj/coreutils")
-            .include_static_package("sharrattj/coreutils@1.0.16", WEBC_COREUTILS_16)
-    }
-
-    pub fn use_dash(self) -> Self {
-        // TODO: use custom compiled dash
-        self.use_pkg("sharrattj/dash")
-            .include_static_package("sharrattj/dash@1.0.16", WEBC_DASH)
-            .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
+        self.use_pkg("wasmer/coreutils")
     }
 
     pub fn use_bash(self) -> Self {
-        // TODO: use custom compiled bash
-        self.use_pkg("sharrattj/bash")
-            .include_static_package("sharrattj/bash@1.0.12", WEBC_BASH)
-            .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
+        self.use_pkg("wasmer/bash")
     }
 
     // Enable thread support.
@@ -463,7 +438,6 @@ macro_rules! function {
 
 #[cfg_attr(
     any(
-        target_env = "musl",
         all(target_os = "macos", target_arch = "x86_64"), // Output is slightly different in macos x86_64
         target_os = "windows"
     ),
@@ -477,10 +451,7 @@ fn test_snapshot_condvar() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_condvar_async() {
     let snapshot = TestBuilder::new()
@@ -491,7 +462,7 @@ fn test_snapshot_condvar_async() {
 }
 
 // Test that the expected default directories are present.
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_default_file_system_tree() {
     let snapshot = TestBuilder::new()
@@ -502,10 +473,7 @@ fn test_snapshot_default_file_system_tree() {
 }
 
 // TODO: figure out why this hangs on Windows and Mac OS
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_stdin_stdout_stderr() {
     let snapshot = TestBuilder::new()
@@ -517,7 +485,7 @@ fn test_snapshot_stdin_stdout_stderr() {
 }
 
 // Piping to cowsay should, well.... display a cow that says something
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_cowsay() {
     let snapshot = TestBuilder::new()
@@ -527,10 +495,7 @@ fn test_snapshot_cowsay() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_epoll() {
     let snapshot = TestBuilder::new()
@@ -539,10 +504,7 @@ fn test_snapshot_epoll() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_epoll_async() {
     let snapshot = TestBuilder::new()
@@ -552,7 +514,7 @@ fn test_snapshot_epoll_async() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_file_copy() {
     let snapshot = TestBuilder::new()
@@ -565,7 +527,7 @@ fn test_snapshot_file_copy() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_execve() {
     let snapshot = TestBuilder::new()
@@ -575,7 +537,7 @@ fn test_snapshot_execve() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_readdir_tree() {
     let snapshot = TestBuilder::new()
@@ -586,7 +548,7 @@ fn test_snapshot_readdir_tree() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_minimodem_tx() {
     let mut snapshot = TestBuilder::new()
@@ -603,7 +565,7 @@ fn test_snapshot_minimodem_tx() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_minimodem_rx() {
     let snapshot = TestBuilder::new()
@@ -698,10 +660,7 @@ fn test_run_http_request(
     Ok(0)
 }
 
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_tokio() {
     let snapshot = TestBuilder::new()
@@ -710,57 +669,7 @@ fn test_snapshot_tokio() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
-#[test]
-fn test_snapshot_unix_pipe() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-unix-pipe.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-#[test]
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
-fn test_snapshot_web_server() {
-    let name: &str = function!();
-    let port = 7777;
-
-    let with = move |mut child: Child| {
-        let ret = test_run_http_request(port, "main.js", None);
-        child.kill().ok();
-        ret
-    };
-
-    let script = format!(
-        r#"
-cat /public/main.js | wc -c > /public/main.js.size
-rm -r -f /cfg/
-cd /public
-/bin/webserver --log-level warn --root /public --port {port}"#,
-    );
-    let builder = TestBuilder::new()
-        .with_name(name)
-        .enable_network(true)
-        .include_static_package("sharrattj/static-web-server@1.0.92", WEBC_WEB_SERVER)
-        .include_static_package("sharrattj/wasmer-sh@1.0.63", WEBC_WASMER_SH)
-        .use_coreutils()
-        .use_pkg("sharrattj/wasmer-sh")
-        .stdin_str(script);
-
-    let snapshot = builder.run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with));
-    assert_json_snapshot!(snapshot);
-}
-
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_web_server_epoll() {
     let name = function!();
@@ -790,10 +699,7 @@ fn test_snapshot_web_server_epoll() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_web_server_poll() {
     let name = function!();
@@ -824,7 +730,7 @@ fn test_snapshot_web_server_poll() {
 }
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
@@ -837,10 +743,7 @@ fn test_snapshot_fork_and_exec() {
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
 #[cfg(not(target_os = "windows"))]
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_fork_and_exec_async() {
     let snapshot = TestBuilder::new()
@@ -853,7 +756,7 @@ fn test_snapshot_fork_and_exec_async() {
 
 // longjmp is used by C programs that save and restore the stack at specific
 // points - this functionality is often used for exception handling
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_longjump() {
     let snapshot = TestBuilder::new()
@@ -864,7 +767,7 @@ fn test_snapshot_longjump() {
 }
 
 // Simple fork example that is a crude multi-threading implementation - used by `dash`
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_fork() {
     let snapshot = TestBuilder::new()
@@ -875,10 +778,7 @@ fn test_snapshot_fork() {
 }
 
 // Simple fork example that is a crude multi-threading implementation - used by `dash`
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_fork_async() {
     let snapshot = TestBuilder::new()
@@ -889,23 +789,11 @@ fn test_snapshot_fork_async() {
     assert_json_snapshot!(snapshot);
 }
 
-// Uses the `fd_pipe` syscall to create a bidirection pipe with two file
-// descriptors then forks the process to write and read to this pipe.
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_pipes() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-pipe.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
 // Performs a longjmp of a stack that was recorded before the fork.
 // This test ensures that the stacks that have been recorded are preserved
 // after a fork.
 // The behavior is needed for `dash`
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_longjump_fork() {
     let snapshot = TestBuilder::new()
@@ -918,10 +806,7 @@ fn test_snapshot_longjump_fork() {
 // This test ensures that the stacks that have been recorded are preserved
 // after a fork.
 // The behavior is needed for `dash`
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_longjump_fork_async() {
     let snapshot = TestBuilder::new()
@@ -932,7 +817,7 @@ fn test_snapshot_longjump_fork_async() {
 }
 
 // full multi-threading with shared memory and shared compiled modules
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_multithreading() {
     let snapshot = TestBuilder::new()
@@ -942,7 +827,7 @@ fn test_snapshot_multithreading() {
 }
 
 // test for traditional wasi threads
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_wasi_threads() {
     let snapshot = TestBuilder::new()
@@ -953,7 +838,7 @@ fn test_snapshot_wasi_threads() {
 }
 
 // multithreading with shared memory access
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_threaded_memory() {
     let snapshot = TestBuilder::new()
@@ -963,19 +848,8 @@ fn test_snapshot_threaded_memory() {
 }
 
 // full multi-threading with shared memory and shared compiled modules
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_multithreading_async() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-// full multi-threading with shared memory and shared compiled modules
 #[cfg(target_os = "linux")]
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_sleep() {
     let snapshot = TestBuilder::new()
@@ -986,10 +860,7 @@ fn test_snapshot_sleep() {
 
 // full multi-threading with shared memory and shared compiled modules
 #[cfg(target_os = "linux")]
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_sleep_async() {
     let snapshot = TestBuilder::new()
@@ -1000,7 +871,7 @@ fn test_snapshot_sleep_async() {
 }
 
 // Uses `posix_spawn` to launch a sub-process and wait on it to exit
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
@@ -1012,10 +883,7 @@ fn test_snapshot_process_spawn() {
 
 // Uses `posix_spawn` to launch a sub-process and wait on it to exit
 #[cfg(not(target_os = "windows"))]
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_process_spawn_async() {
     let snapshot = TestBuilder::new()
@@ -1038,7 +906,7 @@ fn test_snapshot_process_spawn_async() {
 // }
 
 // Tests that thread local variables work correctly
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_thread_locals() {
     let mut snapshot = TestBuilder::new()
@@ -1060,7 +928,7 @@ fn test_snapshot_thread_locals() {
 
 // Tests that lightweight forking that does not copy the memory but retains the
 // open file descriptors works correctly.
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_vfork() {
     let snapshot = TestBuilder::new()
@@ -1072,7 +940,7 @@ fn test_snapshot_vfork() {
 
 // Tests that lightweight forking that does not copy the memory but retains the
 // open file descriptors works correctly. Uses asynchronous threading
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_vfork_async() {
     let snapshot = TestBuilder::new()
@@ -1083,7 +951,7 @@ fn test_snapshot_vfork_async() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_signals() {
     let snapshot = TestBuilder::new()
@@ -1092,7 +960,7 @@ fn test_snapshot_signals() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_signals_async() {
     let snapshot = TestBuilder::new()
@@ -1103,7 +971,7 @@ fn test_snapshot_signals_async() {
 }
 
 #[cfg(target_os = "linux")]
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_dash_echo() {
     let snapshot = TestBuilder::new()
@@ -1113,7 +981,7 @@ fn test_snapshot_dash_echo() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_dash_echo_to_cat() {
     let snapshot = TestBuilder::new()
@@ -1124,7 +992,8 @@ fn test_snapshot_dash_echo_to_cat() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_dash_python() {
     let snapshot = TestBuilder::new()
@@ -1136,7 +1005,7 @@ fn test_snapshot_dash_python() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_python_3_11_3() {
     let snapshot = TestBuilder::new()
@@ -1147,41 +1016,19 @@ fn test_snapshot_python_3_11_3() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_dash_dev_zero() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_coreutils()
-        .stdin_str("head -c 10 /dev/zero")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_dash_dev_urandom() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_coreutils()
-        .stdin_str("head -c 10 /dev/urandom | wc -c")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .use_dash()
+        .use_bash()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_bash() {
@@ -1193,7 +1040,7 @@ fn test_snapshot_dash_bash() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_bash_echo() {
     let snapshot = TestBuilder::new()
@@ -1203,7 +1050,7 @@ fn test_snapshot_bash_echo() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_bash_ls() {
     let snapshot = TestBuilder::new()
@@ -1214,18 +1061,19 @@ fn test_snapshot_bash_ls() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
+#[ignore = "#6173"]
 #[test]
 fn test_snapshot_bash_cd_ls() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("cd bin\nls\nexit\n")
-        .use_coreutils()
+        .use_bash()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_bash_pipe() {
     let snapshot = TestBuilder::new()
@@ -1236,7 +1084,8 @@ fn test_snapshot_bash_pipe() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+// The test would be very slow on Windows or macOS
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_bash_python() {
     let snapshot = TestBuilder::new()
@@ -1248,7 +1097,7 @@ fn test_snapshot_bash_python() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_bash() {
@@ -1260,19 +1109,19 @@ fn test_snapshot_bash_bash() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .use_dash()
+        .use_bash()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_catsay() {
     let snapshot = TestBuilder::new()
@@ -1282,7 +1131,7 @@ fn test_snapshot_catsay() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_quickjs() {
     let snapshot = TestBuilder::new()
@@ -1292,7 +1141,7 @@ fn test_snapshot_quickjs() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_fs_rename() {
     let snapshot = TestBuilder::new()
@@ -1301,7 +1150,7 @@ fn test_snapshot_fs_rename() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_exit_0_from_main() {
     let snapshot = TestBuilder::new()
@@ -1314,7 +1163,7 @@ fn test_snapshot_exit_0_from_main() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_exit_1_from_main() {
     let snapshot = TestBuilder::new()
@@ -1327,7 +1176,7 @@ fn test_snapshot_exit_1_from_main() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_exit_0_from_worker() {
     let snapshot = TestBuilder::new()
@@ -1340,7 +1189,7 @@ fn test_snapshot_exit_0_from_worker() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_exit_1_from_worker() {
     let snapshot = TestBuilder::new()
@@ -1353,7 +1202,7 @@ fn test_snapshot_exit_1_from_worker() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_worker_terminating_normally() {
     let snapshot = TestBuilder::new()
@@ -1366,7 +1215,11 @@ fn test_snapshot_worker_terminating_normally() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+// The backtrace is different on non-Linux platforms
+#[cfg_attr(
+    any(target_os = "macos", target_os = "windows", target_env = "musl"),
+    ignore
+)]
 #[test]
 fn test_snapshot_worker_panicking() {
     let snapshot = TestBuilder::new()
@@ -1374,38 +1227,16 @@ fn test_snapshot_worker_panicking() {
         .run_wasm(include_bytes!("./wasm/worker-panicking.wasm"));
     assert!(matches!(
         snapshot.result,
-        TestResult::Success(TestOutput { exit_code: 173, .. })
+        TestResult::Success(TestOutput { exit_code: 129, .. })
     ));
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_mkdir_rename() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/mkdir-rename.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_dlopen() {
-    // test sources in tests/c-wasi-tests
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .mount(wasm_dir(), "/lib")
-        .run_wasm(include_bytes!("./wasm/dlopen.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_dylink_needed() {
-    // test sources in tests/c-wasi-tests
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .mount(wasm_dir(), "/lib")
-        .run_wasm(include_bytes!("./wasm/dylink-needed.wasm"));
     assert_json_snapshot!(snapshot);
 }

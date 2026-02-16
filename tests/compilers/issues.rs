@@ -747,3 +747,32 @@ fn issue_5719_shared_catch_clause_block(mut config: crate::Config) {
         .unwrap();
     assert_eq!(&Value::I32(42), result.first().unwrap());
 }
+
+#[compiler_test(issues)]
+fn issue_4169_funcref_externref_import(mut config: crate::Config) -> Result<()> {
+    let wasm_bytes = wat2wasm(
+        r#"
+        (module
+            (type $t0 (func (param funcref externref)))
+            (import "" "" (func $hello (type $t0)))
+        )
+        "#
+        .as_bytes(),
+    )
+    .unwrap();
+
+    let mut store = config.store();
+    let module = Module::new(&store, wasm_bytes).unwrap();
+    let imports: Imports = imports! {
+        "" => {
+            "" => Function::new_typed(
+                &mut store,
+                |_fr: Option<Function>, _er: Option<ExternRef>| {},
+            ),
+        }
+    };
+
+    let _instance = Instance::new(&mut store, &module, &imports)?;
+
+    Ok(())
+}

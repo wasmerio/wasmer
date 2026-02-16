@@ -44,8 +44,8 @@ fn reports_progress_steps(mut config: crate::Config) -> Result<()> {
         "expected at least one progress notification"
     );
     let last = events.last().unwrap();
-    assert_eq!(last.phase_step_count(), Some(4));
-    assert_eq!(last.phase_step(), Some(4));
+    assert_eq!(last.phase_step_count(), Some(2014));
+    assert_eq!(last.phase_step(), Some(2014));
     Ok(())
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-config"
-version = "0.700.0-rc.2"
+version = "0.700.1"
 description = "Configuration types for Wasmer."
 edition.workspace = true
 license.workspace = true

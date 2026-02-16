@@ -557,26 +557,33 @@ impl EngineInner {
             .as_ref()
             .is_some_and(|v| v.get_perfmap_enabled())
         {
+            use std::fs::OpenOptions;
+
             let filename = format!("/tmp/perf-{}.map", std::process::id());
-            let mut file = std::io::BufWriter::new(std::fs::File::create(filename).unwrap());
+            // We might be loading shared libraries and so we must append to the file.
+            let file = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&filename)
+                .map_err(|e| {
+                    CompileError::Codegen(format!("failed to open perf map file {filename}: {e}"))
+                })?;
+            let mut file = std::io::BufWriter::new(file);
 
             for (func_index, code) in finished_functions.iter() {
                 let func_index = module_info.func_index(func_index);
-                let name = if let Some(func_name) = module_info.function_names.get(&func_index) {
-                    func_name.clone()
-                } else {
-                    format!("{:p}", code.ptr.0)
-                };
-
-                let sanitized_name = name.replace(['\n', '\r'], "_");
-                let line = format!(
-                    "{:p} {:x} {}\n",
-                    code.ptr.0 as *const _, code.length, sanitized_name
-                );
-                write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
-                file.flush()
-                    .map_err(|e| CompileError::Codegen(e.to_string()))?;
+                if let Some(func_name) = module_info.function_names.get(&func_index) {
+                    let sanitized_name = func_name.replace(['\n', '\r'], "_");
+                    let line = format!(
+                        "{:p} {:x} {sanitized_name}\n",
+                        code.ptr.0 as *const _, code.length
+                    );
+                    write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
+                }
             }
+
+            file.flush()
+                .map_err(|e| CompileError::Codegen(e.to_string()))?;
         }
 
         Ok(())
