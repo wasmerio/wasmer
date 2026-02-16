@@ -42,14 +42,14 @@ pub enum CpuFeature {
     BMI1,
     BMI2,
     AVX2,
-    FMA,
     AVX512DQ,
     AVX512VL,
     AVX512F,
     LZCNT,
     // ARM features
     NEON,
-    // RISC-V features
+    // X86 features (TODO: reorganize at some point)
+    FMA,
 }
 
 impl CpuFeature {
