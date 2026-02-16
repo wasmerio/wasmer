@@ -297,6 +297,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        is_pull_request:
+          - ${{ github.event_name == 'pull_request' }}
         build-what:
           - key: wamr
             lint-cmd: "make lint-wamr"
@@ -315,6 +317,10 @@ jobs:
             os: ubuntu-22.04
           - build: macos-arm
             os: depot-macos-14
+        exclude:
+          - is_pull_request: true
+            metadata:
+              build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v6
@@ -482,6 +488,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        is_pull_request:
+          - ${{ github.event_name == 'pull_request' }}
         build-what:
           [
             {
@@ -569,6 +577,13 @@ jobs:
               supports_v8: false,
             },
           ]
+        exclude:
+          - is_pull_request: true
+            metadata:
+              build: macos-x64
+          - is_pull_request: true
+            metadata:
+              build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v6
