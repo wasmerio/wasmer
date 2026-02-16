@@ -12,12 +12,19 @@ RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
 WASMER_CONFIGS = (
-    ("Wasmer LLVM", "wasmer-7", "-l"),
+    ("Wasmer LLVM", "wasmer-next", "-l"),
     (
-        "Wasmer LLVM pass-params (g0 only)",
+        "Wasmer LLVM pass-params",
         "wasmer-next",
         "-l --enable-pass-params-opt",
     ),
+    ("Wasmer LLVM globals", "wasmer-globals", "-l"),
+    (
+        "Wasmer LLVM globals pass-params",
+        "wasmer-globals",
+        "-l --enable-pass-params-opt",
+    ),
+    #
     # (
     #     "Wasmer LLVM pass-params O2",
     #     "/home/marxin/Programming/testcases/wasmer-O2",
@@ -31,7 +38,7 @@ WASMER_CONFIGS = (
     # ("Wasmer Cranelift", "-c"),
 )
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
-ITERATIONS = 20
+ITERATIONS = 5
 
 
 def parse_report(report):
