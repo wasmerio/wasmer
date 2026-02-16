@@ -9,7 +9,6 @@ pub(crate) mod unpack;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
-use itertools::Itertools;
 use wasmer_wasix::runners::MappedDirectory;
 
 fn retrieve_alias_pathbuf(host_dir: &str, guest_dir: &str) -> Result<MappedDirectory> {
@@ -29,28 +28,21 @@ fn retrieve_alias_pathbuf(host_dir: &str, guest_dir: &str) -> Result<MappedDirec
 
 /// Parses a volume from a string
 pub fn parse_volume(entry: &str) -> Result<MappedDirectory> {
-    let components = entry.split(":").collect_vec();
-    match components.as_slice() {
-        [entry] => retrieve_alias_pathbuf(entry, entry),
-        [host_dir, guest_dir] => retrieve_alias_pathbuf(host_dir, guest_dir),
-        _ => bail!(
-            "Directory mappings must consist of a single path, or two paths separate by a `:`. Found {}",
-            &entry
-        ),
+    // On Windows, colon is a valid path compoment (e.g. C:\)
+    if let Some((host_dir, guest_dir)) = entry.split_once(":") {
+        retrieve_alias_pathbuf(host_dir, guest_dir)
+    } else {
+        retrieve_alias_pathbuf(entry, entry)
     }
 }
 
 /// Parses a mapdir(legacy option) from a string.
 pub fn parse_mapdir(entry: &str) -> Result<MappedDirectory> {
-    let components = entry.split(":").collect_vec();
-    match components.as_slice() {
-        [entry] => retrieve_alias_pathbuf(entry, entry),
-        // swapper order compared to the --volume option
-        [guest_dir, host_dir] => retrieve_alias_pathbuf(host_dir, guest_dir),
-        _ => bail!(
-            "Directory mappings must consist of a single path, or two paths separate by a `:`. Found {}",
-            &entry
-        ),
+    // On Windows, colon is a valid path compoment (e.g. C:\)
+    if let Some((host_dir, guest_dir)) = entry.split_once(":") {
+        retrieve_alias_pathbuf(host_dir, guest_dir)
+    } else {
+        retrieve_alias_pathbuf(entry, entry)
     }
 }
 
