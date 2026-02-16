@@ -213,7 +213,7 @@ jobs:
         uses: wasix-org/wasixcc@v0.3.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          sysroot-tag: v2025-12-22.1
+          sysroot-tag: v2026-02-16.1
           version: v0.3.0
 
       - name: Tool versions
@@ -945,7 +945,7 @@ jobs:
         uses: wasix-org/wasixcc@v0.3.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          sysroot-tag: v2025-12-22.1
+          sysroot-tag: v2026-02-16.1
           version: v0.3.0
 
       - name: Install LLVM
