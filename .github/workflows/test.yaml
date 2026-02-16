@@ -855,10 +855,9 @@ jobs:
           - is_pull_request: true
             metadata:
               build: macos-x64
-              os: macos-15-intel
-              target: x86_64-apple-darwin
-              exe: ""
-              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz"
+          - is_pull_request: true
+            metadata:
+              build: macos-arm
           # Currently Windows suffers from #6191 (bad --volume argument parsing) and for some reason,
           # the CI macOS runner tends to be really slow (huge number of timeouts).
           - stage:
