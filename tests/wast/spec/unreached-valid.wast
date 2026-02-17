@@ -17,25 +17,31 @@
     (unreachable)
   )
 
-  (func (export "select_unreached_result_1") (result i32)
+  (func (export "select-unreached-result1") (result i32)
     (unreachable) (i32.add (select))
   )
 
-  (func (export "select_unreached_result_2") (result i64)
+  (func (export "select-unreached-result2") (result i64)
     (unreachable) (i64.add (select (i64.const 0) (i32.const 0)))
   )
 
-  (func (export "unreachable-num")
+  (func (export "select-unreached-num")
     (unreachable)
     (select)
     (i32.eqz)
     (drop)
   )
-  (func (export "unreachable-ref")
+  (func (export "select-unreached-ref")
     (unreachable)
     (select)
     (ref.is_null)
     (drop)
+  )
+
+  (type $t (func (param i32) (result i32)))
+  (func (export "call_ref-unreached") (result i32)
+    (unreachable)
+    (call_ref $t)
   )
 )
 
@@ -43,6 +49,14 @@
 (assert_trap (invoke "select-trap-left" (i32.const 0)) "unreachable")
 (assert_trap (invoke "select-trap-right" (i32.const 1)) "unreachable")
 (assert_trap (invoke "select-trap-right" (i32.const 0)) "unreachable")
+
+(assert_trap (invoke "select-unreached-result1") "unreachable")
+(assert_trap (invoke "select-unreached-result2") "unreachable")
+(assert_trap (invoke "select-unreached-num") "unreachable")
+(assert_trap (invoke "select-unreached-ref") "unreachable")
+
+(assert_trap (invoke "call_ref-unreached") "unreachable")
+
 
 ;; Validation after unreachable
 
@@ -61,3 +75,34 @@
 )
 
 (assert_trap (invoke "meet-bottom") "unreachable")
+
+
+;; Bottom heap type
+
+(module
+  (func (result (ref func))
+    (unreachable)
+    (ref.as_non_null)
+  )
+  (func (result (ref extern))
+    (unreachable)
+    (ref.as_non_null)
+  )
+
+  (func (result (ref func))
+    (block (result funcref)
+      (unreachable)
+      (br_on_null 0)
+      (return)
+    )
+    (unreachable)
+  )
+  (func (result (ref extern))
+    (block (result externref)
+      (unreachable)
+      (br_on_null 0)
+      (return)
+    )
+    (unreachable)
+  )
+)

@@ -15,7 +15,6 @@
   (func $f3 (export "get-funcref") (param $i i32) (result funcref)
     (table.get $t3 (local.get $i))
   )
-
   (func (export "is_null-funcref") (param $i i32) (result i32)
     (ref.is_null (call $f3 (local.get $i)))
   )
