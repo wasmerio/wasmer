@@ -68,7 +68,7 @@ pub struct X86_64Intrinsics<'ctx> {
     pub min_pd: FunctionValue<'ctx>,
     pub max_ps: FunctionValue<'ctx>,
     pub max_pd: FunctionValue<'ctx>,
-    pub cvtps2dq: FunctionValue<'ctx>,
+    pub cvttps2dq: FunctionValue<'ctx>,
     pub cvtps2udq128: FunctionValue<'ctx>,
     pub cvtpd2dq: FunctionValue<'ctx>,
     pub cvtpd2udq128: FunctionValue<'ctx>,
@@ -1365,8 +1365,8 @@ impl<'ctx> Intrinsics<'ctx> {
                     ret_f64x2_take_f64x2_f64x2,
                     None,
                 ),
-                cvtps2dq: add_function_with_attrs(
-                    "llvm.x86.sse2.cvtps2dq",
+                cvttps2dq: add_function_with_attrs(
+                    "llvm.x86.sse2.cvttps2dq",
                     ret_i32x4_take_f32x4,
                     None,
                 ),

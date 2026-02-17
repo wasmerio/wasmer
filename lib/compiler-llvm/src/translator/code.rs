@@ -8332,7 +8332,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let (v, _) = self.v128_into_f32x4(v, i)?;
                 let res = self
                     .build_call_with_param_attributes(
-                        self.intrinsics.x86_64.cvtps2dq,
+                        self.intrinsics.x86_64.cvttps2dq,
                         &[v.into()],
                         "",
                     )?
