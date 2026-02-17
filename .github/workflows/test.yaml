@@ -862,7 +862,6 @@ jobs:
           - is_pull_request: true
             metadata:
               build: macos-arm
-          # Currently Windows suffers from #6191 (bad --volume argument parsing) and for some reason,
           # the CI macOS runner tends to be really slow (huge number of timeouts).
           - stage:
               make: test-integration-cli-ci
@@ -872,10 +871,6 @@ jobs:
               make: test-integration-cli-ci
             metadata:
               build: macos-arm
-          - stage:
-              make: test-integration-cli-ci
-            metadata:
-              build: windows-x64
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
