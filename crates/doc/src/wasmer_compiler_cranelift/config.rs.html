@@ -305,18 +305,19 @@
 <a href=#305 id=305 data-nosnippet>305</a>        <span class="kw">if </span>target.triple().operating_system == OperatingSystem::Linux {
 <a href=#306 id=306 data-nosnippet>306</a>            feats.exceptions(<span class="bool-val">true</span>);
 <a href=#307 id=307 data-nosnippet>307</a>        }
-<a href=#308 id=308 data-nosnippet>308</a>        feats
-<a href=#309 id=309 data-nosnippet>309</a>    }
-<a href=#310 id=310 data-nosnippet>310</a>}
-<a href=#311 id=311 data-nosnippet>311</a>
-<a href=#312 id=312 data-nosnippet>312</a><span class="kw">impl </span>Default <span class="kw">for </span>Cranelift {
-<a href=#313 id=313 data-nosnippet>313</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#314 id=314 data-nosnippet>314</a>        <span class="self">Self</span>::new()
-<a href=#315 id=315 data-nosnippet>315</a>    }
-<a href=#316 id=316 data-nosnippet>316</a>}
-<a href=#317 id=317 data-nosnippet>317</a>
-<a href=#318 id=318 data-nosnippet>318</a><span class="kw">impl </span>From&lt;Cranelift&gt; <span class="kw">for </span>Engine {
-<a href=#319 id=319 data-nosnippet>319</a>    <span class="kw">fn </span>from(config: Cranelift) -&gt; <span class="self">Self </span>{
-<a href=#320 id=320 data-nosnippet>320</a>        EngineBuilder::new(config).engine()
-<a href=#321 id=321 data-nosnippet>321</a>    }
-<a href=#322 id=322 data-nosnippet>322</a>}</code></pre></div></section></main></body></html>
+<a href=#308 id=308 data-nosnippet>308</a>        feats.relaxed_simd(<span class="bool-val">true</span>);
+<a href=#309 id=309 data-nosnippet>309</a>        feats
+<a href=#310 id=310 data-nosnippet>310</a>    }
+<a href=#311 id=311 data-nosnippet>311</a>}
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a><span class="kw">impl </span>Default <span class="kw">for </span>Cranelift {
+<a href=#314 id=314 data-nosnippet>314</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#315 id=315 data-nosnippet>315</a>        <span class="self">Self</span>::new()
+<a href=#316 id=316 data-nosnippet>316</a>    }
+<a href=#317 id=317 data-nosnippet>317</a>}
+<a href=#318 id=318 data-nosnippet>318</a>
+<a href=#319 id=319 data-nosnippet>319</a><span class="kw">impl </span>From&lt;Cranelift&gt; <span class="kw">for </span>Engine {
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">fn </span>from(config: Cranelift) -&gt; <span class="self">Self </span>{
+<a href=#321 id=321 data-nosnippet>321</a>        EngineBuilder::new(config).engine()
+<a href=#322 id=322 data-nosnippet>322</a>    }
+<a href=#323 id=323 data-nosnippet>323</a>}</code></pre></div></section></main></body></html>

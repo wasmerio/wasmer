@@ -371,225 +371,228 @@
 <a href=#371 id=371 data-nosnippet>371</a>        wasm_features.set(WasmFeatures::TAIL_CALL, <span class="bool-val">true</span>);
 <a href=#372 id=372 data-nosnippet>372</a>        wasm_features.set(WasmFeatures::MULTI_MEMORY, <span class="bool-val">true</span>);
 <a href=#373 id=373 data-nosnippet>373</a>        wasm_features.set(WasmFeatures::MEMORY64, <span class="bool-val">true</span>);
-<a href=#374 id=374 data-nosnippet>374</a>
-<a href=#375 id=375 data-nosnippet>375</a>        <span class="kw">let </span><span class="kw-2">mut </span>validator = Validator::new_with_features(wasm_features);
-<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw">match </span>validator.validate_all(wasm_bytes) {
-<a href=#377 id=377 data-nosnippet>377</a>            <span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#378 id=378 data-nosnippet>378</a>                <span class="comment">// If validation fails due to missing feature support, check which feature it is
-<a href=#379 id=379 data-nosnippet>379</a>                </span><span class="kw">let </span>err_msg = e.to_string().to_lowercase();
-<a href=#380 id=380 data-nosnippet>380</a>
-<a href=#381 id=381 data-nosnippet>381</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"exception"</span>) || err_msg.contains(<span class="string">"try/catch"</span>) {
-<a href=#382 id=382 data-nosnippet>382</a>                    features.exceptions(<span class="bool-val">true</span>);
-<a href=#383 id=383 data-nosnippet>383</a>                }
-<a href=#384 id=384 data-nosnippet>384</a>
-<a href=#385 id=385 data-nosnippet>385</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"bulk memory"</span>) {
-<a href=#386 id=386 data-nosnippet>386</a>                    features.bulk_memory(<span class="bool-val">true</span>);
-<a href=#387 id=387 data-nosnippet>387</a>                }
-<a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"reference type"</span>) {
-<a href=#390 id=390 data-nosnippet>390</a>                    features.reference_types(<span class="bool-val">true</span>);
-<a href=#391 id=391 data-nosnippet>391</a>                }
-<a href=#392 id=392 data-nosnippet>392</a>
-<a href=#393 id=393 data-nosnippet>393</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"simd"</span>) {
-<a href=#394 id=394 data-nosnippet>394</a>                    features.simd(<span class="bool-val">true</span>);
-<a href=#395 id=395 data-nosnippet>395</a>                }
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"multi value"</span>) || err_msg.contains(<span class="string">"multiple values"</span>) {
-<a href=#398 id=398 data-nosnippet>398</a>                    features.multi_value(<span class="bool-val">true</span>);
-<a href=#399 id=399 data-nosnippet>399</a>                }
-<a href=#400 id=400 data-nosnippet>400</a>
-<a href=#401 id=401 data-nosnippet>401</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"thread"</span>) || err_msg.contains(<span class="string">"shared memory"</span>) {
-<a href=#402 id=402 data-nosnippet>402</a>                    features.threads(<span class="bool-val">true</span>);
-<a href=#403 id=403 data-nosnippet>403</a>                }
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"tail call"</span>) {
-<a href=#406 id=406 data-nosnippet>406</a>                    features.tail_call(<span class="bool-val">true</span>);
-<a href=#407 id=407 data-nosnippet>407</a>                }
-<a href=#408 id=408 data-nosnippet>408</a>
-<a href=#409 id=409 data-nosnippet>409</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"module linking"</span>) {
-<a href=#410 id=410 data-nosnippet>410</a>                    features.module_linking(<span class="bool-val">true</span>);
-<a href=#411 id=411 data-nosnippet>411</a>                }
-<a href=#412 id=412 data-nosnippet>412</a>
-<a href=#413 id=413 data-nosnippet>413</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"multi memory"</span>) {
-<a href=#414 id=414 data-nosnippet>414</a>                    features.multi_memory(<span class="bool-val">true</span>);
-<a href=#415 id=415 data-nosnippet>415</a>                }
-<a href=#416 id=416 data-nosnippet>416</a>
-<a href=#417 id=417 data-nosnippet>417</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"memory64"</span>) {
-<a href=#418 id=418 data-nosnippet>418</a>                    features.memory64(<span class="bool-val">true</span>);
-<a href=#419 id=419 data-nosnippet>419</a>                }
-<a href=#420 id=420 data-nosnippet>420</a>            }
-<a href=#421 id=421 data-nosnippet>421</a>            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-<a href=#422 id=422 data-nosnippet>422</a>                <span class="comment">// The module validated successfully with all features enabled,
-<a href=#423 id=423 data-nosnippet>423</a>                // which means it could potentially use any of them.
-<a href=#424 id=424 data-nosnippet>424</a>                // We'll do a more detailed analysis by parsing the module.
-<a href=#425 id=425 data-nosnippet>425</a>            </span>}
-<a href=#426 id=426 data-nosnippet>426</a>        }
-<a href=#427 id=427 data-nosnippet>427</a>
-<a href=#428 id=428 data-nosnippet>428</a>        <span class="comment">// A simple pass to detect certain common patterns
-<a href=#429 id=429 data-nosnippet>429</a>        </span><span class="kw">for </span>payload <span class="kw">in </span>Parser::new(<span class="number">0</span>).parse_all(wasm_bytes) {
-<a href=#430 id=430 data-nosnippet>430</a>            <span class="kw">let </span>payload = payload<span class="question-mark">?</span>;
-<a href=#431 id=431 data-nosnippet>431</a>            <span class="kw">if let </span>Payload::CustomSection(section) = payload {
-<a href=#432 id=432 data-nosnippet>432</a>                <span class="kw">let </span>name = section.name();
-<a href=#433 id=433 data-nosnippet>433</a>                <span class="comment">// Exception handling has a custom section
-<a href=#434 id=434 data-nosnippet>434</a>                </span><span class="kw">if </span>name.contains(<span class="string">"exception"</span>) {
-<a href=#435 id=435 data-nosnippet>435</a>                    features.exceptions(<span class="bool-val">true</span>);
-<a href=#436 id=436 data-nosnippet>436</a>                }
-<a href=#437 id=437 data-nosnippet>437</a>            }
-<a href=#438 id=438 data-nosnippet>438</a>        }
-<a href=#439 id=439 data-nosnippet>439</a>
-<a href=#440 id=440 data-nosnippet>440</a>        <span class="prelude-val">Ok</span>(features)
-<a href=#441 id=441 data-nosnippet>441</a>    }
+<a href=#374 id=374 data-nosnippet>374</a>        wasm_features.set(WasmFeatures::RELAXED_SIMD, <span class="bool-val">false</span>);
+<a href=#375 id=375 data-nosnippet>375</a>
+<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw">let </span><span class="kw-2">mut </span>validator = Validator::new_with_features(wasm_features);
+<a href=#377 id=377 data-nosnippet>377</a>        <span class="kw">match </span>validator.validate_all(wasm_bytes) {
+<a href=#378 id=378 data-nosnippet>378</a>            <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#379 id=379 data-nosnippet>379</a>                <span class="comment">// If validation fails due to missing feature support, check which feature it is
+<a href=#380 id=380 data-nosnippet>380</a>                </span><span class="kw">let </span>err_msg = e.to_string().to_lowercase();
+<a href=#381 id=381 data-nosnippet>381</a>
+<a href=#382 id=382 data-nosnippet>382</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"exception"</span>) || err_msg.contains(<span class="string">"try/catch"</span>) {
+<a href=#383 id=383 data-nosnippet>383</a>                    features.exceptions(<span class="bool-val">true</span>);
+<a href=#384 id=384 data-nosnippet>384</a>                }
+<a href=#385 id=385 data-nosnippet>385</a>
+<a href=#386 id=386 data-nosnippet>386</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"bulk memory"</span>) {
+<a href=#387 id=387 data-nosnippet>387</a>                    features.bulk_memory(<span class="bool-val">true</span>);
+<a href=#388 id=388 data-nosnippet>388</a>                }
+<a href=#389 id=389 data-nosnippet>389</a>
+<a href=#390 id=390 data-nosnippet>390</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"reference type"</span>) {
+<a href=#391 id=391 data-nosnippet>391</a>                    features.reference_types(<span class="bool-val">true</span>);
+<a href=#392 id=392 data-nosnippet>392</a>                }
+<a href=#393 id=393 data-nosnippet>393</a>
+<a href=#394 id=394 data-nosnippet>394</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"relaxed simd"</span>) {
+<a href=#395 id=395 data-nosnippet>395</a>                    features.relaxed_simd(<span class="bool-val">true</span>);
+<a href=#396 id=396 data-nosnippet>396</a>                } <span class="kw">else if </span>err_msg.contains(<span class="string">"simd"</span>) {
+<a href=#397 id=397 data-nosnippet>397</a>                    features.simd(<span class="bool-val">true</span>);
+<a href=#398 id=398 data-nosnippet>398</a>                }
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"multi value"</span>) || err_msg.contains(<span class="string">"multiple values"</span>) {
+<a href=#401 id=401 data-nosnippet>401</a>                    features.multi_value(<span class="bool-val">true</span>);
+<a href=#402 id=402 data-nosnippet>402</a>                }
+<a href=#403 id=403 data-nosnippet>403</a>
+<a href=#404 id=404 data-nosnippet>404</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"thread"</span>) || err_msg.contains(<span class="string">"shared memory"</span>) {
+<a href=#405 id=405 data-nosnippet>405</a>                    features.threads(<span class="bool-val">true</span>);
+<a href=#406 id=406 data-nosnippet>406</a>                }
+<a href=#407 id=407 data-nosnippet>407</a>
+<a href=#408 id=408 data-nosnippet>408</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"tail call"</span>) {
+<a href=#409 id=409 data-nosnippet>409</a>                    features.tail_call(<span class="bool-val">true</span>);
+<a href=#410 id=410 data-nosnippet>410</a>                }
+<a href=#411 id=411 data-nosnippet>411</a>
+<a href=#412 id=412 data-nosnippet>412</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"module linking"</span>) {
+<a href=#413 id=413 data-nosnippet>413</a>                    features.module_linking(<span class="bool-val">true</span>);
+<a href=#414 id=414 data-nosnippet>414</a>                }
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"multi memory"</span>) {
+<a href=#417 id=417 data-nosnippet>417</a>                    features.multi_memory(<span class="bool-val">true</span>);
+<a href=#418 id=418 data-nosnippet>418</a>                }
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a>                <span class="kw">if </span>err_msg.contains(<span class="string">"memory64"</span>) {
+<a href=#421 id=421 data-nosnippet>421</a>                    features.memory64(<span class="bool-val">true</span>);
+<a href=#422 id=422 data-nosnippet>422</a>                }
+<a href=#423 id=423 data-nosnippet>423</a>            }
+<a href=#424 id=424 data-nosnippet>424</a>            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+<a href=#425 id=425 data-nosnippet>425</a>                <span class="comment">// The module validated successfully with all features enabled,
+<a href=#426 id=426 data-nosnippet>426</a>                // which means it could potentially use any of them.
+<a href=#427 id=427 data-nosnippet>427</a>                // We'll do a more detailed analysis by parsing the module.
+<a href=#428 id=428 data-nosnippet>428</a>            </span>}
+<a href=#429 id=429 data-nosnippet>429</a>        }
+<a href=#430 id=430 data-nosnippet>430</a>
+<a href=#431 id=431 data-nosnippet>431</a>        <span class="comment">// A simple pass to detect certain common patterns
+<a href=#432 id=432 data-nosnippet>432</a>        </span><span class="kw">for </span>payload <span class="kw">in </span>Parser::new(<span class="number">0</span>).parse_all(wasm_bytes) {
+<a href=#433 id=433 data-nosnippet>433</a>            <span class="kw">let </span>payload = payload<span class="question-mark">?</span>;
+<a href=#434 id=434 data-nosnippet>434</a>            <span class="kw">if let </span>Payload::CustomSection(section) = payload {
+<a href=#435 id=435 data-nosnippet>435</a>                <span class="kw">let </span>name = section.name();
+<a href=#436 id=436 data-nosnippet>436</a>                <span class="comment">// Exception handling has a custom section
+<a href=#437 id=437 data-nosnippet>437</a>                </span><span class="kw">if </span>name.contains(<span class="string">"exception"</span>) {
+<a href=#438 id=438 data-nosnippet>438</a>                    features.exceptions(<span class="bool-val">true</span>);
+<a href=#439 id=439 data-nosnippet>439</a>                }
+<a href=#440 id=440 data-nosnippet>440</a>            }
+<a href=#441 id=441 data-nosnippet>441</a>        }
 <a href=#442 id=442 data-nosnippet>442</a>
-<a href=#443 id=443 data-nosnippet>443</a>    <span class="doccomment">/// Extend this feature set with another set.
-<a href=#444 id=444 data-nosnippet>444</a>    ///
-<a href=#445 id=445 data-nosnippet>445</a>    /// Self will be modified to include all features that are required by
-<a href=#446 id=446 data-nosnippet>446</a>    /// either set.
-<a href=#447 id=447 data-nosnippet>447</a>    </span><span class="kw">pub fn </span>extend(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
-<a href=#448 id=448 data-nosnippet>448</a>        <span class="comment">// Written this way to cause compile errors when new features are added.
-<a href=#449 id=449 data-nosnippet>449</a>        </span><span class="kw">let </span><span class="self">Self </span>{
-<a href=#450 id=450 data-nosnippet>450</a>            threads,
-<a href=#451 id=451 data-nosnippet>451</a>            reference_types,
-<a href=#452 id=452 data-nosnippet>452</a>            simd,
-<a href=#453 id=453 data-nosnippet>453</a>            bulk_memory,
-<a href=#454 id=454 data-nosnippet>454</a>            multi_value,
-<a href=#455 id=455 data-nosnippet>455</a>            tail_call,
-<a href=#456 id=456 data-nosnippet>456</a>            module_linking,
-<a href=#457 id=457 data-nosnippet>457</a>            multi_memory,
-<a href=#458 id=458 data-nosnippet>458</a>            memory64,
-<a href=#459 id=459 data-nosnippet>459</a>            exceptions,
-<a href=#460 id=460 data-nosnippet>460</a>            relaxed_simd,
-<a href=#461 id=461 data-nosnippet>461</a>            extended_const,
-<a href=#462 id=462 data-nosnippet>462</a>        } = other.clone();
-<a href=#463 id=463 data-nosnippet>463</a>
-<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw-2">*</span><span class="self">self </span>= <span class="self">Self </span>{
-<a href=#465 id=465 data-nosnippet>465</a>            threads: <span class="self">self</span>.threads || threads,
-<a href=#466 id=466 data-nosnippet>466</a>            reference_types: <span class="self">self</span>.reference_types || reference_types,
-<a href=#467 id=467 data-nosnippet>467</a>            simd: <span class="self">self</span>.simd || simd,
-<a href=#468 id=468 data-nosnippet>468</a>            bulk_memory: <span class="self">self</span>.bulk_memory || bulk_memory,
-<a href=#469 id=469 data-nosnippet>469</a>            multi_value: <span class="self">self</span>.multi_value || multi_value,
-<a href=#470 id=470 data-nosnippet>470</a>            tail_call: <span class="self">self</span>.tail_call || tail_call,
-<a href=#471 id=471 data-nosnippet>471</a>            module_linking: <span class="self">self</span>.module_linking || module_linking,
-<a href=#472 id=472 data-nosnippet>472</a>            multi_memory: <span class="self">self</span>.multi_memory || multi_memory,
-<a href=#473 id=473 data-nosnippet>473</a>            memory64: <span class="self">self</span>.memory64 || memory64,
-<a href=#474 id=474 data-nosnippet>474</a>            exceptions: <span class="self">self</span>.exceptions || exceptions,
-<a href=#475 id=475 data-nosnippet>475</a>            relaxed_simd: <span class="self">self</span>.relaxed_simd || relaxed_simd,
-<a href=#476 id=476 data-nosnippet>476</a>            extended_const: <span class="self">self</span>.extended_const || extended_const,
-<a href=#477 id=477 data-nosnippet>477</a>        };
-<a href=#478 id=478 data-nosnippet>478</a>    }
-<a href=#479 id=479 data-nosnippet>479</a>}
-<a href=#480 id=480 data-nosnippet>480</a>
-<a href=#481 id=481 data-nosnippet>481</a><span class="kw">impl </span>Default <span class="kw">for </span>Features {
-<a href=#482 id=482 data-nosnippet>482</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#483 id=483 data-nosnippet>483</a>        <span class="self">Self</span>::new()
-<a href=#484 id=484 data-nosnippet>484</a>    }
-<a href=#485 id=485 data-nosnippet>485</a>}
-<a href=#486 id=486 data-nosnippet>486</a>
-<a href=#487 id=487 data-nosnippet>487</a><span class="attr">#[cfg(test)]
-<a href=#488 id=488 data-nosnippet>488</a></span><span class="kw">mod </span>test_features {
-<a href=#489 id=489 data-nosnippet>489</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#490 id=490 data-nosnippet>490</a>    <span class="attr">#[test]
-<a href=#491 id=491 data-nosnippet>491</a>    </span><span class="kw">fn </span>default_features() {
-<a href=#492 id=492 data-nosnippet>492</a>        <span class="kw">let </span>default = Features::default();
-<a href=#493 id=493 data-nosnippet>493</a>        <span class="macro">assert_eq!</span>(
-<a href=#494 id=494 data-nosnippet>494</a>            default,
-<a href=#495 id=495 data-nosnippet>495</a>            Features {
-<a href=#496 id=496 data-nosnippet>496</a>                threads: <span class="bool-val">true</span>,
-<a href=#497 id=497 data-nosnippet>497</a>                reference_types: <span class="bool-val">true</span>,
-<a href=#498 id=498 data-nosnippet>498</a>                simd: <span class="bool-val">true</span>,
-<a href=#499 id=499 data-nosnippet>499</a>                bulk_memory: <span class="bool-val">true</span>,
-<a href=#500 id=500 data-nosnippet>500</a>                multi_value: <span class="bool-val">true</span>,
-<a href=#501 id=501 data-nosnippet>501</a>                tail_call: <span class="bool-val">false</span>,
-<a href=#502 id=502 data-nosnippet>502</a>                module_linking: <span class="bool-val">false</span>,
-<a href=#503 id=503 data-nosnippet>503</a>                multi_memory: <span class="bool-val">false</span>,
-<a href=#504 id=504 data-nosnippet>504</a>                memory64: <span class="bool-val">false</span>,
-<a href=#505 id=505 data-nosnippet>505</a>                exceptions: <span class="bool-val">false</span>,
-<a href=#506 id=506 data-nosnippet>506</a>                relaxed_simd: <span class="bool-val">false</span>,
-<a href=#507 id=507 data-nosnippet>507</a>                extended_const: <span class="bool-val">false</span>,
-<a href=#508 id=508 data-nosnippet>508</a>            }
-<a href=#509 id=509 data-nosnippet>509</a>        );
-<a href=#510 id=510 data-nosnippet>510</a>    }
-<a href=#511 id=511 data-nosnippet>511</a>
-<a href=#512 id=512 data-nosnippet>512</a>    <span class="attr">#[test]
-<a href=#513 id=513 data-nosnippet>513</a>    </span><span class="kw">fn </span>features_extend() {
-<a href=#514 id=514 data-nosnippet>514</a>        <span class="kw">let </span>all = Features::all();
-<a href=#515 id=515 data-nosnippet>515</a>        <span class="kw">let </span><span class="kw-2">mut </span>target = Features::none();
-<a href=#516 id=516 data-nosnippet>516</a>        target.extend(<span class="kw-2">&amp;</span>all);
-<a href=#517 id=517 data-nosnippet>517</a>        <span class="macro">assert_eq!</span>(target, all);
-<a href=#518 id=518 data-nosnippet>518</a>    }
-<a href=#519 id=519 data-nosnippet>519</a>
-<a href=#520 id=520 data-nosnippet>520</a>    <span class="attr">#[test]
-<a href=#521 id=521 data-nosnippet>521</a>    </span><span class="kw">fn </span>enable_threads() {
-<a href=#522 id=522 data-nosnippet>522</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#523 id=523 data-nosnippet>523</a>        features.bulk_memory(<span class="bool-val">false</span>).threads(<span class="bool-val">true</span>);
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a>        <span class="macro">assert!</span>(features.threads);
-<a href=#526 id=526 data-nosnippet>526</a>    }
+<a href=#443 id=443 data-nosnippet>443</a>        <span class="prelude-val">Ok</span>(features)
+<a href=#444 id=444 data-nosnippet>444</a>    }
+<a href=#445 id=445 data-nosnippet>445</a>
+<a href=#446 id=446 data-nosnippet>446</a>    <span class="doccomment">/// Extend this feature set with another set.
+<a href=#447 id=447 data-nosnippet>447</a>    ///
+<a href=#448 id=448 data-nosnippet>448</a>    /// Self will be modified to include all features that are required by
+<a href=#449 id=449 data-nosnippet>449</a>    /// either set.
+<a href=#450 id=450 data-nosnippet>450</a>    </span><span class="kw">pub fn </span>extend(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
+<a href=#451 id=451 data-nosnippet>451</a>        <span class="comment">// Written this way to cause compile errors when new features are added.
+<a href=#452 id=452 data-nosnippet>452</a>        </span><span class="kw">let </span><span class="self">Self </span>{
+<a href=#453 id=453 data-nosnippet>453</a>            threads,
+<a href=#454 id=454 data-nosnippet>454</a>            reference_types,
+<a href=#455 id=455 data-nosnippet>455</a>            simd,
+<a href=#456 id=456 data-nosnippet>456</a>            bulk_memory,
+<a href=#457 id=457 data-nosnippet>457</a>            multi_value,
+<a href=#458 id=458 data-nosnippet>458</a>            tail_call,
+<a href=#459 id=459 data-nosnippet>459</a>            module_linking,
+<a href=#460 id=460 data-nosnippet>460</a>            multi_memory,
+<a href=#461 id=461 data-nosnippet>461</a>            memory64,
+<a href=#462 id=462 data-nosnippet>462</a>            exceptions,
+<a href=#463 id=463 data-nosnippet>463</a>            relaxed_simd,
+<a href=#464 id=464 data-nosnippet>464</a>            extended_const,
+<a href=#465 id=465 data-nosnippet>465</a>        } = other.clone();
+<a href=#466 id=466 data-nosnippet>466</a>
+<a href=#467 id=467 data-nosnippet>467</a>        <span class="kw-2">*</span><span class="self">self </span>= <span class="self">Self </span>{
+<a href=#468 id=468 data-nosnippet>468</a>            threads: <span class="self">self</span>.threads || threads,
+<a href=#469 id=469 data-nosnippet>469</a>            reference_types: <span class="self">self</span>.reference_types || reference_types,
+<a href=#470 id=470 data-nosnippet>470</a>            simd: <span class="self">self</span>.simd || simd,
+<a href=#471 id=471 data-nosnippet>471</a>            bulk_memory: <span class="self">self</span>.bulk_memory || bulk_memory,
+<a href=#472 id=472 data-nosnippet>472</a>            multi_value: <span class="self">self</span>.multi_value || multi_value,
+<a href=#473 id=473 data-nosnippet>473</a>            tail_call: <span class="self">self</span>.tail_call || tail_call,
+<a href=#474 id=474 data-nosnippet>474</a>            module_linking: <span class="self">self</span>.module_linking || module_linking,
+<a href=#475 id=475 data-nosnippet>475</a>            multi_memory: <span class="self">self</span>.multi_memory || multi_memory,
+<a href=#476 id=476 data-nosnippet>476</a>            memory64: <span class="self">self</span>.memory64 || memory64,
+<a href=#477 id=477 data-nosnippet>477</a>            exceptions: <span class="self">self</span>.exceptions || exceptions,
+<a href=#478 id=478 data-nosnippet>478</a>            relaxed_simd: <span class="self">self</span>.relaxed_simd || relaxed_simd,
+<a href=#479 id=479 data-nosnippet>479</a>            extended_const: <span class="self">self</span>.extended_const || extended_const,
+<a href=#480 id=480 data-nosnippet>480</a>        };
+<a href=#481 id=481 data-nosnippet>481</a>    }
+<a href=#482 id=482 data-nosnippet>482</a>}
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a><span class="kw">impl </span>Default <span class="kw">for </span>Features {
+<a href=#485 id=485 data-nosnippet>485</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#486 id=486 data-nosnippet>486</a>        <span class="self">Self</span>::new()
+<a href=#487 id=487 data-nosnippet>487</a>    }
+<a href=#488 id=488 data-nosnippet>488</a>}
+<a href=#489 id=489 data-nosnippet>489</a>
+<a href=#490 id=490 data-nosnippet>490</a><span class="attr">#[cfg(test)]
+<a href=#491 id=491 data-nosnippet>491</a></span><span class="kw">mod </span>test_features {
+<a href=#492 id=492 data-nosnippet>492</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#493 id=493 data-nosnippet>493</a>    <span class="attr">#[test]
+<a href=#494 id=494 data-nosnippet>494</a>    </span><span class="kw">fn </span>default_features() {
+<a href=#495 id=495 data-nosnippet>495</a>        <span class="kw">let </span>default = Features::default();
+<a href=#496 id=496 data-nosnippet>496</a>        <span class="macro">assert_eq!</span>(
+<a href=#497 id=497 data-nosnippet>497</a>            default,
+<a href=#498 id=498 data-nosnippet>498</a>            Features {
+<a href=#499 id=499 data-nosnippet>499</a>                threads: <span class="bool-val">true</span>,
+<a href=#500 id=500 data-nosnippet>500</a>                reference_types: <span class="bool-val">true</span>,
+<a href=#501 id=501 data-nosnippet>501</a>                simd: <span class="bool-val">true</span>,
+<a href=#502 id=502 data-nosnippet>502</a>                bulk_memory: <span class="bool-val">true</span>,
+<a href=#503 id=503 data-nosnippet>503</a>                multi_value: <span class="bool-val">true</span>,
+<a href=#504 id=504 data-nosnippet>504</a>                tail_call: <span class="bool-val">false</span>,
+<a href=#505 id=505 data-nosnippet>505</a>                module_linking: <span class="bool-val">false</span>,
+<a href=#506 id=506 data-nosnippet>506</a>                multi_memory: <span class="bool-val">false</span>,
+<a href=#507 id=507 data-nosnippet>507</a>                memory64: <span class="bool-val">false</span>,
+<a href=#508 id=508 data-nosnippet>508</a>                exceptions: <span class="bool-val">false</span>,
+<a href=#509 id=509 data-nosnippet>509</a>                relaxed_simd: <span class="bool-val">false</span>,
+<a href=#510 id=510 data-nosnippet>510</a>                extended_const: <span class="bool-val">false</span>,
+<a href=#511 id=511 data-nosnippet>511</a>            }
+<a href=#512 id=512 data-nosnippet>512</a>        );
+<a href=#513 id=513 data-nosnippet>513</a>    }
+<a href=#514 id=514 data-nosnippet>514</a>
+<a href=#515 id=515 data-nosnippet>515</a>    <span class="attr">#[test]
+<a href=#516 id=516 data-nosnippet>516</a>    </span><span class="kw">fn </span>features_extend() {
+<a href=#517 id=517 data-nosnippet>517</a>        <span class="kw">let </span>all = Features::all();
+<a href=#518 id=518 data-nosnippet>518</a>        <span class="kw">let </span><span class="kw-2">mut </span>target = Features::none();
+<a href=#519 id=519 data-nosnippet>519</a>        target.extend(<span class="kw-2">&amp;</span>all);
+<a href=#520 id=520 data-nosnippet>520</a>        <span class="macro">assert_eq!</span>(target, all);
+<a href=#521 id=521 data-nosnippet>521</a>    }
+<a href=#522 id=522 data-nosnippet>522</a>
+<a href=#523 id=523 data-nosnippet>523</a>    <span class="attr">#[test]
+<a href=#524 id=524 data-nosnippet>524</a>    </span><span class="kw">fn </span>enable_threads() {
+<a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#526 id=526 data-nosnippet>526</a>        features.bulk_memory(<span class="bool-val">false</span>).threads(<span class="bool-val">true</span>);
 <a href=#527 id=527 data-nosnippet>527</a>
-<a href=#528 id=528 data-nosnippet>528</a>    <span class="attr">#[test]
-<a href=#529 id=529 data-nosnippet>529</a>    </span><span class="kw">fn </span>enable_reference_types() {
-<a href=#530 id=530 data-nosnippet>530</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#531 id=531 data-nosnippet>531</a>        features.bulk_memory(<span class="bool-val">false</span>).reference_types(<span class="bool-val">true</span>);
-<a href=#532 id=532 data-nosnippet>532</a>        <span class="macro">assert!</span>(features.reference_types);
-<a href=#533 id=533 data-nosnippet>533</a>        <span class="macro">assert!</span>(features.bulk_memory);
-<a href=#534 id=534 data-nosnippet>534</a>    }
-<a href=#535 id=535 data-nosnippet>535</a>
-<a href=#536 id=536 data-nosnippet>536</a>    <span class="attr">#[test]
-<a href=#537 id=537 data-nosnippet>537</a>    </span><span class="kw">fn </span>enable_simd() {
-<a href=#538 id=538 data-nosnippet>538</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#539 id=539 data-nosnippet>539</a>        features.simd(<span class="bool-val">true</span>);
-<a href=#540 id=540 data-nosnippet>540</a>        <span class="macro">assert!</span>(features.simd);
-<a href=#541 id=541 data-nosnippet>541</a>    }
-<a href=#542 id=542 data-nosnippet>542</a>
-<a href=#543 id=543 data-nosnippet>543</a>    <span class="attr">#[test]
-<a href=#544 id=544 data-nosnippet>544</a>    </span><span class="kw">fn </span>enable_multi_value() {
-<a href=#545 id=545 data-nosnippet>545</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#546 id=546 data-nosnippet>546</a>        features.multi_value(<span class="bool-val">true</span>);
-<a href=#547 id=547 data-nosnippet>547</a>        <span class="macro">assert!</span>(features.multi_value);
-<a href=#548 id=548 data-nosnippet>548</a>    }
-<a href=#549 id=549 data-nosnippet>549</a>
-<a href=#550 id=550 data-nosnippet>550</a>    <span class="attr">#[test]
-<a href=#551 id=551 data-nosnippet>551</a>    </span><span class="kw">fn </span>enable_bulk_memory() {
-<a href=#552 id=552 data-nosnippet>552</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#553 id=553 data-nosnippet>553</a>        features.bulk_memory(<span class="bool-val">true</span>);
-<a href=#554 id=554 data-nosnippet>554</a>        <span class="macro">assert!</span>(features.bulk_memory);
-<a href=#555 id=555 data-nosnippet>555</a>    }
-<a href=#556 id=556 data-nosnippet>556</a>
-<a href=#557 id=557 data-nosnippet>557</a>    <span class="attr">#[test]
-<a href=#558 id=558 data-nosnippet>558</a>    </span><span class="kw">fn </span>disable_bulk_memory() {
-<a href=#559 id=559 data-nosnippet>559</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#560 id=560 data-nosnippet>560</a>        features
-<a href=#561 id=561 data-nosnippet>561</a>            .threads(<span class="bool-val">true</span>)
-<a href=#562 id=562 data-nosnippet>562</a>            .reference_types(<span class="bool-val">true</span>)
-<a href=#563 id=563 data-nosnippet>563</a>            .bulk_memory(<span class="bool-val">false</span>);
-<a href=#564 id=564 data-nosnippet>564</a>        <span class="macro">assert!</span>(!features.bulk_memory);
-<a href=#565 id=565 data-nosnippet>565</a>        <span class="macro">assert!</span>(!features.reference_types);
-<a href=#566 id=566 data-nosnippet>566</a>    }
-<a href=#567 id=567 data-nosnippet>567</a>
-<a href=#568 id=568 data-nosnippet>568</a>    <span class="attr">#[test]
-<a href=#569 id=569 data-nosnippet>569</a>    </span><span class="kw">fn </span>enable_tail_call() {
-<a href=#570 id=570 data-nosnippet>570</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#571 id=571 data-nosnippet>571</a>        features.tail_call(<span class="bool-val">true</span>);
-<a href=#572 id=572 data-nosnippet>572</a>        <span class="macro">assert!</span>(features.tail_call);
-<a href=#573 id=573 data-nosnippet>573</a>    }
-<a href=#574 id=574 data-nosnippet>574</a>
-<a href=#575 id=575 data-nosnippet>575</a>    <span class="attr">#[test]
-<a href=#576 id=576 data-nosnippet>576</a>    </span><span class="kw">fn </span>enable_module_linking() {
-<a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#578 id=578 data-nosnippet>578</a>        features.module_linking(<span class="bool-val">true</span>);
-<a href=#579 id=579 data-nosnippet>579</a>        <span class="macro">assert!</span>(features.module_linking);
-<a href=#580 id=580 data-nosnippet>580</a>    }
-<a href=#581 id=581 data-nosnippet>581</a>
-<a href=#582 id=582 data-nosnippet>582</a>    <span class="attr">#[test]
-<a href=#583 id=583 data-nosnippet>583</a>    </span><span class="kw">fn </span>enable_multi_memory() {
-<a href=#584 id=584 data-nosnippet>584</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#585 id=585 data-nosnippet>585</a>        features.multi_memory(<span class="bool-val">true</span>);
-<a href=#586 id=586 data-nosnippet>586</a>        <span class="macro">assert!</span>(features.multi_memory);
-<a href=#587 id=587 data-nosnippet>587</a>    }
-<a href=#588 id=588 data-nosnippet>588</a>
-<a href=#589 id=589 data-nosnippet>589</a>    <span class="attr">#[test]
-<a href=#590 id=590 data-nosnippet>590</a>    </span><span class="kw">fn </span>enable_memory64() {
-<a href=#591 id=591 data-nosnippet>591</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
-<a href=#592 id=592 data-nosnippet>592</a>        features.memory64(<span class="bool-val">true</span>);
-<a href=#593 id=593 data-nosnippet>593</a>        <span class="macro">assert!</span>(features.memory64);
-<a href=#594 id=594 data-nosnippet>594</a>    }
-<a href=#595 id=595 data-nosnippet>595</a>}</code></pre></div></section></main></body></html>
+<a href=#528 id=528 data-nosnippet>528</a>        <span class="macro">assert!</span>(features.threads);
+<a href=#529 id=529 data-nosnippet>529</a>    }
+<a href=#530 id=530 data-nosnippet>530</a>
+<a href=#531 id=531 data-nosnippet>531</a>    <span class="attr">#[test]
+<a href=#532 id=532 data-nosnippet>532</a>    </span><span class="kw">fn </span>enable_reference_types() {
+<a href=#533 id=533 data-nosnippet>533</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#534 id=534 data-nosnippet>534</a>        features.bulk_memory(<span class="bool-val">false</span>).reference_types(<span class="bool-val">true</span>);
+<a href=#535 id=535 data-nosnippet>535</a>        <span class="macro">assert!</span>(features.reference_types);
+<a href=#536 id=536 data-nosnippet>536</a>        <span class="macro">assert!</span>(features.bulk_memory);
+<a href=#537 id=537 data-nosnippet>537</a>    }
+<a href=#538 id=538 data-nosnippet>538</a>
+<a href=#539 id=539 data-nosnippet>539</a>    <span class="attr">#[test]
+<a href=#540 id=540 data-nosnippet>540</a>    </span><span class="kw">fn </span>enable_simd() {
+<a href=#541 id=541 data-nosnippet>541</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#542 id=542 data-nosnippet>542</a>        features.simd(<span class="bool-val">true</span>);
+<a href=#543 id=543 data-nosnippet>543</a>        <span class="macro">assert!</span>(features.simd);
+<a href=#544 id=544 data-nosnippet>544</a>    }
+<a href=#545 id=545 data-nosnippet>545</a>
+<a href=#546 id=546 data-nosnippet>546</a>    <span class="attr">#[test]
+<a href=#547 id=547 data-nosnippet>547</a>    </span><span class="kw">fn </span>enable_multi_value() {
+<a href=#548 id=548 data-nosnippet>548</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#549 id=549 data-nosnippet>549</a>        features.multi_value(<span class="bool-val">true</span>);
+<a href=#550 id=550 data-nosnippet>550</a>        <span class="macro">assert!</span>(features.multi_value);
+<a href=#551 id=551 data-nosnippet>551</a>    }
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a>    <span class="attr">#[test]
+<a href=#554 id=554 data-nosnippet>554</a>    </span><span class="kw">fn </span>enable_bulk_memory() {
+<a href=#555 id=555 data-nosnippet>555</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#556 id=556 data-nosnippet>556</a>        features.bulk_memory(<span class="bool-val">true</span>);
+<a href=#557 id=557 data-nosnippet>557</a>        <span class="macro">assert!</span>(features.bulk_memory);
+<a href=#558 id=558 data-nosnippet>558</a>    }
+<a href=#559 id=559 data-nosnippet>559</a>
+<a href=#560 id=560 data-nosnippet>560</a>    <span class="attr">#[test]
+<a href=#561 id=561 data-nosnippet>561</a>    </span><span class="kw">fn </span>disable_bulk_memory() {
+<a href=#562 id=562 data-nosnippet>562</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#563 id=563 data-nosnippet>563</a>        features
+<a href=#564 id=564 data-nosnippet>564</a>            .threads(<span class="bool-val">true</span>)
+<a href=#565 id=565 data-nosnippet>565</a>            .reference_types(<span class="bool-val">true</span>)
+<a href=#566 id=566 data-nosnippet>566</a>            .bulk_memory(<span class="bool-val">false</span>);
+<a href=#567 id=567 data-nosnippet>567</a>        <span class="macro">assert!</span>(!features.bulk_memory);
+<a href=#568 id=568 data-nosnippet>568</a>        <span class="macro">assert!</span>(!features.reference_types);
+<a href=#569 id=569 data-nosnippet>569</a>    }
+<a href=#570 id=570 data-nosnippet>570</a>
+<a href=#571 id=571 data-nosnippet>571</a>    <span class="attr">#[test]
+<a href=#572 id=572 data-nosnippet>572</a>    </span><span class="kw">fn </span>enable_tail_call() {
+<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#574 id=574 data-nosnippet>574</a>        features.tail_call(<span class="bool-val">true</span>);
+<a href=#575 id=575 data-nosnippet>575</a>        <span class="macro">assert!</span>(features.tail_call);
+<a href=#576 id=576 data-nosnippet>576</a>    }
+<a href=#577 id=577 data-nosnippet>577</a>
+<a href=#578 id=578 data-nosnippet>578</a>    <span class="attr">#[test]
+<a href=#579 id=579 data-nosnippet>579</a>    </span><span class="kw">fn </span>enable_module_linking() {
+<a href=#580 id=580 data-nosnippet>580</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#581 id=581 data-nosnippet>581</a>        features.module_linking(<span class="bool-val">true</span>);
+<a href=#582 id=582 data-nosnippet>582</a>        <span class="macro">assert!</span>(features.module_linking);
+<a href=#583 id=583 data-nosnippet>583</a>    }
+<a href=#584 id=584 data-nosnippet>584</a>
+<a href=#585 id=585 data-nosnippet>585</a>    <span class="attr">#[test]
+<a href=#586 id=586 data-nosnippet>586</a>    </span><span class="kw">fn </span>enable_multi_memory() {
+<a href=#587 id=587 data-nosnippet>587</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#588 id=588 data-nosnippet>588</a>        features.multi_memory(<span class="bool-val">true</span>);
+<a href=#589 id=589 data-nosnippet>589</a>        <span class="macro">assert!</span>(features.multi_memory);
+<a href=#590 id=590 data-nosnippet>590</a>    }
+<a href=#591 id=591 data-nosnippet>591</a>
+<a href=#592 id=592 data-nosnippet>592</a>    <span class="attr">#[test]
+<a href=#593 id=593 data-nosnippet>593</a>    </span><span class="kw">fn </span>enable_memory64() {
+<a href=#594 id=594 data-nosnippet>594</a>        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+<a href=#595 id=595 data-nosnippet>595</a>        features.memory64(<span class="bool-val">true</span>);
+<a href=#596 id=596 data-nosnippet>596</a>        <span class="macro">assert!</span>(features.memory64);
+<a href=#597 id=597 data-nosnippet>597</a>    }
+<a href=#598 id=598 data-nosnippet>598</a>}</code></pre></div></section></main></body></html>

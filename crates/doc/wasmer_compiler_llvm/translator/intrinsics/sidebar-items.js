@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GlobalCache","MemoryCache","MemoryOp"],"fn":["is_table_growable","tbaa_label","type_to_llvm"],"struct":["CtxType","FunctionCache","Intrinsics","TableCache"]};
+window.SIDEBAR_ITEMS = {"enum":["GlobalCache","MemoryCache","MemoryOp"],"fn":["is_table_growable","tbaa_label","type_to_llvm"],"struct":["CtxType","FunctionCache","Intrinsics","TableCache","X86_64Intrinsics"]};
