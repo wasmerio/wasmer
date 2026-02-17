@@ -62,6 +62,16 @@ pub(crate) fn path_unlink_file_internal(
         std::path::Path::new(path),
         false
     ));
+    let host_adjusted_path = {
+        let guard = parent_inode.read();
+        match guard.deref() {
+            Kind::Dir { path, .. } => path.join(&childs_name),
+            Kind::Root { .. } => return Ok(Errno::Access),
+            _ => unreachable!(
+                "Internal logic error in wasi::path_unlink_file, parent is not a directory"
+            ),
+        }
+    };
 
     let removed_inode = {
         let mut guard = parent_inode.write();
@@ -104,7 +114,18 @@ pub(crate) fn path_unlink_file_internal(
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(Errno::Isdir),
                 Kind::Symlink { .. } => {
-                    // TODO: actually delete real symlinks and do nothing for virtual symlinks
+                    match state.fs_remove_file(host_adjusted_path.as_path()) {
+                        Ok(()) => {}
+                        Err(Errno::Noent)
+                            if state
+                                .fs
+                                .ephemeral_symlink_at(host_adjusted_path.as_path())
+                                .is_some() => {}
+                        Err(err) => return Ok(err),
+                    }
+                    state
+                        .fs
+                        .unregister_ephemeral_symlink(host_adjusted_path.as_path());
                 }
                 _ => unimplemented!("wasi::path_unlink_file for Buffer"),
             }
