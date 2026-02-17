@@ -561,6 +561,9 @@ impl Wast {
             (Value::F32(a), WastRetCore::F32(b)) => f32_matches(*a, b),
             (Value::F64(a), WastRetCore::F64(b)) => f64_matches(*a, b),
             (Value::V128(a), WastRetCore::V128(b)) => v128_matches(*a, b),
+            (actual, WastRetCore::Either(cases)) => cases
+                .iter()
+                .any(|case| self.val_matches(actual, case).unwrap_or(false)),
             (
                 Value::FuncRef(None),
                 WastRetCore::RefNull(Some(wast::core::HeapType::Abstract {
