@@ -48,6 +48,24 @@ pub fn type_to_llvm<'ctx>(
     }
 }
 
+/// Struct containing x86_64 SIMD LLVM intrinsics.
+#[allow(dead_code)]
+pub struct X86_64Intrinsics<'ctx> {
+    pub pshufb128: FunctionValue<'ctx>,
+    pub pmaddubsw128: FunctionValue<'ctx>,
+    pub pmaddwd128: FunctionValue<'ctx>,
+    pub pmulhrsw128: FunctionValue<'ctx>,
+    pub pblendvb: FunctionValue<'ctx>,
+    pub min_ps: FunctionValue<'ctx>,
+    pub min_pd: FunctionValue<'ctx>,
+    pub max_ps: FunctionValue<'ctx>,
+    pub max_pd: FunctionValue<'ctx>,
+    pub cvttps2dq: FunctionValue<'ctx>,
+    pub cvtps2udq128: FunctionValue<'ctx>,
+    pub cvtpd2dq: FunctionValue<'ctx>,
+    pub cvtpd2udq128: FunctionValue<'ctx>,
+}
+
 /// Struct containing LLVM and VM intrinsics.
 #[allow(dead_code)]
 pub struct Intrinsics<'ctx> {
@@ -81,6 +99,8 @@ pub struct Intrinsics<'ctx> {
     pub mul_f64: FunctionValue<'ctx>,
     pub mul_f32x4: FunctionValue<'ctx>,
     pub mul_f64x2: FunctionValue<'ctx>,
+    pub muladd_f32x4: FunctionValue<'ctx>,
+    pub muladd_f64x2: FunctionValue<'ctx>,
 
     pub div_f32: FunctionValue<'ctx>,
     pub div_f64: FunctionValue<'ctx>,
@@ -186,6 +206,8 @@ pub struct Intrinsics<'ctx> {
     pub i32x8_ty: VectorType<'ctx>,
 
     pub ptr_ty: PointerType<'ctx>,
+
+    pub x86_64: X86_64Intrinsics<'ctx>,
 
     pub anyfunc_ty: StructType<'ctx>,
 
@@ -353,6 +375,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let f64_ty_basic_md: BasicMetadataTypeEnum = f64_ty.into();
         let i8x16_ty_basic_md: BasicMetadataTypeEnum = i8x16_ty.into();
         let i16x8_ty_basic_md: BasicMetadataTypeEnum = i16x8_ty.into();
+        let i32x4_ty_basic_md: BasicMetadataTypeEnum = i32x4_ty.into();
         let f32x4_ty_basic_md: BasicMetadataTypeEnum = f32x4_ty.into();
         let f64x2_ty_basic_md: BasicMetadataTypeEnum = f64x2_ty.into();
         let md_ty_basic_md: BasicMetadataTypeEnum = md_ty.into();
@@ -374,6 +397,10 @@ impl<'ctx> Intrinsics<'ctx> {
         let ret_i8x16_take_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic_md], false);
         let ret_i8x16_take_i8x16_i8x16 =
             i8x16_ty.fn_type(&[i8x16_ty_basic_md, i8x16_ty_basic_md], false);
+        let ret_i8x16_take_i8x16_i8x16_i8x16 = i8x16_ty.fn_type(
+            &[i8x16_ty_basic_md, i8x16_ty_basic_md, i8x16_ty_basic_md],
+            false,
+        );
         let ret_i16x8_take_i16x8_i16x8 =
             i16x8_ty.fn_type(&[i16x8_ty_basic_md, i16x8_ty_basic_md], false);
 
@@ -394,6 +421,26 @@ impl<'ctx> Intrinsics<'ctx> {
             f32x4_ty.fn_type(&[f32x4_ty_basic_md, f32x4_ty_basic_md], false);
         let ret_f64x2_take_f64x2_f64x2 =
             f64x2_ty.fn_type(&[f64x2_ty_basic_md, f64x2_ty_basic_md], false);
+        let ret_f32x4_take_f32x4_f32x4_f32x4_md_md = f32x4_ty.fn_type(
+            &[
+                f32x4_ty_basic_md,
+                f32x4_ty_basic_md,
+                f32x4_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
+        let ret_f64x2_take_f64x2_f64x2_f64x2_md_md = f64x2_ty.fn_type(
+            &[
+                f64x2_ty_basic_md,
+                f64x2_ty_basic_md,
+                f64x2_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
 
         let ret_f64_take_f32_md = f64_ty.fn_type(&[f32_ty_basic_md, md_ty_basic_md], false);
         let ret_f32_take_f64_md_md =
@@ -474,6 +521,12 @@ impl<'ctx> Intrinsics<'ctx> {
             ],
             false,
         );
+        let ret_i32x4_take_f32x4 = i32x4_ty.fn_type(&[f32x4_ty_basic_md], false);
+        let ret_i32x4_take_f32x4_i32x4_i8 =
+            i32x4_ty.fn_type(&[f32x4_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()], false);
+        let ret_i32x4_take_f64x2 = i32x4_ty.fn_type(&[f64x2_ty_basic_md], false);
+        let ret_i32x4_take_f64x2_i32x4_i8 =
+            i32x4_ty.fn_type(&[f64x2_ty_basic_md, i32x4_ty_basic_md, i8_ty.into()], false);
 
         let add_function_with_attrs =
             |name: &str, ty: FunctionType<'ctx>, linkage: Option<Linkage>| -> FunctionValue<'ctx> {
@@ -616,6 +669,16 @@ impl<'ctx> Intrinsics<'ctx> {
             mul_f64x2: add_function_with_attrs(
                 "llvm.experimental.constrained.fmul.v2f64",
                 ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+            muladd_f32x4: add_function_with_attrs(
+                "llvm.experimental.constrained.fmuladd.v4f32",
+                ret_f32x4_take_f32x4_f32x4_f32x4_md_md,
+                None,
+            ),
+            muladd_f64x2: add_function_with_attrs(
+                "llvm.experimental.constrained.fmuladd.v2f64",
+                ret_f64x2_take_f64x2_f64x2_f64x2_md_md,
                 None,
             ),
 
@@ -1246,6 +1309,74 @@ impl<'ctx> Intrinsics<'ctx> {
             vmmemory_definition_current_length_element: 1,
 
             ptr_ty,
+
+            x86_64: X86_64Intrinsics {
+                pshufb128: add_function_with_attrs(
+                    "llvm.x86.ssse3.pshuf.b.128",
+                    ret_i8x16_take_i8x16_i8x16,
+                    None,
+                ),
+                pmaddubsw128: add_function_with_attrs(
+                    "llvm.x86.ssse3.pmadd.ub.sw.128",
+                    i16x8_ty.fn_type(&[i8x16_ty_basic_md, i8x16_ty_basic_md], false),
+                    None,
+                ),
+                pmaddwd128: add_function_with_attrs(
+                    "llvm.x86.sse2.pmadd.wd",
+                    i32x4_ty.fn_type(&[i16x8_ty_basic_md, i16x8_ty_basic_md], false),
+                    None,
+                ),
+                pmulhrsw128: add_function_with_attrs(
+                    "llvm.x86.ssse3.pmul.hr.sw.128",
+                    ret_i16x8_take_i16x8_i16x8,
+                    None,
+                ),
+                pblendvb: add_function_with_attrs(
+                    "llvm.x86.sse41.pblendvb",
+                    ret_i8x16_take_i8x16_i8x16_i8x16,
+                    None,
+                ),
+                min_ps: add_function_with_attrs(
+                    "llvm.x86.sse.min.ps",
+                    ret_f32x4_take_f32x4_f32x4,
+                    None,
+                ),
+                min_pd: add_function_with_attrs(
+                    "llvm.x86.sse2.min.pd",
+                    ret_f64x2_take_f64x2_f64x2,
+                    None,
+                ),
+                max_ps: add_function_with_attrs(
+                    "llvm.x86.sse.max.ps",
+                    ret_f32x4_take_f32x4_f32x4,
+                    None,
+                ),
+                max_pd: add_function_with_attrs(
+                    "llvm.x86.sse2.max.pd",
+                    ret_f64x2_take_f64x2_f64x2,
+                    None,
+                ),
+                cvttps2dq: add_function_with_attrs(
+                    "llvm.x86.sse2.cvttps2dq",
+                    ret_i32x4_take_f32x4,
+                    None,
+                ),
+                cvtps2udq128: add_function_with_attrs(
+                    "llvm.x86.avx512.mask.cvtps2udq.128",
+                    ret_i32x4_take_f32x4_i32x4_i8,
+                    None,
+                ),
+                cvtpd2dq: add_function_with_attrs(
+                    "llvm.x86.sse2.cvtpd2dq",
+                    ret_i32x4_take_f64x2,
+                    None,
+                ),
+                cvtpd2udq128: add_function_with_attrs(
+                    "llvm.x86.avx512.mask.cvtpd2udq.128",
+                    ret_i32x4_take_f64x2_i32x4_i8,
+                    None,
+                ),
+            },
         };
 
         let noreturn =

@@ -22,6 +22,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     let mut features = Features::default();
     let is_bulkmemory = wast_path.contains("bulk-memory");
     let is_simd = wast_path.contains("simd");
+    let is_relaxed_simd = wast_path.contains("relaxed-simd");
     let is_threads = wast_path.contains("threads");
     let is_exception_handling = wast_path.contains("exception-handling");
     if is_bulkmemory {
@@ -29,6 +30,9 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     }
     if is_simd {
         features.simd(true);
+    }
+    if is_relaxed_simd {
+        features.relaxed_simd(true);
     }
     if is_threads {
         features.threads(true);

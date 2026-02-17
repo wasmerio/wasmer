@@ -25,7 +25,7 @@ impl Arbitrary<'_> for LLVMPassFuzzModule {
         config.memory64_enabled = false;
         config.max_memories = 1;
         config.tail_call_enabled = false;
-        config.relaxed_simd_enabled = false;
+        config.relaxed_simd_enabled = true;
         Ok(Self(wasm_smith::Module::new(config, u)?))
     }
 }

@@ -1740,6 +1740,10 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (a, b) = pop2_with_bitcast(state, I8X16, builder);
             state.push1(builder.ins().swizzle(a, b))
         }
+        Operator::I8x16RelaxedSwizzle => {
+            let (a, b) = pop2_with_bitcast(state, I8X16, builder);
+            state.push1(builder.ins().swizzle(a, b))
+        }
         Operator::I8x16Add | Operator::I16x8Add | Operator::I32x4Add | Operator::I64x2Add => {
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().iadd(a, b))
@@ -1852,6 +1856,19 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             // operands must match (hence the bitcast).
             state.push1(builder.ins().bitselect(bitcast_c, bitcast_a, bitcast_b))
         }
+        Operator::I8x16RelaxedLaneselect
+        | Operator::I16x8RelaxedLaneselect
+        | Operator::I32x4RelaxedLaneselect
+        | Operator::I64x2RelaxedLaneselect => {
+            let (a, b, c) = state.pop3();
+            let ty = type_of(op);
+            let bitcast_a = optionally_bitcast_vector(a, ty, builder);
+            let bitcast_b = optionally_bitcast_vector(b, ty, builder);
+            let bitcast_c = optionally_bitcast_vector(c, ty, builder);
+            // The CLIF operand ordering is slightly different and the types of all three
+            // operands must match (hence the bitcast).
+            state.push1(builder.ins().bitselect(bitcast_c, bitcast_a, bitcast_b))
+        }
         Operator::V128AnyTrue => {
             let a = pop1_with_bitcast(state, type_of(op), builder);
             let bool_result = builder.ins().vany_true(a);
@@ -1935,6 +1952,25 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().fmul(a, b))
         }
+        Operator::F32x4RelaxedMadd | Operator::F64x2RelaxedMadd => {
+            let ty = type_of(op);
+            let (a, b, c) = state.pop3();
+            let a = optionally_bitcast_vector(a, ty, builder);
+            let b = optionally_bitcast_vector(b, ty, builder);
+            let c = optionally_bitcast_vector(c, ty, builder);
+            let mul = builder.ins().fmul(a, b);
+            state.push1(builder.ins().fadd(mul, c))
+        }
+        Operator::F32x4RelaxedNmadd | Operator::F64x2RelaxedNmadd => {
+            let ty = type_of(op);
+            let (a, b, c) = state.pop3();
+            let a = optionally_bitcast_vector(a, ty, builder);
+            let b = optionally_bitcast_vector(b, ty, builder);
+            let c = optionally_bitcast_vector(c, ty, builder);
+            let a = builder.ins().fneg(a);
+            let mul = builder.ins().fmul(a, b);
+            state.push1(builder.ins().fadd(mul, c))
+        }
         Operator::F32x4Div | Operator::F64x2Div => {
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().fdiv(a, b))
@@ -1943,7 +1979,15 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().fmax(a, b))
         }
+        Operator::F32x4RelaxedMax | Operator::F64x2RelaxedMax => {
+            let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
+            state.push1(builder.ins().fmax(a, b))
+        }
         Operator::F32x4Min | Operator::F64x2Min => {
+            let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
+            state.push1(builder.ins().fmin(a, b))
+        }
+        Operator::F32x4RelaxedMin | Operator::F64x2RelaxedMin => {
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().fmin(a, b))
         }
@@ -2014,7 +2058,19 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let a = pop1_with_bitcast(state, F32X4, builder);
             state.push1(builder.ins().fcvt_to_sint_sat(I32X4, a))
         }
+        Operator::I32x4RelaxedTruncF32x4S => {
+            let a = pop1_with_bitcast(state, F32X4, builder);
+            state.push1(builder.ins().fcvt_to_sint_sat(I32X4, a))
+        }
         Operator::I32x4TruncSatF64x2SZero => {
+            let a = pop1_with_bitcast(state, F64X2, builder);
+            let converted_a = builder.ins().fcvt_to_sint_sat(I64X2, a);
+            let handle = builder.func.dfg.constants.insert(vec![0u8; 16].into());
+            let zero = builder.ins().vconst(I64X2, handle);
+
+            state.push1(builder.ins().snarrow(converted_a, zero));
+        }
+        Operator::I32x4RelaxedTruncF64x2SZero => {
             let a = pop1_with_bitcast(state, F64X2, builder);
             let converted_a = builder.ins().fcvt_to_sint_sat(I64X2, a);
             let handle = builder.func.dfg.constants.insert(vec![0u8; 16].into());
@@ -2026,7 +2082,19 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let a = pop1_with_bitcast(state, F32X4, builder);
             state.push1(builder.ins().fcvt_to_uint_sat(I32X4, a))
         }
+        Operator::I32x4RelaxedTruncF32x4U => {
+            let a = pop1_with_bitcast(state, F32X4, builder);
+            state.push1(builder.ins().fcvt_to_uint_sat(I32X4, a))
+        }
         Operator::I32x4TruncSatF64x2UZero => {
+            let a = pop1_with_bitcast(state, F64X2, builder);
+            let converted_a = builder.ins().fcvt_to_uint_sat(I64X2, a);
+            let handle = builder.func.dfg.constants.insert(vec![0u8; 16].into());
+            let zero = builder.ins().vconst(I64X2, handle);
+
+            state.push1(builder.ins().uunarrow(converted_a, zero));
+        }
+        Operator::I32x4RelaxedTruncF64x2UZero => {
             let a = pop1_with_bitcast(state, F64X2, builder);
             let converted_a = builder.ins().fcvt_to_uint_sat(I64X2, a);
             let handle = builder.func.dfg.constants.insert(vec![0u8; 16].into());
@@ -2152,6 +2220,16 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let high = builder.ins().imul(ahigh, bhigh);
             state.push1(builder.ins().iadd_pairwise(low, high));
         }
+        Operator::I16x8RelaxedDotI8x16I7x16S => {
+            let (a, b) = pop2_with_bitcast(state, I8X16, builder);
+            let alow = builder.ins().swiden_low(a);
+            let blow = builder.ins().swiden_low(b);
+            let low = builder.ins().imul(alow, blow);
+            let ahigh = builder.ins().swiden_high(a);
+            let bhigh = builder.ins().swiden_high(b);
+            let high = builder.ins().imul(ahigh, bhigh);
+            state.push1(builder.ins().iadd_pairwise(low, high));
+        }
         Operator::I8x16Popcnt => {
             let arg = pop1_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().popcnt(arg));
@@ -2159,6 +2237,27 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::I16x8Q15MulrSatS => {
             let (a, b) = pop2_with_bitcast(state, I16X8, builder);
             state.push1(builder.ins().sqmul_round_sat(a, b))
+        }
+        Operator::I16x8RelaxedQ15mulrS => {
+            let (a, b) = pop2_with_bitcast(state, I16X8, builder);
+            state.push1(builder.ins().sqmul_round_sat(a, b))
+        }
+        Operator::I32x4RelaxedDotI8x16I7x16AddS => {
+            let (a, b, c) = state.pop3();
+            let a = optionally_bitcast_vector(a, I8X16, builder);
+            let b = optionally_bitcast_vector(b, I8X16, builder);
+            let c = optionally_bitcast_vector(c, I32X4, builder);
+            let alow = builder.ins().swiden_low(a);
+            let blow = builder.ins().swiden_low(b);
+            let low = builder.ins().imul(alow, blow);
+            let ahigh = builder.ins().swiden_high(a);
+            let bhigh = builder.ins().swiden_high(b);
+            let high = builder.ins().imul(ahigh, bhigh);
+            let dot = builder.ins().iadd_pairwise(low, high);
+            let dotlo = builder.ins().swiden_low(dot);
+            let dothi = builder.ins().swiden_high(dot);
+            let dot32 = builder.ins().iadd_pairwise(dotlo, dothi);
+            state.push1(builder.ins().iadd(dot32, c));
         }
         Operator::I16x8ExtMulLowI8x16S => {
             let (a, b) = pop2_with_bitcast(state, I8X16, builder);
@@ -2234,28 +2333,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::ReturnCall { .. } | Operator::ReturnCallIndirect { .. } => {
             return Err(wasm_unsupported!("proposed tail-call operator {:?}", op));
-        }
-        Operator::I8x16RelaxedSwizzle
-        | Operator::I32x4RelaxedTruncF32x4S
-        | Operator::I32x4RelaxedTruncF32x4U
-        | Operator::I32x4RelaxedTruncF64x2SZero
-        | Operator::I32x4RelaxedTruncF64x2UZero
-        | Operator::F32x4RelaxedNmadd
-        | Operator::F32x4RelaxedMadd
-        | Operator::I8x16RelaxedLaneselect
-        | Operator::I16x8RelaxedLaneselect
-        | Operator::I32x4RelaxedLaneselect
-        | Operator::I64x2RelaxedLaneselect
-        | Operator::F32x4RelaxedMin
-        | Operator::F32x4RelaxedMax
-        | Operator::F64x2RelaxedMin
-        | Operator::F64x2RelaxedMax
-        | Operator::F64x2RelaxedMadd
-        | Operator::F64x2RelaxedNmadd
-        | Operator::I16x8RelaxedDotI8x16I7x16S
-        | Operator::I32x4RelaxedDotI8x16I7x16AddS
-        | Operator::I16x8RelaxedQ15mulrS => {
-            return Err(wasm_unsupported!("proposed relaxed-simd operator {:?}", op));
         }
         Operator::RefEq
         | Operator::StructNew { .. }
@@ -3113,6 +3190,8 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I8x16ExtractLaneS { .. }
         | Operator::I8x16ExtractLaneU { .. }
         | Operator::I8x16ReplaceLane { .. }
+        | Operator::I8x16RelaxedSwizzle
+        | Operator::I8x16RelaxedLaneselect
         | Operator::I8x16Eq
         | Operator::I8x16Ne
         | Operator::I8x16LtS
@@ -3150,6 +3229,7 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I16x8ExtractLaneS { .. }
         | Operator::I16x8ExtractLaneU { .. }
         | Operator::I16x8ReplaceLane { .. }
+        | Operator::I16x8RelaxedLaneselect
         | Operator::I16x8Eq
         | Operator::I16x8Ne
         | Operator::I16x8LtS
@@ -3178,6 +3258,8 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I16x8MaxU
         | Operator::I16x8AvgrU
         | Operator::I16x8Mul
+        | Operator::I16x8RelaxedQ15mulrS
+        | Operator::I16x8RelaxedDotI8x16I7x16S
         | Operator::I16x8Bitmask => I16X8,
 
         Operator::I32x4Splat
@@ -3186,6 +3268,7 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::V128Store32Lane { .. }
         | Operator::I32x4ExtractLane { .. }
         | Operator::I32x4ReplaceLane { .. }
+        | Operator::I32x4RelaxedLaneselect
         | Operator::I32x4Eq
         | Operator::I32x4Ne
         | Operator::I32x4LtS
@@ -3212,6 +3295,11 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I32x4Bitmask
         | Operator::I32x4TruncSatF32x4S
         | Operator::I32x4TruncSatF32x4U
+        | Operator::I32x4RelaxedTruncF32x4S
+        | Operator::I32x4RelaxedTruncF32x4U
+        | Operator::I32x4RelaxedTruncF64x2SZero
+        | Operator::I32x4RelaxedTruncF64x2UZero
+        | Operator::I32x4RelaxedDotI8x16I7x16AddS
         | Operator::V128Load32Zero { .. } => I32X4,
 
         Operator::I64x2Splat
@@ -3220,6 +3308,7 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::V128Store64Lane { .. }
         | Operator::I64x2ExtractLane { .. }
         | Operator::I64x2ReplaceLane { .. }
+        | Operator::I64x2RelaxedLaneselect
         | Operator::I64x2Eq
         | Operator::I64x2Ne
         | Operator::I64x2LtS
@@ -3258,6 +3347,10 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::F32x4Max
         | Operator::F32x4PMin
         | Operator::F32x4PMax
+        | Operator::F32x4RelaxedMin
+        | Operator::F32x4RelaxedMax
+        | Operator::F32x4RelaxedMadd
+        | Operator::F32x4RelaxedNmadd
         | Operator::F32x4ConvertI32x4S
         | Operator::F32x4ConvertI32x4U
         | Operator::F32x4Ceil
@@ -3285,6 +3378,10 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::F64x2Max
         | Operator::F64x2PMin
         | Operator::F64x2PMax
+        | Operator::F64x2RelaxedMin
+        | Operator::F64x2RelaxedMax
+        | Operator::F64x2RelaxedMadd
+        | Operator::F64x2RelaxedNmadd
         | Operator::F64x2Ceil
         | Operator::F64x2Floor
         | Operator::F64x2Trunc

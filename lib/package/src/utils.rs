@@ -197,6 +197,9 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
             "memory64" => {
                 features.memory64(true);
             }
+            "relaxed-simd" => {
+                features.relaxed_simd(true);
+            }
             // Ignore unrecognized features
             _ => {}
         }
