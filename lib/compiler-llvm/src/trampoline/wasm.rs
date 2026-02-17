@@ -6,7 +6,7 @@ use crate::{
     config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
-    translator::intrinsics::{Intrinsics, type_to_llvm, type_to_llvm_ptr},
+    translator::intrinsics::{Intrinsics, type_to_llvm},
 };
 use inkwell::{
     AddressSpace, DLLStorageClass,
@@ -522,12 +522,8 @@ impl FuncTrampoline {
                 err!(builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, "")).into_pointer_value()
             };
 
-            let global_ptr = err!(builder.build_bit_cast(
-                global_ptr,
-                type_to_llvm_ptr(intrinsics, global_value_type)?,
-                "",
-            ))
-            .into_pointer_value();
+            let global_ptr = err!(builder.build_bit_cast(global_ptr, intrinsics.ptr_ty, "",))
+                .into_pointer_value();
 
             let global_value = match global_mutability {
                 wasmer_types::Mutability::Const => {
@@ -606,11 +602,10 @@ impl FuncTrampoline {
             };
 
             let casted_type = type_to_llvm(intrinsics, *param_ty)?;
-            let casted_pointer_type = type_to_llvm_ptr(intrinsics, *param_ty)?;
 
             let typed_item_pointer = err!(builder.build_pointer_cast(
                 item_pointer,
-                casted_pointer_type,
+                intrinsics.ptr_ty,
                 "typed_arg_pointer"
             ));
 
@@ -683,12 +678,7 @@ impl FuncTrampoline {
                     "args",
                 ))
             };
-            let ptr = err!(builder.build_bit_cast(
-                ptr,
-                type_to_llvm_ptr(intrinsics, func_sig.params()[i])?,
-                ""
-            ))
-            .into_pointer_value();
+            let ptr = err!(builder.build_bit_cast(ptr, intrinsics.ptr_ty, "")).into_pointer_value();
             err!(
                 builder.build_store(
                     ptr,
@@ -737,11 +727,7 @@ impl FuncTrampoline {
                             "",
                         ))
                     };
-                    let ptr = err!(builder.build_pointer_cast(
-                        ptr,
-                        type_to_llvm_ptr(intrinsics, *ty)?,
-                        ""
-                    ));
+                    let ptr = err!(builder.build_pointer_cast(ptr, intrinsics.ptr_ty, ""));
                     err_nt!(builder.build_load(type_to_llvm(intrinsics, *ty)?, ptr, ""))
                 })
                 .collect::<Result<Vec<_>, CompileError>>()?;
