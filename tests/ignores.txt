@@ -3,7 +3,7 @@ singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for th
 singlepass wasmer::simd_generated_ext_ops
 singlepass wasmer::simd
 singlepass spec::exceptions # Singlepass doesn't support EH yet (no one asked for this feature)
-singlepass wasmer::exceptions
+singlepass wasmer::exception_handling
 windows spec::exceptions # No EH support on Windows yet
 macos+cranelift spec::exceptions
 
