@@ -55,6 +55,7 @@ fn main() -> anyhow::Result<()> {
             let _spec_tests = test_directory(spectests, "tests/wast/spec", wast_processor)?;
             test_directory_module(spectests, "tests/wast/spec/simd", wast_processor)?;
             test_directory_module(spectests, "tests/wast/spec/exceptions", wast_processor)?;
+            test_directory_module(spectests, "tests/wast/spec/relaxed-simd", wast_processor)?;
             // test_directory_module(spectests, "tests/wast/spec/proposals/bulk-memory-operations", wast_processor)?;
             Ok(())
         })?;
