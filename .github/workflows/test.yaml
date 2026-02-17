@@ -297,35 +297,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        is_pull_request:
+          - ${{ github.event_name == 'pull_request' }}
         build-what:
-          [
-            {
-              key: wamr,
-              lint-cmd: "make lint-wamr",
-              build-cmd: "make test-wamr-api",
-              name: "API (wamr)",
-            },
-            {
-              key: wasmi,
-              lint-cmd: "make lint-wasmi",
-              build-cmd: "make test-wasmi-api",
-              name: "API (wasmi)",
-            },
-            {
-              key: v8,
-              lint-cmd: "make lint-v8",
-              build-cmd: "make test-v8-api",
-              name: "API (v8)",
-            },
-          ]
-        metadata: [
-            { build: linux-x64, os: ubuntu-22.04 },
-            { build: macos-arm, os: depot-macos-14 },
-            #{
-            #  build: windows-x64,
-            #  os: windows-2022,
-            #}
-          ]
+          - key: wamr
+            lint-cmd: "make lint-wamr"
+            build-cmd: "make test-wamr-api"
+            name: "API (wamr)"
+          - key: wasmi
+            lint-cmd: "make lint-wasmi"
+            build-cmd: "make test-wasmi-api"
+            name: "API (wasmi)"
+          - key: v8
+            lint-cmd: "make lint-v8"
+            build-cmd: "make test-v8-api"
+            name: "API (v8)"
+        metadata:
+          - build: linux-x64
+            os: ubuntu-22.04
+          - build: macos-arm
+            os: depot-macos-14
+        exclude:
+          - is_pull_request: true
+            metadata:
+              build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v6
@@ -493,6 +488,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        is_pull_request:
+          - ${{ github.event_name == 'pull_request' }}
         build-what:
           [
             {
@@ -580,6 +577,13 @@ jobs:
               supports_v8: false,
             },
           ]
+        exclude:
+          - is_pull_request: true
+            metadata:
+              build: macos-x64
+          - is_pull_request: true
+            metadata:
+              build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v6
@@ -774,6 +778,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        is_pull_request:
+          - ${{ github.event_name == 'pull_request' }}
         stage:
           [
             {
@@ -839,7 +845,7 @@ jobs:
               os: windows-2022,
               target: x86_64-pc-windows-msvc,
               exe: ".exe",
-              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz",
             },
             {
               build: linux-musl,
@@ -849,9 +855,15 @@ jobs:
               container: "alpine:edge",
             },
           ]
-        # Currently Windows suffers from #6191 (bad --volume argument parsing) and for some reason,
-        # the CI macOS runner tends to be really slow (huge number of timeouts).
         exclude:
+          - is_pull_request: true
+            metadata:
+              build: macos-x64
+          - is_pull_request: true
+            metadata:
+              build: macos-arm
+          # Currently Windows suffers from #6191 (bad --volume argument parsing) and for some reason,
+          # the CI macOS runner tends to be really slow (huge number of timeouts).
           - stage:
               make: test-integration-cli-ci
             metadata:
@@ -868,6 +880,7 @@ jobs:
       image: ${{ matrix.metadata.container }}
       volumes:
         - /usr/local:/host/usr/local
+
     steps:
       - uses: actions/checkout@v6
       - name: Show disk capacity
@@ -985,8 +998,6 @@ jobs:
       - name: ${{ matrix.stage.description }}
         shell: bash
         run: make ${{ matrix.stage.make }}
-        # For MacOS x64 - run tests only on main or release branches
-        if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-') || matrix.metadata.os != 'macos-15-intel'
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
