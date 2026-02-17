@@ -24,6 +24,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     let is_simd = wast_path.contains("simd");
     let is_threads = wast_path.contains("threads");
     let is_exception_handling = wast_path.contains("exceptions")
+        || wast_path.contains("exception-handling")
         || wast_path.ends_with("exports.wast")
         || wast_path.ends_with("imports.wast");
     if is_bulkmemory {
