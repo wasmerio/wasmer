@@ -569,7 +569,8 @@ impl Wast {
                 })),
             ) => true,
             (Value::FuncRef(Some(_)), WastRetCore::RefNull(_)) => false,
-            (Value::FuncRef(Some(_)), WastRetCore::RefFunc(None)) => false,
+            // assert_return of (ref.func $tf) and (ref.func) is a match!
+            (Value::FuncRef(Some(_)), WastRetCore::RefFunc(_)) => true,
             (Value::FuncRef(None), WastRetCore::RefFunc(None)) => true,
             (Value::FuncRef(None), WastRetCore::RefFunc(Some(_))) => false,
             (Value::FuncRef(None), WastRetCore::RefNull(_)) => true,
