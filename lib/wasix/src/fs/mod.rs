@@ -1269,20 +1269,29 @@ impl WasiFs {
                         path_to_symlink,
                         relative_path,
                     } => {
-                        let new_base_dir = *base_po_dir;
-                        let new_base_inode = self.get_fd_inode(new_base_dir)?;
-
-                        // allocate to reborrow mutabily to recur
-                        let new_path = {
-                            /*if let Kind::Root { .. } = self.inodes[base_po_dir].kind {
-                                assert!(false, "symlinks should never be relative to the root");
-                            }*/
-                            let mut base = path_to_symlink.clone();
-                            // remove the symlink file itself from the path, leaving just the path from the base
-                            // to the dir containing the symlink
-                            base.pop();
-                            base.push(relative_path);
-                            base.to_string_lossy().to_string()
+                        let (new_base_inode, new_path) = if relative_path.is_absolute() {
+                            // Absolute symlink targets must resolve from the virtual root
+                            // rather than from the directory containing the symlink.
+                            (
+                                self.get_fd_inode(VIRTUAL_ROOT_FD)?,
+                                relative_path.to_string_lossy().to_string(),
+                            )
+                        } else {
+                            let new_base_dir = *base_po_dir;
+                            let new_base_inode = self.get_fd_inode(new_base_dir)?;
+                            // allocate to reborrow mutabily to recur
+                            let new_path = {
+                                /*if let Kind::Root { .. } = self.inodes[base_po_dir].kind {
+                                    assert!(false, "symlinks should never be relative to the root");
+                                }*/
+                                let mut base = path_to_symlink.clone();
+                                // remove the symlink file itself from the path, leaving just the path from the base
+                                // to the dir containing the symlink
+                                base.pop();
+                                base.push(relative_path);
+                                base.to_string_lossy().to_string()
+                            };
+                            (new_base_inode, new_path)
                         };
                         debug!("Following symlink recursively");
                         drop(guard);
