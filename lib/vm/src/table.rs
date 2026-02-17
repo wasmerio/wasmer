@@ -135,14 +135,14 @@ impl VMTable {
                     table.minimum, max
                 ));
             }
-            if table.minimum as usize >= TABLE_MAX_SIZE {
+            if table.minimum as usize > TABLE_MAX_SIZE {
                 return Err(format!(
                     "Table minimum ({}) is larger than maximum allowed size ({})!",
                     table.minimum, TABLE_MAX_SIZE
                 ));
             }
             if let Some(max) = table.maximum
-                && max as usize >= TABLE_MAX_SIZE
+                && max as usize > TABLE_MAX_SIZE
             {
                 return Err(format!(
                     "Table maximum ({}) is larger than maximum allowed size ({})!",
