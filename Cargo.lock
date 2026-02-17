@@ -7110,6 +7110,7 @@ dependencies = [
  "byteorder",
  "cc",
  "crossbeam-channel",
+ "enumset",
  "inkwell",
  "itertools 0.14.0",
  "libc",

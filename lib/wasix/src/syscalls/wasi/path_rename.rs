@@ -98,6 +98,23 @@ pub fn path_rename_internal(
         Path::new(target_path),
         true
     ));
+    let host_adjusted_source_path = {
+        let guard = source_parent_inode.read();
+        match guard.deref() {
+            Kind::Dir { path, .. } => path.join(&source_entry_name),
+            Kind::Root { .. } => return Ok(Errno::Notcapable),
+            Kind::Socket { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
+            | Kind::DuplexPipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => return Ok(Errno::Inval),
+            Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
+                debug!("fatal internal logic error: parent of inode is not a directory");
+                return Ok(Errno::Inval);
+            }
+        }
+    };
     let mut need_create = true;
     let host_adjusted_target_path = {
         let guard = target_parent_inode.read();
@@ -195,8 +212,48 @@ pub fn path_rename_internal(
                     rename_inode_tree(&source_entry, &source_dir_path, &host_adjusted_target_path);
                 }
             }
+            Kind::Symlink {
+                base_po_dir,
+                path_to_symlink,
+                relative_path,
+            } => {
+                let is_ephemeral = state
+                    .fs
+                    .ephemeral_symlink_at(host_adjusted_source_path.as_path())
+                    .is_some();
+                let res = {
+                    let state = state;
+                    let from = host_adjusted_source_path.clone();
+                    let to = host_adjusted_target_path.clone();
+                    __asyncify_light(env, None, async move { state.fs_rename(from, to).await })?
+                };
+                match (res, is_ephemeral) {
+                    (Ok(()), _) | (Err(Errno::Noent), true) => {}
+                    (Err(e), _) => {
+                        let mut guard = source_parent_inode.write();
+                        if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                            entries.insert(source_entry_name, source_entry.clone());
+                            return Ok(e);
+                        }
+                    }
+                }
+
+                let (new_base_po_dir, new_path_to_symlink) = wasi_try_ok!(state
+                    .fs
+                    .path_into_pre_open_and_relative_path_owned(host_adjusted_target_path.as_path()));
+                *base_po_dir = new_base_po_dir;
+                *path_to_symlink = new_path_to_symlink.clone();
+                if is_ephemeral {
+                    state.fs.move_ephemeral_symlink(
+                        host_adjusted_source_path.as_path(),
+                        host_adjusted_target_path.as_path(),
+                        new_base_po_dir,
+                        new_path_to_symlink,
+                        relative_path.clone(),
+                    );
+                }
+            }
             Kind::Buffer { .. }
-            | Kind::Symlink { .. }
             | Kind::Socket { .. }
             | Kind::PipeTx { .. }
             | Kind::PipeRx { .. }

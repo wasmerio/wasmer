@@ -117,7 +117,7 @@ file handles (which is needed for stdin and stdout redirection)
 
 ```sh
 cd ../../cli
-cargo run --features compiler,cranelift,debug -- --use sharrattj/coreutils --enable-threads ../wasix/tests/example
+cargo run --features compiler,cranelift,debug -- --use wasmer/coreutils --enable-threads ../wasix/tests/example
 -execve.wasm
 ```
 

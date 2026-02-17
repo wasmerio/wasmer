@@ -20,8 +20,8 @@ run_tests() {
                 find . -name 'output*' | xargs rm -f; \
                 find . -name '*.wasm' | xargs rm -f; \
                 if [ -f main.cc ]; \
-                  then wasix++ -fwasm-exceptions main.cc -o main.wasm; \
-                  else wasixcc main.c -o main.wasm; \
+                  then wasix++ main.cc -o main.wasm; \
+                  else wasixcc -sWASM_EXCEPTIONS=false main.c -o main.wasm; \
                 fi; \
                 ./run.sh"
         fi
