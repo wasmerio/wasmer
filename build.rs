@@ -61,6 +61,11 @@ fn main() -> anyhow::Result<()> {
             test_directory_module(spectests, "tests/wast/spec/proposals/simd", wast_processor)?;
             test_directory_module(
                 spectests,
+                "tests/wast/spec/proposals/relaxed-simd",
+                wast_processor,
+            )?;
+            test_directory_module(
+                spectests,
                 "tests/wast/spec/proposals/exception-handling",
                 wast_processor,
             )?;

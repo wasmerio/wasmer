@@ -200,6 +200,7 @@ impl LLVMCompiler {
                     Some(target_machine_no_opt),
                     binary_format,
                     pointer_width,
+                    *target.cpu_features(),
                 )
                 .unwrap()
             },
@@ -449,6 +450,7 @@ impl Compiler for LLVMCompiler {
                     Some(target_machine_no_opt),
                     binary_format,
                     pointer_width,
+                    *target.cpu_features(),
                 )
                 .unwrap()
             },

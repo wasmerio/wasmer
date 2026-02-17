@@ -8,6 +8,7 @@ use super::{
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
 use crate::compiler::ModuleBasedSymbolRegistry;
+use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
     attributes::{Attribute, AttributeLoc},
@@ -52,7 +53,7 @@ use wasmer_compiler::{
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
     ModuleInfo, SignatureIndex, TableIndex, TagIndex, Type, entity::PrimaryMap,
-    entity::packed_option::ReservedValue,
+    entity::packed_option::ReservedValue, target::CpuFeature,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
@@ -76,6 +77,7 @@ pub struct FuncTranslator {
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
+    cpu_features: EnumSet<CpuFeature>,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -87,6 +89,7 @@ impl FuncTranslator {
         target_machine_no_opt: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
+        cpu_features: EnumSet<CpuFeature>,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
@@ -106,6 +109,7 @@ impl FuncTranslator {
             },
             binary_fmt,
             pointer_width,
+            cpu_features,
         })
     }
 
@@ -351,6 +355,7 @@ impl FuncTranslator {
             target_triple: self.target_triple.clone(),
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
+            cpu_features: self.cpu_features,
         };
 
         fcg.ctx.add_func(
@@ -1945,6 +1950,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     target_triple: Triple,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
+    cpu_features: EnumSet<CpuFeature>,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
@@ -3721,7 +3727,25 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
-            Operator::I16x8Q15MulrSatS => {
+            Operator::I16x8RelaxedQ15mulrS if self.cpu_features.contains(CpuFeature::SSSE3) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1)?;
+                let (v2, _) = self.v128_into_i16x8(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pmulhrsw128,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I16x8Q15MulrSatS | Operator::I16x8RelaxedQ15mulrS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i16x8(v1, i1)?;
                 let (v2, _) = self.v128_into_i16x8(v2, i2)?;
@@ -4006,6 +4030,263 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
+            Operator::I16x8RelaxedDotI8x16I7x16S
+                if self.cpu_features.contains(CpuFeature::SSSE3) =>
+            {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (a, _) = self.v128_into_i8x16(v1, i1)?;
+                let (b, _) = self.v128_into_i8x16(v2, i2)?;
+
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pmaddubsw128,
+                        &[b.into(), a.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic()
+                    .into_vector_value();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I16x8RelaxedDotI8x16I7x16S => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1)?;
+                let (v2, _) = self.v128_into_i8x16(v2, i2)?;
+
+                let left_indices = [
+                    self.intrinsics.i32_consts[0],
+                    self.intrinsics.i32_consts[2],
+                    self.intrinsics.i32_consts[4],
+                    self.intrinsics.i32_consts[6],
+                    self.intrinsics.i32_consts[8],
+                    self.intrinsics.i32_consts[10],
+                    self.intrinsics.i32_consts[12],
+                    self.intrinsics.i32_consts[14],
+                ];
+                let right_indices = [
+                    self.intrinsics.i32_consts[1],
+                    self.intrinsics.i32_consts[3],
+                    self.intrinsics.i32_consts[5],
+                    self.intrinsics.i32_consts[7],
+                    self.intrinsics.i32_consts[9],
+                    self.intrinsics.i32_consts[11],
+                    self.intrinsics.i32_consts[13],
+                    self.intrinsics.i32_consts[15],
+                ];
+
+                let v1_left = err!(self.builder.build_shuffle_vector(
+                    v1,
+                    v1.get_type().get_undef(),
+                    VectorType::const_vector(&left_indices),
+                    "",
+                ));
+                let v1_left = err!(self.builder.build_int_s_extend(
+                    v1_left,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
+                let v1_right = err!(self.builder.build_shuffle_vector(
+                    v1,
+                    v1.get_type().get_undef(),
+                    VectorType::const_vector(&right_indices),
+                    "",
+                ));
+                let v1_right = err!(self.builder.build_int_s_extend(
+                    v1_right,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
+
+                let v2_left = err!(self.builder.build_shuffle_vector(
+                    v2,
+                    v2.get_type().get_undef(),
+                    VectorType::const_vector(&left_indices),
+                    "",
+                ));
+                let v2_left = err!(self.builder.build_int_s_extend(
+                    v2_left,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
+                let v2_right = err!(self.builder.build_shuffle_vector(
+                    v2,
+                    v2.get_type().get_undef(),
+                    VectorType::const_vector(&right_indices),
+                    "",
+                ));
+                let v2_right = err!(self.builder.build_int_s_extend(
+                    v2_right,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
+
+                let prod_left = err!(self.builder.build_int_mul(v1_left, v2_left, ""));
+                let prod_right = err!(self.builder.build_int_mul(v1_right, v2_right, ""));
+                let res = err!(self.builder.build_int_add(prod_left, prod_right, ""));
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I32x4RelaxedDotI8x16I7x16AddS
+                if self.cpu_features.contains(CpuFeature::SSSE3) =>
+            {
+                let ((v1, i1), (v2, i2), (acc, acc_info)) = self.state.pop3_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1)?;
+                let (v2, _) = self.v128_into_i8x16(v2, i2)?;
+                let (acc, _) = self.v128_into_i32x4(acc, acc_info)?;
+
+                // PMADDUBSW computes pairwise u8*i8 with i16 saturation, which
+                // is one of the valid relaxed dot-product behaviors.
+                let dot16 = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pmaddubsw128,
+                        &[v2.into(), v1.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic()
+                    .into_vector_value();
+                let ones =
+                    VectorType::const_vector(&[self.intrinsics.i16_ty.const_int(1, false); 8]);
+                let dot32 = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pmaddwd128,
+                        &[dot16.into(), ones.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic()
+                    .into_vector_value();
+                let res = err!(self.builder.build_int_add(dot32, acc, ""));
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I32x4RelaxedDotI8x16I7x16AddS => {
+                let ((v1, i1), (v2, i2), (acc, acc_info)) = self.state.pop3_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1)?;
+                let (v2, _) = self.v128_into_i8x16(v2, i2)?;
+                let (acc, _) = self.v128_into_i32x4(acc, acc_info)?;
+
+                let left_indices = [
+                    self.intrinsics.i32_consts[0],
+                    self.intrinsics.i32_consts[2],
+                    self.intrinsics.i32_consts[4],
+                    self.intrinsics.i32_consts[6],
+                    self.intrinsics.i32_consts[8],
+                    self.intrinsics.i32_consts[10],
+                    self.intrinsics.i32_consts[12],
+                    self.intrinsics.i32_consts[14],
+                ];
+                let right_indices = [
+                    self.intrinsics.i32_consts[1],
+                    self.intrinsics.i32_consts[3],
+                    self.intrinsics.i32_consts[5],
+                    self.intrinsics.i32_consts[7],
+                    self.intrinsics.i32_consts[9],
+                    self.intrinsics.i32_consts[11],
+                    self.intrinsics.i32_consts[13],
+                    self.intrinsics.i32_consts[15],
+                ];
+
+                let v1_left = err!(self.builder.build_shuffle_vector(
+                    v1,
+                    v1.get_type().get_undef(),
+                    VectorType::const_vector(&left_indices),
+                    "",
+                ));
+                let v1_left = err!(self.builder.build_int_s_extend(
+                    v1_left,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
+                let v1_right = err!(self.builder.build_shuffle_vector(
+                    v1,
+                    v1.get_type().get_undef(),
+                    VectorType::const_vector(&right_indices),
+                    "",
+                ));
+                let v1_right = err!(self.builder.build_int_s_extend(
+                    v1_right,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
+
+                let v2_left = err!(self.builder.build_shuffle_vector(
+                    v2,
+                    v2.get_type().get_undef(),
+                    VectorType::const_vector(&left_indices),
+                    "",
+                ));
+                let v2_left = err!(self.builder.build_int_s_extend(
+                    v2_left,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
+                let v2_right = err!(self.builder.build_shuffle_vector(
+                    v2,
+                    v2.get_type().get_undef(),
+                    VectorType::const_vector(&right_indices),
+                    "",
+                ));
+                let v2_right = err!(self.builder.build_int_s_extend(
+                    v2_right,
+                    self.intrinsics.i16x8_ty,
+                    ""
+                ));
+
+                let prod_left = err!(self.builder.build_int_mul(v1_left, v2_left, ""));
+                let prod_right = err!(self.builder.build_int_mul(v1_right, v2_right, ""));
+                let dot16 = err!(self.builder.build_int_add(prod_left, prod_right, ""));
+
+                let pair_left = err!(self.builder.build_shuffle_vector(
+                    dot16,
+                    dot16.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_consts[0],
+                        self.intrinsics.i32_consts[2],
+                        self.intrinsics.i32_consts[4],
+                        self.intrinsics.i32_consts[6],
+                    ]),
+                    "",
+                ));
+                let pair_left = err!(self.builder.build_int_s_extend(
+                    pair_left,
+                    self.intrinsics.i32x4_ty,
+                    ""
+                ));
+                let pair_right = err!(self.builder.build_shuffle_vector(
+                    dot16,
+                    dot16.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_consts[1],
+                        self.intrinsics.i32_consts[3],
+                        self.intrinsics.i32_consts[5],
+                        self.intrinsics.i32_consts[7],
+                    ]),
+                    "",
+                ));
+                let pair_right = err!(self.builder.build_int_s_extend(
+                    pair_right,
+                    self.intrinsics.i32x4_ty,
+                    ""
+                ));
+                let dot32 = err!(self.builder.build_int_add(pair_left, pair_right, ""));
+                let res = err!(self.builder.build_int_add(dot32, acc, ""));
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
             Operator::I32DivS | Operator::I64DivS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let v1 = self.apply_pending_canonicalization(v1, i1)?;
@@ -4127,7 +4408,39 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let res = err!(self.builder.build_and(v1, v2, ""));
                 self.state.push1(res);
             }
-            Operator::V128Bitselect => {
+            Operator::I8x16RelaxedLaneselect
+            | Operator::I16x8RelaxedLaneselect
+            | Operator::I32x4RelaxedLaneselect
+            | Operator::I64x2RelaxedLaneselect
+                if self.cpu_features.contains(CpuFeature::SSE41) =>
+            {
+                let ((v1, i1), (v2, i2), (mask, mask_info)) = self.state.pop3_extra()?;
+                let v1 = self.apply_pending_canonicalization(v1, i1)?;
+                let v2 = self.apply_pending_canonicalization(v2, i2)?;
+                let mask = self.apply_pending_canonicalization(mask, mask_info)?;
+
+                let (v1, _) = self.v128_into_i8x16(v1, i1)?;
+                let (v2, _) = self.v128_into_i8x16(v2, i2)?;
+                let (mask, _) = self.v128_into_i8x16(mask, mask_info)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pblendvb,
+                        &[v2.into(), v1.into(), mask.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I8x16RelaxedLaneselect
+            | Operator::I16x8RelaxedLaneselect
+            | Operator::I32x4RelaxedLaneselect
+            | Operator::I64x2RelaxedLaneselect
+            | Operator::V128Bitselect => {
                 let ((v1, i1), (v2, i2), (cond, cond_info)) = self.state.pop3_extra()?;
                 let v1 = self.apply_pending_canonicalization(v1, i1)?;
                 let v2 = self.apply_pending_canonicalization(v2, i2)?;
@@ -5289,6 +5602,87 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
                 );
             }
+            Operator::F32x4RelaxedMadd | Operator::F32x4RelaxedNmadd
+                if self.cpu_features.contains(CpuFeature::FMA) =>
+            {
+                let ((v1, i1), (v2, i2), (v3, i3)) = self.state.pop3_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
+                let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
+                let (v3, i3) = self.v128_into_f32x4(v3, i3)?;
+
+                let v1 = match op {
+                    Operator::F32x4RelaxedNmadd => err!(self.builder.build_float_neg(v1, "")),
+                    _ => v1,
+                };
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.muladd_f32x4,
+                        &[
+                            v1.into(),
+                            v2.into(),
+                            v3.into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                let info = (i1.strip_pending() & i2.strip_pending())?;
+                let info = (info & i3.strip_pending())?;
+                let info = (info | ExtraInfo::pending_f32_nan())?;
+                self.state.push1_extra(res, info);
+            }
+            Operator::F32x4RelaxedMadd | Operator::F32x4RelaxedNmadd => {
+                let ((v1, i1), (v2, i2), (v3, i3)) = self.state.pop3_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
+                let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
+                let (v3, i3) = self.v128_into_f32x4(v3, i3)?;
+
+                let v1 = match op {
+                    Operator::F32x4RelaxedNmadd => err!(self.builder.build_float_neg(v1, "")),
+                    _ => v1,
+                };
+                let mul = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.mul_f32x4,
+                        &[
+                            v1.into(),
+                            v2.into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let mul = mul.into_vector_value();
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.add_f32x4,
+                        &[
+                            mul.into(),
+                            v3.into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                let info = (i1.strip_pending() & i2.strip_pending())?;
+                let info = (info & i3.strip_pending())?;
+                let info = (info | ExtraInfo::pending_f32_nan())?;
+                self.state.push1_extra(res, info);
+            }
             Operator::F64x2Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
@@ -5314,6 +5708,87 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     res,
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
                 );
+            }
+            Operator::F64x2RelaxedMadd | Operator::F64x2RelaxedNmadd
+                if self.cpu_features.contains(CpuFeature::FMA) =>
+            {
+                let ((v1, i1), (v2, i2), (v3, i3)) = self.state.pop3_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
+                let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
+                let (v3, i3) = self.v128_into_f64x2(v3, i3)?;
+
+                let v1 = match op {
+                    Operator::F64x2RelaxedNmadd => err!(self.builder.build_float_neg(v1, "")),
+                    _ => v1,
+                };
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.muladd_f64x2,
+                        &[
+                            v1.into(),
+                            v2.into(),
+                            v3.into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                let info = (i1.strip_pending() & i2.strip_pending())?;
+                let info = (info & i3.strip_pending())?;
+                let info = (info | ExtraInfo::pending_f64_nan())?;
+                self.state.push1_extra(res, info);
+            }
+            Operator::F64x2RelaxedMadd | Operator::F64x2RelaxedNmadd => {
+                let ((v1, i1), (v2, i2), (v3, i3)) = self.state.pop3_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
+                let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
+                let (v3, i3) = self.v128_into_f64x2(v3, i3)?;
+
+                let v1 = match op {
+                    Operator::F64x2RelaxedNmadd => err!(self.builder.build_float_neg(v1, "")),
+                    _ => v1,
+                };
+                let mul = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.mul_f64x2,
+                        &[
+                            v1.into(),
+                            v2.into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let mul = mul.into_vector_value();
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.add_f64x2,
+                        &[
+                            mul.into(),
+                            v3.into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                let info = (i1.strip_pending() & i2.strip_pending())?;
+                let info = (info & i3.strip_pending())?;
+                let info = (info | ExtraInfo::pending_f64_nan())?;
+                self.state.push1_extra(res, info);
             }
             Operator::F32Div => {
                 let (v1, v2) = self.state.pop2()?;
@@ -5493,7 +5968,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
-            Operator::F32x4Min => {
+            Operator::F32x4RelaxedMin if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
+                let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.min_ps,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1_extra(
+                    res,
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
+                );
+            }
+            Operator::F32x4Min | Operator::F32x4RelaxedMin => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
                 let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
@@ -5534,7 +6030,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
-            Operator::F64x2Min => {
+            Operator::F64x2RelaxedMin if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
+                let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.min_pd,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1_extra(
+                    res,
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
+                );
+            }
+            Operator::F64x2Min | Operator::F64x2RelaxedMin => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
                 let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
@@ -5621,7 +6138,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
-            Operator::F32x4Max => {
+            Operator::F32x4RelaxedMax if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
+                let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.max_ps,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1_extra(
+                    res,
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
+                );
+            }
+            Operator::F32x4Max | Operator::F32x4RelaxedMax => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, i1) = self.v128_into_f32x4(v1, i1)?;
                 let (v2, i2) = self.v128_into_f32x4(v2, i2)?;
@@ -5663,7 +6201,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
-            Operator::F64x2Max => {
+            Operator::F64x2RelaxedMax if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
+                let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.max_pd,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1_extra(
+                    res,
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
+                );
+            }
+            Operator::F64x2Max | Operator::F64x2RelaxedMax => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, i1) = self.v128_into_f64x2(v1, i1)?;
                 let (v2, i2) = self.v128_into_f64x2(v2, i2)?;
@@ -7756,7 +8315,24 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
-            Operator::I32x4TruncSatF32x4S => {
+            Operator::I32x4RelaxedTruncF32x4S if self.cpu_features.contains(CpuFeature::SSE2) => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_f32x4(v, i)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.cvttps2dq,
+                        &[v.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I32x4TruncSatF32x4S | Operator::I32x4RelaxedTruncF32x4S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
                 let v = v.into_int_value();
@@ -7771,7 +8347,31 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 )?;
                 self.state.push1(res);
             }
-            Operator::I32x4TruncSatF32x4U => {
+            Operator::I32x4RelaxedTruncF32x4U
+                if self.cpu_features.contains(CpuFeature::AVX512F)
+                    && self.cpu_features.contains(CpuFeature::AVX512VL) =>
+            {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_f32x4(v, i)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.cvtps2udq128,
+                        &[
+                            v.into(),
+                            self.intrinsics.i32x4_ty.const_zero().into(),
+                            self.intrinsics.i8_ty.const_int(0xff, false).into(),
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I32x4TruncSatF32x4U | Operator::I32x4RelaxedTruncF32x4U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
                 let v = v.into_int_value();
@@ -7786,13 +8386,67 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 )?;
                 self.state.push1(res);
             }
-            Operator::I32x4TruncSatF64x2SZero | Operator::I32x4TruncSatF64x2UZero => {
+            Operator::I32x4RelaxedTruncF64x2SZero
+                if self.cpu_features.contains(CpuFeature::SSE2) =>
+            {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_f64x2(v, i)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.cvtpd2dq,
+                        &[v.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I32x4RelaxedTruncF64x2UZero
+                if self.cpu_features.contains(CpuFeature::AVX512F)
+                    && self.cpu_features.contains(CpuFeature::AVX512VL) =>
+            {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_f64x2(v, i)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.cvtpd2udq128,
+                        &[
+                            v.into(),
+                            self.intrinsics.i32x4_ty.const_zero().into(),
+                            self.intrinsics.i8_ty.const_int(0xff, false).into(),
+                        ],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I32x4TruncSatF64x2SZero
+            | Operator::I32x4TruncSatF64x2UZero
+            | Operator::I32x4RelaxedTruncF64x2SZero
+            | Operator::I32x4RelaxedTruncF64x2UZero => {
                 let ((min, max), (cmp_min, cmp_max)) = match op {
                     Operator::I32x4TruncSatF64x2SZero => (
                         (i32::MIN as u64, i32::MAX as u64),
                         (LEF64_GEQ_I32_MIN, GEF64_LEQ_I32_MAX),
                     ),
                     Operator::I32x4TruncSatF64x2UZero => (
+                        (u32::MIN as u64, u32::MAX as u64),
+                        (LEF64_GEQ_U32_MIN, GEF64_LEQ_U32_MAX),
+                    ),
+                    Operator::I32x4RelaxedTruncF64x2SZero => (
+                        (i32::MIN as u64, i32::MAX as u64),
+                        (LEF64_GEQ_I32_MIN, GEF64_LEQ_I32_MAX),
+                    ),
+                    Operator::I32x4RelaxedTruncF64x2UZero => (
                         (u32::MIN as u64, u32::MAX as u64),
                         (LEF64_GEQ_U32_MIN, GEF64_LEQ_U32_MAX),
                     ),
@@ -9537,7 +10191,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 };
                 self.state.push1_extra(res, info);
             }
-            Operator::I8x16Swizzle => {
+            Operator::I8x16RelaxedSwizzle if self.cpu_features.contains(CpuFeature::SSSE3) => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let v1 = self.apply_pending_canonicalization(v1, i1)?;
+                let v2 = self.apply_pending_canonicalization(v2, i2)?;
+
+                let (v1, _) = self.v128_into_i8x16(v1, i1)?;
+                let (v2, _) = self.v128_into_i8x16(v2, i2)?;
+                let res = self
+                    .build_call_with_param_attributes(
+                        self.intrinsics.x86_64.pshufb128,
+                        &[v1.into(), v2.into()],
+                        "",
+                    )?
+                    .try_as_basic_value()
+                    .unwrap_basic();
+                let res = err!(
+                    self.builder
+                        .build_bit_cast(res, self.intrinsics.i128_ty, "")
+                );
+                self.state.push1(res);
+            }
+            Operator::I8x16Swizzle | Operator::I8x16RelaxedSwizzle => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let v1 = self.apply_pending_canonicalization(v1, i1)?;
                 let v1 = err!(

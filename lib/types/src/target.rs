@@ -48,7 +48,8 @@ pub enum CpuFeature {
     LZCNT,
     // ARM features
     NEON,
-    // RISC-V features
+    // X86 features (TODO: reorganize at some point)
+    FMA,
 }
 
 impl CpuFeature {
@@ -86,6 +87,9 @@ impl CpuFeature {
         }
         if std::is_x86_feature_detected!("avx2") {
             features.insert(Self::AVX2);
+        }
+        if std::is_x86_feature_detected!("fma") {
+            features.insert(Self::FMA);
         }
         if std::is_x86_feature_detected!("avx512dq") {
             features.insert(Self::AVX512DQ);
@@ -154,6 +158,7 @@ impl FromStr for CpuFeature {
             "bmi" => Ok(Self::BMI1),
             "bmi2" => Ok(Self::BMI2),
             "avx2" => Ok(Self::AVX2),
+            "fma" => Ok(Self::FMA),
             "avx512dq" => Ok(Self::AVX512DQ),
             "avx512vl" => Ok(Self::AVX512VL),
             "avx512f" => Ok(Self::AVX512F),
@@ -180,6 +185,7 @@ impl std::fmt::Display for CpuFeature {
                 Self::BMI1 => "bmi",
                 Self::BMI2 => "bmi2",
                 Self::AVX2 => "avx2",
+                Self::FMA => "fma",
                 Self::AVX512DQ => "avx512dq",
                 Self::AVX512VL => "avx512vl",
                 Self::AVX512F => "avx512f",
