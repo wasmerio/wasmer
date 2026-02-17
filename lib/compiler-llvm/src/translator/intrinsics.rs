@@ -33,14 +33,6 @@ use wasmer_types::{
 };
 use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
-pub fn type_to_llvm_ptr<'ctx>(
-    intrinsics: &Intrinsics<'ctx>,
-    _ty: Type,
-) -> Result<PointerType<'ctx>, CompileError> {
-    // LLVM v. > 15 has a single pointer type.
-    Ok(intrinsics.ptr_ty)
-}
-
 pub fn type_to_llvm<'ctx>(
     intrinsics: &Intrinsics<'ctx>,
     ty: Type,
@@ -1253,7 +1245,6 @@ impl<'ctx> Intrinsics<'ctx> {
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,
 
-            // LLVM > 15 has a single type for pointers.
             ptr_ty,
         };
 
@@ -1726,12 +1717,9 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     );
                     global_ptr
                 };
-                let global_ptr = err!(cache_builder.build_bit_cast(
-                    global_ptr,
-                    type_to_llvm_ptr(intrinsics, global_value_type)?,
-                    "",
-                ))
-                .into_pointer_value();
+                let global_ptr =
+                    err!(cache_builder.build_bit_cast(global_ptr, intrinsics.ptr_ty, "",))
+                        .into_pointer_value();
 
                 let ret = entry.insert(match global_mutability {
                     Mutability::Const => {
