@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TableElement"],"struct":["VMTable"],"union":["RawTableElement"]};
+window.SIDEBAR_ITEMS = {"constant":["TABLE_MAX_SIZE"],"enum":["TableElement"],"struct":["VMTable"],"union":["RawTableElement"]};

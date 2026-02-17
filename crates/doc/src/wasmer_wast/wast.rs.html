@@ -501,243 +501,250 @@
 <a href=#501 id=501 data-nosnippet>501</a>    <span class="comment">// Checks if the `assert_unlinkable` message matches the expected one
 <a href=#502 id=502 data-nosnippet>502</a>    </span><span class="kw">fn </span>matches_message_assert_unlinkable(expected: <span class="kw-2">&amp;</span>str, actual: <span class="kw-2">&amp;</span>str) -&gt; bool {
 <a href=#503 id=503 data-nosnippet>503</a>        actual.contains(expected)
-<a href=#504 id=504 data-nosnippet>504</a>    }
-<a href=#505 id=505 data-nosnippet>505</a>
-<a href=#506 id=506 data-nosnippet>506</a>    <span class="comment">// Checks if the `assert_invalid` message matches the expected one
-<a href=#507 id=507 data-nosnippet>507</a>    </span><span class="kw">fn </span>matches_message_assert_invalid(expected: <span class="kw-2">&amp;</span>str, actual: <span class="kw-2">&amp;</span>str) -&gt; bool {
-<a href=#508 id=508 data-nosnippet>508</a>        actual.contains(expected)
-<a href=#509 id=509 data-nosnippet>509</a>            <span class="comment">// Waiting on https://github.com/WebAssembly/bulk-memory-operations/pull/137
-<a href=#510 id=510 data-nosnippet>510</a>            // to propagate to WebAssembly/testsuite.
-<a href=#511 id=511 data-nosnippet>511</a>            </span>|| (expected.contains(<span class="string">"unknown table"</span>) &amp;&amp; actual.contains(<span class="string">"unknown elem"</span>))
-<a href=#512 id=512 data-nosnippet>512</a>            <span class="comment">// wasmparser return the wrong message
-<a href=#513 id=513 data-nosnippet>513</a>            </span>|| (expected.contains(<span class="string">"unknown memory"</span>) &amp;&amp; actual.contains(<span class="string">"no linear memories are present"</span>))
-<a href=#514 id=514 data-nosnippet>514</a>            <span class="comment">// `elem.wast` and `proposals/bulk-memory-operations/elem.wast` disagree
-<a href=#515 id=515 data-nosnippet>515</a>            // on the expected error message for the same error.
-<a href=#516 id=516 data-nosnippet>516</a>            </span>|| (expected.contains(<span class="string">"out of bounds"</span>) &amp;&amp; actual.contains(<span class="string">"does not fit"</span>))
-<a href=#517 id=517 data-nosnippet>517</a>            <span class="comment">// handle `unknown global $NUM` error messages that wasmparser doesn't return yet
-<a href=#518 id=518 data-nosnippet>518</a>            </span>|| (expected.contains(<span class="string">"unknown global"</span>) &amp;&amp; actual.contains(<span class="string">"unknown global"</span>))
-<a href=#519 id=519 data-nosnippet>519</a>            <span class="comment">// handle `unknown memory $NUM` error messages that wasmparser doesn't return yet
-<a href=#520 id=520 data-nosnippet>520</a>            </span>|| (expected.contains(<span class="string">"unknown memory"</span>) &amp;&amp; actual.contains(<span class="string">"unknown memory"</span>))
-<a href=#521 id=521 data-nosnippet>521</a>            || (expected.contains(<span class="string">"unknown memory"</span>) &amp;&amp; actual.contains(<span class="string">"Data segment extends past end of the data section"</span>))
-<a href=#522 id=522 data-nosnippet>522</a>            || (expected.contains(<span class="string">"unknown elem segment"</span>) &amp;&amp; actual.contains(<span class="string">"unknown element segment"</span>))
-<a href=#523 id=523 data-nosnippet>523</a>            <span class="comment">// The same test here is asserted to have one error message in
-<a href=#524 id=524 data-nosnippet>524</a>            // `memory.wast` and a different error message in
-<a href=#525 id=525 data-nosnippet>525</a>            // `memory64/memory.wast`, so we equate these two error messages to get
-<a href=#526 id=526 data-nosnippet>526</a>            // the memory64 tests to pass.
-<a href=#527 id=527 data-nosnippet>527</a>            </span>|| (expected.contains(<span class="string">"memory size must be at most 65536 pages"</span>) &amp;&amp; actual.contains(<span class="string">"invalid u32 number"</span>))
-<a href=#528 id=528 data-nosnippet>528</a>            <span class="comment">// the spec test suite asserts a different error message than we print
-<a href=#529 id=529 data-nosnippet>529</a>            // for this scenario
-<a href=#530 id=530 data-nosnippet>530</a>            </span>|| (expected == <span class="string">"unknown global" </span>&amp;&amp; actual.contains(<span class="string">"global.get of locally defined global"</span>))
-<a href=#531 id=531 data-nosnippet>531</a>            || (expected == <span class="string">"immutable global" </span>&amp;&amp; actual.contains(<span class="string">"global is immutable: cannot modify it with `global.set`"</span>))
-<a href=#532 id=532 data-nosnippet>532</a>            || (expected.contains(<span class="string">"type mismatch: instruction requires"</span>) &amp;&amp; actual.contains(<span class="string">"instantiation failed with: Validation error: type mismatch: expected"</span>))
-<a href=#533 id=533 data-nosnippet>533</a>    }
-<a href=#534 id=534 data-nosnippet>534</a>
-<a href=#535 id=535 data-nosnippet>535</a>    <span class="comment">// Checks if the `assert_trap` message matches the expected one
-<a href=#536 id=536 data-nosnippet>536</a>    </span><span class="kw">fn </span>matches_message_assert_trap(<span class="kw-2">&amp;</span><span class="self">self</span>, expected: <span class="kw-2">&amp;</span>str, actual: <span class="kw-2">&amp;</span>str) -&gt; bool {
-<a href=#537 id=537 data-nosnippet>537</a>        actual.contains(expected)
-<a href=#538 id=538 data-nosnippet>538</a>            || <span class="self">self
-<a href=#539 id=539 data-nosnippet>539</a>                </span>.match_trap_messages
-<a href=#540 id=540 data-nosnippet>540</a>                .get(expected)
-<a href=#541 id=541 data-nosnippet>541</a>                .is_some_and(|alternative| actual.contains(alternative))
-<a href=#542 id=542 data-nosnippet>542</a>    }
-<a href=#543 id=543 data-nosnippet>543</a>
-<a href=#544 id=544 data-nosnippet>544</a>    <span class="kw">fn </span>assert_exception(<span class="kw-2">&amp;</span><span class="self">self</span>, result: <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#545 id=545 data-nosnippet>545</a>        <span class="kw">if </span>result.is_ok() {
-<a href=#546 id=546 data-nosnippet>546</a>            <span class="macro">anyhow::bail!</span>(<span class="string">"Expected exception to be thrown, returned {result:?} instead"</span>);
-<a href=#547 id=547 data-nosnippet>547</a>        }
-<a href=#548 id=548 data-nosnippet>548</a>        <span class="prelude-val">Ok</span>(())
-<a href=#549 id=549 data-nosnippet>549</a>    }
-<a href=#550 id=550 data-nosnippet>550</a>
-<a href=#551 id=551 data-nosnippet>551</a>    <span class="kw">fn </span>val_matches(<span class="kw-2">&amp;</span><span class="self">self</span>, actual: <span class="kw-2">&amp;</span>Value, expected: <span class="kw-2">&amp;</span>WastRetCore) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-<a href=#552 id=552 data-nosnippet>552</a>        <span class="prelude-val">Ok</span>(<span class="kw">match </span>(actual, expected) {
-<a href=#553 id=553 data-nosnippet>553</a>            (Value::I32(a), WastRetCore::I32(b)) =&gt; a == b,
-<a href=#554 id=554 data-nosnippet>554</a>            (Value::I64(a), WastRetCore::I64(b)) =&gt; a == b,
-<a href=#555 id=555 data-nosnippet>555</a>            <span class="comment">// Note that these float comparisons are comparing bits, not float
-<a href=#556 id=556 data-nosnippet>556</a>            // values, so we're testing for bit-for-bit equivalence
-<a href=#557 id=557 data-nosnippet>557</a>            </span>(Value::F32(a), WastRetCore::F32(b)) =&gt; f32_matches(<span class="kw-2">*</span>a, b),
-<a href=#558 id=558 data-nosnippet>558</a>            (Value::F64(a), WastRetCore::F64(b)) =&gt; f64_matches(<span class="kw-2">*</span>a, b),
-<a href=#559 id=559 data-nosnippet>559</a>            (Value::V128(a), WastRetCore::V128(b)) =&gt; v128_matches(<span class="kw-2">*</span>a, b),
-<a href=#560 id=560 data-nosnippet>560</a>            (actual, WastRetCore::Either(cases)) =&gt; cases
-<a href=#561 id=561 data-nosnippet>561</a>                .iter()
-<a href=#562 id=562 data-nosnippet>562</a>                .any(|case| <span class="self">self</span>.val_matches(actual, case).unwrap_or(<span class="bool-val">false</span>)),
-<a href=#563 id=563 data-nosnippet>563</a>            (
-<a href=#564 id=564 data-nosnippet>564</a>                Value::FuncRef(<span class="prelude-val">None</span>),
-<a href=#565 id=565 data-nosnippet>565</a>                WastRetCore::RefNull(<span class="prelude-val">Some</span>(wast::core::HeapType::Abstract {
-<a href=#566 id=566 data-nosnippet>566</a>                    ty: AbstractHeapType::Func,
-<a href=#567 id=567 data-nosnippet>567</a>                    ..
-<a href=#568 id=568 data-nosnippet>568</a>                })),
-<a href=#569 id=569 data-nosnippet>569</a>            ) =&gt; <span class="bool-val">true</span>,
-<a href=#570 id=570 data-nosnippet>570</a>            (Value::FuncRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
-<a href=#571 id=571 data-nosnippet>571</a>            (Value::FuncRef(<span class="prelude-val">None</span>), WastRetCore::RefFunc(<span class="prelude-val">None</span>)) =&gt; <span class="bool-val">true</span>,
-<a href=#572 id=572 data-nosnippet>572</a>            (Value::FuncRef(<span class="prelude-val">None</span>), WastRetCore::RefFunc(<span class="prelude-val">Some</span>(<span class="kw">_</span>))) =&gt; <span class="bool-val">false</span>,
-<a href=#573 id=573 data-nosnippet>573</a>            (
-<a href=#574 id=574 data-nosnippet>574</a>                Value::ExternRef(<span class="prelude-val">None</span>),
-<a href=#575 id=575 data-nosnippet>575</a>                WastRetCore::RefNull(<span class="prelude-val">Some</span>(wast::core::HeapType::Abstract {
-<a href=#576 id=576 data-nosnippet>576</a>                    ty: AbstractHeapType::Extern,
-<a href=#577 id=577 data-nosnippet>577</a>                    ..
-<a href=#578 id=578 data-nosnippet>578</a>                })),
-<a href=#579 id=579 data-nosnippet>579</a>            ) =&gt; <span class="bool-val">true</span>,
-<a href=#580 id=580 data-nosnippet>580</a>            (Value::ExternRef(<span class="prelude-val">None</span>), WastRetCore::RefExtern(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
-<a href=#581 id=581 data-nosnippet>581</a>            (Value::ExceptionRef(<span class="prelude-val">None</span>), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
-<a href=#582 id=582 data-nosnippet>582</a>            (Value::ExternRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
-<a href=#583 id=583 data-nosnippet>583</a>            (Value::ExternRef(<span class="prelude-val">Some</span>(extern_ref)), WastRetCore::RefExtern(num)) =&gt; {
-<a href=#584 id=584 data-nosnippet>584</a>                <span class="kw">let </span>x = extern_ref.downcast::&lt;u32&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.store).cloned();
-<a href=#585 id=585 data-nosnippet>585</a>                x == <span class="kw-2">*</span>num
-<a href=#586 id=586 data-nosnippet>586</a>            }
-<a href=#587 id=587 data-nosnippet>587</a>            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"don't know how to compare {actual:?} and {expected:?} yet"</span>),
-<a href=#588 id=588 data-nosnippet>588</a>        })
-<a href=#589 id=589 data-nosnippet>589</a>    }
-<a href=#590 id=590 data-nosnippet>590</a>}
-<a href=#591 id=591 data-nosnippet>591</a>
-<a href=#592 id=592 data-nosnippet>592</a><span class="kw">fn </span>extract_lane_as_i8(bytes: u128, lane: usize) -&gt; i8 {
-<a href=#593 id=593 data-nosnippet>593</a>    (bytes &gt;&gt; (lane * <span class="number">8</span>)) <span class="kw">as </span>i8
-<a href=#594 id=594 data-nosnippet>594</a>}
-<a href=#595 id=595 data-nosnippet>595</a>
-<a href=#596 id=596 data-nosnippet>596</a><span class="kw">fn </span>extract_lane_as_i16(bytes: u128, lane: usize) -&gt; i16 {
-<a href=#597 id=597 data-nosnippet>597</a>    (bytes &gt;&gt; (lane * <span class="number">16</span>)) <span class="kw">as </span>i16
-<a href=#598 id=598 data-nosnippet>598</a>}
-<a href=#599 id=599 data-nosnippet>599</a>
-<a href=#600 id=600 data-nosnippet>600</a><span class="kw">fn </span>extract_lane_as_i32(bytes: u128, lane: usize) -&gt; i32 {
-<a href=#601 id=601 data-nosnippet>601</a>    (bytes &gt;&gt; (lane * <span class="number">32</span>)) <span class="kw">as </span>i32
-<a href=#602 id=602 data-nosnippet>602</a>}
-<a href=#603 id=603 data-nosnippet>603</a>
-<a href=#604 id=604 data-nosnippet>604</a><span class="kw">fn </span>extract_lane_as_i64(bytes: u128, lane: usize) -&gt; i64 {
-<a href=#605 id=605 data-nosnippet>605</a>    (bytes &gt;&gt; (lane * <span class="number">64</span>)) <span class="kw">as </span>i64
-<a href=#606 id=606 data-nosnippet>606</a>}
-<a href=#607 id=607 data-nosnippet>607</a>
-<a href=#608 id=608 data-nosnippet>608</a><span class="kw">fn </span>f32_matches(actual: f32, expected: <span class="kw-2">&amp;</span>wast::core::NanPattern&lt;F32&gt;) -&gt; bool {
-<a href=#609 id=609 data-nosnippet>609</a>    <span class="kw">match </span>expected {
-<a href=#610 id=610 data-nosnippet>610</a>        wast::core::NanPattern::CanonicalNan =&gt; actual.is_canonical_nan(),
-<a href=#611 id=611 data-nosnippet>611</a>        wast::core::NanPattern::ArithmeticNan =&gt; actual.is_arithmetic_nan(),
-<a href=#612 id=612 data-nosnippet>612</a>        wast::core::NanPattern::Value(expected_value) =&gt; actual.to_bits() == expected_value.bits,
-<a href=#613 id=613 data-nosnippet>613</a>    }
-<a href=#614 id=614 data-nosnippet>614</a>}
-<a href=#615 id=615 data-nosnippet>615</a>
-<a href=#616 id=616 data-nosnippet>616</a><span class="kw">fn </span>f64_matches(actual: f64, expected: <span class="kw-2">&amp;</span>wast::core::NanPattern&lt;F64&gt;) -&gt; bool {
-<a href=#617 id=617 data-nosnippet>617</a>    <span class="kw">match </span>expected {
-<a href=#618 id=618 data-nosnippet>618</a>        wast::core::NanPattern::CanonicalNan =&gt; actual.is_canonical_nan(),
-<a href=#619 id=619 data-nosnippet>619</a>        wast::core::NanPattern::ArithmeticNan =&gt; actual.is_arithmetic_nan(),
-<a href=#620 id=620 data-nosnippet>620</a>        wast::core::NanPattern::Value(expected_value) =&gt; actual.to_bits() == expected_value.bits,
-<a href=#621 id=621 data-nosnippet>621</a>    }
-<a href=#622 id=622 data-nosnippet>622</a>}
-<a href=#623 id=623 data-nosnippet>623</a>
-<a href=#624 id=624 data-nosnippet>624</a><span class="kw">fn </span>v128_matches(actual: u128, expected: <span class="kw-2">&amp;</span>wast::core::V128Pattern) -&gt; bool {
-<a href=#625 id=625 data-nosnippet>625</a>    <span class="kw">match </span>expected {
-<a href=#626 id=626 data-nosnippet>626</a>        wast::core::V128Pattern::I8x16(b) =&gt; b
-<a href=#627 id=627 data-nosnippet>627</a>            .iter()
-<a href=#628 id=628 data-nosnippet>628</a>            .enumerate()
-<a href=#629 id=629 data-nosnippet>629</a>            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i8(actual, i)),
-<a href=#630 id=630 data-nosnippet>630</a>        wast::core::V128Pattern::I16x8(b) =&gt; b
-<a href=#631 id=631 data-nosnippet>631</a>            .iter()
-<a href=#632 id=632 data-nosnippet>632</a>            .enumerate()
-<a href=#633 id=633 data-nosnippet>633</a>            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i16(actual, i)),
-<a href=#634 id=634 data-nosnippet>634</a>        wast::core::V128Pattern::I32x4(b) =&gt; b
-<a href=#635 id=635 data-nosnippet>635</a>            .iter()
-<a href=#636 id=636 data-nosnippet>636</a>            .enumerate()
-<a href=#637 id=637 data-nosnippet>637</a>            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i32(actual, i)),
-<a href=#638 id=638 data-nosnippet>638</a>        wast::core::V128Pattern::I64x2(b) =&gt; b
-<a href=#639 id=639 data-nosnippet>639</a>            .iter()
-<a href=#640 id=640 data-nosnippet>640</a>            .enumerate()
-<a href=#641 id=641 data-nosnippet>641</a>            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i64(actual, i)),
-<a href=#642 id=642 data-nosnippet>642</a>        wast::core::V128Pattern::F32x4(b) =&gt; b.iter().enumerate().all(|(i, b)| {
-<a href=#643 id=643 data-nosnippet>643</a>            <span class="kw">let </span>a = extract_lane_as_i32(actual, i) <span class="kw">as </span>u32;
-<a href=#644 id=644 data-nosnippet>644</a>            f32_matches(f32::from_bits(a), b)
-<a href=#645 id=645 data-nosnippet>645</a>        }),
-<a href=#646 id=646 data-nosnippet>646</a>        wast::core::V128Pattern::F64x2(b) =&gt; b.iter().enumerate().all(|(i, b)| {
-<a href=#647 id=647 data-nosnippet>647</a>            <span class="kw">let </span>a = extract_lane_as_i64(actual, i) <span class="kw">as </span>u64;
-<a href=#648 id=648 data-nosnippet>648</a>            f64_matches(f64::from_bits(a), b)
-<a href=#649 id=649 data-nosnippet>649</a>        }),
-<a href=#650 id=650 data-nosnippet>650</a>    }
-<a href=#651 id=651 data-nosnippet>651</a>}
-<a href=#652 id=652 data-nosnippet>652</a>
-<a href=#653 id=653 data-nosnippet>653</a><span class="kw">fn </span>v128_format(actual: u128, expected: <span class="kw-2">&amp;</span>wast::core::V128Pattern) -&gt; wast::core::V128Pattern {
-<a href=#654 id=654 data-nosnippet>654</a>    <span class="kw">match </span>expected {
-<a href=#655 id=655 data-nosnippet>655</a>        wast::core::V128Pattern::I8x16(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::I8x16([
-<a href=#656 id=656 data-nosnippet>656</a>            extract_lane_as_i8(actual, <span class="number">0</span>),
-<a href=#657 id=657 data-nosnippet>657</a>            extract_lane_as_i8(actual, <span class="number">1</span>),
-<a href=#658 id=658 data-nosnippet>658</a>            extract_lane_as_i8(actual, <span class="number">2</span>),
-<a href=#659 id=659 data-nosnippet>659</a>            extract_lane_as_i8(actual, <span class="number">3</span>),
-<a href=#660 id=660 data-nosnippet>660</a>            extract_lane_as_i8(actual, <span class="number">4</span>),
-<a href=#661 id=661 data-nosnippet>661</a>            extract_lane_as_i8(actual, <span class="number">5</span>),
-<a href=#662 id=662 data-nosnippet>662</a>            extract_lane_as_i8(actual, <span class="number">6</span>),
-<a href=#663 id=663 data-nosnippet>663</a>            extract_lane_as_i8(actual, <span class="number">7</span>),
-<a href=#664 id=664 data-nosnippet>664</a>            extract_lane_as_i8(actual, <span class="number">8</span>),
-<a href=#665 id=665 data-nosnippet>665</a>            extract_lane_as_i8(actual, <span class="number">9</span>),
-<a href=#666 id=666 data-nosnippet>666</a>            extract_lane_as_i8(actual, <span class="number">10</span>),
-<a href=#667 id=667 data-nosnippet>667</a>            extract_lane_as_i8(actual, <span class="number">11</span>),
-<a href=#668 id=668 data-nosnippet>668</a>            extract_lane_as_i8(actual, <span class="number">12</span>),
-<a href=#669 id=669 data-nosnippet>669</a>            extract_lane_as_i8(actual, <span class="number">13</span>),
-<a href=#670 id=670 data-nosnippet>670</a>            extract_lane_as_i8(actual, <span class="number">14</span>),
-<a href=#671 id=671 data-nosnippet>671</a>            extract_lane_as_i8(actual, <span class="number">15</span>),
-<a href=#672 id=672 data-nosnippet>672</a>        ]),
-<a href=#673 id=673 data-nosnippet>673</a>        wast::core::V128Pattern::I16x8(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::I16x8([
-<a href=#674 id=674 data-nosnippet>674</a>            extract_lane_as_i16(actual, <span class="number">0</span>),
-<a href=#675 id=675 data-nosnippet>675</a>            extract_lane_as_i16(actual, <span class="number">1</span>),
-<a href=#676 id=676 data-nosnippet>676</a>            extract_lane_as_i16(actual, <span class="number">2</span>),
-<a href=#677 id=677 data-nosnippet>677</a>            extract_lane_as_i16(actual, <span class="number">3</span>),
-<a href=#678 id=678 data-nosnippet>678</a>            extract_lane_as_i16(actual, <span class="number">4</span>),
-<a href=#679 id=679 data-nosnippet>679</a>            extract_lane_as_i16(actual, <span class="number">5</span>),
-<a href=#680 id=680 data-nosnippet>680</a>            extract_lane_as_i16(actual, <span class="number">6</span>),
-<a href=#681 id=681 data-nosnippet>681</a>            extract_lane_as_i16(actual, <span class="number">7</span>),
-<a href=#682 id=682 data-nosnippet>682</a>        ]),
-<a href=#683 id=683 data-nosnippet>683</a>        wast::core::V128Pattern::I32x4(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::I32x4([
-<a href=#684 id=684 data-nosnippet>684</a>            extract_lane_as_i32(actual, <span class="number">0</span>),
-<a href=#685 id=685 data-nosnippet>685</a>            extract_lane_as_i32(actual, <span class="number">1</span>),
-<a href=#686 id=686 data-nosnippet>686</a>            extract_lane_as_i32(actual, <span class="number">2</span>),
-<a href=#687 id=687 data-nosnippet>687</a>            extract_lane_as_i32(actual, <span class="number">3</span>),
-<a href=#688 id=688 data-nosnippet>688</a>        ]),
-<a href=#689 id=689 data-nosnippet>689</a>        wast::core::V128Pattern::I64x2(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::I64x2([
-<a href=#690 id=690 data-nosnippet>690</a>            extract_lane_as_i64(actual, <span class="number">0</span>),
-<a href=#691 id=691 data-nosnippet>691</a>            extract_lane_as_i64(actual, <span class="number">1</span>),
-<a href=#692 id=692 data-nosnippet>692</a>        ]),
-<a href=#693 id=693 data-nosnippet>693</a>        wast::core::V128Pattern::F32x4(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::F32x4([
-<a href=#694 id=694 data-nosnippet>694</a>            wast::core::NanPattern::Value(F32 {
-<a href=#695 id=695 data-nosnippet>695</a>                bits: extract_lane_as_i32(actual, <span class="number">0</span>) <span class="kw">as _</span>,
-<a href=#696 id=696 data-nosnippet>696</a>            }),
-<a href=#697 id=697 data-nosnippet>697</a>            wast::core::NanPattern::Value(F32 {
-<a href=#698 id=698 data-nosnippet>698</a>                bits: extract_lane_as_i32(actual, <span class="number">1</span>) <span class="kw">as _</span>,
-<a href=#699 id=699 data-nosnippet>699</a>            }),
-<a href=#700 id=700 data-nosnippet>700</a>            wast::core::NanPattern::Value(F32 {
-<a href=#701 id=701 data-nosnippet>701</a>                bits: extract_lane_as_i32(actual, <span class="number">2</span>) <span class="kw">as _</span>,
-<a href=#702 id=702 data-nosnippet>702</a>            }),
-<a href=#703 id=703 data-nosnippet>703</a>            wast::core::NanPattern::Value(F32 {
-<a href=#704 id=704 data-nosnippet>704</a>                bits: extract_lane_as_i32(actual, <span class="number">3</span>) <span class="kw">as _</span>,
-<a href=#705 id=705 data-nosnippet>705</a>            }),
-<a href=#706 id=706 data-nosnippet>706</a>        ]),
-<a href=#707 id=707 data-nosnippet>707</a>        wast::core::V128Pattern::F64x2(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::F64x2([
-<a href=#708 id=708 data-nosnippet>708</a>            wast::core::NanPattern::Value(F64 {
-<a href=#709 id=709 data-nosnippet>709</a>                bits: extract_lane_as_i64(actual, <span class="number">0</span>) <span class="kw">as _</span>,
-<a href=#710 id=710 data-nosnippet>710</a>            }),
-<a href=#711 id=711 data-nosnippet>711</a>            wast::core::NanPattern::Value(F64 {
-<a href=#712 id=712 data-nosnippet>712</a>                bits: extract_lane_as_i64(actual, <span class="number">1</span>) <span class="kw">as _</span>,
-<a href=#713 id=713 data-nosnippet>713</a>            }),
-<a href=#714 id=714 data-nosnippet>714</a>        ]),
-<a href=#715 id=715 data-nosnippet>715</a>    }
-<a href=#716 id=716 data-nosnippet>716</a>}
-<a href=#717 id=717 data-nosnippet>717</a>
-<a href=#718 id=718 data-nosnippet>718</a><span class="kw">pub trait </span>NaNCheck {
-<a href=#719 id=719 data-nosnippet>719</a>    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
-<a href=#720 id=720 data-nosnippet>720</a>    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
-<a href=#721 id=721 data-nosnippet>721</a>}
-<a href=#722 id=722 data-nosnippet>722</a>
-<a href=#723 id=723 data-nosnippet>723</a><span class="kw">impl </span>NaNCheck <span class="kw">for </span>f32 {
-<a href=#724 id=724 data-nosnippet>724</a>    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#725 id=725 data-nosnippet>725</a>        <span class="kw">const </span>AF32_NAN: u32 = <span class="number">0x0040_0000</span>;
-<a href=#726 id=726 data-nosnippet>726</a>        (<span class="self">self</span>.to_bits() &amp; AF32_NAN) == AF32_NAN
-<a href=#727 id=727 data-nosnippet>727</a>    }
-<a href=#728 id=728 data-nosnippet>728</a>
-<a href=#729 id=729 data-nosnippet>729</a>    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#730 id=730 data-nosnippet>730</a>        (<span class="self">self</span>.to_bits() &amp; <span class="number">0x7fff_ffff</span>) == <span class="number">0x7fc0_0000
-<a href=#731 id=731 data-nosnippet>731</a>    </span>}
-<a href=#732 id=732 data-nosnippet>732</a>}
-<a href=#733 id=733 data-nosnippet>733</a>
-<a href=#734 id=734 data-nosnippet>734</a><span class="kw">impl </span>NaNCheck <span class="kw">for </span>f64 {
-<a href=#735 id=735 data-nosnippet>735</a>    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#736 id=736 data-nosnippet>736</a>        <span class="kw">const </span>AF64_NAN: u64 = <span class="number">0x0008_0000_0000_0000</span>;
-<a href=#737 id=737 data-nosnippet>737</a>        (<span class="self">self</span>.to_bits() &amp; AF64_NAN) == AF64_NAN
-<a href=#738 id=738 data-nosnippet>738</a>    }
-<a href=#739 id=739 data-nosnippet>739</a>
-<a href=#740 id=740 data-nosnippet>740</a>    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#741 id=741 data-nosnippet>741</a>        (<span class="self">self</span>.to_bits() &amp; <span class="number">0x7fff_ffff_ffff_ffff</span>) == <span class="number">0x7ff8_0000_0000_0000
-<a href=#742 id=742 data-nosnippet>742</a>    </span>}
-<a href=#743 id=743 data-nosnippet>743</a>}</code></pre></div></section></main></body></html>
+<a href=#504 id=504 data-nosnippet>504</a>            || (expected.contains(<span class="string">"incompatible import type"</span>)
+<a href=#505 id=505 data-nosnippet>505</a>                &amp;&amp; actual.contains(<span class="string">"instantiation failed with: constant expression required"</span>))
+<a href=#506 id=506 data-nosnippet>506</a>    }
+<a href=#507 id=507 data-nosnippet>507</a>
+<a href=#508 id=508 data-nosnippet>508</a>    <span class="comment">// Checks if the `assert_invalid` message matches the expected one
+<a href=#509 id=509 data-nosnippet>509</a>    </span><span class="kw">fn </span>matches_message_assert_invalid(expected: <span class="kw-2">&amp;</span>str, actual: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#510 id=510 data-nosnippet>510</a>        actual.contains(expected)
+<a href=#511 id=511 data-nosnippet>511</a>            <span class="comment">// Waiting on https://github.com/WebAssembly/bulk-memory-operations/pull/137
+<a href=#512 id=512 data-nosnippet>512</a>            // to propagate to WebAssembly/testsuite.
+<a href=#513 id=513 data-nosnippet>513</a>            </span>|| (expected.contains(<span class="string">"unknown table"</span>) &amp;&amp; actual.contains(<span class="string">"unknown elem"</span>))
+<a href=#514 id=514 data-nosnippet>514</a>            <span class="comment">// wasmparser return the wrong message
+<a href=#515 id=515 data-nosnippet>515</a>            </span>|| (expected.contains(<span class="string">"unknown memory"</span>) &amp;&amp; actual.contains(<span class="string">"no linear memories are present"</span>))
+<a href=#516 id=516 data-nosnippet>516</a>            <span class="comment">// `elem.wast` and `proposals/bulk-memory-operations/elem.wast` disagree
+<a href=#517 id=517 data-nosnippet>517</a>            // on the expected error message for the same error.
+<a href=#518 id=518 data-nosnippet>518</a>            </span>|| (expected.contains(<span class="string">"out of bounds"</span>) &amp;&amp; actual.contains(<span class="string">"does not fit"</span>))
+<a href=#519 id=519 data-nosnippet>519</a>            <span class="comment">// handle `unknown global $NUM` error messages that wasmparser doesn't return yet
+<a href=#520 id=520 data-nosnippet>520</a>            </span>|| (expected.contains(<span class="string">"unknown global"</span>) &amp;&amp; actual.contains(<span class="string">"unknown global"</span>))
+<a href=#521 id=521 data-nosnippet>521</a>            <span class="comment">// handle `unknown memory $NUM` error messages that wasmparser doesn't return yet
+<a href=#522 id=522 data-nosnippet>522</a>            </span>|| (expected.contains(<span class="string">"unknown memory"</span>) &amp;&amp; actual.contains(<span class="string">"unknown memory"</span>))
+<a href=#523 id=523 data-nosnippet>523</a>            || (expected.contains(<span class="string">"unknown memory"</span>) &amp;&amp; actual.contains(<span class="string">"Data segment extends past end of the data section"</span>))
+<a href=#524 id=524 data-nosnippet>524</a>            || (expected.contains(<span class="string">"unknown elem segment"</span>) &amp;&amp; actual.contains(<span class="string">"unknown element segment"</span>))
+<a href=#525 id=525 data-nosnippet>525</a>            <span class="comment">// The same test here is asserted to have one error message in
+<a href=#526 id=526 data-nosnippet>526</a>            // `memory.wast` and a different error message in
+<a href=#527 id=527 data-nosnippet>527</a>            // `memory64/memory.wast`, so we equate these two error messages to get
+<a href=#528 id=528 data-nosnippet>528</a>            // the memory64 tests to pass.
+<a href=#529 id=529 data-nosnippet>529</a>            </span>|| (expected.contains(<span class="string">"memory size must be at most 65536 pages"</span>) &amp;&amp; actual.contains(<span class="string">"invalid u32 number"</span>))
+<a href=#530 id=530 data-nosnippet>530</a>            <span class="comment">// the spec test suite asserts a different error message than we print
+<a href=#531 id=531 data-nosnippet>531</a>            // for this scenario
+<a href=#532 id=532 data-nosnippet>532</a>            </span>|| (expected == <span class="string">"unknown global" </span>&amp;&amp; actual.contains(<span class="string">"global.get of locally defined global"</span>))
+<a href=#533 id=533 data-nosnippet>533</a>            || (expected == <span class="string">"immutable global" </span>&amp;&amp; actual.contains(<span class="string">"global is immutable: cannot modify it with `global.set`"</span>))
+<a href=#534 id=534 data-nosnippet>534</a>            || (expected.contains(<span class="string">"type mismatch: instruction requires"</span>) &amp;&amp; actual.contains(<span class="string">"instantiation failed with: Validation error: type mismatch: expected"</span>))
+<a href=#535 id=535 data-nosnippet>535</a>            || (expected.contains(<span class="string">"alignment must not be larger than natural"</span>) &amp;&amp; actual.contains(<span class="string">"malformed memop alignment: alignment too large"</span>))
+<a href=#536 id=536 data-nosnippet>536</a>            || (expected.contains(<span class="string">"type mismatch"</span>) &amp;&amp; actual.contains(<span class="string">"malformed memop alignment: alignment too large"</span>))
+<a href=#537 id=537 data-nosnippet>537</a>    }
+<a href=#538 id=538 data-nosnippet>538</a>
+<a href=#539 id=539 data-nosnippet>539</a>    <span class="comment">// Checks if the `assert_trap` message matches the expected one
+<a href=#540 id=540 data-nosnippet>540</a>    </span><span class="kw">fn </span>matches_message_assert_trap(<span class="kw-2">&amp;</span><span class="self">self</span>, expected: <span class="kw-2">&amp;</span>str, actual: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#541 id=541 data-nosnippet>541</a>        actual.contains(expected)
+<a href=#542 id=542 data-nosnippet>542</a>            || <span class="self">self
+<a href=#543 id=543 data-nosnippet>543</a>                </span>.match_trap_messages
+<a href=#544 id=544 data-nosnippet>544</a>                .get(expected)
+<a href=#545 id=545 data-nosnippet>545</a>                .is_some_and(|alternative| actual.contains(alternative))
+<a href=#546 id=546 data-nosnippet>546</a>    }
+<a href=#547 id=547 data-nosnippet>547</a>
+<a href=#548 id=548 data-nosnippet>548</a>    <span class="kw">fn </span>assert_exception(<span class="kw-2">&amp;</span><span class="self">self</span>, result: <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#549 id=549 data-nosnippet>549</a>        <span class="kw">if </span>result.is_ok() {
+<a href=#550 id=550 data-nosnippet>550</a>            <span class="macro">anyhow::bail!</span>(<span class="string">"Expected exception to be thrown, returned {result:?} instead"</span>);
+<a href=#551 id=551 data-nosnippet>551</a>        }
+<a href=#552 id=552 data-nosnippet>552</a>        <span class="prelude-val">Ok</span>(())
+<a href=#553 id=553 data-nosnippet>553</a>    }
+<a href=#554 id=554 data-nosnippet>554</a>
+<a href=#555 id=555 data-nosnippet>555</a>    <span class="kw">fn </span>val_matches(<span class="kw-2">&amp;</span><span class="self">self</span>, actual: <span class="kw-2">&amp;</span>Value, expected: <span class="kw-2">&amp;</span>WastRetCore) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+<a href=#556 id=556 data-nosnippet>556</a>        <span class="prelude-val">Ok</span>(<span class="kw">match </span>(actual, expected) {
+<a href=#557 id=557 data-nosnippet>557</a>            (Value::I32(a), WastRetCore::I32(b)) =&gt; a == b,
+<a href=#558 id=558 data-nosnippet>558</a>            (Value::I64(a), WastRetCore::I64(b)) =&gt; a == b,
+<a href=#559 id=559 data-nosnippet>559</a>            <span class="comment">// Note that these float comparisons are comparing bits, not float
+<a href=#560 id=560 data-nosnippet>560</a>            // values, so we're testing for bit-for-bit equivalence
+<a href=#561 id=561 data-nosnippet>561</a>            </span>(Value::F32(a), WastRetCore::F32(b)) =&gt; f32_matches(<span class="kw-2">*</span>a, b),
+<a href=#562 id=562 data-nosnippet>562</a>            (Value::F64(a), WastRetCore::F64(b)) =&gt; f64_matches(<span class="kw-2">*</span>a, b),
+<a href=#563 id=563 data-nosnippet>563</a>            (Value::V128(a), WastRetCore::V128(b)) =&gt; v128_matches(<span class="kw-2">*</span>a, b),
+<a href=#564 id=564 data-nosnippet>564</a>            (actual, WastRetCore::Either(cases)) =&gt; cases
+<a href=#565 id=565 data-nosnippet>565</a>                .iter()
+<a href=#566 id=566 data-nosnippet>566</a>                .any(|case| <span class="self">self</span>.val_matches(actual, case).unwrap_or(<span class="bool-val">false</span>)),
+<a href=#567 id=567 data-nosnippet>567</a>            (
+<a href=#568 id=568 data-nosnippet>568</a>                Value::FuncRef(<span class="prelude-val">None</span>),
+<a href=#569 id=569 data-nosnippet>569</a>                WastRetCore::RefNull(<span class="prelude-val">Some</span>(wast::core::HeapType::Abstract {
+<a href=#570 id=570 data-nosnippet>570</a>                    ty: AbstractHeapType::Func,
+<a href=#571 id=571 data-nosnippet>571</a>                    ..
+<a href=#572 id=572 data-nosnippet>572</a>                })),
+<a href=#573 id=573 data-nosnippet>573</a>            ) =&gt; <span class="bool-val">true</span>,
+<a href=#574 id=574 data-nosnippet>574</a>            (Value::FuncRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
+<a href=#575 id=575 data-nosnippet>575</a>            <span class="comment">// assert_return of (ref.func $tf) and (ref.func) is a match!
+<a href=#576 id=576 data-nosnippet>576</a>            </span>(Value::FuncRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), WastRetCore::RefFunc(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
+<a href=#577 id=577 data-nosnippet>577</a>            (Value::FuncRef(<span class="prelude-val">None</span>), WastRetCore::RefFunc(<span class="prelude-val">None</span>)) =&gt; <span class="bool-val">true</span>,
+<a href=#578 id=578 data-nosnippet>578</a>            (Value::FuncRef(<span class="prelude-val">None</span>), WastRetCore::RefFunc(<span class="prelude-val">Some</span>(<span class="kw">_</span>))) =&gt; <span class="bool-val">false</span>,
+<a href=#579 id=579 data-nosnippet>579</a>            (Value::FuncRef(<span class="prelude-val">None</span>), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
+<a href=#580 id=580 data-nosnippet>580</a>            (
+<a href=#581 id=581 data-nosnippet>581</a>                Value::ExternRef(<span class="prelude-val">None</span>),
+<a href=#582 id=582 data-nosnippet>582</a>                WastRetCore::RefNull(<span class="prelude-val">Some</span>(wast::core::HeapType::Abstract {
+<a href=#583 id=583 data-nosnippet>583</a>                    ty: AbstractHeapType::Extern,
+<a href=#584 id=584 data-nosnippet>584</a>                    ..
+<a href=#585 id=585 data-nosnippet>585</a>                })),
+<a href=#586 id=586 data-nosnippet>586</a>            ) =&gt; <span class="bool-val">true</span>,
+<a href=#587 id=587 data-nosnippet>587</a>            (Value::ExternRef(<span class="prelude-val">None</span>), WastRetCore::RefExtern(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
+<a href=#588 id=588 data-nosnippet>588</a>            (Value::ExceptionRef(<span class="prelude-val">None</span>), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
+<a href=#589 id=589 data-nosnippet>589</a>            (Value::ExternRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
+<a href=#590 id=590 data-nosnippet>590</a>            (Value::ExternRef(<span class="prelude-val">Some</span>(extern_ref)), WastRetCore::RefExtern(num)) =&gt; {
+<a href=#591 id=591 data-nosnippet>591</a>                <span class="kw">let </span>x = extern_ref.downcast::&lt;u32&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.store).cloned();
+<a href=#592 id=592 data-nosnippet>592</a>                x == <span class="kw-2">*</span>num
+<a href=#593 id=593 data-nosnippet>593</a>            }
+<a href=#594 id=594 data-nosnippet>594</a>            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"don't know how to compare {actual:?} and {expected:?} yet"</span>),
+<a href=#595 id=595 data-nosnippet>595</a>        })
+<a href=#596 id=596 data-nosnippet>596</a>    }
+<a href=#597 id=597 data-nosnippet>597</a>}
+<a href=#598 id=598 data-nosnippet>598</a>
+<a href=#599 id=599 data-nosnippet>599</a><span class="kw">fn </span>extract_lane_as_i8(bytes: u128, lane: usize) -&gt; i8 {
+<a href=#600 id=600 data-nosnippet>600</a>    (bytes &gt;&gt; (lane * <span class="number">8</span>)) <span class="kw">as </span>i8
+<a href=#601 id=601 data-nosnippet>601</a>}
+<a href=#602 id=602 data-nosnippet>602</a>
+<a href=#603 id=603 data-nosnippet>603</a><span class="kw">fn </span>extract_lane_as_i16(bytes: u128, lane: usize) -&gt; i16 {
+<a href=#604 id=604 data-nosnippet>604</a>    (bytes &gt;&gt; (lane * <span class="number">16</span>)) <span class="kw">as </span>i16
+<a href=#605 id=605 data-nosnippet>605</a>}
+<a href=#606 id=606 data-nosnippet>606</a>
+<a href=#607 id=607 data-nosnippet>607</a><span class="kw">fn </span>extract_lane_as_i32(bytes: u128, lane: usize) -&gt; i32 {
+<a href=#608 id=608 data-nosnippet>608</a>    (bytes &gt;&gt; (lane * <span class="number">32</span>)) <span class="kw">as </span>i32
+<a href=#609 id=609 data-nosnippet>609</a>}
+<a href=#610 id=610 data-nosnippet>610</a>
+<a href=#611 id=611 data-nosnippet>611</a><span class="kw">fn </span>extract_lane_as_i64(bytes: u128, lane: usize) -&gt; i64 {
+<a href=#612 id=612 data-nosnippet>612</a>    (bytes &gt;&gt; (lane * <span class="number">64</span>)) <span class="kw">as </span>i64
+<a href=#613 id=613 data-nosnippet>613</a>}
+<a href=#614 id=614 data-nosnippet>614</a>
+<a href=#615 id=615 data-nosnippet>615</a><span class="kw">fn </span>f32_matches(actual: f32, expected: <span class="kw-2">&amp;</span>wast::core::NanPattern&lt;F32&gt;) -&gt; bool {
+<a href=#616 id=616 data-nosnippet>616</a>    <span class="kw">match </span>expected {
+<a href=#617 id=617 data-nosnippet>617</a>        wast::core::NanPattern::CanonicalNan =&gt; actual.is_canonical_nan(),
+<a href=#618 id=618 data-nosnippet>618</a>        wast::core::NanPattern::ArithmeticNan =&gt; actual.is_arithmetic_nan(),
+<a href=#619 id=619 data-nosnippet>619</a>        wast::core::NanPattern::Value(expected_value) =&gt; actual.to_bits() == expected_value.bits,
+<a href=#620 id=620 data-nosnippet>620</a>    }
+<a href=#621 id=621 data-nosnippet>621</a>}
+<a href=#622 id=622 data-nosnippet>622</a>
+<a href=#623 id=623 data-nosnippet>623</a><span class="kw">fn </span>f64_matches(actual: f64, expected: <span class="kw-2">&amp;</span>wast::core::NanPattern&lt;F64&gt;) -&gt; bool {
+<a href=#624 id=624 data-nosnippet>624</a>    <span class="kw">match </span>expected {
+<a href=#625 id=625 data-nosnippet>625</a>        wast::core::NanPattern::CanonicalNan =&gt; actual.is_canonical_nan(),
+<a href=#626 id=626 data-nosnippet>626</a>        wast::core::NanPattern::ArithmeticNan =&gt; actual.is_arithmetic_nan(),
+<a href=#627 id=627 data-nosnippet>627</a>        wast::core::NanPattern::Value(expected_value) =&gt; actual.to_bits() == expected_value.bits,
+<a href=#628 id=628 data-nosnippet>628</a>    }
+<a href=#629 id=629 data-nosnippet>629</a>}
+<a href=#630 id=630 data-nosnippet>630</a>
+<a href=#631 id=631 data-nosnippet>631</a><span class="kw">fn </span>v128_matches(actual: u128, expected: <span class="kw-2">&amp;</span>wast::core::V128Pattern) -&gt; bool {
+<a href=#632 id=632 data-nosnippet>632</a>    <span class="kw">match </span>expected {
+<a href=#633 id=633 data-nosnippet>633</a>        wast::core::V128Pattern::I8x16(b) =&gt; b
+<a href=#634 id=634 data-nosnippet>634</a>            .iter()
+<a href=#635 id=635 data-nosnippet>635</a>            .enumerate()
+<a href=#636 id=636 data-nosnippet>636</a>            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i8(actual, i)),
+<a href=#637 id=637 data-nosnippet>637</a>        wast::core::V128Pattern::I16x8(b) =&gt; b
+<a href=#638 id=638 data-nosnippet>638</a>            .iter()
+<a href=#639 id=639 data-nosnippet>639</a>            .enumerate()
+<a href=#640 id=640 data-nosnippet>640</a>            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i16(actual, i)),
+<a href=#641 id=641 data-nosnippet>641</a>        wast::core::V128Pattern::I32x4(b) =&gt; b
+<a href=#642 id=642 data-nosnippet>642</a>            .iter()
+<a href=#643 id=643 data-nosnippet>643</a>            .enumerate()
+<a href=#644 id=644 data-nosnippet>644</a>            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i32(actual, i)),
+<a href=#645 id=645 data-nosnippet>645</a>        wast::core::V128Pattern::I64x2(b) =&gt; b
+<a href=#646 id=646 data-nosnippet>646</a>            .iter()
+<a href=#647 id=647 data-nosnippet>647</a>            .enumerate()
+<a href=#648 id=648 data-nosnippet>648</a>            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i64(actual, i)),
+<a href=#649 id=649 data-nosnippet>649</a>        wast::core::V128Pattern::F32x4(b) =&gt; b.iter().enumerate().all(|(i, b)| {
+<a href=#650 id=650 data-nosnippet>650</a>            <span class="kw">let </span>a = extract_lane_as_i32(actual, i) <span class="kw">as </span>u32;
+<a href=#651 id=651 data-nosnippet>651</a>            f32_matches(f32::from_bits(a), b)
+<a href=#652 id=652 data-nosnippet>652</a>        }),
+<a href=#653 id=653 data-nosnippet>653</a>        wast::core::V128Pattern::F64x2(b) =&gt; b.iter().enumerate().all(|(i, b)| {
+<a href=#654 id=654 data-nosnippet>654</a>            <span class="kw">let </span>a = extract_lane_as_i64(actual, i) <span class="kw">as </span>u64;
+<a href=#655 id=655 data-nosnippet>655</a>            f64_matches(f64::from_bits(a), b)
+<a href=#656 id=656 data-nosnippet>656</a>        }),
+<a href=#657 id=657 data-nosnippet>657</a>    }
+<a href=#658 id=658 data-nosnippet>658</a>}
+<a href=#659 id=659 data-nosnippet>659</a>
+<a href=#660 id=660 data-nosnippet>660</a><span class="kw">fn </span>v128_format(actual: u128, expected: <span class="kw-2">&amp;</span>wast::core::V128Pattern) -&gt; wast::core::V128Pattern {
+<a href=#661 id=661 data-nosnippet>661</a>    <span class="kw">match </span>expected {
+<a href=#662 id=662 data-nosnippet>662</a>        wast::core::V128Pattern::I8x16(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::I8x16([
+<a href=#663 id=663 data-nosnippet>663</a>            extract_lane_as_i8(actual, <span class="number">0</span>),
+<a href=#664 id=664 data-nosnippet>664</a>            extract_lane_as_i8(actual, <span class="number">1</span>),
+<a href=#665 id=665 data-nosnippet>665</a>            extract_lane_as_i8(actual, <span class="number">2</span>),
+<a href=#666 id=666 data-nosnippet>666</a>            extract_lane_as_i8(actual, <span class="number">3</span>),
+<a href=#667 id=667 data-nosnippet>667</a>            extract_lane_as_i8(actual, <span class="number">4</span>),
+<a href=#668 id=668 data-nosnippet>668</a>            extract_lane_as_i8(actual, <span class="number">5</span>),
+<a href=#669 id=669 data-nosnippet>669</a>            extract_lane_as_i8(actual, <span class="number">6</span>),
+<a href=#670 id=670 data-nosnippet>670</a>            extract_lane_as_i8(actual, <span class="number">7</span>),
+<a href=#671 id=671 data-nosnippet>671</a>            extract_lane_as_i8(actual, <span class="number">8</span>),
+<a href=#672 id=672 data-nosnippet>672</a>            extract_lane_as_i8(actual, <span class="number">9</span>),
+<a href=#673 id=673 data-nosnippet>673</a>            extract_lane_as_i8(actual, <span class="number">10</span>),
+<a href=#674 id=674 data-nosnippet>674</a>            extract_lane_as_i8(actual, <span class="number">11</span>),
+<a href=#675 id=675 data-nosnippet>675</a>            extract_lane_as_i8(actual, <span class="number">12</span>),
+<a href=#676 id=676 data-nosnippet>676</a>            extract_lane_as_i8(actual, <span class="number">13</span>),
+<a href=#677 id=677 data-nosnippet>677</a>            extract_lane_as_i8(actual, <span class="number">14</span>),
+<a href=#678 id=678 data-nosnippet>678</a>            extract_lane_as_i8(actual, <span class="number">15</span>),
+<a href=#679 id=679 data-nosnippet>679</a>        ]),
+<a href=#680 id=680 data-nosnippet>680</a>        wast::core::V128Pattern::I16x8(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::I16x8([
+<a href=#681 id=681 data-nosnippet>681</a>            extract_lane_as_i16(actual, <span class="number">0</span>),
+<a href=#682 id=682 data-nosnippet>682</a>            extract_lane_as_i16(actual, <span class="number">1</span>),
+<a href=#683 id=683 data-nosnippet>683</a>            extract_lane_as_i16(actual, <span class="number">2</span>),
+<a href=#684 id=684 data-nosnippet>684</a>            extract_lane_as_i16(actual, <span class="number">3</span>),
+<a href=#685 id=685 data-nosnippet>685</a>            extract_lane_as_i16(actual, <span class="number">4</span>),
+<a href=#686 id=686 data-nosnippet>686</a>            extract_lane_as_i16(actual, <span class="number">5</span>),
+<a href=#687 id=687 data-nosnippet>687</a>            extract_lane_as_i16(actual, <span class="number">6</span>),
+<a href=#688 id=688 data-nosnippet>688</a>            extract_lane_as_i16(actual, <span class="number">7</span>),
+<a href=#689 id=689 data-nosnippet>689</a>        ]),
+<a href=#690 id=690 data-nosnippet>690</a>        wast::core::V128Pattern::I32x4(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::I32x4([
+<a href=#691 id=691 data-nosnippet>691</a>            extract_lane_as_i32(actual, <span class="number">0</span>),
+<a href=#692 id=692 data-nosnippet>692</a>            extract_lane_as_i32(actual, <span class="number">1</span>),
+<a href=#693 id=693 data-nosnippet>693</a>            extract_lane_as_i32(actual, <span class="number">2</span>),
+<a href=#694 id=694 data-nosnippet>694</a>            extract_lane_as_i32(actual, <span class="number">3</span>),
+<a href=#695 id=695 data-nosnippet>695</a>        ]),
+<a href=#696 id=696 data-nosnippet>696</a>        wast::core::V128Pattern::I64x2(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::I64x2([
+<a href=#697 id=697 data-nosnippet>697</a>            extract_lane_as_i64(actual, <span class="number">0</span>),
+<a href=#698 id=698 data-nosnippet>698</a>            extract_lane_as_i64(actual, <span class="number">1</span>),
+<a href=#699 id=699 data-nosnippet>699</a>        ]),
+<a href=#700 id=700 data-nosnippet>700</a>        wast::core::V128Pattern::F32x4(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::F32x4([
+<a href=#701 id=701 data-nosnippet>701</a>            wast::core::NanPattern::Value(F32 {
+<a href=#702 id=702 data-nosnippet>702</a>                bits: extract_lane_as_i32(actual, <span class="number">0</span>) <span class="kw">as _</span>,
+<a href=#703 id=703 data-nosnippet>703</a>            }),
+<a href=#704 id=704 data-nosnippet>704</a>            wast::core::NanPattern::Value(F32 {
+<a href=#705 id=705 data-nosnippet>705</a>                bits: extract_lane_as_i32(actual, <span class="number">1</span>) <span class="kw">as _</span>,
+<a href=#706 id=706 data-nosnippet>706</a>            }),
+<a href=#707 id=707 data-nosnippet>707</a>            wast::core::NanPattern::Value(F32 {
+<a href=#708 id=708 data-nosnippet>708</a>                bits: extract_lane_as_i32(actual, <span class="number">2</span>) <span class="kw">as _</span>,
+<a href=#709 id=709 data-nosnippet>709</a>            }),
+<a href=#710 id=710 data-nosnippet>710</a>            wast::core::NanPattern::Value(F32 {
+<a href=#711 id=711 data-nosnippet>711</a>                bits: extract_lane_as_i32(actual, <span class="number">3</span>) <span class="kw">as _</span>,
+<a href=#712 id=712 data-nosnippet>712</a>            }),
+<a href=#713 id=713 data-nosnippet>713</a>        ]),
+<a href=#714 id=714 data-nosnippet>714</a>        wast::core::V128Pattern::F64x2(<span class="kw">_</span>) =&gt; wast::core::V128Pattern::F64x2([
+<a href=#715 id=715 data-nosnippet>715</a>            wast::core::NanPattern::Value(F64 {
+<a href=#716 id=716 data-nosnippet>716</a>                bits: extract_lane_as_i64(actual, <span class="number">0</span>) <span class="kw">as _</span>,
+<a href=#717 id=717 data-nosnippet>717</a>            }),
+<a href=#718 id=718 data-nosnippet>718</a>            wast::core::NanPattern::Value(F64 {
+<a href=#719 id=719 data-nosnippet>719</a>                bits: extract_lane_as_i64(actual, <span class="number">1</span>) <span class="kw">as _</span>,
+<a href=#720 id=720 data-nosnippet>720</a>            }),
+<a href=#721 id=721 data-nosnippet>721</a>        ]),
+<a href=#722 id=722 data-nosnippet>722</a>    }
+<a href=#723 id=723 data-nosnippet>723</a>}
+<a href=#724 id=724 data-nosnippet>724</a>
+<a href=#725 id=725 data-nosnippet>725</a><span class="kw">pub trait </span>NaNCheck {
+<a href=#726 id=726 data-nosnippet>726</a>    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
+<a href=#727 id=727 data-nosnippet>727</a>    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
+<a href=#728 id=728 data-nosnippet>728</a>}
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a><span class="kw">impl </span>NaNCheck <span class="kw">for </span>f32 {
+<a href=#731 id=731 data-nosnippet>731</a>    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#732 id=732 data-nosnippet>732</a>        <span class="kw">const </span>AF32_NAN: u32 = <span class="number">0x0040_0000</span>;
+<a href=#733 id=733 data-nosnippet>733</a>        (<span class="self">self</span>.to_bits() &amp; AF32_NAN) == AF32_NAN
+<a href=#734 id=734 data-nosnippet>734</a>    }
+<a href=#735 id=735 data-nosnippet>735</a>
+<a href=#736 id=736 data-nosnippet>736</a>    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#737 id=737 data-nosnippet>737</a>        (<span class="self">self</span>.to_bits() &amp; <span class="number">0x7fff_ffff</span>) == <span class="number">0x7fc0_0000
+<a href=#738 id=738 data-nosnippet>738</a>    </span>}
+<a href=#739 id=739 data-nosnippet>739</a>}
+<a href=#740 id=740 data-nosnippet>740</a>
+<a href=#741 id=741 data-nosnippet>741</a><span class="kw">impl </span>NaNCheck <span class="kw">for </span>f64 {
+<a href=#742 id=742 data-nosnippet>742</a>    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#743 id=743 data-nosnippet>743</a>        <span class="kw">const </span>AF64_NAN: u64 = <span class="number">0x0008_0000_0000_0000</span>;
+<a href=#744 id=744 data-nosnippet>744</a>        (<span class="self">self</span>.to_bits() &amp; AF64_NAN) == AF64_NAN
+<a href=#745 id=745 data-nosnippet>745</a>    }
+<a href=#746 id=746 data-nosnippet>746</a>
+<a href=#747 id=747 data-nosnippet>747</a>    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#748 id=748 data-nosnippet>748</a>        (<span class="self">self</span>.to_bits() &amp; <span class="number">0x7fff_ffff_ffff_ffff</span>) == <span class="number">0x7ff8_0000_0000_0000
+<a href=#749 id=749 data-nosnippet>749</a>    </span>}
+<a href=#750 id=750 data-nosnippet>750</a>}</code></pre></div></section></main></body></html>
