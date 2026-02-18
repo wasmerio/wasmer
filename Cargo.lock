@@ -764,7 +764,7 @@ checksum = "370daa45065b80218950227371916a1633217ae42b2715b2287b606dcd618e24"
 dependencies = [
  "anstream",
  "anstyle",
- "clap_lex 1.0.0",
+ "clap_lex",
  "strsim 0.11.1",
 ]
 
@@ -788,12 +788,6 @@ dependencies = [
  "quote",
  "syn 2.0.116",
 ]
-
-[[package]]
-name = "clap_lex"
-version = "0.7.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
 
 [[package]]
 name = "clap_lex"
@@ -6923,7 +6917,7 @@ dependencies = [
  "clap",
  "clap_builder",
  "clap_derive",
- "clap_lex 0.7.7",
+ "clap_lex",
  "criterion",
  "hex",
  "rand 0.10.0",
@@ -7560,7 +7554,7 @@ dependencies = [
  "clap",
  "clap_builder",
  "clap_derive",
- "clap_lex 0.7.7",
+ "clap_lex",
  "compiler-test-derive",
  "criterion",
  "crossbeam-queue",

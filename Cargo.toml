@@ -124,7 +124,7 @@ clap = { version = "4.5.53", default-features = false }
 clap_builder = { version = "4.5.53" }
 clap_complete = "4.5.61"
 clap_derive = { version = "4.5.49" }
-clap_lex = { version = "0.7.6" }
+clap_lex = { version = "1" }
 clap_mangen = "0.2.31"
 cmake = "0.1.50"
 colored = "3.0.0"
