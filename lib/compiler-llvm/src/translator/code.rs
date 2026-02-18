@@ -30,7 +30,7 @@ use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
-    abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
+    abi::{Abi, get_abi},
     config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
@@ -133,12 +133,11 @@ impl FuncTranslator {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
-        let g0m0_is_enabled = config.enable_g0m0_opt;
-        let func_kind = if g0m0_is_enabled {
-            Some(G0M0FunctionKind::Local)
-        } else {
-            None
-        };
+        // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
+        // the allocated heap is never moved to a different location.
+        let m0_is_enabled = memory_styles
+            .get(MemoryIndex::from_u32(0))
+            .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {function_name}"),
@@ -169,7 +168,7 @@ impl FuncTranslator {
             &intrinsics,
             Some(&offsets),
             wasm_fn_type,
-            func_kind,
+            m0_is_enabled,
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
@@ -241,8 +240,8 @@ impl FuncTranslator {
         let mut params = vec![];
         let first_param =
             if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
-                if g0m0_is_enabled { 3 } else { 2 }
-            } else if g0m0_is_enabled {
+                if m0_is_enabled { 3 } else { 2 }
+            } else if m0_is_enabled {
                 2
             } else {
                 1
@@ -304,7 +303,7 @@ impl FuncTranslator {
         let mut g0m0_params = None;
         let mut globals_base_ptr = None;
 
-        if g0m0_is_enabled {
+        if m0_is_enabled {
             let vmctx = self.abi.get_vmctx_ptr_param(&func);
             let globals_base_offset = intrinsics
                 .i32_ty
@@ -339,7 +338,7 @@ impl FuncTranslator {
                 &func,
                 &cache_builder,
                 &*self.abi,
-                config,
+                m0_is_enabled,
                 self.pointer_width,
                 globals_base_ptr,
             ),
@@ -1649,13 +1648,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             //let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(local_idx_block);
-            let local_call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Local),
-                Some(m0),
-            )?;
+            let local_call_site =
+                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
 
             let local_rets = self.abi.rets_from_call(
                 &self.builder,
@@ -1667,13 +1661,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             err!(self.builder.build_unconditional_branch(cont));
 
             self.builder.position_at_end(foreign_idx_block);
-            let foreign_call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Imported),
-                None,
-            )?;
+            let foreign_call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
 
             let foreign_rets = self.abi.rets_from_call(
                 &self.builder,
@@ -1695,26 +1683,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {
-            let call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Local),
-                Some(m0),
-            )?;
+            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
 
             self.abi
                 .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
                 .iter()
                 .for_each(|ret| self.state.push1(*ret));
         } else {
-            let call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Imported),
-                None,
-            )?;
+            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
             self.abi
                 .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
                 .iter()
@@ -1729,15 +1705,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         ctx_ptr: PointerValue<'ctx>,
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
-        func_kind: Option<G0M0FunctionKind>,
-        g0m0_params: LocalFunctionG0M0params<'ctx>,
+        m0_param: Option<PointerValue<'ctx>>,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
             self.context,
             self.intrinsics,
             Some(self.ctx.get_offsets()),
             func_type,
-            func_kind,
+            m0_param.is_some(),
         )?;
 
         let params = self.state.popn_save_extra(func_type.params().len())?;
@@ -1769,7 +1744,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             ctx_ptr,
             params.as_slice(),
             self.intrinsics,
-            g0m0_params,
+            m0_param,
         )?;
 
         let typed_func_ptr = err!(self.builder.build_pointer_cast(
@@ -3325,7 +3300,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         ctx_ptr.into_pointer_value(),
                         func_type,
                         func_ptr,
-                        None,
                         None,
                     )?;
 

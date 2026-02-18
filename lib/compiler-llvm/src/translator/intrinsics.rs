@@ -4,7 +4,6 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
-use crate::LLVM;
 use crate::abi::Abi;
 use crate::error::err;
 use inkwell::values::BasicMetadataValueEnum;
@@ -1428,7 +1427,7 @@ pub struct CtxType<'ctx, 'a> {
     ctx_ptr_value: PointerValue<'ctx>,
     globals_base_ptr: Option<PointerValue<'ctx>>,
 
-    config: &'a LLVM,
+    include_m0_param: bool,
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
     abi: &'a dyn Abi,
@@ -1449,12 +1448,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
         abi: &'a dyn Abi,
-        config: &'a LLVM,
+        m0_enabled: bool,
         pointer_width: u8,
         globals_base_ptr: Option<PointerValue<'ctx>>,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
-            config,
+            include_m0_param: m0_enabled,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
             globals_base_ptr,
 
@@ -1942,11 +1941,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     intrinsics,
                     Some(offsets),
                     func_type,
-                    if self.config.enable_g0m0_opt {
-                        Some(crate::abi::G0M0FunctionKind::Local)
-                    } else {
-                        None
-                    },
+                    self.include_m0_param,
                 )?;
                 let func =
                     module.add_function(function_name, llvm_func_type, Some(Linkage::External));
@@ -1985,7 +1980,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     intrinsics,
                     Some(offsets),
                     func_type,
-                    None,
+                    false,
                 )?;
                 debug_assert!(wasm_module.local_func_index(function_index).is_none());
                 let offset = offsets.vmctx_vmfunction_import(function_index);

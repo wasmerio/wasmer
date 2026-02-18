@@ -42,25 +42,6 @@ pub fn get_abi(target_machine: &TargetMachine) -> Box<dyn Abi> {
     }
 }
 
-#[derive(Debug)]
-pub(crate) enum G0M0FunctionKind {
-    Local,
-    Imported,
-}
-
-impl G0M0FunctionKind {
-    /// Returns `true` if the function kind is [`Local`].
-    ///
-    /// [`Local`]: FunctionKind::Local
-    #[must_use]
-    pub(crate) fn is_local(&self) -> bool {
-        matches!(self, Self::Local)
-    }
-}
-
-/// The additional parameter needed for g0m0 optimization.
-pub(crate) type LocalFunctionG0M0params<'ctx> = Option<PointerValue<'ctx>>;
-
 /// We need to produce different LLVM IR for different platforms. (Contrary to
 /// popular knowledge LLVM IR is not intended to be portable in that way.) This
 /// trait deals with differences between function signatures on different
@@ -113,7 +94,7 @@ pub trait Abi {
         intrinsics: &Intrinsics<'ctx>,
         offsets: Option<&VMOffsets>,
         sig: &FuncSig,
-        function_kind: Option<G0M0FunctionKind>,
+        include_m0_param: bool,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError>;
 
     /// Marshall wasm stack values into function parameters.
@@ -126,7 +107,7 @@ pub trait Abi {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
-        g0m0: LocalFunctionG0M0params<'ctx>,
+        m0: Option<PointerValue<'ctx>>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
         // If it's an sret, allocate the return space.
         let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {
@@ -145,7 +126,7 @@ pub trait Abi {
 
         let mut args = vec![ctx_ptr.as_basic_value_enum()];
 
-        if let Some(m0) = g0m0 {
+        if let Some(m0) = m0 {
             args.push(m0.into());
         }
 

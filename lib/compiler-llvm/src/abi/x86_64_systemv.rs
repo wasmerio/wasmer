@@ -15,8 +15,6 @@ use wasmer_vm::VMOffsets;
 
 use std::convert::TryInto;
 
-use super::G0M0FunctionKind;
-
 /// Implementation of the [`Abi`] trait for the AMD64 SystemV ABI.
 pub struct X86_64SystemV {}
 
@@ -28,13 +26,12 @@ impl Abi for X86_64SystemV {
         intrinsics: &Intrinsics<'ctx>,
         offsets: Option<&VMOffsets>,
         sig: &FuncSig,
-        function_kind: Option<G0M0FunctionKind>,
+        include_m0_param: bool,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
         let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
         let mut param_types = vec![Ok(intrinsics.ptr_ty.as_basic_type_enum())];
-        if function_kind.is_some_and(|v| v.is_local()) {
-            // The base pointer to m0
+        if include_m0_param {
             param_types.push(Ok(intrinsics.ptr_ty.as_basic_type_enum()));
         }
 
