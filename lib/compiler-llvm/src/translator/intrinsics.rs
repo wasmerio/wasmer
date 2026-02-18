@@ -1425,7 +1425,6 @@ pub struct FunctionCache<'ctx> {
 
 pub struct CtxType<'ctx, 'a> {
     ctx_ptr_value: PointerValue<'ctx>,
-    globals_base_ptr: Option<PointerValue<'ctx>>,
 
     include_m0_param: bool,
     wasm_module: &'a WasmerCompilerModule,
@@ -1450,12 +1449,10 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         abi: &'a dyn Abi,
         m0_enabled: bool,
         pointer_width: u8,
-        globals_base_ptr: Option<PointerValue<'ctx>>,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
             include_m0_param: m0_enabled,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
-            globals_base_ptr,
 
             wasm_module,
             cache_builder,
@@ -1806,11 +1803,10 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> Result<&GlobalCache<'ctx>, CompileError> {
-        let (cached_globals, wasm_module, ctx_ptr_value, globals_base_ptr, cache_builder, offsets) = (
+        let (cached_globals, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_globals,
             self.wasm_module,
             self.ctx_ptr_value,
-            self.globals_base_ptr,
             &self.cache_builder,
             &self.offsets,
         );
@@ -1824,29 +1820,15 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let global_ptr = if let Some(local_global_index) =
                     wasm_module.local_global_index(index)
                 {
-                    if let Some(globals_base_ptr) = globals_base_ptr {
-                        let local_offset = local_global_index.as_u32()
-                            * u32::from(offsets.size_of_vmglobal_local());
-                        let local_offset = intrinsics.i32_ty.const_int(local_offset.into(), false);
-                        unsafe {
-                            err!(cache_builder.build_gep(
-                                intrinsics.i8_ty,
-                                globals_base_ptr,
-                                &[local_offset],
-                                ""
-                            ))
-                        }
-                    } else {
-                        let offset = offsets.vmctx_vmglobal_definition(local_global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        unsafe {
-                            err!(cache_builder.build_gep(
-                                intrinsics.i8_ty,
-                                ctx_ptr_value,
-                                &[offset],
-                                ""
-                            ))
-                        }
+                    let offset = offsets.vmctx_vmglobal_definition(local_global_index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    unsafe {
+                        err!(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            ctx_ptr_value,
+                            &[offset],
+                            ""
+                        ))
                     }
                 } else {
                     let offset = offsets.vmctx_vmglobal_import(index);

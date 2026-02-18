@@ -301,26 +301,10 @@ impl FuncTranslator {
         params_locals.extend(locals.iter().cloned());
 
         let mut g0m0_params = None;
-        let mut globals_base_ptr = None;
 
         if m0_is_enabled {
-            let vmctx = self.abi.get_vmctx_ptr_param(&func);
-            let globals_base_offset = intrinsics
-                .i32_ty
-                .const_int(offsets.vmctx_globals_begin().into(), false);
-            let g0 = unsafe {
-                err!(cache_builder.build_gep(
-                    intrinsics.i8_ty,
-                    vmctx,
-                    &[globals_base_offset],
-                    "globals_base_ptr"
-                ))
-            };
-            g0.set_name("globals_base_ptr");
             let m0 = self.abi.get_memory_ptr_param(&func);
             m0.set_name("memory_base_ptr");
-
-            globals_base_ptr = Some(g0);
             g0m0_params = Some(m0);
         }
 
@@ -340,7 +324,6 @@ impl FuncTranslator {
                 &*self.abi,
                 m0_is_enabled,
                 self.pointer_width,
-                globals_base_ptr,
             ),
             unreachable_depth: 0,
             memory_styles,
