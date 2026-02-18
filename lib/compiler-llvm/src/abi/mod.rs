@@ -67,7 +67,7 @@ pub trait Abi {
     /// Given a function definition, retrieve the parameter that is the pointer to the first local memory.
     ///
     /// # Notes
-    /// This function assumes that g0m0 is enabled.
+    /// This function assumes that m0 optimization is enabled.
     fn get_memory_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
         let vmctx_idx = u32::from(
             func_value
@@ -87,7 +87,7 @@ pub trait Abi {
     /// Given a wasm function type, produce an llvm function declaration.
     ///
     /// # Notes
-    /// This function assumes that g0m0 is enabled.
+    /// This function assumes that m0 optimization is enabled.
     fn func_type_to_llvm<'ctx>(
         &self,
         context: &'ctx Context,
