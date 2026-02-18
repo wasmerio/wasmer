@@ -60,7 +60,7 @@ php_wasmer_llvm_pass = run_timed(
 )
 php_wasmer_globals = run_timed(
     wasmer_cmd(
-        "wasmer-globals",
+        "wasmer-m0",
         ["-l"],
         "/home/marxin/Programming/testcases/php.wasm",
         "php-benchmark.php",
@@ -68,7 +68,7 @@ php_wasmer_globals = run_timed(
 )
 php_wasmer_globals_pass = run_timed(
     wasmer_cmd(
-        "wasmer-globals",
+        "wasmer-m0",
         ["-l", "--enable-pass-params-opt"],
         "/home/marxin/Programming/testcases/php.wasm",
         "php-benchmark.php",
@@ -97,7 +97,7 @@ python_wasmer_llvm_pass = run_timed(
 )
 python_wasmer_globals = run_timed(
     wasmer_cmd(
-        "wasmer-globals",
+        "wasmer-m0",
         ["--llvm"],
         "python/python@=3.13.3",
         f"pystone.py {PYSTONE_ITERATIONS}",
@@ -105,7 +105,7 @@ python_wasmer_globals = run_timed(
 )
 python_wasmer_globals_pass = run_timed(
     wasmer_cmd(
-        "wasmer-globals",
+        "wasmer-m0",
         ["--llvm", "--enable-pass-params-opt"],
         "python/python@=3.13.3",
         f"pystone.py {PYSTONE_ITERATIONS}",
