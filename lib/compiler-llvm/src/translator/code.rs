@@ -300,16 +300,16 @@ impl FuncTranslator {
         let mut params_locals = params.clone();
         params_locals.extend(locals.iter().cloned());
 
-        let mut g0m0_params = None;
+        let mut m0_param = None;
 
         if m0_is_enabled {
             let m0 = self.abi.get_memory_ptr_param(&func);
             m0.set_name("memory_base_ptr");
-            g0m0_params = Some(m0);
+            m0_param = Some(m0);
         }
 
         let mut fcg = LLVMFunctionCodeGenerator {
-            g0m0: g0m0_params,
+            m0_param,
             context: &self.ctx,
             builder,
             alloca_builder,
@@ -1268,7 +1268,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = if let Some(ref m0) = self.g0m0 {
+        let base_ptr = if let Some(ref m0) = self.m0_param {
             *m0
         } else {
             match self
@@ -1554,7 +1554,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
-    fn build_g0m0_indirect_call(
+    fn build_m0_indirect_call(
         &mut self,
         table_index: u32,
         ctx_ptr: PointerValue<'ctx>,
@@ -1562,9 +1562,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         func_index: IntValue<'ctx>,
     ) -> Result<(), CompileError> {
-        let Some(m0) = self.g0m0 else {
+        let Some(m0) = self.m0_param else {
             return Err(CompileError::Codegen(
-                "Call to build_g0m0_indirect_call without g0m0 parameters!".to_string(),
+                "Call to build_m0_indirect_call without m0 parameter!".to_string(),
             ));
         };
 
@@ -1591,7 +1591,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
         }
 
-        let needs_switch = self.g0m0.is_some()
+        let needs_switch = self.m0_param.is_some()
             && (has_null || (!local_func_indices.is_empty() && !foreign_func_indices.is_empty()));
 
         if needs_switch {
@@ -1879,7 +1879,7 @@ fn finalize_opcode_stack_map<'ctx>(
  */
 
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
-    g0m0: Option<PointerValue<'ctx>>,
+    m0_param: Option<PointerValue<'ctx>>,
     context: &'ctx Context,
     builder: Builder<'ctx>,
     alloca_builder: Builder<'ctx>,
@@ -2903,7 +2903,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
 
-                let mut g0m0_params = None;
+                let mut m0_param = None;
 
                 let FunctionCache {
                     func,
@@ -2911,8 +2911,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     vmctx: callee_vmctx,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    if let Some(m0) = &self.g0m0 {
-                        g0m0_params = Some(*m0);
+                    if let Some(m0) = &self.m0_param {
+                        m0_param = Some(*m0);
                     }
 
                     let function_name = self
@@ -2971,7 +2971,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     callee_vmctx.into_pointer_value(),
                     params.as_slice(),
                     self.intrinsics,
-                    g0m0_params,
+                    m0_param,
                 )?;
 
                 /*
@@ -3270,8 +3270,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(continue_block);
 
-                if self.g0m0.is_some() {
-                    self.build_g0m0_indirect_call(
+                if self.m0_param.is_some() {
+                    self.build_m0_indirect_call(
                         table_index,
                         ctx_ptr.into_pointer_value(),
                         func_type,
