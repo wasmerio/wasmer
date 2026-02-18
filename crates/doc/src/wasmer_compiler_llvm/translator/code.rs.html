@@ -3193,12 +3193,12 @@
 <a href=#3193 id=3193 data-nosnippet>3193</a>                </span>{
 <a href=#3194 id=3194 data-nosnippet>3194</a>                    <span class="kw">let </span>funcref_not_null = <span class="macro">err!</span>(
 <a href=#3195 id=3195 data-nosnippet>3195</a>                        <span class="self">self</span>.builder
-<a href=#3196 id=3196 data-nosnippet>3196</a>                            .build_is_not_null(anyfunc_struct_ptr, <span class="string">"null funcref check"</span>)
+<a href=#3196 id=3196 data-nosnippet>3196</a>                            .build_is_not_null(anyfunc_struct_ptr, <span class="string">"null_funcref_check"</span>)
 <a href=#3197 id=3197 data-nosnippet>3197</a>                    );
 <a href=#3198 id=3198 data-nosnippet>3198</a>
 <a href=#3199 id=3199 data-nosnippet>3199</a>                    <span class="kw">let </span>funcref_continue_deref_block = <span class="self">self
 <a href=#3200 id=3200 data-nosnippet>3200</a>                        </span>.context
-<a href=#3201 id=3201 data-nosnippet>3201</a>                        .append_basic_block(<span class="self">self</span>.function, <span class="string">"funcref_continue deref_block"</span>);
+<a href=#3201 id=3201 data-nosnippet>3201</a>                        .append_basic_block(<span class="self">self</span>.function, <span class="string">"funcref_continue_deref_block"</span>);
 <a href=#3202 id=3202 data-nosnippet>3202</a>
 <a href=#3203 id=3203 data-nosnippet>3203</a>                    <span class="kw">let </span>funcref_is_null_block = <span class="self">self
 <a href=#3204 id=3204 data-nosnippet>3204</a>                        </span>.context
