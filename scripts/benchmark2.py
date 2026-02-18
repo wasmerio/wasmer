@@ -9,8 +9,6 @@ import statistics
 BENCH_ROOT = Path("/home/marxin/Programming/benchmarks")
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
 
-shutil.rmtree(CACHE_DIR, ignore_errors=True)
-
 
 def run_timed_one(cmd):
     output = subprocess.check_output(
@@ -29,6 +27,7 @@ def run_timed_one(cmd):
 
 
 def run_timed(cmd):
+    shutil.rmtree(CACHE_DIR, ignore_errors=True)
     return statistics.geometric_mean([run_timed_one(cmd) for _ in range(10)])
 
 
@@ -42,22 +41,6 @@ def native_cmd(cmd):
 
 
 # php-benchmark
-php_wasmer_llvm = run_timed(
-    wasmer_cmd(
-        "wasmer-next",
-        ["-l"],
-        "/home/marxin/Programming/testcases/php.wasm",
-        "php-benchmark.php",
-    )
-)
-php_wasmer_llvm_pass = run_timed(
-    wasmer_cmd(
-        "wasmer-next",
-        ["-l", "--enable-pass-params-opt"],
-        "/home/marxin/Programming/testcases/php.wasm",
-        "php-benchmark.php",
-    )
-)
 php_wasmer_globals = run_timed(
     wasmer_cmd(
         "wasmer-m0",
@@ -74,7 +57,27 @@ php_wasmer_globals_pass = run_timed(
         "php-benchmark.php",
     )
 )
-php_native = run_timed(native_cmd(f"php {BENCH_ROOT}/php-benchmark.php"))
+php_wasmer_llvm = run_timed(
+    wasmer_cmd(
+        "wasmer-next",
+        ["-l"],
+        "/home/marxin/Programming/testcases/php.wasm",
+        "php-benchmark.php",
+    )
+)
+php_wasmer_llvm_pass = run_timed(
+    wasmer_cmd(
+        "wasmer-next",
+        ["-l", "--enable-pass-params-opt"],
+        "/home/marxin/Programming/testcases/php.wasm",
+        "php-benchmark.php",
+    )
+)
+php_native = run_timed(
+    native_cmd(
+        f"/home/marxin/Programming/php-src/sapi/cli/php {BENCH_ROOT}/php-benchmark.php"
+    )
+)
 
 PYSTONE_ITERATIONS = 100000
 
