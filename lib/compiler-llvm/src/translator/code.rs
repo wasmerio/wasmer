@@ -30,7 +30,7 @@ use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
-    abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
+    abi::{Abi, get_abi},
     config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
@@ -133,12 +133,11 @@ impl FuncTranslator {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
-        let g0m0_is_enabled = config.enable_g0m0_opt;
-        let func_kind = if g0m0_is_enabled {
-            Some(G0M0FunctionKind::Local)
-        } else {
-            None
-        };
+        // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
+        // the allocated heap is never moved to a different location.
+        let m0_is_enabled = memory_styles
+            .get(MemoryIndex::from_u32(0))
+            .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {function_name}"),
@@ -169,7 +168,7 @@ impl FuncTranslator {
             &intrinsics,
             Some(&offsets),
             wasm_fn_type,
-            func_kind,
+            m0_is_enabled,
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
@@ -241,9 +240,9 @@ impl FuncTranslator {
         let mut params = vec![];
         let first_param =
             if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
-                if g0m0_is_enabled { 4 } else { 2 }
-            } else if g0m0_is_enabled {
-                3
+                if m0_is_enabled { 3 } else { 2 }
+            } else if m0_is_enabled {
+                2
             } else {
                 1
             };
@@ -301,21 +300,16 @@ impl FuncTranslator {
         let mut params_locals = params.clone();
         params_locals.extend(locals.iter().cloned());
 
-        let mut g0m0_params = None;
+        let mut m0_param = None;
 
-        if g0m0_is_enabled {
-            let value = self.abi.get_g0_ptr_param(&func);
-            let g0 = insert_alloca(intrinsics.i32_ty.as_basic_type_enum(), "g0".to_string())?;
-            err!(cache_builder.build_store(g0, value));
-            g0.set_name("g0");
+        if m0_is_enabled {
             let m0 = self.abi.get_m0_ptr_param(&func);
             m0.set_name("m0_base_ptr");
-
-            g0m0_params = Some((g0, m0));
+            m0_param = Some(m0);
         }
 
         let mut fcg = LLVMFunctionCodeGenerator {
-            g0m0: g0m0_params,
+            m0_param,
             context: &self.ctx,
             builder,
             alloca_builder,
@@ -328,8 +322,8 @@ impl FuncTranslator {
                 &func,
                 &cache_builder,
                 &*self.abi,
-                config,
                 self.pointer_width,
+                m0_param,
             ),
             unreachable_depth: 0,
             memory_styles,
@@ -1274,8 +1268,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = if let Some((_, ref m0)) = self.g0m0 {
-            *m0
+        let base_ptr = if let Some(m0) = self.m0_param {
+            m0
         } else {
             match self
                 .ctx
@@ -1560,7 +1554,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
-    fn build_g0m0_indirect_call(
+    fn build_m0_indirect_call(
         &mut self,
         table_index: u32,
         ctx_ptr: PointerValue<'ctx>,
@@ -1568,9 +1562,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         func_index: IntValue<'ctx>,
     ) -> Result<(), CompileError> {
-        let Some((g0, m0)) = self.g0m0 else {
+        let Some(m0) = self.m0_param else {
             return Err(CompileError::Codegen(
-                "Call to build_g0m0_indirect_call without g0m0 parameters!".to_string(),
+                "Call to build_m0_indirect_call without m0 parameter!".to_string(),
             ));
         };
 
@@ -1590,11 +1584,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
         }
 
-        // removed with mem2reg.
-        //
-        let g0_value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, "g0"));
-
-        let needs_switch = self.g0m0.is_some()
+        let needs_switch = self.m0_param.is_some()
             && !local_func_indices.is_empty()
             && !foreign_func_indices.is_empty();
 
@@ -1635,13 +1625,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             //let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(local_idx_block);
-            let local_call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Local),
-                Some((g0_value.into_int_value(), m0)),
-            )?;
+            let local_call_site =
+                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
 
             let local_rets = self.abi.rets_from_call(
                 &self.builder,
@@ -1653,13 +1638,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             err!(self.builder.build_unconditional_branch(cont));
 
             self.builder.position_at_end(foreign_idx_block);
-            let foreign_call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Imported),
-                None,
-            )?;
+            let foreign_call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
 
             let foreign_rets = self.abi.rets_from_call(
                 &self.builder,
@@ -1681,26 +1660,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {
-            let call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Local),
-                Some((g0_value.into_int_value(), m0)),
-            )?;
+            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
 
             self.abi
                 .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
                 .iter()
                 .for_each(|ret| self.state.push1(*ret));
         } else {
-            let call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Imported),
-                Some((g0_value.into_int_value(), m0)),
-            )?;
+            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
             self.abi
                 .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
                 .iter()
@@ -1715,15 +1682,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         ctx_ptr: PointerValue<'ctx>,
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
-        func_kind: Option<G0M0FunctionKind>,
-        g0m0_params: LocalFunctionG0M0params<'ctx>,
+        m0_param: Option<PointerValue<'ctx>>,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
             self.context,
             self.intrinsics,
             Some(self.ctx.get_offsets()),
             func_type,
-            func_kind,
+            m0_param.is_some(),
         )?;
 
         let params = self.state.popn_save_extra(func_type.params().len())?;
@@ -1755,7 +1721,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             ctx_ptr,
             params.as_slice(),
             self.intrinsics,
-            g0m0_params,
+            m0_param,
         )?;
 
         let typed_func_ptr = err!(self.builder.build_pointer_cast(
@@ -1907,7 +1873,7 @@ fn finalize_opcode_stack_map<'ctx>(
  */
 
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
-    g0m0: Option<(PointerValue<'ctx>, PointerValue<'ctx>)>,
+    m0_param: Option<PointerValue<'ctx>>,
     context: &'ctx Context,
     builder: Builder<'ctx>,
     alloca_builder: Builder<'ctx>,
@@ -2832,75 +2798,52 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
 
             Operator::GlobalGet { global_index } => {
-                if self.g0m0.is_some() && global_index == 0 {
-                    let Some((g0, _)) = self.g0m0 else {
-                        unreachable!()
-                    };
-
-                    // Removed with mem2reg.
-                    let value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, ""));
-
-                    self.state.push1(value);
-                } else {
-                    let global_index = GlobalIndex::from_u32(global_index);
-                    match self
-                        .ctx
-                        .global(global_index, self.intrinsics, self.module)?
-                    {
-                        GlobalCache::Const { value } => {
-                            self.state.push1(*value);
-                        }
-                        GlobalCache::Mut {
-                            ptr_to_value,
-                            value_type,
-                        } => {
-                            let value =
-                                err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
-                            tbaa_label(
-                                self.module,
-                                self.intrinsics,
-                                format!("global {}", global_index.as_u32()),
-                                value.as_instruction_value().unwrap(),
-                            );
-                            self.state.push1(value);
-                        }
+                let global_index = GlobalIndex::from_u32(global_index);
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
+                    GlobalCache::Const { value } => {
+                        self.state.push1(*value);
+                    }
+                    GlobalCache::Mut {
+                        ptr_to_value,
+                        value_type,
+                    } => {
+                        let value = err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("global {}", global_index.as_u32()),
+                            value.as_instruction_value().unwrap(),
+                        );
+                        self.state.push1(value);
                     }
                 }
             }
             Operator::GlobalSet { global_index } => {
-                if self.g0m0.is_some() && global_index == 0 {
-                    let Some((g0, _)) = self.g0m0 else {
-                        unreachable!()
-                    };
-                    let ptr_to_value = g0;
-                    let (value, info) = self.state.pop1_extra()?;
-                    let value = self.apply_pending_canonicalization(value, info)?;
-                    let store = err!(self.builder.build_store(ptr_to_value, value));
-                    tbaa_label(self.module, self.intrinsics, "global 0".to_string(), store);
-                } else {
-                    let global_index = GlobalIndex::from_u32(global_index);
-                    match self
-                        .ctx
-                        .global(global_index, self.intrinsics, self.module)?
-                    {
-                        GlobalCache::Const { value: _ } => {
-                            return Err(CompileError::Codegen(format!(
-                                "global.set on immutable global index {}",
-                                global_index.as_u32()
-                            )));
-                        }
-                        GlobalCache::Mut { ptr_to_value, .. } => {
-                            let ptr_to_value = *ptr_to_value;
-                            let (value, info) = self.state.pop1_extra()?;
-                            let value = self.apply_pending_canonicalization(value, info)?;
-                            let store = err!(self.builder.build_store(ptr_to_value, value));
-                            tbaa_label(
-                                self.module,
-                                self.intrinsics,
-                                format!("global {}", global_index.as_u32()),
-                                store,
-                            );
-                        }
+                let global_index = GlobalIndex::from_u32(global_index);
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
+                    GlobalCache::Const { value: _ } => {
+                        return Err(CompileError::Codegen(format!(
+                            "global.set on immutable global index {}",
+                            global_index.as_u32()
+                        )));
+                    }
+                    GlobalCache::Mut { ptr_to_value, .. } => {
+                        let ptr_to_value = *ptr_to_value;
+                        let (value, info) = self.state.pop1_extra()?;
+                        let value = self.apply_pending_canonicalization(value, info)?;
+                        let store = err!(self.builder.build_store(ptr_to_value, value));
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("global {}", global_index.as_u32()),
+                            store,
+                        );
                     }
                 }
             }
@@ -2954,7 +2897,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
 
-                let mut g0m0_params = None;
+                let mut m0_param = None;
 
                 let FunctionCache {
                     func,
@@ -2962,11 +2905,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     vmctx: callee_vmctx,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    if let Some((g0, m0)) = &self.g0m0 {
-                        // removed with mem2reg.
-                        let value = err!(self.builder.build_load(self.intrinsics.i32_ty, *g0, ""));
-
-                        g0m0_params = Some((value.into_int_value(), *m0));
+                    if let Some(m0) = self.m0_param {
+                        m0_param = Some(m0);
                     }
 
                     let function_name = self
@@ -3025,7 +2965,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     callee_vmctx.into_pointer_value(),
                     params.as_slice(),
                     self.intrinsics,
-                    g0m0_params,
+                    m0_param,
                 )?;
 
                 /*
@@ -3324,8 +3264,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(continue_block);
 
-                if self.g0m0.is_some() {
-                    self.build_g0m0_indirect_call(
+                if self.m0_param.is_some() {
+                    self.build_m0_indirect_call(
                         table_index,
                         ctx_ptr.into_pointer_value(),
                         func_type,
@@ -3337,7 +3277,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         ctx_ptr.into_pointer_value(),
                         func_type,
                         func_ptr,
-                        None,
                         None,
                     )?;
 
