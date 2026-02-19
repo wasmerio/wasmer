@@ -673,11 +673,9 @@ impl Runtime for PluggableRuntime {
             }
         };
 
-        let engine;
-
         cfg_if! {
             if #[cfg(feature = "sys-default")] {
-                engine = match features {
+                let engine = match features {
                     Some(f) => match self.engine_with_extended_features(&base_engine, &f) {
                         Ok(engine) => engine,
                         Err(e) => {
@@ -692,7 +690,7 @@ impl Runtime for PluggableRuntime {
                     None => base_engine,
                 };
             } else {
-                engine = base_engine;
+                let engine = base_engine;
             }
         };
 
