@@ -191,6 +191,9 @@ pub trait Compiler: Send + std::fmt::Debug {
     fn get_perfmap_enabled(&self) -> bool {
         false
     }
+
+    /// Get a clone of this compiler's configuration
+    fn configuration(&self) -> Box<dyn CompilerConfig>;
 }
 
 /// A bucket containing a group of functions and their total size, used to balance compilation units for parallel compilation.

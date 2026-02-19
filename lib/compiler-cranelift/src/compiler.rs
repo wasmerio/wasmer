@@ -607,6 +607,10 @@ impl Compiler for CraneliftCompiler {
             progress_callback,
         )
     }
+
+    fn configuration(&self) -> Box<dyn wasmer_compiler::CompilerConfig> {
+        Box::new(self.config().clone())
+    }
 }
 
 fn mach_reloc_to_reloc(

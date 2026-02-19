@@ -696,4 +696,8 @@ impl Compiler for LLVMCompiler {
         }
         Ok(())
     }
+
+    fn configuration(&self) -> Box<dyn wasmer_compiler::CompilerConfig> {
+        Box::new(self.config().clone())
+    }
 }
