@@ -5,6 +5,7 @@ pub mod task_manager;
 
 use self::module_cache::CacheError;
 pub use self::task_manager::{SpawnType, VirtualTaskManager};
+use cfg_if::cfg_if;
 use module_cache::HashedModuleData;
 use wasmer_config::package::SuggestedCompilerOptimizations;
 use wasmer_types::{
@@ -436,7 +437,7 @@ pub struct PluggableRuntime {
     pub read_only_journals: Vec<Arc<DynReadableJournal>>,
     #[cfg(feature = "journal")]
     pub writable_journals: Vec<Arc<DynJournal>>,
-    #[cfg(feature = "sys")]
+    #[cfg(feature = "sys-default")]
     pub engine_cache: Arc<Mutex<std::collections::HashMap<Features, Engine>>>,
 }
 
@@ -463,7 +464,7 @@ impl PluggableRuntime {
             ));
         }
 
-        #[cfg(feature = "sys")]
+        #[cfg(feature = "sys-default")]
         let engine_cache = Arc::new(Mutex::new(if engine.is_sys() {
             [(engine.as_sys().inner().features().clone(), engine.clone())]
                 .into_iter()
@@ -476,7 +477,7 @@ impl PluggableRuntime {
             rt,
             networking,
             http_client,
-            #[cfg(feature = "sys")]
+            #[cfg(feature = "sys-default")]
             engine_cache,
             engine,
             tty: None,
@@ -544,7 +545,7 @@ impl PluggableRuntime {
         self
     }
 
-    #[cfg(feature = "sys")]
+    #[cfg(feature = "sys-default")]
     fn engine_with_extended_features(
         &self,
         base_engine: &Engine,
@@ -650,9 +651,9 @@ impl Runtime for PluggableRuntime {
             (None, e.clone())
         } else {
             match &input {
-                ModuleInput::Bytes(b) => (Features::detect_from_wasm(&b).ok(), self.engine()),
+                ModuleInput::Bytes(b) => (Features::detect_from_wasm(b).ok(), self.engine()),
                 ModuleInput::Hashed(h) => {
-                    (Features::detect_from_wasm(&h.wasm()).ok(), self.engine())
+                    (Features::detect_from_wasm(h.wasm()).ok(), self.engine())
                 }
                 ModuleInput::Command(cmd) => {
                     match self
@@ -672,19 +673,27 @@ impl Runtime for PluggableRuntime {
             }
         };
 
-        let engine = match features {
-            Some(f) => match self.engine_with_extended_features(&base_engine, &f) {
-                Ok(engine) => engine,
-                Err(e) => {
-                    return Box::pin(async move {
-                        Err(SpawnError::CompileError {
-                            module_hash: *data.hash(),
-                            error: e,
-                        })
-                    });
-                }
-            },
-            None => base_engine,
+        let engine;
+
+        cfg_if! {
+            if #[cfg(feature = "sys-default")] {
+                engine = match features {
+                    Some(f) => match self.engine_with_extended_features(&base_engine, &f) {
+                        Ok(engine) => engine,
+                        Err(e) => {
+                            return Box::pin(async move {
+                                Err(SpawnError::CompileError {
+                                    module_hash: *data.hash(),
+                                    error: e,
+                                })
+                            });
+                        }
+                    },
+                    None => base_engine,
+                };
+            } else {
+                engine = base_engine;
+            }
         };
 
         let module_cache = self.module_cache();
