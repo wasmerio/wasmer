@@ -944,7 +944,12 @@ impl WasiEnvBuilder {
                         )
                         .clone();
                 #[allow(unused_mut)]
-                let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()), engine);
+                let mut runtime = crate::runtime::PluggableRuntime::new(
+                    Arc::new(
+                        crate::runtime::task_manager::tokio::TokioTaskManager::default()
+                    ),
+                    engine
+                );
                 #[cfg(feature = "journal")]
                 for journal in self.read_only_journals.clone() {
                     runtime.add_read_only_journal(journal);

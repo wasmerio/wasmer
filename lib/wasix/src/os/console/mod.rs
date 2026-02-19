@@ -332,7 +332,7 @@ mod tests {
         let _guard = rt_handle.enter();
 
         let tm = TokioTaskManager::new(tokio_rt);
-        let mut rt = PluggableRuntime::new(Arc::new(tm));
+        let mut rt = PluggableRuntime::new(Arc::new(tm), wasmer::Engine::default());
         let client = rt.http_client().unwrap().clone();
         rt.set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 
@@ -385,7 +385,7 @@ mod tests {
         let _guard = rt_handle.enter();
 
         let tm = TokioTaskManager::new(tokio_rt);
-        let mut rt = PluggableRuntime::new(Arc::new(tm));
+        let mut rt = PluggableRuntime::new(Arc::new(tm), wasmer::Engine::default());
         let client = rt.http_client().unwrap().clone();
         rt.set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 

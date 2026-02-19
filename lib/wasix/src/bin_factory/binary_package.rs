@@ -316,7 +316,7 @@ mod tests {
         let file_txt = "Hello, World!";
         std::fs::write(out.join("file.txt"), file_txt).unwrap();
         let tasks = task_manager();
-        let mut runtime = PluggableRuntime::new(tasks);
+        let mut runtime = PluggableRuntime::new(tasks, wasmer::Engine::default());
         runtime.set_package_loader(
             BuiltinPackageLoader::new()
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
@@ -377,7 +377,7 @@ mod tests {
         let webc: Container = Package::from_manifest(&manifest).unwrap().into();
 
         let tasks = task_manager();
-        let mut runtime = PluggableRuntime::new(tasks);
+        let mut runtime = PluggableRuntime::new(tasks, wasmer::Engine::default());
         runtime.set_package_loader(
             BuiltinPackageLoader::new()
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
