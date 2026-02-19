@@ -931,9 +931,7 @@ impl WasiEnvBuilder {
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
-                #[allow(unused_mut)]
-                let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
-                runtime.set_engine(
+                let engine = 
                     self
                         .engine
                         .as_ref()
@@ -944,8 +942,9 @@ impl WasiEnvBuilder {
                             different engine than the one that will exist within the WasiEnv. \
                             Use either `set_runtime` or `set_engine` before calling `build_init`.",
                         )
-                        .clone()
-                );
+                        .clone();
+                #[allow(unused_mut)]
+                let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()), engine);
                 #[cfg(feature = "journal")]
                 for journal in self.read_only_journals.clone() {
                     runtime.add_read_only_journal(journal);

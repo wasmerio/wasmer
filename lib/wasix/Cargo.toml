@@ -30,6 +30,7 @@ virtual-net = { path = "../virtual-net", version = "0.700.1", default-features =
 ] }
 wasmer-journal = { path = "../journal", version = "0.700.1", default-features = false }
 wasmer-config = { version = "0.700.1", path = "../config" }
+wasmer-compiler = { version = "7.0.1", path = "../compiler", optional = true }
 
 http.workspace = true
 dashmap.workspace = true
@@ -231,6 +232,7 @@ sys = [
 	"ctrlc",
 	"wasmer/wat",
 	"wasmer/js-serializable-module",
+	"wasmer-compiler",
 ]
 sys-default = ["sys", "wasmer/sys"]
 sys-poll = []

@@ -124,8 +124,6 @@ pub fn proc_exec3<M: MemorySize>(
         }
     };
 
-    let new_store = ctx.data().runtime.new_store();
-
     // If we are in a vfork we need to first spawn a subprocess of this type
     // with the forked WasiEnv, then do a longjmp back to the vfork point.
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {

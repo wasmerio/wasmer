@@ -280,8 +280,10 @@ fn prepare_webc_env(
 
     let handle = runtime.handle().clone();
     let _guard = handle.enter();
-    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
-    rt.set_engine(store_mut.engine().clone());
+    let mut rt = PluggableRuntime::new(
+        Arc::new(TokioTaskManager::new(runtime)),
+        store_mut.engine().clone(),
+    );
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
     let volumes = WebC::parse_volumes_from_fileblock(slice).ok()?;
@@ -354,8 +356,10 @@ pub unsafe extern "C" fn wasi_env_new(
 
     let handle = runtime.handle().clone();
     let _guard = handle.enter();
-    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
-    rt.set_engine(store_mut.engine().clone());
+    let mut rt = PluggableRuntime::new(
+        Arc::new(TokioTaskManager::new(runtime)),
+        store_mut.engine().clone(),
+    );
 
     if !config.inherit_stdout {
         config.builder.set_stdout(Box::new(Pipe::channel().0));

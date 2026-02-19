@@ -8,7 +8,7 @@ pub use self::task_manager::{SpawnType, VirtualTaskManager};
 use module_cache::HashedModuleData;
 use wasmer_config::package::SuggestedCompilerOptimizations;
 use wasmer_types::{
-    CompilationProgressCallback, ModuleHash,
+    CompilationProgressCallback, Features, ModuleHash,
     target::UserCompilerOptimizations as WasmerSuggestedCompilerOptimizations,
 };
 
@@ -436,10 +436,12 @@ pub struct PluggableRuntime {
     pub read_only_journals: Vec<Arc<DynReadableJournal>>,
     #[cfg(feature = "journal")]
     pub writable_journals: Vec<Arc<DynJournal>>,
+    #[cfg(feature = "sys")]
+    pub engine_cache: Arc<Mutex<std::collections::HashMap<Features, Engine>>>,
 }
 
 impl PluggableRuntime {
-    pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
+    pub fn new(rt: Arc<dyn VirtualTaskManager>, engine: Engine) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
@@ -461,11 +463,22 @@ impl PluggableRuntime {
             ));
         }
 
+        #[cfg(feature = "sys")]
+        let engine_cache = Arc::new(Mutex::new(if engine.is_sys() {
+            [(engine.as_sys().inner().features().clone(), engine.clone())]
+                .into_iter()
+                .collect()
+        } else {
+            Default::default()
+        }));
+
         Self {
             rt,
             networking,
             http_client,
-            engine: Default::default(),
+            #[cfg(feature = "sys")]
+            engine_cache,
+            engine,
             tty: None,
             source: Arc::new(source),
             package_loader: Arc::new(loader),
@@ -482,11 +495,6 @@ impl PluggableRuntime {
         I: VirtualNetworking + Sync,
     {
         self.networking = Arc::new(net);
-        self
-    }
-
-    pub fn set_engine(&mut self, engine: Engine) -> &mut Self {
-        self.engine = engine;
         self
     }
 
@@ -534,6 +542,27 @@ impl PluggableRuntime {
     pub fn add_writable_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
         self.writable_journals.push(journal);
         self
+    }
+
+    #[cfg(feature = "sys")]
+    fn engine_with_extended_features(
+        &self,
+        base_engine: &Engine,
+        features: &Features,
+    ) -> Result<Engine, wasmer_types::CompileError> {
+        if base_engine.is_sys() {
+            let mut engine_cache_guard = self.engine_cache.lock().unwrap();
+            if let Some(engine) = engine_cache_guard.get(features) {
+                return Ok(engine.clone());
+            }
+
+            let engine_sys = base_engine.as_sys();
+            let new_engine: Engine = engine_sys.new_with_extended_features(features)?.into();
+            engine_cache_guard.insert(features.clone(), new_engine.clone());
+            Ok(new_engine)
+        } else {
+            Ok(self.engine())
+        }
     }
 }
 
@@ -587,6 +616,61 @@ impl Runtime for PluggableRuntime {
     #[cfg(feature = "journal")]
     fn active_journal(&self) -> Option<&DynJournal> {
         self.writable_journals.iter().last().map(|a| a.as_ref())
+    }
+
+    fn resolve_module<'a>(
+        &'a self,
+        input: ModuleInput<'a>,
+        engine: Option<&Engine>,
+        on_progress: Option<ModuleLoadProgressReporter>,
+    ) -> BoxFuture<'a, Result<Module, SpawnError>> {
+        let data = input.to_hashed();
+
+        let (features, base_engine) = if let Some(e) = engine {
+            (None, e.clone())
+        } else {
+            match &input {
+                ModuleInput::Bytes(b) => (Features::detect_from_wasm(&b).ok(), self.engine()),
+                ModuleInput::Hashed(h) => {
+                    (Features::detect_from_wasm(&h.wasm()).ok(), self.engine())
+                }
+                ModuleInput::Command(cmd) => {
+                    match self
+                        .engine_with_suggested_opts(&cmd.as_ref().suggested_compiler_optimizations)
+                    {
+                        Ok(engine) => (cmd.wasm_features(), engine),
+                        Err(error) => {
+                            return Box::pin(async move {
+                                Err(SpawnError::CompileError {
+                                    module_hash: *data.hash(),
+                                    error,
+                                })
+                            });
+                        }
+                    }
+                }
+            }
+        };
+
+        let engine = match features {
+            Some(f) => match self.engine_with_extended_features(&base_engine, &f) {
+                Ok(engine) => engine,
+                Err(e) => {
+                    return Box::pin(async move {
+                        Err(SpawnError::CompileError {
+                            module_hash: *data.hash(),
+                            error: e,
+                        })
+                    });
+                }
+            },
+            None => base_engine,
+        };
+
+        let module_cache = self.module_cache();
+
+        let task = async move { load_module(&engine, &module_cache, input, on_progress).await };
+        Box::pin(task)
     }
 }
 
