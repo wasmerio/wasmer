@@ -47,6 +47,13 @@ pub struct FuncTrampoline {
 const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
 const FUNCTION_SECTION_MACHO: &str = "wasmer_trmpl"; // Needs to be between 1 and 16 chars
 
+fn enable_m0_optimization(compile_info: &CompileModuleInfo) -> bool {
+    compile_info
+        .memory_styles
+        .get(MemoryIndex::from_u32(0))
+        .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }))
+}
+
 impl FuncTrampoline {
     pub fn new(
         target_machine: TargetMachine,
@@ -95,11 +102,7 @@ impl FuncTrampoline {
             &self.binary_fmt,
         );
 
-        let m0_is_enabled = compile_info
-            .memory_styles
-            .get(MemoryIndex::from_u32(0))
-            .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
-
+        let m0_is_enabled = enable_m0_optimization(compile_info);
         let (callee_ty, callee_attrs) =
             self.abi
                 .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, m0_is_enabled)?;
@@ -486,17 +489,10 @@ impl FuncTrampoline {
 
         args_vec.push(callee_vmctx_ptr.into());
 
-        let m0_is_enabled = compile_info
-            .memory_styles
-            .get(MemoryIndex::from_u32(0))
-            .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
-
-        if m0_is_enabled {
+        if enable_m0_optimization(compile_info) {
             let wasm_module = &compile_info.module;
             let memory_styles = &compile_info.memory_styles;
             let callee_vmctx_ptr_value = callee_vmctx_ptr.into_pointer_value();
-            // get value of G0, get a pointer to M0's base
-
             let offsets = wasmer_vm::VMOffsets::new(8, wasm_module);
 
             // load mem
