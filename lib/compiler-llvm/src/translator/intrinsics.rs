@@ -1940,6 +1940,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         })
     }
 
+    // TODO: rename the function
     pub fn func(
         &mut self,
         function_index: FunctionIndex,
@@ -1962,7 +1963,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     intrinsics,
                     Some(offsets),
                     func_type,
-                    false,
+                    self.m0.is_some(),
                 )?;
                 debug_assert!(wasm_module.local_func_index(function_index).is_none());
                 let offset = offsets.vmctx_vmfunction_import(function_index);
@@ -1976,6 +1977,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     "",
                 ))
                 .into_pointer_value();
+                vmfunction_import_ptr.set_name("vmfunction_import_ptr");
 
                 let body_ptr_ptr = err!(cache_builder.build_struct_gep(
                     intrinsics.vmfunction_import_ty,
@@ -1983,17 +1985,21 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     intrinsics.vmfunction_import_body_element,
                     "",
                 ));
+                body_ptr_ptr.set_name("body_ptr_ptr");
                 let body_ptr = err!(cache_builder.build_load(intrinsics.ptr_ty, body_ptr_ptr, ""));
                 let body_ptr = err!(cache_builder.build_bit_cast(body_ptr, intrinsics.ptr_ty, ""))
                     .into_pointer_value();
+                body_ptr.set_name("body_ptr");
                 let vmctx_ptr_ptr = err!(cache_builder.build_struct_gep(
                     intrinsics.vmfunction_import_ty,
                     vmfunction_import_ptr,
                     intrinsics.vmfunction_import_vmctx_element,
                     "",
                 ));
+                vmctx_ptr_ptr.set_name("vmctx_ptr_ptr");
                 let vmctx_ptr =
                     err!(cache_builder.build_load(intrinsics.ptr_ty, vmctx_ptr_ptr, ""));
+                vmctx_ptr.set_name("vmctx_ptr");
 
                 Ok(entry.insert(FunctionCache {
                     func: body_ptr,

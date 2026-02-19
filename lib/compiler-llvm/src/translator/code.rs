@@ -2897,18 +2897,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
 
-                let mut m0_param = None;
-
                 let FunctionCache {
                     func,
                     llvm_func_type,
                     vmctx: callee_vmctx,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    if let Some(m0) = self.m0_param {
-                        m0_param = Some(m0);
-                    }
-
                     let function_name = self
                         .symbol_registry
                         .symbol_to_name(Symbol::LocalFunction(local_func_index));
@@ -2965,7 +2959,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     callee_vmctx.into_pointer_value(),
                     params.as_slice(),
                     self.intrinsics,
-                    m0_param,
+                    self.m0_param,
                 )?;
 
                 /*
