@@ -116,7 +116,7 @@ impl<'a> WasiTest<'a> {
             store.engine().clone(),
         );
         #[cfg(target_arch = "wasm32")]
-        let mut rt = PluggableRuntime::new(
+        let rt = PluggableRuntime::new(
             Arc::new(TokioTaskManager::default()),
             store.engine().clone(),
         );
