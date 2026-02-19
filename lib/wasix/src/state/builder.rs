@@ -931,7 +931,7 @@ impl WasiEnvBuilder {
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
-                let engine = 
+                let engine =
                     self
                         .engine
                         .as_ref()
