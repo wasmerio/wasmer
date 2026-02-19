@@ -551,14 +551,34 @@ impl PluggableRuntime {
         features: &Features,
     ) -> Result<Engine, wasmer_types::CompileError> {
         if base_engine.is_sys() {
+            let engine_sys = base_engine.as_sys();
+            let existing_features = {
+                let inner = engine_sys.inner();
+                inner.features().clone()
+            };
+            let mut new_features = existing_features.clone();
+            new_features.extend(features);
+            if existing_features == new_features {
+                return Ok(base_engine.clone());
+            }
+
             let mut engine_cache_guard = self.engine_cache.lock().unwrap();
-            if let Some(engine) = engine_cache_guard.get(features) {
+            if let Some(engine) = engine_cache_guard.get(&new_features) {
                 return Ok(engine.clone());
             }
 
-            let engine_sys = base_engine.as_sys();
-            let new_engine: Engine = engine_sys.new_with_extended_features(features)?.into();
-            engine_cache_guard.insert(features.clone(), new_engine.clone());
+            let new_engine = engine_sys.new_with_extended_features(features)?;
+            let final_features = {
+                let inner = new_engine.inner();
+                inner.features().clone()
+            };
+            assert_eq!(
+                final_features, new_features,
+                "The new engine's features should match the calculated features"
+            );
+
+            let new_engine: Engine = new_engine.into();
+            engine_cache_guard.insert(final_features, new_engine.clone());
             Ok(new_engine)
         } else {
             Ok(self.engine())
