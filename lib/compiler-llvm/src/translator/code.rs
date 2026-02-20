@@ -3030,6 +3030,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         call_site_with_m0,
                         func_type,
                     )?;
+                    let with_m0_pred = self.builder.get_insert_block().ok_or_else(|| {
+                        CompileError::Codegen(
+                            "missing insertion block after call with m0".to_string(),
+                        )
+                    })?;
                     err!(self.builder.build_unconditional_branch(call_cont));
 
                     self.builder.position_at_end(skip_m0_call_block);
@@ -3048,6 +3053,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         call_site_no_m0,
                         func_type,
                     )?;
+                    let no_m0_pred = self.builder.get_insert_block().ok_or_else(|| {
+                        CompileError::Codegen(
+                            "missing insertion block after call without m0".to_string(),
+                        )
+                    })?;
                     err!(self.builder.build_unconditional_branch(call_cont));
 
                     self.builder.position_at_end(call_cont);
@@ -3055,10 +3065,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         let with_m0 = rets_with_m0[i];
                         let no_m0 = rets_no_m0[i];
                         let phi = err!(self.builder.build_phi(with_m0.get_type(), ""));
-                        phi.add_incoming(&[
-                            (&with_m0, include_m0_call_block),
-                            (&no_m0, skip_m0_call_block),
-                        ]);
+                        phi.add_incoming(&[(&with_m0, with_m0_pred), (&no_m0, no_m0_pred)]);
                         self.state.push1(phi.as_basic_value());
                     }
                 } else {
