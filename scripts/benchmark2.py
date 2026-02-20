@@ -5,6 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import shutil
 import statistics
+from benchmark_configs import WASMER_CONFIGS
 
 BENCH_ROOT = Path("/home/marxin/Programming/benchmarks")
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
@@ -41,38 +42,17 @@ def native_cmd(cmd):
 
 
 # php-benchmark
-php_wasmer_globals = run_timed(
-    wasmer_cmd(
-        "wasmer-m0",
-        ["-l"],
-        "/home/marxin/Programming/testcases/php.wasm",
-        "php-benchmark.php",
+php_wasmer_times = {
+    label: run_timed(
+        wasmer_cmd(
+            wasmer_binary,
+            wasmer_args.split(),
+            "/home/marxin/Programming/testcases/php.wasm",
+            "php-benchmark.php",
+        )
     )
-)
-php_wasmer_globals_pass = run_timed(
-    wasmer_cmd(
-        "wasmer-m0",
-        ["-l", "--enable-pass-params-opt"],
-        "/home/marxin/Programming/testcases/php.wasm",
-        "php-benchmark.php",
-    )
-)
-php_wasmer_llvm = run_timed(
-    wasmer_cmd(
-        "wasmer-next",
-        ["-l"],
-        "/home/marxin/Programming/testcases/php.wasm",
-        "php-benchmark.php",
-    )
-)
-php_wasmer_llvm_pass = run_timed(
-    wasmer_cmd(
-        "wasmer-next",
-        ["-l", "--enable-pass-params-opt"],
-        "/home/marxin/Programming/testcases/php.wasm",
-        "php-benchmark.php",
-    )
-)
+    for (label, wasmer_binary, wasmer_args) in WASMER_CONFIGS
+}
 php_native = run_timed(
     native_cmd(
         f"/home/marxin/Programming/php-src/sapi/cli/php {BENCH_ROOT}/php-benchmark.php"
@@ -82,81 +62,54 @@ php_native = run_timed(
 PYSTONE_ITERATIONS = 100000
 
 # pystone
-python_wasmer_llvm = run_timed(
-    wasmer_cmd(
-        "wasmer-next",
-        ["--llvm"],
-        "python/python@=3.13.3",
-        f"pystone.py {PYSTONE_ITERATIONS}",
+python_wasmer_times = {
+    label: run_timed(
+        wasmer_cmd(
+            wasmer_binary,
+            wasmer_args.split(),
+            "python/python@=3.13.3",
+            f"pystone.py {PYSTONE_ITERATIONS}",
+        )
     )
-)
-python_wasmer_llvm_pass = run_timed(
-    wasmer_cmd(
-        "wasmer-next",
-        ["--llvm", "--enable-pass-params-opt"],
-        "python/python@=3.13.3",
-        f"pystone.py {PYSTONE_ITERATIONS}",
-    )
-)
-python_wasmer_globals = run_timed(
-    wasmer_cmd(
-        "wasmer-m0",
-        ["--llvm"],
-        "python/python@=3.13.3",
-        f"pystone.py {PYSTONE_ITERATIONS}",
-    )
-)
-python_wasmer_globals_pass = run_timed(
-    wasmer_cmd(
-        "wasmer-m0",
-        ["--llvm", "--enable-pass-params-opt"],
-        "python/python@=3.13.3",
-        f"pystone.py {PYSTONE_ITERATIONS}",
-    )
-)
+    for (label, wasmer_binary, wasmer_args) in WASMER_CONFIGS
+}
 python_native = run_timed(
     native_cmd(f"python3.13 {BENCH_ROOT}/pystone.py {PYSTONE_ITERATIONS}")
 )
 
 benchmarks = ["php-benchmark", "pystone"]
 native_times = [php_native, python_native]
-wasmer_llvm_times = [php_wasmer_llvm, python_wasmer_llvm]
-wasmer_llvm_pass_times = [php_wasmer_llvm_pass, python_wasmer_llvm_pass]
-wasmer_globals_times = [php_wasmer_globals, python_wasmer_globals]
-wasmer_globals_pass_times = [php_wasmer_globals_pass, python_wasmer_globals_pass]
+wasmer_times = {
+    label: [php_wasmer_times[label], python_wasmer_times[label]]
+    for (label, _, _) in WASMER_CONFIGS
+}
 
 native_pct = [100.0 for _ in benchmarks]
-wasmer_llvm_pct = [
-    (wasmer / native) * 100 if native else 0.0
-    for wasmer, native in zip(wasmer_llvm_times, native_times)
-]
-wasmer_llvm_pass_pct = [
-    (wasmer / native) * 100 if native else 0.0
-    for wasmer, native in zip(wasmer_llvm_pass_times, native_times)
-]
-wasmer_globals_pct = [
-    (wasmer / native) * 100 if native else 0.0
-    for wasmer, native in zip(wasmer_globals_times, native_times)
-]
-wasmer_globals_pass_pct = [
-    (wasmer / native) * 100 if native else 0.0
-    for wasmer, native in zip(wasmer_globals_pass_times, native_times)
-]
+wasmer_pct = {
+    label: [
+        (wasmer / native) * 100 if native else 0.0
+        for wasmer, native in zip(times, native_times)
+    ]
+    for label, times in wasmer_times.items()
+}
+
+series = {"native": native_pct} | wasmer_pct
+series_labels = list(series.keys())
+total_series = len(series_labels)
 
 fig, ax = plt.subplots(figsize=(14, 8))
 x = list(range(len(benchmarks)))
-width = 0.16
+width = 0.8 / total_series
+base_offset = -((total_series - 1) / 2) * width
 
-ax.bar([i - 2 * width for i in x], native_pct, width, label="native")
-ax.bar([i - width for i in x], wasmer_llvm_pct, width, label="Wasmer LLVM")
-ax.bar([i for i in x], wasmer_llvm_pass_pct, width, label="Wasmer LLVM pass-params")
-ax.bar([i + width for i in x], wasmer_globals_pct, width, label="Wasmer LLVM globals")
-ax.bar(
-    [i + 2 * width for i in x],
-    wasmer_globals_pass_pct,
-    width,
-    label="Wasmer LLVM globals pass-params",
-)
+for idx, label in enumerate(series_labels):
+    offset = base_offset + idx * width
+    ax.bar(
+        [i + offset for i in x],
+        series[label],
+        width,
+        label=label,
+    )
 
 ax.set_title("Wasmer vs Native")
 ax.set_ylabel("runtime as percent of native (%)")

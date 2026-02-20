@@ -7,35 +7,10 @@ import statistics
 from pathlib import Path
 import matplotlib.pyplot as plt
 import shutil
+from benchmark_configs import WASMER_CONFIGS
 
 RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
-)
-WASMER_CONFIGS = (
-    ("Wasmer LLVM", "wasmer-next", "-l"),
-    (
-        "Wasmer LLVM pass-params",
-        "wasmer-next",
-        "-l --enable-pass-params-opt",
-    ),
-    ("Wasmer LLVM globals", "wasmer-globals", "-l"),
-    (
-        "Wasmer LLVM globals pass-params",
-        "wasmer-globals",
-        "-l --enable-pass-params-opt",
-    ),
-    #
-    # (
-    #     "Wasmer LLVM pass-params O2",
-    #     "/home/marxin/Programming/testcases/wasmer-O2",
-    #     "-l --enable-pass-params-opt",
-    # ),
-    # (
-    #     "Wasmer LLVM pass-params O3",
-    #     "/home/marxin/Programming/testcases/wasmer-O3",
-    #     "-l --enable-pass-params-opt",
-    # ),
-    # ("Wasmer Cranelift", "-c"),
 )
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
 ITERATIONS = 5
