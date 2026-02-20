@@ -160,6 +160,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        volatile_memory_ops: bool,
     ) -> Result<Compilation, CompileError>;
 
     /// Compiles a module into a native object file.
