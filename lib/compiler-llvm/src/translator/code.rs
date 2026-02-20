@@ -3212,12 +3212,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 {
                     let funcref_not_null = err!(
                         self.builder
-                            .build_is_not_null(anyfunc_struct_ptr, "null funcref check")
+                            .build_is_not_null(anyfunc_struct_ptr, "null_funcref_check")
                     );
 
                     let funcref_continue_deref_block = self
                         .context
-                        .append_basic_block(self.function, "funcref_continue deref_block");
+                        .append_basic_block(self.function, "funcref_continue_deref_block");
 
                     let funcref_is_null_block = self
                         .context

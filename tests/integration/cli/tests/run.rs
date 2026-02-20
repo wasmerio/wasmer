@@ -44,7 +44,7 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
 });
 
 #[test]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
+//#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 #[ignore = "#6173"]
 fn list_cwd() {
     let package = packages().join("list-cwd");
@@ -669,7 +669,7 @@ fn wasi_runner_on_disk_with_env_vars() {
 
 /// See https://github.com/wasmerio/wasmer/issues/3794
 #[test]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
+//#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 #[ignore = "#6173"]
 fn issue_3794_unable_to_mount_relative_paths() {
     let temp = TempDir::new().unwrap();
