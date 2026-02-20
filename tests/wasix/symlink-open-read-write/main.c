@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 static void fail(const char *msg)
@@ -15,14 +16,23 @@ int main(void)
 {
     const char *target = "/host/target.txt";
     const char *linkname = "hello";
+    const char *nested_dir = "nested";
+    const char *nested_linkname = "nested/hello";
     const char *suffix = " bla";
     char prefix[128] = {0};
     char buf[256] = {0};
 
     unlink(linkname);
+    unlink(nested_linkname);
+    if (mkdir(nested_dir, 0777) != 0 && errno != EEXIST) {
+        fail("mkdir nested");
+    }
 
     if (symlink(target, linkname) != 0) {
         fail("symlink");
+    }
+    if (symlink(target, nested_linkname) != 0) {
+        fail("symlink nested");
     }
 
     int fd = open(target, O_RDONLY);
@@ -67,6 +77,25 @@ int main(void)
 
     if (strcmp(buf, expected) != 0) {
         fprintf(stderr, "unexpected symlink content: '%s'\n", buf);
+        return 1;
+    }
+
+    memset(buf, 0, sizeof(buf));
+    fd = open(nested_linkname, O_RDONLY);
+    if (fd < 0) {
+        fail("open nested symlink for read");
+    }
+    n = read(fd, buf, sizeof(buf) - 1);
+    if (n < 0) {
+        fail("read through nested symlink");
+    }
+    if (close(fd) != 0) {
+        fail("close nested symlink read fd");
+    }
+    buf[n] = '\0';
+
+    if (strcmp(buf, expected) != 0) {
+        fprintf(stderr, "unexpected nested symlink content: '%s'\n", buf);
         return 1;
     }
 
