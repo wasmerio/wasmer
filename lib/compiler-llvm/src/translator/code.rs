@@ -78,6 +78,7 @@ pub struct FuncTranslator {
     func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
+    volatile_memory_ops: bool,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -90,6 +91,7 @@ impl FuncTranslator {
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
+        volatile_memory_ops: bool,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
@@ -110,6 +112,7 @@ impl FuncTranslator {
             binary_fmt,
             pointer_width,
             cpu_features,
+            volatile_memory_ops,
         })
     }
 
@@ -338,10 +341,7 @@ impl FuncTranslator {
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
             cpu_features: self.cpu_features,
-            is_wasix_module: wasm_module
-                .imports
-                .keys()
-                .any(|import| import.module.starts_with("wasix_")),
+            volatile_memory_ops: self.volatile_memory_ops,
         };
 
         fcg.ctx.add_func(
@@ -1225,10 +1225,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             self.memory_styles,
         )? {
             // The best we've got is `volatile`.
-            // TODO: convert unwrap fail to CompileError
-            memaccess.set_volatile(true).unwrap();
+            memaccess.set_volatile(true).map_err(|err| {
+                CompileError::Codegen(format!("could not set volatile on memory operation: {err}"))
+            })
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
     fn annotate_user_memaccess(
@@ -1244,7 +1246,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             _ => {}
         };
-        if !self.is_wasix_module {
+        if self.volatile_memory_ops {
             self.mark_memaccess_nodelete(memory_index, memaccess)?;
         }
         tbaa_label(
@@ -1925,7 +1927,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
     cpu_features: EnumSet<CpuFeature>,
-    is_wasix_module: bool,
+    volatile_memory_ops: bool,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
