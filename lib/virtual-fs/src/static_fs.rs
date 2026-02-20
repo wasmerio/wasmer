@@ -275,15 +275,17 @@ impl FileSystem for StaticFileSystem {
         let path = normalizes_path(path);
         self.memory.create_dir(Path::new(&path))
     }
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        let result = self.memory.remove_dir(Path::new(&path));
+        let result = self.memory.rmdir(Path::new(&path));
+        // Check if directory exists in WebC volumes
         if self
             .volumes
             .values()
-            .find_map(|v| v.get_file_entry(&path).ok())
-            .is_some()
+            .any(|v| v.get_file_entry(&path).is_ok())
         {
+            // If found in WebC, return Ok
+            // TODO: This seems wrong. Also the get_file_entry check above seems wrong.
             Ok(())
         } else {
             result
@@ -332,15 +334,17 @@ impl FileSystem for StaticFileSystem {
             self.memory.metadata(Path::new(&path))
         }
     }
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+    fn unlink(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        let result = self.memory.remove_file(Path::new(&path));
+        let result = self.memory.unlink(Path::new(&path));
+        // Check if file exists in WebC volumes
         if self
             .volumes
             .values()
-            .find_map(|v| v.get_file_entry(&path).ok())
-            .is_some()
+            .any(|v| v.get_file_entry(&path).is_ok())
         {
+            // If found in WebC, return Ok
+            // TODO: This seems wrong.
             Ok(())
         } else {
             result

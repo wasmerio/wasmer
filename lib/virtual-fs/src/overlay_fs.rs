@@ -225,7 +225,7 @@ where
         self.permission_error_or_not_found(path)
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
         // Whiteout files can not be removed, instead the original directory
         // must be removed or recreated.
         if ops::is_white_out(path).is_some() {
@@ -246,7 +246,7 @@ where
         // Attempt to remove it from the primary, if this succeeds then we may have also
         // added the whiteout file in the earlier step, but are required in this case to
         // properly delete the directory.
-        match self.primary.remove_dir(path) {
+        match self.primary.rmdir(path) {
             Err(e) if should_continue(e) => {}
             other => return other,
         }
@@ -386,11 +386,15 @@ where
         Err(FsError::EntryNotFound)
     }
 
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+    fn unlink(&self, path: &Path) -> Result<(), FsError> {
         // It is not possible to delete whiteout files directly, instead
         // one must delete the original file
         if ops::is_white_out(path).is_some() {
-            return Err(FsError::InvalidInput);
+            tracing::trace!(
+                path=%path.display(),
+                "Unable to remove a whited out entry",
+            );
+            return Err(FsError::EntryNotFound);
         }
 
         // If the file is contained in a secondary then then we need to create a
@@ -400,7 +404,7 @@ where
         });
 
         // Attempt to remove it from the primary
-        match self.primary.remove_file(path) {
+        match self.primary.unlink(path) {
             Err(e) if should_continue(e) => {}
             other => return other,
         }
@@ -900,7 +904,7 @@ where
             }
 
             // Attempt to remove it from the primary first
-            match primary.remove_file(&path) {
+            match primary.unlink(&path) {
                 Err(e) if should_continue(e) => {}
                 other => return other,
             }
@@ -1193,7 +1197,7 @@ mod tests {
         let overlay = OverlayFileSystem::new(primary, [secondary]);
 
         // Delete a folder on the primary filesystem
-        overlay.remove_dir(first).unwrap();
+        overlay.rmdir(first).unwrap();
         assert_eq!(
             overlay.primary().metadata(first).unwrap_err(),
             FsError::EntryNotFound,
@@ -1203,12 +1207,12 @@ mod tests {
 
         // Directory on the primary fs isn't empty
         assert_eq!(
-            overlay.remove_dir(second).unwrap_err(),
+            overlay.rmdir(second).unwrap_err(),
             FsError::DirectoryNotEmpty,
         );
 
         // Try to remove something on one of the overlay filesystems
-        assert_eq!(overlay.remove_dir(third), Ok(()));
+        assert_eq!(overlay.rmdir(third), Ok(()));
 
         // It should no longer exist
         assert_eq!(overlay.metadata(third).unwrap_err(), FsError::EntryNotFound);
@@ -1365,7 +1369,7 @@ mod tests {
         fs.metadata(Path::new("/secondary/file.txt")).unwrap();
 
         // Now delete the file and make sure its not found
-        fs.remove_file(Path::new("/secondary/file.txt")).unwrap();
+        fs.unlink(Path::new("/secondary/file.txt")).unwrap();
         assert_eq!(
             fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
             FsError::EntryNotFound
@@ -1468,7 +1472,7 @@ mod tests {
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.remove_file(Path::new("/secondary/file.txt")).unwrap();
+        fs.unlink(Path::new("/secondary/file.txt")).unwrap();
         assert_eq!(ops::exists(&fs, Path::new("/secondary/file.txt")), false);
 
         assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
@@ -1501,7 +1505,7 @@ mod tests {
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
         assert!(ops::is_dir(&fs, "/secondary"));
-        fs.remove_dir(Path::new("/secondary")).unwrap();
+        fs.rmdir(Path::new("/secondary")).unwrap();
 
         assert!(!ops::is_dir(&fs, "/secondary"));
         assert!(ops::is_file(&fs.primary, "/.wh.secondary"));
@@ -1523,7 +1527,7 @@ mod tests {
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
         assert!(ops::is_dir(&fs, "/first/secondary"));
-        fs.remove_dir(Path::new("/first/secondary")).unwrap();
+        fs.rmdir(Path::new("/first/secondary")).unwrap();
 
         assert!(!ops::is_dir(&fs, "/first/secondary"));
         assert!(ops::is_file(&fs.primary, "/first/.wh.secondary"));
@@ -1567,7 +1571,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_secondary_fs_files_remove_dir() {
+    async fn open_secondary_fs_files_unlink_dir() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
         ops::create_dir_all(&secondary, "/secondary").unwrap();
@@ -1576,8 +1580,8 @@ mod tests {
 
         fs.metadata(Path::new("/secondary")).unwrap();
 
-        // Now delete the file and make sure its not found
-        fs.remove_dir(Path::new("/secondary")).unwrap();
+        // Now delete the directory and make sure its not found
+        fs.rmdir(Path::new("/secondary")).unwrap();
         assert_eq!(
             fs.metadata(Path::new("/secondary")).unwrap_err(),
             FsError::EntryNotFound

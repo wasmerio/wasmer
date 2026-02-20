@@ -38,8 +38,8 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
         self.execute(path, |fs, p| fs.create_dir(p))
     }
 
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.execute(path, |fs, p| fs.remove_dir(p))
+    fn rmdir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.execute(path, |fs, p| fs.rmdir(p))
     }
 
     fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
@@ -56,8 +56,8 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
         self.execute(path, |fs, p| fs.symlink_metadata(p))
     }
 
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.execute(path, |fs, p| fs.remove_file(p))
+    fn unlink(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.execute(path, |fs, p| fs.unlink(p))
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {

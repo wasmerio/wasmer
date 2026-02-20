@@ -211,14 +211,14 @@ impl FileSystem for UnionFileSystem {
             }
         }
     }
-    fn remove_dir(&self, path: &Path) -> Result<()> {
+    fn rmdir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path);
 
         if path.as_os_str().is_empty() {
             Err(FsError::PermissionDenied)
         } else {
             match self.find_mount(path.to_owned()) {
-                Some((_, path, fs)) => fs.remove_dir(&path),
+                Some((_, path, fs)) => fs.rmdir(&path),
                 _ => Err(FsError::EntryNotFound),
             }
         }
@@ -280,14 +280,14 @@ impl FileSystem for UnionFileSystem {
             }
         }
     }
-    fn remove_file(&self, path: &Path) -> Result<()> {
+    fn unlink(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path);
 
         if path.as_os_str().is_empty() {
             Err(FsError::NotAFile)
         } else {
             match self.find_mount(path.to_owned()) {
-                Some((_, path, fs)) => fs.remove_file(&path),
+                Some((_, path, fs)) => fs.unlink(&path),
                 _ => Err(FsError::EntryNotFound),
             }
         }
@@ -431,7 +431,7 @@ mod tests {
         union
             .mount(
                 "mem_fs_6".to_string(),
-                PathBuf::from("/test_remove_file").as_path(),
+                PathBuf::from("/test_unlink").as_path(),
                 Box::new(f),
             )
             .unwrap();
@@ -632,17 +632,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_remove_dir() {
+    async fn test_unlink_dir() {
         let fs = gen_filesystem();
 
         assert_eq!(
-            fs.remove_dir(Path::new("/")),
+            fs.rmdir(Path::new("/")),
             Err(FsError::PermissionDenied),
             "cannot remove the root directory",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/foo")),
+            fs.rmdir(Path::new("/foo")),
             Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
@@ -667,19 +667,19 @@ mod tests {
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo")),
+            fs.rmdir(Path::new("/test_remove_dir/foo")),
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo/bar")),
+            fs.rmdir(Path::new("/test_remove_dir/foo/bar")),
             Ok(()),
             "removing a sub-directory",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo")),
+            fs.rmdir(Path::new("/test_remove_dir/foo")),
             Ok(()),
             "removing a directory",
         );
@@ -909,35 +909,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_remove_file() {
+    async fn test_unlink() {
         let fs = gen_filesystem();
 
         assert!(
             fs.new_open_options()
                 .write(true)
                 .create_new(true)
-                .open(Path::new("/test_remove_file/foo.txt"))
+                .open(Path::new("/test_unlink/foo.txt"))
                 .is_ok(),
             "creating a new file",
         );
 
-        assert!(read_dir_names(&fs, "/test_remove_file").contains(&"foo.txt".to_string()));
+        assert!(read_dir_names(&fs, "/test_unlink").contains(&"foo.txt".to_string()));
 
         assert_eq!(
-            fs.remove_file(Path::new("/test_remove_file/foo.txt")),
+            fs.unlink(Path::new("/test_unlink/foo.txt")),
             Ok(()),
             "removing a file that exists",
         );
 
-        assert!(!read_dir_names(&fs, "/test_remove_file").contains(&"foo.txt".to_string()));
+        assert!(!read_dir_names(&fs, "/test_unlink").contains(&"foo.txt".to_string()));
 
         assert_eq!(
-            fs.remove_file(Path::new("/test_remove_file/foo.txt")),
+            fs.unlink(Path::new("/test_unlink/foo.txt")),
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );
 
-        let _ = fs_extra::remove_items(&["./test_remove_file"]);
+        let _ = fs_extra::remove_items(&["./test_unlink"]);
     }
 
     #[tokio::test]

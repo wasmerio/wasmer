@@ -130,11 +130,7 @@ fn poll(fds: &[u32], read: &[bool], write: &[bool]) -> Result<Vec<__wasi_event_t
         )
     };
 
-    if result == 0 {
-        Ok(out_)
-    } else {
-        Err(result)
-    }
+    if result == 0 { Ok(out_) } else { Err(result) }
 }
 
 fn main() {
