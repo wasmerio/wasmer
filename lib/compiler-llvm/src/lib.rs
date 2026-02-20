@@ -19,7 +19,6 @@ mod compiler;
 mod config;
 mod error;
 mod object_file;
-mod trampoline;
 mod translator;
 
 pub use crate::compiler::LLVMCompiler;
