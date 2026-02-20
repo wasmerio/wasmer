@@ -59,7 +59,7 @@ php_native = run_timed(
     )
 )
 
-PYSTONE_ITERATIONS = 100000
+PYSTONE_ITERATIONS = 1000000
 
 # pystone
 python_wasmer_times = {
