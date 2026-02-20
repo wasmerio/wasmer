@@ -36,7 +36,7 @@ pub fn run_package(webc_bytes: Vec<u8>, args: Vec<String>) -> Result<String, Was
     let container = err!(from_bytes(webc_bytes));
     let tasks = TokioTaskManager::new(tokio_rt.handle().clone());
     let tasks = Arc::new(tasks);
-    let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>);
+    let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>, wasmer::Engine::default());
     rt.set_package_loader(BuiltinPackageLoader::new());
 
     let pkg = tokio_rt

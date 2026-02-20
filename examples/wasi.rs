@@ -16,6 +16,7 @@
 
 use std::{io::Read, sync::Arc};
 
+use wasmer::Engine;
 use wasmer_wasix::{
     Pipe, PluggableRuntime, Runtime,
     runners::wasi::{RuntimeOrEngine, WasiRunner},
@@ -39,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
     let _guard = tokio_runtime.enter();
     let tokio_task_manager = TokioTaskManager::new(tokio_runtime.handle().clone());
-    let runtime = PluggableRuntime::new(Arc::new(tokio_task_manager));
+    let runtime = PluggableRuntime::new(Arc::new(tokio_task_manager), Engine::default());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

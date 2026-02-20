@@ -327,6 +327,20 @@ impl Engine {
 
         Ok(())
     }
+
+    /// Build a new Engine with the same compiler and configuration, but with this Engine's
+    /// features extended by the given features.
+    #[cfg(feature = "compiler")]
+    pub fn new_with_extended_features(&self, features: &Features) -> Result<Self, CompileError> {
+        let inner = self.inner();
+        let mut final_features = inner.features().clone();
+        final_features.extend(features);
+        Ok(Self::new(
+            inner.compiler()?.configuration(),
+            self.target().clone(),
+            final_features,
+        ))
+    }
 }
 
 impl std::fmt::Debug for Engine {

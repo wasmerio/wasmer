@@ -554,7 +554,7 @@ impl Wasi {
         I: Into<RuntimeOrHandle>,
     {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
-        let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
+        let mut rt = PluggableRuntime::new(tokio_task_manager.clone(), engine);
 
         let has_networking = self.networking.is_some()
             || capabilities::get_cached_capability(pkg_cache_path)
@@ -619,9 +619,7 @@ impl Wasi {
             rt.set_module_cache(module_cache);
         }
 
-        rt.set_package_loader(package_loader)
-            .set_source(registry)
-            .set_engine(engine);
+        rt.set_package_loader(package_loader).set_source(registry);
 
         Ok(rt)
     }

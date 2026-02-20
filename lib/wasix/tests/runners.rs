@@ -307,7 +307,7 @@ fn sanitze_name_for_path(name: &str) -> String {
 fn runtime() -> (impl Runtime + Send + Sync, Arc<TokioTaskManager>) {
     let tasks = TokioTaskManager::new(Handle::current());
     let tasks = Arc::new(tasks);
-    let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>);
+    let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>, wasmer::Engine::default());
 
     let cache = SharedCache::default().with_fallback(FileSystemCache::new(
         tmp_dir().join("compiled"),

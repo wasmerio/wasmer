@@ -7487,6 +7487,7 @@ dependencies = [
  "wasm-bindgen-test",
  "wasm-encoder 0.245.1",
  "wasmer",
+ "wasmer-compiler",
  "wasmer-config",
  "wasmer-journal",
  "wasmer-package",

@@ -407,6 +407,10 @@ impl Compiler for SinglepassCompiler {
         let used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
         cpu_features.intersection(used)
     }
+
+    fn configuration(&self) -> Box<dyn CompilerConfig> {
+        Box::new(self.config.clone())
+    }
 }
 
 trait IntoParIterIfRayon {
