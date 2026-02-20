@@ -1,5 +1,5 @@
 use crate::config::LLVM;
-use crate::trampoline::FuncTrampoline;
+use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use inkwell::DLLStorageClass;
 use inkwell::context::Context;
