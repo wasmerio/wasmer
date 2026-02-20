@@ -2934,7 +2934,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     )?
                 } else {
                     self.ctx
-                        .func(func_index, self.intrinsics, self.context, func_type)?
+                        .imported_func(func_index, self.intrinsics, self.context, func_type)?
                 };
                 let llvm_func_type = *llvm_func_type;
                 let func = *func;
@@ -2972,6 +2972,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 if let (Some(m0_param), Some(include_m0_param)) =
                     (self.m0_param, imported_include_m0_param)
                 {
+                    /* For imported functions, we must be careful about when to include `g0_param`:
+                    imports from another Wasm module expect it, while host-function imports do not.
+                    */
                     let (llvm_func_type_no_m0, llvm_func_attrs_no_m0) =
                         self.abi.func_type_to_llvm(
                             self.context,

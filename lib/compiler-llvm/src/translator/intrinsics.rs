@@ -1954,8 +1954,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         })
     }
 
-    // TODO: rename the function
-    pub fn func(
+    pub fn imported_func(
         &mut self,
         function_index: FunctionIndex,
         intrinsics: &Intrinsics<'ctx>,
@@ -2021,12 +2020,9 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     "",
                 ));
                 include_m0_param_ptr.set_name("include_m0_param_ptr");
-                let imported_include_m0_param = err!(cache_builder.build_load(
-                    intrinsics.i1_ty,
-                    include_m0_param_ptr,
-                    "",
-                ))
-                .into_int_value();
+                let imported_include_m0_param =
+                    err!(cache_builder.build_load(intrinsics.i1_ty, include_m0_param_ptr, "",))
+                        .into_int_value();
                 imported_include_m0_param.set_name("imported_include_m0_param");
 
                 Ok(entry.insert(FunctionCache {
