@@ -125,6 +125,8 @@ pub fn resolve_imports(
                     body: address,
                     environment: unsafe { f.anyfunc.as_ptr().as_ref().vmctx },
                     handle,
+                    // TODO: use nicer way of how to detect WA-native functions
+                    include_m0_param: handle.get(context).host_data.is::<()>(),
                 });
             }
             VMExtern::Table(handle) => {

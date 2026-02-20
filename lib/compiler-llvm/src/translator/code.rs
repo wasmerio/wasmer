@@ -2901,6 +2901,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     func,
                     llvm_func_type,
                     vmctx: callee_vmctx,
+                    imported_include_m0_param,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
                     let function_name = self
@@ -2923,6 +2924,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let llvm_func_type = *llvm_func_type;
                 let func = *func;
                 let callee_vmctx = *callee_vmctx;
+                let imported_include_m0_param = *imported_include_m0_param;
                 let attrs = attrs.clone();
 
                 /*
@@ -2952,87 +2954,228 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let params = self.abi.args_to_call(
-                    &self.alloca_builder,
-                    func_type,
-                    &llvm_func_type,
-                    callee_vmctx.into_pointer_value(),
-                    params.as_slice(),
-                    self.intrinsics,
-                    self.m0_param,
-                )?;
-
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            &info,
+                if let (Some(m0_param), Some(include_m0_param)) =
+                    (self.m0_param, imported_include_m0_param)
+                {
+                    let (llvm_func_type_no_m0, llvm_func_attrs_no_m0) =
+                        self.abi.func_type_to_llvm(
+                            self.context,
                             self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            &self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        )
-                    }
-                }
-                */
-                let call_site = if let Some(lpad) = self.state.get_innermost_landingpad() {
-                    let then_block = self.context.append_basic_block(self.function, "then_block");
-
-                    let ret = err!(self.builder.build_indirect_invoke(
-                        llvm_func_type,
-                        func,
+                            Some(self.ctx.get_offsets()),
+                            func_type,
+                            false,
+                        )?;
+                    let params_with_m0 = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type,
+                        callee_vmctx.into_pointer_value(),
                         params.as_slice(),
-                        then_block,
-                        lpad,
-                        "",
+                        self.intrinsics,
+                        Some(m0_param),
+                    )?;
+                    let params_no_m0 = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type_no_m0,
+                        callee_vmctx.into_pointer_value(),
+                        params.as_slice(),
+                        self.intrinsics,
+                        None,
+                    )?;
+
+                    let include_m0_call_block = self
+                        .context
+                        .append_basic_block(self.function, "include_m0_call_block");
+                    let skip_m0_call_block = self
+                        .context
+                        .append_basic_block(self.function, "skip_m0_call_block");
+                    let call_cont = self.context.append_basic_block(self.function, "call_cont");
+                    err!(self.builder.build_conditional_branch(
+                        include_m0_param,
+                        include_m0_call_block,
+                        skip_m0_call_block,
                     ));
 
-                    self.builder.position_at_end(then_block);
-                    ret
+                    self.builder.position_at_end(include_m0_call_block);
+                    let call_site_with_m0 =
+                        if let Some(lpad) = self.state.get_innermost_landingpad() {
+                            let then_block = self
+                                .context
+                                .append_basic_block(self.function, "then_block_with_m0");
+                            let ret = err!(self.builder.build_indirect_invoke(
+                                llvm_func_type,
+                                func,
+                                params_with_m0.as_slice(),
+                                then_block,
+                                lpad,
+                                "",
+                            ));
+                            self.builder.position_at_end(then_block);
+                            ret
+                        } else {
+                            err!(
+                                self.builder.build_indirect_call(
+                                    llvm_func_type,
+                                    func,
+                                    params_with_m0
+                                        .iter()
+                                        .copied()
+                                        .map(Into::into)
+                                        .collect::<Vec<BasicMetadataValueEnum>>()
+                                        .as_slice(),
+                                    "",
+                                )
+                            )
+                        };
+                    for (attr, attr_loc) in &attrs {
+                        call_site_with_m0.add_attribute(*attr_loc, *attr);
+                    }
+                    let rets_with_m0 = self.abi.rets_from_call(
+                        &self.builder,
+                        self.intrinsics,
+                        call_site_with_m0,
+                        func_type,
+                    )?;
+                    err!(self.builder.build_unconditional_branch(call_cont));
+
+                    self.builder.position_at_end(skip_m0_call_block);
+                    let call_site_no_m0 = if let Some(lpad) = self.state.get_innermost_landingpad()
+                    {
+                        let then_block = self
+                            .context
+                            .append_basic_block(self.function, "then_block_no_m0");
+                        let ret = err!(self.builder.build_indirect_invoke(
+                            llvm_func_type_no_m0,
+                            func,
+                            params_no_m0.as_slice(),
+                            then_block,
+                            lpad,
+                            "",
+                        ));
+                        self.builder.position_at_end(then_block);
+                        ret
+                    } else {
+                        err!(
+                            self.builder.build_indirect_call(
+                                llvm_func_type_no_m0,
+                                func,
+                                params_no_m0
+                                    .iter()
+                                    .copied()
+                                    .map(Into::into)
+                                    .collect_vec()
+                                    .as_slice(),
+                                "",
+                            )
+                        )
+                    };
+                    for (attr, attr_loc) in &llvm_func_attrs_no_m0 {
+                        call_site_no_m0.add_attribute(*attr_loc, *attr);
+                    }
+                    let rets_no_m0 = self.abi.rets_from_call(
+                        &self.builder,
+                        self.intrinsics,
+                        call_site_no_m0,
+                        func_type,
+                    )?;
+                    err!(self.builder.build_unconditional_branch(call_cont));
+
+                    self.builder.position_at_end(call_cont);
+                    for i in 0..rets_with_m0.len() {
+                        let with_m0 = rets_with_m0[i];
+                        let no_m0 = rets_no_m0[i];
+                        let phi = err!(self.builder.build_phi(with_m0.get_type(), ""));
+                        phi.add_incoming(&[
+                            (&with_m0, include_m0_call_block),
+                            (&no_m0, skip_m0_call_block),
+                        ]);
+                        self.state.push1(phi.as_basic_value());
+                    }
                 } else {
-                    err!(
-                        self.builder.build_indirect_call(
+                    let params = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type,
+                        callee_vmctx.into_pointer_value(),
+                        params.as_slice(),
+                        self.intrinsics,
+                        self.m0_param,
+                    )?;
+
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            emit_stack_map(
+                                &info,
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                &self.locals,
+                                state,
+                                ctx,
+                                offset,
+                            )
+                        }
+                    }
+                    */
+                    let call_site = if let Some(lpad) = self.state.get_innermost_landingpad() {
+                        let then_block =
+                            self.context.append_basic_block(self.function, "then_block");
+
+                        let ret = err!(self.builder.build_indirect_invoke(
                             llvm_func_type,
                             func,
-                            params
-                                .iter()
-                                .copied()
-                                .map(Into::into)
-                                .collect::<Vec<BasicMetadataValueEnum>>()
-                                .as_slice(),
+                            params.as_slice(),
+                            then_block,
+                            lpad,
                             "",
-                        )
-                    )
-                };
-                for (attr, attr_loc) in attrs {
-                    call_site.add_attribute(attr_loc, attr);
-                }
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            offset,
-                        )
-                    }
-                }
-                */
+                        ));
 
-                self.abi
-                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                    .iter()
-                    .for_each(|ret| self.state.push1(*ret));
+                        self.builder.position_at_end(then_block);
+                        ret
+                    } else {
+                        err!(
+                            self.builder.build_indirect_call(
+                                llvm_func_type,
+                                func,
+                                params
+                                    .iter()
+                                    .copied()
+                                    .map(Into::into)
+                                    .collect::<Vec<BasicMetadataValueEnum>>()
+                                    .as_slice(),
+                                "",
+                            )
+                        )
+                    };
+                    for (attr, attr_loc) in attrs {
+                        call_site.add_attribute(attr_loc, attr);
+                    }
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            finalize_opcode_stack_map(
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                offset,
+                            )
+                        }
+                    }
+                    */
+
+                    self.abi
+                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                        .iter()
+                        .for_each(|ret| self.state.push1(*ret));
+                }
             }
             Operator::CallIndirect {
                 type_index,

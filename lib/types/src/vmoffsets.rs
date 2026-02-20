@@ -431,9 +431,14 @@ impl VMOffsets {
         2 * self.pointer_size
     }
 
+    /// The offset of the `include_m0_param` field.
+    pub const fn vmfunction_import_include_m0_param(&self) -> u8 {
+        3 * self.pointer_size
+    }
+
     /// Return the size of `VMFunctionImport`.
     pub const fn size_of_vmfunction_import(&self) -> u8 {
-        3 * self.pointer_size
+        4 * self.pointer_size
     }
 }
 

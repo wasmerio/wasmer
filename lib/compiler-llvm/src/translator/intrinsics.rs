@@ -283,6 +283,7 @@ pub struct Intrinsics<'ctx> {
     pub vmfunction_import_ty: StructType<'ctx>,
     pub vmfunction_import_body_element: u32,
     pub vmfunction_import_vmctx_element: u32,
+    pub vmfunction_import_include_m0_param_element: u32,
 
     pub vmmemory_definition_ty: StructType<'ctx>,
     pub vmmemory_definition_base_element: u32,
@@ -366,6 +367,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let md_ty = context.metadata_type();
 
         let i8_ptr_ty_basic = ptr_ty.as_basic_type_enum();
+        let i1_ty_basic = i1_ty.as_basic_type_enum();
 
         let i1_ty_basic_md: BasicMetadataTypeEnum = i1_ty.into();
         let i32_ty_basic_md: BasicMetadataTypeEnum = i32_ty.into();
@@ -1300,9 +1302,18 @@ impl<'ctx> Intrinsics<'ctx> {
                 None,
             ),
 
-            vmfunction_import_ty: context.struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false),
+            vmfunction_import_ty: context.struct_type(
+                &[
+                    i8_ptr_ty_basic,
+                    i8_ptr_ty_basic,
+                    i8_ptr_ty_basic,
+                    i1_ty_basic,
+                ],
+                false,
+            ),
             vmfunction_import_body_element: 0,
             vmfunction_import_vmctx_element: 1,
+            vmfunction_import_include_m0_param_element: 3,
             vmmemory_definition_ty: context.struct_type(&[i8_ptr_ty_basic, isize_ty.into()], false),
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,
@@ -1420,6 +1431,7 @@ pub struct FunctionCache<'ctx> {
     pub func: PointerValue<'ctx>,
     pub llvm_func_type: FunctionType<'ctx>,
     pub vmctx: BasicValueEnum<'ctx>,
+    pub imported_include_m0_param: Option<IntValue<'ctx>>,
     pub attrs: Vec<(Attribute, AttributeLoc)>,
 }
 
@@ -1892,6 +1904,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     func,
                     llvm_func_type,
                     vmctx,
+                    imported_include_m0_param: None,
                     attrs: attrs.to_vec(),
                 });
             }
@@ -1934,6 +1947,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     func: func.as_global_value().as_pointer_value(),
                     llvm_func_type,
                     vmctx: ctx_ptr_value.as_basic_value_enum(),
+                    imported_include_m0_param: None,
                     attrs: llvm_func_attrs,
                 })
             }
@@ -2000,11 +2014,26 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let vmctx_ptr =
                     err!(cache_builder.build_load(intrinsics.ptr_ty, vmctx_ptr_ptr, ""));
                 vmctx_ptr.set_name("vmctx_ptr");
+                let include_m0_param_ptr = err!(cache_builder.build_struct_gep(
+                    intrinsics.vmfunction_import_ty,
+                    vmfunction_import_ptr,
+                    intrinsics.vmfunction_import_include_m0_param_element,
+                    "",
+                ));
+                include_m0_param_ptr.set_name("include_m0_param_ptr");
+                let imported_include_m0_param = err!(cache_builder.build_load(
+                    intrinsics.i1_ty,
+                    include_m0_param_ptr,
+                    "",
+                ))
+                .into_int_value();
+                imported_include_m0_param.set_name("imported_include_m0_param");
 
                 Ok(entry.insert(FunctionCache {
                     func: body_ptr,
                     llvm_func_type,
                     vmctx: vmctx_ptr,
+                    imported_include_m0_param: Some(imported_include_m0_param),
                     attrs: llvm_func_attrs,
                 }))
             }
