@@ -201,6 +201,11 @@ impl LLVMCompiler {
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),
+                    !compile_info
+                        .module
+                        .imports
+                        .keys()
+                        .any(|import| import.module.starts_with("wasix_")),
                 )
                 .unwrap()
             },
@@ -378,6 +383,7 @@ impl Compiler for LLVMCompiler {
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        volatile_memory_ops: bool,
     ) -> Result<Compilation, CompileError> {
         let binary_format = self.config.target_binary_format(target);
 
@@ -445,6 +451,7 @@ impl Compiler for LLVMCompiler {
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),
+                    volatile_memory_ops,
                 )
                 .unwrap()
             },

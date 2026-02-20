@@ -598,6 +598,7 @@ impl Compiler for CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        _volatile_memory_ops: bool,
     ) -> Result<Compilation, CompileError> {
         self.compile_module_internal(
             target,
