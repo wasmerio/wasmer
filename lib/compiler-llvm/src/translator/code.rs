@@ -1755,7 +1755,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             typed_func_ptr,
             params.as_slice(),
             "then_block",
-            "indirect_call",
         )?;
         for (attr, attr_loc) in llvm_func_attrs {
             call_site_local.add_attribute(attr_loc, attr);
@@ -1770,7 +1769,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         params: &[BasicValueEnum<'ctx>],
         then_block_name: &str,
-        call_name: &str,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
         if let Some(lpad) = self.state.get_innermost_landingpad() {
             let then_block = self
@@ -1798,7 +1796,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 llvm_func_type,
                 func_ptr,
                 call_params.as_slice(),
-                call_name,
+                ""
             )))
         }
     }
@@ -3003,10 +3001,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                     let include_m0_call_block = self
                         .context
-                        .append_basic_block(self.function, "include_m0_call_block");
-                    let skip_m0_call_block = self
-                        .context
-                        .append_basic_block(self.function, "skip_m0_call_block");
+                        .append_basic_block(self.function, "call_block_with_m0");
+                    let skip_m0_call_block =
+                        self.context.append_basic_block(self.function, "call_block");
                     let call_cont = self.context.append_basic_block(self.function, "call_cont");
                     err!(self.builder.build_conditional_branch(
                         include_m0_param,
@@ -3020,7 +3017,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params_with_m0.as_slice(),
                         "then_block_with_m0",
-                        "",
                     )?;
                     for (attr, attr_loc) in &attrs {
                         call_site_with_m0.add_attribute(*attr_loc, *attr);
@@ -3038,8 +3034,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         llvm_func_type_no_m0,
                         func,
                         params_no_m0.as_slice(),
-                        "then_block_no_m0",
-                        "",
+                        "then_block",
                     )?;
                     for (attr, attr_loc) in &llvm_func_attrs_no_m0 {
                         call_site_no_m0.add_attribute(*attr_loc, *attr);
@@ -3098,7 +3093,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params.as_slice(),
                         "then_block",
-                        "",
                     )?;
                     for (attr, attr_loc) in attrs {
                         call_site.add_attribute(attr_loc, attr);
