@@ -62,54 +62,75 @@
 <a href=#62 id=62 data-nosnippet>62</a>        std::path::Path::new(path),
 <a href=#63 id=63 data-nosnippet>63</a>        <span class="bool-val">false
 <a href=#64 id=64 data-nosnippet>64</a>    </span>));
-<a href=#65 id=65 data-nosnippet>65</a>
-<a href=#66 id=66 data-nosnippet>66</a>    <span class="kw">let </span>removed_inode = {
-<a href=#67 id=67 data-nosnippet>67</a>        <span class="kw">let </span><span class="kw-2">mut </span>guard = parent_inode.write();
-<a href=#68 id=68 data-nosnippet>68</a>        <span class="kw">match </span>guard.deref_mut() {
-<a href=#69 id=69 data-nosnippet>69</a>            Kind::Dir { entries, .. } =&gt; {
-<a href=#70 id=70 data-nosnippet>70</a>                <span class="kw">let </span>removed_inode = <span class="macro">wasi_try_ok!</span>(entries.remove(<span class="kw-2">&amp;</span>childs_name).ok_or(Errno::Inval));
-<a href=#71 id=71 data-nosnippet>71</a>                <span class="comment">// TODO: make this a debug assert in the future
-<a href=#72 id=72 data-nosnippet>72</a>                </span><span class="macro">assert!</span>(inode.ino() == removed_inode.ino());
-<a href=#73 id=73 data-nosnippet>73</a>                <span class="macro">debug_assert!</span>(inode.stat.read().unwrap().st_nlink &gt; <span class="number">0</span>);
-<a href=#74 id=74 data-nosnippet>74</a>                removed_inode
-<a href=#75 id=75 data-nosnippet>75</a>            }
-<a href=#76 id=76 data-nosnippet>76</a>            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access),
-<a href=#77 id=77 data-nosnippet>77</a>            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(
-<a href=#78 id=78 data-nosnippet>78</a>                <span class="string">"Internal logic error in wasi::path_unlink_file, parent is not a directory"
-<a href=#79 id=79 data-nosnippet>79</a>            </span>),
-<a href=#80 id=80 data-nosnippet>80</a>        }
-<a href=#81 id=81 data-nosnippet>81</a>    };
-<a href=#82 id=82 data-nosnippet>82</a>
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">let </span>st_nlink = {
-<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">let </span><span class="kw-2">mut </span>guard = removed_inode.stat.write().unwrap();
-<a href=#85 id=85 data-nosnippet>85</a>        guard.st_nlink -= <span class="number">1</span>;
-<a href=#86 id=86 data-nosnippet>86</a>        guard.st_nlink
-<a href=#87 id=87 data-nosnippet>87</a>    };
-<a href=#88 id=88 data-nosnippet>88</a>    <span class="kw">if </span>st_nlink == <span class="number">0 </span>{
-<a href=#89 id=89 data-nosnippet>89</a>        {
-<a href=#90 id=90 data-nosnippet>90</a>            <span class="kw">let </span><span class="kw-2">mut </span>guard = removed_inode.read();
-<a href=#91 id=91 data-nosnippet>91</a>            <span class="kw">match </span>guard.deref() {
-<a href=#92 id=92 data-nosnippet>92</a>                Kind::File { handle, path, .. } =&gt; {
-<a href=#93 id=93 data-nosnippet>93</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(h) = handle {
-<a href=#94 id=94 data-nosnippet>94</a>                        <span class="kw">let </span><span class="kw-2">mut </span>h = h.write().unwrap();
-<a href=#95 id=95 data-nosnippet>95</a>                        <span class="macro">wasi_try_ok!</span>(h.unlink().map_err(fs_error_into_wasi_err));
-<a href=#96 id=96 data-nosnippet>96</a>                    } <span class="kw">else </span>{
-<a href=#97 id=97 data-nosnippet>97</a>                        <span class="comment">// File is closed
-<a href=#98 id=98 data-nosnippet>98</a>                        // problem with the abstraction, we can't call unlink because there's no handle
-<a href=#99 id=99 data-nosnippet>99</a>                        // drop mutable borrow on `path`
-<a href=#100 id=100 data-nosnippet>100</a>                        </span><span class="kw">let </span>path = path.clone();
-<a href=#101 id=101 data-nosnippet>101</a>                        drop(guard);
-<a href=#102 id=102 data-nosnippet>102</a>                        <span class="macro">wasi_try_ok!</span>(state.fs_remove_file(path));
-<a href=#103 id=103 data-nosnippet>103</a>                    }
-<a href=#104 id=104 data-nosnippet>104</a>                }
-<a href=#105 id=105 data-nosnippet>105</a>                Kind::Dir { .. } | Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Isdir),
-<a href=#106 id=106 data-nosnippet>106</a>                Kind::Symlink { .. } =&gt; {
-<a href=#107 id=107 data-nosnippet>107</a>                    <span class="comment">// TODO: actually delete real symlinks and do nothing for virtual symlinks
-<a href=#108 id=108 data-nosnippet>108</a>                </span>}
-<a href=#109 id=109 data-nosnippet>109</a>                <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"wasi::path_unlink_file for Buffer"</span>),
-<a href=#110 id=110 data-nosnippet>110</a>            }
-<a href=#111 id=111 data-nosnippet>111</a>        }
-<a href=#112 id=112 data-nosnippet>112</a>    }
-<a href=#113 id=113 data-nosnippet>113</a>
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="prelude-val">Ok</span>(Errno::Success)
-<a href=#115 id=115 data-nosnippet>115</a>}</code></pre></div></section></main></body></html>
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="kw">let </span>host_adjusted_path = {
+<a href=#66 id=66 data-nosnippet>66</a>        <span class="kw">let </span>guard = parent_inode.read();
+<a href=#67 id=67 data-nosnippet>67</a>        <span class="kw">match </span>guard.deref() {
+<a href=#68 id=68 data-nosnippet>68</a>            Kind::Dir { path, .. } =&gt; path.join(<span class="kw-2">&amp;</span>childs_name),
+<a href=#69 id=69 data-nosnippet>69</a>            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access),
+<a href=#70 id=70 data-nosnippet>70</a>            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(
+<a href=#71 id=71 data-nosnippet>71</a>                <span class="string">"Internal logic error in wasi::path_unlink_file, parent is not a directory"
+<a href=#72 id=72 data-nosnippet>72</a>            </span>),
+<a href=#73 id=73 data-nosnippet>73</a>        }
+<a href=#74 id=74 data-nosnippet>74</a>    };
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="kw">let </span>removed_inode = {
+<a href=#77 id=77 data-nosnippet>77</a>        <span class="kw">let </span><span class="kw-2">mut </span>guard = parent_inode.write();
+<a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">match </span>guard.deref_mut() {
+<a href=#79 id=79 data-nosnippet>79</a>            Kind::Dir { entries, .. } =&gt; {
+<a href=#80 id=80 data-nosnippet>80</a>                <span class="kw">let </span>removed_inode = <span class="macro">wasi_try_ok!</span>(entries.remove(<span class="kw-2">&amp;</span>childs_name).ok_or(Errno::Inval));
+<a href=#81 id=81 data-nosnippet>81</a>                <span class="comment">// TODO: make this a debug assert in the future
+<a href=#82 id=82 data-nosnippet>82</a>                </span><span class="macro">assert!</span>(inode.ino() == removed_inode.ino());
+<a href=#83 id=83 data-nosnippet>83</a>                <span class="macro">debug_assert!</span>(inode.stat.read().unwrap().st_nlink &gt; <span class="number">0</span>);
+<a href=#84 id=84 data-nosnippet>84</a>                removed_inode
+<a href=#85 id=85 data-nosnippet>85</a>            }
+<a href=#86 id=86 data-nosnippet>86</a>            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access),
+<a href=#87 id=87 data-nosnippet>87</a>            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(
+<a href=#88 id=88 data-nosnippet>88</a>                <span class="string">"Internal logic error in wasi::path_unlink_file, parent is not a directory"
+<a href=#89 id=89 data-nosnippet>89</a>            </span>),
+<a href=#90 id=90 data-nosnippet>90</a>        }
+<a href=#91 id=91 data-nosnippet>91</a>    };
+<a href=#92 id=92 data-nosnippet>92</a>
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span>st_nlink = {
+<a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">let </span><span class="kw-2">mut </span>guard = removed_inode.stat.write().unwrap();
+<a href=#95 id=95 data-nosnippet>95</a>        guard.st_nlink -= <span class="number">1</span>;
+<a href=#96 id=96 data-nosnippet>96</a>        guard.st_nlink
+<a href=#97 id=97 data-nosnippet>97</a>    };
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">if </span>st_nlink == <span class="number">0 </span>{
+<a href=#99 id=99 data-nosnippet>99</a>        {
+<a href=#100 id=100 data-nosnippet>100</a>            <span class="kw">let </span><span class="kw-2">mut </span>guard = removed_inode.read();
+<a href=#101 id=101 data-nosnippet>101</a>            <span class="kw">match </span>guard.deref() {
+<a href=#102 id=102 data-nosnippet>102</a>                Kind::File { handle, path, .. } =&gt; {
+<a href=#103 id=103 data-nosnippet>103</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(h) = handle {
+<a href=#104 id=104 data-nosnippet>104</a>                        <span class="kw">let </span><span class="kw-2">mut </span>h = h.write().unwrap();
+<a href=#105 id=105 data-nosnippet>105</a>                        <span class="macro">wasi_try_ok!</span>(h.unlink().map_err(fs_error_into_wasi_err));
+<a href=#106 id=106 data-nosnippet>106</a>                    } <span class="kw">else </span>{
+<a href=#107 id=107 data-nosnippet>107</a>                        <span class="comment">// File is closed
+<a href=#108 id=108 data-nosnippet>108</a>                        // problem with the abstraction, we can't call unlink because there's no handle
+<a href=#109 id=109 data-nosnippet>109</a>                        // drop mutable borrow on `path`
+<a href=#110 id=110 data-nosnippet>110</a>                        </span><span class="kw">let </span>path = path.clone();
+<a href=#111 id=111 data-nosnippet>111</a>                        drop(guard);
+<a href=#112 id=112 data-nosnippet>112</a>                        <span class="macro">wasi_try_ok!</span>(state.fs_remove_file(path));
+<a href=#113 id=113 data-nosnippet>113</a>                    }
+<a href=#114 id=114 data-nosnippet>114</a>                }
+<a href=#115 id=115 data-nosnippet>115</a>                Kind::Dir { .. } | Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Isdir),
+<a href=#116 id=116 data-nosnippet>116</a>                Kind::Symlink { .. } =&gt; {
+<a href=#117 id=117 data-nosnippet>117</a>                    <span class="kw">match </span>state.fs_remove_file(host_adjusted_path.as_path()) {
+<a href=#118 id=118 data-nosnippet>118</a>                        <span class="prelude-val">Ok</span>(()) =&gt; {}
+<a href=#119 id=119 data-nosnippet>119</a>                        <span class="prelude-val">Err</span>(Errno::Noent)
+<a href=#120 id=120 data-nosnippet>120</a>                            <span class="kw">if </span>state
+<a href=#121 id=121 data-nosnippet>121</a>                                .fs
+<a href=#122 id=122 data-nosnippet>122</a>                                .ephemeral_symlink_at(host_adjusted_path.as_path())
+<a href=#123 id=123 data-nosnippet>123</a>                                .is_some() =&gt; {}
+<a href=#124 id=124 data-nosnippet>124</a>                        <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(err),
+<a href=#125 id=125 data-nosnippet>125</a>                    }
+<a href=#126 id=126 data-nosnippet>126</a>                    state
+<a href=#127 id=127 data-nosnippet>127</a>                        .fs
+<a href=#128 id=128 data-nosnippet>128</a>                        .unregister_ephemeral_symlink(host_adjusted_path.as_path());
+<a href=#129 id=129 data-nosnippet>129</a>                }
+<a href=#130 id=130 data-nosnippet>130</a>                <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"wasi::path_unlink_file for Buffer"</span>),
+<a href=#131 id=131 data-nosnippet>131</a>            }
+<a href=#132 id=132 data-nosnippet>132</a>        }
+<a href=#133 id=133 data-nosnippet>133</a>    }
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a>    <span class="prelude-val">Ok</span>(Errno::Success)
+<a href=#136 id=136 data-nosnippet>136</a>}</code></pre></div></section></main></body></html>
