@@ -1750,40 +1750,57 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
         */
 
-        let call_site_local = if let Some(lpad) = self.state.get_innermost_landingpad() {
-            let then_block = self.context.append_basic_block(self.function, "then_block");
+        let call_site_local = self.build_indirect_call_or_invoke(
+            llvm_func_type,
+            typed_func_ptr,
+            params.as_slice(),
+            "then_block",
+            "indirect_call",
+        )?;
+        for (attr, attr_loc) in llvm_func_attrs {
+            call_site_local.add_attribute(attr_loc, attr);
+        }
+
+        Ok(call_site_local)
+    }
+
+    fn build_indirect_call_or_invoke(
+        &mut self,
+        llvm_func_type: inkwell::types::FunctionType<'ctx>,
+        func_ptr: PointerValue<'ctx>,
+        params: &[BasicValueEnum<'ctx>],
+        then_block_name: &str,
+        call_name: &str,
+    ) -> Result<CallSiteValue<'ctx>, CompileError> {
+        if let Some(lpad) = self.state.get_innermost_landingpad() {
+            let then_block = self
+                .context
+                .append_basic_block(self.function, then_block_name);
 
             let ret = err!(self.builder.build_indirect_invoke(
                 llvm_func_type,
-                typed_func_ptr,
-                params.as_slice(),
+                func_ptr,
+                params,
                 then_block,
                 lpad,
                 "",
             ));
 
             self.builder.position_at_end(then_block);
-            ret
+            Ok(ret)
         } else {
-            err!(
-                self.builder.build_indirect_call(
-                    llvm_func_type,
-                    typed_func_ptr,
-                    params
-                        .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::<Vec<BasicMetadataValueEnum>>()
-                        .as_slice(),
-                    "indirect_call",
-                )
-            )
-        };
-        for (attr, attr_loc) in llvm_func_attrs {
-            call_site_local.add_attribute(attr_loc, attr);
+            let call_params = params
+                .iter()
+                .copied()
+                .map(Into::into)
+                .collect::<Vec<BasicMetadataValueEnum>>();
+            Ok(err!(self.builder.build_indirect_call(
+                llvm_func_type,
+                func_ptr,
+                call_params.as_slice(),
+                call_name,
+            )))
         }
-
-        Ok(call_site_local)
     }
 }
 
@@ -2998,36 +3015,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ));
 
                     self.builder.position_at_end(include_m0_call_block);
-                    let call_site_with_m0 =
-                        if let Some(lpad) = self.state.get_innermost_landingpad() {
-                            let then_block = self
-                                .context
-                                .append_basic_block(self.function, "then_block_with_m0");
-                            let ret = err!(self.builder.build_indirect_invoke(
-                                llvm_func_type,
-                                func,
-                                params_with_m0.as_slice(),
-                                then_block,
-                                lpad,
-                                "",
-                            ));
-                            self.builder.position_at_end(then_block);
-                            ret
-                        } else {
-                            err!(
-                                self.builder.build_indirect_call(
-                                    llvm_func_type,
-                                    func,
-                                    params_with_m0
-                                        .iter()
-                                        .copied()
-                                        .map(Into::into)
-                                        .collect::<Vec<BasicMetadataValueEnum>>()
-                                        .as_slice(),
-                                    "",
-                                )
-                            )
-                        };
+                    let call_site_with_m0 = self.build_indirect_call_or_invoke(
+                        llvm_func_type,
+                        func,
+                        params_with_m0.as_slice(),
+                        "then_block_with_m0",
+                        "",
+                    )?;
                     for (attr, attr_loc) in &attrs {
                         call_site_with_m0.add_attribute(*attr_loc, *attr);
                     }
@@ -3040,36 +3034,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     err!(self.builder.build_unconditional_branch(call_cont));
 
                     self.builder.position_at_end(skip_m0_call_block);
-                    let call_site_no_m0 = if let Some(lpad) = self.state.get_innermost_landingpad()
-                    {
-                        let then_block = self
-                            .context
-                            .append_basic_block(self.function, "then_block_no_m0");
-                        let ret = err!(self.builder.build_indirect_invoke(
-                            llvm_func_type_no_m0,
-                            func,
-                            params_no_m0.as_slice(),
-                            then_block,
-                            lpad,
-                            "",
-                        ));
-                        self.builder.position_at_end(then_block);
-                        ret
-                    } else {
-                        err!(
-                            self.builder.build_indirect_call(
-                                llvm_func_type_no_m0,
-                                func,
-                                params_no_m0
-                                    .iter()
-                                    .copied()
-                                    .map(Into::into)
-                                    .collect_vec()
-                                    .as_slice(),
-                                "",
-                            )
-                        )
-                    };
+                    let call_site_no_m0 = self.build_indirect_call_or_invoke(
+                        llvm_func_type_no_m0,
+                        func,
+                        params_no_m0.as_slice(),
+                        "then_block_no_m0",
+                        "",
+                    )?;
                     for (attr, attr_loc) in &llvm_func_attrs_no_m0 {
                         call_site_no_m0.add_attribute(*attr_loc, *attr);
                     }
@@ -3122,36 +3093,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         }
                     }
                     */
-                    let call_site = if let Some(lpad) = self.state.get_innermost_landingpad() {
-                        let then_block =
-                            self.context.append_basic_block(self.function, "then_block");
-
-                        let ret = err!(self.builder.build_indirect_invoke(
-                            llvm_func_type,
-                            func,
-                            params.as_slice(),
-                            then_block,
-                            lpad,
-                            "",
-                        ));
-
-                        self.builder.position_at_end(then_block);
-                        ret
-                    } else {
-                        err!(
-                            self.builder.build_indirect_call(
-                                llvm_func_type,
-                                func,
-                                params
-                                    .iter()
-                                    .copied()
-                                    .map(Into::into)
-                                    .collect::<Vec<BasicMetadataValueEnum>>()
-                                    .as_slice(),
-                                "",
-                            )
-                        )
-                    };
+                    let call_site = self.build_indirect_call_or_invoke(
+                        llvm_func_type,
+                        func,
+                        params.as_slice(),
+                        "then_block",
+                        "",
+                    )?;
                     for (attr, attr_loc) in attrs {
                         call_site.add_attribute(attr_loc, attr);
                     }
