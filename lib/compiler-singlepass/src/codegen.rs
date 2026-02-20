@@ -1094,20 +1094,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let loc = self.acquire_location(&ty)?;
                 self.value_stack.push((loc, CanonicalizeType::None));
 
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-
-                let src = if let Some(local_global_index) =
+                let (src, tmp) = if let Some(local_global_index) =
                     self.module.local_global_index(global_index)
                 {
                     let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                    self.machine.emit_relaxed_mov(
-                        Size::S64,
+                    (
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
-                        Location::GPR(tmp),
-                    )?;
-                    Location::Memory(tmp, 0)
+                        None,
+                    )
                 } else {
                     // Imported globals require one level of indirection.
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
                     let offset = self
                         .vmoffsets
                         .vmctx_vmglobal_import_definition(global_index);
@@ -1116,28 +1113,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
                         Location::GPR(tmp),
                     )?;
-                    Location::Memory(tmp, 0)
+                    (Location::Memory(tmp, 0), Some(tmp))
                 };
 
                 self.machine.emit_relaxed_mov(Size::S64, src, loc)?;
 
-                self.machine.release_gpr(tmp);
+                if let Some(tmp) = tmp {
+                    self.machine.release_gpr(tmp);
+                }
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                let dst = if let Some(local_global_index) =
+                let (dst, tmp) = if let Some(local_global_index) =
                     self.module.local_global_index(global_index)
                 {
                     let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                    self.machine.emit_relaxed_mov(
-                        Size::S64,
+                    (
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
-                        Location::GPR(tmp),
-                    )?;
-                    Location::Memory(tmp, 0)
+                        None,
+                    )
                 } else {
                     // Imported globals require one level of indirection.
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
                     let offset = self
                         .vmoffsets
                         .vmctx_vmglobal_import_definition(global_index);
@@ -1146,7 +1143,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
                         Location::GPR(tmp),
                     )?;
-                    Location::Memory(tmp, 0)
+                    (Location::Memory(tmp, 0), Some(tmp))
                 };
                 let (loc, canonicalize) = self.pop_value_released()?;
                 if let Some(canonicalize_size) = canonicalize.to_size() {
@@ -1158,7 +1155,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 } else {
                     self.machine.emit_relaxed_mov(Size::S64, loc, dst)?;
                 }
-                self.machine.release_gpr(tmp);
+                if let Some(tmp) = tmp {
+                    self.machine.release_gpr(tmp);
+                }
             }
             Operator::LocalGet { local_index } => {
                 let local_index = local_index as usize;

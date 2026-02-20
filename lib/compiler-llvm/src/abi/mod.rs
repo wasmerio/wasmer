@@ -14,7 +14,7 @@ use inkwell::{
     context::Context,
     targets::TargetMachine,
     types::FunctionType,
-    values::{BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
+    values::{BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
 };
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
@@ -65,32 +65,8 @@ pub trait Abi {
     }
 
     /// Given a function definition, retrieve the parameter that is the pointer to the first --
-    /// number 0 -- local global.
-    #[allow(unused)]
-    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> IntValue<'ctx> {
-        // g0 is always after the vmctx.
-        let vmctx_idx = u32::from(
-            func_value
-                .get_enum_attribute(
-                    AttributeLoc::Param(0),
-                    Attribute::get_named_enum_kind_id("sret"),
-                )
-                .is_some(),
-        );
-
-        let param = func_value.get_nth_param(vmctx_idx + 1).unwrap();
-        param.set_name("g0");
-
-        param.into_int_value()
-    }
-
-    /// Given a function definition, retrieve the parameter that is the pointer to the first --
     /// number 0 -- local memory.
-    ///
-    /// # Notes
-    /// This function assumes that g0m0 is enabled.
     fn get_m0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
-        // m0 is always after g0.
         let vmctx_idx = u32::from(
             func_value
                 .get_enum_attribute(
