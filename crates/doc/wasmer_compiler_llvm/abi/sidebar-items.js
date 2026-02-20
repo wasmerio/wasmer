@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["G0M0FunctionKind"],"fn":["get_abi"],"mod":["aarch64_systemv","riscv_systemv","x86_64_systemv"],"trait":["Abi"],"type":["LocalFunctionG0M0params"]};
+window.SIDEBAR_ITEMS = {"fn":["get_abi"],"mod":["aarch64_systemv","riscv_systemv","x86_64_systemv"],"trait":["Abi"]};

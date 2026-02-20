@@ -331,7 +331,7 @@
 <a href=#331 id=331 data-nosnippet>331</a>    }
 <a href=#332 id=332 data-nosnippet>332</a>
 <a href=#333 id=333 data-nosnippet>333</a>    <span class="kw">fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-<a href=#334 id=334 data-nosnippet>334</a>        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="macro">format!</span>(
+<a href=#334 id=334 data-nosnippet>334</a>        <span class="macro">format!</span>(
 <a href=#335 id=335 data-nosnippet>335</a>            <span class="string">"llvm-{}"</span>,
 <a href=#336 id=336 data-nosnippet>336</a>            <span class="kw">match </span><span class="self">self</span>.config.opt_level {
 <a href=#337 id=337 data-nosnippet>337</a>                inkwell::OptimizationLevel::None =&gt; <span class="string">"opt0"</span>,
@@ -339,361 +339,352 @@
 <a href=#339 id=339 data-nosnippet>339</a>                inkwell::OptimizationLevel::Default =&gt; <span class="string">"optd"</span>,
 <a href=#340 id=340 data-nosnippet>340</a>                inkwell::OptimizationLevel::Aggressive =&gt; <span class="string">"opta"</span>,
 <a href=#341 id=341 data-nosnippet>341</a>            }
-<a href=#342 id=342 data-nosnippet>342</a>        );
-<a href=#343 id=343 data-nosnippet>343</a>
-<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">if </span><span class="self">self</span>.config.enable_g0m0_opt {
-<a href=#345 id=345 data-nosnippet>345</a>            ret.push_str(<span class="string">"-g0m0"</span>);
-<a href=#346 id=346 data-nosnippet>346</a>        }
-<a href=#347 id=347 data-nosnippet>347</a>
-<a href=#348 id=348 data-nosnippet>348</a>        ret
-<a href=#349 id=349 data-nosnippet>349</a>    }
-<a href=#350 id=350 data-nosnippet>350</a>
-<a href=#351 id=351 data-nosnippet>351</a>    <span class="doccomment">/// Get the middlewares for this compiler
-<a href=#352 id=352 data-nosnippet>352</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
-<a href=#353 id=353 data-nosnippet>353</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
-<a href=#354 id=354 data-nosnippet>354</a>    }
-<a href=#355 id=355 data-nosnippet>355</a>
-<a href=#356 id=356 data-nosnippet>356</a>    <span class="kw">fn </span>experimental_native_compile_module(
-<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#358 id=358 data-nosnippet>358</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#359 id=359 data-nosnippet>359</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
-<a href=#360 id=360 data-nosnippet>360</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#361 id=361 data-nosnippet>361</a>        <span class="comment">// The list of function bodies
-<a href=#362 id=362 data-nosnippet>362</a>        </span>function_body_inputs: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#363 id=363 data-nosnippet>363</a>        symbol_registry: <span class="kw-2">&amp;</span><span class="kw">dyn </span>SymbolRegistry,
-<a href=#364 id=364 data-nosnippet>364</a>        <span class="comment">// The metadata to inject into the wasmer_metadata section of the object file.
-<a href=#365 id=365 data-nosnippet>365</a>        </span>wasmer_metadata: <span class="kw-2">&amp;</span>[u8],
-<a href=#366 id=366 data-nosnippet>366</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt;&gt; {
-<a href=#367 id=367 data-nosnippet>367</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.compile_native_object(
-<a href=#368 id=368 data-nosnippet>368</a>            target,
-<a href=#369 id=369 data-nosnippet>369</a>            compile_info,
-<a href=#370 id=370 data-nosnippet>370</a>            module_translation,
-<a href=#371 id=371 data-nosnippet>371</a>            function_body_inputs,
-<a href=#372 id=372 data-nosnippet>372</a>            symbol_registry,
-<a href=#373 id=373 data-nosnippet>373</a>            wasmer_metadata,
-<a href=#374 id=374 data-nosnippet>374</a>            <span class="self">self</span>.config.target_binary_format(target),
-<a href=#375 id=375 data-nosnippet>375</a>        ))
-<a href=#376 id=376 data-nosnippet>376</a>    }
-<a href=#377 id=377 data-nosnippet>377</a>
-<a href=#378 id=378 data-nosnippet>378</a>    <span class="doccomment">/// Compile the module using LLVM, producing a compilation result with
-<a href=#379 id=379 data-nosnippet>379</a>    /// associated relocations.
-<a href=#380 id=380 data-nosnippet>380</a>    </span><span class="kw">fn </span>compile_module(
-<a href=#381 id=381 data-nosnippet>381</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#382 id=382 data-nosnippet>382</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#383 id=383 data-nosnippet>383</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
-<a href=#384 id=384 data-nosnippet>384</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#385 id=385 data-nosnippet>385</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#386 id=386 data-nosnippet>386</a>        progress_callback: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CompilationProgressCallback&gt;,
-<a href=#387 id=387 data-nosnippet>387</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
-<a href=#388 id=388 data-nosnippet>388</a>        <span class="kw">let </span>binary_format = <span class="self">self</span>.config.target_binary_format(target);
-<a href=#389 id=389 data-nosnippet>389</a>
-<a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
-<a href=#391 id=391 data-nosnippet>391</a>        <span class="kw">let </span>module_hash = module.hash_string();
-<a href=#392 id=392 data-nosnippet>392</a>
-<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">let </span>total_function_call_trampolines = module.signatures.len();
-<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw">let </span>total_dynamic_trampolines = module.num_imported_functions;
-<a href=#395 id=395 data-nosnippet>395</a>        <span class="kw">let </span>total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
-<a href=#396 id=396 data-nosnippet>396</a>            * ((total_dynamic_trampolines + total_function_call_trampolines) <span class="kw">as </span>u64)
-<a href=#397 id=397 data-nosnippet>397</a>            + function_body_inputs
-<a href=#398 id=398 data-nosnippet>398</a>                .iter()
-<a href=#399 id=399 data-nosnippet>399</a>                .map(|(<span class="kw">_</span>, body)| body.data.len() <span class="kw">as </span>u64)
-<a href=#400 id=400 data-nosnippet>400</a>                .sum::&lt;u64&gt;();
+<a href=#342 id=342 data-nosnippet>342</a>        )
+<a href=#343 id=343 data-nosnippet>343</a>    }
+<a href=#344 id=344 data-nosnippet>344</a>
+<a href=#345 id=345 data-nosnippet>345</a>    <span class="doccomment">/// Get the middlewares for this compiler
+<a href=#346 id=346 data-nosnippet>346</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
+<a href=#347 id=347 data-nosnippet>347</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
+<a href=#348 id=348 data-nosnippet>348</a>    }
+<a href=#349 id=349 data-nosnippet>349</a>
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="kw">fn </span>experimental_native_compile_module(
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#352 id=352 data-nosnippet>352</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#353 id=353 data-nosnippet>353</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#354 id=354 data-nosnippet>354</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#355 id=355 data-nosnippet>355</a>        <span class="comment">// The list of function bodies
+<a href=#356 id=356 data-nosnippet>356</a>        </span>function_body_inputs: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#357 id=357 data-nosnippet>357</a>        symbol_registry: <span class="kw-2">&amp;</span><span class="kw">dyn </span>SymbolRegistry,
+<a href=#358 id=358 data-nosnippet>358</a>        <span class="comment">// The metadata to inject into the wasmer_metadata section of the object file.
+<a href=#359 id=359 data-nosnippet>359</a>        </span>wasmer_metadata: <span class="kw-2">&amp;</span>[u8],
+<a href=#360 id=360 data-nosnippet>360</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt;&gt; {
+<a href=#361 id=361 data-nosnippet>361</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.compile_native_object(
+<a href=#362 id=362 data-nosnippet>362</a>            target,
+<a href=#363 id=363 data-nosnippet>363</a>            compile_info,
+<a href=#364 id=364 data-nosnippet>364</a>            module_translation,
+<a href=#365 id=365 data-nosnippet>365</a>            function_body_inputs,
+<a href=#366 id=366 data-nosnippet>366</a>            symbol_registry,
+<a href=#367 id=367 data-nosnippet>367</a>            wasmer_metadata,
+<a href=#368 id=368 data-nosnippet>368</a>            <span class="self">self</span>.config.target_binary_format(target),
+<a href=#369 id=369 data-nosnippet>369</a>        ))
+<a href=#370 id=370 data-nosnippet>370</a>    }
+<a href=#371 id=371 data-nosnippet>371</a>
+<a href=#372 id=372 data-nosnippet>372</a>    <span class="doccomment">/// Compile the module using LLVM, producing a compilation result with
+<a href=#373 id=373 data-nosnippet>373</a>    /// associated relocations.
+<a href=#374 id=374 data-nosnippet>374</a>    </span><span class="kw">fn </span>compile_module(
+<a href=#375 id=375 data-nosnippet>375</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#376 id=376 data-nosnippet>376</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#377 id=377 data-nosnippet>377</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#378 id=378 data-nosnippet>378</a>        module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#379 id=379 data-nosnippet>379</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#380 id=380 data-nosnippet>380</a>        progress_callback: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CompilationProgressCallback&gt;,
+<a href=#381 id=381 data-nosnippet>381</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
+<a href=#382 id=382 data-nosnippet>382</a>        <span class="kw">let </span>binary_format = <span class="self">self</span>.config.target_binary_format(target);
+<a href=#383 id=383 data-nosnippet>383</a>
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="kw">let </span>module_hash = module.hash_string();
+<a href=#386 id=386 data-nosnippet>386</a>
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">let </span>total_function_call_trampolines = module.signatures.len();
+<a href=#388 id=388 data-nosnippet>388</a>        <span class="kw">let </span>total_dynamic_trampolines = module.num_imported_functions;
+<a href=#389 id=389 data-nosnippet>389</a>        <span class="kw">let </span>total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
+<a href=#390 id=390 data-nosnippet>390</a>            * ((total_dynamic_trampolines + total_function_call_trampolines) <span class="kw">as </span>u64)
+<a href=#391 id=391 data-nosnippet>391</a>            + function_body_inputs
+<a href=#392 id=392 data-nosnippet>392</a>                .iter()
+<a href=#393 id=393 data-nosnippet>393</a>                .map(|(<span class="kw">_</span>, body)| body.data.len() <span class="kw">as </span>u64)
+<a href=#394 id=394 data-nosnippet>394</a>                .sum::&lt;u64&gt;();
+<a href=#395 id=395 data-nosnippet>395</a>
+<a href=#396 id=396 data-nosnippet>396</a>        <span class="kw">let </span>progress = progress_callback
+<a href=#397 id=397 data-nosnippet>397</a>            .cloned()
+<a href=#398 id=398 data-nosnippet>398</a>            .map(|cb| ProgressContext::new(cb, total_steps, <span class="string">"Compiling functions"</span>));
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>        <span class="comment">// TODO: merge constants in sections.
 <a href=#401 id=401 data-nosnippet>401</a>
-<a href=#402 id=402 data-nosnippet>402</a>        <span class="kw">let </span>progress = progress_callback
-<a href=#403 id=403 data-nosnippet>403</a>            .cloned()
-<a href=#404 id=404 data-nosnippet>404</a>            .map(|cb| ProgressContext::new(cb, total_steps, <span class="string">"Compiling functions"</span>));
-<a href=#405 id=405 data-nosnippet>405</a>
-<a href=#406 id=406 data-nosnippet>406</a>        <span class="comment">// TODO: merge constants in sections.
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>module_custom_sections = PrimaryMap::new();
+<a href=#402 id=402 data-nosnippet>402</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>module_custom_sections = PrimaryMap::new();
+<a href=#403 id=403 data-nosnippet>403</a>
+<a href=#404 id=404 data-nosnippet>404</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_bytes = <span class="macro">vec!</span>[];
+<a href=#405 id=405 data-nosnippet>405</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_relocations = <span class="macro">vec!</span>[];
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a>        <span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_bytes = <span class="macro">vec!</span>[];
+<a href=#408 id=408 data-nosnippet>408</a>        <span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_relocations = <span class="macro">vec!</span>[];
 <a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_bytes = <span class="macro">vec!</span>[];
-<a href=#411 id=411 data-nosnippet>411</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_relocations = <span class="macro">vec!</span>[];
-<a href=#412 id=412 data-nosnippet>412</a>
-<a href=#413 id=413 data-nosnippet>413</a>        <span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_bytes = <span class="macro">vec!</span>[];
-<a href=#414 id=414 data-nosnippet>414</a>        <span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_relocations = <span class="macro">vec!</span>[];
-<a href=#415 id=415 data-nosnippet>415</a>
-<a href=#416 id=416 data-nosnippet>416</a>        <span class="kw">let </span><span class="kw-2">mut </span>got_targets: HashSet&lt;wasmer_compiler::types::relocation::RelocationTarget&gt; = <span class="kw">if </span><span class="macro">matches!</span>(
-<a href=#417 id=417 data-nosnippet>417</a>            target.triple().binary_format,
-<a href=#418 id=418 data-nosnippet>418</a>            target_lexicon::BinaryFormat::Macho
-<a href=#419 id=419 data-nosnippet>419</a>        ) {
-<a href=#420 id=420 data-nosnippet>420</a>            HashSet::from_iter(<span class="macro">vec!</span>[RelocationTarget::LibCall(LibCall::EHPersonality)])
-<a href=#421 id=421 data-nosnippet>421</a>        } <span class="kw">else </span>{
-<a href=#422 id=422 data-nosnippet>422</a>            HashSet::default()
-<a href=#423 id=423 data-nosnippet>423</a>        };
-<a href=#424 id=424 data-nosnippet>424</a>
-<a href=#425 id=425 data-nosnippet>425</a>        <span class="kw">let </span>symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
-<a href=#426 id=426 data-nosnippet>426</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
-<a href=#427 id=427 data-nosnippet>427</a>        <span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
-<a href=#428 id=428 data-nosnippet>428</a>        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
-<a href=#429 id=429 data-nosnippet>429</a>
-<a href=#430 id=430 data-nosnippet>430</a>        <span class="kw">let </span>pool = ThreadPoolBuilder::new()
-<a href=#431 id=431 data-nosnippet>431</a>            .num_threads(<span class="self">self</span>.config.num_threads.get())
-<a href=#432 id=432 data-nosnippet>432</a>            .build()
-<a href=#433 id=433 data-nosnippet>433</a>            .map_err(|e| CompileError::Resource(e.to_string()))<span class="question-mark">?</span>;
-<a href=#434 id=434 data-nosnippet>434</a>
-<a href=#435 id=435 data-nosnippet>435</a>        <span class="kw">let </span>buckets =
-<a href=#436 id=436 data-nosnippet>436</a>            build_function_buckets(<span class="kw-2">&amp;</span>function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / <span class="number">3</span>);
-<a href=#437 id=437 data-nosnippet>437</a>        <span class="kw">let </span>largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
-<a href=#438 id=438 data-nosnippet>438</a>        <span class="macro">tracing::debug!</span>(buckets = buckets.len(), largest_bucket, <span class="string">"buckets built"</span>);
-<a href=#439 id=439 data-nosnippet>439</a>        <span class="kw">let </span>functions = translate_function_buckets(
-<a href=#440 id=440 data-nosnippet>440</a>            <span class="kw-2">&amp;</span>pool,
-<a href=#441 id=441 data-nosnippet>441</a>            || {
-<a href=#442 id=442 data-nosnippet>442</a>                <span class="kw">let </span>compiler = <span class="kw-2">&amp;</span><span class="self">self</span>;
-<a href=#443 id=443 data-nosnippet>443</a>                <span class="kw">let </span>target_machine = compiler.config().target_machine_with_opt(target, <span class="bool-val">true</span>);
-<a href=#444 id=444 data-nosnippet>444</a>                <span class="kw">let </span>target_machine_no_opt =
-<a href=#445 id=445 data-nosnippet>445</a>                    compiler.config().target_machine_with_opt(target, <span class="bool-val">false</span>);
-<a href=#446 id=446 data-nosnippet>446</a>                <span class="kw">let </span>pointer_width = target.triple().pointer_width().unwrap().bytes();
-<a href=#447 id=447 data-nosnippet>447</a>                FuncTranslator::new(
-<a href=#448 id=448 data-nosnippet>448</a>                    target.triple().clone(),
-<a href=#449 id=449 data-nosnippet>449</a>                    target_machine,
-<a href=#450 id=450 data-nosnippet>450</a>                    <span class="prelude-val">Some</span>(target_machine_no_opt),
-<a href=#451 id=451 data-nosnippet>451</a>                    binary_format,
-<a href=#452 id=452 data-nosnippet>452</a>                    pointer_width,
-<a href=#453 id=453 data-nosnippet>453</a>                    <span class="kw-2">*</span>target.cpu_features(),
-<a href=#454 id=454 data-nosnippet>454</a>                )
-<a href=#455 id=455 data-nosnippet>455</a>                .unwrap()
-<a href=#456 id=456 data-nosnippet>456</a>            },
-<a href=#457 id=457 data-nosnippet>457</a>            |func_translator, i, input| {
-<a href=#458 id=458 data-nosnippet>458</a>                func_translator.translate(
-<a href=#459 id=459 data-nosnippet>459</a>                    module,
-<a href=#460 id=460 data-nosnippet>460</a>                    module_translation,
-<a href=#461 id=461 data-nosnippet>461</a>                    i,
-<a href=#462 id=462 data-nosnippet>462</a>                    input,
-<a href=#463 id=463 data-nosnippet>463</a>                    <span class="self">self</span>.config(),
-<a href=#464 id=464 data-nosnippet>464</a>                    memory_styles,
-<a href=#465 id=465 data-nosnippet>465</a>                    table_styles,
-<a href=#466 id=466 data-nosnippet>466</a>                    <span class="kw-2">&amp;</span>symbol_registry,
-<a href=#467 id=467 data-nosnippet>467</a>                    target.triple(),
-<a href=#468 id=468 data-nosnippet>468</a>                )
-<a href=#469 id=469 data-nosnippet>469</a>            },
-<a href=#470 id=470 data-nosnippet>470</a>            progress.clone(),
-<a href=#471 id=471 data-nosnippet>471</a>            <span class="kw-2">&amp;</span>buckets,
-<a href=#472 id=472 data-nosnippet>472</a>        )<span class="question-mark">?</span>;
-<a href=#473 id=473 data-nosnippet>473</a>
-<a href=#474 id=474 data-nosnippet>474</a>        <span class="kw">let </span>functions = functions
-<a href=#475 id=475 data-nosnippet>475</a>            .into_iter()
-<a href=#476 id=476 data-nosnippet>476</a>            .map(|<span class="kw-2">mut </span>compiled_function| {
-<a href=#477 id=477 data-nosnippet>477</a>                <span class="kw">let </span>first_section = module_custom_sections.len() <span class="kw">as </span>u32;
-<a href=#478 id=478 data-nosnippet>478</a>                <span class="kw">for </span>(section_index, custom_section) <span class="kw">in </span>compiled_function.custom_sections.iter() {
-<a href=#479 id=479 data-nosnippet>479</a>                    <span class="comment">// TODO: remove this call to clone()
-<a href=#480 id=480 data-nosnippet>480</a>                    </span><span class="kw">let </span><span class="kw-2">mut </span>custom_section = custom_section.clone();
-<a href=#481 id=481 data-nosnippet>481</a>                    <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
-<a href=#482 id=482 data-nosnippet>482</a>                        <span class="kw">if let </span>RelocationTarget::CustomSection(index) = reloc.reloc_target {
-<a href=#483 id=483 data-nosnippet>483</a>                            reloc.reloc_target = RelocationTarget::CustomSection(
-<a href=#484 id=484 data-nosnippet>484</a>                                SectionIndex::from_u32(first_section + index.as_u32()),
-<a href=#485 id=485 data-nosnippet>485</a>                            )
-<a href=#486 id=486 data-nosnippet>486</a>                        }
-<a href=#487 id=487 data-nosnippet>487</a>
-<a href=#488 id=488 data-nosnippet>488</a>                        <span class="kw">if </span>reloc.kind.needs_got() {
-<a href=#489 id=489 data-nosnippet>489</a>                            got_targets.insert(reloc.reloc_target);
-<a href=#490 id=490 data-nosnippet>490</a>                        }
-<a href=#491 id=491 data-nosnippet>491</a>                    }
-<a href=#492 id=492 data-nosnippet>492</a>
-<a href=#493 id=493 data-nosnippet>493</a>                    <span class="kw">if </span>compiled_function
-<a href=#494 id=494 data-nosnippet>494</a>                        .eh_frame_section_indices
-<a href=#495 id=495 data-nosnippet>495</a>                        .contains(<span class="kw-2">&amp;</span>section_index)
-<a href=#496 id=496 data-nosnippet>496</a>                    {
-<a href=#497 id=497 data-nosnippet>497</a>                        <span class="kw">let </span>offset = eh_frame_section_bytes.len() <span class="kw">as </span>u32;
-<a href=#498 id=498 data-nosnippet>498</a>                        <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
-<a href=#499 id=499 data-nosnippet>499</a>                            reloc.offset += offset;
-<a href=#500 id=500 data-nosnippet>500</a>                        }
-<a href=#501 id=501 data-nosnippet>501</a>                        eh_frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
-<a href=#502 id=502 data-nosnippet>502</a>                        <span class="comment">// Terminate the eh_frame info with a zero-length CIE.
-<a href=#503 id=503 data-nosnippet>503</a>                        </span>eh_frame_section_bytes.extend_from_slice(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
-<a href=#504 id=504 data-nosnippet>504</a>                        eh_frame_section_relocations.extend(custom_section.relocations);
-<a href=#505 id=505 data-nosnippet>505</a>                        <span class="comment">// TODO: we do this to keep the count right, remove it.
-<a href=#506 id=506 data-nosnippet>506</a>                        </span>module_custom_sections.push(CustomSection {
-<a href=#507 id=507 data-nosnippet>507</a>                            protection: CustomSectionProtection::Read,
-<a href=#508 id=508 data-nosnippet>508</a>                            alignment: <span class="prelude-val">None</span>,
-<a href=#509 id=509 data-nosnippet>509</a>                            bytes: SectionBody::new_with_vec(<span class="macro">vec!</span>[]),
-<a href=#510 id=510 data-nosnippet>510</a>                            relocations: <span class="macro">vec!</span>[],
-<a href=#511 id=511 data-nosnippet>511</a>                        });
-<a href=#512 id=512 data-nosnippet>512</a>                    } <span class="kw">else if </span>compiled_function
-<a href=#513 id=513 data-nosnippet>513</a>                        .compact_unwind_section_indices
-<a href=#514 id=514 data-nosnippet>514</a>                        .contains(<span class="kw-2">&amp;</span>section_index)
-<a href=#515 id=515 data-nosnippet>515</a>                    {
-<a href=#516 id=516 data-nosnippet>516</a>                        <span class="kw">let </span>offset = compact_unwind_section_bytes.len() <span class="kw">as </span>u32;
-<a href=#517 id=517 data-nosnippet>517</a>                        <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
-<a href=#518 id=518 data-nosnippet>518</a>                            reloc.offset += offset;
-<a href=#519 id=519 data-nosnippet>519</a>                        }
-<a href=#520 id=520 data-nosnippet>520</a>                        compact_unwind_section_bytes
-<a href=#521 id=521 data-nosnippet>521</a>                            .extend_from_slice(custom_section.bytes.as_slice());
-<a href=#522 id=522 data-nosnippet>522</a>                        compact_unwind_section_relocations.extend(custom_section.relocations);
-<a href=#523 id=523 data-nosnippet>523</a>                        <span class="comment">// TODO: we do this to keep the count right, remove it.
-<a href=#524 id=524 data-nosnippet>524</a>                        </span>module_custom_sections.push(CustomSection {
-<a href=#525 id=525 data-nosnippet>525</a>                            protection: CustomSectionProtection::Read,
-<a href=#526 id=526 data-nosnippet>526</a>                            alignment: <span class="prelude-val">None</span>,
-<a href=#527 id=527 data-nosnippet>527</a>                            bytes: SectionBody::new_with_vec(<span class="macro">vec!</span>[]),
-<a href=#528 id=528 data-nosnippet>528</a>                            relocations: <span class="macro">vec!</span>[],
-<a href=#529 id=529 data-nosnippet>529</a>                        });
-<a href=#530 id=530 data-nosnippet>530</a>                    } <span class="kw">else </span>{
-<a href=#531 id=531 data-nosnippet>531</a>                        module_custom_sections.push(custom_section);
-<a href=#532 id=532 data-nosnippet>532</a>                    }
-<a href=#533 id=533 data-nosnippet>533</a>                }
-<a href=#534 id=534 data-nosnippet>534</a>                <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>compiled_function.compiled_function.relocations {
-<a href=#535 id=535 data-nosnippet>535</a>                    <span class="kw">if let </span>RelocationTarget::CustomSection(index) = reloc.reloc_target {
-<a href=#536 id=536 data-nosnippet>536</a>                        reloc.reloc_target = RelocationTarget::CustomSection(
-<a href=#537 id=537 data-nosnippet>537</a>                            SectionIndex::from_u32(first_section + index.as_u32()),
-<a href=#538 id=538 data-nosnippet>538</a>                        )
-<a href=#539 id=539 data-nosnippet>539</a>                    }
-<a href=#540 id=540 data-nosnippet>540</a>
-<a href=#541 id=541 data-nosnippet>541</a>                    <span class="kw">if </span>reloc.kind.needs_got() {
-<a href=#542 id=542 data-nosnippet>542</a>                        got_targets.insert(reloc.reloc_target);
-<a href=#543 id=543 data-nosnippet>543</a>                    }
-<a href=#544 id=544 data-nosnippet>544</a>                }
-<a href=#545 id=545 data-nosnippet>545</a>                compiled_function.compiled_function
-<a href=#546 id=546 data-nosnippet>546</a>            })
-<a href=#547 id=547 data-nosnippet>547</a>            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;();
-<a href=#548 id=548 data-nosnippet>548</a>
-<a href=#549 id=549 data-nosnippet>549</a>        <span class="kw">let </span>progress = progress.clone();
-<a href=#550 id=550 data-nosnippet>550</a>        <span class="kw">let </span>function_call_trampolines = pool.install(|| {
-<a href=#551 id=551 data-nosnippet>551</a>            module
-<a href=#552 id=552 data-nosnippet>552</a>                .signatures
-<a href=#553 id=553 data-nosnippet>553</a>                .values()
-<a href=#554 id=554 data-nosnippet>554</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#555 id=555 data-nosnippet>555</a>                .par_iter()
-<a href=#556 id=556 data-nosnippet>556</a>                .map_init(
-<a href=#557 id=557 data-nosnippet>557</a>                    || {
-<a href=#558 id=558 data-nosnippet>558</a>                        <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
-<a href=#559 id=559 data-nosnippet>559</a>                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
-<a href=#560 id=560 data-nosnippet>560</a>                            .unwrap()
-<a href=#561 id=561 data-nosnippet>561</a>                    },
-<a href=#562 id=562 data-nosnippet>562</a>                    |func_trampoline, sig| {
-<a href=#563 id=563 data-nosnippet>563</a>                        <span class="kw">let </span>trampoline =
-<a href=#564 id=564 data-nosnippet>564</a>                            func_trampoline.trampoline(sig, <span class="self">self</span>.config(), <span class="string">""</span>, compile_info);
-<a href=#565 id=565 data-nosnippet>565</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
-<a href=#566 id=566 data-nosnippet>566</a>                            progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)<span class="question-mark">?</span>;
-<a href=#567 id=567 data-nosnippet>567</a>                        }
-<a href=#568 id=568 data-nosnippet>568</a>                        trampoline
-<a href=#569 id=569 data-nosnippet>569</a>                    },
-<a href=#570 id=570 data-nosnippet>570</a>                )
-<a href=#571 id=571 data-nosnippet>571</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#572 id=572 data-nosnippet>572</a>                .into_iter()
-<a href=#573 id=573 data-nosnippet>573</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;, CompileError&gt;&gt;()
-<a href=#574 id=574 data-nosnippet>574</a>        })<span class="question-mark">?</span>;
-<a href=#575 id=575 data-nosnippet>575</a>
-<a href=#576 id=576 data-nosnippet>576</a>        <span class="comment">// TODO: I removed the parallel processing of dynamic trampolines because we're passing
-<a href=#577 id=577 data-nosnippet>577</a>        // the sections bytes and relocations directly into the trampoline generation function.
-<a href=#578 id=578 data-nosnippet>578</a>        // We can move that logic out and re-enable parallel processing. Hopefully, there aren't
-<a href=#579 id=579 data-nosnippet>579</a>        // enough dynamic trampolines to actually cause a noticeable performance degradation.
-<a href=#580 id=580 data-nosnippet>580</a>        </span><span class="kw">let </span>dynamic_function_trampolines = {
-<a href=#581 id=581 data-nosnippet>581</a>            <span class="kw">let </span>progress = progress.clone();
-<a href=#582 id=582 data-nosnippet>582</a>            <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
-<a href=#583 id=583 data-nosnippet>583</a>            <span class="kw">let </span>func_trampoline =
-<a href=#584 id=584 data-nosnippet>584</a>                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
-<a href=#585 id=585 data-nosnippet>585</a>                    .unwrap();
-<a href=#586 id=586 data-nosnippet>586</a>            module
-<a href=#587 id=587 data-nosnippet>587</a>                .imported_function_types()
-<a href=#588 id=588 data-nosnippet>588</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#589 id=589 data-nosnippet>589</a>                .into_iter()
-<a href=#590 id=590 data-nosnippet>590</a>                .enumerate()
-<a href=#591 id=591 data-nosnippet>591</a>                .map(|(index, func_type)| {
-<a href=#592 id=592 data-nosnippet>592</a>                    <span class="kw">let </span>trampoline = func_trampoline.dynamic_trampoline(
-<a href=#593 id=593 data-nosnippet>593</a>                        <span class="kw-2">&amp;</span>func_type,
-<a href=#594 id=594 data-nosnippet>594</a>                        <span class="self">self</span>.config(),
-<a href=#595 id=595 data-nosnippet>595</a>                        <span class="string">""</span>,
-<a href=#596 id=596 data-nosnippet>596</a>                        index <span class="kw">as </span>u32,
-<a href=#597 id=597 data-nosnippet>597</a>                        <span class="kw-2">&amp;mut </span>module_custom_sections,
-<a href=#598 id=598 data-nosnippet>598</a>                        <span class="kw-2">&amp;mut </span>eh_frame_section_bytes,
-<a href=#599 id=599 data-nosnippet>599</a>                        <span class="kw-2">&amp;mut </span>eh_frame_section_relocations,
-<a href=#600 id=600 data-nosnippet>600</a>                        <span class="kw-2">&amp;mut </span>compact_unwind_section_bytes,
-<a href=#601 id=601 data-nosnippet>601</a>                        <span class="kw-2">&amp;mut </span>compact_unwind_section_relocations,
-<a href=#602 id=602 data-nosnippet>602</a>                        <span class="kw-2">&amp;</span>module_hash,
-<a href=#603 id=603 data-nosnippet>603</a>                    )<span class="question-mark">?</span>;
-<a href=#604 id=604 data-nosnippet>604</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
-<a href=#605 id=605 data-nosnippet>605</a>                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)<span class="question-mark">?</span>;
-<a href=#606 id=606 data-nosnippet>606</a>                    }
-<a href=#607 id=607 data-nosnippet>607</a>                    <span class="prelude-val">Ok</span>(trampoline)
-<a href=#608 id=608 data-nosnippet>608</a>                })
-<a href=#609 id=609 data-nosnippet>609</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#610 id=610 data-nosnippet>610</a>                .into_iter()
-<a href=#611 id=611 data-nosnippet>611</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
-<a href=#612 id=612 data-nosnippet>612</a>        </span>};
-<a href=#613 id=613 data-nosnippet>613</a>
-<a href=#614 id=614 data-nosnippet>614</a>        <span class="kw">let </span><span class="kw-2">mut </span>unwind_info = UnwindInfo::default();
-<a href=#615 id=615 data-nosnippet>615</a>
-<a href=#616 id=616 data-nosnippet>616</a>        <span class="kw">if </span>!eh_frame_section_bytes.is_empty() {
-<a href=#617 id=617 data-nosnippet>617</a>            <span class="kw">let </span>eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
-<a href=#618 id=618 data-nosnippet>618</a>            module_custom_sections.push(CustomSection {
-<a href=#619 id=619 data-nosnippet>619</a>                protection: CustomSectionProtection::Read,
-<a href=#620 id=620 data-nosnippet>620</a>                alignment: <span class="prelude-val">None</span>,
-<a href=#621 id=621 data-nosnippet>621</a>                bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
-<a href=#622 id=622 data-nosnippet>622</a>                relocations: eh_frame_section_relocations,
-<a href=#623 id=623 data-nosnippet>623</a>            });
-<a href=#624 id=624 data-nosnippet>624</a>            unwind_info.eh_frame = <span class="prelude-val">Some</span>(eh_frame_idx);
-<a href=#625 id=625 data-nosnippet>625</a>        }
-<a href=#626 id=626 data-nosnippet>626</a>
-<a href=#627 id=627 data-nosnippet>627</a>        <span class="kw">if </span>!compact_unwind_section_bytes.is_empty() {
-<a href=#628 id=628 data-nosnippet>628</a>            <span class="kw">let </span>cu_index = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
-<a href=#629 id=629 data-nosnippet>629</a>            module_custom_sections.push(CustomSection {
-<a href=#630 id=630 data-nosnippet>630</a>                protection: CustomSectionProtection::Read,
-<a href=#631 id=631 data-nosnippet>631</a>                alignment: <span class="prelude-val">None</span>,
-<a href=#632 id=632 data-nosnippet>632</a>                bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
-<a href=#633 id=633 data-nosnippet>633</a>                relocations: compact_unwind_section_relocations,
-<a href=#634 id=634 data-nosnippet>634</a>            });
-<a href=#635 id=635 data-nosnippet>635</a>            unwind_info.compact_unwind = <span class="prelude-val">Some</span>(cu_index);
-<a href=#636 id=636 data-nosnippet>636</a>        }
-<a href=#637 id=637 data-nosnippet>637</a>
-<a href=#638 id=638 data-nosnippet>638</a>        <span class="kw">let </span><span class="kw-2">mut </span>got = wasmer_compiler::types::function::GOT::empty();
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">let </span><span class="kw-2">mut </span>got_targets: HashSet&lt;wasmer_compiler::types::relocation::RelocationTarget&gt; = <span class="kw">if </span><span class="macro">matches!</span>(
+<a href=#411 id=411 data-nosnippet>411</a>            target.triple().binary_format,
+<a href=#412 id=412 data-nosnippet>412</a>            target_lexicon::BinaryFormat::Macho
+<a href=#413 id=413 data-nosnippet>413</a>        ) {
+<a href=#414 id=414 data-nosnippet>414</a>            HashSet::from_iter(<span class="macro">vec!</span>[RelocationTarget::LibCall(LibCall::EHPersonality)])
+<a href=#415 id=415 data-nosnippet>415</a>        } <span class="kw">else </span>{
+<a href=#416 id=416 data-nosnippet>416</a>            HashSet::default()
+<a href=#417 id=417 data-nosnippet>417</a>        };
+<a href=#418 id=418 data-nosnippet>418</a>
+<a href=#419 id=419 data-nosnippet>419</a>        <span class="kw">let </span>symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
+<a href=#420 id=420 data-nosnippet>420</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
+<a href=#421 id=421 data-nosnippet>421</a>        <span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
+<a href=#422 id=422 data-nosnippet>422</a>        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a>        <span class="kw">let </span>pool = ThreadPoolBuilder::new()
+<a href=#425 id=425 data-nosnippet>425</a>            .num_threads(<span class="self">self</span>.config.num_threads.get())
+<a href=#426 id=426 data-nosnippet>426</a>            .build()
+<a href=#427 id=427 data-nosnippet>427</a>            .map_err(|e| CompileError::Resource(e.to_string()))<span class="question-mark">?</span>;
+<a href=#428 id=428 data-nosnippet>428</a>
+<a href=#429 id=429 data-nosnippet>429</a>        <span class="kw">let </span>buckets =
+<a href=#430 id=430 data-nosnippet>430</a>            build_function_buckets(<span class="kw-2">&amp;</span>function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / <span class="number">3</span>);
+<a href=#431 id=431 data-nosnippet>431</a>        <span class="kw">let </span>largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
+<a href=#432 id=432 data-nosnippet>432</a>        <span class="macro">tracing::debug!</span>(buckets = buckets.len(), largest_bucket, <span class="string">"buckets built"</span>);
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="kw">let </span>functions = translate_function_buckets(
+<a href=#434 id=434 data-nosnippet>434</a>            <span class="kw-2">&amp;</span>pool,
+<a href=#435 id=435 data-nosnippet>435</a>            || {
+<a href=#436 id=436 data-nosnippet>436</a>                <span class="kw">let </span>compiler = <span class="kw-2">&amp;</span><span class="self">self</span>;
+<a href=#437 id=437 data-nosnippet>437</a>                <span class="kw">let </span>target_machine = compiler.config().target_machine_with_opt(target, <span class="bool-val">true</span>);
+<a href=#438 id=438 data-nosnippet>438</a>                <span class="kw">let </span>target_machine_no_opt =
+<a href=#439 id=439 data-nosnippet>439</a>                    compiler.config().target_machine_with_opt(target, <span class="bool-val">false</span>);
+<a href=#440 id=440 data-nosnippet>440</a>                <span class="kw">let </span>pointer_width = target.triple().pointer_width().unwrap().bytes();
+<a href=#441 id=441 data-nosnippet>441</a>                FuncTranslator::new(
+<a href=#442 id=442 data-nosnippet>442</a>                    target.triple().clone(),
+<a href=#443 id=443 data-nosnippet>443</a>                    target_machine,
+<a href=#444 id=444 data-nosnippet>444</a>                    <span class="prelude-val">Some</span>(target_machine_no_opt),
+<a href=#445 id=445 data-nosnippet>445</a>                    binary_format,
+<a href=#446 id=446 data-nosnippet>446</a>                    pointer_width,
+<a href=#447 id=447 data-nosnippet>447</a>                    <span class="kw-2">*</span>target.cpu_features(),
+<a href=#448 id=448 data-nosnippet>448</a>                )
+<a href=#449 id=449 data-nosnippet>449</a>                .unwrap()
+<a href=#450 id=450 data-nosnippet>450</a>            },
+<a href=#451 id=451 data-nosnippet>451</a>            |func_translator, i, input| {
+<a href=#452 id=452 data-nosnippet>452</a>                func_translator.translate(
+<a href=#453 id=453 data-nosnippet>453</a>                    module,
+<a href=#454 id=454 data-nosnippet>454</a>                    module_translation,
+<a href=#455 id=455 data-nosnippet>455</a>                    i,
+<a href=#456 id=456 data-nosnippet>456</a>                    input,
+<a href=#457 id=457 data-nosnippet>457</a>                    <span class="self">self</span>.config(),
+<a href=#458 id=458 data-nosnippet>458</a>                    memory_styles,
+<a href=#459 id=459 data-nosnippet>459</a>                    table_styles,
+<a href=#460 id=460 data-nosnippet>460</a>                    <span class="kw-2">&amp;</span>symbol_registry,
+<a href=#461 id=461 data-nosnippet>461</a>                    target.triple(),
+<a href=#462 id=462 data-nosnippet>462</a>                )
+<a href=#463 id=463 data-nosnippet>463</a>            },
+<a href=#464 id=464 data-nosnippet>464</a>            progress.clone(),
+<a href=#465 id=465 data-nosnippet>465</a>            <span class="kw-2">&amp;</span>buckets,
+<a href=#466 id=466 data-nosnippet>466</a>        )<span class="question-mark">?</span>;
+<a href=#467 id=467 data-nosnippet>467</a>
+<a href=#468 id=468 data-nosnippet>468</a>        <span class="kw">let </span>functions = functions
+<a href=#469 id=469 data-nosnippet>469</a>            .into_iter()
+<a href=#470 id=470 data-nosnippet>470</a>            .map(|<span class="kw-2">mut </span>compiled_function| {
+<a href=#471 id=471 data-nosnippet>471</a>                <span class="kw">let </span>first_section = module_custom_sections.len() <span class="kw">as </span>u32;
+<a href=#472 id=472 data-nosnippet>472</a>                <span class="kw">for </span>(section_index, custom_section) <span class="kw">in </span>compiled_function.custom_sections.iter() {
+<a href=#473 id=473 data-nosnippet>473</a>                    <span class="comment">// TODO: remove this call to clone()
+<a href=#474 id=474 data-nosnippet>474</a>                    </span><span class="kw">let </span><span class="kw-2">mut </span>custom_section = custom_section.clone();
+<a href=#475 id=475 data-nosnippet>475</a>                    <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
+<a href=#476 id=476 data-nosnippet>476</a>                        <span class="kw">if let </span>RelocationTarget::CustomSection(index) = reloc.reloc_target {
+<a href=#477 id=477 data-nosnippet>477</a>                            reloc.reloc_target = RelocationTarget::CustomSection(
+<a href=#478 id=478 data-nosnippet>478</a>                                SectionIndex::from_u32(first_section + index.as_u32()),
+<a href=#479 id=479 data-nosnippet>479</a>                            )
+<a href=#480 id=480 data-nosnippet>480</a>                        }
+<a href=#481 id=481 data-nosnippet>481</a>
+<a href=#482 id=482 data-nosnippet>482</a>                        <span class="kw">if </span>reloc.kind.needs_got() {
+<a href=#483 id=483 data-nosnippet>483</a>                            got_targets.insert(reloc.reloc_target);
+<a href=#484 id=484 data-nosnippet>484</a>                        }
+<a href=#485 id=485 data-nosnippet>485</a>                    }
+<a href=#486 id=486 data-nosnippet>486</a>
+<a href=#487 id=487 data-nosnippet>487</a>                    <span class="kw">if </span>compiled_function
+<a href=#488 id=488 data-nosnippet>488</a>                        .eh_frame_section_indices
+<a href=#489 id=489 data-nosnippet>489</a>                        .contains(<span class="kw-2">&amp;</span>section_index)
+<a href=#490 id=490 data-nosnippet>490</a>                    {
+<a href=#491 id=491 data-nosnippet>491</a>                        <span class="kw">let </span>offset = eh_frame_section_bytes.len() <span class="kw">as </span>u32;
+<a href=#492 id=492 data-nosnippet>492</a>                        <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
+<a href=#493 id=493 data-nosnippet>493</a>                            reloc.offset += offset;
+<a href=#494 id=494 data-nosnippet>494</a>                        }
+<a href=#495 id=495 data-nosnippet>495</a>                        eh_frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
+<a href=#496 id=496 data-nosnippet>496</a>                        <span class="comment">// Terminate the eh_frame info with a zero-length CIE.
+<a href=#497 id=497 data-nosnippet>497</a>                        </span>eh_frame_section_bytes.extend_from_slice(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
+<a href=#498 id=498 data-nosnippet>498</a>                        eh_frame_section_relocations.extend(custom_section.relocations);
+<a href=#499 id=499 data-nosnippet>499</a>                        <span class="comment">// TODO: we do this to keep the count right, remove it.
+<a href=#500 id=500 data-nosnippet>500</a>                        </span>module_custom_sections.push(CustomSection {
+<a href=#501 id=501 data-nosnippet>501</a>                            protection: CustomSectionProtection::Read,
+<a href=#502 id=502 data-nosnippet>502</a>                            alignment: <span class="prelude-val">None</span>,
+<a href=#503 id=503 data-nosnippet>503</a>                            bytes: SectionBody::new_with_vec(<span class="macro">vec!</span>[]),
+<a href=#504 id=504 data-nosnippet>504</a>                            relocations: <span class="macro">vec!</span>[],
+<a href=#505 id=505 data-nosnippet>505</a>                        });
+<a href=#506 id=506 data-nosnippet>506</a>                    } <span class="kw">else if </span>compiled_function
+<a href=#507 id=507 data-nosnippet>507</a>                        .compact_unwind_section_indices
+<a href=#508 id=508 data-nosnippet>508</a>                        .contains(<span class="kw-2">&amp;</span>section_index)
+<a href=#509 id=509 data-nosnippet>509</a>                    {
+<a href=#510 id=510 data-nosnippet>510</a>                        <span class="kw">let </span>offset = compact_unwind_section_bytes.len() <span class="kw">as </span>u32;
+<a href=#511 id=511 data-nosnippet>511</a>                        <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
+<a href=#512 id=512 data-nosnippet>512</a>                            reloc.offset += offset;
+<a href=#513 id=513 data-nosnippet>513</a>                        }
+<a href=#514 id=514 data-nosnippet>514</a>                        compact_unwind_section_bytes
+<a href=#515 id=515 data-nosnippet>515</a>                            .extend_from_slice(custom_section.bytes.as_slice());
+<a href=#516 id=516 data-nosnippet>516</a>                        compact_unwind_section_relocations.extend(custom_section.relocations);
+<a href=#517 id=517 data-nosnippet>517</a>                        <span class="comment">// TODO: we do this to keep the count right, remove it.
+<a href=#518 id=518 data-nosnippet>518</a>                        </span>module_custom_sections.push(CustomSection {
+<a href=#519 id=519 data-nosnippet>519</a>                            protection: CustomSectionProtection::Read,
+<a href=#520 id=520 data-nosnippet>520</a>                            alignment: <span class="prelude-val">None</span>,
+<a href=#521 id=521 data-nosnippet>521</a>                            bytes: SectionBody::new_with_vec(<span class="macro">vec!</span>[]),
+<a href=#522 id=522 data-nosnippet>522</a>                            relocations: <span class="macro">vec!</span>[],
+<a href=#523 id=523 data-nosnippet>523</a>                        });
+<a href=#524 id=524 data-nosnippet>524</a>                    } <span class="kw">else </span>{
+<a href=#525 id=525 data-nosnippet>525</a>                        module_custom_sections.push(custom_section);
+<a href=#526 id=526 data-nosnippet>526</a>                    }
+<a href=#527 id=527 data-nosnippet>527</a>                }
+<a href=#528 id=528 data-nosnippet>528</a>                <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>compiled_function.compiled_function.relocations {
+<a href=#529 id=529 data-nosnippet>529</a>                    <span class="kw">if let </span>RelocationTarget::CustomSection(index) = reloc.reloc_target {
+<a href=#530 id=530 data-nosnippet>530</a>                        reloc.reloc_target = RelocationTarget::CustomSection(
+<a href=#531 id=531 data-nosnippet>531</a>                            SectionIndex::from_u32(first_section + index.as_u32()),
+<a href=#532 id=532 data-nosnippet>532</a>                        )
+<a href=#533 id=533 data-nosnippet>533</a>                    }
+<a href=#534 id=534 data-nosnippet>534</a>
+<a href=#535 id=535 data-nosnippet>535</a>                    <span class="kw">if </span>reloc.kind.needs_got() {
+<a href=#536 id=536 data-nosnippet>536</a>                        got_targets.insert(reloc.reloc_target);
+<a href=#537 id=537 data-nosnippet>537</a>                    }
+<a href=#538 id=538 data-nosnippet>538</a>                }
+<a href=#539 id=539 data-nosnippet>539</a>                compiled_function.compiled_function
+<a href=#540 id=540 data-nosnippet>540</a>            })
+<a href=#541 id=541 data-nosnippet>541</a>            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;();
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a>        <span class="kw">let </span>progress = progress.clone();
+<a href=#544 id=544 data-nosnippet>544</a>        <span class="kw">let </span>function_call_trampolines = pool.install(|| {
+<a href=#545 id=545 data-nosnippet>545</a>            module
+<a href=#546 id=546 data-nosnippet>546</a>                .signatures
+<a href=#547 id=547 data-nosnippet>547</a>                .values()
+<a href=#548 id=548 data-nosnippet>548</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#549 id=549 data-nosnippet>549</a>                .par_iter()
+<a href=#550 id=550 data-nosnippet>550</a>                .map_init(
+<a href=#551 id=551 data-nosnippet>551</a>                    || {
+<a href=#552 id=552 data-nosnippet>552</a>                        <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
+<a href=#553 id=553 data-nosnippet>553</a>                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+<a href=#554 id=554 data-nosnippet>554</a>                            .unwrap()
+<a href=#555 id=555 data-nosnippet>555</a>                    },
+<a href=#556 id=556 data-nosnippet>556</a>                    |func_trampoline, sig| {
+<a href=#557 id=557 data-nosnippet>557</a>                        <span class="kw">let </span>trampoline =
+<a href=#558 id=558 data-nosnippet>558</a>                            func_trampoline.trampoline(sig, <span class="self">self</span>.config(), <span class="string">""</span>, compile_info);
+<a href=#559 id=559 data-nosnippet>559</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
+<a href=#560 id=560 data-nosnippet>560</a>                            progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)<span class="question-mark">?</span>;
+<a href=#561 id=561 data-nosnippet>561</a>                        }
+<a href=#562 id=562 data-nosnippet>562</a>                        trampoline
+<a href=#563 id=563 data-nosnippet>563</a>                    },
+<a href=#564 id=564 data-nosnippet>564</a>                )
+<a href=#565 id=565 data-nosnippet>565</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#566 id=566 data-nosnippet>566</a>                .into_iter()
+<a href=#567 id=567 data-nosnippet>567</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;, CompileError&gt;&gt;()
+<a href=#568 id=568 data-nosnippet>568</a>        })<span class="question-mark">?</span>;
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a>        <span class="comment">// TODO: I removed the parallel processing of dynamic trampolines because we're passing
+<a href=#571 id=571 data-nosnippet>571</a>        // the sections bytes and relocations directly into the trampoline generation function.
+<a href=#572 id=572 data-nosnippet>572</a>        // We can move that logic out and re-enable parallel processing. Hopefully, there aren't
+<a href=#573 id=573 data-nosnippet>573</a>        // enough dynamic trampolines to actually cause a noticeable performance degradation.
+<a href=#574 id=574 data-nosnippet>574</a>        </span><span class="kw">let </span>dynamic_function_trampolines = {
+<a href=#575 id=575 data-nosnippet>575</a>            <span class="kw">let </span>progress = progress.clone();
+<a href=#576 id=576 data-nosnippet>576</a>            <span class="kw">let </span>target_machine = <span class="self">self</span>.config().target_machine(target);
+<a href=#577 id=577 data-nosnippet>577</a>            <span class="kw">let </span>func_trampoline =
+<a href=#578 id=578 data-nosnippet>578</a>                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
+<a href=#579 id=579 data-nosnippet>579</a>                    .unwrap();
+<a href=#580 id=580 data-nosnippet>580</a>            module
+<a href=#581 id=581 data-nosnippet>581</a>                .imported_function_types()
+<a href=#582 id=582 data-nosnippet>582</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#583 id=583 data-nosnippet>583</a>                .into_iter()
+<a href=#584 id=584 data-nosnippet>584</a>                .enumerate()
+<a href=#585 id=585 data-nosnippet>585</a>                .map(|(index, func_type)| {
+<a href=#586 id=586 data-nosnippet>586</a>                    <span class="kw">let </span>trampoline = func_trampoline.dynamic_trampoline(
+<a href=#587 id=587 data-nosnippet>587</a>                        <span class="kw-2">&amp;</span>func_type,
+<a href=#588 id=588 data-nosnippet>588</a>                        <span class="self">self</span>.config(),
+<a href=#589 id=589 data-nosnippet>589</a>                        <span class="string">""</span>,
+<a href=#590 id=590 data-nosnippet>590</a>                        index <span class="kw">as </span>u32,
+<a href=#591 id=591 data-nosnippet>591</a>                        <span class="kw-2">&amp;mut </span>module_custom_sections,
+<a href=#592 id=592 data-nosnippet>592</a>                        <span class="kw-2">&amp;mut </span>eh_frame_section_bytes,
+<a href=#593 id=593 data-nosnippet>593</a>                        <span class="kw-2">&amp;mut </span>eh_frame_section_relocations,
+<a href=#594 id=594 data-nosnippet>594</a>                        <span class="kw-2">&amp;mut </span>compact_unwind_section_bytes,
+<a href=#595 id=595 data-nosnippet>595</a>                        <span class="kw-2">&amp;mut </span>compact_unwind_section_relocations,
+<a href=#596 id=596 data-nosnippet>596</a>                        <span class="kw-2">&amp;</span>module_hash,
+<a href=#597 id=597 data-nosnippet>597</a>                    )<span class="question-mark">?</span>;
+<a href=#598 id=598 data-nosnippet>598</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
+<a href=#599 id=599 data-nosnippet>599</a>                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)<span class="question-mark">?</span>;
+<a href=#600 id=600 data-nosnippet>600</a>                    }
+<a href=#601 id=601 data-nosnippet>601</a>                    <span class="prelude-val">Ok</span>(trampoline)
+<a href=#602 id=602 data-nosnippet>602</a>                })
+<a href=#603 id=603 data-nosnippet>603</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#604 id=604 data-nosnippet>604</a>                .into_iter()
+<a href=#605 id=605 data-nosnippet>605</a>                .collect::&lt;<span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+<a href=#606 id=606 data-nosnippet>606</a>        </span>};
+<a href=#607 id=607 data-nosnippet>607</a>
+<a href=#608 id=608 data-nosnippet>608</a>        <span class="kw">let </span><span class="kw-2">mut </span>unwind_info = UnwindInfo::default();
+<a href=#609 id=609 data-nosnippet>609</a>
+<a href=#610 id=610 data-nosnippet>610</a>        <span class="kw">if </span>!eh_frame_section_bytes.is_empty() {
+<a href=#611 id=611 data-nosnippet>611</a>            <span class="kw">let </span>eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
+<a href=#612 id=612 data-nosnippet>612</a>            module_custom_sections.push(CustomSection {
+<a href=#613 id=613 data-nosnippet>613</a>                protection: CustomSectionProtection::Read,
+<a href=#614 id=614 data-nosnippet>614</a>                alignment: <span class="prelude-val">None</span>,
+<a href=#615 id=615 data-nosnippet>615</a>                bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
+<a href=#616 id=616 data-nosnippet>616</a>                relocations: eh_frame_section_relocations,
+<a href=#617 id=617 data-nosnippet>617</a>            });
+<a href=#618 id=618 data-nosnippet>618</a>            unwind_info.eh_frame = <span class="prelude-val">Some</span>(eh_frame_idx);
+<a href=#619 id=619 data-nosnippet>619</a>        }
+<a href=#620 id=620 data-nosnippet>620</a>
+<a href=#621 id=621 data-nosnippet>621</a>        <span class="kw">if </span>!compact_unwind_section_bytes.is_empty() {
+<a href=#622 id=622 data-nosnippet>622</a>            <span class="kw">let </span>cu_index = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
+<a href=#623 id=623 data-nosnippet>623</a>            module_custom_sections.push(CustomSection {
+<a href=#624 id=624 data-nosnippet>624</a>                protection: CustomSectionProtection::Read,
+<a href=#625 id=625 data-nosnippet>625</a>                alignment: <span class="prelude-val">None</span>,
+<a href=#626 id=626 data-nosnippet>626</a>                bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
+<a href=#627 id=627 data-nosnippet>627</a>                relocations: compact_unwind_section_relocations,
+<a href=#628 id=628 data-nosnippet>628</a>            });
+<a href=#629 id=629 data-nosnippet>629</a>            unwind_info.compact_unwind = <span class="prelude-val">Some</span>(cu_index);
+<a href=#630 id=630 data-nosnippet>630</a>        }
+<a href=#631 id=631 data-nosnippet>631</a>
+<a href=#632 id=632 data-nosnippet>632</a>        <span class="kw">let </span><span class="kw-2">mut </span>got = wasmer_compiler::types::function::GOT::empty();
+<a href=#633 id=633 data-nosnippet>633</a>
+<a href=#634 id=634 data-nosnippet>634</a>        <span class="kw">if </span>!got_targets.is_empty() {
+<a href=#635 id=635 data-nosnippet>635</a>            <span class="kw">let </span>pointer_width = target
+<a href=#636 id=636 data-nosnippet>636</a>                .triple()
+<a href=#637 id=637 data-nosnippet>637</a>                .pointer_width()
+<a href=#638 id=638 data-nosnippet>638</a>                .map_err(|<span class="kw">_</span>| CompileError::Codegen(<span class="string">"Could not get pointer width"</span>.to_string()))<span class="question-mark">?</span>;
 <a href=#639 id=639 data-nosnippet>639</a>
-<a href=#640 id=640 data-nosnippet>640</a>        <span class="kw">if </span>!got_targets.is_empty() {
-<a href=#641 id=641 data-nosnippet>641</a>            <span class="kw">let </span>pointer_width = target
-<a href=#642 id=642 data-nosnippet>642</a>                .triple()
-<a href=#643 id=643 data-nosnippet>643</a>                .pointer_width()
-<a href=#644 id=644 data-nosnippet>644</a>                .map_err(|<span class="kw">_</span>| CompileError::Codegen(<span class="string">"Could not get pointer width"</span>.to_string()))<span class="question-mark">?</span>;
+<a href=#640 id=640 data-nosnippet>640</a>            <span class="kw">let </span>got_entry_size = <span class="kw">match </span>pointer_width {
+<a href=#641 id=641 data-nosnippet>641</a>                target_lexicon::PointerWidth::U64 =&gt; <span class="number">8</span>,
+<a href=#642 id=642 data-nosnippet>642</a>                target_lexicon::PointerWidth::U32 =&gt; <span class="number">4</span>,
+<a href=#643 id=643 data-nosnippet>643</a>                target_lexicon::PointerWidth::U16 =&gt; <span class="macro">todo!</span>(),
+<a href=#644 id=644 data-nosnippet>644</a>            };
 <a href=#645 id=645 data-nosnippet>645</a>
-<a href=#646 id=646 data-nosnippet>646</a>            <span class="kw">let </span>got_entry_size = <span class="kw">match </span>pointer_width {
-<a href=#647 id=647 data-nosnippet>647</a>                target_lexicon::PointerWidth::U64 =&gt; <span class="number">8</span>,
-<a href=#648 id=648 data-nosnippet>648</a>                target_lexicon::PointerWidth::U32 =&gt; <span class="number">4</span>,
+<a href=#646 id=646 data-nosnippet>646</a>            <span class="kw">let </span>got_entry_reloc_kind = <span class="kw">match </span>pointer_width {
+<a href=#647 id=647 data-nosnippet>647</a>                target_lexicon::PointerWidth::U64 =&gt; RelocationKind::Abs8,
+<a href=#648 id=648 data-nosnippet>648</a>                target_lexicon::PointerWidth::U32 =&gt; RelocationKind::Abs4,
 <a href=#649 id=649 data-nosnippet>649</a>                target_lexicon::PointerWidth::U16 =&gt; <span class="macro">todo!</span>(),
 <a href=#650 id=650 data-nosnippet>650</a>            };
 <a href=#651 id=651 data-nosnippet>651</a>
-<a href=#652 id=652 data-nosnippet>652</a>            <span class="kw">let </span>got_entry_reloc_kind = <span class="kw">match </span>pointer_width {
-<a href=#653 id=653 data-nosnippet>653</a>                target_lexicon::PointerWidth::U64 =&gt; RelocationKind::Abs8,
-<a href=#654 id=654 data-nosnippet>654</a>                target_lexicon::PointerWidth::U32 =&gt; RelocationKind::Abs4,
-<a href=#655 id=655 data-nosnippet>655</a>                target_lexicon::PointerWidth::U16 =&gt; <span class="macro">todo!</span>(),
-<a href=#656 id=656 data-nosnippet>656</a>            };
-<a href=#657 id=657 data-nosnippet>657</a>
-<a href=#658 id=658 data-nosnippet>658</a>            <span class="kw">let </span>got_data: Vec&lt;u8&gt; = <span class="macro">vec!</span>[<span class="number">0</span>; got_targets.len() * got_entry_size];
-<a href=#659 id=659 data-nosnippet>659</a>            <span class="kw">let </span><span class="kw-2">mut </span>got_relocs = <span class="macro">vec!</span>[];
-<a href=#660 id=660 data-nosnippet>660</a>
-<a href=#661 id=661 data-nosnippet>661</a>            <span class="kw">for </span>(i, target) <span class="kw">in </span>got_targets.into_iter().enumerate() {
-<a href=#662 id=662 data-nosnippet>662</a>                got_relocs.push(wasmer_compiler::types::relocation::Relocation {
-<a href=#663 id=663 data-nosnippet>663</a>                    kind: got_entry_reloc_kind,
-<a href=#664 id=664 data-nosnippet>664</a>                    reloc_target: target,
-<a href=#665 id=665 data-nosnippet>665</a>                    offset: (i * got_entry_size) <span class="kw">as </span>u32,
-<a href=#666 id=666 data-nosnippet>666</a>                    addend: <span class="number">0</span>,
-<a href=#667 id=667 data-nosnippet>667</a>                });
-<a href=#668 id=668 data-nosnippet>668</a>            }
-<a href=#669 id=669 data-nosnippet>669</a>
-<a href=#670 id=670 data-nosnippet>670</a>            <span class="kw">let </span>got_idx = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
-<a href=#671 id=671 data-nosnippet>671</a>            module_custom_sections.push(CustomSection {
-<a href=#672 id=672 data-nosnippet>672</a>                protection: CustomSectionProtection::Read,
-<a href=#673 id=673 data-nosnippet>673</a>                alignment: <span class="prelude-val">None</span>,
-<a href=#674 id=674 data-nosnippet>674</a>                bytes: SectionBody::new_with_vec(got_data),
-<a href=#675 id=675 data-nosnippet>675</a>                relocations: got_relocs,
-<a href=#676 id=676 data-nosnippet>676</a>            });
-<a href=#677 id=677 data-nosnippet>677</a>            got.index = <span class="prelude-val">Some</span>(got_idx);
-<a href=#678 id=678 data-nosnippet>678</a>        };
-<a href=#679 id=679 data-nosnippet>679</a>
-<a href=#680 id=680 data-nosnippet>680</a>        <span class="prelude-val">Ok</span>(Compilation {
-<a href=#681 id=681 data-nosnippet>681</a>            functions,
-<a href=#682 id=682 data-nosnippet>682</a>            custom_sections: module_custom_sections,
-<a href=#683 id=683 data-nosnippet>683</a>            function_call_trampolines,
-<a href=#684 id=684 data-nosnippet>684</a>            dynamic_function_trampolines,
-<a href=#685 id=685 data-nosnippet>685</a>            unwind_info,
-<a href=#686 id=686 data-nosnippet>686</a>            got,
-<a href=#687 id=687 data-nosnippet>687</a>        })
-<a href=#688 id=688 data-nosnippet>688</a>    }
-<a href=#689 id=689 data-nosnippet>689</a>
-<a href=#690 id=690 data-nosnippet>690</a>    <span class="kw">fn </span>with_opts(
-<a href=#691 id=691 data-nosnippet>691</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#692 id=692 data-nosnippet>692</a>        suggested_compiler_opts: <span class="kw-2">&amp;</span>wasmer_types::target::UserCompilerOptimizations,
-<a href=#693 id=693 data-nosnippet>693</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#694 id=694 data-nosnippet>694</a>        <span class="kw">if </span>suggested_compiler_opts.pass_params.is_some_and(|v| v) {
-<a href=#695 id=695 data-nosnippet>695</a>            <span class="self">self</span>.config.enable_g0m0_opt = <span class="bool-val">true</span>;
-<a href=#696 id=696 data-nosnippet>696</a>        }
-<a href=#697 id=697 data-nosnippet>697</a>        <span class="prelude-val">Ok</span>(())
-<a href=#698 id=698 data-nosnippet>698</a>    }
-<a href=#699 id=699 data-nosnippet>699</a>}</code></pre></div></section></main></body></html>
+<a href=#652 id=652 data-nosnippet>652</a>            <span class="kw">let </span>got_data: Vec&lt;u8&gt; = <span class="macro">vec!</span>[<span class="number">0</span>; got_targets.len() * got_entry_size];
+<a href=#653 id=653 data-nosnippet>653</a>            <span class="kw">let </span><span class="kw-2">mut </span>got_relocs = <span class="macro">vec!</span>[];
+<a href=#654 id=654 data-nosnippet>654</a>
+<a href=#655 id=655 data-nosnippet>655</a>            <span class="kw">for </span>(i, target) <span class="kw">in </span>got_targets.into_iter().enumerate() {
+<a href=#656 id=656 data-nosnippet>656</a>                got_relocs.push(wasmer_compiler::types::relocation::Relocation {
+<a href=#657 id=657 data-nosnippet>657</a>                    kind: got_entry_reloc_kind,
+<a href=#658 id=658 data-nosnippet>658</a>                    reloc_target: target,
+<a href=#659 id=659 data-nosnippet>659</a>                    offset: (i * got_entry_size) <span class="kw">as </span>u32,
+<a href=#660 id=660 data-nosnippet>660</a>                    addend: <span class="number">0</span>,
+<a href=#661 id=661 data-nosnippet>661</a>                });
+<a href=#662 id=662 data-nosnippet>662</a>            }
+<a href=#663 id=663 data-nosnippet>663</a>
+<a href=#664 id=664 data-nosnippet>664</a>            <span class="kw">let </span>got_idx = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
+<a href=#665 id=665 data-nosnippet>665</a>            module_custom_sections.push(CustomSection {
+<a href=#666 id=666 data-nosnippet>666</a>                protection: CustomSectionProtection::Read,
+<a href=#667 id=667 data-nosnippet>667</a>                alignment: <span class="prelude-val">None</span>,
+<a href=#668 id=668 data-nosnippet>668</a>                bytes: SectionBody::new_with_vec(got_data),
+<a href=#669 id=669 data-nosnippet>669</a>                relocations: got_relocs,
+<a href=#670 id=670 data-nosnippet>670</a>            });
+<a href=#671 id=671 data-nosnippet>671</a>            got.index = <span class="prelude-val">Some</span>(got_idx);
+<a href=#672 id=672 data-nosnippet>672</a>        };
+<a href=#673 id=673 data-nosnippet>673</a>
+<a href=#674 id=674 data-nosnippet>674</a>        <span class="prelude-val">Ok</span>(Compilation {
+<a href=#675 id=675 data-nosnippet>675</a>            functions,
+<a href=#676 id=676 data-nosnippet>676</a>            custom_sections: module_custom_sections,
+<a href=#677 id=677 data-nosnippet>677</a>            function_call_trampolines,
+<a href=#678 id=678 data-nosnippet>678</a>            dynamic_function_trampolines,
+<a href=#679 id=679 data-nosnippet>679</a>            unwind_info,
+<a href=#680 id=680 data-nosnippet>680</a>            got,
+<a href=#681 id=681 data-nosnippet>681</a>        })
+<a href=#682 id=682 data-nosnippet>682</a>    }
+<a href=#683 id=683 data-nosnippet>683</a>
+<a href=#684 id=684 data-nosnippet>684</a>    <span class="kw">fn </span>with_opts(
+<a href=#685 id=685 data-nosnippet>685</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#686 id=686 data-nosnippet>686</a>        _suggested_compiler_opts: <span class="kw-2">&amp;</span>wasmer_types::target::UserCompilerOptimizations,
+<a href=#687 id=687 data-nosnippet>687</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#688 id=688 data-nosnippet>688</a>        <span class="prelude-val">Ok</span>(())
+<a href=#689 id=689 data-nosnippet>689</a>    }
+<a href=#690 id=690 data-nosnippet>690</a>}</code></pre></div></section></main></body></html>

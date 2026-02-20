@@ -125,206 +125,208 @@
 <a href=#125 id=125 data-nosnippet>125</a>                    body: address,
 <a href=#126 id=126 data-nosnippet>126</a>                    environment: <span class="kw">unsafe </span>{ f.anyfunc.as_ptr().as_ref().vmctx },
 <a href=#127 id=127 data-nosnippet>127</a>                    handle,
-<a href=#128 id=128 data-nosnippet>128</a>                });
-<a href=#129 id=129 data-nosnippet>129</a>            }
-<a href=#130 id=130 data-nosnippet>130</a>            VMExtern::Table(handle) =&gt; {
-<a href=#131 id=131 data-nosnippet>131</a>                <span class="kw">let </span>t = handle.get(context);
-<a href=#132 id=132 data-nosnippet>132</a>                <span class="kw">match </span>import_index {
-<a href=#133 id=133 data-nosnippet>133</a>                    ImportIndex::Table(index) =&gt; {
-<a href=#134 id=134 data-nosnippet>134</a>                        <span class="kw">let </span>import_table_ty = t.ty();
-<a href=#135 id=135 data-nosnippet>135</a>                        <span class="kw">let </span>expected_table_ty = <span class="kw-2">&amp;</span>module.tables[<span class="kw-2">*</span>index];
-<a href=#136 id=136 data-nosnippet>136</a>                        <span class="kw">if </span>import_table_ty.ty != expected_table_ty.ty {
-<a href=#137 id=137 data-nosnippet>137</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
-<a href=#138 id=138 data-nosnippet>138</a>                                import_key.module.to_string(),
-<a href=#139 id=139 data-nosnippet>139</a>                                import_key.field.to_string(),
-<a href=#140 id=140 data-nosnippet>140</a>                                ImportError::IncompatibleType(import_extern, extern_type),
-<a href=#141 id=141 data-nosnippet>141</a>                            ));
-<a href=#142 id=142 data-nosnippet>142</a>                        }
-<a href=#143 id=143 data-nosnippet>143</a>
-<a href=#144 id=144 data-nosnippet>144</a>                        table_imports.push(VMTableImport {
-<a href=#145 id=145 data-nosnippet>145</a>                            definition: t.vmtable(),
-<a href=#146 id=146 data-nosnippet>146</a>                            handle,
-<a href=#147 id=147 data-nosnippet>147</a>                        });
-<a href=#148 id=148 data-nosnippet>148</a>                    }
-<a href=#149 id=149 data-nosnippet>149</a>                    <span class="kw">_ </span>=&gt; {
-<a href=#150 id=150 data-nosnippet>150</a>                        <span class="macro">unreachable!</span>(<span class="string">"Table resolution did not match"</span>);
-<a href=#151 id=151 data-nosnippet>151</a>                    }
-<a href=#152 id=152 data-nosnippet>152</a>                }
-<a href=#153 id=153 data-nosnippet>153</a>            }
-<a href=#154 id=154 data-nosnippet>154</a>            VMExtern::Memory(handle) =&gt; {
-<a href=#155 id=155 data-nosnippet>155</a>                <span class="kw">let </span>m = handle.get(context);
-<a href=#156 id=156 data-nosnippet>156</a>                <span class="kw">match </span>import_index {
-<a href=#157 id=157 data-nosnippet>157</a>                    ImportIndex::Memory(index) =&gt; {
-<a href=#158 id=158 data-nosnippet>158</a>                        <span class="comment">// Sanity-check: Ensure that the imported memory has at least
-<a href=#159 id=159 data-nosnippet>159</a>                        // guard-page protections the importing module expects it to have.
-<a href=#160 id=160 data-nosnippet>160</a>                        </span><span class="kw">let </span>export_memory_style = m.style();
-<a href=#161 id=161 data-nosnippet>161</a>                        <span class="kw">let </span>import_memory_style = <span class="kw-2">&amp;</span>memory_styles[<span class="kw-2">*</span>index];
-<a href=#162 id=162 data-nosnippet>162</a>                        <span class="kw">if let </span>(
-<a href=#163 id=163 data-nosnippet>163</a>                            MemoryStyle::Static { bound, .. },
-<a href=#164 id=164 data-nosnippet>164</a>                            MemoryStyle::Static {
-<a href=#165 id=165 data-nosnippet>165</a>                                bound: import_bound,
-<a href=#166 id=166 data-nosnippet>166</a>                                ..
-<a href=#167 id=167 data-nosnippet>167</a>                            },
-<a href=#168 id=168 data-nosnippet>168</a>                        ) = (export_memory_style, <span class="kw-2">&amp;</span>import_memory_style)
-<a href=#169 id=169 data-nosnippet>169</a>                        {
-<a href=#170 id=170 data-nosnippet>170</a>                            <span class="macro">assert_ge!</span>(bound, <span class="kw-2">*</span>import_bound);
-<a href=#171 id=171 data-nosnippet>171</a>                        }
-<a href=#172 id=172 data-nosnippet>172</a>                        <span class="macro">assert_ge!</span>(
-<a href=#173 id=173 data-nosnippet>173</a>                            export_memory_style.offset_guard_size(),
-<a href=#174 id=174 data-nosnippet>174</a>                            import_memory_style.offset_guard_size()
-<a href=#175 id=175 data-nosnippet>175</a>                        );
-<a href=#176 id=176 data-nosnippet>176</a>                    }
-<a href=#177 id=177 data-nosnippet>177</a>                    <span class="kw">_ </span>=&gt; {
-<a href=#178 id=178 data-nosnippet>178</a>                        <span class="comment">// This should never be reached, as we did compatibility
-<a href=#179 id=179 data-nosnippet>179</a>                        // checks before
-<a href=#180 id=180 data-nosnippet>180</a>                        </span><span class="macro">panic!</span>(<span class="string">"Memory resolution didn't matched"</span>);
-<a href=#181 id=181 data-nosnippet>181</a>                    }
-<a href=#182 id=182 data-nosnippet>182</a>                }
-<a href=#183 id=183 data-nosnippet>183</a>
-<a href=#184 id=184 data-nosnippet>184</a>                memory_imports.push(VMMemoryImport {
-<a href=#185 id=185 data-nosnippet>185</a>                    definition: m.vmmemory(),
-<a href=#186 id=186 data-nosnippet>186</a>                    handle,
-<a href=#187 id=187 data-nosnippet>187</a>                });
-<a href=#188 id=188 data-nosnippet>188</a>            }
-<a href=#189 id=189 data-nosnippet>189</a>
-<a href=#190 id=190 data-nosnippet>190</a>            VMExtern::Global(handle) =&gt; {
-<a href=#191 id=191 data-nosnippet>191</a>                <span class="kw">let </span>g = handle.get(context);
-<a href=#192 id=192 data-nosnippet>192</a>                global_imports.push(VMGlobalImport {
-<a href=#193 id=193 data-nosnippet>193</a>                    definition: g.vmglobal(),
-<a href=#194 id=194 data-nosnippet>194</a>                    handle,
-<a href=#195 id=195 data-nosnippet>195</a>                });
-<a href=#196 id=196 data-nosnippet>196</a>            }
-<a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a>            VMExtern::Tag(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"We already filtered tags out"</span>),
-<a href=#199 id=199 data-nosnippet>199</a>        }
-<a href=#200 id=200 data-nosnippet>200</a>    }
-<a href=#201 id=201 data-nosnippet>201</a>
-<a href=#202 id=202 data-nosnippet>202</a>    <span class="prelude-val">Ok</span>(Imports::new(
-<a href=#203 id=203 data-nosnippet>203</a>        function_imports,
-<a href=#204 id=204 data-nosnippet>204</a>        table_imports,
-<a href=#205 id=205 data-nosnippet>205</a>        memory_imports,
-<a href=#206 id=206 data-nosnippet>206</a>        global_imports,
-<a href=#207 id=207 data-nosnippet>207</a>    ))
-<a href=#208 id=208 data-nosnippet>208</a>}
-<a href=#209 id=209 data-nosnippet>209</a>
-<a href=#210 id=210 data-nosnippet>210</a><span class="doccomment">/// This function resolves all tags of a `ModuleInfo`. Imported tags are resolved from
-<a href=#211 id=211 data-nosnippet>211</a>/// the `StoreObjects`, whereas local tags are created and pushed to it. This is because
-<a href=#212 id=212 data-nosnippet>212</a>/// we need every tag to have a unique `VMSharedTagIndex` in the `StoreObjects`, regardless
-<a href=#213 id=213 data-nosnippet>213</a>/// of whether it's local or imported, so that exception handling can correctly resolve
-<a href=#214 id=214 data-nosnippet>214</a>/// cross-module exceptions.
-<a href=#215 id=215 data-nosnippet>215</a></span><span class="comment">// TODO: I feel this code can be cleaned up. Maybe we can handle tag indices better, so we don't have to search through the imports again?
-<a href=#216 id=216 data-nosnippet>216</a>// TODO: don't we create store handles for everything else as well? Should tags get special handling here?
-<a href=#217 id=217 data-nosnippet>217</a></span><span class="attr">#[allow(clippy::result_large_err)]
-<a href=#218 id=218 data-nosnippet>218</a></span><span class="kw">pub fn </span>resolve_tags(
-<a href=#219 id=219 data-nosnippet>219</a>    module: <span class="kw-2">&amp;</span>ModuleInfo,
-<a href=#220 id=220 data-nosnippet>220</a>    imports: <span class="kw-2">&amp;</span>[VMExtern],
-<a href=#221 id=221 data-nosnippet>221</a>    context: <span class="kw-2">&amp;mut </span>StoreObjects,
-<a href=#222 id=222 data-nosnippet>222</a>) -&gt; <span class="prelude-ty">Result</span>&lt;BoxedSlice&lt;TagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;, LinkError&gt; {
-<a href=#223 id=223 data-nosnippet>223</a>    <span class="kw">let </span><span class="kw-2">mut </span>tags = PrimaryMap::with_capacity(module.tags.len());
-<a href=#224 id=224 data-nosnippet>224</a>
-<a href=#225 id=225 data-nosnippet>225</a>    <span class="kw">for </span>(import_key, import_index) <span class="kw">in </span>module
-<a href=#226 id=226 data-nosnippet>226</a>        .imports
-<a href=#227 id=227 data-nosnippet>227</a>        .iter()
-<a href=#228 id=228 data-nosnippet>228</a>        .filter(|(<span class="kw">_</span>, import_index)| <span class="macro">matches!</span>(import_index, ImportIndex::Tag(<span class="kw">_</span>)))
-<a href=#229 id=229 data-nosnippet>229</a>    {
-<a href=#230 id=230 data-nosnippet>230</a>        <span class="kw">let </span>ResolvedImport {
-<a href=#231 id=231 data-nosnippet>231</a>            resolved,
-<a href=#232 id=232 data-nosnippet>232</a>            import_extern,
-<a href=#233 id=233 data-nosnippet>233</a>            extern_type,
-<a href=#234 id=234 data-nosnippet>234</a>        } = resolve_import(module, imports, context, import_key, import_index)<span class="question-mark">?</span>;
-<a href=#235 id=235 data-nosnippet>235</a>        <span class="kw">match </span><span class="kw-2">*</span>resolved {
-<a href=#236 id=236 data-nosnippet>236</a>            VMExtern::Tag(handle) =&gt; {
-<a href=#237 id=237 data-nosnippet>237</a>                <span class="kw">let </span>t = handle.get(context);
-<a href=#238 id=238 data-nosnippet>238</a>                <span class="kw">match </span>import_index {
-<a href=#239 id=239 data-nosnippet>239</a>                    ImportIndex::Tag(index) =&gt; {
-<a href=#240 id=240 data-nosnippet>240</a>                        <span class="kw">let </span>import_tag_ty = <span class="kw-2">&amp;</span>t.signature;
-<a href=#241 id=241 data-nosnippet>241</a>                        <span class="kw">let </span>expected_tag_ty = <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_tag_ty) =
-<a href=#242 id=242 data-nosnippet>242</a>                            module.signatures.get(module.tags[<span class="kw-2">*</span>index])
-<a href=#243 id=243 data-nosnippet>243</a>                        {
-<a href=#244 id=244 data-nosnippet>244</a>                            expected_tag_ty
-<a href=#245 id=245 data-nosnippet>245</a>                        } <span class="kw">else </span>{
-<a href=#246 id=246 data-nosnippet>246</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Resource(<span class="macro">format!</span>(
-<a href=#247 id=247 data-nosnippet>247</a>                                <span class="string">"Could not find matching signature for tag index {index:?}"
-<a href=#248 id=248 data-nosnippet>248</a>                            </span>)));
-<a href=#249 id=249 data-nosnippet>249</a>                        };
-<a href=#250 id=250 data-nosnippet>250</a>                        <span class="kw">if </span><span class="kw-2">*</span>import_tag_ty != <span class="kw-2">*</span>expected_tag_ty {
-<a href=#251 id=251 data-nosnippet>251</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
-<a href=#252 id=252 data-nosnippet>252</a>                                import_key.module.to_string(),
-<a href=#253 id=253 data-nosnippet>253</a>                                import_key.field.to_string(),
-<a href=#254 id=254 data-nosnippet>254</a>                                ImportError::IncompatibleType(import_extern, extern_type),
-<a href=#255 id=255 data-nosnippet>255</a>                            ));
-<a href=#256 id=256 data-nosnippet>256</a>                        }
-<a href=#257 id=257 data-nosnippet>257</a>
-<a href=#258 id=258 data-nosnippet>258</a>                        tags.push(handle);
-<a href=#259 id=259 data-nosnippet>259</a>                    }
-<a href=#260 id=260 data-nosnippet>260</a>                    <span class="kw">_ </span>=&gt; {
-<a href=#261 id=261 data-nosnippet>261</a>                        <span class="macro">unreachable!</span>(<span class="string">"Tag resolution did not match"</span>);
-<a href=#262 id=262 data-nosnippet>262</a>                    }
-<a href=#263 id=263 data-nosnippet>263</a>                }
-<a href=#264 id=264 data-nosnippet>264</a>            }
-<a href=#265 id=265 data-nosnippet>265</a>            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"We already filtered everything else out"</span>),
-<a href=#266 id=266 data-nosnippet>266</a>        }
-<a href=#267 id=267 data-nosnippet>267</a>    }
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>    <span class="comment">// Now, create local tags.
-<a href=#270 id=270 data-nosnippet>270</a>    // Local tags are created in the StoreObjects once per instance, so that
-<a href=#271 id=271 data-nosnippet>271</a>    // when two instances of the same module are executing, they don't end
-<a href=#272 id=272 data-nosnippet>272</a>    // up catching each other's exceptions.
-<a href=#273 id=273 data-nosnippet>273</a>    </span><span class="kw">for </span>(tag_index, signature_index) <span class="kw">in </span>module.tags.iter() {
-<a href=#274 id=274 data-nosnippet>274</a>        <span class="kw">if </span>module.is_imported_tag(tag_index) {
-<a href=#275 id=275 data-nosnippet>275</a>            <span class="kw">continue</span>;
-<a href=#276 id=276 data-nosnippet>276</a>        }
-<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">let </span>sig_ty = <span class="kw">if let </span><span class="prelude-val">Some</span>(sig_ty) = module.signatures.get(<span class="kw-2">*</span>signature_index) {
-<a href=#278 id=278 data-nosnippet>278</a>            sig_ty
-<a href=#279 id=279 data-nosnippet>279</a>        } <span class="kw">else </span>{
-<a href=#280 id=280 data-nosnippet>280</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Resource(<span class="macro">format!</span>(
-<a href=#281 id=281 data-nosnippet>281</a>                <span class="string">"Could not find matching signature for tag index {tag_index:?}"
-<a href=#282 id=282 data-nosnippet>282</a>            </span>)));
-<a href=#283 id=283 data-nosnippet>283</a>        };
-<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">let </span>handle =
-<a href=#285 id=285 data-nosnippet>285</a>            InternalStoreHandle::new(context, VMTag::new(TagKind::Exception, sig_ty.clone()));
-<a href=#286 id=286 data-nosnippet>286</a>        tags.push(handle);
-<a href=#287 id=287 data-nosnippet>287</a>    }
-<a href=#288 id=288 data-nosnippet>288</a>
-<a href=#289 id=289 data-nosnippet>289</a>    <span class="prelude-val">Ok</span>(tags.into_boxed_slice())
-<a href=#290 id=290 data-nosnippet>290</a>}
-<a href=#291 id=291 data-nosnippet>291</a>
-<a href=#292 id=292 data-nosnippet>292</a><span class="kw">struct </span>ResolvedImport&lt;<span class="lifetime">'a</span>&gt; {
-<a href=#293 id=293 data-nosnippet>293</a>    resolved: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VMExtern,
-<a href=#294 id=294 data-nosnippet>294</a>    import_extern: ExternType,
-<a href=#295 id=295 data-nosnippet>295</a>    extern_type: ExternType,
-<a href=#296 id=296 data-nosnippet>296</a>}
-<a href=#297 id=297 data-nosnippet>297</a>
-<a href=#298 id=298 data-nosnippet>298</a><span class="attr">#[allow(clippy::result_large_err)]
-<a href=#299 id=299 data-nosnippet>299</a></span><span class="kw">fn </span>resolve_import&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#300 id=300 data-nosnippet>300</a>    module: <span class="kw-2">&amp;</span>ModuleInfo,
-<a href=#301 id=301 data-nosnippet>301</a>    imports: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[VMExtern],
-<a href=#302 id=302 data-nosnippet>302</a>    context: <span class="kw-2">&amp;mut </span>StoreObjects,
-<a href=#303 id=303 data-nosnippet>303</a>    import: <span class="kw-2">&amp;</span>wasmer_types::ImportKey,
-<a href=#304 id=304 data-nosnippet>304</a>    import_index: <span class="kw-2">&amp;</span>ImportIndex,
-<a href=#305 id=305 data-nosnippet>305</a>) -&gt; <span class="prelude-ty">Result</span>&lt;ResolvedImport&lt;<span class="lifetime">'a</span>&gt;, LinkError&gt; {
-<a href=#306 id=306 data-nosnippet>306</a>    <span class="kw">let </span>import_extern = get_extern_from_import(module, import_index);
-<a href=#307 id=307 data-nosnippet>307</a>    <span class="kw">let </span>resolved = <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = imports.get(import.import_idx <span class="kw">as </span>usize) {
-<a href=#308 id=308 data-nosnippet>308</a>        r
-<a href=#309 id=309 data-nosnippet>309</a>    } <span class="kw">else </span>{
-<a href=#310 id=310 data-nosnippet>310</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
-<a href=#311 id=311 data-nosnippet>311</a>            import.module.to_string(),
-<a href=#312 id=312 data-nosnippet>312</a>            import.field.to_string(),
-<a href=#313 id=313 data-nosnippet>313</a>            ImportError::UnknownImport(import_extern),
-<a href=#314 id=314 data-nosnippet>314</a>        ));
-<a href=#315 id=315 data-nosnippet>315</a>    };
-<a href=#316 id=316 data-nosnippet>316</a>    <span class="kw">let </span>extern_type = get_extern_type(context, resolved);
-<a href=#317 id=317 data-nosnippet>317</a>    <span class="kw">let </span>runtime_size = get_runtime_size(context, resolved);
-<a href=#318 id=318 data-nosnippet>318</a>    <span class="kw">if </span>!extern_type.is_compatible_with(<span class="kw-2">&amp;</span>import_extern, runtime_size) {
-<a href=#319 id=319 data-nosnippet>319</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
-<a href=#320 id=320 data-nosnippet>320</a>            import.module.to_string(),
-<a href=#321 id=321 data-nosnippet>321</a>            import.field.to_string(),
-<a href=#322 id=322 data-nosnippet>322</a>            ImportError::IncompatibleType(import_extern, extern_type),
-<a href=#323 id=323 data-nosnippet>323</a>        ));
-<a href=#324 id=324 data-nosnippet>324</a>    }
-<a href=#325 id=325 data-nosnippet>325</a>    <span class="prelude-val">Ok</span>(ResolvedImport {
-<a href=#326 id=326 data-nosnippet>326</a>        resolved,
-<a href=#327 id=327 data-nosnippet>327</a>        import_extern,
-<a href=#328 id=328 data-nosnippet>328</a>        extern_type,
-<a href=#329 id=329 data-nosnippet>329</a>    })
-<a href=#330 id=330 data-nosnippet>330</a>}</code></pre></div></section></main></body></html>
+<a href=#128 id=128 data-nosnippet>128</a>                    <span class="comment">// TODO: use nicer way of how to detect WA-native functions
+<a href=#129 id=129 data-nosnippet>129</a>                    </span>include_m0_param: handle.get(context).host_data.is::&lt;()&gt;(),
+<a href=#130 id=130 data-nosnippet>130</a>                });
+<a href=#131 id=131 data-nosnippet>131</a>            }
+<a href=#132 id=132 data-nosnippet>132</a>            VMExtern::Table(handle) =&gt; {
+<a href=#133 id=133 data-nosnippet>133</a>                <span class="kw">let </span>t = handle.get(context);
+<a href=#134 id=134 data-nosnippet>134</a>                <span class="kw">match </span>import_index {
+<a href=#135 id=135 data-nosnippet>135</a>                    ImportIndex::Table(index) =&gt; {
+<a href=#136 id=136 data-nosnippet>136</a>                        <span class="kw">let </span>import_table_ty = t.ty();
+<a href=#137 id=137 data-nosnippet>137</a>                        <span class="kw">let </span>expected_table_ty = <span class="kw-2">&amp;</span>module.tables[<span class="kw-2">*</span>index];
+<a href=#138 id=138 data-nosnippet>138</a>                        <span class="kw">if </span>import_table_ty.ty != expected_table_ty.ty {
+<a href=#139 id=139 data-nosnippet>139</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+<a href=#140 id=140 data-nosnippet>140</a>                                import_key.module.to_string(),
+<a href=#141 id=141 data-nosnippet>141</a>                                import_key.field.to_string(),
+<a href=#142 id=142 data-nosnippet>142</a>                                ImportError::IncompatibleType(import_extern, extern_type),
+<a href=#143 id=143 data-nosnippet>143</a>                            ));
+<a href=#144 id=144 data-nosnippet>144</a>                        }
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a>                        table_imports.push(VMTableImport {
+<a href=#147 id=147 data-nosnippet>147</a>                            definition: t.vmtable(),
+<a href=#148 id=148 data-nosnippet>148</a>                            handle,
+<a href=#149 id=149 data-nosnippet>149</a>                        });
+<a href=#150 id=150 data-nosnippet>150</a>                    }
+<a href=#151 id=151 data-nosnippet>151</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#152 id=152 data-nosnippet>152</a>                        <span class="macro">unreachable!</span>(<span class="string">"Table resolution did not match"</span>);
+<a href=#153 id=153 data-nosnippet>153</a>                    }
+<a href=#154 id=154 data-nosnippet>154</a>                }
+<a href=#155 id=155 data-nosnippet>155</a>            }
+<a href=#156 id=156 data-nosnippet>156</a>            VMExtern::Memory(handle) =&gt; {
+<a href=#157 id=157 data-nosnippet>157</a>                <span class="kw">let </span>m = handle.get(context);
+<a href=#158 id=158 data-nosnippet>158</a>                <span class="kw">match </span>import_index {
+<a href=#159 id=159 data-nosnippet>159</a>                    ImportIndex::Memory(index) =&gt; {
+<a href=#160 id=160 data-nosnippet>160</a>                        <span class="comment">// Sanity-check: Ensure that the imported memory has at least
+<a href=#161 id=161 data-nosnippet>161</a>                        // guard-page protections the importing module expects it to have.
+<a href=#162 id=162 data-nosnippet>162</a>                        </span><span class="kw">let </span>export_memory_style = m.style();
+<a href=#163 id=163 data-nosnippet>163</a>                        <span class="kw">let </span>import_memory_style = <span class="kw-2">&amp;</span>memory_styles[<span class="kw-2">*</span>index];
+<a href=#164 id=164 data-nosnippet>164</a>                        <span class="kw">if let </span>(
+<a href=#165 id=165 data-nosnippet>165</a>                            MemoryStyle::Static { bound, .. },
+<a href=#166 id=166 data-nosnippet>166</a>                            MemoryStyle::Static {
+<a href=#167 id=167 data-nosnippet>167</a>                                bound: import_bound,
+<a href=#168 id=168 data-nosnippet>168</a>                                ..
+<a href=#169 id=169 data-nosnippet>169</a>                            },
+<a href=#170 id=170 data-nosnippet>170</a>                        ) = (export_memory_style, <span class="kw-2">&amp;</span>import_memory_style)
+<a href=#171 id=171 data-nosnippet>171</a>                        {
+<a href=#172 id=172 data-nosnippet>172</a>                            <span class="macro">assert_ge!</span>(bound, <span class="kw-2">*</span>import_bound);
+<a href=#173 id=173 data-nosnippet>173</a>                        }
+<a href=#174 id=174 data-nosnippet>174</a>                        <span class="macro">assert_ge!</span>(
+<a href=#175 id=175 data-nosnippet>175</a>                            export_memory_style.offset_guard_size(),
+<a href=#176 id=176 data-nosnippet>176</a>                            import_memory_style.offset_guard_size()
+<a href=#177 id=177 data-nosnippet>177</a>                        );
+<a href=#178 id=178 data-nosnippet>178</a>                    }
+<a href=#179 id=179 data-nosnippet>179</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#180 id=180 data-nosnippet>180</a>                        <span class="comment">// This should never be reached, as we did compatibility
+<a href=#181 id=181 data-nosnippet>181</a>                        // checks before
+<a href=#182 id=182 data-nosnippet>182</a>                        </span><span class="macro">panic!</span>(<span class="string">"Memory resolution didn't matched"</span>);
+<a href=#183 id=183 data-nosnippet>183</a>                    }
+<a href=#184 id=184 data-nosnippet>184</a>                }
+<a href=#185 id=185 data-nosnippet>185</a>
+<a href=#186 id=186 data-nosnippet>186</a>                memory_imports.push(VMMemoryImport {
+<a href=#187 id=187 data-nosnippet>187</a>                    definition: m.vmmemory(),
+<a href=#188 id=188 data-nosnippet>188</a>                    handle,
+<a href=#189 id=189 data-nosnippet>189</a>                });
+<a href=#190 id=190 data-nosnippet>190</a>            }
+<a href=#191 id=191 data-nosnippet>191</a>
+<a href=#192 id=192 data-nosnippet>192</a>            VMExtern::Global(handle) =&gt; {
+<a href=#193 id=193 data-nosnippet>193</a>                <span class="kw">let </span>g = handle.get(context);
+<a href=#194 id=194 data-nosnippet>194</a>                global_imports.push(VMGlobalImport {
+<a href=#195 id=195 data-nosnippet>195</a>                    definition: g.vmglobal(),
+<a href=#196 id=196 data-nosnippet>196</a>                    handle,
+<a href=#197 id=197 data-nosnippet>197</a>                });
+<a href=#198 id=198 data-nosnippet>198</a>            }
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a>            VMExtern::Tag(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"We already filtered tags out"</span>),
+<a href=#201 id=201 data-nosnippet>201</a>        }
+<a href=#202 id=202 data-nosnippet>202</a>    }
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a>    <span class="prelude-val">Ok</span>(Imports::new(
+<a href=#205 id=205 data-nosnippet>205</a>        function_imports,
+<a href=#206 id=206 data-nosnippet>206</a>        table_imports,
+<a href=#207 id=207 data-nosnippet>207</a>        memory_imports,
+<a href=#208 id=208 data-nosnippet>208</a>        global_imports,
+<a href=#209 id=209 data-nosnippet>209</a>    ))
+<a href=#210 id=210 data-nosnippet>210</a>}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a><span class="doccomment">/// This function resolves all tags of a `ModuleInfo`. Imported tags are resolved from
+<a href=#213 id=213 data-nosnippet>213</a>/// the `StoreObjects`, whereas local tags are created and pushed to it. This is because
+<a href=#214 id=214 data-nosnippet>214</a>/// we need every tag to have a unique `VMSharedTagIndex` in the `StoreObjects`, regardless
+<a href=#215 id=215 data-nosnippet>215</a>/// of whether it's local or imported, so that exception handling can correctly resolve
+<a href=#216 id=216 data-nosnippet>216</a>/// cross-module exceptions.
+<a href=#217 id=217 data-nosnippet>217</a></span><span class="comment">// TODO: I feel this code can be cleaned up. Maybe we can handle tag indices better, so we don't have to search through the imports again?
+<a href=#218 id=218 data-nosnippet>218</a>// TODO: don't we create store handles for everything else as well? Should tags get special handling here?
+<a href=#219 id=219 data-nosnippet>219</a></span><span class="attr">#[allow(clippy::result_large_err)]
+<a href=#220 id=220 data-nosnippet>220</a></span><span class="kw">pub fn </span>resolve_tags(
+<a href=#221 id=221 data-nosnippet>221</a>    module: <span class="kw-2">&amp;</span>ModuleInfo,
+<a href=#222 id=222 data-nosnippet>222</a>    imports: <span class="kw-2">&amp;</span>[VMExtern],
+<a href=#223 id=223 data-nosnippet>223</a>    context: <span class="kw-2">&amp;mut </span>StoreObjects,
+<a href=#224 id=224 data-nosnippet>224</a>) -&gt; <span class="prelude-ty">Result</span>&lt;BoxedSlice&lt;TagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;, LinkError&gt; {
+<a href=#225 id=225 data-nosnippet>225</a>    <span class="kw">let </span><span class="kw-2">mut </span>tags = PrimaryMap::with_capacity(module.tags.len());
+<a href=#226 id=226 data-nosnippet>226</a>
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="kw">for </span>(import_key, import_index) <span class="kw">in </span>module
+<a href=#228 id=228 data-nosnippet>228</a>        .imports
+<a href=#229 id=229 data-nosnippet>229</a>        .iter()
+<a href=#230 id=230 data-nosnippet>230</a>        .filter(|(<span class="kw">_</span>, import_index)| <span class="macro">matches!</span>(import_index, ImportIndex::Tag(<span class="kw">_</span>)))
+<a href=#231 id=231 data-nosnippet>231</a>    {
+<a href=#232 id=232 data-nosnippet>232</a>        <span class="kw">let </span>ResolvedImport {
+<a href=#233 id=233 data-nosnippet>233</a>            resolved,
+<a href=#234 id=234 data-nosnippet>234</a>            import_extern,
+<a href=#235 id=235 data-nosnippet>235</a>            extern_type,
+<a href=#236 id=236 data-nosnippet>236</a>        } = resolve_import(module, imports, context, import_key, import_index)<span class="question-mark">?</span>;
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">match </span><span class="kw-2">*</span>resolved {
+<a href=#238 id=238 data-nosnippet>238</a>            VMExtern::Tag(handle) =&gt; {
+<a href=#239 id=239 data-nosnippet>239</a>                <span class="kw">let </span>t = handle.get(context);
+<a href=#240 id=240 data-nosnippet>240</a>                <span class="kw">match </span>import_index {
+<a href=#241 id=241 data-nosnippet>241</a>                    ImportIndex::Tag(index) =&gt; {
+<a href=#242 id=242 data-nosnippet>242</a>                        <span class="kw">let </span>import_tag_ty = <span class="kw-2">&amp;</span>t.signature;
+<a href=#243 id=243 data-nosnippet>243</a>                        <span class="kw">let </span>expected_tag_ty = <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_tag_ty) =
+<a href=#244 id=244 data-nosnippet>244</a>                            module.signatures.get(module.tags[<span class="kw-2">*</span>index])
+<a href=#245 id=245 data-nosnippet>245</a>                        {
+<a href=#246 id=246 data-nosnippet>246</a>                            expected_tag_ty
+<a href=#247 id=247 data-nosnippet>247</a>                        } <span class="kw">else </span>{
+<a href=#248 id=248 data-nosnippet>248</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Resource(<span class="macro">format!</span>(
+<a href=#249 id=249 data-nosnippet>249</a>                                <span class="string">"Could not find matching signature for tag index {index:?}"
+<a href=#250 id=250 data-nosnippet>250</a>                            </span>)));
+<a href=#251 id=251 data-nosnippet>251</a>                        };
+<a href=#252 id=252 data-nosnippet>252</a>                        <span class="kw">if </span><span class="kw-2">*</span>import_tag_ty != <span class="kw-2">*</span>expected_tag_ty {
+<a href=#253 id=253 data-nosnippet>253</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+<a href=#254 id=254 data-nosnippet>254</a>                                import_key.module.to_string(),
+<a href=#255 id=255 data-nosnippet>255</a>                                import_key.field.to_string(),
+<a href=#256 id=256 data-nosnippet>256</a>                                ImportError::IncompatibleType(import_extern, extern_type),
+<a href=#257 id=257 data-nosnippet>257</a>                            ));
+<a href=#258 id=258 data-nosnippet>258</a>                        }
+<a href=#259 id=259 data-nosnippet>259</a>
+<a href=#260 id=260 data-nosnippet>260</a>                        tags.push(handle);
+<a href=#261 id=261 data-nosnippet>261</a>                    }
+<a href=#262 id=262 data-nosnippet>262</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#263 id=263 data-nosnippet>263</a>                        <span class="macro">unreachable!</span>(<span class="string">"Tag resolution did not match"</span>);
+<a href=#264 id=264 data-nosnippet>264</a>                    }
+<a href=#265 id=265 data-nosnippet>265</a>                }
+<a href=#266 id=266 data-nosnippet>266</a>            }
+<a href=#267 id=267 data-nosnippet>267</a>            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"We already filtered everything else out"</span>),
+<a href=#268 id=268 data-nosnippet>268</a>        }
+<a href=#269 id=269 data-nosnippet>269</a>    }
+<a href=#270 id=270 data-nosnippet>270</a>
+<a href=#271 id=271 data-nosnippet>271</a>    <span class="comment">// Now, create local tags.
+<a href=#272 id=272 data-nosnippet>272</a>    // Local tags are created in the StoreObjects once per instance, so that
+<a href=#273 id=273 data-nosnippet>273</a>    // when two instances of the same module are executing, they don't end
+<a href=#274 id=274 data-nosnippet>274</a>    // up catching each other's exceptions.
+<a href=#275 id=275 data-nosnippet>275</a>    </span><span class="kw">for </span>(tag_index, signature_index) <span class="kw">in </span>module.tags.iter() {
+<a href=#276 id=276 data-nosnippet>276</a>        <span class="kw">if </span>module.is_imported_tag(tag_index) {
+<a href=#277 id=277 data-nosnippet>277</a>            <span class="kw">continue</span>;
+<a href=#278 id=278 data-nosnippet>278</a>        }
+<a href=#279 id=279 data-nosnippet>279</a>        <span class="kw">let </span>sig_ty = <span class="kw">if let </span><span class="prelude-val">Some</span>(sig_ty) = module.signatures.get(<span class="kw-2">*</span>signature_index) {
+<a href=#280 id=280 data-nosnippet>280</a>            sig_ty
+<a href=#281 id=281 data-nosnippet>281</a>        } <span class="kw">else </span>{
+<a href=#282 id=282 data-nosnippet>282</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Resource(<span class="macro">format!</span>(
+<a href=#283 id=283 data-nosnippet>283</a>                <span class="string">"Could not find matching signature for tag index {tag_index:?}"
+<a href=#284 id=284 data-nosnippet>284</a>            </span>)));
+<a href=#285 id=285 data-nosnippet>285</a>        };
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">let </span>handle =
+<a href=#287 id=287 data-nosnippet>287</a>            InternalStoreHandle::new(context, VMTag::new(TagKind::Exception, sig_ty.clone()));
+<a href=#288 id=288 data-nosnippet>288</a>        tags.push(handle);
+<a href=#289 id=289 data-nosnippet>289</a>    }
+<a href=#290 id=290 data-nosnippet>290</a>
+<a href=#291 id=291 data-nosnippet>291</a>    <span class="prelude-val">Ok</span>(tags.into_boxed_slice())
+<a href=#292 id=292 data-nosnippet>292</a>}
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a><span class="kw">struct </span>ResolvedImport&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#295 id=295 data-nosnippet>295</a>    resolved: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VMExtern,
+<a href=#296 id=296 data-nosnippet>296</a>    import_extern: ExternType,
+<a href=#297 id=297 data-nosnippet>297</a>    extern_type: ExternType,
+<a href=#298 id=298 data-nosnippet>298</a>}
+<a href=#299 id=299 data-nosnippet>299</a>
+<a href=#300 id=300 data-nosnippet>300</a><span class="attr">#[allow(clippy::result_large_err)]
+<a href=#301 id=301 data-nosnippet>301</a></span><span class="kw">fn </span>resolve_import&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#302 id=302 data-nosnippet>302</a>    module: <span class="kw-2">&amp;</span>ModuleInfo,
+<a href=#303 id=303 data-nosnippet>303</a>    imports: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[VMExtern],
+<a href=#304 id=304 data-nosnippet>304</a>    context: <span class="kw-2">&amp;mut </span>StoreObjects,
+<a href=#305 id=305 data-nosnippet>305</a>    import: <span class="kw-2">&amp;</span>wasmer_types::ImportKey,
+<a href=#306 id=306 data-nosnippet>306</a>    import_index: <span class="kw-2">&amp;</span>ImportIndex,
+<a href=#307 id=307 data-nosnippet>307</a>) -&gt; <span class="prelude-ty">Result</span>&lt;ResolvedImport&lt;<span class="lifetime">'a</span>&gt;, LinkError&gt; {
+<a href=#308 id=308 data-nosnippet>308</a>    <span class="kw">let </span>import_extern = get_extern_from_import(module, import_index);
+<a href=#309 id=309 data-nosnippet>309</a>    <span class="kw">let </span>resolved = <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = imports.get(import.import_idx <span class="kw">as </span>usize) {
+<a href=#310 id=310 data-nosnippet>310</a>        r
+<a href=#311 id=311 data-nosnippet>311</a>    } <span class="kw">else </span>{
+<a href=#312 id=312 data-nosnippet>312</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+<a href=#313 id=313 data-nosnippet>313</a>            import.module.to_string(),
+<a href=#314 id=314 data-nosnippet>314</a>            import.field.to_string(),
+<a href=#315 id=315 data-nosnippet>315</a>            ImportError::UnknownImport(import_extern),
+<a href=#316 id=316 data-nosnippet>316</a>        ));
+<a href=#317 id=317 data-nosnippet>317</a>    };
+<a href=#318 id=318 data-nosnippet>318</a>    <span class="kw">let </span>extern_type = get_extern_type(context, resolved);
+<a href=#319 id=319 data-nosnippet>319</a>    <span class="kw">let </span>runtime_size = get_runtime_size(context, resolved);
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">if </span>!extern_type.is_compatible_with(<span class="kw-2">&amp;</span>import_extern, runtime_size) {
+<a href=#321 id=321 data-nosnippet>321</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+<a href=#322 id=322 data-nosnippet>322</a>            import.module.to_string(),
+<a href=#323 id=323 data-nosnippet>323</a>            import.field.to_string(),
+<a href=#324 id=324 data-nosnippet>324</a>            ImportError::IncompatibleType(import_extern, extern_type),
+<a href=#325 id=325 data-nosnippet>325</a>        ));
+<a href=#326 id=326 data-nosnippet>326</a>    }
+<a href=#327 id=327 data-nosnippet>327</a>    <span class="prelude-val">Ok</span>(ResolvedImport {
+<a href=#328 id=328 data-nosnippet>328</a>        resolved,
+<a href=#329 id=329 data-nosnippet>329</a>        import_extern,
+<a href=#330 id=330 data-nosnippet>330</a>        extern_type,
+<a href=#331 id=331 data-nosnippet>331</a>    })
+<a href=#332 id=332 data-nosnippet>332</a>}</code></pre></div></section></main></body></html>
