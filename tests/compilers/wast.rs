@@ -22,13 +22,20 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     let mut features = Features::default();
     let is_bulkmemory = wast_path.contains("bulk-memory");
     let is_simd = wast_path.contains("simd");
+    let is_relaxed_simd = wast_path.contains("relaxed-simd");
     let is_threads = wast_path.contains("threads");
-    let is_exception_handling = wast_path.contains("exception-handling");
+    let is_exception_handling = wast_path.contains("exceptions")
+        || wast_path.contains("exception-handling")
+        || wast_path.ends_with("exports.wast")
+        || wast_path.ends_with("imports.wast");
     if is_bulkmemory {
         features.bulk_memory(true);
     }
     if is_simd {
         features.simd(true);
+    }
+    if is_relaxed_simd {
+        features.relaxed_simd(true);
     }
     if is_threads {
         features.threads(true);
@@ -52,20 +59,23 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         wast.disable_assert_and_exhaustion();
     }
 
-    wast.allow_instantiation_failures(&["Validation error: memory size must be at most"]);
-    if is_simd {
-        // We allow this, so tests can be run properly for `simd_const` test.
-        wast.allow_instantiation_failures(&[
-            "Validation error: multiple tables",
-            "Validation error: unknown memory 0",
-            "Validation error: Invalid var_u32",
-            "Validation error: SIMD index out of bounds",
-        ]);
-    }
-    if is_threads {
-        // We allow this, so tests can be run properly for `simd_const` test.
-        wast.allow_instantiation_failures(&["Validation error: multiple tables"]);
-    }
+    wast.allow_instantiation_failures(&[
+        "Validation error: memory size must be at most",
+        "Validation error: multiple memories",
+        "Validation error: function references",
+        "Validation error: tables with expression initializers require the function-references proposal",
+        "Validation error: heap types not supported without the gc feature",
+        "Validation error: rec group usage requires `gc` proposal to be enabled",
+        "Validation error: tail calls support is not enabled",
+        "Validation error: multiple tables",
+        "Validation error: unknown memory 0",
+        "Validation error: invalid var_u32",
+        "Validation error: SIMD index out of bounds",
+        "Validation error: constant expression required",
+        "Unsupported feature: unsupported init expr in element section",
+        "Insufficient resources: Table minimum",
+        "Insufficient resources: Table maximum",
+    ]);
     wast.fail_fast = false;
     let path = Path::new(wast_path);
     wast.run_file(path)

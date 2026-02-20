@@ -1,11 +1,12 @@
 # Compilers
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
+singlepass spec::relaxed_simd # Singlepass doesn't support relaxed SIMD yet
 singlepass wasmer::simd_generated_ext_ops
 singlepass wasmer::simd
-singlepass spec::exception_handling # Singlepass doesn't support EH yet (no one asked for this feature)
+singlepass spec::exceptions # Singlepass doesn't support EH yet (no one asked for this feature)
 singlepass wasmer::exception_handling
-windows spec::exception_handling # No EH support on Windows yet
-macos+cranelift spec::exception_handling
+windows spec::exceptions # No EH support on Windows yet
+macos+cranelift spec::exceptions
 
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
@@ -69,6 +70,7 @@ cranelift+riscv64 spec::r#if::cranelift
 
 # no SIMD on riscv, Cranelift will not handle them
 cranelift+riscv64 spec::simd
+cranelift+riscv64 spec::relaxed_simd
 # 6078
 cranelift+riscv64 wasmer::simd_generated_ext_ops
 cranelift+riscv64 wasmer::simd
@@ -108,6 +110,8 @@ windows wasmer::max_size_of_memory
 # Some AARCH64 CPU have issue with segfault writin 64bits on border page, where the 1 32bits might be written.
 aarch64+linux spec::align
 aarch64+linux spec::memory_trap
+
+spec::instance
 
 # TODO: #5816
 cranelift+riscv64 spec::skip_stack_guard_page

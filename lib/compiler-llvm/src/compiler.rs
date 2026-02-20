@@ -200,6 +200,7 @@ impl LLVMCompiler {
                     Some(target_machine_no_opt),
                     binary_format,
                     pointer_width,
+                    *target.cpu_features(),
                 )
                 .unwrap()
             },
@@ -330,7 +331,7 @@ impl Compiler for LLVMCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        let mut ret = format!(
+        format!(
             "llvm-{}",
             match self.config.opt_level {
                 inkwell::OptimizationLevel::None => "opt0",
@@ -338,13 +339,7 @@ impl Compiler for LLVMCompiler {
                 inkwell::OptimizationLevel::Default => "optd",
                 inkwell::OptimizationLevel::Aggressive => "opta",
             }
-        );
-
-        if self.config.enable_g0m0_opt {
-            ret.push_str("-g0m0");
-        }
-
-        ret
+        )
     }
 
     /// Get the middlewares for this compiler
@@ -449,6 +444,7 @@ impl Compiler for LLVMCompiler {
                     Some(target_machine_no_opt),
                     binary_format,
                     pointer_width,
+                    *target.cpu_features(),
                 )
                 .unwrap()
             },
@@ -687,11 +683,8 @@ impl Compiler for LLVMCompiler {
 
     fn with_opts(
         &mut self,
-        suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,
+        _suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
-        if suggested_compiler_opts.pass_params.is_some_and(|v| v) {
-            self.config.enable_g0m0_opt = true;
-        }
         Ok(())
     }
 }

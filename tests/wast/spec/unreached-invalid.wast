@@ -686,12 +686,23 @@
 (assert_invalid 
   (module
     (func $type-br_if-after-unreachable (result i64)
-      unreachable
-      br_if 0
-      i64.extend_i32_u
+      (unreachable)
+      (br_if 0)
+      (i64.extend_i32_u)
     )
   )
  "type mismatch"
+)
+
+(assert_invalid
+  (module
+    (func $type-after-ref.as_non_null
+      (unreachable)
+      (ref.as_non_null)
+      (f32.abs)
+    )
+  )
+  "type mismatch"
 )
 
 ;; The first two operands should have the same type as each other
@@ -748,3 +759,24 @@
   "type mismatch"
 )
 
+
+(assert_invalid
+  (module
+    (type $t (func (param i32) (result i64)))
+    (func (result i32)
+      (unreachable)
+      (call_ref $t)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (type $t (func (param i32) (result i32 i32)))
+    (func (result i32)
+      (unreachable)
+      (call_ref $t)
+    )
+  )
+  "type mismatch"
+)

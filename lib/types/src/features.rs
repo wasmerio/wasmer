@@ -371,6 +371,7 @@ impl Features {
         wasm_features.set(WasmFeatures::TAIL_CALL, true);
         wasm_features.set(WasmFeatures::MULTI_MEMORY, true);
         wasm_features.set(WasmFeatures::MEMORY64, true);
+        wasm_features.set(WasmFeatures::RELAXED_SIMD, false);
 
         let mut validator = Validator::new_with_features(wasm_features);
         match validator.validate_all(wasm_bytes) {
@@ -390,7 +391,9 @@ impl Features {
                     features.reference_types(true);
                 }
 
-                if err_msg.contains("simd") {
+                if err_msg.contains("relaxed simd") {
+                    features.relaxed_simd(true);
+                } else if err_msg.contains("simd") {
                     features.simd(true);
                 }
 

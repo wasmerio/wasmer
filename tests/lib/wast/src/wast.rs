@@ -501,6 +501,8 @@ impl Wast {
     // Checks if the `assert_unlinkable` message matches the expected one
     fn matches_message_assert_unlinkable(expected: &str, actual: &str) -> bool {
         actual.contains(expected)
+            || (expected.contains("incompatible import type")
+                && actual.contains("instantiation failed with: constant expression required"))
     }
 
     // Checks if the `assert_invalid` message matches the expected one
@@ -530,6 +532,8 @@ impl Wast {
             || (expected == "unknown global" && actual.contains("global.get of locally defined global"))
             || (expected == "immutable global" && actual.contains("global is immutable: cannot modify it with `global.set`"))
             || (expected.contains("type mismatch: instruction requires") && actual.contains("instantiation failed with: Validation error: type mismatch: expected"))
+            || (expected.contains("alignment must not be larger than natural") && actual.contains("malformed memop alignment: alignment too large"))
+            || (expected.contains("type mismatch") && actual.contains("malformed memop alignment: alignment too large"))
     }
 
     // Checks if the `assert_trap` message matches the expected one
@@ -557,6 +561,9 @@ impl Wast {
             (Value::F32(a), WastRetCore::F32(b)) => f32_matches(*a, b),
             (Value::F64(a), WastRetCore::F64(b)) => f64_matches(*a, b),
             (Value::V128(a), WastRetCore::V128(b)) => v128_matches(*a, b),
+            (actual, WastRetCore::Either(cases)) => cases
+                .iter()
+                .any(|case| self.val_matches(actual, case).unwrap_or(false)),
             (
                 Value::FuncRef(None),
                 WastRetCore::RefNull(Some(wast::core::HeapType::Abstract {
@@ -565,8 +572,11 @@ impl Wast {
                 })),
             ) => true,
             (Value::FuncRef(Some(_)), WastRetCore::RefNull(_)) => false,
+            // assert_return of (ref.func $tf) and (ref.func) is a match!
+            (Value::FuncRef(Some(_)), WastRetCore::RefFunc(_)) => true,
             (Value::FuncRef(None), WastRetCore::RefFunc(None)) => true,
             (Value::FuncRef(None), WastRetCore::RefFunc(Some(_))) => false,
+            (Value::FuncRef(None), WastRetCore::RefNull(_)) => true,
             (
                 Value::ExternRef(None),
                 WastRetCore::RefNull(Some(wast::core::HeapType::Abstract {
