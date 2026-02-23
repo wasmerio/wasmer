@@ -298,7 +298,6 @@ impl RuntimeOptions {
     pub fn get_engine(&self, target: &Target) -> Result<Engine> {
         let backends = self.get_available_backends()?;
         let backend = backends.first().context("no compiler backend enabled")?;
-        let backend_kind = wasmer::BackendKind::from(backend);
         backend.get_engine(target, self)
     }
 
