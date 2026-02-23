@@ -540,6 +540,26 @@ fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
     Ok(())
 }
 
+#[compiler_test(issues)]
+fn issue_memory_atomic_notify_stack_offset(mut config: crate::Config) -> Result<()> {
+    let store = config.store();
+    let wat = r#"
+    (module
+      (table 1 externref)
+      (memory 7)
+      (func
+        loop
+          table.size
+          table.size
+          memory.atomic.notify
+          unreachable
+        end))
+    "#;
+
+    let _module = Module::new(&store, wat)?;
+    Ok(())
+}
+
 fn gen_wat_sum_function(arguments: usize) -> String {
     assert!(arguments > 0);
     let arg_types = std::iter::repeat_n("i64", arguments).collect_vec();
