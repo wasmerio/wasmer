@@ -1211,8 +1211,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
     // If this memory access must trap when out of bounds (i.e. it is a memory
     // access written in the user program as opposed to one used by our VM)
-    // then mark that it can't be delete. For WASIX modules, we are more aggressive
-    // as the volatile memory access is an optimization barrier.
+    // then mark that it can't be delete.
     fn mark_memaccess_nodelete(
         &mut self,
         memory_index: MemoryIndex,
