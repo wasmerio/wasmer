@@ -5708,7 +5708,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::MemoryAtomicNotify { ref memarg } => {
-                let _cnt = self.value_stack.pop().unwrap();
+                let cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
@@ -5739,17 +5739,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         this.machine
                             .emit_call_register(this.machine.get_gpr_for_call())
                     },
-                    // [vmctx, memory_index, dst, src, timeout]
+                    // [vmctx, memory_index, dst, cnt]
                     [
                         (
                             Location::Imm32(memory_index.index() as u32),
                             CanonicalizeType::None,
                         ),
                         dst,
+                        cnt,
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I32].iter().cloned(),
+                    [WpType::I32, WpType::I32, WpType::I32].iter().cloned(),
                     iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
