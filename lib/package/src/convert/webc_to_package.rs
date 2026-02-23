@@ -157,6 +157,7 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
                 kind: None,
                 interfaces: None,
                 bindings: None,
+                annotations: None,
             });
         }
     }

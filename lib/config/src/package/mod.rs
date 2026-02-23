@@ -503,6 +503,21 @@ pub struct Module {
     /// Interface definitions that can be used to generate bindings to this
     /// module.
     pub bindings: Option<Bindings>,
+    /// Miscellaneous annotations from the user.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<UserAnnotations>,
+}
+
+/// Miscellaneous annotations specified by the user.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub struct UserAnnotations {
+    pub suggested_compiler_optimizations: SuggestedCompilerOptimizations,
+}
+
+/// Deprecated.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
+pub struct SuggestedCompilerOptimizations {
+    pub pass_params: Option<bool>,
 }
 
 /// The interface exposed by a [`Module`].
@@ -1008,6 +1023,7 @@ mod tests {
                 interfaces: None,
                 kind: Some("https://webc.org/kind/wasi".to_string()),
                 source: Path::new("test.wasm").to_path_buf(),
+                annotations: None,
             }],
             commands: Vec::new(),
             fs: vec![
@@ -1063,6 +1079,7 @@ module = "mod"
                     wit_exports: PathBuf::from("exports.wit"),
                     wit_bindgen: "0.0.0".parse().unwrap()
                 })),
+                annotations: None
             },
         );
     }
