@@ -50,6 +50,10 @@ pub trait CompilerConfig {
         // in case they create an IR that they can verify.
     }
 
+    /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
+    /// (but are not 100% SPEC compliant).
+    fn enable_non_volatime_memops(&mut self) {}
+
     /// Enable NaN canonicalization.
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly

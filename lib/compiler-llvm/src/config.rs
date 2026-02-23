@@ -366,6 +366,12 @@ impl CompilerConfig for LLVM {
         self.enable_verifier = true;
     }
 
+    /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
+    /// (but are not 100% SPEC compliant).
+    fn enable_non_volatime_memops(&mut self) {
+        self.enable_non_volatime_memops = true;
+    }
+
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
     }
