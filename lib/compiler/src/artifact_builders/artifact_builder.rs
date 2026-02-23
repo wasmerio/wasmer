@@ -79,11 +79,6 @@ impl ArtifactBuild {
             .apply_on_module_info(&mut module)
             .map_err(|err| CompileError::MiddlewareError(err.to_string()))?;
         module.hash = Some(ModuleHash::new(data));
-        let volatile_memory_ops = !module
-            .imports
-            .keys()
-            .any(|import| import.module.starts_with("wasix_"));
-
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),
             features,
@@ -101,7 +96,6 @@ impl ArtifactBuild {
             translation.module_translation_state.as_ref().unwrap(),
             translation.function_body_inputs,
             progress_callback,
-            volatile_memory_ops,
         )?;
 
         let data_initializers = translation

@@ -1098,19 +1098,12 @@ impl Artifact {
 
         let (_compile_info, symbol_registry) = metadata.split();
 
-        let volatile_memory_ops = !metadata
-            .compile_info
-            .module
-            .imports
-            .keys()
-            .any(|import| import.module.starts_with("wasix_"));
         let compilation: crate::types::function::Compilation = compiler.compile_module(
             target,
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),
             function_body_inputs,
             None,
-            volatile_memory_ops,
         )?;
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 

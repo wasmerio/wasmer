@@ -103,6 +103,7 @@ impl LLVMCallbacks {
 #[derive(Debug, Clone)]
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
+    pub(crate) enable_non_volatime_memops: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) opt_level: LLVMOptLevel,
@@ -121,6 +122,7 @@ impl LLVM {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: false,
+            enable_non_volatime_memops: false,
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
@@ -152,6 +154,13 @@ impl LLVM {
     /// phases in LLVM.
     pub fn callbacks(&mut self, callbacks: Option<LLVMCallbacks>) -> &mut Self {
         self.callbacks = callbacks;
+        self
+    }
+
+    /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
+    /// (but are not 100% SPEC compliant).
+    pub fn non_volatime_memops(&mut self, enable_non_volatime_memops: bool) -> &mut Self {
+        self.enable_non_volatime_memops = enable_non_volatime_memops;
         self
     }
 
