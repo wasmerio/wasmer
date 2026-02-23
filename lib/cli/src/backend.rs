@@ -503,6 +503,7 @@ impl RuntimeOptions {
                 use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
+                config.enable_non_volatile_memops();
 
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
@@ -650,6 +651,7 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
+                config.enable_non_volatile_memops();
 
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
