@@ -544,36 +544,32 @@
 <a href=#544 id=544 data-nosnippet>544</a>    }
 <a href=#545 id=545 data-nosnippet>545</a>    <span class="macro">println!</span>(<span class="string">"host: {}"</span>, target_lexicon::HOST);
 <a href=#546 id=546 data-nosnippet>546</a>
-<a href=#547 id=547 data-nosnippet>547</a>    <span class="kw">let </span>cpu_features = {
-<a href=#548 id=548 data-nosnippet>548</a>        <span class="kw">let </span>feats = wasmer_types::target::CpuFeature::for_host();
-<a href=#549 id=549 data-nosnippet>549</a>        <span class="kw">let </span>all = wasmer_types::target::CpuFeature::all();
-<a href=#550 id=550 data-nosnippet>550</a>        all.iter()
-<a href=#551 id=551 data-nosnippet>551</a>            .map(|f| <span class="macro">format!</span>(<span class="string">"{}={}"</span>, f, feats.contains(f)))
-<a href=#552 id=552 data-nosnippet>552</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#553 id=553 data-nosnippet>553</a>            .join(<span class="string">","</span>)
-<a href=#554 id=554 data-nosnippet>554</a>    };
-<a href=#555 id=555 data-nosnippet>555</a>    <span class="macro">println!</span>(<span class="string">"cpu: {cpu_features}"</span>);
-<a href=#556 id=556 data-nosnippet>556</a>
-<a href=#557 id=557 data-nosnippet>557</a>    <span class="kw">let </span><span class="kw-2">mut </span>runtimes = Vec::new();
-<a href=#558 id=558 data-nosnippet>558</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"singlepass"</span>) {
-<a href=#559 id=559 data-nosnippet>559</a>        runtimes.push(<span class="string">"singlepass"</span>);
-<a href=#560 id=560 data-nosnippet>560</a>    }
-<a href=#561 id=561 data-nosnippet>561</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"cranelift"</span>) {
-<a href=#562 id=562 data-nosnippet>562</a>        runtimes.push(<span class="string">"cranelift"</span>);
-<a href=#563 id=563 data-nosnippet>563</a>    }
-<a href=#564 id=564 data-nosnippet>564</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"llvm"</span>) {
-<a href=#565 id=565 data-nosnippet>565</a>        runtimes.push(<span class="string">"llvm"</span>);
-<a href=#566 id=566 data-nosnippet>566</a>    }
-<a href=#567 id=567 data-nosnippet>567</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wamr"</span>) {
-<a href=#568 id=568 data-nosnippet>568</a>        runtimes.push(<span class="string">"wamr"</span>);
-<a href=#569 id=569 data-nosnippet>569</a>    }
-<a href=#570 id=570 data-nosnippet>570</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wasmi"</span>) {
-<a href=#571 id=571 data-nosnippet>571</a>        runtimes.push(<span class="string">"wasmi"</span>);
-<a href=#572 id=572 data-nosnippet>572</a>    }
-<a href=#573 id=573 data-nosnippet>573</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
-<a href=#574 id=574 data-nosnippet>574</a>        runtimes.push(<span class="string">"v8"</span>);
-<a href=#575 id=575 data-nosnippet>575</a>    }
-<a href=#576 id=576 data-nosnippet>576</a>
-<a href=#577 id=577 data-nosnippet>577</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
-<a href=#578 id=578 data-nosnippet>578</a>    <span class="prelude-val">Ok</span>(())
-<a href=#579 id=579 data-nosnippet>579</a>}</code></pre></div></section></main></body></html>
+<a href=#547 id=547 data-nosnippet>547</a>    <span class="kw">let </span>cpu_features = wasmer_types::target::CpuFeature::for_host()
+<a href=#548 id=548 data-nosnippet>548</a>        .iter()
+<a href=#549 id=549 data-nosnippet>549</a>        .map(|f| f.to_string())
+<a href=#550 id=550 data-nosnippet>550</a>        .join(<span class="string">" "</span>);
+<a href=#551 id=551 data-nosnippet>551</a>    <span class="macro">println!</span>(<span class="string">"CPU flags: {cpu_features}"</span>);
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a>    <span class="kw">let </span><span class="kw-2">mut </span>runtimes = Vec::new();
+<a href=#554 id=554 data-nosnippet>554</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"singlepass"</span>) {
+<a href=#555 id=555 data-nosnippet>555</a>        runtimes.push(<span class="string">"singlepass"</span>);
+<a href=#556 id=556 data-nosnippet>556</a>    }
+<a href=#557 id=557 data-nosnippet>557</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"cranelift"</span>) {
+<a href=#558 id=558 data-nosnippet>558</a>        runtimes.push(<span class="string">"cranelift"</span>);
+<a href=#559 id=559 data-nosnippet>559</a>    }
+<a href=#560 id=560 data-nosnippet>560</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"llvm"</span>) {
+<a href=#561 id=561 data-nosnippet>561</a>        runtimes.push(<span class="string">"llvm"</span>);
+<a href=#562 id=562 data-nosnippet>562</a>    }
+<a href=#563 id=563 data-nosnippet>563</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wamr"</span>) {
+<a href=#564 id=564 data-nosnippet>564</a>        runtimes.push(<span class="string">"wamr"</span>);
+<a href=#565 id=565 data-nosnippet>565</a>    }
+<a href=#566 id=566 data-nosnippet>566</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wasmi"</span>) {
+<a href=#567 id=567 data-nosnippet>567</a>        runtimes.push(<span class="string">"wasmi"</span>);
+<a href=#568 id=568 data-nosnippet>568</a>    }
+<a href=#569 id=569 data-nosnippet>569</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
+<a href=#570 id=570 data-nosnippet>570</a>        runtimes.push(<span class="string">"v8"</span>);
+<a href=#571 id=571 data-nosnippet>571</a>    }
+<a href=#572 id=572 data-nosnippet>572</a>
+<a href=#573 id=573 data-nosnippet>573</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
+<a href=#574 id=574 data-nosnippet>574</a>    <span class="prelude-val">Ok</span>(())
+<a href=#575 id=575 data-nosnippet>575</a>}</code></pre></div></section></main></body></html>

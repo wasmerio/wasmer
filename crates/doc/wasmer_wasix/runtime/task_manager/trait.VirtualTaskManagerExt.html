@@ -3,7 +3,7 @@
     fn <a href="#tymethod.spawn_and_block_on" class="fn">spawn_and_block_on</a>&lt;A&gt;(
         &amp;self,
         task: impl <a class="trait" href="../../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = A&gt; + <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;A, <a class="struct" href="https://docs.rs/anyhow/1.0.101/anyhow/struct.Error.html" title="struct anyhow::Error">Error</a>&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;A, <a class="struct" href="https://docs.rs/anyhow/1.0.102/anyhow/struct.Error.html" title="struct anyhow::Error">Error</a>&gt;
        <span class="where">where A: <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static</span>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.spawn_await" class="fn">spawn_await</a>&lt;O, F&gt;(
         &amp;self,
@@ -15,7 +15,7 @@
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.spawn_and_block_on" class="method"><a class="src rightside" href="../../../src/wasmer_wasix/runtime/task_manager/mod.rs.html#448-453">Source</a><h4 class="code-header">fn <a href="#tymethod.spawn_and_block_on" class="fn">spawn_and_block_on</a>&lt;A&gt;(
     &amp;self,
     task: impl <a class="trait" href="../../runners/dproxy/hyper_proxy/trait.Future.html" title="trait wasmer_wasix::runners::dproxy::hyper_proxy::Future">Future</a>&lt;Output = A&gt; + <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;A, <a class="struct" href="https://docs.rs/anyhow/1.0.101/anyhow/struct.Error.html" title="struct anyhow::Error">Error</a>&gt;<div class="where">where
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;A, <a class="struct" href="https://docs.rs/anyhow/1.0.102/anyhow/struct.Error.html" title="struct anyhow::Error">Error</a>&gt;<div class="where">where
     A: <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,</div></h4></section></summary><div class="docblock"><p>Runs the work in the background via the task managers shared background
 threads while blocking the current execution until it finishs</p>
 </div></details><section id="tymethod.spawn_await" class="method"><a class="src rightside" href="../../../src/wasmer_wasix/runtime/task_manager/mod.rs.html#455-461">Source</a><h4 class="code-header">fn <a href="#tymethod.spawn_await" class="fn">spawn_await</a>&lt;O, F&gt;(
