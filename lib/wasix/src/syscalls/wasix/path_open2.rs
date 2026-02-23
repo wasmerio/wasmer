@@ -1,5 +1,4 @@
 use super::*;
-use crate::VIRTUAL_ROOT_FD;
 use crate::syscalls::*;
 
 /// ### `path_open()`
@@ -291,17 +290,12 @@ pub(crate) fn path_open_internal(
             } => {
                 // Resolve the symlink via the existing path traversal logic and restart
                 // path_open with lookup-follow semantics for this resolved path.
-                let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
-                    (VIRTUAL_ROOT_FD, relative_path.clone())
-                } else {
-                    let mut resolved_path = path_to_symlink.clone();
-                    resolved_path.pop();
-                    resolved_path.push(relative_path);
-                    (*base_po_dir, resolved_path)
-                };
+                let mut resolved_path = path_to_symlink.clone();
+                resolved_path.pop();
+                resolved_path.push(relative_path);
                 return path_open_internal(
                     env,
-                    resolved_base_fd,
+                    *base_po_dir,
                     __WASI_LOOKUP_SYMLINK_FOLLOW,
                     &resolved_path.to_string_lossy(),
                     o_flags,

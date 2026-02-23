@@ -58,10 +58,6 @@ impl TmpFileSystem {
     pub fn canonicalize_unchecked(&self, path: &Path) -> Result<PathBuf> {
         self.fs.canonicalize_unchecked(path)
     }
-
-    pub fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
-        self.fs.create_symlink(source, target)
-    }
 }
 
 impl FileSystem for TmpFileSystem {
