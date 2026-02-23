@@ -24,21 +24,12 @@ use sha2::Digest;
 )]
 #[rkyv(derive(Debug))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub enum ModuleHash {
-    /// Deprecated.
-    XXHash([u8; 8]),
-
-    /// sha256
-    Sha256([u8; 32]),
-}
+pub struct ModuleHash([u8; 32]);
 
 #[cfg(feature = "artifact-size")]
 impl loupe::MemoryUsage for ModuleHash {
     fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
-        match self {
-            Self::XXHash(_) => 8 * 8,
-            Self::Sha256(_) => 8 * 32,
-        }
+        size_of::<ModuleHash>()
     }
 }
 
@@ -47,36 +38,29 @@ impl ModuleHash {
     pub fn new(wasm: impl AsRef<[u8]>) -> Self {
         let wasm = wasm.as_ref();
         let hash = sha2::Sha256::digest(wasm).into();
-        Self::Sha256(hash)
+        Self(hash)
     }
 
     /// Generate a new [`ModuleHash`] based on the Sha256 hash of some bytes.
     pub fn sha256(wasm: impl AsRef<[u8]>) -> Self {
-        let wasm = wasm.as_ref();
-
-        let hash: [u8; 32] = sha2::Sha256::digest(wasm).into();
-
-        Self::Sha256(hash)
+        Self::new(wasm)
     }
 
     /// Create a new [`ModuleHash`] from the raw sha256 hash.
     pub fn from_bytes(hash: [u8; 32]) -> Self {
-        Self::Sha256(hash)
+        Self(hash)
     }
 
     /// Generate a random [`ModuleHash`]. For when you don't care about caches.
     pub fn random() -> Self {
         let mut bytes = [0_u8; _];
         getrandom::fill(&mut bytes).unwrap();
-        Self::Sha256(bytes)
+        Self(bytes)
     }
 
     /// Get the raw hash.
     pub fn as_bytes(&self) -> &[u8] {
-        match self {
-            Self::XXHash(bytes) => bytes.as_slice(),
-            Self::Sha256(bytes) => bytes.as_slice(),
-        }
+        &self.0
     }
 
     /// Build a short hex representation of the hash (first 4 bytes).
