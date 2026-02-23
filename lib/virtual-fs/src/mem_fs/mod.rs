@@ -86,12 +86,21 @@ struct ArcDirectoryNode {
 }
 
 #[derive(Debug)]
+struct SymlinkNode {
+    inode: Inode,
+    name: OsString,
+    target: PathBuf,
+    metadata: Metadata,
+}
+
+#[derive(Debug)]
 enum Node {
     File(FileNode),
     OffloadedFile(OffloadedFileNode),
     ReadOnlyFile(ReadOnlyFileNode),
     ArcFile(ArcFileNode),
     CustomFile(CustomFileNode),
+    Symlink(SymlinkNode),
     Directory(DirectoryNode),
     ArcDirectory(ArcDirectoryNode),
 }
@@ -104,6 +113,7 @@ impl Node {
             Self::ReadOnlyFile(ReadOnlyFileNode { inode, .. }) => inode,
             Self::ArcFile(ArcFileNode { inode, .. }) => inode,
             Self::CustomFile(CustomFileNode { inode, .. }) => inode,
+            Self::Symlink(SymlinkNode { inode, .. }) => inode,
             Self::Directory(DirectoryNode { inode, .. }) => inode,
             Self::ArcDirectory(ArcDirectoryNode { inode, .. }) => inode,
         }
@@ -116,6 +126,7 @@ impl Node {
             Self::ReadOnlyFile(ReadOnlyFileNode { name, .. }) => name.as_os_str(),
             Self::ArcFile(ArcFileNode { name, .. }) => name.as_os_str(),
             Self::CustomFile(CustomFileNode { name, .. }) => name.as_os_str(),
+            Self::Symlink(SymlinkNode { name, .. }) => name.as_os_str(),
             Self::Directory(DirectoryNode { name, .. }) => name.as_os_str(),
             Self::ArcDirectory(ArcDirectoryNode { name, .. }) => name.as_os_str(),
         }
@@ -128,6 +139,7 @@ impl Node {
             Self::ReadOnlyFile(ReadOnlyFileNode { metadata, .. }) => metadata,
             Self::ArcFile(ArcFileNode { metadata, .. }) => metadata,
             Self::CustomFile(CustomFileNode { metadata, .. }) => metadata,
+            Self::Symlink(SymlinkNode { metadata, .. }) => metadata,
             Self::Directory(DirectoryNode { metadata, .. }) => metadata,
             Self::ArcDirectory(ArcDirectoryNode { metadata, .. }) => metadata,
         }
@@ -140,6 +152,7 @@ impl Node {
             Self::ReadOnlyFile(ReadOnlyFileNode { metadata, .. }) => metadata,
             Self::ArcFile(ArcFileNode { metadata, .. }) => metadata,
             Self::CustomFile(CustomFileNode { metadata, .. }) => metadata,
+            Self::Symlink(SymlinkNode { metadata, .. }) => metadata,
             Self::Directory(DirectoryNode { metadata, .. }) => metadata,
             Self::ArcDirectory(ArcDirectoryNode { metadata, .. }) => metadata,
         }
@@ -152,6 +165,7 @@ impl Node {
             Self::ReadOnlyFile(ReadOnlyFileNode { name, .. }) => *name = new_name,
             Self::ArcFile(ArcFileNode { name, .. }) => *name = new_name,
             Self::CustomFile(CustomFileNode { name, .. }) => *name = new_name,
+            Self::Symlink(SymlinkNode { name, .. }) => *name = new_name,
             Self::Directory(DirectoryNode { name, .. }) => *name = new_name,
             Self::ArcDirectory(ArcDirectoryNode { name, .. }) => *name = new_name,
         }

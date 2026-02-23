@@ -16,6 +16,10 @@
 
   (global $z1 i32 (global.get 0))
   (global $z2 i64 (global.get 1))
+  (global $z3 i32 (i32.add (i32.sub (i32.mul (i32.const 20) (i32.const 2)) (i32.const 2)) (i32.const 4)))
+  (global $z4 i64 (i64.add (i64.sub (i64.mul (i64.const 20) (i64.const 2)) (i64.const 2)) (i64.const 5)))
+  (global $z5 i32 (i32.add (global.get 0) (i32.const 42)))
+  (global $z6 i64 (i64.add (global.get 1) (i64.const 42)))
 
   (global $r externref (ref.null extern))
   (global $mr (mut externref) (ref.null extern))
@@ -29,6 +33,10 @@
   (func (export "get-y") (result i64) (global.get $y))
   (func (export "get-z1") (result i32) (global.get $z1))
   (func (export "get-z2") (result i64) (global.get $z2))
+  (func (export "get-z3") (result i32) (global.get $z3))
+  (func (export "get-z4") (result i64) (global.get $z4))
+  (func (export "get-z5") (result i32) (global.get $z5))
+  (func (export "get-z6") (result i64) (global.get $z6))
   (func (export "set-x") (param i32) (global.set $x (local.get 0)))
   (func (export "set-y") (param i64) (global.set $y (local.get 0)))
   (func (export "set-mr") (param externref) (global.set $mr (local.get 0)))
@@ -201,6 +209,10 @@
 (assert_return (invoke "get-y") (i64.const -15))
 (assert_return (invoke "get-z1") (i32.const 666))
 (assert_return (invoke "get-z2") (i64.const 666))
+(assert_return (invoke "get-z3") (i32.const 42))
+(assert_return (invoke "get-z4") (i64.const 43))
+(assert_return (invoke "get-z5") (i32.const 708))
+(assert_return (invoke "get-z6") (i64.const 708))
 
 (assert_return (invoke "get-3") (f32.const -3))
 (assert_return (invoke "get-4") (f64.const -4))
@@ -271,12 +283,12 @@
 
 (assert_invalid
   (module (global f32 (f32.const 0)) (func (global.set 0 (f32.const 1))))
-  "global is immutable"
+  "immutable global"
 )
 
 (assert_invalid
   (module (import "spectest" "global_i32" (global i32)) (func (global.set 0 (i32.const 1))))
-  "global is immutable"
+  "immutable global"
 )
 
 ;; mutable globals can be exported
@@ -349,15 +361,6 @@
 )
 
 (assert_invalid
-  (module (global i32 (i32.const 0)) (global i32 (global.get 0)))
-  "unknown global"
-)
-(assert_invalid
-  (module (global $g i32 (i32.const 0)) (global i32 (global.get $g)))
-  "unknown global"
-)
-
-(assert_invalid
   (module (global i32 (global.get 1)) (global i32 (i32.const 0)))
   "unknown global"
 )
@@ -366,6 +369,9 @@
   (module (global (import "test" "global-i32") i32) (global i32 (global.get 2)))
   "unknown global"
 )
+
+(module (global i32 (i32.const 0)) (global i32 (global.get 0)))
+(module (global $g i32 (i32.const 0)) (global i32 (global.get $g)))
 
 (assert_invalid
   (module (global (import "test" "global-mut-i32") (mut i32)) (global i32 (global.get 0)))
@@ -384,7 +390,7 @@
       "\0a\67\6c\6f\62\61\6c\5f\69\33\32" ;; "global_i32"
       "\03"                          ;; GlobalImport
       "\7f"                          ;; i32
-      "\02"                          ;; malformed mutability
+      "\04"                          ;; malformed mutability
   )
   "malformed mutability"
 )
@@ -411,7 +417,7 @@
     "\06\86\80\80\80\00"  ;; global section
       "\01"               ;; length 1
       "\7f"               ;; i32
-      "\02"               ;; malformed mutability
+      "\04"               ;; malformed mutability
       "\41\00"            ;; i32.const 0
       "\0b"               ;; end
   )
@@ -617,17 +623,83 @@
   "type mismatch"
 )
 
+
+;; Definition order
+
+(module
+  (global (export "g") i32 (i32.const 4))
+)
+(register "G")
+
+(module
+  (global $g0 (import "G" "g") i32)
+  (global $g1 i32 (i32.const 8))
+  (global $g2 i32 (global.get $g0))
+  (global $g3 i32 (global.get $g1))
+
+  (global $gf funcref (ref.func $f))
+  (func $f)
+
+  (table $t 10 funcref (ref.null func))
+  (elem (table $t) (global.get $g2) funcref (ref.func $f))
+  (elem (table $t) (global.get $g3) funcref (global.get $gf))
+
+  (memory $m 1)
+  (data (global.get $g2) "\44\44\44\44")
+  (data (global.get $g3) "\88\88\88\88")
+
+  (func (export "get-elem") (param $i i32) (result funcref)
+    (table.get $t (local.get $i))
+  )
+  (func (export "get-data") (param $i i32) (result i32)
+    (i32.load (local.get $i))
+  )
+)
+
+(assert_return (invoke "get-elem" (i32.const 0)) (ref.null))
+(assert_return (invoke "get-elem" (i32.const 4)) (ref.func))
+(assert_return (invoke "get-elem" (i32.const 8)) (ref.func))
+
+(assert_return (invoke "get-data" (i32.const 4)) (i32.const 0x44444444))
+(assert_return (invoke "get-data" (i32.const 8)) (i32.const 0x88888888))
+
+(assert_invalid
+  (module 
+    (global $g1 i32 (global.get $g2))
+    (global $g2 i32 (i32.const 0))
+  )
+  "unknown global"
+)
+
+(assert_invalid
+  (module
+    (global $g funcref (ref.null func))
+    (table $t 10 funcref (global.get $g))
+  )
+  "unknown global"
+)
+
+
 ;; Duplicate identifier errors
 
-(assert_malformed (module quote
-  "(global $foo i32 (i32.const 0))"
-  "(global $foo i32 (i32.const 0))")
-  "duplicate global")
-(assert_malformed (module quote
-  "(import \"\" \"\" (global $foo i32))"
-  "(global $foo i32 (i32.const 0))")
-  "duplicate global")
-(assert_malformed (module quote
-  "(import \"\" \"\" (global $foo i32))"
-  "(import \"\" \"\" (global $foo i32))")
-  "duplicate global")
+(assert_malformed
+  (module quote
+    "(global $foo i32 (i32.const 0))"
+    "(global $foo i32 (i32.const 0))"
+  )
+  "duplicate global"
+)
+(assert_malformed
+  (module quote
+    "(import \"\" \"\" (global $foo i32))"
+    "(global $foo i32 (i32.const 0))"
+  )
+  "duplicate global"
+)
+(assert_malformed
+  (module quote
+    "(import \"\" \"\" (global $foo i32))"
+    "(import \"\" \"\" (global $foo i32))"
+  )
+  "duplicate global"
+)

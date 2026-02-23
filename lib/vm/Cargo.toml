@@ -34,6 +34,7 @@ tracing = { workspace = true, optional = true }
 crossbeam-queue.workspace = true
 loupe = { workspace = true, optional = true }
 gimli.workspace = true
+bytesize.workspace = true
 
 [target.'cfg(any(target_family = "unix", all(target_family = "windows", target_env = "gnu")))'.dependencies]
 libunwind.workspace = true

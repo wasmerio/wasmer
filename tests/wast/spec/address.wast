@@ -210,12 +210,12 @@
 (assert_trap (invoke "16s_bad" (i32.const 1)) "out of bounds memory access")
 (assert_trap (invoke "32_bad" (i32.const 1)) "out of bounds memory access")
 
-(assert_malformed
+(assert_invalid
   (module quote
     "(memory 1)"
     "(func (drop (i32.load offset=4294967296 (i32.const 0))))"
   )
-  "i32 constant"
+  "offset out of range"
 )
 
 ;; Load i64 data with different offset/align arguments

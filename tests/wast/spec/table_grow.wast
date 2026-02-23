@@ -11,6 +11,7 @@
     (table.grow (local.get $init) (local.get $sz))
   )
   (func (export "size") (result i32) (table.size $t))
+
 )
 
 (assert_return (invoke "size") (i32.const 0))

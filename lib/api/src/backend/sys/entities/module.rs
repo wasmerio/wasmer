@@ -14,6 +14,7 @@ use crate::{
     backend::sys::entities::engine::NativeEngineExt, engine::AsEngineRef,
     error::InstantiationError, vm::VMInstance,
 };
+use wasmer_vm::StoreHandle;
 
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -202,8 +203,15 @@ impl Module {
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.artifact
-                .finish_instantiation(config, signal_handler, &mut instance_handle)?;
+            if let Err(err) =
+                self.artifact
+                    .finish_instantiation(config, signal_handler, &mut instance_handle)
+            {
+                // Keep the partially initialized instance alive: its funcrefs may already
+                // have been written into imported tables.
+                let _ = StoreHandle::new(objects.as_sys_mut(), instance_handle);
+                return Err(err.into());
+            }
 
             drop(store_install_guard);
 
