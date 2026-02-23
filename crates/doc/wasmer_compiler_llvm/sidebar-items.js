@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["LLVMOptLevel"],"mod":["abi","compiler","config","error","object_file","trampoline","translator"],"struct":["LLVM","LLVMCallbacks","LLVMCompiler"],"type":["InkwellMemoryBuffer","InkwellModule"]};
+window.SIDEBAR_ITEMS = {"enum":["LLVMOptLevel"],"mod":["abi","compiler","config","error","object_file","translator"],"struct":["LLVM","LLVMCallbacks","LLVMCompiler"],"type":["InkwellMemoryBuffer","InkwellModule"]};

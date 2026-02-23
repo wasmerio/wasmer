@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["code","intrinsics","state"]};
+window.SIDEBAR_ITEMS = {"mod":["code","intrinsics","state","trampoline"]};
