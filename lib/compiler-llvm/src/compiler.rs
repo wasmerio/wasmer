@@ -201,11 +201,7 @@ impl LLVMCompiler {
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),
-                    !compile_info
-                        .module
-                        .imports
-                        .keys()
-                        .any(|import| import.module.starts_with("wasix_")),
+                    false,
                 )
                 .unwrap()
             },
