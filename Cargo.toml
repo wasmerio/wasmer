@@ -106,7 +106,7 @@ backtrace = "0.3"
 base64 = "0.22.1"
 bincode = "2.0.1"
 bindgen = { version = "0.72.1", default-features = false }
-bitflags = "2.10.0"
+bitflags = "2.11.0"
 blake3 = "1.0"
 build-deps = "0.1.4"
 bus = "2.4.1"
@@ -281,7 +281,7 @@ tracing-test = { version = "0.2" }
 tracing-wasm = "0.2"
 trybuild = "1.0.11"
 typetag = "0.2.21"
-uniffi = "0.30.0"
+uniffi = "0.31.0"
 unix_mode = "0.1.3"
 ureq = "3.1.4"
 url = "2.5"
@@ -299,12 +299,12 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.37"
 wasm-bindgen-test = "0.3.0"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.245.0", default-features = false, features = [
+wasm-encoder = { version = "0.245.1", default-features = false, features = [
 	"std",
 ] }
 wasm-smith = "0.245.0"
 wasmi_c_api_impl = "1.0.4"
-wasmparser = { version = "0.245.0", default-features = false, features = [
+wasmparser = { version = "0.245.1", default-features = false, features = [
 	"validate",
 	"features",
 	"simd",
