@@ -473,6 +473,7 @@ impl FuncTrampoline {
                     ));
                 }
             };
+        func_ptr.set_name("func_ptr");
 
         let mut args_vec = Vec::with_capacity(func_sig.params().len() + 3);
 
@@ -487,6 +488,7 @@ impl FuncTrampoline {
             args_vec.push(err!(builder.build_alloca(sret_ty, "sret")).into());
         }
 
+        callee_vmctx_ptr.set_name("vmctx");
         args_vec.push(callee_vmctx_ptr.into());
 
         if enable_m0_optimization(compile_info) {
@@ -652,8 +654,10 @@ impl FuncTrampoline {
         let callee =
             err!(builder.build_load(intrinsics.ptr_ty, callee_ty.into_pointer_value(), ""))
                 .into_pointer_value();
+        callee.set_name("func_ptr");
 
         let values_ptr = err!(builder.build_pointer_cast(values, intrinsics.ptr_ty, ""));
+        values_ptr.set_name("value_ptr");
         err!(builder.build_indirect_call(
             callee_ptr_ty,
             callee,
