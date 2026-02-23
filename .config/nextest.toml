@@ -4,7 +4,9 @@
 failure-output = "immediate-final"
 # Do not cancel the test run on the first failure.
 fail-fast = false
-# Automatically mark a test as "slow" after 60 seconds, then kill it after 180s
-slow-timeout = { period = "60s", terminate-after = 3 }
+# Automatically mark a test as "slow" after 2 minutes, then kill it after 6 minutes.
+# Note the Wasmer CLI integration tests tend to be slow on Windows, where Python package
+# is built multiple times with the LLVM compiler.
+slow-timeout = { period = "2m", terminate-after = 3 }
 # Retry a couple times in case there are flaky tests
 retries = 3
