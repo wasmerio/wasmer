@@ -52,7 +52,7 @@ pub trait CompilerConfig {
 
     /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
     /// (but are not 100% SPEC compliant).
-    fn enable_non_volatime_memops(&mut self) {}
+    fn enable_non_volatile_memops(&mut self) {}
 
     /// Enable NaN canonicalization.
     ///
