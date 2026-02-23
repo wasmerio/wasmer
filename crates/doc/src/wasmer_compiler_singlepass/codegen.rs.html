@@ -5709,7 +5709,7 @@
 <a href=#5709 id=5709 data-nosnippet>5709</a>                )<span class="question-mark">?</span>;
 <a href=#5710 id=5710 data-nosnippet>5710</a>            }
 <a href=#5711 id=5711 data-nosnippet>5711</a>            Operator::MemoryAtomicNotify { <span class="kw-2">ref </span>memarg } =&gt; {
-<a href=#5712 id=5712 data-nosnippet>5712</a>                <span class="kw">let </span>_cnt = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5712 id=5712 data-nosnippet>5712</a>                <span class="kw">let </span>cnt = <span class="self">self</span>.value_stack.pop().unwrap();
 <a href=#5713 id=5713 data-nosnippet>5713</a>                <span class="kw">let </span>dst = <span class="self">self</span>.value_stack.pop().unwrap();
 <a href=#5714 id=5714 data-nosnippet>5714</a>
 <a href=#5715 id=5715 data-nosnippet>5715</a>                <span class="kw">let </span>memory_index = MemoryIndex::new(memarg.memory <span class="kw">as </span>usize);
@@ -5740,186 +5740,187 @@
 <a href=#5740 id=5740 data-nosnippet>5740</a>                        this.machine
 <a href=#5741 id=5741 data-nosnippet>5741</a>                            .emit_call_register(this.machine.get_gpr_for_call())
 <a href=#5742 id=5742 data-nosnippet>5742</a>                    },
-<a href=#5743 id=5743 data-nosnippet>5743</a>                    <span class="comment">// [vmctx, memory_index, dst, src, timeout]
+<a href=#5743 id=5743 data-nosnippet>5743</a>                    <span class="comment">// [vmctx, memory_index, dst, cnt]
 <a href=#5744 id=5744 data-nosnippet>5744</a>                    </span>[
 <a href=#5745 id=5745 data-nosnippet>5745</a>                        (
 <a href=#5746 id=5746 data-nosnippet>5746</a>                            Location::Imm32(memory_index.index() <span class="kw">as </span>u32),
 <a href=#5747 id=5747 data-nosnippet>5747</a>                            CanonicalizeType::None,
 <a href=#5748 id=5748 data-nosnippet>5748</a>                        ),
 <a href=#5749 id=5749 data-nosnippet>5749</a>                        dst,
-<a href=#5750 id=5750 data-nosnippet>5750</a>                    ]
-<a href=#5751 id=5751 data-nosnippet>5751</a>                    .iter()
-<a href=#5752 id=5752 data-nosnippet>5752</a>                    .cloned(),
-<a href=#5753 id=5753 data-nosnippet>5753</a>                    [WpType::I32, WpType::I32].iter().cloned(),
-<a href=#5754 id=5754 data-nosnippet>5754</a>                    iter::once(WpType::I32),
-<a href=#5755 id=5755 data-nosnippet>5755</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5756 id=5756 data-nosnippet>5756</a>                )<span class="question-mark">?</span>;
-<a href=#5757 id=5757 data-nosnippet>5757</a>            }
-<a href=#5758 id=5758 data-nosnippet>5758</a>            <span class="kw">_ </span>=&gt; {
-<a href=#5759 id=5759 data-nosnippet>5759</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#5760 id=5760 data-nosnippet>5760</a>                    <span class="string">"not yet implemented: {op:?}"
-<a href=#5761 id=5761 data-nosnippet>5761</a>                </span>)));
-<a href=#5762 id=5762 data-nosnippet>5762</a>            }
-<a href=#5763 id=5763 data-nosnippet>5763</a>        }
-<a href=#5764 id=5764 data-nosnippet>5764</a>
-<a href=#5765 id=5765 data-nosnippet>5765</a>        <span class="prelude-val">Ok</span>(())
-<a href=#5766 id=5766 data-nosnippet>5766</a>    }
-<a href=#5767 id=5767 data-nosnippet>5767</a>
-<a href=#5768 id=5768 data-nosnippet>5768</a>    <span class="kw">fn </span>add_assembly_comment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, comment: AssemblyComment) {
-<a href=#5769 id=5769 data-nosnippet>5769</a>        <span class="comment">// Collect assembly comments only if we're going to emit them.
-<a href=#5770 id=5770 data-nosnippet>5770</a>        </span><span class="kw">if </span><span class="self">self</span>.config.callbacks.is_some() {
-<a href=#5771 id=5771 data-nosnippet>5771</a>            <span class="self">self</span>.assembly_comments
-<a href=#5772 id=5772 data-nosnippet>5772</a>                .insert(<span class="self">self</span>.machine.get_offset().<span class="number">0</span>, comment);
-<a href=#5773 id=5773 data-nosnippet>5773</a>        }
-<a href=#5774 id=5774 data-nosnippet>5774</a>    }
-<a href=#5775 id=5775 data-nosnippet>5775</a>
-<a href=#5776 id=5776 data-nosnippet>5776</a>    <span class="kw">pub fn </span>finalize(
-<a href=#5777 id=5777 data-nosnippet>5777</a>        <span class="kw-2">mut </span><span class="self">self</span>,
-<a href=#5778 id=5778 data-nosnippet>5778</a>        data: <span class="kw-2">&amp;</span>FunctionBodyData,
-<a href=#5779 id=5779 data-nosnippet>5779</a>        arch: Architecture,
-<a href=#5780 id=5780 data-nosnippet>5780</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(CompiledFunction, <span class="prelude-ty">Option</span>&lt;UnwindFrame&gt;), CompileError&gt; {
-<a href=#5781 id=5781 data-nosnippet>5781</a>        <span class="self">self</span>.add_assembly_comment(AssemblyComment::TrapHandlersTable);
-<a href=#5782 id=5782 data-nosnippet>5782</a>        <span class="comment">// Generate actual code for special labels.
-<a href=#5783 id=5783 data-nosnippet>5783</a>        </span><span class="self">self</span>.machine
-<a href=#5784 id=5784 data-nosnippet>5784</a>            .emit_label(<span class="self">self</span>.special_labels.integer_division_by_zero)<span class="question-mark">?</span>;
-<a href=#5785 id=5785 data-nosnippet>5785</a>        <span class="self">self</span>.machine
-<a href=#5786 id=5786 data-nosnippet>5786</a>            .emit_illegal_op(TrapCode::IntegerDivisionByZero)<span class="question-mark">?</span>;
-<a href=#5787 id=5787 data-nosnippet>5787</a>
-<a href=#5788 id=5788 data-nosnippet>5788</a>        <span class="self">self</span>.machine
-<a href=#5789 id=5789 data-nosnippet>5789</a>            .emit_label(<span class="self">self</span>.special_labels.integer_overflow)<span class="question-mark">?</span>;
-<a href=#5790 id=5790 data-nosnippet>5790</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::IntegerOverflow)<span class="question-mark">?</span>;
-<a href=#5791 id=5791 data-nosnippet>5791</a>
-<a href=#5792 id=5792 data-nosnippet>5792</a>        <span class="self">self</span>.machine
-<a href=#5793 id=5793 data-nosnippet>5793</a>            .emit_label(<span class="self">self</span>.special_labels.heap_access_oob)<span class="question-mark">?</span>;
-<a href=#5794 id=5794 data-nosnippet>5794</a>        <span class="self">self</span>.machine
-<a href=#5795 id=5795 data-nosnippet>5795</a>            .emit_illegal_op(TrapCode::HeapAccessOutOfBounds)<span class="question-mark">?</span>;
-<a href=#5796 id=5796 data-nosnippet>5796</a>
-<a href=#5797 id=5797 data-nosnippet>5797</a>        <span class="self">self</span>.machine
-<a href=#5798 id=5798 data-nosnippet>5798</a>            .emit_label(<span class="self">self</span>.special_labels.table_access_oob)<span class="question-mark">?</span>;
-<a href=#5799 id=5799 data-nosnippet>5799</a>        <span class="self">self</span>.machine
-<a href=#5800 id=5800 data-nosnippet>5800</a>            .emit_illegal_op(TrapCode::TableAccessOutOfBounds)<span class="question-mark">?</span>;
-<a href=#5801 id=5801 data-nosnippet>5801</a>
-<a href=#5802 id=5802 data-nosnippet>5802</a>        <span class="self">self</span>.machine
-<a href=#5803 id=5803 data-nosnippet>5803</a>            .emit_label(<span class="self">self</span>.special_labels.indirect_call_null)<span class="question-mark">?</span>;
-<a href=#5804 id=5804 data-nosnippet>5804</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::IndirectCallToNull)<span class="question-mark">?</span>;
-<a href=#5805 id=5805 data-nosnippet>5805</a>
-<a href=#5806 id=5806 data-nosnippet>5806</a>        <span class="self">self</span>.machine.emit_label(<span class="self">self</span>.special_labels.bad_signature)<span class="question-mark">?</span>;
-<a href=#5807 id=5807 data-nosnippet>5807</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::BadSignature)<span class="question-mark">?</span>;
-<a href=#5808 id=5808 data-nosnippet>5808</a>
-<a href=#5809 id=5809 data-nosnippet>5809</a>        <span class="self">self</span>.machine
-<a href=#5810 id=5810 data-nosnippet>5810</a>            .emit_label(<span class="self">self</span>.special_labels.unaligned_atomic)<span class="question-mark">?</span>;
-<a href=#5811 id=5811 data-nosnippet>5811</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::UnalignedAtomic)<span class="question-mark">?</span>;
-<a href=#5812 id=5812 data-nosnippet>5812</a>
-<a href=#5813 id=5813 data-nosnippet>5813</a>        <span class="comment">// Notify the assembler backend to generate necessary code at end of function.
-<a href=#5814 id=5814 data-nosnippet>5814</a>        </span><span class="self">self</span>.machine.finalize_function()<span class="question-mark">?</span>;
-<a href=#5815 id=5815 data-nosnippet>5815</a>
-<a href=#5816 id=5816 data-nosnippet>5816</a>        <span class="kw">let </span>body_len = <span class="self">self</span>.machine.assembler_get_offset().<span class="number">0</span>;
-<a href=#5817 id=5817 data-nosnippet>5817</a>
-<a href=#5818 id=5818 data-nosnippet>5818</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
-<a href=#5819 id=5819 data-nosnippet>5819</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>unwind_info = <span class="prelude-val">None</span>;
-<a href=#5820 id=5820 data-nosnippet>5820</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
-<a href=#5821 id=5821 data-nosnippet>5821</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>fde = <span class="prelude-val">None</span>;
-<a href=#5822 id=5822 data-nosnippet>5822</a>        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#5823 id=5823 data-nosnippet>5823</a>        </span><span class="kw">match </span><span class="self">self</span>.calling_convention {
-<a href=#5824 id=5824 data-nosnippet>5824</a>            CallingConvention::SystemV | CallingConvention::AppleAarch64 =&gt; {
-<a href=#5825 id=5825 data-nosnippet>5825</a>                <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_dwarf_unwind_info(body_len);
-<a href=#5826 id=5826 data-nosnippet>5826</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(unwind) = unwind {
-<a href=#5827 id=5827 data-nosnippet>5827</a>                    fde = <span class="prelude-val">Some</span>(unwind.to_fde(Address::Symbol {
-<a href=#5828 id=5828 data-nosnippet>5828</a>                        symbol: WriterRelocate::FUNCTION_SYMBOL,
-<a href=#5829 id=5829 data-nosnippet>5829</a>                        addend: <span class="self">self</span>.local_func_index.index() <span class="kw">as _</span>,
-<a href=#5830 id=5830 data-nosnippet>5830</a>                    }));
-<a href=#5831 id=5831 data-nosnippet>5831</a>                    unwind_info = <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::Dwarf);
-<a href=#5832 id=5832 data-nosnippet>5832</a>                }
-<a href=#5833 id=5833 data-nosnippet>5833</a>            }
-<a href=#5834 id=5834 data-nosnippet>5834</a>            CallingConvention::WindowsFastcall =&gt; {
-<a href=#5835 id=5835 data-nosnippet>5835</a>                <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_windows_unwind_info(body_len);
-<a href=#5836 id=5836 data-nosnippet>5836</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(unwind) = unwind {
-<a href=#5837 id=5837 data-nosnippet>5837</a>                    unwind_info = <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::WindowsX64(unwind));
-<a href=#5838 id=5838 data-nosnippet>5838</a>                }
-<a href=#5839 id=5839 data-nosnippet>5839</a>            }
-<a href=#5840 id=5840 data-nosnippet>5840</a>            <span class="kw">_ </span>=&gt; (),
-<a href=#5841 id=5841 data-nosnippet>5841</a>        };
-<a href=#5842 id=5842 data-nosnippet>5842</a>
-<a href=#5843 id=5843 data-nosnippet>5843</a>        <span class="kw">let </span>address_map =
-<a href=#5844 id=5844 data-nosnippet>5844</a>            get_function_address_map(<span class="self">self</span>.machine.instructions_address_map(), data, body_len);
-<a href=#5845 id=5845 data-nosnippet>5845</a>        <span class="kw">let </span>traps = <span class="self">self</span>.machine.collect_trap_information();
-<a href=#5846 id=5846 data-nosnippet>5846</a>        <span class="kw">let </span>FinalizedAssembly {
-<a href=#5847 id=5847 data-nosnippet>5847</a>            <span class="kw-2">mut </span>body,
-<a href=#5848 id=5848 data-nosnippet>5848</a>            assembly_comments,
-<a href=#5849 id=5849 data-nosnippet>5849</a>        } = <span class="self">self</span>.machine.assembler_finalize(<span class="self">self</span>.assembly_comments)<span class="question-mark">?</span>;
-<a href=#5850 id=5850 data-nosnippet>5850</a>        body.shrink_to_fit();
-<a href=#5851 id=5851 data-nosnippet>5851</a>
-<a href=#5852 id=5852 data-nosnippet>5852</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
-<a href=#5853 id=5853 data-nosnippet>5853</a>            callbacks.obj_memory_buffer(
-<a href=#5854 id=5854 data-nosnippet>5854</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
-<a href=#5855 id=5855 data-nosnippet>5855</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
-<a href=#5856 id=5856 data-nosnippet>5856</a>                <span class="kw-2">&amp;</span>body,
-<a href=#5857 id=5857 data-nosnippet>5857</a>            );
-<a href=#5858 id=5858 data-nosnippet>5858</a>            callbacks.asm_memory_buffer(
-<a href=#5859 id=5859 data-nosnippet>5859</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
-<a href=#5860 id=5860 data-nosnippet>5860</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
-<a href=#5861 id=5861 data-nosnippet>5861</a>                arch,
-<a href=#5862 id=5862 data-nosnippet>5862</a>                <span class="kw-2">&amp;</span>body,
-<a href=#5863 id=5863 data-nosnippet>5863</a>                assembly_comments,
-<a href=#5864 id=5864 data-nosnippet>5864</a>            )<span class="question-mark">?</span>;
-<a href=#5865 id=5865 data-nosnippet>5865</a>        }
-<a href=#5866 id=5866 data-nosnippet>5866</a>
-<a href=#5867 id=5867 data-nosnippet>5867</a>        <span class="prelude-val">Ok</span>((
-<a href=#5868 id=5868 data-nosnippet>5868</a>            CompiledFunction {
-<a href=#5869 id=5869 data-nosnippet>5869</a>                body: FunctionBody { body, unwind_info },
-<a href=#5870 id=5870 data-nosnippet>5870</a>                relocations: <span class="self">self</span>.relocations.clone(),
-<a href=#5871 id=5871 data-nosnippet>5871</a>                frame_info: CompiledFunctionFrameInfo { traps, address_map },
-<a href=#5872 id=5872 data-nosnippet>5872</a>            },
-<a href=#5873 id=5873 data-nosnippet>5873</a>            fde,
-<a href=#5874 id=5874 data-nosnippet>5874</a>        ))
-<a href=#5875 id=5875 data-nosnippet>5875</a>    }
-<a href=#5876 id=5876 data-nosnippet>5876</a>    <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
-<a href=#5877 id=5877 data-nosnippet>5877</a>    // at call place.
-<a href=#5878 id=5878 data-nosnippet>5878</a>    </span><span class="attr">#[allow(clippy::type_complexity)]
-<a href=#5879 id=5879 data-nosnippet>5879</a>    </span><span class="kw">fn </span>sort_call_movs(movs: <span class="kw-2">&amp;mut </span>[(Location&lt;M::GPR, M::SIMD&gt;, M::GPR)]) {
-<a href=#5880 id=5880 data-nosnippet>5880</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..movs.len() {
-<a href=#5881 id=5881 data-nosnippet>5881</a>            <span class="kw">for </span>j <span class="kw">in </span>(i + <span class="number">1</span>)..movs.len() {
-<a href=#5882 id=5882 data-nosnippet>5882</a>                <span class="kw">if let </span>Location::GPR(src_gpr) = movs[j].<span class="number">0
-<a href=#5883 id=5883 data-nosnippet>5883</a>                    </span>&amp;&amp; src_gpr == movs[i].<span class="number">1
-<a href=#5884 id=5884 data-nosnippet>5884</a>                </span>{
-<a href=#5885 id=5885 data-nosnippet>5885</a>                    movs.swap(i, j);
-<a href=#5886 id=5886 data-nosnippet>5886</a>                }
-<a href=#5887 id=5887 data-nosnippet>5887</a>            }
-<a href=#5888 id=5888 data-nosnippet>5888</a>        }
-<a href=#5889 id=5889 data-nosnippet>5889</a>    }
-<a href=#5890 id=5890 data-nosnippet>5890</a>
-<a href=#5891 id=5891 data-nosnippet>5891</a>    <span class="comment">// Cycle detector. Uncomment this to debug possibly incorrect call-mov sequences.
-<a href=#5892 id=5892 data-nosnippet>5892</a>    /*
-<a href=#5893 id=5893 data-nosnippet>5893</a>    {
-<a href=#5894 id=5894 data-nosnippet>5894</a>        use std::collections::{HashMap, HashSet, VecDeque};
-<a href=#5895 id=5895 data-nosnippet>5895</a>        let mut mov_map: HashMap&lt;GPR, HashSet&lt;GPR&gt;&gt; = HashMap::new();
-<a href=#5896 id=5896 data-nosnippet>5896</a>        for mov in movs.iter() {
-<a href=#5897 id=5897 data-nosnippet>5897</a>            if let Location::GPR(src_gpr) = mov.0 {
-<a href=#5898 id=5898 data-nosnippet>5898</a>                if src_gpr != mov.1 {
-<a href=#5899 id=5899 data-nosnippet>5899</a>                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
-<a href=#5900 id=5900 data-nosnippet>5900</a>                }
-<a href=#5901 id=5901 data-nosnippet>5901</a>            }
-<a href=#5902 id=5902 data-nosnippet>5902</a>        }
-<a href=#5903 id=5903 data-nosnippet>5903</a>
-<a href=#5904 id=5904 data-nosnippet>5904</a>        for (start, _) in mov_map.iter() {
-<a href=#5905 id=5905 data-nosnippet>5905</a>            let mut q: VecDeque&lt;GPR&gt; = VecDeque::new();
-<a href=#5906 id=5906 data-nosnippet>5906</a>            let mut black: HashSet&lt;GPR&gt; = HashSet::new();
-<a href=#5907 id=5907 data-nosnippet>5907</a>
-<a href=#5908 id=5908 data-nosnippet>5908</a>            q.push_back(*start);
-<a href=#5909 id=5909 data-nosnippet>5909</a>            black.insert(*start);
-<a href=#5910 id=5910 data-nosnippet>5910</a>
-<a href=#5911 id=5911 data-nosnippet>5911</a>            while q.len() &gt; 0 {
-<a href=#5912 id=5912 data-nosnippet>5912</a>                let reg = q.pop_front().unwrap();
-<a href=#5913 id=5913 data-nosnippet>5913</a>                let empty_set = HashSet::new();
-<a href=#5914 id=5914 data-nosnippet>5914</a>                for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
-<a href=#5915 id=5915 data-nosnippet>5915</a>                    if black.contains(x) {
-<a href=#5916 id=5916 data-nosnippet>5916</a>                        panic!("cycle detected");
-<a href=#5917 id=5917 data-nosnippet>5917</a>                    }
-<a href=#5918 id=5918 data-nosnippet>5918</a>                    q.push_back(*x);
-<a href=#5919 id=5919 data-nosnippet>5919</a>                    black.insert(*x);
-<a href=#5920 id=5920 data-nosnippet>5920</a>                }
-<a href=#5921 id=5921 data-nosnippet>5921</a>            }
-<a href=#5922 id=5922 data-nosnippet>5922</a>        }
-<a href=#5923 id=5923 data-nosnippet>5923</a>    }
-<a href=#5924 id=5924 data-nosnippet>5924</a>    */
-<a href=#5925 id=5925 data-nosnippet>5925</a></span>}</code></pre></div></section></main></body></html>
+<a href=#5750 id=5750 data-nosnippet>5750</a>                        cnt,
+<a href=#5751 id=5751 data-nosnippet>5751</a>                    ]
+<a href=#5752 id=5752 data-nosnippet>5752</a>                    .iter()
+<a href=#5753 id=5753 data-nosnippet>5753</a>                    .cloned(),
+<a href=#5754 id=5754 data-nosnippet>5754</a>                    [WpType::I32, WpType::I32, WpType::I32].iter().cloned(),
+<a href=#5755 id=5755 data-nosnippet>5755</a>                    iter::once(WpType::I32),
+<a href=#5756 id=5756 data-nosnippet>5756</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5757 id=5757 data-nosnippet>5757</a>                )<span class="question-mark">?</span>;
+<a href=#5758 id=5758 data-nosnippet>5758</a>            }
+<a href=#5759 id=5759 data-nosnippet>5759</a>            <span class="kw">_ </span>=&gt; {
+<a href=#5760 id=5760 data-nosnippet>5760</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#5761 id=5761 data-nosnippet>5761</a>                    <span class="string">"not yet implemented: {op:?}"
+<a href=#5762 id=5762 data-nosnippet>5762</a>                </span>)));
+<a href=#5763 id=5763 data-nosnippet>5763</a>            }
+<a href=#5764 id=5764 data-nosnippet>5764</a>        }
+<a href=#5765 id=5765 data-nosnippet>5765</a>
+<a href=#5766 id=5766 data-nosnippet>5766</a>        <span class="prelude-val">Ok</span>(())
+<a href=#5767 id=5767 data-nosnippet>5767</a>    }
+<a href=#5768 id=5768 data-nosnippet>5768</a>
+<a href=#5769 id=5769 data-nosnippet>5769</a>    <span class="kw">fn </span>add_assembly_comment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, comment: AssemblyComment) {
+<a href=#5770 id=5770 data-nosnippet>5770</a>        <span class="comment">// Collect assembly comments only if we're going to emit them.
+<a href=#5771 id=5771 data-nosnippet>5771</a>        </span><span class="kw">if </span><span class="self">self</span>.config.callbacks.is_some() {
+<a href=#5772 id=5772 data-nosnippet>5772</a>            <span class="self">self</span>.assembly_comments
+<a href=#5773 id=5773 data-nosnippet>5773</a>                .insert(<span class="self">self</span>.machine.get_offset().<span class="number">0</span>, comment);
+<a href=#5774 id=5774 data-nosnippet>5774</a>        }
+<a href=#5775 id=5775 data-nosnippet>5775</a>    }
+<a href=#5776 id=5776 data-nosnippet>5776</a>
+<a href=#5777 id=5777 data-nosnippet>5777</a>    <span class="kw">pub fn </span>finalize(
+<a href=#5778 id=5778 data-nosnippet>5778</a>        <span class="kw-2">mut </span><span class="self">self</span>,
+<a href=#5779 id=5779 data-nosnippet>5779</a>        data: <span class="kw-2">&amp;</span>FunctionBodyData,
+<a href=#5780 id=5780 data-nosnippet>5780</a>        arch: Architecture,
+<a href=#5781 id=5781 data-nosnippet>5781</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(CompiledFunction, <span class="prelude-ty">Option</span>&lt;UnwindFrame&gt;), CompileError&gt; {
+<a href=#5782 id=5782 data-nosnippet>5782</a>        <span class="self">self</span>.add_assembly_comment(AssemblyComment::TrapHandlersTable);
+<a href=#5783 id=5783 data-nosnippet>5783</a>        <span class="comment">// Generate actual code for special labels.
+<a href=#5784 id=5784 data-nosnippet>5784</a>        </span><span class="self">self</span>.machine
+<a href=#5785 id=5785 data-nosnippet>5785</a>            .emit_label(<span class="self">self</span>.special_labels.integer_division_by_zero)<span class="question-mark">?</span>;
+<a href=#5786 id=5786 data-nosnippet>5786</a>        <span class="self">self</span>.machine
+<a href=#5787 id=5787 data-nosnippet>5787</a>            .emit_illegal_op(TrapCode::IntegerDivisionByZero)<span class="question-mark">?</span>;
+<a href=#5788 id=5788 data-nosnippet>5788</a>
+<a href=#5789 id=5789 data-nosnippet>5789</a>        <span class="self">self</span>.machine
+<a href=#5790 id=5790 data-nosnippet>5790</a>            .emit_label(<span class="self">self</span>.special_labels.integer_overflow)<span class="question-mark">?</span>;
+<a href=#5791 id=5791 data-nosnippet>5791</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::IntegerOverflow)<span class="question-mark">?</span>;
+<a href=#5792 id=5792 data-nosnippet>5792</a>
+<a href=#5793 id=5793 data-nosnippet>5793</a>        <span class="self">self</span>.machine
+<a href=#5794 id=5794 data-nosnippet>5794</a>            .emit_label(<span class="self">self</span>.special_labels.heap_access_oob)<span class="question-mark">?</span>;
+<a href=#5795 id=5795 data-nosnippet>5795</a>        <span class="self">self</span>.machine
+<a href=#5796 id=5796 data-nosnippet>5796</a>            .emit_illegal_op(TrapCode::HeapAccessOutOfBounds)<span class="question-mark">?</span>;
+<a href=#5797 id=5797 data-nosnippet>5797</a>
+<a href=#5798 id=5798 data-nosnippet>5798</a>        <span class="self">self</span>.machine
+<a href=#5799 id=5799 data-nosnippet>5799</a>            .emit_label(<span class="self">self</span>.special_labels.table_access_oob)<span class="question-mark">?</span>;
+<a href=#5800 id=5800 data-nosnippet>5800</a>        <span class="self">self</span>.machine
+<a href=#5801 id=5801 data-nosnippet>5801</a>            .emit_illegal_op(TrapCode::TableAccessOutOfBounds)<span class="question-mark">?</span>;
+<a href=#5802 id=5802 data-nosnippet>5802</a>
+<a href=#5803 id=5803 data-nosnippet>5803</a>        <span class="self">self</span>.machine
+<a href=#5804 id=5804 data-nosnippet>5804</a>            .emit_label(<span class="self">self</span>.special_labels.indirect_call_null)<span class="question-mark">?</span>;
+<a href=#5805 id=5805 data-nosnippet>5805</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::IndirectCallToNull)<span class="question-mark">?</span>;
+<a href=#5806 id=5806 data-nosnippet>5806</a>
+<a href=#5807 id=5807 data-nosnippet>5807</a>        <span class="self">self</span>.machine.emit_label(<span class="self">self</span>.special_labels.bad_signature)<span class="question-mark">?</span>;
+<a href=#5808 id=5808 data-nosnippet>5808</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::BadSignature)<span class="question-mark">?</span>;
+<a href=#5809 id=5809 data-nosnippet>5809</a>
+<a href=#5810 id=5810 data-nosnippet>5810</a>        <span class="self">self</span>.machine
+<a href=#5811 id=5811 data-nosnippet>5811</a>            .emit_label(<span class="self">self</span>.special_labels.unaligned_atomic)<span class="question-mark">?</span>;
+<a href=#5812 id=5812 data-nosnippet>5812</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::UnalignedAtomic)<span class="question-mark">?</span>;
+<a href=#5813 id=5813 data-nosnippet>5813</a>
+<a href=#5814 id=5814 data-nosnippet>5814</a>        <span class="comment">// Notify the assembler backend to generate necessary code at end of function.
+<a href=#5815 id=5815 data-nosnippet>5815</a>        </span><span class="self">self</span>.machine.finalize_function()<span class="question-mark">?</span>;
+<a href=#5816 id=5816 data-nosnippet>5816</a>
+<a href=#5817 id=5817 data-nosnippet>5817</a>        <span class="kw">let </span>body_len = <span class="self">self</span>.machine.assembler_get_offset().<span class="number">0</span>;
+<a href=#5818 id=5818 data-nosnippet>5818</a>
+<a href=#5819 id=5819 data-nosnippet>5819</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
+<a href=#5820 id=5820 data-nosnippet>5820</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>unwind_info = <span class="prelude-val">None</span>;
+<a href=#5821 id=5821 data-nosnippet>5821</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
+<a href=#5822 id=5822 data-nosnippet>5822</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>fde = <span class="prelude-val">None</span>;
+<a href=#5823 id=5823 data-nosnippet>5823</a>        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#5824 id=5824 data-nosnippet>5824</a>        </span><span class="kw">match </span><span class="self">self</span>.calling_convention {
+<a href=#5825 id=5825 data-nosnippet>5825</a>            CallingConvention::SystemV | CallingConvention::AppleAarch64 =&gt; {
+<a href=#5826 id=5826 data-nosnippet>5826</a>                <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_dwarf_unwind_info(body_len);
+<a href=#5827 id=5827 data-nosnippet>5827</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(unwind) = unwind {
+<a href=#5828 id=5828 data-nosnippet>5828</a>                    fde = <span class="prelude-val">Some</span>(unwind.to_fde(Address::Symbol {
+<a href=#5829 id=5829 data-nosnippet>5829</a>                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+<a href=#5830 id=5830 data-nosnippet>5830</a>                        addend: <span class="self">self</span>.local_func_index.index() <span class="kw">as _</span>,
+<a href=#5831 id=5831 data-nosnippet>5831</a>                    }));
+<a href=#5832 id=5832 data-nosnippet>5832</a>                    unwind_info = <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::Dwarf);
+<a href=#5833 id=5833 data-nosnippet>5833</a>                }
+<a href=#5834 id=5834 data-nosnippet>5834</a>            }
+<a href=#5835 id=5835 data-nosnippet>5835</a>            CallingConvention::WindowsFastcall =&gt; {
+<a href=#5836 id=5836 data-nosnippet>5836</a>                <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_windows_unwind_info(body_len);
+<a href=#5837 id=5837 data-nosnippet>5837</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(unwind) = unwind {
+<a href=#5838 id=5838 data-nosnippet>5838</a>                    unwind_info = <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+<a href=#5839 id=5839 data-nosnippet>5839</a>                }
+<a href=#5840 id=5840 data-nosnippet>5840</a>            }
+<a href=#5841 id=5841 data-nosnippet>5841</a>            <span class="kw">_ </span>=&gt; (),
+<a href=#5842 id=5842 data-nosnippet>5842</a>        };
+<a href=#5843 id=5843 data-nosnippet>5843</a>
+<a href=#5844 id=5844 data-nosnippet>5844</a>        <span class="kw">let </span>address_map =
+<a href=#5845 id=5845 data-nosnippet>5845</a>            get_function_address_map(<span class="self">self</span>.machine.instructions_address_map(), data, body_len);
+<a href=#5846 id=5846 data-nosnippet>5846</a>        <span class="kw">let </span>traps = <span class="self">self</span>.machine.collect_trap_information();
+<a href=#5847 id=5847 data-nosnippet>5847</a>        <span class="kw">let </span>FinalizedAssembly {
+<a href=#5848 id=5848 data-nosnippet>5848</a>            <span class="kw-2">mut </span>body,
+<a href=#5849 id=5849 data-nosnippet>5849</a>            assembly_comments,
+<a href=#5850 id=5850 data-nosnippet>5850</a>        } = <span class="self">self</span>.machine.assembler_finalize(<span class="self">self</span>.assembly_comments)<span class="question-mark">?</span>;
+<a href=#5851 id=5851 data-nosnippet>5851</a>        body.shrink_to_fit();
+<a href=#5852 id=5852 data-nosnippet>5852</a>
+<a href=#5853 id=5853 data-nosnippet>5853</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
+<a href=#5854 id=5854 data-nosnippet>5854</a>            callbacks.obj_memory_buffer(
+<a href=#5855 id=5855 data-nosnippet>5855</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
+<a href=#5856 id=5856 data-nosnippet>5856</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#5857 id=5857 data-nosnippet>5857</a>                <span class="kw-2">&amp;</span>body,
+<a href=#5858 id=5858 data-nosnippet>5858</a>            );
+<a href=#5859 id=5859 data-nosnippet>5859</a>            callbacks.asm_memory_buffer(
+<a href=#5860 id=5860 data-nosnippet>5860</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
+<a href=#5861 id=5861 data-nosnippet>5861</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#5862 id=5862 data-nosnippet>5862</a>                arch,
+<a href=#5863 id=5863 data-nosnippet>5863</a>                <span class="kw-2">&amp;</span>body,
+<a href=#5864 id=5864 data-nosnippet>5864</a>                assembly_comments,
+<a href=#5865 id=5865 data-nosnippet>5865</a>            )<span class="question-mark">?</span>;
+<a href=#5866 id=5866 data-nosnippet>5866</a>        }
+<a href=#5867 id=5867 data-nosnippet>5867</a>
+<a href=#5868 id=5868 data-nosnippet>5868</a>        <span class="prelude-val">Ok</span>((
+<a href=#5869 id=5869 data-nosnippet>5869</a>            CompiledFunction {
+<a href=#5870 id=5870 data-nosnippet>5870</a>                body: FunctionBody { body, unwind_info },
+<a href=#5871 id=5871 data-nosnippet>5871</a>                relocations: <span class="self">self</span>.relocations.clone(),
+<a href=#5872 id=5872 data-nosnippet>5872</a>                frame_info: CompiledFunctionFrameInfo { traps, address_map },
+<a href=#5873 id=5873 data-nosnippet>5873</a>            },
+<a href=#5874 id=5874 data-nosnippet>5874</a>            fde,
+<a href=#5875 id=5875 data-nosnippet>5875</a>        ))
+<a href=#5876 id=5876 data-nosnippet>5876</a>    }
+<a href=#5877 id=5877 data-nosnippet>5877</a>    <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
+<a href=#5878 id=5878 data-nosnippet>5878</a>    // at call place.
+<a href=#5879 id=5879 data-nosnippet>5879</a>    </span><span class="attr">#[allow(clippy::type_complexity)]
+<a href=#5880 id=5880 data-nosnippet>5880</a>    </span><span class="kw">fn </span>sort_call_movs(movs: <span class="kw-2">&amp;mut </span>[(Location&lt;M::GPR, M::SIMD&gt;, M::GPR)]) {
+<a href=#5881 id=5881 data-nosnippet>5881</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..movs.len() {
+<a href=#5882 id=5882 data-nosnippet>5882</a>            <span class="kw">for </span>j <span class="kw">in </span>(i + <span class="number">1</span>)..movs.len() {
+<a href=#5883 id=5883 data-nosnippet>5883</a>                <span class="kw">if let </span>Location::GPR(src_gpr) = movs[j].<span class="number">0
+<a href=#5884 id=5884 data-nosnippet>5884</a>                    </span>&amp;&amp; src_gpr == movs[i].<span class="number">1
+<a href=#5885 id=5885 data-nosnippet>5885</a>                </span>{
+<a href=#5886 id=5886 data-nosnippet>5886</a>                    movs.swap(i, j);
+<a href=#5887 id=5887 data-nosnippet>5887</a>                }
+<a href=#5888 id=5888 data-nosnippet>5888</a>            }
+<a href=#5889 id=5889 data-nosnippet>5889</a>        }
+<a href=#5890 id=5890 data-nosnippet>5890</a>    }
+<a href=#5891 id=5891 data-nosnippet>5891</a>
+<a href=#5892 id=5892 data-nosnippet>5892</a>    <span class="comment">// Cycle detector. Uncomment this to debug possibly incorrect call-mov sequences.
+<a href=#5893 id=5893 data-nosnippet>5893</a>    /*
+<a href=#5894 id=5894 data-nosnippet>5894</a>    {
+<a href=#5895 id=5895 data-nosnippet>5895</a>        use std::collections::{HashMap, HashSet, VecDeque};
+<a href=#5896 id=5896 data-nosnippet>5896</a>        let mut mov_map: HashMap&lt;GPR, HashSet&lt;GPR&gt;&gt; = HashMap::new();
+<a href=#5897 id=5897 data-nosnippet>5897</a>        for mov in movs.iter() {
+<a href=#5898 id=5898 data-nosnippet>5898</a>            if let Location::GPR(src_gpr) = mov.0 {
+<a href=#5899 id=5899 data-nosnippet>5899</a>                if src_gpr != mov.1 {
+<a href=#5900 id=5900 data-nosnippet>5900</a>                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
+<a href=#5901 id=5901 data-nosnippet>5901</a>                }
+<a href=#5902 id=5902 data-nosnippet>5902</a>            }
+<a href=#5903 id=5903 data-nosnippet>5903</a>        }
+<a href=#5904 id=5904 data-nosnippet>5904</a>
+<a href=#5905 id=5905 data-nosnippet>5905</a>        for (start, _) in mov_map.iter() {
+<a href=#5906 id=5906 data-nosnippet>5906</a>            let mut q: VecDeque&lt;GPR&gt; = VecDeque::new();
+<a href=#5907 id=5907 data-nosnippet>5907</a>            let mut black: HashSet&lt;GPR&gt; = HashSet::new();
+<a href=#5908 id=5908 data-nosnippet>5908</a>
+<a href=#5909 id=5909 data-nosnippet>5909</a>            q.push_back(*start);
+<a href=#5910 id=5910 data-nosnippet>5910</a>            black.insert(*start);
+<a href=#5911 id=5911 data-nosnippet>5911</a>
+<a href=#5912 id=5912 data-nosnippet>5912</a>            while q.len() &gt; 0 {
+<a href=#5913 id=5913 data-nosnippet>5913</a>                let reg = q.pop_front().unwrap();
+<a href=#5914 id=5914 data-nosnippet>5914</a>                let empty_set = HashSet::new();
+<a href=#5915 id=5915 data-nosnippet>5915</a>                for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
+<a href=#5916 id=5916 data-nosnippet>5916</a>                    if black.contains(x) {
+<a href=#5917 id=5917 data-nosnippet>5917</a>                        panic!("cycle detected");
+<a href=#5918 id=5918 data-nosnippet>5918</a>                    }
+<a href=#5919 id=5919 data-nosnippet>5919</a>                    q.push_back(*x);
+<a href=#5920 id=5920 data-nosnippet>5920</a>                    black.insert(*x);
+<a href=#5921 id=5921 data-nosnippet>5921</a>                }
+<a href=#5922 id=5922 data-nosnippet>5922</a>            }
+<a href=#5923 id=5923 data-nosnippet>5923</a>        }
+<a href=#5924 id=5924 data-nosnippet>5924</a>    }
+<a href=#5925 id=5925 data-nosnippet>5925</a>    */
+<a href=#5926 id=5926 data-nosnippet>5926</a></span>}</code></pre></div></section></main></body></html>
