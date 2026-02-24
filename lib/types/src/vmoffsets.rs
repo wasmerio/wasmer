@@ -222,8 +222,6 @@ pub struct VMOffsets {
     num_imported_globals: u32,
     /// The number of defined tables in the module.
     num_local_tables: u32,
-    /// Total element count for local fixed-size `funcref` tables.
-    num_local_fixed_funcref_table_elements: u32,
     /// The number of defined memories in the module.
     num_local_memories: u32,
     /// The number of defined globals in the module.
@@ -236,7 +234,6 @@ pub struct VMOffsets {
     vmctx_tag_ids_begin: u32,
     vmctx_imported_globals_begin: u32,
     vmctx_tables_begin: u32,
-    vmctx_local_fixed_funcref_tables_begin: u32,
     vmctx_memories_begin: u32,
     vmctx_globals_begin: u32,
     vmctx_builtin_functions_begin: u32,
@@ -259,20 +256,6 @@ impl VMOffsets {
             num_tag_ids: cast_to_u32(module.tags.len()),
             num_imported_globals: cast_to_u32(module.num_imported_globals),
             num_local_tables: cast_to_u32(module.tables.len()),
-            num_local_fixed_funcref_table_elements: cast_to_u32(
-                module
-                    .tables
-                    .values()
-                    .skip(module.num_imported_tables)
-                    .filter_map(|table| {
-                        if table.is_fixed_funcref_table() {
-                            Some(table.minimum as usize)
-                        } else {
-                            None
-                        }
-                    })
-                    .sum(),
-            ),
             num_local_memories: cast_to_u32(module.memories.len()),
             num_local_globals: cast_to_u32(module.globals.len()),
             vmctx_signature_ids_begin: 0,
@@ -282,7 +265,6 @@ impl VMOffsets {
             vmctx_tag_ids_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
-            vmctx_local_fixed_funcref_tables_begin: 0,
             vmctx_memories_begin: 0,
             vmctx_globals_begin: 0,
             vmctx_builtin_functions_begin: 0,
@@ -310,7 +292,6 @@ impl VMOffsets {
             num_tag_ids: 0,
             num_imported_globals: 0,
             num_local_tables: 0,
-            num_local_fixed_funcref_table_elements: 0,
             num_local_memories: 0,
             num_local_globals: 0,
             vmctx_signature_ids_begin: 0,
@@ -320,7 +301,6 @@ impl VMOffsets {
             vmctx_tag_ids_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
-            vmctx_local_fixed_funcref_tables_begin: 0,
             vmctx_memories_begin: 0,
             vmctx_globals_begin: 0,
             vmctx_builtin_functions_begin: 0,
@@ -399,15 +379,10 @@ impl VMOffsets {
             self.num_imported_globals,
             u32::from(self.size_of_vmglobal_import()),
         );
-        self.vmctx_local_fixed_funcref_tables_begin = offset_by_aligned(
+        self.vmctx_memories_begin = offset_by_aligned(
             self.vmctx_tables_begin,
             self.num_local_tables,
             u32::from(self.size_of_vmtable_definition()),
-        );
-        self.vmctx_memories_begin = offset_by_aligned(
-            self.vmctx_local_fixed_funcref_tables_begin,
-            self.num_local_fixed_funcref_table_elements,
-            u32::from(self.size_of_vm_funcref()),
         );
         self.vmctx_globals_begin = align(
             offset_by(
@@ -721,11 +696,6 @@ impl VMOffsets {
     /// The offset of the `tables` array.
     pub fn vmctx_tables_begin(&self) -> u32 {
         self.vmctx_tables_begin
-    }
-
-    /// The offset of inline storage for local fixed-size `funcref` table elements.
-    pub fn vmctx_local_fixed_funcref_tables_begin(&self) -> u32 {
-        self.vmctx_local_fixed_funcref_tables_begin
     }
 
     /// The offset of the `memories` array.

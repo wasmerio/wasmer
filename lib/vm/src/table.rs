@@ -74,56 +74,13 @@ const TABLE_MAX_SIZE: usize = ByteSize::mib(128).as_u64() as usize;
 /// A table instance.
 #[derive(Debug)]
 pub struct VMTable {
-    storage: TableStorage,
+    vec: Vec<RawTableElement>,
     maximum: Option<u32>,
     /// The WebAssembly table description.
     table: TableType,
     /// Our chosen implementation style.
     style: TableStyle,
     vm_table_definition: MaybeInstanceOwned<VMTableDefinition>,
-}
-
-#[derive(Debug)]
-enum TableStorage {
-    Heap(Vec<RawTableElement>),
-    VmctxFixed {
-        base: NonNull<RawTableElement>,
-        len: usize,
-    },
-}
-
-impl TableStorage {
-    fn len(&self) -> usize {
-        match self {
-            Self::Heap(vec) => vec.len(),
-            Self::VmctxFixed { len, .. } => *len,
-        }
-    }
-
-    fn as_slice(&self) -> &[RawTableElement] {
-        match self {
-            Self::Heap(vec) => vec.as_slice(),
-            Self::VmctxFixed { base, len } => unsafe {
-                std::slice::from_raw_parts(base.as_ptr(), *len)
-            },
-        }
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [RawTableElement] {
-        match self {
-            Self::Heap(vec) => vec.as_mut_slice(),
-            Self::VmctxFixed { base, len } => unsafe {
-                std::slice::from_raw_parts_mut(base.as_ptr(), *len)
-            },
-        }
-    }
-
-    fn base_ptr(&self) -> *mut RawTableElement {
-        match self {
-            Self::Heap(vec) => vec.as_ptr() as *mut RawTableElement,
-            Self::VmctxFixed { base, .. } => base.as_ptr(),
-        }
-    }
 }
 
 impl VMTable {
@@ -137,7 +94,7 @@ impl VMTable {
 
     /// Returns the size of the table
     pub fn get_runtime_size(&self) -> u32 {
-        self.storage.len() as u32
+        self.vec.len() as u32
     }
 
     /// Create a new linear table instance with specified minimum and maximum number of elements.
@@ -193,24 +150,11 @@ impl VMTable {
             }
             let table_minimum = usize::try_from(table.minimum)
                 .map_err(|_| "Table minimum is bigger than usize".to_string())?;
-            let use_vmctx_fixed_storage = table.is_fixed_funcref_table()
-                && vm_table_location.is_some_and(|table_loc| !table_loc.as_ref().base.is_null());
-            let mut storage = if use_vmctx_fixed_storage {
-                let table_loc = vm_table_location.expect("validated above");
-                let base = NonNull::new(table_loc.as_ref().base.cast::<RawTableElement>())
-                    .expect("fixed-size funcref table base pointer cannot be null");
-                TableStorage::VmctxFixed {
-                    base,
-                    len: table_minimum,
-                }
-            } else {
-                TableStorage::Heap(vec![RawTableElement::default(); table_minimum])
-            };
-            storage.as_mut_slice().fill(RawTableElement::default());
-            let base = storage.base_ptr();
+            let mut vec = vec![RawTableElement::default(); table_minimum];
+            let base = vec.as_mut_ptr();
             match style {
                 TableStyle::CallerChecksSignature => Ok(Self {
-                    storage,
+                    vec,
                     maximum: table.maximum,
                     table: *table,
                     style: style.clone(),
@@ -273,19 +217,15 @@ impl VMTable {
             return Some(size);
         }
 
-        match &mut self.storage {
-            TableStorage::Heap(vec) => {
-                vec.resize(usize::try_from(new_len).unwrap(), init_value.into());
-            }
-            TableStorage::VmctxFixed { .. } => return None,
-        }
+        self.vec
+            .resize(usize::try_from(new_len).unwrap(), init_value.into());
 
         // update table definition
         unsafe {
             let mut td_ptr = self.get_vm_table_definition();
             let td = td_ptr.as_mut();
             td.current_elements = new_len;
-            td.base = self.storage.base_ptr() as _;
+            td.base = self.vec.as_mut_ptr() as _;
         }
         Some(size)
     }
@@ -294,7 +234,7 @@ impl VMTable {
     ///
     /// Returns `None` if the index is out of bounds.
     pub fn get(&self, index: u32) -> Option<TableElement> {
-        let raw_data = self.storage.as_slice().get(index as usize).cloned()?;
+        let raw_data = self.vec.get(index as usize).cloned()?;
         Some(match self.table.ty {
             ValType::ExternRef => TableElement::ExternRef(unsafe { raw_data.extern_ref }),
             ValType::FuncRef => TableElement::FuncRef(unsafe { raw_data.func_ref }),
@@ -308,7 +248,7 @@ impl VMTable {
     ///
     /// Returns an error if the index is out of bounds.
     pub fn set(&mut self, index: u32, reference: TableElement) -> Result<(), Trap> {
-        match self.storage.as_mut_slice().get_mut(index as usize) {
+        match self.vec.get_mut(index as usize) {
             Some(slot) => {
                 match (self.table.ty, reference) {
                     (ValType::ExternRef, r @ TableElement::ExternRef(_)) => {

@@ -1731,31 +1731,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         module: &Module<'ctx>,
         body_builder: &Builder<'ctx>,
     ) -> Result<(PointerValue<'ctx>, IntValue<'ctx>), CompileError> {
-        if let Some(table_data_offset) =
-            local_fixed_funcref_table_vmctx_data_offset(self.wasm_module, &self.offsets, index)
-        {
-            // Fixed-size local `funcref` table storage is inline in VMContext,
-            // so we can address elements directly from `vmctx`.
-            let byte_offset = intrinsics.i64_ty.const_int(table_data_offset.into(), false);
-            let base_ptr = unsafe {
-                err!(self.cache_builder.build_gep(
-                    intrinsics.i8_ty,
-                    self.ctx_ptr_value,
-                    &[byte_offset],
-                    "fixed_funcref_table_base_ptr",
-                ))
-            };
-            let base_ptr = err!(
-                self.cache_builder
-                    .build_bit_cast(base_ptr, intrinsics.ptr_ty, "")
-            )
-            .into_pointer_value();
-            let bounds = intrinsics
-                .isize_ty
-                .const_int(self.wasm_module.tables[index].minimum.into(), false);
-            return Ok((base_ptr, bounds));
-        }
-
         let (ptr_to_base_ptr, ptr_to_bounds) =
             self.table_prepare(index, intrinsics, module, body_builder)?;
 
@@ -2380,33 +2355,4 @@ fn is_table_growable(module: &WasmerCompilerModule, index: TableIndex) -> Option
         None => Some(true),
         Some(max) => Some(max > table.minimum),
     }
-}
-
-fn local_fixed_funcref_table_vmctx_data_offset(
-    module: &WasmerCompilerModule,
-    offsets: &VMOffsets,
-    index: TableIndex,
-) -> Option<u32> {
-    let local_index = module.local_table_index(index)?;
-    let table = module.tables.get(index)?;
-    if !table.is_fixed_funcref_table() {
-        return None;
-    }
-
-    let mut element_offset = 0u32;
-    for i in 0..local_index.as_u32() {
-        let candidate_index = module.table_index(wasmer_types::LocalTableIndex::new(i as usize));
-        if module
-            .tables
-            .get(candidate_index)
-            .is_some_and(|table| table.is_fixed_funcref_table())
-        {
-            element_offset += table.minimum
-        }
-    }
-
-    Some(
-        offsets.vmctx_local_fixed_funcref_tables_begin()
-            + element_offset * u32::from(offsets.size_of_vm_funcref()),
-    )
 }

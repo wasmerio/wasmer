@@ -1,5 +1,4 @@
 use super::{Instance, VMInstance};
-use crate::VMFuncRef;
 use crate::VMMemoryDefinition;
 use crate::vmcontext::{VMGlobalDefinition, VMTableDefinition};
 use std::alloc::{self, Layout};
@@ -98,12 +97,6 @@ impl InstanceAllocator {
             consumed: false,
         };
 
-        // Pre-wire base pointers for local fixed-size funcref tables to point
-        // at inline storage in VMContext.
-        unsafe {
-            allocator.initialize_local_fixed_funcref_table_bases(module);
-        }
-
         // # Safety
         // Both of these calls are safe because we allocate the pointer
         // above with the same `offsets` that these functions use.
@@ -198,42 +191,6 @@ impl InstanceAllocator {
                 out.push(new_ptr.cast());
             }
             out
-        }
-    }
-
-    /// Initialize base pointers for local fixed-size `funcref` tables to point
-    /// into inline VMContext storage.
-    ///
-    /// # Safety
-    ///
-    /// - `Self.instance_ptr` must point to enough memory that all of
-    ///   the offsets in `Self.offsets` point to valid locations in memory.
-    unsafe fn initialize_local_fixed_funcref_table_bases(&self, module: &ModuleInfo) {
-        unsafe {
-            let ptr = self.instance_ptr.cast::<u8>().as_ptr();
-            let base_ptr = ptr.add(mem::size_of::<Instance>());
-            let mut current_offset =
-                usize::try_from(self.offsets.vmctx_local_fixed_funcref_tables_begin()).unwrap();
-
-            for (i, table) in module
-                .tables
-                .values()
-                .enumerate()
-                .skip(module.num_imported_tables)
-                .filter(|(_, table)| table.is_fixed_funcref_table())
-            {
-                let table_offset = usize::try_from(
-                    self.offsets
-                        .vmctx_vmtable_definition(LocalTableIndex::new(i)),
-                )
-                .unwrap();
-                let table_definition = base_ptr.add(table_offset).cast::<VMTableDefinition>();
-                let table_data_ptr = base_ptr.add(current_offset).cast::<Option<VMFuncRef>>();
-                (*table_definition).base = table_data_ptr.cast();
-                (*table_definition).current_elements = 0;
-
-                current_offset += table.minimum as usize * mem::size_of::<Option<VMFuncRef>>();
-            }
         }
     }
 
