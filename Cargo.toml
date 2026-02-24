@@ -356,6 +356,8 @@ tracing-subscriber = { workspace = true, default-features = false, features = [
 ] }
 reqwest = { workspace = true, features = ["blocking", "rustls-tls"] }
 itertools.workspace = true
+sha2.workspace = true
+hex.workspace = true
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
