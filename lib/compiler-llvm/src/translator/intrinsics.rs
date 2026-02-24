@@ -2396,10 +2396,12 @@ fn local_fixed_funcref_table_vmctx_data_offset(
     let mut element_offset = 0u32;
     for i in 0..local_index.as_u32() {
         let candidate_index = module.table_index(wasmer_types::LocalTableIndex::new(i as usize));
-        if let Some(candidate_table) = module.tables.get(candidate_index)
-            && candidate_table.is_fixed_funcref_table()
+        if module
+            .tables
+            .get(candidate_index)
+            .is_some_and(|table| table.is_fixed_funcref_table())
         {
-            element_offset += candidate_table.minimum;
+            element_offset += table.minimum
         }
     }
 
