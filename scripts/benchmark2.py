@@ -104,13 +104,13 @@ base_offset = -((total_series - 1) / 2) * width
 
 for idx, label in enumerate(series_labels):
     offset = base_offset + idx * width
-    pct_nonzero = [value for value in series[label] if value > 0.0]
-    geomean = statistics.geometric_mean(pct_nonzero) if pct_nonzero else 0.0
+    php_pct = series[label][0] if len(series[label]) > 0 else 0.0
+    python_pct = series[label][1] if len(series[label]) > 1 else 0.0
     ax.bar(
         [i + offset for i in x],
         series[label],
         width,
-        label=f"{label} ({geomean:.1f}%)",
+        label=f"{label} (PHP: {php_pct:.1f}% / Python: {python_pct:.1f}%)",
     )
 
 ax.set_title("Wasmer vs Native")
