@@ -202,7 +202,7 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
 
     let compiler_flags = std::env::var("WASIXCC_COMPILER_FLAGS")
         .unwrap_or_else(|_| format!(
-            "-fPIC:-fwasm-exceptions:-Wl,-L{}/usr/local/lib/wasm32-wasi:-I{}/usr/local/include:-Wl,-mllvm,--wasm-enable-eh:-Wl,-mllvm,--wasm-enable-sjlj:-Wl,-mllvm,--wasm-use-legacy-eh=false:-Wl,-mllvm,--exception-model=wasm:-iwithsysroot:/usr/local/include/c++/v1",
+            "-fPIC:-Wl,-L{}/usr/local/lib/wasm32-wasi:-I{}/usr/local/include:-iwithsysroot:/usr/local/include/c++/v1",
             sysroot, sysroot
         ));
 
@@ -213,6 +213,7 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
         .env("CXX", "wasix++")
         .env("WASIXCC_SYSROOT", &sysroot)
         .env("WASIXCC_COMPILER_FLAGS", &compiler_flags)
+        .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes")
         .output()?;
 
     if !output.status.success() {
