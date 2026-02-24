@@ -104,11 +104,13 @@ base_offset = -((total_series - 1) / 2) * width
 
 for idx, label in enumerate(series_labels):
     offset = base_offset + idx * width
+    pct_nonzero = [value for value in series[label] if value > 0.0]
+    geomean = statistics.geometric_mean(pct_nonzero) if pct_nonzero else 0.0
     ax.bar(
         [i + offset for i in x],
         series[label],
         width,
-        label=label,
+        label=f"{label} ({geomean:.1f}%)",
     )
 
 ax.set_title("Wasmer vs Native")
