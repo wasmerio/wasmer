@@ -6,11 +6,7 @@ pub mod task_manager;
 use self::module_cache::CacheError;
 pub use self::task_manager::{SpawnType, VirtualTaskManager};
 use module_cache::HashedModuleData;
-use wasmer_config::package::SuggestedCompilerOptimizations;
-use wasmer_types::{
-    CompilationProgressCallback, ModuleHash,
-    target::UserCompilerOptimizations as WasmerSuggestedCompilerOptimizations,
-};
+use wasmer_types::{CompilationProgressCallback, ModuleHash};
 
 use std::{
     borrow::Cow,
@@ -22,7 +18,7 @@ use std::{
 use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{CompileError, Engine, Module, RuntimeError};
+use wasmer::{Engine, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -156,17 +152,6 @@ where
         Engine::default()
     }
 
-    fn engine_with_suggested_opts(
-        &self,
-        suggested_opts: &SuggestedCompilerOptimizations,
-    ) -> Result<Engine, CompileError> {
-        let mut engine = self.engine();
-        engine.with_opts(&WasmerSuggestedCompilerOptimizations {
-            pass_params: suggested_opts.pass_params,
-        })?;
-        Ok(engine)
-    }
-
     /// Create a new [`wasmer::Store`].
     fn new_store(&self) -> wasmer::Store {
         cfg_if::cfg_if! {
@@ -208,21 +193,7 @@ where
             match &input {
                 ModuleInput::Bytes(_) => self.engine(),
                 ModuleInput::Hashed(_) => self.engine(),
-                ModuleInput::Command(cmd) => {
-                    match self
-                        .engine_with_suggested_opts(&cmd.as_ref().suggested_compiler_optimizations)
-                    {
-                        Ok(engine) => engine,
-                        Err(error) => {
-                            return Box::pin(async move {
-                                Err(SpawnError::CompileError {
-                                    module_hash: *data.hash(),
-                                    error,
-                                })
-                            });
-                        }
-                    }
-                }
+                ModuleInput::Command(cmd) => self.engine(),
             }
         };
 

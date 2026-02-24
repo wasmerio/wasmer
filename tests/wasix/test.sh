@@ -10,23 +10,26 @@ run_tests() {
     while read dir; do
         dir=$(basename "$dir")
         printf "Testing $backend: $dir...\r"
+        if (
+            cd "$dir" || exit 1
+            find . -name 'output*' | xargs rm -f
 
-        if [ -e "$dir/.no-build" ]; then
-            cmd="cd $dir; \
-                find . -name 'output*' | xargs rm -f; \
-                ./run.sh"
-        else
-            cmd="cd $dir; \
-                find . -name 'output*' | xargs rm -f; \
-                find . -name '*.wasm' | xargs rm -f; \
-                if [ -f main.cc ]; \
-                  then wasix++ main.cc -o main.wasm; \
-                  else wasixcc -sWASM_EXCEPTIONS=false main.c -o main.wasm; \
-                fi; \
-                ./run.sh"
-        fi
+            if [ ! -e .no-build ]; then
+                local extra_flags=""
+                if [ -f .flags ]; then
+                    extra_flags="$(< .flags)"
+                fi
 
-        if bash -c "$cmd"; then
+                find . -name '*.wasm' | xargs rm -f
+                if [ -f main.cc ]; then
+                    wasix++ main.cc -o main.wasm ${extra_flags}
+                else
+                    wasixcc -sWASM_EXCEPTIONS=false main.c -o main.wasm ${extra_flags}
+                fi
+            fi
+
+            ./run.sh
+        ); then
             printf "Testing $backend: $dir ✅\n"
         else
             printf "Testing $backend: $dir ❌\n"

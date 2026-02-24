@@ -298,9 +298,7 @@ impl RuntimeOptions {
     pub fn get_engine(&self, target: &Target) -> Result<Engine> {
         let backends = self.get_available_backends()?;
         let backend = backends.first().context("no compiler backend enabled")?;
-        let backend_kind = wasmer::BackendKind::from(backend);
-        let required_features = wasmer::Engine::default_features_for_backend(&backend_kind, target);
-        backend.get_engine(target, &required_features, self)
+        backend.get_engine(target, self)
     }
 
     pub fn get_engine_for_module(&self, module_contents: &[u8], target: &Target) -> Result<Engine> {
@@ -342,10 +340,7 @@ impl RuntimeOptions {
                 );
             }
         }
-        filtered_backends
-            .first()
-            .unwrap()
-            .get_engine(target, required_features, self)
+        filtered_backends.first().unwrap().get_engine(target, self)
     }
 
     #[cfg(feature = "compiler")]
@@ -503,6 +498,7 @@ impl RuntimeOptions {
                 use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
+                config.enable_non_volatile_memops();
 
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
@@ -582,17 +578,15 @@ impl BackendType {
         ]
     }
 
-    /// Get an engine for this backend type
-    pub fn get_engine(
-        &self,
-        target: &Target,
-        features: &Features,
-        runtime_opts: &RuntimeOptions,
-    ) -> Result<Engine> {
+    /// Returns an engine for this backend type.
+    /// We enable every feature the engine supports, since the same engine may later be used
+    /// with a module that requires more features than the one used during engine detection.
+    pub fn get_engine(&self, target: &Target, runtime_opts: &RuntimeOptions) -> Result<Engine> {
         match self {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
+                let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
                 }
@@ -611,7 +605,7 @@ impl BackendType {
                     config.num_threads(num_threads);
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
-                    .set_features(Some(features.clone()))
+                    .set_features(Some(supported_features))
                     .set_target(Some(target.clone()))
                     .engine()
                     .into();
@@ -620,6 +614,7 @@ impl BackendType {
             #[cfg(feature = "cranelift")]
             Self::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
                 }
@@ -638,7 +633,7 @@ impl BackendType {
                     config.num_threads(num_threads);
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
-                    .set_features(Some(features.clone()))
+                    .set_features(Some(supported_features))
                     .set_target(Some(target.clone()))
                     .engine()
                     .into();
@@ -650,7 +645,9 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
+                config.enable_non_volatile_memops();
 
+                let supported_features = config.supported_features_for_target(target);
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
@@ -671,7 +668,7 @@ impl BackendType {
                 }
 
                 let engine = wasmer_compiler::EngineBuilder::new(config)
-                    .set_features(Some(features.clone()))
+                    .set_features(Some(supported_features))
                     .set_target(Some(target.clone()))
                     .engine()
                     .into();
