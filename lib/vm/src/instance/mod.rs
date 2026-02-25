@@ -1384,20 +1384,7 @@ impl VMInstance {
 
 /// Compute the offset for a memory data initializer.
 fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usize {
-    let mut start = init.location.offset;
-
-    if let Some(base) = init.location.base {
-        let val = unsafe {
-            if let Some(def_index) = instance.module.local_global_index(base) {
-                instance.global(def_index).val.u32
-            } else {
-                instance.imported_global(base).definition.as_ref().val.u32
-            }
-        };
-        start += usize::try_from(val).unwrap();
-    }
-
-    start
+    todo!()
 }
 
 #[allow(clippy::mut_from_ref)]
@@ -1423,20 +1410,7 @@ unsafe fn get_memory_slice<'instance>(
 
 /// Compute the offset for a table element initializer.
 fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
-    let mut start = init.offset;
-
-    if let Some(base) = init.base {
-        let val = unsafe {
-            if let Some(def_index) = instance.module.local_global_index(base) {
-                instance.global(def_index).val.u32
-            } else {
-                instance.imported_global(base).definition.as_ref().val.u32
-            }
-        };
-        start += usize::try_from(val).unwrap();
-    }
-
-    start
+    todo!()
 }
 
 /// Initialize the table memory from the provided initializers.

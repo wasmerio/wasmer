@@ -20,10 +20,6 @@ use serde::{Deserialize, Serialize};
 pub struct TableInitializer {
     /// The index of a table to initialize.
     pub table_index: TableIndex,
-    /// Optionally, a global variable giving a base index.
-    pub base: Option<GlobalIndex>,
-    /// The offset to add to the base.
-    pub offset: usize,
     /// Serialized offset expression.
     pub offset_expr: InitExpr,
     /// The values to write into the table elements.
@@ -40,12 +36,6 @@ pub struct DataInitializerLocation {
     /// The index of the memory to initialize.
     pub memory_index: MemoryIndex,
 
-    /// Optionally a Global variable base to initialize at.
-    pub base: Option<GlobalIndex>,
-
-    /// A constant offset to initialize at.
-    pub offset: usize,
-
     /// Serialized offset expression.
     pub offset_expr: InitExpr,
 }
@@ -55,7 +45,6 @@ pub struct DataInitializerLocation {
 pub trait DataInitializerLocationLike {
     fn memory_index(&self) -> MemoryIndex;
     fn base(&self) -> Option<GlobalIndex>;
-    fn offset(&self) -> usize;
 }
 
 impl DataInitializerLocationLike for &DataInitializerLocation {
@@ -64,11 +53,7 @@ impl DataInitializerLocationLike for &DataInitializerLocation {
     }
 
     fn base(&self) -> Option<GlobalIndex> {
-        self.base
-    }
-
-    fn offset(&self) -> usize {
-        self.offset
+        todo!()
     }
 }
 
@@ -78,14 +63,7 @@ impl DataInitializerLocationLike for &ArchivedDataInitializerLocation {
     }
 
     fn base(&self) -> Option<GlobalIndex> {
-        match &self.base {
-            rkyv::option::ArchivedOption::None => None,
-            rkyv::option::ArchivedOption::Some(base) => rkyv::deserialize::<_, String>(base).ok(),
-        }
-    }
-
-    fn offset(&self) -> usize {
-        rkyv::deserialize::<_, ()>(&self.offset).unwrap()
+        todo!()
     }
 }
 

@@ -379,15 +379,11 @@ impl<'data> ModuleEnvironment<'data> {
     pub(crate) fn declare_table_initializers(
         &mut self,
         table_index: TableIndex,
-        base: Option<GlobalIndex>,
-        offset: usize,
         offset_expr: InitExpr,
         elements: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
         self.module.table_initializers.push(TableInitializer {
             table_index,
-            base,
-            offset,
             offset_expr,
             elements,
         });
@@ -430,16 +426,12 @@ impl<'data> ModuleEnvironment<'data> {
     pub(crate) fn declare_data_initialization(
         &mut self,
         memory_index: MemoryIndex,
-        base: Option<GlobalIndex>,
-        offset: usize,
         offset_expr: InitExpr,
         data: &'data [u8],
     ) -> WasmResult<()> {
         self.data_initializers.push(DataInitializer {
             location: DataInitializerLocation {
                 memory_index,
-                base,
-                offset,
                 offset_expr,
             },
             data,

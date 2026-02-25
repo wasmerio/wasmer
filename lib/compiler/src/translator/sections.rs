@@ -346,14 +346,6 @@ fn parse_global_initializer(init_expr: &wasmparser::ConstExpr<'_>) -> WasmResult
     Ok(GlobalInit::Expr(expr))
 }
 
-fn legacy_base_and_offset_from_expr(expr: &InitExpr) -> (Option<GlobalIndex>, usize) {
-    match expr.ops() {
-        [InitExprOp::I32Const(value)] => (None, *value as u32 as usize),
-        [InitExprOp::GlobalGet(index)] => (Some(*index), 0),
-        _ => (None, 0),
-    }
-}
-
 /// Parses the Global section of the wasm module.
 pub fn parse_global_section(
     globals: GlobalSectionReader,
@@ -490,14 +482,7 @@ pub fn parse_element_section(
             } => {
                 let table_index = TableIndex::from_u32(table_index.unwrap_or(0));
                 let offset_expr = parse_serialized_init_expr(&offset_expr, "element section")?;
-                let (base, offset) = legacy_base_and_offset_from_expr(&offset_expr);
-                environ.declare_table_initializers(
-                    table_index,
-                    base,
-                    offset,
-                    offset_expr,
-                    segments,
-                )?
+                environ.declare_table_initializers(table_index, offset_expr, segments)?
             }
             ElementKind::Passive => {
                 let index = ElemIndex::from_u32(index as u32);
@@ -528,11 +513,8 @@ pub fn parse_data_section<'data>(
                 offset_expr,
             } => {
                 let offset_expr = parse_serialized_init_expr(&offset_expr, "data section")?;
-                let (base, offset) = legacy_base_and_offset_from_expr(&offset_expr);
                 environ.declare_data_initialization(
                     MemoryIndex::from_u32(memory_index),
-                    base,
-                    offset,
                     offset_expr,
                     data,
                 )?;

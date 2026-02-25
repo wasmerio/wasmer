@@ -688,8 +688,6 @@ impl DataInitializerLocationVariant<'_> {
             Self::Plain(p) => (*p).clone(),
             Self::Archived(a) => DataInitializerLocation {
                 memory_index: a.memory_index(),
-                base: a.base(),
-                offset: a.offset(),
                 offset_expr: rkyv::deserialize::<_, rkyv::rancor::Error>(&a.offset_expr).unwrap(),
             },
         }
@@ -708,13 +706,6 @@ impl DataInitializerLocationLike for DataInitializerLocationVariant<'_> {
         match self {
             Self::Plain(plain) => plain.base(),
             Self::Archived(archived) => archived.base(),
-        }
-    }
-
-    fn offset(&self) -> usize {
-        match self {
-            Self::Plain(plain) => plain.offset(),
-            Self::Archived(archived) => archived.offset(),
         }
     }
 }
