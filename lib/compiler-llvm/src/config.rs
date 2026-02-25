@@ -390,6 +390,7 @@ impl CompilerConfig for LLVM {
         let mut feats = Features::default();
         feats.exceptions(true);
         feats.relaxed_simd(true);
+        feats.wide_arithmetic(true);
         feats
     }
 }

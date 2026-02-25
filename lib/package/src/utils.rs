@@ -150,8 +150,11 @@ pub fn features_to_wasm_annotations(features: &Features) -> Vec<String> {
     if features.memory64 {
         feature_strings.push("memory64".to_string());
     }
+    if features.wide_arithmetic {
+        feature_strings.push("wide-arithmetic".to_string());
+    }
     // Note: We don't currently include tail_call, module_linking, multi_memory,
-    // relaxed_simd, or extended_const in the feature strings
+    // or extended_const in the feature strings
 
     feature_strings
 }
@@ -199,6 +202,9 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
             }
             "relaxed-simd" => {
                 features.relaxed_simd(true);
+            }
+            "wide-arithmetic" => {
+                features.wide_arithmetic(true);
             }
             // Ignore unrecognized features
             _ => {}
