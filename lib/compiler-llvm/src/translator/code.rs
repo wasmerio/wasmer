@@ -13831,8 +13831,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 .into_int_value();
 
                 let result = err!(match op {
-                    Operator::I64Add128 => self.builder.build_int_add(rhs, lhs, ""),
-                    Operator::I64Sub128 => self.builder.build_int_sub(rhs, lhs, ""),
+                    Operator::I64Add128 => self.builder.build_int_add(lhs, rhs, ""),
+                    Operator::I64Sub128 => self.builder.build_int_sub(lhs, rhs, ""),
                     _ => unreachable!(),
                 });
                 let result = err!(self.builder.build_bit_cast(
