@@ -272,7 +272,7 @@ tokio-serde = "0.9"
 tokio-stream = "0.1"
 tokio-tungstenite = { version = "0.28.0" }
 tokio-util = "0.7.8"
-toml = { version = "0.9.8", features = ["preserve_order"] }
+toml = { version = "1.0.3", features = ["preserve_order"] }
 tower = "0.5.2"
 tower-http = "0.6.7"
 tracing = { version = "0.1", default-features = false }
