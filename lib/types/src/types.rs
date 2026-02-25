@@ -454,8 +454,6 @@ impl InitExpr {
 pub enum InitExprOp {
     /// An `i32.const`.
     I32Const(i32),
-    /// An `i64.const`.
-    I64Const(i64),
     /// A `global.get` of another global.
     GlobalGet(GlobalIndex),
     /// An `i32.add`.
@@ -464,12 +462,6 @@ pub enum InitExprOp {
     I32Sub,
     /// An `i32.mul`.
     I32Mul,
-    /// An `i64.add`.
-    I64Add,
-    /// An `i64.sub`.
-    I64Sub,
-    /// An `i64.mul`.
-    I64Mul,
 }
 
 /// Globals are initialized via `const` operators, references, or a serialized

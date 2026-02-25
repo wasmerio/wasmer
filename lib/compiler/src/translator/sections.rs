@@ -274,6 +274,7 @@ pub fn parse_tag_section(
     Ok(())
 }
 
+// TODO: add comment (include I64 types)
 fn parse_serialized_init_expr(
     expr: &wasmparser::ConstExpr<'_>,
     section_name: &str,
@@ -285,16 +286,12 @@ fn parse_serialized_init_expr(
         match op {
             Operator::End => break,
             Operator::I32Const { value } => ops.push(InitExprOp::I32Const(value)),
-            Operator::I64Const { value } => ops.push(InitExprOp::I64Const(value)),
             Operator::GlobalGet { global_index } => {
                 ops.push(InitExprOp::GlobalGet(GlobalIndex::from_u32(global_index)))
             }
             Operator::I32Add => ops.push(InitExprOp::I32Add),
             Operator::I32Sub => ops.push(InitExprOp::I32Sub),
             Operator::I32Mul => ops.push(InitExprOp::I32Mul),
-            Operator::I64Add => ops.push(InitExprOp::I64Add),
-            Operator::I64Sub => ops.push(InitExprOp::I64Sub),
-            Operator::I64Mul => ops.push(InitExprOp::I64Mul),
             other => {
                 return Err(wasm_unsupported!(
                     "unsupported init expr in {section_name}: {other:?}",
