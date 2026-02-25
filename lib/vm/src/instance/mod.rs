@@ -1555,6 +1555,9 @@ fn initialize_globals(instance: &Instance) {
                     let funcref = instance.func_ref(*func_idx).unwrap();
                     (*to).val = funcref.into_raw();
                 }
+                GlobalInit::Expr(_) => {
+                    unimplemented!("serialized global init expressions are not evaluated yet");
+                }
             }
         }
     }

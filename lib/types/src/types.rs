@@ -1,5 +1,6 @@
 use crate::indexes::{FunctionIndex, GlobalIndex};
 use crate::lib::std::borrow::ToOwned;
+use crate::lib::std::boxed::Box;
 use crate::lib::std::fmt;
 use crate::lib::std::format;
 use crate::lib::std::string::{String, ToString};
@@ -418,8 +419,62 @@ impl fmt::Display for GlobalType {
     }
 }
 
-/// Globals are initialized via the `const` operators or by referring to another import.
-#[derive(Debug, Clone, Copy, PartialEq, RkyvSerialize, RkyvDeserialize, Archive)]
+/// A serializable sequence of operators for init expressions in globals,
+/// element offsets and data offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[rkyv(derive(Debug), compare(PartialEq))]
+pub struct InitExpr {
+    /// Operators in stack-machine order, excluding the terminating `end`.
+    pub ops: Box<[InitExprOp]>,
+}
+
+impl InitExpr {
+    /// Creates a new init expression.
+    pub fn new<Ops>(ops: Ops) -> Self
+    where
+        Ops: Into<Box<[InitExprOp]>>,
+    {
+        Self { ops: ops.into() }
+    }
+
+    /// Returns the operators that form this expression.
+    pub fn ops(&self) -> &[InitExprOp] {
+        &self.ops
+    }
+}
+
+/// Supported operators in serialized init expressions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[rkyv(derive(Debug), compare(PartialEq))]
+#[repr(u8)]
+pub enum InitExprOp {
+    /// An `i32.const`.
+    I32Const(i32),
+    /// An `i64.const`.
+    I64Const(i64),
+    /// A `global.get` of another global.
+    GlobalGet(GlobalIndex),
+    /// An `i32.add`.
+    I32Add,
+    /// An `i32.sub`.
+    I32Sub,
+    /// An `i32.mul`.
+    I32Mul,
+    /// An `i64.add`.
+    I64Add,
+    /// An `i64.sub`.
+    I64Sub,
+    /// An `i64.mul`.
+    I64Mul,
+}
+
+/// Globals are initialized via `const` operators, references, or a serialized
+/// expression.
+#[derive(Debug, Clone, PartialEq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialEq))]
@@ -444,6 +499,8 @@ pub enum GlobalInit {
     RefNullConst,
     /// A `ref.func <index>`.
     RefFunc(FunctionIndex),
+    /// A serialized init expression.
+    Expr(InitExpr),
 }
 
 // Tag Types

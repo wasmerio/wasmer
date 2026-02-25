@@ -690,6 +690,7 @@ impl DataInitializerLocationVariant<'_> {
                 memory_index: a.memory_index(),
                 base: a.base(),
                 offset: a.offset(),
+                offset_expr: rkyv::deserialize::<_, rkyv::rancor::Error>(&a.offset_expr).unwrap(),
             },
         }
     }

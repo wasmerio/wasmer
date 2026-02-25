@@ -6,6 +6,7 @@
 
 use crate::indexes::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 use crate::lib::std::boxed::Box;
+use crate::types::InitExpr;
 
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -23,6 +24,8 @@ pub struct TableInitializer {
     pub base: Option<GlobalIndex>,
     /// The offset to add to the base.
     pub offset: usize,
+    /// Serialized offset expression.
+    pub offset_expr: InitExpr,
     /// The values to write into the table elements.
     pub elements: Box<[FunctionIndex]>,
 }
@@ -42,6 +45,9 @@ pub struct DataInitializerLocation {
 
     /// A constant offset to initialize at.
     pub offset: usize,
+
+    /// Serialized offset expression.
+    pub offset_expr: InitExpr,
 }
 
 /// Any struct that acts like a `DataInitializerLocation`.
