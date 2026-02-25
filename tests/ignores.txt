@@ -7,6 +7,8 @@ singlepass spec::exceptions # Singlepass doesn't support EH yet (no one asked fo
 singlepass wasmer::exception_handling
 windows spec::exceptions # No EH support on Windows yet
 macos+cranelift spec::exceptions
+singlepass wide_arithmetic
+cranelift wide_arithmetic
 
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
