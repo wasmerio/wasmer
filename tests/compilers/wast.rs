@@ -22,12 +22,16 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     let mut features = Features::default();
     let is_bulkmemory = wast_path.contains("bulk-memory");
     let is_simd = wast_path.contains("simd");
-    let is_relaxed_simd = wast_path.contains("relaxed-simd");
+    let is_relaxed_simd = wast_path.contains("relaxed_");
     let is_threads = wast_path.contains("threads");
     let is_exception_handling = wast_path.contains("exceptions")
         || wast_path.contains("exception-handling")
         || wast_path.ends_with("exports.wast")
-        || wast_path.ends_with("imports.wast");
+        || wast_path.ends_with("imports.wast")
+        || wast_path.ends_with("try_table.wast")
+        || wast_path.ends_with("tag.wast")
+        || wast_path.ends_with("throw.wast")
+        || wast_path.ends_with("throw_ref.wast");
     if is_bulkmemory {
         features.bulk_memory(true);
     }
@@ -66,12 +70,17 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: tables with expression initializers require the function-references proposal",
         "Validation error: heap types not supported without the gc feature",
         "Validation error: rec group usage requires `gc` proposal to be enabled",
+        "Validation error: gc proposal must be enabled to use subtypes",
+        "Validation error: array indexed types not supported without the gc feature",
+        "Validation error: struct indexed types not supported without the gc feature",
         "Validation error: tail calls support is not enabled",
         "Validation error: multiple tables",
         "Validation error: unknown memory 0",
         "Validation error: invalid var_u32",
         "Validation error: SIMD index out of bounds",
         "Validation error: constant expression required",
+        "Validation error: memory64 must be enabled for 64-bit memories",
+        "Validation error: memory64 must be enabled for 64-bit tables",
         "Unsupported feature: unsupported init expr in element section",
         "Insufficient resources: Table minimum",
         "Insufficient resources: Table maximum",
