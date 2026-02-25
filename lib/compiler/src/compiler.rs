@@ -120,7 +120,7 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
     #[cfg(feature = "translator")]
     fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
-        let mut wasm_features = WasmFeatures::default();
+        let mut wasm_features = WasmFeatures::empty();
         wasm_features.set(WasmFeatures::BULK_MEMORY, features.bulk_memory);
         wasm_features.set(WasmFeatures::THREADS, features.threads);
         wasm_features.set(WasmFeatures::REFERENCE_TYPES, features.reference_types);
@@ -137,14 +137,6 @@ pub trait Compiler: Send + std::fmt::Debug {
         wasm_features.set(WasmFeatures::FLOATS, true);
         wasm_features.set(WasmFeatures::SIGN_EXTENSION, true);
         wasm_features.set(WasmFeatures::GC_TYPES, true);
-
-        // Not supported
-        wasm_features.set(WasmFeatures::COMPONENT_MODEL, false);
-        wasm_features.set(WasmFeatures::FUNCTION_REFERENCES, false);
-        wasm_features.set(WasmFeatures::MEMORY_CONTROL, false);
-        wasm_features.set(WasmFeatures::GC, false);
-        wasm_features.set(WasmFeatures::CM_VALUES, false);
-        wasm_features.set(WasmFeatures::CM_NESTED_NAMES, false);
 
         let mut validator = Validator::new_with_features(wasm_features);
         validator
