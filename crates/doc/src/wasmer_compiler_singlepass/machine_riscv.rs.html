@@ -6320,39 +6320,38 @@
 <a href=#6320 id=6320 data-nosnippet>6320</a>                    ));
 <a href=#6321 id=6321 data-nosnippet>6321</a>                    instructions.push((
 <a href=#6322 id=6322 data-nosnippet>6322</a>                        instruction_offset,
-<a href=#6323 id=6323 data-nosnippet>6323</a>                        <span class="comment">// TODO: use RiscV::FP: https://github.com/gimli-rs/gimli/pull/802
-<a href=#6324 id=6324 data-nosnippet>6324</a>                        </span>CallFrameInstruction::Offset(RiscV::X8, -(up_to_sp <span class="kw">as </span>i32)),
-<a href=#6325 id=6325 data-nosnippet>6325</a>                    ));
-<a href=#6326 id=6326 data-nosnippet>6326</a>                }
-<a href=#6327 id=6327 data-nosnippet>6327</a>                UnwindOps::DefineNewFrame =&gt; {
-<a href=#6328 id=6328 data-nosnippet>6328</a>                    instructions.push((
-<a href=#6329 id=6329 data-nosnippet>6329</a>                        instruction_offset,
-<a href=#6330 id=6330 data-nosnippet>6330</a>                        CallFrameInstruction::CfaRegister(RiscV::X8),
-<a href=#6331 id=6331 data-nosnippet>6331</a>                    ));
-<a href=#6332 id=6332 data-nosnippet>6332</a>                }
-<a href=#6333 id=6333 data-nosnippet>6333</a>                UnwindOps::SaveRegister { reg, bp_neg_offset } =&gt; instructions.push((
-<a href=#6334 id=6334 data-nosnippet>6334</a>                    instruction_offset,
-<a href=#6335 id=6335 data-nosnippet>6335</a>                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
-<a href=#6336 id=6336 data-nosnippet>6336</a>                )),
-<a href=#6337 id=6337 data-nosnippet>6337</a>                UnwindOps::SubtractFP { up_to_sp } =&gt; {
-<a href=#6338 id=6338 data-nosnippet>6338</a>                    instructions.push((
-<a href=#6339 id=6339 data-nosnippet>6339</a>                        instruction_offset,
-<a href=#6340 id=6340 data-nosnippet>6340</a>                        CallFrameInstruction::CfaOffset(up_to_sp <span class="kw">as </span>i32),
-<a href=#6341 id=6341 data-nosnippet>6341</a>                    ));
-<a href=#6342 id=6342 data-nosnippet>6342</a>                }
-<a href=#6343 id=6343 data-nosnippet>6343</a>                UnwindOps::Push2Regs { .. } =&gt; <span class="macro">unimplemented!</span>(),
-<a href=#6344 id=6344 data-nosnippet>6344</a>            }
-<a href=#6345 id=6345 data-nosnippet>6345</a>        }
-<a href=#6346 id=6346 data-nosnippet>6346</a>        <span class="prelude-val">Some</span>(UnwindInstructions {
-<a href=#6347 id=6347 data-nosnippet>6347</a>            instructions,
-<a href=#6348 id=6348 data-nosnippet>6348</a>            len: code_len <span class="kw">as </span>u32,
-<a href=#6349 id=6349 data-nosnippet>6349</a>        })
-<a href=#6350 id=6350 data-nosnippet>6350</a>    }
-<a href=#6351 id=6351 data-nosnippet>6351</a>    <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
-<a href=#6352 id=6352 data-nosnippet>6352</a>    </span><span class="kw">fn </span>gen_dwarf_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInstructions&gt; {
-<a href=#6353 id=6353 data-nosnippet>6353</a>        <span class="prelude-val">None
-<a href=#6354 id=6354 data-nosnippet>6354</a>    </span>}
-<a href=#6355 id=6355 data-nosnippet>6355</a>    <span class="kw">fn </span>gen_windows_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#6356 id=6356 data-nosnippet>6356</a>        <span class="prelude-val">None
-<a href=#6357 id=6357 data-nosnippet>6357</a>    </span>}
-<a href=#6358 id=6358 data-nosnippet>6358</a>}</code></pre></div></section></main></body></html>
+<a href=#6323 id=6323 data-nosnippet>6323</a>                        CallFrameInstruction::Offset(RiscV::FP, -(up_to_sp <span class="kw">as </span>i32)),
+<a href=#6324 id=6324 data-nosnippet>6324</a>                    ));
+<a href=#6325 id=6325 data-nosnippet>6325</a>                }
+<a href=#6326 id=6326 data-nosnippet>6326</a>                UnwindOps::DefineNewFrame =&gt; {
+<a href=#6327 id=6327 data-nosnippet>6327</a>                    instructions.push((
+<a href=#6328 id=6328 data-nosnippet>6328</a>                        instruction_offset,
+<a href=#6329 id=6329 data-nosnippet>6329</a>                        CallFrameInstruction::CfaRegister(RiscV::X8),
+<a href=#6330 id=6330 data-nosnippet>6330</a>                    ));
+<a href=#6331 id=6331 data-nosnippet>6331</a>                }
+<a href=#6332 id=6332 data-nosnippet>6332</a>                UnwindOps::SaveRegister { reg, bp_neg_offset } =&gt; instructions.push((
+<a href=#6333 id=6333 data-nosnippet>6333</a>                    instruction_offset,
+<a href=#6334 id=6334 data-nosnippet>6334</a>                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
+<a href=#6335 id=6335 data-nosnippet>6335</a>                )),
+<a href=#6336 id=6336 data-nosnippet>6336</a>                UnwindOps::SubtractFP { up_to_sp } =&gt; {
+<a href=#6337 id=6337 data-nosnippet>6337</a>                    instructions.push((
+<a href=#6338 id=6338 data-nosnippet>6338</a>                        instruction_offset,
+<a href=#6339 id=6339 data-nosnippet>6339</a>                        CallFrameInstruction::CfaOffset(up_to_sp <span class="kw">as </span>i32),
+<a href=#6340 id=6340 data-nosnippet>6340</a>                    ));
+<a href=#6341 id=6341 data-nosnippet>6341</a>                }
+<a href=#6342 id=6342 data-nosnippet>6342</a>                UnwindOps::Push2Regs { .. } =&gt; <span class="macro">unimplemented!</span>(),
+<a href=#6343 id=6343 data-nosnippet>6343</a>            }
+<a href=#6344 id=6344 data-nosnippet>6344</a>        }
+<a href=#6345 id=6345 data-nosnippet>6345</a>        <span class="prelude-val">Some</span>(UnwindInstructions {
+<a href=#6346 id=6346 data-nosnippet>6346</a>            instructions,
+<a href=#6347 id=6347 data-nosnippet>6347</a>            len: code_len <span class="kw">as </span>u32,
+<a href=#6348 id=6348 data-nosnippet>6348</a>        })
+<a href=#6349 id=6349 data-nosnippet>6349</a>    }
+<a href=#6350 id=6350 data-nosnippet>6350</a>    <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
+<a href=#6351 id=6351 data-nosnippet>6351</a>    </span><span class="kw">fn </span>gen_dwarf_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInstructions&gt; {
+<a href=#6352 id=6352 data-nosnippet>6352</a>        <span class="prelude-val">None
+<a href=#6353 id=6353 data-nosnippet>6353</a>    </span>}
+<a href=#6354 id=6354 data-nosnippet>6354</a>    <span class="kw">fn </span>gen_windows_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#6355 id=6355 data-nosnippet>6355</a>        <span class="prelude-val">None
+<a href=#6356 id=6356 data-nosnippet>6356</a>    </span>}
+<a href=#6357 id=6357 data-nosnippet>6357</a>}</code></pre></div></section></main></body></html>
