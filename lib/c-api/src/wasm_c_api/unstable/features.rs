@@ -14,7 +14,7 @@
 //!     // Declare features.
 //!     wasmer_features_t* features = wasmer_features_new();
 //!
-//!     // Now, let's enable de SIMD feature.
+//!     // Now, let's enable the SIMD feature.
 //!     wasmer_features_simd(features, true);
 //!
 //!     // And also the memory64 feature.     
@@ -102,10 +102,8 @@ pub extern "C" fn wasmer_features_threads(
 /// Configures whether the WebAssembly reference types proposal will be
 /// enabled.
 ///
-/// The [WebAssembly reference types proposal][proposal] is not currently
-/// fully standardized and is undergoing development. Support for this
-/// feature can be enabled through this method for appropriate WebAssembly
-/// modules.
+/// The [WebAssembly reference types proposal][proposal] is now
+/// fully standardized and enabled by default.
 ///
 /// This feature gates items such as the `externref` type and multiple tables
 /// being in a module. Note that enabling the reference types feature will
@@ -136,10 +134,10 @@ pub extern "C" fn wasmer_features_reference_types(
 /// Configures whether the WebAssembly SIMD proposal will be
 /// enabled.
 ///
-/// The [WebAssembly SIMD proposal][proposal] is not currently
-/// fully standardized and is undergoing development. Support for this
-/// feature can be enabled through this method for appropriate WebAssembly
-/// modules.
+/// The [WebAssembly SIMD proposal][proposal] is now
+/// fully standardized.
+/// Support for this feature can be enabled through this method
+/// for appropriate WebAssembly modules.
 ///
 /// This feature gates items such as the `v128` type and all of its
 /// operators being in a module.
@@ -169,15 +167,13 @@ pub extern "C" fn wasmer_features_simd(
 /// Configures whether the WebAssembly bulk memory operations proposal will
 /// be enabled.
 ///
-/// The [WebAssembly bulk memory operations proposal][proposal] is not
-/// currently fully standardized and is undergoing development.
-/// Support for this feature can be enabled through this method for
-/// appropriate WebAssembly modules.
+/// The [WebAssembly bulk memory operations proposal][proposal] is now
+/// fully standardized and enabled by default.
 ///
 /// This feature gates items such as the `memory.copy` instruction, passive
 /// data/table segments, etc, being in a module.
 ///
-/// This is `false` by default.
+/// This is `true` by default.
 ///
 /// [proposal]: https://github.com/webassembly/bulk-memory-operations
 ///
@@ -202,15 +198,13 @@ pub extern "C" fn wasmer_features_bulk_memory(
 /// Configures whether the WebAssembly multi-value proposal will
 /// be enabled.
 ///
-/// The [WebAssembly multi-value proposal][proposal] is not
-/// currently fully standardized and is undergoing development.
-/// Support for this feature can be enabled through this method for
-/// appropriate WebAssembly modules.
+/// The [WebAssembly multi-value proposal][proposal] is now fully
+/// standardized and enabled by default.
 ///
 /// This feature gates functions and blocks returning multiple values in a
 /// module, for example.
 ///
-/// This is `false` by default.
+/// This is `true` by default.
 ///
 /// [proposal]: https://github.com/webassembly/multi-value
 ///
@@ -264,10 +258,10 @@ pub extern "C" fn wasmer_features_tail_call(
     true
 }
 
-/// Configures whether the WebAssembly tail-call proposal will
+/// Configures whether the WebAssembly module linking proposal will
 /// be enabled.
 ///
-/// The [WebAssembly tail-call proposal][proposal] is not
+/// The [WebAssembly module linking proposal][proposal] is not
 /// currently fully standardized and is undergoing development.
 /// Support for this feature can be enabled through this method for
 /// appropriate WebAssembly modules.
@@ -300,10 +294,10 @@ pub extern "C" fn wasmer_features_module_linking(
 /// Configures whether the WebAssembly multi-memory proposal will
 /// be enabled.
 ///
-/// The [WebAssembly multi-memory proposal][proposal] is not
-/// currently fully standardized and is undergoing development.
-/// Support for this feature can be enabled through this method for
-/// appropriate WebAssembly modules.
+/// The [WebAssembly multi-memory proposal][proposal] is now
+/// fully standardized.
+/// Support for this feature can be enabled through this method
+/// for appropriate WebAssembly modules.
 ///
 /// This feature adds the ability to use multiple memories within a
 /// single Wasm module.
@@ -333,10 +327,10 @@ pub extern "C" fn wasmer_features_multi_memory(
 /// Configures whether the WebAssembly 64-bit memory proposal will
 /// be enabled.
 ///
-/// The [WebAssembly 64-bit memory proposal][proposal] is not
-/// currently fully standardized and is undergoing development.
-/// Support for this feature can be enabled through this method for
-/// appropriate WebAssembly modules.
+/// The [WebAssembly 64-bit memory proposal][proposal] is now
+/// fully standardized.
+/// Support for this feature can be enabled through this method
+/// for appropriate WebAssembly modules.
 ///
 /// This feature gates support for linear memory of sizes larger than
 /// 2^32 bits.
