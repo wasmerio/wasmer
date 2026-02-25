@@ -4,7 +4,7 @@
  */
 #![allow(missing_docs)]
 
-use crate::indexes::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
+use crate::indexes::{FunctionIndex, MemoryIndex, TableIndex};
 use crate::lib::std::boxed::Box;
 use crate::types::InitExpr;
 
@@ -44,7 +44,7 @@ pub struct DataInitializerLocation {
 #[allow(missing_docs)]
 pub trait DataInitializerLocationLike {
     fn memory_index(&self) -> MemoryIndex;
-    fn base(&self) -> Option<GlobalIndex>;
+    fn offset_expr(&self) -> InitExpr;
 }
 
 impl DataInitializerLocationLike for &DataInitializerLocation {
@@ -52,8 +52,8 @@ impl DataInitializerLocationLike for &DataInitializerLocation {
         self.memory_index
     }
 
-    fn base(&self) -> Option<GlobalIndex> {
-        todo!()
+    fn offset_expr(&self) -> InitExpr {
+        self.offset_expr.clone()
     }
 }
 
@@ -62,8 +62,8 @@ impl DataInitializerLocationLike for &ArchivedDataInitializerLocation {
         MemoryIndex::from_u32(rkyv::deserialize::<_, ()>(&self.memory_index).unwrap().0)
     }
 
-    fn base(&self) -> Option<GlobalIndex> {
-        todo!()
+    fn offset_expr(&self) -> InitExpr {
+        rkyv::deserialize::<_, rkyv::rancor::Error>(&self.offset_expr).unwrap()
     }
 }
 

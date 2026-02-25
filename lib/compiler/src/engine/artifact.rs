@@ -702,10 +702,10 @@ impl DataInitializerLocationLike for DataInitializerLocationVariant<'_> {
         }
     }
 
-    fn base(&self) -> Option<wasmer_types::GlobalIndex> {
+    fn offset_expr(&self) -> wasmer_types::InitExpr {
         match self {
-            Self::Plain(plain) => plain.base(),
-            Self::Archived(archived) => archived.base(),
+            Self::Plain(plain) => plain.offset_expr(),
+            Self::Archived(archived) => archived.offset_expr(),
         }
     }
 }
