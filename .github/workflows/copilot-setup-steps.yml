@@ -22,6 +22,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Set up libstdc++ on Linux
         run: |
           sudo apt-get update -y

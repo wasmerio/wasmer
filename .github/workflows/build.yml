@@ -114,6 +114,8 @@ jobs:
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
@@ -294,6 +296,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Install Windows-GNU linker
         shell: bash
         run: |
@@ -363,6 +367,8 @@ jobs:
     runs-on: depot-macos-14
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-apple-darwin
@@ -397,6 +403,8 @@ jobs:
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: x86_64-apple-darwin
@@ -427,6 +435,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: riscv64gc-unknown-linux-gnu
