@@ -200,6 +200,9 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
             "relaxed-simd" => {
                 features.relaxed_simd(true);
             }
+            "extended-const" => {
+                features.extended_const(true);
+            }
             // Ignore unrecognized features
             _ => {}
         }

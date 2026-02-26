@@ -22,6 +22,7 @@ impl Arbitrary<'_> for SinglePassFuzzModule {
         config.tail_call_enabled = false;
         config.simd_enabled = false;
         config.relaxed_simd_enabled = false;
+        config.extended_const_enabled = true;
         Ok(Self(wasm_smith::Module::new(config, u)?))
     }
 }

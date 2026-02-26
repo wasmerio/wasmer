@@ -138,9 +138,6 @@ pub trait Compiler: Send + std::fmt::Debug {
         wasm_features.set(WasmFeatures::SIGN_EXTENSION, true);
         wasm_features.set(WasmFeatures::GC_TYPES, true);
 
-        // TODO
-        wasm_features.set(WasmFeatures::EXTENDED_CONST, true);
-
         // Not supported
         wasm_features.set(WasmFeatures::COMPONENT_MODEL, false);
         wasm_features.set(WasmFeatures::FUNCTION_REFERENCES, false);

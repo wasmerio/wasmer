@@ -59,7 +59,8 @@ impl Features {
             memory64: false,
             exceptions: false,
             relaxed_simd: false,
-            extended_const: false,
+            // Extended Constant Expressions should be on by default
+            extended_const: true,
         }
     }
 
@@ -302,6 +303,21 @@ impl Features {
         self
     }
 
+    /// Configures whether the WebAssembly Extended Constant Expressions proposal will be enabled.
+    ///
+    /// The [WebAssembly Extended Constant Expressions][extended-const] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [extended-const]: https://github.com/WebAssembly/extended-const
+    pub fn extended_const(&mut self, enable: bool) -> &mut Self {
+        self.extended_const = enable;
+        self
+    }
+
     /// Checks if this features set contains all the features required by another set
     pub fn contains_features(&self, required: &Self) -> bool {
         // Check all required features
@@ -419,6 +435,9 @@ impl Features {
 
                 if err_msg.contains("memory64") {
                     features.memory64(true);
+                }
+                if err_msg.contains("constant expression") {
+                    features.extended_const(true);
                 }
             }
             Ok(_) => {

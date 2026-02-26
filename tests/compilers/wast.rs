@@ -71,6 +71,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: unknown memory 0",
         "Validation error: invalid var_u32",
         "Validation error: SIMD index out of bounds",
+        // Still needed as it requires GC feature!
         "Validation error: constant expression required",
         "Unsupported feature: unsupported init expr in element section",
         "Insufficient resources: Table minimum",
