@@ -274,7 +274,6 @@ pub fn parse_tag_section(
     Ok(())
 }
 
-// TODO: add comment
 fn parse_serialized_init_expr(
     expr: &wasmparser::ConstExpr<'_>,
     section_name: &str,
