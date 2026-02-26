@@ -23,6 +23,16 @@ pub struct Test {
     pub body: String,
 }
 
+pub fn test_directory_module(
+    out: &mut Testsuite,
+    path: impl AsRef<Path>,
+    processor: impl Fn(&mut Testsuite, PathBuf) -> Option<Test>,
+) -> anyhow::Result<usize> {
+    let path = path.as_ref();
+    let testsuite = &extract_name(path);
+    with_test_module(out, testsuite, |out| test_directory(out, path, processor))
+}
+
 fn write_test(out: &mut Testsuite, testname: &str, body: &str) -> anyhow::Result<()> {
     writeln!(
         out.buffer,
