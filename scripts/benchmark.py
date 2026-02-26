@@ -4,6 +4,7 @@ import time
 import subprocess
 import json
 import statistics
+import os
 from pathlib import Path
 import matplotlib.pyplot as plt
 import shutil
@@ -14,6 +15,10 @@ RUSTC_PEFT_PATH = Path(
 )
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
 ITERATIONS = 5
+WASM_BUILD_CONFIGS = {
+    "default": {},
+    "simd128": {"RUSTFLAGS": "-Ctarget-feature=+simd128"},
+}
 
 
 def parse_report(report):
@@ -66,7 +71,15 @@ def benchmark_wasmer(wasmer_binary, wasmer_cmd_args):
 
 # 1) native run
 native_runtime_report = {}
-for benchmark_dir in RUSTC_PEFT_PATH.iterdir():
+benchmark_dirs = sorted(
+    [
+        benchmark_dir
+        for benchmark_dir in RUSTC_PEFT_PATH.iterdir()
+        if benchmark_dir.is_dir() and (benchmark_dir / "Cargo.toml").exists()
+    ]
+)
+
+for benchmark_dir in benchmark_dirs:
     if benchmark_dir.is_dir() and (benchmark_dir / "Cargo.toml").exists():
         print(benchmark_dir)
         data = subprocess.check_output(
@@ -77,19 +90,26 @@ for benchmark_dir in RUSTC_PEFT_PATH.iterdir():
         native_runtime_report |= parse_report(data)
 print(native_runtime_report)
 
-# 2) build all the benchmarks for Wasm32 target
-for benchmark_dir in RUSTC_PEFT_PATH.iterdir():
-    if benchmark_dir.is_dir() and (benchmark_dir / "Cargo.toml").exists():
+# 2) build all the benchmarks for Wasm32 target and benchmark Wasmer
+wasmer_runtime_reports = {}
+for build_config_name, wasm_build_env in WASM_BUILD_CONFIGS.items():
+    print(f"Using wasm build config: {build_config_name} {wasm_build_env}")
+    for benchmark_dir in benchmark_dirs:
         print(benchmark_dir)
+        build_env = os.environ.copy()
+        build_env.update(wasm_build_env)
         subprocess.check_output(
-            "cargo b -r --target=wasm32-wasip1", shell=True, cwd=benchmark_dir
+            "cargo b -r --target=wasm32-wasip1",
+            shell=True,
+            cwd=benchmark_dir,
+            env=build_env,
         )
 
-# 3) benchmark multiple wasmer binaries
-wasmer_runtime_reports = {
-    label: benchmark_wasmer(wasmer_binary, wasmer_command)
-    for (label, wasmer_binary, wasmer_command) in WASMER_CONFIGS
-}
+    for label, wasmer_binary, wasmer_command in WASMER_CONFIGS:
+        label_with_build_cfg = f"{label} [{build_config_name}]"
+        wasmer_runtime_reports[label_with_build_cfg] = benchmark_wasmer(
+            wasmer_binary, wasmer_command
+        )
 
 # 5) plot comparison
 native_keys = set(native_runtime_report.keys())
@@ -134,8 +154,6 @@ else:
     total_series = len(series_labels)
     width = 0.8 / total_series
     base_offset = -((total_series - 1) / 2) * width
-    purple_palette = plt.cm.Purples
-    wasmer_labels = [label for label in series_labels if label != "native"]
 
     for idx, label in enumerate(series_labels):
         offset = base_offset + idx * width
