@@ -216,6 +216,13 @@ jobs:
           sysroot-tag: v2026-02-16.1
           version: v0.4.1
 
+      - name: Install build-scripts sysroot
+        uses: wasix-org/build-scripts@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          packages: wasix-libc,libcxx,compiler-rt,libffi
+          output: '$HOME/.build-scripts/pkgs'
+
       - name: Tool versions
         run: |
           echo "wasixcc version: $(wasixcc --version)"
@@ -945,6 +952,14 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
           version: v0.4.1
+
+      - name: Install build-scripts sysroot
+        if: matrix.metadata.build != 'windows-x64'
+        uses: wasix-org/build-scripts@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          packages: wasix-libc,libcxx,compiler-rt,libffi
+          output: '$HOME/.build-scripts/pkgs'
 
       - name: Install LLVM
         shell: bash
