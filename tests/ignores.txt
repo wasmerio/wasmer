@@ -1,13 +1,22 @@
 # Compilers
+# SIMD
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 singlepass relaxed # Singlepass doesn't support relaxed SIMD yet
 singlepass wasmer::simd_generated_ext_ops
 singlepass wasmer::simd
-singlepass spec::throw
-singlepass spec::try_table
-singlepass wasmer::exception_handling
-windows spec::exceptions # No EH support on Windows yet
-macos+cranelift spec::exceptions
+
+# Exception handling
+singlepass      spec::throw
+singlepass      spec::try_table
+singlepass      wasmer::exception_handling
+windows         spec::throw
+windows         spec::try_table
+windows         wasmer::exception_handling
+macos+cranelift spec::throw
+macos+cranelift spec::try_table
+macos+cranelift wasmer::exception_handling
+
+# Misc
 singlepass wide_arithmetic
 singlepass spec::linking
 cranelift spec::linking
