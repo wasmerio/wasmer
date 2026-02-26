@@ -8,10 +8,8 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use test_generator::{
-    Testsuite, test_directory, test_directory_module, wasi_processor, wast_processor,
-    with_test_module,
-};
+use test_generator::test_directory_module;
+use test_generator::{Testsuite, test_directory, wasi_processor, wast_processor, with_test_module};
 
 fn main() -> anyhow::Result<()> {
     println!(
@@ -53,19 +51,15 @@ fn main() -> anyhow::Result<()> {
 
         with_test_module(&mut spectests, "spec", |spectests| {
             let _spec_tests = test_directory(spectests, "tests/wast/spec", wast_processor)?;
-            test_directory_module(spectests, "tests/wast/spec/simd", wast_processor)?;
-            test_directory_module(spectests, "tests/wast/spec/exceptions", wast_processor)?;
-            test_directory_module(spectests, "tests/wast/spec/relaxed-simd", wast_processor)?;
+            Ok(())
+        })?;
+        with_test_module(&mut spectests, "wasmer", |spectests| {
+            let _spec_tests = test_directory(spectests, "tests/wast/wasmer", wast_processor)?;
             test_directory_module(
                 spectests,
                 "tests/wast/spec/proposals/wide-arithmetic",
                 wast_processor,
             )?;
-            // test_directory_module(spectests, "tests/wast/spec/proposals/bulk-memory-operations", wast_processor)?;
-            Ok(())
-        })?;
-        with_test_module(&mut spectests, "wasmer", |spectests| {
-            let _spec_tests = test_directory(spectests, "tests/wast/wasmer", wast_processor)?;
             Ok(())
         })?;
 

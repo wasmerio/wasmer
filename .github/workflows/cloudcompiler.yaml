@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          submodules: true
           fetch-depth: 0
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain

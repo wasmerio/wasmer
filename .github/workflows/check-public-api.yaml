@@ -20,6 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          submodules: true
           fetch-depth: 0
 
       - name: Install latest nightly

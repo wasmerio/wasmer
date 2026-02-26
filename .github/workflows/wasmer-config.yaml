@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
@@ -42,6 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
