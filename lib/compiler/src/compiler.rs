@@ -132,6 +132,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         wasm_features.set(WasmFeatures::EXCEPTIONS, features.exceptions);
         wasm_features.set(WasmFeatures::EXTENDED_CONST, features.extended_const);
         wasm_features.set(WasmFeatures::RELAXED_SIMD, features.relaxed_simd);
+        wasm_features.set(WasmFeatures::WIDE_ARITHMETIC, features.wide_arithmetic);
         wasm_features.set(WasmFeatures::MUTABLE_GLOBAL, true);
         wasm_features.set(WasmFeatures::SATURATING_FLOAT_TO_INT, true);
         wasm_features.set(WasmFeatures::FLOATS, true);

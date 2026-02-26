@@ -27,6 +27,7 @@ impl Arbitrary<'_> for CraneliftPassFuzzModule {
         config.tail_call_enabled = false;
         config.simd_enabled = false;
         config.relaxed_simd_enabled = false;
+        config.wide_arithmetic_enabled = true;
         config.extended_const_enabled = true;
         Ok(Self(wasm_smith::Module::new(config, u)?))
     }

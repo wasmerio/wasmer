@@ -38,6 +38,8 @@ pub struct Features {
     pub relaxed_simd: bool,
     /// Extended constant expressions proposal should be enabled
     pub extended_const: bool,
+    /// Wide Arithmetic proposal should be enabled
+    pub wide_arithmetic: bool,
 }
 
 impl Features {
@@ -59,6 +61,7 @@ impl Features {
             memory64: false,
             exceptions: false,
             relaxed_simd: false,
+            wide_arithmetic: false,
             // Extended Constant Expressions should be on by default
             extended_const: true,
         }
@@ -79,6 +82,7 @@ impl Features {
             exceptions: true,
             relaxed_simd: true,
             extended_const: true,
+            wide_arithmetic: true,
         }
     }
 
@@ -97,6 +101,7 @@ impl Features {
             exceptions: false,
             relaxed_simd: false,
             extended_const: false,
+            wide_arithmetic: false,
         }
     }
 
@@ -303,6 +308,20 @@ impl Features {
         self
     }
 
+    /// Configures whether the WebAssembly wide arithmetic proposal will be enabled.
+    ///
+    /// The [Wide Arithmetic][wa] is not currently fully
+    /// standardized and is undergoing development. Support for this feature can
+    /// be enabled through this method for appropriate WebAssembly modules.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [wa]: https://github.com/WebAssembly/wide-arithmetic
+    pub fn wide_arithmetic(&mut self, enable: bool) -> &mut Self {
+        self.wide_arithmetic = enable;
+        self
+    }
+
     /// Configures whether the WebAssembly Extended Constant Expressions proposal will be enabled.
     ///
     /// The [WebAssembly Extended Constant Expressions][extended-const] is now
@@ -333,6 +352,7 @@ impl Features {
             && (!required.memory64 || self.memory64)
             && (!required.relaxed_simd || self.relaxed_simd)
             && (!required.extended_const || self.extended_const)
+            && (!required.wide_arithmetic || self.wide_arithmetic)
     }
 
     #[cfg(feature = "detect-wasm-features")]
@@ -436,6 +456,9 @@ impl Features {
                 if err_msg.contains("memory64") {
                     features.memory64(true);
                 }
+                if err_msg.contains("wide arithmetic") {
+                    features.wide_arithmetic(true);
+                }
                 if err_msg.contains("constant expression") {
                     features.extended_const(true);
                 }
@@ -481,6 +504,7 @@ impl Features {
             exceptions,
             relaxed_simd,
             extended_const,
+            wide_arithmetic,
         } = other.clone();
 
         *self = Self {
@@ -496,6 +520,7 @@ impl Features {
             exceptions: self.exceptions || exceptions,
             relaxed_simd: self.relaxed_simd || relaxed_simd,
             extended_const: self.extended_const || extended_const,
+            wide_arithmetic: self.wide_arithmetic || wide_arithmetic,
         };
     }
 }
@@ -527,6 +552,7 @@ mod test_features {
                 exceptions: false,
                 relaxed_simd: false,
                 extended_const: false,
+                wide_arithmetic: false
             }
         );
     }
