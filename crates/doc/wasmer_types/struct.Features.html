@@ -45,19 +45,19 @@ also enable the bulk memory feature.</p>
 <p>This is <code>true</code> by default.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.simd" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#155-158">Source</a><h4 class="code-header">pub fn <a href="#method.simd" class="fn">simd</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly SIMD proposal will be
 enabled.</p>
-<p>The <a href="https://github.com/webassembly/simd">WebAssembly SIMD proposal</a> is not currently
-fully standardized and is undergoing development. Support for this
-feature can be enabled through this method for appropriate WebAssembly
-modules.</p>
+<p>The <a href="https://github.com/webassembly/simd">WebAssembly SIMD proposal</a> is now
+fully standardized.
+Support for this feature can be enabled through this method
+for appropriate WebAssembly modules.</p>
 <p>This feature gates items such as the <code>v128</code> type and all of its
 operators being in a module.</p>
 <p>This is <code>false</code> by default.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.relaxed_simd" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#171-174">Source</a><h4 class="code-header">pub fn <a href="#method.relaxed_simd" class="fn">relaxed_simd</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly Relaxed SIMD proposal will be
 enabled.</p>
-<p>The <a href="https://github.com/WebAssembly/relaxed-simd">WebAssembly Relaxed SIMD proposal</a> is not currently
-fully standardized and is undergoing development. Support for this
-feature can be enabled through this method for appropriate WebAssembly
-modules.</p>
+<p>The <a href="https://github.com/WebAssembly/relaxed-simd">WebAssembly Relaxed SIMD proposal</a> is now
+fully standardized.
+Support for this feature can be enabled through this method
+for appropriate WebAssembly modules.</p>
 <p>This is <code>false</code> by default.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.bulk_memory" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#188-196">Source</a><h4 class="code-header">pub fn <a href="#method.bulk_memory" class="fn">bulk_memory</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly bulk memory operations proposal will
 be enabled.</p>
@@ -66,23 +66,22 @@ fully standardized and enabled by default.</p>
 <p>This feature gates items such as the <code>memory.copy</code> instruction, passive
 data/table segments, etc, being in a module.</p>
 <p>This is <code>true</code> by default.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.multi_value" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#211-214">Source</a><h4 class="code-header">pub fn <a href="#method.multi_value" class="fn">multi_value</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly multi-value proposal will
+</div></details><details class="toggle method-toggle" open><summary><section id="method.multi_value" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#210-213">Source</a><h4 class="code-header">pub fn <a href="#method.multi_value" class="fn">multi_value</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly multi-value proposal will
 be enabled.</p>
 <p>The <a href="https://github.com/webassembly/multi-value">WebAssembly multi-value proposal</a> is now fully
-standardized and enabled by default, except with the singlepass
-compiler which does not support it.</p>
+standardized and enabled by default.</p>
 <p>This feature gates functions and blocks returning multiple values in a
 module, for example.</p>
 <p>This is <code>true</code> by default.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.tail_call" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#229-232">Source</a><h4 class="code-header">pub fn <a href="#method.tail_call" class="fn">tail_call</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly tail-call proposal will
+</div></details><details class="toggle method-toggle" open><summary><section id="method.tail_call" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#228-231">Source</a><h4 class="code-header">pub fn <a href="#method.tail_call" class="fn">tail_call</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly tail-call proposal will
 be enabled.</p>
-<p>The <a href="https://github.com/webassembly/tail-call">WebAssembly tail-call proposal</a> is not
-currently fully standardized and is undergoing development.
-Support for this feature can be enabled through this method for
-appropriate WebAssembly modules.</p>
+<p>The <a href="https://github.com/webassembly/tail-call">WebAssembly tail-call proposal</a> is now
+fully standardized.
+Support for this feature can be enabled through this method
+for appropriate WebAssembly modules.</p>
 <p>This feature gates tail-call functions in WebAssembly.</p>
 <p>This is <code>false</code> by default.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.module_linking" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#248-251">Source</a><h4 class="code-header">pub fn <a href="#method.module_linking" class="fn">module_linking</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly module linking proposal will
+</div></details><details class="toggle method-toggle" open><summary><section id="method.module_linking" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#247-250">Source</a><h4 class="code-header">pub fn <a href="#method.module_linking" class="fn">module_linking</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly module linking proposal will
 be enabled.</p>
 <p>The <a href="https://github.com/webassembly/module-linking">WebAssembly module linking proposal</a> is not
 currently fully standardized and is undergoing development.
@@ -91,28 +90,29 @@ appropriate WebAssembly modules.</p>
 <p>This feature allows WebAssembly modules to define, import and
 export modules and instances.</p>
 <p>This is <code>false</code> by default.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.multi_memory" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#267-270">Source</a><h4 class="code-header">pub fn <a href="#method.multi_memory" class="fn">multi_memory</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly multi-memory proposal will
+</div></details><details class="toggle method-toggle" open><summary><section id="method.multi_memory" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#266-269">Source</a><h4 class="code-header">pub fn <a href="#method.multi_memory" class="fn">multi_memory</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly multi-memory proposal will
 be enabled.</p>
-<p>The <a href="https://github.com/WebAssembly/multi-memory">WebAssembly multi-memory proposal</a> is not
-currently fully standardized and is undergoing development.
-Support for this feature can be enabled through this method for
-appropriate WebAssembly modules.</p>
+<p>The <a href="https://github.com/WebAssembly/multi-memory">WebAssembly multi-memory proposal</a> is now
+fully standardized.
+Support for this feature can be enabled through this method
+for appropriate WebAssembly modules.</p>
 <p>This feature adds the ability to use multiple memories within a
 single Wasm module.</p>
 <p>This is <code>false</code> by default.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.memory64" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#286-289">Source</a><h4 class="code-header">pub fn <a href="#method.memory64" class="fn">memory64</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly 64-bit memory proposal will
+</div></details><details class="toggle method-toggle" open><summary><section id="method.memory64" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#285-288">Source</a><h4 class="code-header">pub fn <a href="#method.memory64" class="fn">memory64</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly 64-bit memory proposal will
 be enabled.</p>
-<p>The <a href="https://github.com/WebAssembly/memory64">WebAssembly 64-bit memory proposal</a> is not
-currently fully standardized and is undergoing development.
-Support for this feature can be enabled through this method for
-appropriate WebAssembly modules.</p>
+<p>The <a href="https://github.com/WebAssembly/memory64">WebAssembly 64-bit memory proposal</a> is now
+fully standardized.
+Support for this feature can be enabled through this method
+for appropriate WebAssembly modules.</p>
 <p>This feature gates support for linear memory of sizes larger than
 2^32 bits.</p>
 <p>This is <code>false</code> by default.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.exceptions" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#300-303">Source</a><h4 class="code-header">pub fn <a href="#method.exceptions" class="fn">exceptions</a>(&amp;mut self, enable: <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a>) -&gt; &amp;mut Self</h4></section></summary><div class="docblock"><p>Configures whether the WebAssembly exception-handling proposal will be enabled.</p>
-<p>The <a href="https://github.com/webassembly/exception-handling">WebAssembly exception-handling proposal</a> is not currently fully
-standardized and is undergoing development. Support for this feature can
-be enabled through this method for appropriate WebAssembly modules.</p>
+<p>The <a href="https://github.com/webassembly/exception-handling">WebAssembly exception-handling proposal</a> is now
+fully standardized.
+Support for this feature can be enabled through this method
+for appropriate WebAssembly modules.</p>
 <p>This is <code>false</code> by default.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.contains_features" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#306-320">Source</a><h4 class="code-header">pub fn <a href="#method.contains_features" class="fn">contains_features</a>(&amp;self, required: &amp;Self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Checks if this features set contains all the features required by another set</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.detect_from_wasm" class="method"><a class="src rightside" href="../src/wasmer_types/features.rs.html#338-444">Source</a><h4 class="code-header">pub fn <a href="#method.detect_from_wasm" class="fn">detect_from_wasm</a>(wasm_bytes: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, BinaryReaderError&gt;</h4></section></summary><div class="docblock"><p>Detects required WebAssembly features from a module binary.</p>
