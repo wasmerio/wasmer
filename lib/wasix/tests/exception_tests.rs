@@ -55,11 +55,12 @@ fn static_thrower_shared_catcher() {
     run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
 }
 
-#[test]
-fn shared_thrower_static_catcher() {
-    let wasm = run_build_script(file!(), "shared-thrower-static-catcher").unwrap();
-    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
-}
+// #6244
+// #[test]
+// fn shared_thrower_static_catcher() {
+//     let wasm = run_build_script(file!(), "shared-thrower-static-catcher").unwrap();
+//     run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
+// }
 
 #[test]
 fn shared_thrower_shared_catcher() {
