@@ -5,6 +5,7 @@ singlepass wasmer::simd_generated_ext_ops
 singlepass wasmer::simd
 singlepass spec::throw
 singlepass spec::try_table
+singlepass wasmer::exception_handling
 windows spec::exceptions # No EH support on Windows yet
 macos+cranelift spec::exceptions
 singlepass wide_arithmetic
@@ -74,7 +75,7 @@ cranelift+riscv64 spec::r#if::cranelift
 
 # no SIMD on riscv, Cranelift will not handle them
 cranelift+riscv64 spec::simd
-cranelift+riscv64 spec::relaxed_simd
+cranelift+riscv64 relaxed
 # 6078
 cranelift+riscv64 wasmer::simd_generated_ext_ops
 cranelift+riscv64 wasmer::simd
