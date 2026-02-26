@@ -317,12 +317,12 @@ impl Instance {
     /// Return the indexed `VMGlobalDefinition`.
     fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
-        // TODO:
-        NonNull::new(unsafe { *self.globals_ptr().add(index) }).unwrap()
+        // Globals are stored inline in the VMContext.
+        unsafe { NonNull::new(self.globals_ptr().add(index)).unwrap() }
     }
 
     /// Return a pointer to the `VMGlobalDefinition`s.
-    fn globals_ptr(&self) -> *mut *mut VMGlobalDefinition {
+    fn globals_ptr(&self) -> *mut VMGlobalDefinition {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_globals_begin()) }
     }
 
@@ -380,7 +380,7 @@ impl Instance {
         unsafe {
             // Even though we already know the type of the function we need to call, in certain
             // specific cases trampoline prepare callee arguments for specific optimizations, such
-            // as passing g0 and m0_base_ptr as paramters.
+            // as passing the globals base pointer and m0_base_ptr as parameters.
             wasmer_call_trampoline(
                 trap_handler,
                 config,
@@ -1066,11 +1066,7 @@ impl VMInstance {
                 .map(|m: &InternalStoreHandle<VMTag>| VMSharedTagIndex::new(m.index() as u32))
                 .collect::<PrimaryMap<TagIndex, VMSharedTagIndex>>()
                 .into_boxed_slice();
-            let vmctx_globals = finished_globals
-                .values()
-                .map(|m: &InternalStoreHandle<VMGlobal>| m.get(context).vmglobal())
-                .collect::<PrimaryMap<LocalGlobalIndex, NonNull<VMGlobalDefinition>>>()
-                .into_boxed_slice();
+
             let passive_data = RefCell::new(
                 module
                     .passive_data
@@ -1157,11 +1153,6 @@ impl VMInstance {
             // these should already be set, add asserts here? for:
             // - instance.tables_ptr() as *mut VMTableDefinition
             // - instance.memories_ptr() as *mut VMMemoryDefinition
-            ptr::copy(
-                vmctx_globals.values().as_slice().as_ptr(),
-                instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,
-                vmctx_globals.len(),
-            );
             ptr::write(
                 instance.builtin_functions_ptr(),
                 VMBuiltinFunctionsArray::initialized(),

@@ -538,6 +538,11 @@ impl TableType {
             maximum,
         }
     }
+
+    /// Return true if it's a function reference table with a fixed number of elements.
+    pub fn is_fixed_funcref_table(&self) -> bool {
+        matches!(self.ty, Type::FuncRef) && self.maximum == Some(self.minimum)
+    }
 }
 
 impl fmt::Display for TableType {

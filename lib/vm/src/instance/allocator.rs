@@ -1,10 +1,12 @@
 use super::{Instance, VMInstance};
+use crate::VMFuncRef;
 use crate::VMMemoryDefinition;
-use crate::vmcontext::VMTableDefinition;
+use crate::vmcontext::{VMGlobalDefinition, VMTableDefinition};
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
+use wasmer_types::LocalGlobalIndex;
 use wasmer_types::VMOffsets;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
@@ -61,19 +63,21 @@ impl Drop for InstanceAllocator {
 impl InstanceAllocator {
     /// Allocates instance data for use with [`VMInstance::new`].
     ///
-    /// Returns a wrapper type around the allocation and 2 vectors of
+    /// Returns a wrapper type around the allocation and 3 vectors of
     /// pointers into the allocated buffer. These lists of pointers
-    /// correspond to the location in memory for the local memories and
-    /// tables respectively. These pointers should be written to before
-    /// calling [`VMInstance::new`].
+    /// correspond to the locations in memory for the local memories,
+    /// tables, and globals respectively. These pointers should be
+    /// written to before calling [`VMInstance::new`].
     ///
     /// [`VMInstance::new`]: super::VMInstance::new
+    #[allow(clippy::type_complexity)]
     pub fn new(
         module: &ModuleInfo,
     ) -> (
         Self,
         Vec<NonNull<VMMemoryDefinition>>,
         Vec<NonNull<VMTableDefinition>>,
+        Vec<NonNull<VMGlobalDefinition>>,
     ) {
         let offsets = VMOffsets::new(mem::size_of::<usize>() as u8, module);
         let instance_layout = Self::instance_layout(&offsets);
@@ -94,14 +98,21 @@ impl InstanceAllocator {
             consumed: false,
         };
 
+        // Pre-wire base pointers for local fixed-size funcref tables to point
+        // at inline storage in VMContext.
+        unsafe {
+            allocator.initialize_local_fixed_funcref_table_bases(module);
+        }
+
         // # Safety
         // Both of these calls are safe because we allocate the pointer
         // above with the same `offsets` that these functions use.
         // Thus there will be enough valid memory for both of them.
         let memories = unsafe { allocator.memory_definition_locations() };
         let tables = unsafe { allocator.table_definition_locations() };
+        let globals = unsafe { allocator.global_definition_locations() };
 
-        (allocator, memories, tables)
+        (allocator, memories, tables, globals)
     }
 
     /// Calculate the appropriate layout for the internal `Instance` structure.
@@ -186,6 +197,76 @@ impl InstanceAllocator {
 
                 out.push(new_ptr.cast());
             }
+            out
+        }
+    }
+
+    /// Initialize base pointers for local fixed-size `funcref` tables to point
+    /// into inline VMContext storage.
+    ///
+    /// # Safety
+    ///
+    /// - `Self.instance_ptr` must point to enough memory that all of
+    ///   the offsets in `Self.offsets` point to valid locations in memory.
+    unsafe fn initialize_local_fixed_funcref_table_bases(&self, module: &ModuleInfo) {
+        unsafe {
+            let ptr = self.instance_ptr.cast::<u8>().as_ptr();
+            let base_ptr = ptr.add(mem::size_of::<Instance>());
+            let mut current_offset =
+                usize::try_from(self.offsets.vmctx_local_fixed_funcref_tables_begin()).unwrap();
+
+            for (i, table) in module
+                .tables
+                .values()
+                .enumerate()
+                .skip(module.num_imported_tables)
+                .filter(|(_, table)| table.is_fixed_funcref_table())
+            {
+                let table_offset = usize::try_from(
+                    self.offsets
+                        .vmctx_vmtable_definition(LocalTableIndex::new(i)),
+                )
+                .unwrap();
+                let table_definition = base_ptr.add(table_offset).cast::<VMTableDefinition>();
+                let table_data_ptr = base_ptr.add(current_offset).cast::<Option<VMFuncRef>>();
+                (*table_definition).base = table_data_ptr.cast();
+                (*table_definition).current_elements = 0;
+
+                current_offset += table.minimum as usize * mem::size_of::<Option<VMFuncRef>>();
+            }
+        }
+    }
+
+    /// Get the locations of where the [`VMGlobalDefinition`]s should be stored.
+    ///
+    /// This function lets us create [`Global`] objects on the host with backing
+    /// memory in the VM.
+    ///
+    /// # Safety
+    ///
+    /// - `Self.instance_ptr` must point to enough memory that all of
+    ///   the offsets in `Self.offsets` point to valid locations in
+    ///   memory, i.e. `Self.instance_ptr` must have been allocated by
+    ///   `Self::new`.
+    unsafe fn global_definition_locations(&self) -> Vec<NonNull<VMGlobalDefinition>> {
+        unsafe {
+            let num_globals = self.offsets.num_local_globals();
+            let num_globals = usize::try_from(num_globals).unwrap();
+            let mut out = Vec::with_capacity(num_globals);
+
+            let ptr = self.instance_ptr.cast::<u8>().as_ptr();
+            let base_ptr = ptr.add(std::mem::size_of::<Instance>());
+
+            for i in 0..num_globals {
+                let global_offset = self
+                    .offsets
+                    .vmctx_vmglobal_definition(LocalGlobalIndex::new(i));
+                let global_offset = usize::try_from(global_offset).unwrap();
+
+                let new_ptr = NonNull::new_unchecked(base_ptr.add(global_offset));
+                out.push(new_ptr.cast());
+            }
+
             out
         }
     }
