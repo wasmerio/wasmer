@@ -310,7 +310,7 @@ impl Features {
     /// Support for this feature can be enabled through this method
     /// for appropriate WebAssembly modules.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [extended-const]: https://github.com/WebAssembly/extended-const
     pub fn extended_const(&mut self, enable: bool) -> &mut Self {
