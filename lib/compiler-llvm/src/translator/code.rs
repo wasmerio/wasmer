@@ -78,6 +78,7 @@ pub struct FuncTranslator {
     func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
+    non_volatile_memory_ops: bool,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -90,6 +91,7 @@ impl FuncTranslator {
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
+        non_volatile_memory_ops: bool,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
@@ -110,6 +112,7 @@ impl FuncTranslator {
             binary_fmt,
             pointer_width,
             cpu_features,
+            non_volatile_memory_ops,
         })
     }
 
@@ -338,6 +341,7 @@ impl FuncTranslator {
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
             cpu_features: self.cpu_features,
+            non_volatile_memory_ops: self.non_volatile_memory_ops,
         };
 
         fcg.ctx.add_func(
@@ -1220,10 +1224,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             self.memory_styles,
         )? {
             // The best we've got is `volatile`.
-            // TODO: convert unwrap fail to CompileError
-            memaccess.set_volatile(true).unwrap();
+            memaccess.set_volatile(true).map_err(|err| {
+                CompileError::Codegen(format!("could not set volatile on memory operation: {err}"))
+            })
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
     fn annotate_user_memaccess(
@@ -1239,7 +1245,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             _ => {}
         };
-        self.mark_memaccess_nodelete(memory_index, memaccess)?;
+        if !self.non_volatile_memory_ops {
+            self.mark_memaccess_nodelete(memory_index, memaccess)?;
+        }
         tbaa_label(
             self.module,
             self.intrinsics,
@@ -1918,6 +1926,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
     cpu_features: EnumSet<CpuFeature>,
+    non_volatile_memory_ops: bool,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
@@ -13780,6 +13789,110 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 }
 
                 self.state.reachable = false;
+            }
+            Operator::I64Add128 | Operator::I64Sub128 => {
+                let (rhs_hi, rhs_hi_info) = self.state.pop1_extra()?;
+                let (rhs_lo, rhs_lo_info) = self.state.pop1_extra()?;
+                let (lhs_hi, lhs_hi_info) = self.state.pop1_extra()?;
+                let (lhs_lo, lhs_lo_info) = self.state.pop1_extra()?;
+
+                let lhs_lo = self
+                    .apply_pending_canonicalization(lhs_lo, lhs_lo_info)?
+                    .into_int_value();
+                let lhs_hi = self
+                    .apply_pending_canonicalization(lhs_hi, lhs_hi_info)?
+                    .into_int_value();
+                let rhs_lo = self
+                    .apply_pending_canonicalization(rhs_lo, rhs_lo_info)?
+                    .into_int_value();
+                let rhs_hi = self
+                    .apply_pending_canonicalization(rhs_hi, rhs_hi_info)?
+                    .into_int_value();
+
+                let idx0 = self.intrinsics.i32_ty.const_zero();
+                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
+
+                let lhs = self.intrinsics.i64x2_ty.get_undef();
+                let lhs = err!(self.builder.build_insert_element(lhs, lhs_lo, idx0, ""));
+                let lhs = err!(self.builder.build_insert_element(lhs, lhs_hi, idx1, ""));
+                let lhs = err!(
+                    self.builder
+                        .build_bit_cast(lhs, self.intrinsics.i128_ty, "a")
+                )
+                .into_int_value();
+
+                let rhs = self.intrinsics.i64x2_ty.get_undef();
+                let rhs = err!(self.builder.build_insert_element(rhs, rhs_lo, idx0, ""));
+                let rhs = err!(self.builder.build_insert_element(rhs, rhs_hi, idx1, ""));
+                let rhs = err!(
+                    self.builder
+                        .build_bit_cast(rhs, self.intrinsics.i128_ty, "b")
+                )
+                .into_int_value();
+
+                let result = err!(match op {
+                    Operator::I64Add128 => self.builder.build_int_add(lhs, rhs, ""),
+                    Operator::I64Sub128 => self.builder.build_int_sub(lhs, rhs, ""),
+                    _ => unreachable!(),
+                });
+                let result = err!(self.builder.build_bit_cast(
+                    result,
+                    self.intrinsics.i64x2_ty,
+                    ""
+                ))
+                .into_vector_value();
+                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
+                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
+
+                self.state.push1(result_lo);
+                self.state.push1(result_hi);
+            }
+            Operator::I64MulWideS | Operator::I64MulWideU => {
+                let ((lhs, lhs_info), (rhs, rhs_info)) = self.state.pop2_extra()?;
+                let lhs = self
+                    .apply_pending_canonicalization(lhs, lhs_info)?
+                    .into_int_value();
+                let rhs = self
+                    .apply_pending_canonicalization(rhs, rhs_info)?
+                    .into_int_value();
+
+                let lhs = err!(match op {
+                    Operator::I64MulWideS => {
+                        self.builder
+                            .build_int_s_extend(lhs, self.intrinsics.i128_ty, "a")
+                    }
+                    Operator::I64MulWideU => {
+                        self.builder
+                            .build_int_z_extend(lhs, self.intrinsics.i128_ty, "a")
+                    }
+                    _ => unreachable!(),
+                });
+                let rhs = err!(match op {
+                    Operator::I64MulWideS => {
+                        self.builder
+                            .build_int_s_extend(rhs, self.intrinsics.i128_ty, "b")
+                    }
+                    Operator::I64MulWideU => {
+                        self.builder
+                            .build_int_z_extend(rhs, self.intrinsics.i128_ty, "b")
+                    }
+                    _ => unreachable!(),
+                });
+
+                let result = err!(self.builder.build_int_mul(lhs, rhs, ""));
+                let result = err!(self.builder.build_bit_cast(
+                    result,
+                    self.intrinsics.i64x2_ty,
+                    ""
+                ))
+                .into_vector_value();
+                let idx0 = self.intrinsics.i32_ty.const_zero();
+                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
+                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
+                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
+
+                self.state.push1(result_lo);
+                self.state.push1(result_hi);
             }
             _ => {
                 return Err(CompileError::Codegen(format!(

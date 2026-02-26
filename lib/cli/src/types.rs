@@ -107,6 +107,7 @@ impl CliRender for DeployApp {
                     .map_or_else(|| "n/a".to_string(), |v| v.version.clone()),
             ],
             vec!["Created".to_string(), self.created_at.0.clone()],
+            vec!["Updated".to_string(), self.updated_at.0.clone()],
             vec!["Id".to_string(), self.id.inner().to_string()],
         ]);
         table.to_string()
@@ -118,6 +119,7 @@ impl CliRender for DeployApp {
             "App".to_string(),
             "Version".to_string(),
             "Created".to_string(),
+            "Updated".to_string(),
             "Id".to_string(),
         ]);
         table.add_rows(items.iter().map(|app| {
@@ -127,6 +129,7 @@ impl CliRender for DeployApp {
                     .as_ref()
                     .map_or_else(|| "n/a".to_string(), |v| v.version.clone()),
                 app.created_at.0.clone(),
+                app.updated_at.0.clone(),
                 app.id.inner().to_string(),
             ]
         }));

@@ -50,6 +50,10 @@ pub trait CompilerConfig {
         // in case they create an IR that they can verify.
     }
 
+    /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
+    /// (but are not 100% SPEC compliant).
+    fn enable_non_volatile_memops(&mut self) {}
+
     /// Enable NaN canonicalization.
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly
@@ -116,7 +120,7 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
     #[cfg(feature = "translator")]
     fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
-        let mut wasm_features = WasmFeatures::default();
+        let mut wasm_features = WasmFeatures::empty();
         wasm_features.set(WasmFeatures::BULK_MEMORY, features.bulk_memory);
         wasm_features.set(WasmFeatures::THREADS, features.threads);
         wasm_features.set(WasmFeatures::REFERENCE_TYPES, features.reference_types);
@@ -128,19 +132,12 @@ pub trait Compiler: Send + std::fmt::Debug {
         wasm_features.set(WasmFeatures::EXCEPTIONS, features.exceptions);
         wasm_features.set(WasmFeatures::EXTENDED_CONST, features.extended_const);
         wasm_features.set(WasmFeatures::RELAXED_SIMD, features.relaxed_simd);
+        wasm_features.set(WasmFeatures::WIDE_ARITHMETIC, features.wide_arithmetic);
         wasm_features.set(WasmFeatures::MUTABLE_GLOBAL, true);
         wasm_features.set(WasmFeatures::SATURATING_FLOAT_TO_INT, true);
         wasm_features.set(WasmFeatures::FLOATS, true);
         wasm_features.set(WasmFeatures::SIGN_EXTENSION, true);
         wasm_features.set(WasmFeatures::GC_TYPES, true);
-
-        // Not supported
-        wasm_features.set(WasmFeatures::COMPONENT_MODEL, false);
-        wasm_features.set(WasmFeatures::FUNCTION_REFERENCES, false);
-        wasm_features.set(WasmFeatures::MEMORY_CONTROL, false);
-        wasm_features.set(WasmFeatures::GC, false);
-        wasm_features.set(WasmFeatures::CM_VALUES, false);
-        wasm_features.set(WasmFeatures::CM_NESTED_NAMES, false);
 
         let mut validator = Validator::new_with_features(wasm_features);
         validator

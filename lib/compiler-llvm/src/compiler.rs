@@ -1,5 +1,5 @@
 use crate::config::LLVM;
-use crate::trampoline::FuncTrampoline;
+use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use inkwell::DLLStorageClass;
 use inkwell::context::Context;
@@ -201,6 +201,7 @@ impl LLVMCompiler {
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),
+                    false,
                 )
                 .unwrap()
             },
@@ -445,6 +446,7 @@ impl Compiler for LLVMCompiler {
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),
+                    self.config.enable_non_volatile_memops,
                 )
                 .unwrap()
             },
