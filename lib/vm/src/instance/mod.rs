@@ -1414,7 +1414,12 @@ fn get_global(index: GlobalIndex, instance: &Instance) -> RawValue {
     }
 }
 
-fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> u64 {
+enum EvaluatedInitExpr {
+    I32(i32),
+    I64(i64),
+}
+
+fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> EvaluatedInitExpr {
     if expr
         .ops()
         .first()
@@ -1448,10 +1453,12 @@ fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> u64 {
                 }
             }
         }
-        stack
-            .into_iter()
-            .exactly_one()
-            .expect("invalid init expr stack shape") as u64
+        EvaluatedInitExpr::I32(
+            stack
+                .into_iter()
+                .exactly_one()
+                .expect("invalid init expr stack shape"),
+        )
     } else {
         let mut stack = Vec::with_capacity(expr.ops().len());
         for op in expr.ops() {
@@ -1480,10 +1487,12 @@ fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> u64 {
                 }
             }
         }
-        stack
-            .into_iter()
-            .exactly_one()
-            .expect("invalid init expr stack shape") as u64
+        EvaluatedInitExpr::I64(
+            stack
+                .into_iter()
+                .exactly_one()
+                .expect("invalid init expr stack shape"),
+        )
     }
 }
 
@@ -1491,7 +1500,10 @@ fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> u64 {
 fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
     for init in &module.table_initializers {
-        let start = eval_init_expr(&init.offset_expr, instance) as usize;
+        let EvaluatedInitExpr::I32(start) = eval_init_expr(&init.offset_expr, instance) else {
+            panic!("unexpected expression type, expected i32");
+        };
+        let start = start as usize;
         let table = instance.get_table_handle(init.table_index);
         let table = unsafe { table.get_mut(&mut *instance.context) };
 
@@ -1562,7 +1574,11 @@ fn initialize_memories(
     for init in data_initializers {
         let memory = instance.get_vmmemory(init.location.memory_index);
 
-        let start = eval_init_expr(&init.location.offset_expr, instance) as usize;
+        let EvaluatedInitExpr::I32(start) = eval_init_expr(&init.location.offset_expr, instance)
+        else {
+            panic!("unexpected expression type, expected i32");
+        };
+        let start = start as usize;
         unsafe {
             let current_length = memory.vmmemory().as_ref().current_length;
             if start
@@ -1603,9 +1619,10 @@ fn initialize_globals(instance: &Instance) {
                     let funcref = instance.func_ref(*func_idx).unwrap();
                     (*to).val = funcref.into_raw();
                 }
-                GlobalInit::Expr(expr) => {
-                    (*to).val.i32 = eval_init_expr(expr, instance) as i32;
-                }
+                GlobalInit::Expr(expr) => match eval_init_expr(expr, instance) {
+                    EvaluatedInitExpr::I32(value) => (*to).val.i32 = value,
+                    EvaluatedInitExpr::I64(value) => (*to).val.i64 = value,
+                },
             }
         }
     }
