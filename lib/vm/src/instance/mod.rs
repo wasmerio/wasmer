@@ -1444,7 +1444,7 @@ fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> u64 {
                     stack.push(lhs.wrapping_mul(rhs));
                 }
                 _ => {
-                    panic!("unexpected init expr statement");
+                    panic!("unexpected init expr statement: {op:?}");
                 }
             }
         }
@@ -1476,7 +1476,7 @@ fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> u64 {
                     stack.push(lhs.wrapping_mul(rhs));
                 }
                 _ => {
-                    panic!("unexpected init expr statement");
+                    panic!("unexpected init expr statement: {op:?}");
                 }
             }
         }
