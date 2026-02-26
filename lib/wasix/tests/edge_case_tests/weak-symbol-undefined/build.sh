@@ -1,4 +1,4 @@
 #!/bin/bash
 set -ex
 
-wasix++ main.cpp -o main
+$CXX main.cpp -o main

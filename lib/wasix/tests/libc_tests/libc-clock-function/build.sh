@@ -1,4 +1,4 @@
 #!/bin/bash
 set -ex
 
-wasixcc main.c -o main
+$CC main.c -o main

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
 
-wasixcc -c library.c -o library.o
-wasixcc -c main.c -o main.o
-wasixcc library.o main.o -o main
+$CC -c library.c -o library.o
+$CC -c main.c -o main.o
+$CC library.o main.o -o main

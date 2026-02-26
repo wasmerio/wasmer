@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
 
-wasix++ -c main.cpp -o main.o
-wasix++ -c erryes.cpp -o erryes.o
-wasix++ main.o erryes.o -o main
+$CXX -c main.cpp -o main.o
+$CXX -c erryes.cpp -o erryes.o
+$CXX main.o erryes.o -o main

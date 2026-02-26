@@ -6,7 +6,7 @@ set -ex
 # The build.sh is included for when this feature becomes available.
 
 # Compile the shared library (which would link to itself recursively)
-wasixcc -shared side.c -L. -Wl,--no-as-needed -lside -o libside.so
+$CC -shared side.c -L. -Wl,--no-as-needed -lside -o libside.so
 
 # Compile the main executable
-wasixcc main.c -L. -Wl,--no-as-needed -lside -o main
+$CC main.c -L. -Wl,--no-as-needed -lside -o main
