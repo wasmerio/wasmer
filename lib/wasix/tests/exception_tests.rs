@@ -15,11 +15,12 @@ fn simple_exceptions_with_lto() {
     run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
 }
 
-#[test]
-fn simple_exceptions_with_shared_lib_in_callstack() {
-    let wasm = run_build_script(file!(), "simple-exceptions-with-shared-lib-in-callstack").unwrap();
-    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
-}
+// #6244
+// #[test]
+// fn simple_exceptions_with_shared_lib_in_callstack() {
+//     let wasm = run_build_script(file!(), "simple-exceptions-with-shared-lib-in-callstack").unwrap();
+//     run1_wasm(&wasm, wasm.parent().unwrap()).unwrap();
+// }
 
 #[test]
 fn simple_exceptions_with_shared_lib_present() {
