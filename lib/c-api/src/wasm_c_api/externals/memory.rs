@@ -64,9 +64,8 @@ pub unsafe extern "C" fn wasm_memory_type(
 // get a raw pointer into bytes
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memory_data(memory: Option<&mut wasm_memory_t>) -> *mut u8 {
-    let memory = match memory {
-        Some(m) => m,
-        None => return std::ptr::null_mut(),
+    let Some(memory) = memory else {
+        return std::ptr::null_mut();
     };
     let store_ref = unsafe { memory.extern_.store.store() };
     memory.extern_.memory().view(&store_ref).data_ptr()
@@ -75,10 +74,7 @@ pub unsafe extern "C" fn wasm_memory_data(memory: Option<&mut wasm_memory_t>) ->
 // size in bytes
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memory_data_size(memory: Option<&wasm_memory_t>) -> usize {
-    let memory = match memory {
-        Some(m) => m,
-        None => return 0,
-    };
+    let Some(memory) = memory else { return 0 };
     let store_ref = unsafe { memory.extern_.store.store() };
     memory.extern_.memory().view(&store_ref).size().bytes().0
 }
@@ -86,10 +82,7 @@ pub unsafe extern "C" fn wasm_memory_data_size(memory: Option<&wasm_memory_t>) -
 // size in pages
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memory_size(memory: Option<&wasm_memory_t>) -> u32 {
-    let memory = match memory {
-        Some(m) => m,
-        None => return 0,
-    };
+    let Some(memory) = memory else { return 0 };
     let store_ref = unsafe { memory.extern_.store.store() };
     memory.extern_.memory().view(&store_ref).size().0 as _
 }
@@ -97,10 +90,7 @@ pub unsafe extern "C" fn wasm_memory_size(memory: Option<&wasm_memory_t>) -> u32
 // delta is in pages
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memory_grow(memory: Option<&mut wasm_memory_t>, delta: u32) -> bool {
-    let memory = match memory {
-        Some(m) => m,
-        None => return false,
-    };
+    let Some(memory) = memory else { return false };
     let wasm_memory = memory.extern_.memory();
     let mut store_mut = unsafe { memory.extern_.store.store_mut() };
     wasm_memory.grow(&mut store_mut, Pages(delta)).is_ok()
