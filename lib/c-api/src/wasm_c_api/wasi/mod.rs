@@ -198,9 +198,7 @@ pub unsafe extern "C" fn wasi_filesystem_init_static_memory(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasi_filesystem_delete(ptr: *mut wasi_filesystem_t) {
-    let _ = unsafe { Box::from_raw(ptr) };
-}
+pub unsafe extern "C" fn wasi_filesystem_delete(_ptr: Option<Box<wasi_filesystem_t>>) {}
 
 /// Initializes the `imports` with an import object that links to
 /// the custom file system
