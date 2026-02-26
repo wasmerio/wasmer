@@ -1503,6 +1503,9 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
         let EvaluatedInitExpr::I32(start) = eval_init_expr(&init.offset_expr, instance) else {
             panic!("unexpected expression type, expected i32");
         };
+        if start < 0 {
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        }
         let start = start as usize;
         let table = instance.get_table_handle(init.table_index);
         let table = unsafe { table.get_mut(&mut *instance.context) };
@@ -1578,6 +1581,9 @@ fn initialize_memories(
         else {
             panic!("unexpected expression type, expected i32");
         };
+        if start < 0 {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        }
         let start = start as usize;
         unsafe {
             let current_length = memory.vmmemory().as_ref().current_length;
