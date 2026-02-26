@@ -228,20 +228,14 @@ pub unsafe extern "C" fn wasm_func_call(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_param_arity(func: Option<&wasm_func_t>) -> usize {
-    let func = match func {
-        Some(f) => f,
-        None => return 0,
-    };
+    let Some(func) = func else { return 0 };
     let store_ref = unsafe { func.extern_.store.store() };
     func.extern_.function().ty(&store_ref).params().len()
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_func_result_arity(func: Option<&wasm_func_t>) -> usize {
-    let func = match func {
-        Some(f) => f,
-        None => return 0,
-    };
+    let Some(func) = func else { return 0 };
     let store_ref = unsafe { func.extern_.store.store() };
     func.extern_.function().ty(&store_ref).results().len()
 }

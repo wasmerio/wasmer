@@ -59,18 +59,14 @@ pub unsafe extern "C" fn wasm_global_get(
     // own
     out: Option<&mut wasm_val_t>,
 ) {
-    let global = match global {
-        Some(g) => g,
-        None => return,
-    };
-    let out = match out {
-        Some(o) => o,
-        None => return,
-    };
+    let Some(global) = global else { return };
+    let Some(out) = out else { return };
     let wasm_global = global.extern_.global();
     let mut store_mut = unsafe { global.extern_.store.store_mut() };
     let value = wasm_global.get(&mut store_mut);
-    *out = value.try_into().unwrap();
+    if let Ok(val) = value.try_into() {
+        *out = val;
+    }
 }
 
 /// Note: This function returns nothing by design but it can raise an
@@ -80,15 +76,11 @@ pub unsafe extern "C" fn wasm_global_set(
     global: Option<&mut wasm_global_t>,
     val: Option<&wasm_val_t>,
 ) {
-    let global = match global {
-        Some(g) => g,
-        None => return,
+    let Some(global) = global else { return };
+    let Some(val) = val else { return };
+    let Ok(value): Result<Value, _> = val.try_into() else {
+        return;
     };
-    let val = match val {
-        Some(v) => v,
-        None => return,
-    };
-    let value: Value = val.try_into().unwrap();
     let wasm_global = global.extern_.global();
     let mut store_mut = unsafe { global.extern_.store.store_mut() };
     c_try!(wasm_global.set(&mut store_mut, value); otherwise ());
