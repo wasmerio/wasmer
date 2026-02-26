@@ -45,48 +45,56 @@ pub(crate) fn fd_renumber_internal(
 
     if let Ok(fd) = state.fs.get_fd(to) {
         if !fd.is_stdio && fd.inode.is_preopened {
-            // There isn't a good hack we can do here; the code that made this call
-            // expects its new FD to be the number it asked for. This will, however,
-            // break wasix-libc when it attempts to use the FD to make any fs-related
-            // syscalls. The best we can do is warn people so they can change the code.
             warn!(
                 "FD ({to}) is a pre-open and should not be closed, \
                 but will be closed in response to an fd_renumber operation. \
                 This will likely break stuff."
             );
         }
+        // Flush before acquiring the write lock since this may perform async I/O.
         match __asyncify_light(env, None, state.fs.flush(to))? {
             Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
             Err(e) => {
                 return Ok(e);
             }
         }
-        wasi_try_ok!(state.fs.close_fd(to));
     }
 
-    let mut fd_map = state.fs.fd_map.write().unwrap();
-    let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
+    // Hold a single write lock for both the remove and insert to prevent
+    // another thread from allocating into the target slot between the two
+    // operations.
+    let old_fd;
+    {
+        let mut fd_map = state.fs.fd_map.write().unwrap();
 
-    let new_fd_entry = Fd {
-        // TODO: verify this is correct
-        inner: FdInner {
-            offset: fd_entry.inner.offset.clone(),
-            rights: fd_entry.inner.rights_inheriting,
-            fd_flags: {
-                let mut f = fd_entry.inner.fd_flags;
-                f.set(Fdflagsext::CLOEXEC, false);
-                f
+        // Remove the target FD under the same lock (replaces the separate
+        // close_fd call which would acquire its own lock).
+        old_fd = fd_map.remove(to);
+
+        let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
+
+        let new_fd_entry = Fd {
+            inner: FdInner {
+                offset: fd_entry.inner.offset.clone(),
+                rights: fd_entry.inner.rights_inheriting,
+                fd_flags: {
+                    let mut f = fd_entry.inner.fd_flags;
+                    f.set(Fdflagsext::CLOEXEC, false);
+                    f
+                },
+                ..fd_entry.inner
             },
-            ..fd_entry.inner
-        },
-        inode: fd_entry.inode.clone(),
-        ..*fd_entry
-    };
+            inode: fd_entry.inode.clone(),
+            ..*fd_entry
+        };
 
-    // Exclusive insert because we expect `to` to be empty after closing it above
-    if !fd_map.insert(true, to, new_fd_entry) {
-        panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
+        if !fd_map.insert(true, to, new_fd_entry) {
+            panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
+        }
     }
+    // Drop the old FD outside the lock to avoid blocking other threads
+    // if Fd::drop performs non-trivial cleanup.
+    drop(old_fd);
 
     Ok(Errno::Success)
 }
