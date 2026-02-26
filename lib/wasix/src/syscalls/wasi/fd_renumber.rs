@@ -43,12 +43,10 @@ pub(crate) fn fd_renumber_internal(
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
+    // Flush the target FD before acquiring the write lock, since flushing
+    // may perform async I/O and we don't want to hold the lock during that.
     if let Ok(fd) = state.fs.get_fd(to) {
         if !fd.is_stdio && fd.inode.is_preopened {
-            // There isn't a good hack we can do here; the code that made this call
-            // expects its new FD to be the number it asked for. This will, however,
-            // break wasix-libc when it attempts to use the FD to make any fs-related
-            // syscalls. The best we can do is warn people so they can change the code.
             warn!(
                 "FD ({to}) is a pre-open and should not be closed, \
                 but will be closed in response to an fd_renumber operation. \
@@ -61,14 +59,20 @@ pub(crate) fn fd_renumber_internal(
                 return Ok(e);
             }
         }
-        wasi_try_ok!(state.fs.close_fd(to));
     }
 
+    // Hold a single write lock for both the close and insert to prevent
+    // another thread from allocating into the target slot between the two
+    // operations.
     let mut fd_map = state.fs.fd_map.write().unwrap();
+
+    // Remove the target FD under the same lock (replaces the separate
+    // close_fd call which would acquire its own lock).
+    let _ = fd_map.remove(to);
+
     let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
 
     let new_fd_entry = Fd {
-        // TODO: verify this is correct
         inner: FdInner {
             offset: fd_entry.inner.offset.clone(),
             rights: fd_entry.inner.rights_inheriting,
@@ -83,7 +87,6 @@ pub(crate) fn fd_renumber_internal(
         ..*fd_entry
     };
 
-    // Exclusive insert because we expect `to` to be empty after closing it above
     if !fd_map.insert(true, to, new_fd_entry) {
         panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
     }
