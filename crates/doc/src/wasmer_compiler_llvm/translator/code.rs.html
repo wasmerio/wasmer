@@ -13790,64 +13790,168 @@
 <a href=#13790 id=13790 data-nosnippet>13790</a>
 <a href=#13791 id=13791 data-nosnippet>13791</a>                <span class="self">self</span>.state.reachable = <span class="bool-val">false</span>;
 <a href=#13792 id=13792 data-nosnippet>13792</a>            }
-<a href=#13793 id=13793 data-nosnippet>13793</a>            <span class="kw">_ </span>=&gt; {
-<a href=#13794 id=13794 data-nosnippet>13794</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#13795 id=13795 data-nosnippet>13795</a>                    <span class="string">"Operator {op:?} unimplemented"</span>,
-<a href=#13796 id=13796 data-nosnippet>13796</a>                )));
-<a href=#13797 id=13797 data-nosnippet>13797</a>            }
-<a href=#13798 id=13798 data-nosnippet>13798</a>        }
-<a href=#13799 id=13799 data-nosnippet>13799</a>
-<a href=#13800 id=13800 data-nosnippet>13800</a>        <span class="prelude-val">Ok</span>(())
-<a href=#13801 id=13801 data-nosnippet>13801</a>    }
-<a href=#13802 id=13802 data-nosnippet>13802</a>
-<a href=#13803 id=13803 data-nosnippet>13803</a>    <span class="kw">fn </span>build_call_with_param_attributes(
-<a href=#13804 id=13804 data-nosnippet>13804</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#13805 id=13805 data-nosnippet>13805</a>        function: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
-<a href=#13806 id=13806 data-nosnippet>13806</a>        args: <span class="kw-2">&amp;</span>[BasicMetadataValueEnum&lt;<span class="lifetime">'ctx</span>&gt;],
-<a href=#13807 id=13807 data-nosnippet>13807</a>        name: <span class="kw-2">&amp;</span>str,
-<a href=#13808 id=13808 data-nosnippet>13808</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;CallSiteValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
-<a href=#13809 id=13809 data-nosnippet>13809</a>        <span class="kw">let </span>call = <span class="self">self
-<a href=#13810 id=13810 data-nosnippet>13810</a>            </span>.builder
-<a href=#13811 id=13811 data-nosnippet>13811</a>            .build_call(function, args, name)
-<a href=#13812 id=13812 data-nosnippet>13812</a>            .map_err(|e| CompileError::Codegen(e.to_string()))<span class="question-mark">?</span>;
-<a href=#13813 id=13813 data-nosnippet>13813</a>
-<a href=#13814 id=13814 data-nosnippet>13814</a>        <span class="comment">// https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
-<a href=#13815 id=13815 data-nosnippet>13815</a>        // &gt; The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
-<a href=#13816 id=13816 data-nosnippet>13816</a>        // &gt; Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
-<a href=#13817 id=13817 data-nosnippet>13817</a>        // &gt; is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
-<a href=#13818 id=13818 data-nosnippet>13818</a>        </span><span class="kw">if </span><span class="macro">matches!</span>(
-<a href=#13819 id=13819 data-nosnippet>13819</a>            <span class="self">self</span>.target_triple.architecture,
-<a href=#13820 id=13820 data-nosnippet>13820</a>            Architecture::Riscv32(..) | Architecture::Riscv64(..)
-<a href=#13821 id=13821 data-nosnippet>13821</a>        ) {
-<a href=#13822 id=13822 data-nosnippet>13822</a>            <span class="kw">let </span>param_types = function.get_type().get_param_types();
-<a href=#13823 id=13823 data-nosnippet>13823</a>            <span class="kw">for </span>(i, ty) <span class="kw">in </span>param_types.into_iter().enumerate() {
-<a href=#13824 id=13824 data-nosnippet>13824</a>                <span class="kw">if </span>ty == <span class="self">self</span>.context.i32_type().into() {
-<a href=#13825 id=13825 data-nosnippet>13825</a>                    call.add_attribute(
-<a href=#13826 id=13826 data-nosnippet>13826</a>                        AttributeLoc::Param(i <span class="kw">as </span>u32),
-<a href=#13827 id=13827 data-nosnippet>13827</a>                        <span class="self">self</span>.context
-<a href=#13828 id=13828 data-nosnippet>13828</a>                            .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"signext"</span>), <span class="number">0</span>),
-<a href=#13829 id=13829 data-nosnippet>13829</a>                    );
-<a href=#13830 id=13830 data-nosnippet>13830</a>                    call.add_attribute(
-<a href=#13831 id=13831 data-nosnippet>13831</a>                        AttributeLoc::Param(i <span class="kw">as </span>u32),
-<a href=#13832 id=13832 data-nosnippet>13832</a>                        <span class="self">self</span>.context
-<a href=#13833 id=13833 data-nosnippet>13833</a>                            .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"noundef"</span>), <span class="number">0</span>),
-<a href=#13834 id=13834 data-nosnippet>13834</a>                    );
-<a href=#13835 id=13835 data-nosnippet>13835</a>                }
-<a href=#13836 id=13836 data-nosnippet>13836</a>            }
-<a href=#13837 id=13837 data-nosnippet>13837</a>        }
-<a href=#13838 id=13838 data-nosnippet>13838</a>
-<a href=#13839 id=13839 data-nosnippet>13839</a>        <span class="prelude-val">Ok</span>(call)
-<a href=#13840 id=13840 data-nosnippet>13840</a>    }
-<a href=#13841 id=13841 data-nosnippet>13841</a>}
-<a href=#13842 id=13842 data-nosnippet>13842</a>
-<a href=#13843 id=13843 data-nosnippet>13843</a><span class="kw">fn </span>is_f32_arithmetic(bits: u32) -&gt; bool {
-<a href=#13844 id=13844 data-nosnippet>13844</a>    <span class="comment">// Mask off sign bit.
-<a href=#13845 id=13845 data-nosnippet>13845</a>    </span><span class="kw">let </span>bits = bits &amp; <span class="number">0x7FFF_FFFF</span>;
-<a href=#13846 id=13846 data-nosnippet>13846</a>    bits &lt; <span class="number">0x7FC0_0000
-<a href=#13847 id=13847 data-nosnippet>13847</a></span>}
-<a href=#13848 id=13848 data-nosnippet>13848</a>
-<a href=#13849 id=13849 data-nosnippet>13849</a><span class="kw">fn </span>is_f64_arithmetic(bits: u64) -&gt; bool {
-<a href=#13850 id=13850 data-nosnippet>13850</a>    <span class="comment">// Mask off sign bit.
-<a href=#13851 id=13851 data-nosnippet>13851</a>    </span><span class="kw">let </span>bits = bits &amp; <span class="number">0x7FFF_FFFF_FFFF_FFFF</span>;
-<a href=#13852 id=13852 data-nosnippet>13852</a>    bits &lt; <span class="number">0x7FF8_0000_0000_0000
-<a href=#13853 id=13853 data-nosnippet>13853</a></span>}</code></pre></div></section></main></body></html>
+<a href=#13793 id=13793 data-nosnippet>13793</a>            Operator::I64Add128 | Operator::I64Sub128 =&gt; {
+<a href=#13794 id=13794 data-nosnippet>13794</a>                <span class="kw">let </span>(rhs_hi, rhs_hi_info) = <span class="self">self</span>.state.pop1_extra()<span class="question-mark">?</span>;
+<a href=#13795 id=13795 data-nosnippet>13795</a>                <span class="kw">let </span>(rhs_lo, rhs_lo_info) = <span class="self">self</span>.state.pop1_extra()<span class="question-mark">?</span>;
+<a href=#13796 id=13796 data-nosnippet>13796</a>                <span class="kw">let </span>(lhs_hi, lhs_hi_info) = <span class="self">self</span>.state.pop1_extra()<span class="question-mark">?</span>;
+<a href=#13797 id=13797 data-nosnippet>13797</a>                <span class="kw">let </span>(lhs_lo, lhs_lo_info) = <span class="self">self</span>.state.pop1_extra()<span class="question-mark">?</span>;
+<a href=#13798 id=13798 data-nosnippet>13798</a>
+<a href=#13799 id=13799 data-nosnippet>13799</a>                <span class="kw">let </span>lhs_lo = <span class="self">self
+<a href=#13800 id=13800 data-nosnippet>13800</a>                    </span>.apply_pending_canonicalization(lhs_lo, lhs_lo_info)<span class="question-mark">?
+<a href=#13801 id=13801 data-nosnippet>13801</a>                    </span>.into_int_value();
+<a href=#13802 id=13802 data-nosnippet>13802</a>                <span class="kw">let </span>lhs_hi = <span class="self">self
+<a href=#13803 id=13803 data-nosnippet>13803</a>                    </span>.apply_pending_canonicalization(lhs_hi, lhs_hi_info)<span class="question-mark">?
+<a href=#13804 id=13804 data-nosnippet>13804</a>                    </span>.into_int_value();
+<a href=#13805 id=13805 data-nosnippet>13805</a>                <span class="kw">let </span>rhs_lo = <span class="self">self
+<a href=#13806 id=13806 data-nosnippet>13806</a>                    </span>.apply_pending_canonicalization(rhs_lo, rhs_lo_info)<span class="question-mark">?
+<a href=#13807 id=13807 data-nosnippet>13807</a>                    </span>.into_int_value();
+<a href=#13808 id=13808 data-nosnippet>13808</a>                <span class="kw">let </span>rhs_hi = <span class="self">self
+<a href=#13809 id=13809 data-nosnippet>13809</a>                    </span>.apply_pending_canonicalization(rhs_hi, rhs_hi_info)<span class="question-mark">?
+<a href=#13810 id=13810 data-nosnippet>13810</a>                    </span>.into_int_value();
+<a href=#13811 id=13811 data-nosnippet>13811</a>
+<a href=#13812 id=13812 data-nosnippet>13812</a>                <span class="kw">let </span>idx0 = <span class="self">self</span>.intrinsics.i32_ty.const_zero();
+<a href=#13813 id=13813 data-nosnippet>13813</a>                <span class="kw">let </span>idx1 = <span class="self">self</span>.intrinsics.i32_ty.const_int(<span class="number">1</span>, <span class="bool-val">false</span>);
+<a href=#13814 id=13814 data-nosnippet>13814</a>
+<a href=#13815 id=13815 data-nosnippet>13815</a>                <span class="kw">let </span>lhs = <span class="self">self</span>.intrinsics.i64x2_ty.get_undef();
+<a href=#13816 id=13816 data-nosnippet>13816</a>                <span class="kw">let </span>lhs = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_insert_element(lhs, lhs_lo, idx0, <span class="string">""</span>));
+<a href=#13817 id=13817 data-nosnippet>13817</a>                <span class="kw">let </span>lhs = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_insert_element(lhs, lhs_hi, idx1, <span class="string">""</span>));
+<a href=#13818 id=13818 data-nosnippet>13818</a>                <span class="kw">let </span>lhs = <span class="macro">err!</span>(
+<a href=#13819 id=13819 data-nosnippet>13819</a>                    <span class="self">self</span>.builder
+<a href=#13820 id=13820 data-nosnippet>13820</a>                        .build_bit_cast(lhs, <span class="self">self</span>.intrinsics.i128_ty, <span class="string">"a"</span>)
+<a href=#13821 id=13821 data-nosnippet>13821</a>                )
+<a href=#13822 id=13822 data-nosnippet>13822</a>                .into_int_value();
+<a href=#13823 id=13823 data-nosnippet>13823</a>
+<a href=#13824 id=13824 data-nosnippet>13824</a>                <span class="kw">let </span>rhs = <span class="self">self</span>.intrinsics.i64x2_ty.get_undef();
+<a href=#13825 id=13825 data-nosnippet>13825</a>                <span class="kw">let </span>rhs = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_insert_element(rhs, rhs_lo, idx0, <span class="string">""</span>));
+<a href=#13826 id=13826 data-nosnippet>13826</a>                <span class="kw">let </span>rhs = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_insert_element(rhs, rhs_hi, idx1, <span class="string">""</span>));
+<a href=#13827 id=13827 data-nosnippet>13827</a>                <span class="kw">let </span>rhs = <span class="macro">err!</span>(
+<a href=#13828 id=13828 data-nosnippet>13828</a>                    <span class="self">self</span>.builder
+<a href=#13829 id=13829 data-nosnippet>13829</a>                        .build_bit_cast(rhs, <span class="self">self</span>.intrinsics.i128_ty, <span class="string">"b"</span>)
+<a href=#13830 id=13830 data-nosnippet>13830</a>                )
+<a href=#13831 id=13831 data-nosnippet>13831</a>                .into_int_value();
+<a href=#13832 id=13832 data-nosnippet>13832</a>
+<a href=#13833 id=13833 data-nosnippet>13833</a>                <span class="kw">let </span>result = <span class="macro">err!</span>(<span class="kw">match </span>op {
+<a href=#13834 id=13834 data-nosnippet>13834</a>                    Operator::I64Add128 =&gt; <span class="self">self</span>.builder.build_int_add(lhs, rhs, <span class="string">""</span>),
+<a href=#13835 id=13835 data-nosnippet>13835</a>                    Operator::I64Sub128 =&gt; <span class="self">self</span>.builder.build_int_sub(lhs, rhs, <span class="string">""</span>),
+<a href=#13836 id=13836 data-nosnippet>13836</a>                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+<a href=#13837 id=13837 data-nosnippet>13837</a>                });
+<a href=#13838 id=13838 data-nosnippet>13838</a>                <span class="kw">let </span>result = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_bit_cast(
+<a href=#13839 id=13839 data-nosnippet>13839</a>                    result,
+<a href=#13840 id=13840 data-nosnippet>13840</a>                    <span class="self">self</span>.intrinsics.i64x2_ty,
+<a href=#13841 id=13841 data-nosnippet>13841</a>                    <span class="string">""
+<a href=#13842 id=13842 data-nosnippet>13842</a>                </span>))
+<a href=#13843 id=13843 data-nosnippet>13843</a>                .into_vector_value();
+<a href=#13844 id=13844 data-nosnippet>13844</a>                <span class="kw">let </span>result_lo = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_element(result, idx0, <span class="string">""</span>));
+<a href=#13845 id=13845 data-nosnippet>13845</a>                <span class="kw">let </span>result_hi = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_element(result, idx1, <span class="string">""</span>));
+<a href=#13846 id=13846 data-nosnippet>13846</a>
+<a href=#13847 id=13847 data-nosnippet>13847</a>                <span class="self">self</span>.state.push1(result_lo);
+<a href=#13848 id=13848 data-nosnippet>13848</a>                <span class="self">self</span>.state.push1(result_hi);
+<a href=#13849 id=13849 data-nosnippet>13849</a>            }
+<a href=#13850 id=13850 data-nosnippet>13850</a>            Operator::I64MulWideS | Operator::I64MulWideU =&gt; {
+<a href=#13851 id=13851 data-nosnippet>13851</a>                <span class="kw">let </span>((lhs, lhs_info), (rhs, rhs_info)) = <span class="self">self</span>.state.pop2_extra()<span class="question-mark">?</span>;
+<a href=#13852 id=13852 data-nosnippet>13852</a>                <span class="kw">let </span>lhs = <span class="self">self
+<a href=#13853 id=13853 data-nosnippet>13853</a>                    </span>.apply_pending_canonicalization(lhs, lhs_info)<span class="question-mark">?
+<a href=#13854 id=13854 data-nosnippet>13854</a>                    </span>.into_int_value();
+<a href=#13855 id=13855 data-nosnippet>13855</a>                <span class="kw">let </span>rhs = <span class="self">self
+<a href=#13856 id=13856 data-nosnippet>13856</a>                    </span>.apply_pending_canonicalization(rhs, rhs_info)<span class="question-mark">?
+<a href=#13857 id=13857 data-nosnippet>13857</a>                    </span>.into_int_value();
+<a href=#13858 id=13858 data-nosnippet>13858</a>
+<a href=#13859 id=13859 data-nosnippet>13859</a>                <span class="kw">let </span>lhs = <span class="macro">err!</span>(<span class="kw">match </span>op {
+<a href=#13860 id=13860 data-nosnippet>13860</a>                    Operator::I64MulWideS =&gt; {
+<a href=#13861 id=13861 data-nosnippet>13861</a>                        <span class="self">self</span>.builder
+<a href=#13862 id=13862 data-nosnippet>13862</a>                            .build_int_s_extend(lhs, <span class="self">self</span>.intrinsics.i128_ty, <span class="string">"a"</span>)
+<a href=#13863 id=13863 data-nosnippet>13863</a>                    }
+<a href=#13864 id=13864 data-nosnippet>13864</a>                    Operator::I64MulWideU =&gt; {
+<a href=#13865 id=13865 data-nosnippet>13865</a>                        <span class="self">self</span>.builder
+<a href=#13866 id=13866 data-nosnippet>13866</a>                            .build_int_z_extend(lhs, <span class="self">self</span>.intrinsics.i128_ty, <span class="string">"a"</span>)
+<a href=#13867 id=13867 data-nosnippet>13867</a>                    }
+<a href=#13868 id=13868 data-nosnippet>13868</a>                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+<a href=#13869 id=13869 data-nosnippet>13869</a>                });
+<a href=#13870 id=13870 data-nosnippet>13870</a>                <span class="kw">let </span>rhs = <span class="macro">err!</span>(<span class="kw">match </span>op {
+<a href=#13871 id=13871 data-nosnippet>13871</a>                    Operator::I64MulWideS =&gt; {
+<a href=#13872 id=13872 data-nosnippet>13872</a>                        <span class="self">self</span>.builder
+<a href=#13873 id=13873 data-nosnippet>13873</a>                            .build_int_s_extend(rhs, <span class="self">self</span>.intrinsics.i128_ty, <span class="string">"b"</span>)
+<a href=#13874 id=13874 data-nosnippet>13874</a>                    }
+<a href=#13875 id=13875 data-nosnippet>13875</a>                    Operator::I64MulWideU =&gt; {
+<a href=#13876 id=13876 data-nosnippet>13876</a>                        <span class="self">self</span>.builder
+<a href=#13877 id=13877 data-nosnippet>13877</a>                            .build_int_z_extend(rhs, <span class="self">self</span>.intrinsics.i128_ty, <span class="string">"b"</span>)
+<a href=#13878 id=13878 data-nosnippet>13878</a>                    }
+<a href=#13879 id=13879 data-nosnippet>13879</a>                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+<a href=#13880 id=13880 data-nosnippet>13880</a>                });
+<a href=#13881 id=13881 data-nosnippet>13881</a>
+<a href=#13882 id=13882 data-nosnippet>13882</a>                <span class="kw">let </span>result = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_int_mul(lhs, rhs, <span class="string">""</span>));
+<a href=#13883 id=13883 data-nosnippet>13883</a>                <span class="kw">let </span>result = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_bit_cast(
+<a href=#13884 id=13884 data-nosnippet>13884</a>                    result,
+<a href=#13885 id=13885 data-nosnippet>13885</a>                    <span class="self">self</span>.intrinsics.i64x2_ty,
+<a href=#13886 id=13886 data-nosnippet>13886</a>                    <span class="string">""
+<a href=#13887 id=13887 data-nosnippet>13887</a>                </span>))
+<a href=#13888 id=13888 data-nosnippet>13888</a>                .into_vector_value();
+<a href=#13889 id=13889 data-nosnippet>13889</a>                <span class="kw">let </span>idx0 = <span class="self">self</span>.intrinsics.i32_ty.const_zero();
+<a href=#13890 id=13890 data-nosnippet>13890</a>                <span class="kw">let </span>idx1 = <span class="self">self</span>.intrinsics.i32_ty.const_int(<span class="number">1</span>, <span class="bool-val">false</span>);
+<a href=#13891 id=13891 data-nosnippet>13891</a>                <span class="kw">let </span>result_lo = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_element(result, idx0, <span class="string">""</span>));
+<a href=#13892 id=13892 data-nosnippet>13892</a>                <span class="kw">let </span>result_hi = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_element(result, idx1, <span class="string">""</span>));
+<a href=#13893 id=13893 data-nosnippet>13893</a>
+<a href=#13894 id=13894 data-nosnippet>13894</a>                <span class="self">self</span>.state.push1(result_lo);
+<a href=#13895 id=13895 data-nosnippet>13895</a>                <span class="self">self</span>.state.push1(result_hi);
+<a href=#13896 id=13896 data-nosnippet>13896</a>            }
+<a href=#13897 id=13897 data-nosnippet>13897</a>            <span class="kw">_ </span>=&gt; {
+<a href=#13898 id=13898 data-nosnippet>13898</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#13899 id=13899 data-nosnippet>13899</a>                    <span class="string">"Operator {op:?} unimplemented"</span>,
+<a href=#13900 id=13900 data-nosnippet>13900</a>                )));
+<a href=#13901 id=13901 data-nosnippet>13901</a>            }
+<a href=#13902 id=13902 data-nosnippet>13902</a>        }
+<a href=#13903 id=13903 data-nosnippet>13903</a>
+<a href=#13904 id=13904 data-nosnippet>13904</a>        <span class="prelude-val">Ok</span>(())
+<a href=#13905 id=13905 data-nosnippet>13905</a>    }
+<a href=#13906 id=13906 data-nosnippet>13906</a>
+<a href=#13907 id=13907 data-nosnippet>13907</a>    <span class="kw">fn </span>build_call_with_param_attributes(
+<a href=#13908 id=13908 data-nosnippet>13908</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#13909 id=13909 data-nosnippet>13909</a>        function: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+<a href=#13910 id=13910 data-nosnippet>13910</a>        args: <span class="kw-2">&amp;</span>[BasicMetadataValueEnum&lt;<span class="lifetime">'ctx</span>&gt;],
+<a href=#13911 id=13911 data-nosnippet>13911</a>        name: <span class="kw-2">&amp;</span>str,
+<a href=#13912 id=13912 data-nosnippet>13912</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;CallSiteValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
+<a href=#13913 id=13913 data-nosnippet>13913</a>        <span class="kw">let </span>call = <span class="self">self
+<a href=#13914 id=13914 data-nosnippet>13914</a>            </span>.builder
+<a href=#13915 id=13915 data-nosnippet>13915</a>            .build_call(function, args, name)
+<a href=#13916 id=13916 data-nosnippet>13916</a>            .map_err(|e| CompileError::Codegen(e.to_string()))<span class="question-mark">?</span>;
+<a href=#13917 id=13917 data-nosnippet>13917</a>
+<a href=#13918 id=13918 data-nosnippet>13918</a>        <span class="comment">// https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
+<a href=#13919 id=13919 data-nosnippet>13919</a>        // &gt; The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
+<a href=#13920 id=13920 data-nosnippet>13920</a>        // &gt; Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
+<a href=#13921 id=13921 data-nosnippet>13921</a>        // &gt; is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
+<a href=#13922 id=13922 data-nosnippet>13922</a>        </span><span class="kw">if </span><span class="macro">matches!</span>(
+<a href=#13923 id=13923 data-nosnippet>13923</a>            <span class="self">self</span>.target_triple.architecture,
+<a href=#13924 id=13924 data-nosnippet>13924</a>            Architecture::Riscv32(..) | Architecture::Riscv64(..)
+<a href=#13925 id=13925 data-nosnippet>13925</a>        ) {
+<a href=#13926 id=13926 data-nosnippet>13926</a>            <span class="kw">let </span>param_types = function.get_type().get_param_types();
+<a href=#13927 id=13927 data-nosnippet>13927</a>            <span class="kw">for </span>(i, ty) <span class="kw">in </span>param_types.into_iter().enumerate() {
+<a href=#13928 id=13928 data-nosnippet>13928</a>                <span class="kw">if </span>ty == <span class="self">self</span>.context.i32_type().into() {
+<a href=#13929 id=13929 data-nosnippet>13929</a>                    call.add_attribute(
+<a href=#13930 id=13930 data-nosnippet>13930</a>                        AttributeLoc::Param(i <span class="kw">as </span>u32),
+<a href=#13931 id=13931 data-nosnippet>13931</a>                        <span class="self">self</span>.context
+<a href=#13932 id=13932 data-nosnippet>13932</a>                            .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"signext"</span>), <span class="number">0</span>),
+<a href=#13933 id=13933 data-nosnippet>13933</a>                    );
+<a href=#13934 id=13934 data-nosnippet>13934</a>                    call.add_attribute(
+<a href=#13935 id=13935 data-nosnippet>13935</a>                        AttributeLoc::Param(i <span class="kw">as </span>u32),
+<a href=#13936 id=13936 data-nosnippet>13936</a>                        <span class="self">self</span>.context
+<a href=#13937 id=13937 data-nosnippet>13937</a>                            .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"noundef"</span>), <span class="number">0</span>),
+<a href=#13938 id=13938 data-nosnippet>13938</a>                    );
+<a href=#13939 id=13939 data-nosnippet>13939</a>                }
+<a href=#13940 id=13940 data-nosnippet>13940</a>            }
+<a href=#13941 id=13941 data-nosnippet>13941</a>        }
+<a href=#13942 id=13942 data-nosnippet>13942</a>
+<a href=#13943 id=13943 data-nosnippet>13943</a>        <span class="prelude-val">Ok</span>(call)
+<a href=#13944 id=13944 data-nosnippet>13944</a>    }
+<a href=#13945 id=13945 data-nosnippet>13945</a>}
+<a href=#13946 id=13946 data-nosnippet>13946</a>
+<a href=#13947 id=13947 data-nosnippet>13947</a><span class="kw">fn </span>is_f32_arithmetic(bits: u32) -&gt; bool {
+<a href=#13948 id=13948 data-nosnippet>13948</a>    <span class="comment">// Mask off sign bit.
+<a href=#13949 id=13949 data-nosnippet>13949</a>    </span><span class="kw">let </span>bits = bits &amp; <span class="number">0x7FFF_FFFF</span>;
+<a href=#13950 id=13950 data-nosnippet>13950</a>    bits &lt; <span class="number">0x7FC0_0000
+<a href=#13951 id=13951 data-nosnippet>13951</a></span>}
+<a href=#13952 id=13952 data-nosnippet>13952</a>
+<a href=#13953 id=13953 data-nosnippet>13953</a><span class="kw">fn </span>is_f64_arithmetic(bits: u64) -&gt; bool {
+<a href=#13954 id=13954 data-nosnippet>13954</a>    <span class="comment">// Mask off sign bit.
+<a href=#13955 id=13955 data-nosnippet>13955</a>    </span><span class="kw">let </span>bits = bits &amp; <span class="number">0x7FFF_FFFF_FFFF_FFFF</span>;
+<a href=#13956 id=13956 data-nosnippet>13956</a>    bits &lt; <span class="number">0x7FF8_0000_0000_0000
+<a href=#13957 id=13957 data-nosnippet>13957</a></span>}</code></pre></div></section></main></body></html>

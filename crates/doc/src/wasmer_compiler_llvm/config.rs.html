@@ -390,18 +390,19 @@
 <a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">let </span><span class="kw-2">mut </span>feats = Features::default();
 <a href=#391 id=391 data-nosnippet>391</a>        feats.exceptions(<span class="bool-val">true</span>);
 <a href=#392 id=392 data-nosnippet>392</a>        feats.relaxed_simd(<span class="bool-val">true</span>);
-<a href=#393 id=393 data-nosnippet>393</a>        feats
-<a href=#394 id=394 data-nosnippet>394</a>    }
-<a href=#395 id=395 data-nosnippet>395</a>}
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a><span class="kw">impl </span>Default <span class="kw">for </span>LLVM {
-<a href=#398 id=398 data-nosnippet>398</a>    <span class="kw">fn </span>default() -&gt; LLVM {
-<a href=#399 id=399 data-nosnippet>399</a>        <span class="self">Self</span>::new()
-<a href=#400 id=400 data-nosnippet>400</a>    }
-<a href=#401 id=401 data-nosnippet>401</a>}
-<a href=#402 id=402 data-nosnippet>402</a>
-<a href=#403 id=403 data-nosnippet>403</a><span class="kw">impl </span>From&lt;LLVM&gt; <span class="kw">for </span>Engine {
-<a href=#404 id=404 data-nosnippet>404</a>    <span class="kw">fn </span>from(config: LLVM) -&gt; <span class="self">Self </span>{
-<a href=#405 id=405 data-nosnippet>405</a>        EngineBuilder::new(config).engine()
-<a href=#406 id=406 data-nosnippet>406</a>    }
-<a href=#407 id=407 data-nosnippet>407</a>}</code></pre></div></section></main></body></html>
+<a href=#393 id=393 data-nosnippet>393</a>        feats.wide_arithmetic(<span class="bool-val">true</span>);
+<a href=#394 id=394 data-nosnippet>394</a>        feats
+<a href=#395 id=395 data-nosnippet>395</a>    }
+<a href=#396 id=396 data-nosnippet>396</a>}
+<a href=#397 id=397 data-nosnippet>397</a>
+<a href=#398 id=398 data-nosnippet>398</a><span class="kw">impl </span>Default <span class="kw">for </span>LLVM {
+<a href=#399 id=399 data-nosnippet>399</a>    <span class="kw">fn </span>default() -&gt; LLVM {
+<a href=#400 id=400 data-nosnippet>400</a>        <span class="self">Self</span>::new()
+<a href=#401 id=401 data-nosnippet>401</a>    }
+<a href=#402 id=402 data-nosnippet>402</a>}
+<a href=#403 id=403 data-nosnippet>403</a>
+<a href=#404 id=404 data-nosnippet>404</a><span class="kw">impl </span>From&lt;LLVM&gt; <span class="kw">for </span>Engine {
+<a href=#405 id=405 data-nosnippet>405</a>    <span class="kw">fn </span>from(config: LLVM) -&gt; <span class="self">Self </span>{
+<a href=#406 id=406 data-nosnippet>406</a>        EngineBuilder::new(config).engine()
+<a href=#407 id=407 data-nosnippet>407</a>    }
+<a href=#408 id=408 data-nosnippet>408</a>}</code></pre></div></section></main></body></html>
