@@ -146,10 +146,10 @@ impl Features {
     /// Configures whether the WebAssembly SIMD proposal will be
     /// enabled.
     ///
-    /// The [WebAssembly SIMD proposal][proposal] is not currently
-    /// fully standardized and is undergoing development. Support for this
-    /// feature can be enabled through this method for appropriate WebAssembly
-    /// modules.
+    /// The [WebAssembly SIMD proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This feature gates items such as the `v128` type and all of its
     /// operators being in a module.
@@ -165,10 +165,10 @@ impl Features {
     /// Configures whether the WebAssembly Relaxed SIMD proposal will be
     /// enabled.
     ///
-    /// The [WebAssembly Relaxed SIMD proposal][proposal] is not currently
-    /// fully standardized and is undergoing development. Support for this
-    /// feature can be enabled through this method for appropriate WebAssembly
-    /// modules.
+    /// The [WebAssembly Relaxed SIMD proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This is `false` by default.
     ///
@@ -204,8 +204,7 @@ impl Features {
     /// be enabled.
     ///
     /// The [WebAssembly multi-value proposal][proposal] is now fully
-    /// standardized and enabled by default, except with the singlepass
-    /// compiler which does not support it.
+    /// standardized and enabled by default.
     ///
     /// This feature gates functions and blocks returning multiple values in a
     /// module, for example.
@@ -221,10 +220,10 @@ impl Features {
     /// Configures whether the WebAssembly tail-call proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly tail-call proposal][proposal] is not
-    /// currently fully standardized and is undergoing development.
-    /// Support for this feature can be enabled through this method for
-    /// appropriate WebAssembly modules.
+    /// The [WebAssembly tail-call proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This feature gates tail-call functions in WebAssembly.
     ///
@@ -258,10 +257,10 @@ impl Features {
     /// Configures whether the WebAssembly multi-memory proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly multi-memory proposal][proposal] is not
-    /// currently fully standardized and is undergoing development.
-    /// Support for this feature can be enabled through this method for
-    /// appropriate WebAssembly modules.
+    /// The [WebAssembly multi-memory proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This feature adds the ability to use multiple memories within a
     /// single Wasm module.
@@ -277,10 +276,10 @@ impl Features {
     /// Configures whether the WebAssembly 64-bit memory proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly 64-bit memory proposal][proposal] is not
-    /// currently fully standardized and is undergoing development.
-    /// Support for this feature can be enabled through this method for
-    /// appropriate WebAssembly modules.
+    /// The [WebAssembly 64-bit memory proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This feature gates support for linear memory of sizes larger than
     /// 2^32 bits.
@@ -295,9 +294,10 @@ impl Features {
 
     /// Configures whether the WebAssembly exception-handling proposal will be enabled.
     ///
-    /// The [WebAssembly exception-handling proposal][eh] is not currently fully
-    /// standardized and is undergoing development. Support for this feature can
-    /// be enabled through this method for appropriate WebAssembly modules.
+    /// The [WebAssembly exception-handling proposal][eh] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This is `false` by default.
     ///
