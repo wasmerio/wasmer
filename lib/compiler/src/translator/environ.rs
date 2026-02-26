@@ -12,7 +12,7 @@ use wasmer_types::FunctionType;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
-    ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
+    ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex, InitExpr,
     LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
     TableInitializer, TableType,
 };
@@ -379,14 +379,12 @@ impl<'data> ModuleEnvironment<'data> {
     pub(crate) fn declare_table_initializers(
         &mut self,
         table_index: TableIndex,
-        base: Option<GlobalIndex>,
-        offset: usize,
+        offset_expr: InitExpr,
         elements: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
         self.module.table_initializers.push(TableInitializer {
             table_index,
-            base,
-            offset,
+            offset_expr,
             elements,
         });
         Ok(())
@@ -428,15 +426,13 @@ impl<'data> ModuleEnvironment<'data> {
     pub(crate) fn declare_data_initialization(
         &mut self,
         memory_index: MemoryIndex,
-        base: Option<GlobalIndex>,
-        offset: usize,
+        offset_expr: InitExpr,
         data: &'data [u8],
     ) -> WasmResult<()> {
         self.data_initializers.push(DataInitializer {
             location: DataInitializerLocation {
                 memory_index,
-                base,
-                offset,
+                offset_expr,
             },
             data,
         });
