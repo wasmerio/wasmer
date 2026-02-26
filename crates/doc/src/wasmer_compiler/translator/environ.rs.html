@@ -12,7 +12,7 @@
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>wasmer_types::entity::PrimaryMap;
 <a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>wasmer_types::{
 <a href=#14 id=14 data-nosnippet>14</a>    CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
-<a href=#15 id=15 data-nosnippet>15</a>    ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
+<a href=#15 id=15 data-nosnippet>15</a>    ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex, InitExpr,
 <a href=#16 id=16 data-nosnippet>16</a>    LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
 <a href=#17 id=17 data-nosnippet>17</a>    TableInitializer, TableType,
 <a href=#18 id=18 data-nosnippet>18</a>};
@@ -379,122 +379,118 @@
 <a href=#379 id=379 data-nosnippet>379</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_table_initializers(
 <a href=#380 id=380 data-nosnippet>380</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#381 id=381 data-nosnippet>381</a>        table_index: TableIndex,
-<a href=#382 id=382 data-nosnippet>382</a>        base: <span class="prelude-ty">Option</span>&lt;GlobalIndex&gt;,
-<a href=#383 id=383 data-nosnippet>383</a>        offset: usize,
-<a href=#384 id=384 data-nosnippet>384</a>        elements: Box&lt;[FunctionIndex]&gt;,
-<a href=#385 id=385 data-nosnippet>385</a>    ) -&gt; WasmResult&lt;()&gt; {
-<a href=#386 id=386 data-nosnippet>386</a>        <span class="self">self</span>.module.table_initializers.push(TableInitializer {
-<a href=#387 id=387 data-nosnippet>387</a>            table_index,
-<a href=#388 id=388 data-nosnippet>388</a>            base,
-<a href=#389 id=389 data-nosnippet>389</a>            offset,
-<a href=#390 id=390 data-nosnippet>390</a>            elements,
-<a href=#391 id=391 data-nosnippet>391</a>        });
-<a href=#392 id=392 data-nosnippet>392</a>        <span class="prelude-val">Ok</span>(())
-<a href=#393 id=393 data-nosnippet>393</a>    }
-<a href=#394 id=394 data-nosnippet>394</a>
-<a href=#395 id=395 data-nosnippet>395</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_passive_element(
-<a href=#396 id=396 data-nosnippet>396</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#397 id=397 data-nosnippet>397</a>        elem_index: ElemIndex,
-<a href=#398 id=398 data-nosnippet>398</a>        segments: Box&lt;[FunctionIndex]&gt;,
-<a href=#399 id=399 data-nosnippet>399</a>    ) -&gt; WasmResult&lt;()&gt; {
-<a href=#400 id=400 data-nosnippet>400</a>        <span class="kw">let </span>old = <span class="self">self</span>.module.passive_elements.insert(elem_index, segments);
-<a href=#401 id=401 data-nosnippet>401</a>        <span class="macro">debug_assert!</span>(
-<a href=#402 id=402 data-nosnippet>402</a>            old.is_none(),
-<a href=#403 id=403 data-nosnippet>403</a>            <span class="string">"should never get duplicate element indices, that would be a bug in `wasmer_compiler`'s \
-<a href=#404 id=404 data-nosnippet>404</a>             translation"
-<a href=#405 id=405 data-nosnippet>405</a>        </span>);
-<a href=#406 id=406 data-nosnippet>406</a>        <span class="prelude-val">Ok</span>(())
-<a href=#407 id=407 data-nosnippet>407</a>    }
-<a href=#408 id=408 data-nosnippet>408</a>
-<a href=#409 id=409 data-nosnippet>409</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>define_function_body(
-<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#411 id=411 data-nosnippet>411</a>        _module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#412 id=412 data-nosnippet>412</a>        body_bytes: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
-<a href=#413 id=413 data-nosnippet>413</a>        body_offset: usize,
-<a href=#414 id=414 data-nosnippet>414</a>    ) -&gt; WasmResult&lt;()&gt; {
-<a href=#415 id=415 data-nosnippet>415</a>        <span class="self">self</span>.function_body_inputs.push(FunctionBodyData {
-<a href=#416 id=416 data-nosnippet>416</a>            data: body_bytes,
-<a href=#417 id=417 data-nosnippet>417</a>            module_offset: body_offset,
-<a href=#418 id=418 data-nosnippet>418</a>        });
-<a href=#419 id=419 data-nosnippet>419</a>        <span class="prelude-val">Ok</span>(())
-<a href=#420 id=420 data-nosnippet>420</a>    }
-<a href=#421 id=421 data-nosnippet>421</a>
-<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_data_initializers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
-<a href=#423 id=423 data-nosnippet>423</a>        <span class="self">self</span>.data_initializers
-<a href=#424 id=424 data-nosnippet>424</a>            .reserve_exact(usize::try_from(num).unwrap());
-<a href=#425 id=425 data-nosnippet>425</a>        <span class="prelude-val">Ok</span>(())
-<a href=#426 id=426 data-nosnippet>426</a>    }
-<a href=#427 id=427 data-nosnippet>427</a>
-<a href=#428 id=428 data-nosnippet>428</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_data_initialization(
-<a href=#429 id=429 data-nosnippet>429</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#430 id=430 data-nosnippet>430</a>        memory_index: MemoryIndex,
-<a href=#431 id=431 data-nosnippet>431</a>        base: <span class="prelude-ty">Option</span>&lt;GlobalIndex&gt;,
-<a href=#432 id=432 data-nosnippet>432</a>        offset: usize,
-<a href=#433 id=433 data-nosnippet>433</a>        data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
-<a href=#434 id=434 data-nosnippet>434</a>    ) -&gt; WasmResult&lt;()&gt; {
-<a href=#435 id=435 data-nosnippet>435</a>        <span class="self">self</span>.data_initializers.push(DataInitializer {
-<a href=#436 id=436 data-nosnippet>436</a>            location: DataInitializerLocation {
-<a href=#437 id=437 data-nosnippet>437</a>                memory_index,
-<a href=#438 id=438 data-nosnippet>438</a>                base,
-<a href=#439 id=439 data-nosnippet>439</a>                offset,
-<a href=#440 id=440 data-nosnippet>440</a>            },
-<a href=#441 id=441 data-nosnippet>441</a>            data,
-<a href=#442 id=442 data-nosnippet>442</a>        });
-<a href=#443 id=443 data-nosnippet>443</a>        <span class="prelude-val">Ok</span>(())
-<a href=#444 id=444 data-nosnippet>444</a>    }
-<a href=#445 id=445 data-nosnippet>445</a>
-<a href=#446 id=446 data-nosnippet>446</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_passive_data(<span class="kw-2">&amp;mut </span><span class="self">self</span>, count: u32) -&gt; WasmResult&lt;()&gt; {
-<a href=#447 id=447 data-nosnippet>447</a>        <span class="kw">let </span>count = usize::try_from(count).unwrap();
-<a href=#448 id=448 data-nosnippet>448</a>        <span class="self">self</span>.module.passive_data.reserve(count);
-<a href=#449 id=449 data-nosnippet>449</a>        <span class="prelude-val">Ok</span>(())
-<a href=#450 id=450 data-nosnippet>450</a>    }
-<a href=#451 id=451 data-nosnippet>451</a>
-<a href=#452 id=452 data-nosnippet>452</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_passive_data(
-<a href=#453 id=453 data-nosnippet>453</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#454 id=454 data-nosnippet>454</a>        data_index: DataIndex,
-<a href=#455 id=455 data-nosnippet>455</a>        data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
-<a href=#456 id=456 data-nosnippet>456</a>    ) -&gt; WasmResult&lt;()&gt; {
-<a href=#457 id=457 data-nosnippet>457</a>        <span class="kw">let </span>old = <span class="self">self</span>.module.passive_data.insert(data_index, Box::from(data));
-<a href=#458 id=458 data-nosnippet>458</a>        <span class="macro">debug_assert!</span>(
-<a href=#459 id=459 data-nosnippet>459</a>            old.is_none(),
-<a href=#460 id=460 data-nosnippet>460</a>            <span class="string">"a module can't have duplicate indices, this would be a wasmer-compiler bug"
-<a href=#461 id=461 data-nosnippet>461</a>        </span>);
-<a href=#462 id=462 data-nosnippet>462</a>        <span class="prelude-val">Ok</span>(())
-<a href=#463 id=463 data-nosnippet>463</a>    }
-<a href=#464 id=464 data-nosnippet>464</a>
-<a href=#465 id=465 data-nosnippet>465</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_module_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>str) -&gt; WasmResult&lt;()&gt; {
-<a href=#466 id=466 data-nosnippet>466</a>        <span class="self">self</span>.module.name = <span class="prelude-val">Some</span>(name.to_string());
-<a href=#467 id=467 data-nosnippet>467</a>        <span class="prelude-val">Ok</span>(())
-<a href=#468 id=468 data-nosnippet>468</a>    }
-<a href=#469 id=469 data-nosnippet>469</a>
-<a href=#470 id=470 data-nosnippet>470</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_function_names(
-<a href=#471 id=471 data-nosnippet>471</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#472 id=472 data-nosnippet>472</a>        functions: HashMap&lt;FunctionIndex, String&gt;,
-<a href=#473 id=473 data-nosnippet>473</a>    ) -&gt; WasmResult&lt;()&gt; {
-<a href=#474 id=474 data-nosnippet>474</a>        <span class="self">self</span>.module.function_names = functions;
-<a href=#475 id=475 data-nosnippet>475</a>        <span class="prelude-val">Ok</span>(())
-<a href=#476 id=476 data-nosnippet>476</a>    }
-<a href=#477 id=477 data-nosnippet>477</a>
-<a href=#478 id=478 data-nosnippet>478</a>    <span class="doccomment">/// Provides the number of imports up front. By default this does nothing, but
-<a href=#479 id=479 data-nosnippet>479</a>    /// implementations can use this to preallocate memory if desired.
-<a href=#480 id=480 data-nosnippet>480</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_imports(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _num: u32) -&gt; WasmResult&lt;()&gt; {
-<a href=#481 id=481 data-nosnippet>481</a>        <span class="prelude-val">Ok</span>(())
-<a href=#482 id=482 data-nosnippet>482</a>    }
-<a href=#483 id=483 data-nosnippet>483</a>
-<a href=#484 id=484 data-nosnippet>484</a>    <span class="doccomment">/// Notifies the implementation that all exports have been declared.
-<a href=#485 id=485 data-nosnippet>485</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>finish_exports(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;()&gt; {
-<a href=#486 id=486 data-nosnippet>486</a>        <span class="prelude-val">Ok</span>(())
-<a href=#487 id=487 data-nosnippet>487</a>    }
-<a href=#488 id=488 data-nosnippet>488</a>
-<a href=#489 id=489 data-nosnippet>489</a>    <span class="doccomment">/// Indicates that a custom section has been found in the wasm file
-<a href=#490 id=490 data-nosnippet>490</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>custom_section(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>str, data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8]) -&gt; WasmResult&lt;()&gt; {
-<a href=#491 id=491 data-nosnippet>491</a>        <span class="kw">let </span>custom_section = CustomSectionIndex::from_u32(
-<a href=#492 id=492 data-nosnippet>492</a>            <span class="self">self</span>.module.custom_sections_data.len().try_into().unwrap(),
-<a href=#493 id=493 data-nosnippet>493</a>        );
-<a href=#494 id=494 data-nosnippet>494</a>        <span class="self">self</span>.module
-<a href=#495 id=495 data-nosnippet>495</a>            .custom_sections
-<a href=#496 id=496 data-nosnippet>496</a>            .insert(String::from(name), custom_section);
-<a href=#497 id=497 data-nosnippet>497</a>        <span class="self">self</span>.module.custom_sections_data.push(Box::from(data));
-<a href=#498 id=498 data-nosnippet>498</a>        <span class="prelude-val">Ok</span>(())
-<a href=#499 id=499 data-nosnippet>499</a>    }
-<a href=#500 id=500 data-nosnippet>500</a>}</code></pre></div></section></main></body></html>
+<a href=#382 id=382 data-nosnippet>382</a>        offset_expr: InitExpr,
+<a href=#383 id=383 data-nosnippet>383</a>        elements: Box&lt;[FunctionIndex]&gt;,
+<a href=#384 id=384 data-nosnippet>384</a>    ) -&gt; WasmResult&lt;()&gt; {
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="self">self</span>.module.table_initializers.push(TableInitializer {
+<a href=#386 id=386 data-nosnippet>386</a>            table_index,
+<a href=#387 id=387 data-nosnippet>387</a>            offset_expr,
+<a href=#388 id=388 data-nosnippet>388</a>            elements,
+<a href=#389 id=389 data-nosnippet>389</a>        });
+<a href=#390 id=390 data-nosnippet>390</a>        <span class="prelude-val">Ok</span>(())
+<a href=#391 id=391 data-nosnippet>391</a>    }
+<a href=#392 id=392 data-nosnippet>392</a>
+<a href=#393 id=393 data-nosnippet>393</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_passive_element(
+<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#395 id=395 data-nosnippet>395</a>        elem_index: ElemIndex,
+<a href=#396 id=396 data-nosnippet>396</a>        segments: Box&lt;[FunctionIndex]&gt;,
+<a href=#397 id=397 data-nosnippet>397</a>    ) -&gt; WasmResult&lt;()&gt; {
+<a href=#398 id=398 data-nosnippet>398</a>        <span class="kw">let </span>old = <span class="self">self</span>.module.passive_elements.insert(elem_index, segments);
+<a href=#399 id=399 data-nosnippet>399</a>        <span class="macro">debug_assert!</span>(
+<a href=#400 id=400 data-nosnippet>400</a>            old.is_none(),
+<a href=#401 id=401 data-nosnippet>401</a>            <span class="string">"should never get duplicate element indices, that would be a bug in `wasmer_compiler`'s \
+<a href=#402 id=402 data-nosnippet>402</a>             translation"
+<a href=#403 id=403 data-nosnippet>403</a>        </span>);
+<a href=#404 id=404 data-nosnippet>404</a>        <span class="prelude-val">Ok</span>(())
+<a href=#405 id=405 data-nosnippet>405</a>    }
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>define_function_body(
+<a href=#408 id=408 data-nosnippet>408</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#409 id=409 data-nosnippet>409</a>        _module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#410 id=410 data-nosnippet>410</a>        body_bytes: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
+<a href=#411 id=411 data-nosnippet>411</a>        body_offset: usize,
+<a href=#412 id=412 data-nosnippet>412</a>    ) -&gt; WasmResult&lt;()&gt; {
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="self">self</span>.function_body_inputs.push(FunctionBodyData {
+<a href=#414 id=414 data-nosnippet>414</a>            data: body_bytes,
+<a href=#415 id=415 data-nosnippet>415</a>            module_offset: body_offset,
+<a href=#416 id=416 data-nosnippet>416</a>        });
+<a href=#417 id=417 data-nosnippet>417</a>        <span class="prelude-val">Ok</span>(())
+<a href=#418 id=418 data-nosnippet>418</a>    }
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_data_initializers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+<a href=#421 id=421 data-nosnippet>421</a>        <span class="self">self</span>.data_initializers
+<a href=#422 id=422 data-nosnippet>422</a>            .reserve_exact(usize::try_from(num).unwrap());
+<a href=#423 id=423 data-nosnippet>423</a>        <span class="prelude-val">Ok</span>(())
+<a href=#424 id=424 data-nosnippet>424</a>    }
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_data_initialization(
+<a href=#427 id=427 data-nosnippet>427</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#428 id=428 data-nosnippet>428</a>        memory_index: MemoryIndex,
+<a href=#429 id=429 data-nosnippet>429</a>        offset_expr: InitExpr,
+<a href=#430 id=430 data-nosnippet>430</a>        data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
+<a href=#431 id=431 data-nosnippet>431</a>    ) -&gt; WasmResult&lt;()&gt; {
+<a href=#432 id=432 data-nosnippet>432</a>        <span class="self">self</span>.data_initializers.push(DataInitializer {
+<a href=#433 id=433 data-nosnippet>433</a>            location: DataInitializerLocation {
+<a href=#434 id=434 data-nosnippet>434</a>                memory_index,
+<a href=#435 id=435 data-nosnippet>435</a>                offset_expr,
+<a href=#436 id=436 data-nosnippet>436</a>            },
+<a href=#437 id=437 data-nosnippet>437</a>            data,
+<a href=#438 id=438 data-nosnippet>438</a>        });
+<a href=#439 id=439 data-nosnippet>439</a>        <span class="prelude-val">Ok</span>(())
+<a href=#440 id=440 data-nosnippet>440</a>    }
+<a href=#441 id=441 data-nosnippet>441</a>
+<a href=#442 id=442 data-nosnippet>442</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_passive_data(<span class="kw-2">&amp;mut </span><span class="self">self</span>, count: u32) -&gt; WasmResult&lt;()&gt; {
+<a href=#443 id=443 data-nosnippet>443</a>        <span class="kw">let </span>count = usize::try_from(count).unwrap();
+<a href=#444 id=444 data-nosnippet>444</a>        <span class="self">self</span>.module.passive_data.reserve(count);
+<a href=#445 id=445 data-nosnippet>445</a>        <span class="prelude-val">Ok</span>(())
+<a href=#446 id=446 data-nosnippet>446</a>    }
+<a href=#447 id=447 data-nosnippet>447</a>
+<a href=#448 id=448 data-nosnippet>448</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_passive_data(
+<a href=#449 id=449 data-nosnippet>449</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#450 id=450 data-nosnippet>450</a>        data_index: DataIndex,
+<a href=#451 id=451 data-nosnippet>451</a>        data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
+<a href=#452 id=452 data-nosnippet>452</a>    ) -&gt; WasmResult&lt;()&gt; {
+<a href=#453 id=453 data-nosnippet>453</a>        <span class="kw">let </span>old = <span class="self">self</span>.module.passive_data.insert(data_index, Box::from(data));
+<a href=#454 id=454 data-nosnippet>454</a>        <span class="macro">debug_assert!</span>(
+<a href=#455 id=455 data-nosnippet>455</a>            old.is_none(),
+<a href=#456 id=456 data-nosnippet>456</a>            <span class="string">"a module can't have duplicate indices, this would be a wasmer-compiler bug"
+<a href=#457 id=457 data-nosnippet>457</a>        </span>);
+<a href=#458 id=458 data-nosnippet>458</a>        <span class="prelude-val">Ok</span>(())
+<a href=#459 id=459 data-nosnippet>459</a>    }
+<a href=#460 id=460 data-nosnippet>460</a>
+<a href=#461 id=461 data-nosnippet>461</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_module_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>str) -&gt; WasmResult&lt;()&gt; {
+<a href=#462 id=462 data-nosnippet>462</a>        <span class="self">self</span>.module.name = <span class="prelude-val">Some</span>(name.to_string());
+<a href=#463 id=463 data-nosnippet>463</a>        <span class="prelude-val">Ok</span>(())
+<a href=#464 id=464 data-nosnippet>464</a>    }
+<a href=#465 id=465 data-nosnippet>465</a>
+<a href=#466 id=466 data-nosnippet>466</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_function_names(
+<a href=#467 id=467 data-nosnippet>467</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#468 id=468 data-nosnippet>468</a>        functions: HashMap&lt;FunctionIndex, String&gt;,
+<a href=#469 id=469 data-nosnippet>469</a>    ) -&gt; WasmResult&lt;()&gt; {
+<a href=#470 id=470 data-nosnippet>470</a>        <span class="self">self</span>.module.function_names = functions;
+<a href=#471 id=471 data-nosnippet>471</a>        <span class="prelude-val">Ok</span>(())
+<a href=#472 id=472 data-nosnippet>472</a>    }
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a>    <span class="doccomment">/// Provides the number of imports up front. By default this does nothing, but
+<a href=#475 id=475 data-nosnippet>475</a>    /// implementations can use this to preallocate memory if desired.
+<a href=#476 id=476 data-nosnippet>476</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_imports(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _num: u32) -&gt; WasmResult&lt;()&gt; {
+<a href=#477 id=477 data-nosnippet>477</a>        <span class="prelude-val">Ok</span>(())
+<a href=#478 id=478 data-nosnippet>478</a>    }
+<a href=#479 id=479 data-nosnippet>479</a>
+<a href=#480 id=480 data-nosnippet>480</a>    <span class="doccomment">/// Notifies the implementation that all exports have been declared.
+<a href=#481 id=481 data-nosnippet>481</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>finish_exports(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;()&gt; {
+<a href=#482 id=482 data-nosnippet>482</a>        <span class="prelude-val">Ok</span>(())
+<a href=#483 id=483 data-nosnippet>483</a>    }
+<a href=#484 id=484 data-nosnippet>484</a>
+<a href=#485 id=485 data-nosnippet>485</a>    <span class="doccomment">/// Indicates that a custom section has been found in the wasm file
+<a href=#486 id=486 data-nosnippet>486</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>custom_section(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>str, data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8]) -&gt; WasmResult&lt;()&gt; {
+<a href=#487 id=487 data-nosnippet>487</a>        <span class="kw">let </span>custom_section = CustomSectionIndex::from_u32(
+<a href=#488 id=488 data-nosnippet>488</a>            <span class="self">self</span>.module.custom_sections_data.len().try_into().unwrap(),
+<a href=#489 id=489 data-nosnippet>489</a>        );
+<a href=#490 id=490 data-nosnippet>490</a>        <span class="self">self</span>.module
+<a href=#491 id=491 data-nosnippet>491</a>            .custom_sections
+<a href=#492 id=492 data-nosnippet>492</a>            .insert(String::from(name), custom_section);
+<a href=#493 id=493 data-nosnippet>493</a>        <span class="self">self</span>.module.custom_sections_data.push(Box::from(data));
+<a href=#494 id=494 data-nosnippet>494</a>        <span class="prelude-val">Ok</span>(())
+<a href=#495 id=495 data-nosnippet>495</a>    }
+<a href=#496 id=496 data-nosnippet>496</a>}</code></pre></div></section></main></body></html>

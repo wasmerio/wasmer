@@ -547,176 +547,181 @@
 <a href=#547 id=547 data-nosnippet>547</a>        index.index() &lt; <span class="self">self</span>.num_imported_globals
 <a href=#548 id=548 data-nosnippet>548</a>    }
 <a href=#549 id=549 data-nosnippet>549</a>
-<a href=#550 id=550 data-nosnippet>550</a>    <span class="doccomment">/// Convert a `LocalTagIndex` into a `TagIndex`.
-<a href=#551 id=551 data-nosnippet>551</a>    </span><span class="kw">pub fn </span>tag_index(<span class="kw-2">&amp;</span><span class="self">self</span>, local_tag: LocalTagIndex) -&gt; TagIndex {
-<a href=#552 id=552 data-nosnippet>552</a>        TagIndex::new(<span class="self">self</span>.num_imported_tags + local_tag.index())
+<a href=#550 id=550 data-nosnippet>550</a>    <span class="doccomment">/// Get the type of a global by its index.
+<a href=#551 id=551 data-nosnippet>551</a>    </span><span class="kw">pub fn </span>global_type(<span class="kw-2">&amp;</span><span class="self">self</span>, global_index: GlobalIndex) -&gt; <span class="prelude-ty">Option</span>&lt;GlobalType&gt; {
+<a href=#552 id=552 data-nosnippet>552</a>        <span class="self">self</span>.globals.get(global_index).copied()
 <a href=#553 id=553 data-nosnippet>553</a>    }
 <a href=#554 id=554 data-nosnippet>554</a>
-<a href=#555 id=555 data-nosnippet>555</a>    <span class="doccomment">/// Convert a `TagIndex` into a `LocalTagIndex`. Returns None if the
-<a href=#556 id=556 data-nosnippet>556</a>    /// index is an imported tag.
-<a href=#557 id=557 data-nosnippet>557</a>    </span><span class="kw">pub fn </span>local_tag_index(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: TagIndex) -&gt; <span class="prelude-ty">Option</span>&lt;LocalTagIndex&gt; {
-<a href=#558 id=558 data-nosnippet>558</a>        tag.index()
-<a href=#559 id=559 data-nosnippet>559</a>            .checked_sub(<span class="self">self</span>.num_imported_tags)
-<a href=#560 id=560 data-nosnippet>560</a>            .map(LocalTagIndex::new)
-<a href=#561 id=561 data-nosnippet>561</a>    }
-<a href=#562 id=562 data-nosnippet>562</a>
-<a href=#563 id=563 data-nosnippet>563</a>    <span class="doccomment">/// Test whether the given tag index is for an imported tag.
-<a href=#564 id=564 data-nosnippet>564</a>    </span><span class="kw">pub fn </span>is_imported_tag(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TagIndex) -&gt; bool {
-<a href=#565 id=565 data-nosnippet>565</a>        index.index() &lt; <span class="self">self</span>.num_imported_tags
+<a href=#555 id=555 data-nosnippet>555</a>    <span class="doccomment">/// Convert a `LocalTagIndex` into a `TagIndex`.
+<a href=#556 id=556 data-nosnippet>556</a>    </span><span class="kw">pub fn </span>tag_index(<span class="kw-2">&amp;</span><span class="self">self</span>, local_tag: LocalTagIndex) -&gt; TagIndex {
+<a href=#557 id=557 data-nosnippet>557</a>        TagIndex::new(<span class="self">self</span>.num_imported_tags + local_tag.index())
+<a href=#558 id=558 data-nosnippet>558</a>    }
+<a href=#559 id=559 data-nosnippet>559</a>
+<a href=#560 id=560 data-nosnippet>560</a>    <span class="doccomment">/// Convert a `TagIndex` into a `LocalTagIndex`. Returns None if the
+<a href=#561 id=561 data-nosnippet>561</a>    /// index is an imported tag.
+<a href=#562 id=562 data-nosnippet>562</a>    </span><span class="kw">pub fn </span>local_tag_index(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: TagIndex) -&gt; <span class="prelude-ty">Option</span>&lt;LocalTagIndex&gt; {
+<a href=#563 id=563 data-nosnippet>563</a>        tag.index()
+<a href=#564 id=564 data-nosnippet>564</a>            .checked_sub(<span class="self">self</span>.num_imported_tags)
+<a href=#565 id=565 data-nosnippet>565</a>            .map(LocalTagIndex::new)
 <a href=#566 id=566 data-nosnippet>566</a>    }
 <a href=#567 id=567 data-nosnippet>567</a>
-<a href=#568 id=568 data-nosnippet>568</a>    <span class="doccomment">/// Get the Module name
-<a href=#569 id=569 data-nosnippet>569</a>    </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-<a href=#570 id=570 data-nosnippet>570</a>        <span class="kw">match </span><span class="self">self</span>.name {
-<a href=#571 id=571 data-nosnippet>571</a>            <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>name) =&gt; name.to_string(),
-<a href=#572 id=572 data-nosnippet>572</a>            <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;module&gt;"</span>.to_string(),
-<a href=#573 id=573 data-nosnippet>573</a>        }
-<a href=#574 id=574 data-nosnippet>574</a>    }
-<a href=#575 id=575 data-nosnippet>575</a>
-<a href=#576 id=576 data-nosnippet>576</a>    <span class="doccomment">/// Get the imported function types of the module.
-<a href=#577 id=577 data-nosnippet>577</a>    </span><span class="kw">pub fn </span>imported_function_types(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = FunctionType&gt; + <span class="lifetime">'_ </span>{
-<a href=#578 id=578 data-nosnippet>578</a>        <span class="self">self</span>.functions
-<a href=#579 id=579 data-nosnippet>579</a>            .values()
-<a href=#580 id=580 data-nosnippet>580</a>            .take(<span class="self">self</span>.num_imported_functions)
-<a href=#581 id=581 data-nosnippet>581</a>            .map(<span class="kw">move </span>|sig_index| <span class="self">self</span>.signatures[<span class="kw-2">*</span>sig_index].clone())
-<a href=#582 id=582 data-nosnippet>582</a>    }
-<a href=#583 id=583 data-nosnippet>583</a>
-<a href=#584 id=584 data-nosnippet>584</a>    <span class="doccomment">/// Get the name of a function by its index.
-<a href=#585 id=585 data-nosnippet>585</a>    </span><span class="kw">pub fn </span>get_function_name(<span class="kw-2">&amp;</span><span class="self">self</span>, func_index: FunctionIndex) -&gt; String {
-<a href=#586 id=586 data-nosnippet>586</a>        <span class="self">self</span>.function_names
-<a href=#587 id=587 data-nosnippet>587</a>            .get(<span class="kw-2">&amp;</span>func_index)
-<a href=#588 id=588 data-nosnippet>588</a>            .cloned()
-<a href=#589 id=589 data-nosnippet>589</a>            .unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">"function_{}"</span>, func_index.as_u32()))
-<a href=#590 id=590 data-nosnippet>590</a>    }
-<a href=#591 id=591 data-nosnippet>591</a>}
-<a href=#592 id=592 data-nosnippet>592</a>
-<a href=#593 id=593 data-nosnippet>593</a><span class="kw">impl </span>fmt::Display <span class="kw">for </span>ModuleInfo {
-<a href=#594 id=594 data-nosnippet>594</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-<a href=#595 id=595 data-nosnippet>595</a>        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.name())
-<a href=#596 id=596 data-nosnippet>596</a>    }
-<a href=#597 id=597 data-nosnippet>597</a>}
-<a href=#598 id=598 data-nosnippet>598</a>
-<a href=#599 id=599 data-nosnippet>599</a><span class="comment">// Code inspired from
-<a href=#600 id=600 data-nosnippet>600</a>// https://www.reddit.com/r/rust/comments/9vspv4/extending_iterators_ergonomically/
-<a href=#601 id=601 data-nosnippet>601</a>
-<a href=#602 id=602 data-nosnippet>602</a></span><span class="doccomment">/// This iterator allows us to iterate over the exports
-<a href=#603 id=603 data-nosnippet>603</a>/// and offer nice API ergonomics over it.
-<a href=#604 id=604 data-nosnippet>604</a></span><span class="kw">pub struct </span>ExportsIterator&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; {
-<a href=#605 id=605 data-nosnippet>605</a>    iter: I,
-<a href=#606 id=606 data-nosnippet>606</a>    size: usize,
-<a href=#607 id=607 data-nosnippet>607</a>}
-<a href=#608 id=608 data-nosnippet>608</a>
-<a href=#609 id=609 data-nosnippet>609</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; ExportsIterator&lt;I&gt; {
-<a href=#610 id=610 data-nosnippet>610</a>    <span class="doccomment">/// Create a new `ExportsIterator` for a given iterator and size
-<a href=#611 id=611 data-nosnippet>611</a>    </span><span class="kw">pub fn </span>new(iter: I, size: usize) -&gt; <span class="self">Self </span>{
-<a href=#612 id=612 data-nosnippet>612</a>        <span class="self">Self </span>{ iter, size }
-<a href=#613 id=613 data-nosnippet>613</a>    }
-<a href=#614 id=614 data-nosnippet>614</a>}
-<a href=#615 id=615 data-nosnippet>615</a>
-<a href=#616 id=616 data-nosnippet>616</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; ExactSizeIterator <span class="kw">for </span>ExportsIterator&lt;I&gt; {
-<a href=#617 id=617 data-nosnippet>617</a>    <span class="comment">// We can easily calculate the remaining number of iterations.
-<a href=#618 id=618 data-nosnippet>618</a>    </span><span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-<a href=#619 id=619 data-nosnippet>619</a>        <span class="self">self</span>.size
-<a href=#620 id=620 data-nosnippet>620</a>    }
-<a href=#621 id=621 data-nosnippet>621</a>}
-<a href=#622 id=622 data-nosnippet>622</a>
-<a href=#623 id=623 data-nosnippet>623</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; ExportsIterator&lt;I&gt; {
-<a href=#624 id=624 data-nosnippet>624</a>    <span class="doccomment">/// Get only the functions
-<a href=#625 id=625 data-nosnippet>625</a>    </span><span class="kw">pub fn </span>functions(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ExportType&lt;FunctionType&gt;&gt; + Sized {
-<a href=#626 id=626 data-nosnippet>626</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
-<a href=#627 id=627 data-nosnippet>627</a>            ExternType::Function(ty) =&gt; <span class="prelude-val">Some</span>(ExportType::new(extern_.name(), ty.clone())),
-<a href=#628 id=628 data-nosnippet>628</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#629 id=629 data-nosnippet>629</a>        })
-<a href=#630 id=630 data-nosnippet>630</a>    }
-<a href=#631 id=631 data-nosnippet>631</a>    <span class="doccomment">/// Get only the memories
-<a href=#632 id=632 data-nosnippet>632</a>    </span><span class="kw">pub fn </span>memories(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ExportType&lt;MemoryType&gt;&gt; + Sized {
-<a href=#633 id=633 data-nosnippet>633</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
-<a href=#634 id=634 data-nosnippet>634</a>            ExternType::Memory(ty) =&gt; <span class="prelude-val">Some</span>(ExportType::new(extern_.name(), <span class="kw-2">*</span>ty)),
-<a href=#635 id=635 data-nosnippet>635</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#636 id=636 data-nosnippet>636</a>        })
-<a href=#637 id=637 data-nosnippet>637</a>    }
-<a href=#638 id=638 data-nosnippet>638</a>    <span class="doccomment">/// Get only the tables
-<a href=#639 id=639 data-nosnippet>639</a>    </span><span class="kw">pub fn </span>tables(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ExportType&lt;TableType&gt;&gt; + Sized {
-<a href=#640 id=640 data-nosnippet>640</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
-<a href=#641 id=641 data-nosnippet>641</a>            ExternType::Table(ty) =&gt; <span class="prelude-val">Some</span>(ExportType::new(extern_.name(), <span class="kw-2">*</span>ty)),
-<a href=#642 id=642 data-nosnippet>642</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#643 id=643 data-nosnippet>643</a>        })
-<a href=#644 id=644 data-nosnippet>644</a>    }
-<a href=#645 id=645 data-nosnippet>645</a>    <span class="doccomment">/// Get only the globals
-<a href=#646 id=646 data-nosnippet>646</a>    </span><span class="kw">pub fn </span>globals(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ExportType&lt;GlobalType&gt;&gt; + Sized {
-<a href=#647 id=647 data-nosnippet>647</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
-<a href=#648 id=648 data-nosnippet>648</a>            ExternType::Global(ty) =&gt; <span class="prelude-val">Some</span>(ExportType::new(extern_.name(), <span class="kw-2">*</span>ty)),
-<a href=#649 id=649 data-nosnippet>649</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#650 id=650 data-nosnippet>650</a>        })
-<a href=#651 id=651 data-nosnippet>651</a>    }
-<a href=#652 id=652 data-nosnippet>652</a>}
-<a href=#653 id=653 data-nosnippet>653</a>
-<a href=#654 id=654 data-nosnippet>654</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; Iterator <span class="kw">for </span>ExportsIterator&lt;I&gt; {
-<a href=#655 id=655 data-nosnippet>655</a>    <span class="kw">type </span>Item = ExportType;
-<a href=#656 id=656 data-nosnippet>656</a>    <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
-<a href=#657 id=657 data-nosnippet>657</a>        <span class="self">self</span>.iter.next()
-<a href=#658 id=658 data-nosnippet>658</a>    }
-<a href=#659 id=659 data-nosnippet>659</a>}
-<a href=#660 id=660 data-nosnippet>660</a>
-<a href=#661 id=661 data-nosnippet>661</a><span class="doccomment">/// This iterator allows us to iterate over the imports
-<a href=#662 id=662 data-nosnippet>662</a>/// and offer nice API ergonomics over it.
-<a href=#663 id=663 data-nosnippet>663</a></span><span class="kw">pub struct </span>ImportsIterator&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; {
-<a href=#664 id=664 data-nosnippet>664</a>    iter: I,
-<a href=#665 id=665 data-nosnippet>665</a>    size: usize,
-<a href=#666 id=666 data-nosnippet>666</a>}
-<a href=#667 id=667 data-nosnippet>667</a>
-<a href=#668 id=668 data-nosnippet>668</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; ImportsIterator&lt;I&gt; {
-<a href=#669 id=669 data-nosnippet>669</a>    <span class="doccomment">/// Create a new `ImportsIterator` for a given iterator and size
-<a href=#670 id=670 data-nosnippet>670</a>    </span><span class="kw">pub fn </span>new(iter: I, size: usize) -&gt; <span class="self">Self </span>{
-<a href=#671 id=671 data-nosnippet>671</a>        <span class="self">Self </span>{ iter, size }
-<a href=#672 id=672 data-nosnippet>672</a>    }
-<a href=#673 id=673 data-nosnippet>673</a>}
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; ExactSizeIterator <span class="kw">for </span>ImportsIterator&lt;I&gt; {
-<a href=#676 id=676 data-nosnippet>676</a>    <span class="comment">// We can easily calculate the remaining number of iterations.
-<a href=#677 id=677 data-nosnippet>677</a>    </span><span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-<a href=#678 id=678 data-nosnippet>678</a>        <span class="self">self</span>.size
-<a href=#679 id=679 data-nosnippet>679</a>    }
-<a href=#680 id=680 data-nosnippet>680</a>}
-<a href=#681 id=681 data-nosnippet>681</a>
-<a href=#682 id=682 data-nosnippet>682</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; ImportsIterator&lt;I&gt; {
-<a href=#683 id=683 data-nosnippet>683</a>    <span class="doccomment">/// Get only the functions
-<a href=#684 id=684 data-nosnippet>684</a>    </span><span class="kw">pub fn </span>functions(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ImportType&lt;FunctionType&gt;&gt; + Sized {
-<a href=#685 id=685 data-nosnippet>685</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
-<a href=#686 id=686 data-nosnippet>686</a>            ExternType::Function(ty) =&gt; <span class="prelude-val">Some</span>(ImportType::new(
-<a href=#687 id=687 data-nosnippet>687</a>                extern_.module(),
-<a href=#688 id=688 data-nosnippet>688</a>                extern_.name(),
-<a href=#689 id=689 data-nosnippet>689</a>                ty.clone(),
-<a href=#690 id=690 data-nosnippet>690</a>            )),
-<a href=#691 id=691 data-nosnippet>691</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#692 id=692 data-nosnippet>692</a>        })
-<a href=#693 id=693 data-nosnippet>693</a>    }
-<a href=#694 id=694 data-nosnippet>694</a>    <span class="doccomment">/// Get only the memories
-<a href=#695 id=695 data-nosnippet>695</a>    </span><span class="kw">pub fn </span>memories(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ImportType&lt;MemoryType&gt;&gt; + Sized {
-<a href=#696 id=696 data-nosnippet>696</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
-<a href=#697 id=697 data-nosnippet>697</a>            ExternType::Memory(ty) =&gt; <span class="prelude-val">Some</span>(ImportType::new(extern_.module(), extern_.name(), <span class="kw-2">*</span>ty)),
-<a href=#698 id=698 data-nosnippet>698</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#699 id=699 data-nosnippet>699</a>        })
-<a href=#700 id=700 data-nosnippet>700</a>    }
-<a href=#701 id=701 data-nosnippet>701</a>    <span class="doccomment">/// Get only the tables
-<a href=#702 id=702 data-nosnippet>702</a>    </span><span class="kw">pub fn </span>tables(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ImportType&lt;TableType&gt;&gt; + Sized {
-<a href=#703 id=703 data-nosnippet>703</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
-<a href=#704 id=704 data-nosnippet>704</a>            ExternType::Table(ty) =&gt; <span class="prelude-val">Some</span>(ImportType::new(extern_.module(), extern_.name(), <span class="kw-2">*</span>ty)),
-<a href=#705 id=705 data-nosnippet>705</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#706 id=706 data-nosnippet>706</a>        })
-<a href=#707 id=707 data-nosnippet>707</a>    }
-<a href=#708 id=708 data-nosnippet>708</a>    <span class="doccomment">/// Get only the globals
-<a href=#709 id=709 data-nosnippet>709</a>    </span><span class="kw">pub fn </span>globals(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ImportType&lt;GlobalType&gt;&gt; + Sized {
-<a href=#710 id=710 data-nosnippet>710</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
-<a href=#711 id=711 data-nosnippet>711</a>            ExternType::Global(ty) =&gt; <span class="prelude-val">Some</span>(ImportType::new(extern_.module(), extern_.name(), <span class="kw-2">*</span>ty)),
-<a href=#712 id=712 data-nosnippet>712</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#713 id=713 data-nosnippet>713</a>        })
-<a href=#714 id=714 data-nosnippet>714</a>    }
-<a href=#715 id=715 data-nosnippet>715</a>}
-<a href=#716 id=716 data-nosnippet>716</a>
-<a href=#717 id=717 data-nosnippet>717</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; Iterator <span class="kw">for </span>ImportsIterator&lt;I&gt; {
-<a href=#718 id=718 data-nosnippet>718</a>    <span class="kw">type </span>Item = ImportType;
-<a href=#719 id=719 data-nosnippet>719</a>    <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
-<a href=#720 id=720 data-nosnippet>720</a>        <span class="self">self</span>.iter.next()
-<a href=#721 id=721 data-nosnippet>721</a>    }
-<a href=#722 id=722 data-nosnippet>722</a>}</code></pre></div></section></main></body></html>
+<a href=#568 id=568 data-nosnippet>568</a>    <span class="doccomment">/// Test whether the given tag index is for an imported tag.
+<a href=#569 id=569 data-nosnippet>569</a>    </span><span class="kw">pub fn </span>is_imported_tag(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TagIndex) -&gt; bool {
+<a href=#570 id=570 data-nosnippet>570</a>        index.index() &lt; <span class="self">self</span>.num_imported_tags
+<a href=#571 id=571 data-nosnippet>571</a>    }
+<a href=#572 id=572 data-nosnippet>572</a>
+<a href=#573 id=573 data-nosnippet>573</a>    <span class="doccomment">/// Get the Module name
+<a href=#574 id=574 data-nosnippet>574</a>    </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+<a href=#575 id=575 data-nosnippet>575</a>        <span class="kw">match </span><span class="self">self</span>.name {
+<a href=#576 id=576 data-nosnippet>576</a>            <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>name) =&gt; name.to_string(),
+<a href=#577 id=577 data-nosnippet>577</a>            <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;module&gt;"</span>.to_string(),
+<a href=#578 id=578 data-nosnippet>578</a>        }
+<a href=#579 id=579 data-nosnippet>579</a>    }
+<a href=#580 id=580 data-nosnippet>580</a>
+<a href=#581 id=581 data-nosnippet>581</a>    <span class="doccomment">/// Get the imported function types of the module.
+<a href=#582 id=582 data-nosnippet>582</a>    </span><span class="kw">pub fn </span>imported_function_types(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = FunctionType&gt; + <span class="lifetime">'_ </span>{
+<a href=#583 id=583 data-nosnippet>583</a>        <span class="self">self</span>.functions
+<a href=#584 id=584 data-nosnippet>584</a>            .values()
+<a href=#585 id=585 data-nosnippet>585</a>            .take(<span class="self">self</span>.num_imported_functions)
+<a href=#586 id=586 data-nosnippet>586</a>            .map(<span class="kw">move </span>|sig_index| <span class="self">self</span>.signatures[<span class="kw-2">*</span>sig_index].clone())
+<a href=#587 id=587 data-nosnippet>587</a>    }
+<a href=#588 id=588 data-nosnippet>588</a>
+<a href=#589 id=589 data-nosnippet>589</a>    <span class="doccomment">/// Get the name of a function by its index.
+<a href=#590 id=590 data-nosnippet>590</a>    </span><span class="kw">pub fn </span>get_function_name(<span class="kw-2">&amp;</span><span class="self">self</span>, func_index: FunctionIndex) -&gt; String {
+<a href=#591 id=591 data-nosnippet>591</a>        <span class="self">self</span>.function_names
+<a href=#592 id=592 data-nosnippet>592</a>            .get(<span class="kw-2">&amp;</span>func_index)
+<a href=#593 id=593 data-nosnippet>593</a>            .cloned()
+<a href=#594 id=594 data-nosnippet>594</a>            .unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">"function_{}"</span>, func_index.as_u32()))
+<a href=#595 id=595 data-nosnippet>595</a>    }
+<a href=#596 id=596 data-nosnippet>596</a>}
+<a href=#597 id=597 data-nosnippet>597</a>
+<a href=#598 id=598 data-nosnippet>598</a><span class="kw">impl </span>fmt::Display <span class="kw">for </span>ModuleInfo {
+<a href=#599 id=599 data-nosnippet>599</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+<a href=#600 id=600 data-nosnippet>600</a>        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.name())
+<a href=#601 id=601 data-nosnippet>601</a>    }
+<a href=#602 id=602 data-nosnippet>602</a>}
+<a href=#603 id=603 data-nosnippet>603</a>
+<a href=#604 id=604 data-nosnippet>604</a><span class="comment">// Code inspired from
+<a href=#605 id=605 data-nosnippet>605</a>// https://www.reddit.com/r/rust/comments/9vspv4/extending_iterators_ergonomically/
+<a href=#606 id=606 data-nosnippet>606</a>
+<a href=#607 id=607 data-nosnippet>607</a></span><span class="doccomment">/// This iterator allows us to iterate over the exports
+<a href=#608 id=608 data-nosnippet>608</a>/// and offer nice API ergonomics over it.
+<a href=#609 id=609 data-nosnippet>609</a></span><span class="kw">pub struct </span>ExportsIterator&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; {
+<a href=#610 id=610 data-nosnippet>610</a>    iter: I,
+<a href=#611 id=611 data-nosnippet>611</a>    size: usize,
+<a href=#612 id=612 data-nosnippet>612</a>}
+<a href=#613 id=613 data-nosnippet>613</a>
+<a href=#614 id=614 data-nosnippet>614</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; ExportsIterator&lt;I&gt; {
+<a href=#615 id=615 data-nosnippet>615</a>    <span class="doccomment">/// Create a new `ExportsIterator` for a given iterator and size
+<a href=#616 id=616 data-nosnippet>616</a>    </span><span class="kw">pub fn </span>new(iter: I, size: usize) -&gt; <span class="self">Self </span>{
+<a href=#617 id=617 data-nosnippet>617</a>        <span class="self">Self </span>{ iter, size }
+<a href=#618 id=618 data-nosnippet>618</a>    }
+<a href=#619 id=619 data-nosnippet>619</a>}
+<a href=#620 id=620 data-nosnippet>620</a>
+<a href=#621 id=621 data-nosnippet>621</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; ExactSizeIterator <span class="kw">for </span>ExportsIterator&lt;I&gt; {
+<a href=#622 id=622 data-nosnippet>622</a>    <span class="comment">// We can easily calculate the remaining number of iterations.
+<a href=#623 id=623 data-nosnippet>623</a>    </span><span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href=#624 id=624 data-nosnippet>624</a>        <span class="self">self</span>.size
+<a href=#625 id=625 data-nosnippet>625</a>    }
+<a href=#626 id=626 data-nosnippet>626</a>}
+<a href=#627 id=627 data-nosnippet>627</a>
+<a href=#628 id=628 data-nosnippet>628</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; ExportsIterator&lt;I&gt; {
+<a href=#629 id=629 data-nosnippet>629</a>    <span class="doccomment">/// Get only the functions
+<a href=#630 id=630 data-nosnippet>630</a>    </span><span class="kw">pub fn </span>functions(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ExportType&lt;FunctionType&gt;&gt; + Sized {
+<a href=#631 id=631 data-nosnippet>631</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
+<a href=#632 id=632 data-nosnippet>632</a>            ExternType::Function(ty) =&gt; <span class="prelude-val">Some</span>(ExportType::new(extern_.name(), ty.clone())),
+<a href=#633 id=633 data-nosnippet>633</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#634 id=634 data-nosnippet>634</a>        })
+<a href=#635 id=635 data-nosnippet>635</a>    }
+<a href=#636 id=636 data-nosnippet>636</a>    <span class="doccomment">/// Get only the memories
+<a href=#637 id=637 data-nosnippet>637</a>    </span><span class="kw">pub fn </span>memories(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ExportType&lt;MemoryType&gt;&gt; + Sized {
+<a href=#638 id=638 data-nosnippet>638</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
+<a href=#639 id=639 data-nosnippet>639</a>            ExternType::Memory(ty) =&gt; <span class="prelude-val">Some</span>(ExportType::new(extern_.name(), <span class="kw-2">*</span>ty)),
+<a href=#640 id=640 data-nosnippet>640</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#641 id=641 data-nosnippet>641</a>        })
+<a href=#642 id=642 data-nosnippet>642</a>    }
+<a href=#643 id=643 data-nosnippet>643</a>    <span class="doccomment">/// Get only the tables
+<a href=#644 id=644 data-nosnippet>644</a>    </span><span class="kw">pub fn </span>tables(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ExportType&lt;TableType&gt;&gt; + Sized {
+<a href=#645 id=645 data-nosnippet>645</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
+<a href=#646 id=646 data-nosnippet>646</a>            ExternType::Table(ty) =&gt; <span class="prelude-val">Some</span>(ExportType::new(extern_.name(), <span class="kw-2">*</span>ty)),
+<a href=#647 id=647 data-nosnippet>647</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#648 id=648 data-nosnippet>648</a>        })
+<a href=#649 id=649 data-nosnippet>649</a>    }
+<a href=#650 id=650 data-nosnippet>650</a>    <span class="doccomment">/// Get only the globals
+<a href=#651 id=651 data-nosnippet>651</a>    </span><span class="kw">pub fn </span>globals(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ExportType&lt;GlobalType&gt;&gt; + Sized {
+<a href=#652 id=652 data-nosnippet>652</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
+<a href=#653 id=653 data-nosnippet>653</a>            ExternType::Global(ty) =&gt; <span class="prelude-val">Some</span>(ExportType::new(extern_.name(), <span class="kw-2">*</span>ty)),
+<a href=#654 id=654 data-nosnippet>654</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#655 id=655 data-nosnippet>655</a>        })
+<a href=#656 id=656 data-nosnippet>656</a>    }
+<a href=#657 id=657 data-nosnippet>657</a>}
+<a href=#658 id=658 data-nosnippet>658</a>
+<a href=#659 id=659 data-nosnippet>659</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ExportType&gt; + Sized&gt; Iterator <span class="kw">for </span>ExportsIterator&lt;I&gt; {
+<a href=#660 id=660 data-nosnippet>660</a>    <span class="kw">type </span>Item = ExportType;
+<a href=#661 id=661 data-nosnippet>661</a>    <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
+<a href=#662 id=662 data-nosnippet>662</a>        <span class="self">self</span>.iter.next()
+<a href=#663 id=663 data-nosnippet>663</a>    }
+<a href=#664 id=664 data-nosnippet>664</a>}
+<a href=#665 id=665 data-nosnippet>665</a>
+<a href=#666 id=666 data-nosnippet>666</a><span class="doccomment">/// This iterator allows us to iterate over the imports
+<a href=#667 id=667 data-nosnippet>667</a>/// and offer nice API ergonomics over it.
+<a href=#668 id=668 data-nosnippet>668</a></span><span class="kw">pub struct </span>ImportsIterator&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; {
+<a href=#669 id=669 data-nosnippet>669</a>    iter: I,
+<a href=#670 id=670 data-nosnippet>670</a>    size: usize,
+<a href=#671 id=671 data-nosnippet>671</a>}
+<a href=#672 id=672 data-nosnippet>672</a>
+<a href=#673 id=673 data-nosnippet>673</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; ImportsIterator&lt;I&gt; {
+<a href=#674 id=674 data-nosnippet>674</a>    <span class="doccomment">/// Create a new `ImportsIterator` for a given iterator and size
+<a href=#675 id=675 data-nosnippet>675</a>    </span><span class="kw">pub fn </span>new(iter: I, size: usize) -&gt; <span class="self">Self </span>{
+<a href=#676 id=676 data-nosnippet>676</a>        <span class="self">Self </span>{ iter, size }
+<a href=#677 id=677 data-nosnippet>677</a>    }
+<a href=#678 id=678 data-nosnippet>678</a>}
+<a href=#679 id=679 data-nosnippet>679</a>
+<a href=#680 id=680 data-nosnippet>680</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; ExactSizeIterator <span class="kw">for </span>ImportsIterator&lt;I&gt; {
+<a href=#681 id=681 data-nosnippet>681</a>    <span class="comment">// We can easily calculate the remaining number of iterations.
+<a href=#682 id=682 data-nosnippet>682</a>    </span><span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href=#683 id=683 data-nosnippet>683</a>        <span class="self">self</span>.size
+<a href=#684 id=684 data-nosnippet>684</a>    }
+<a href=#685 id=685 data-nosnippet>685</a>}
+<a href=#686 id=686 data-nosnippet>686</a>
+<a href=#687 id=687 data-nosnippet>687</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; ImportsIterator&lt;I&gt; {
+<a href=#688 id=688 data-nosnippet>688</a>    <span class="doccomment">/// Get only the functions
+<a href=#689 id=689 data-nosnippet>689</a>    </span><span class="kw">pub fn </span>functions(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ImportType&lt;FunctionType&gt;&gt; + Sized {
+<a href=#690 id=690 data-nosnippet>690</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
+<a href=#691 id=691 data-nosnippet>691</a>            ExternType::Function(ty) =&gt; <span class="prelude-val">Some</span>(ImportType::new(
+<a href=#692 id=692 data-nosnippet>692</a>                extern_.module(),
+<a href=#693 id=693 data-nosnippet>693</a>                extern_.name(),
+<a href=#694 id=694 data-nosnippet>694</a>                ty.clone(),
+<a href=#695 id=695 data-nosnippet>695</a>            )),
+<a href=#696 id=696 data-nosnippet>696</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#697 id=697 data-nosnippet>697</a>        })
+<a href=#698 id=698 data-nosnippet>698</a>    }
+<a href=#699 id=699 data-nosnippet>699</a>    <span class="doccomment">/// Get only the memories
+<a href=#700 id=700 data-nosnippet>700</a>    </span><span class="kw">pub fn </span>memories(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ImportType&lt;MemoryType&gt;&gt; + Sized {
+<a href=#701 id=701 data-nosnippet>701</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
+<a href=#702 id=702 data-nosnippet>702</a>            ExternType::Memory(ty) =&gt; <span class="prelude-val">Some</span>(ImportType::new(extern_.module(), extern_.name(), <span class="kw-2">*</span>ty)),
+<a href=#703 id=703 data-nosnippet>703</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#704 id=704 data-nosnippet>704</a>        })
+<a href=#705 id=705 data-nosnippet>705</a>    }
+<a href=#706 id=706 data-nosnippet>706</a>    <span class="doccomment">/// Get only the tables
+<a href=#707 id=707 data-nosnippet>707</a>    </span><span class="kw">pub fn </span>tables(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ImportType&lt;TableType&gt;&gt; + Sized {
+<a href=#708 id=708 data-nosnippet>708</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
+<a href=#709 id=709 data-nosnippet>709</a>            ExternType::Table(ty) =&gt; <span class="prelude-val">Some</span>(ImportType::new(extern_.module(), extern_.name(), <span class="kw-2">*</span>ty)),
+<a href=#710 id=710 data-nosnippet>710</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#711 id=711 data-nosnippet>711</a>        })
+<a href=#712 id=712 data-nosnippet>712</a>    }
+<a href=#713 id=713 data-nosnippet>713</a>    <span class="doccomment">/// Get only the globals
+<a href=#714 id=714 data-nosnippet>714</a>    </span><span class="kw">pub fn </span>globals(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ImportType&lt;GlobalType&gt;&gt; + Sized {
+<a href=#715 id=715 data-nosnippet>715</a>        <span class="self">self</span>.iter.filter_map(|extern_| <span class="kw">match </span>extern_.ty() {
+<a href=#716 id=716 data-nosnippet>716</a>            ExternType::Global(ty) =&gt; <span class="prelude-val">Some</span>(ImportType::new(extern_.module(), extern_.name(), <span class="kw-2">*</span>ty)),
+<a href=#717 id=717 data-nosnippet>717</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#718 id=718 data-nosnippet>718</a>        })
+<a href=#719 id=719 data-nosnippet>719</a>    }
+<a href=#720 id=720 data-nosnippet>720</a>}
+<a href=#721 id=721 data-nosnippet>721</a>
+<a href=#722 id=722 data-nosnippet>722</a><span class="kw">impl</span>&lt;I: Iterator&lt;Item = ImportType&gt; + Sized&gt; Iterator <span class="kw">for </span>ImportsIterator&lt;I&gt; {
+<a href=#723 id=723 data-nosnippet>723</a>    <span class="kw">type </span>Item = ImportType;
+<a href=#724 id=724 data-nosnippet>724</a>    <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
+<a href=#725 id=725 data-nosnippet>725</a>        <span class="self">self</span>.iter.next()
+<a href=#726 id=726 data-nosnippet>726</a>    }
+<a href=#727 id=727 data-nosnippet>727</a>}</code></pre></div></section></main></body></html>
