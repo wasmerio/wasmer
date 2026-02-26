@@ -95,8 +95,8 @@ pub use crate::module::{ExportsIterator, ImportKey, ImportsIterator, ModuleInfo}
 pub use crate::module_hash::ModuleHash;
 pub use crate::progress::{CompilationProgress, CompilationProgressCallback, UserAbort};
 pub use crate::types::{
-    ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
-    Mutability, TableType, TagKind, TagType, Type, V128,
+    ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, InitExpr, InitExprOp,
+    MemoryType, Mutability, TableType, TagKind, TagType, Type, V128,
 };
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,

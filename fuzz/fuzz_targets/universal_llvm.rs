@@ -27,6 +27,7 @@ impl Arbitrary<'_> for LLVMPassFuzzModule {
         config.tail_call_enabled = false;
         config.relaxed_simd_enabled = true;
         config.wide_arithmetic_enabled = true;
+        config.extended_const_enabled = true;
         Ok(Self(wasm_smith::Module::new(config, u)?))
     }
 }

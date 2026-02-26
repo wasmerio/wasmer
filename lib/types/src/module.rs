@@ -547,6 +547,11 @@ impl ModuleInfo {
         index.index() < self.num_imported_globals
     }
 
+    /// Get the type of a global by its index.
+    pub fn global_type(&self, global_index: GlobalIndex) -> Option<GlobalType> {
+        self.globals.get(global_index).copied()
+    }
+
     /// Convert a `LocalTagIndex` into a `TagIndex`.
     pub fn tag_index(&self, local_tag: LocalTagIndex) -> TagIndex {
         TagIndex::new(self.num_imported_tags + local_tag.index())
