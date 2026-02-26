@@ -113,14 +113,14 @@ jobs:
     env:
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash make curl cmake ninja clang21 zstd-static llvm21-dev clang21-static llvm21-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
+          apk add git bash make curl cmake ninja clang21 zstd-static llvm21-dev clang21-static llvm21-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
           ln -s /usr/bin/clang-21 /usr/bin/clang
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
         run: |

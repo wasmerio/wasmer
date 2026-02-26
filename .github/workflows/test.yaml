@@ -604,6 +604,10 @@ jobs:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
+      - name: Set up base deps on musl
+        if: matrix.metadata.build == 'linux-musl'
+        run: |
+          ./scripts/alpine-linux-install-deps.sh
       - uses: actions/checkout@v6
         with:
           submodules: true
@@ -615,10 +619,6 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6 libtinfo5
           sudo apt-get install --reinstall g++
-      - name: Set up base deps on musl
-        if: matrix.metadata.build == 'linux-musl'
-        run: |
-          ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -897,6 +897,10 @@ jobs:
         - /usr/local:/host/usr/local
 
     steps:
+      - name: Set up base deps on musl
+        if: matrix.metadata.build == 'linux-musl'
+        run: |
+          ./scripts/alpine-linux-install-deps.sh
       - uses: actions/checkout@v6
         with:
           submodules: true
@@ -926,10 +930,6 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++
-      - name: Set up base deps on musl
-        if: matrix.metadata.build == 'linux-musl'
-        run: |
-          ./scripts/alpine-linux-install-deps.sh
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.metadata.build == 'windows-x64' }}
