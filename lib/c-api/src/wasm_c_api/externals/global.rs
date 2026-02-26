@@ -55,10 +55,18 @@ pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_gl
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_get(
-    global: &mut wasm_global_t,
+    global: Option<&mut wasm_global_t>,
     // own
-    out: &mut wasm_val_t,
+    out: Option<&mut wasm_val_t>,
 ) {
+    let global = match global {
+        Some(g) => g,
+        None => return,
+    };
+    let out = match out {
+        Some(o) => o,
+        None => return,
+    };
     let wasm_global = global.extern_.global();
     let mut store_mut = unsafe { global.extern_.store.store_mut() };
     let value = wasm_global.get(&mut store_mut);
@@ -68,7 +76,18 @@ pub unsafe extern "C" fn wasm_global_get(
 /// Note: This function returns nothing by design but it can raise an
 /// error if setting a new value fails.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_val_t) {
+pub unsafe extern "C" fn wasm_global_set(
+    global: Option<&mut wasm_global_t>,
+    val: Option<&wasm_val_t>,
+) {
+    let global = match global {
+        Some(g) => g,
+        None => return,
+    };
+    let val = match val {
+        Some(v) => v,
+        None => return,
+    };
     let value: Value = val.try_into().unwrap();
     let wasm_global = global.extern_.global();
     let mut store_mut = unsafe { global.extern_.store.store_mut() };

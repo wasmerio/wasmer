@@ -32,13 +32,17 @@ pub unsafe extern "C" fn wasm_table_new(
 pub unsafe extern "C" fn wasm_table_delete(_table: Option<Box<wasm_table_t>>) {}
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_table_copy(table: &wasm_table_t) -> Box<wasm_table_t> {
+pub unsafe extern "C" fn wasm_table_copy(table: Option<&wasm_table_t>) -> Option<Box<wasm_table_t>> {
     // do shallow copy
-    Box::new(table.clone())
+    Some(Box::new(table?.clone()))
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_table_size(table: &wasm_table_t) -> usize {
+pub unsafe extern "C" fn wasm_table_size(table: Option<&wasm_table_t>) -> usize {
+    let table = match table {
+        Some(t) => t,
+        None => return 0,
+    };
     let store_ref = unsafe { table.extern_.store.store() };
     table.extern_.table().size(&store_ref) as _
 }
