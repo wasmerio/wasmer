@@ -551,7 +551,7 @@ mod test_features {
                 memory64: false,
                 exceptions: false,
                 relaxed_simd: false,
-                extended_const: false,
+                extended_const: true,
                 wide_arithmetic: false
             }
         );
