@@ -32,6 +32,9 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         || wast_path.ends_with("tag.wast")
         || wast_path.ends_with("throw.wast")
         || wast_path.ends_with("throw_ref.wast");
+    || wast_path.ends_with("imports.wast");
+    let is_wide_arithmetic = wast_path.contains("wide-arithmetic");
+
     if is_bulkmemory {
         features.bulk_memory(true);
     }
@@ -44,9 +47,11 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     if is_threads {
         features.threads(true);
     }
-
     if is_exception_handling {
         features.exceptions(true);
+    }
+    if is_wide_arithmetic {
+        features.wide_arithmetic(true);
     }
     config.set_features(features);
     config.set_nan_canonicalization(try_nan_canonicalization);

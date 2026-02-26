@@ -78,6 +78,10 @@ pub struct WasmFeatures {
     #[clap(long = "enable-extended-const")]
     pub extended_const: bool,
 
+    /// Enable support for the wide arithmetic proposal.
+    #[clap(long = "wide-arithmetic")]
+    pub wide_arithmetic: bool,
+
     /// Enable support for all pre-standard proposals.
     #[clap(long = "enable-all")]
     pub all: bool,
