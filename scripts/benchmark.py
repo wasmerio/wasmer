@@ -14,10 +14,12 @@ RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
-ITERATIONS = 5
+ITERATIONS = 3
 WASM_BUILD_CONFIGS = {
     "default": {},
-    "simd128": {"RUSTFLAGS": "-Ctarget-feature=+simd128"},
+    "simd128+wide-arithmetic": {
+        "RUSTFLAGS": "-Ctarget-feature=+simd128,+relaxed-simd,+wide-arithmetic"
+    },
 }
 
 
@@ -31,10 +33,10 @@ def parse_report(report):
             wall_time = stat["wall_time"]
             wall_time = float(wall_time["secs"]) + float(wall_time["nanos"]) / 1e9
             wall_times.append(wall_time)
-        # TODO: 12x slower
-        if benchmark_name != "hashmap_find_misses_1m" and not benchmark_name.startswith(
-            "regex-"
-        ):
+            # TODO: 12x slower
+            # if benchmark_name != "hashmap_find_misses_1m" and not benchmark_name.startswith(
+            #    "regex-"
+            # ):
             results[benchmark_name] = statistics.geometric_mean(wall_times)
     return results
 
