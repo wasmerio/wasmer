@@ -452,16 +452,44 @@ impl InitExpr {
 #[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum InitExprOp {
+    /// A `global.get` of an `i32` global.
+    GlobalGetI32(GlobalIndex),
+    /// A `global.get` of an `i64` global.
+    GlobalGetI64(GlobalIndex),
     /// An `i32.const`.
     I32Const(i32),
-    /// A `global.get` of another global.
-    GlobalGet(GlobalIndex),
     /// An `i32.add`.
     I32Add,
     /// An `i32.sub`.
     I32Sub,
     /// An `i32.mul`.
     I32Mul,
+    /// An `i64.const`.
+    I64Const(i64),
+    /// An `i64.add`.
+    I64Add,
+    /// An `i64.sub`.
+    I64Sub,
+    /// An `i64.mul`.
+    I64Mul,
+}
+
+impl InitExprOp {
+    /// Return true if the expression is 32-bit
+    pub fn is_32bit_expression(&self) -> bool {
+        match self {
+            Self::GlobalGetI32(..)
+            | Self::I32Const(_)
+            | Self::I32Add
+            | Self::I32Sub
+            | Self::I32Mul => true,
+            Self::GlobalGetI64(_)
+            | Self::I64Const(_)
+            | Self::I64Add
+            | Self::I64Sub
+            | Self::I64Mul => false,
+        }
+    }
 }
 
 /// Globals are initialized via `const` operators, references, or a serialized

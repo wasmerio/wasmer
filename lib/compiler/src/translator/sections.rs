@@ -21,8 +21,8 @@ use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
-    InitExpr, InitExprOp, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType,
-    TagIndex, Type, V128,
+    InitExpr, InitExprOp, MemoryIndex, MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex,
+    TableType, TagIndex, Type, V128,
 };
 use wasmer_types::{WasmError, WasmResult};
 use wasmparser::{
@@ -274,10 +274,11 @@ pub fn parse_tag_section(
     Ok(())
 }
 
-// TODO: add comment (include I64 types)
+// TODO: add comment
 fn parse_serialized_init_expr(
     expr: &wasmparser::ConstExpr<'_>,
     section_name: &str,
+    module: &ModuleInfo,
 ) -> WasmResult<InitExpr> {
     let mut reader = expr.get_operators_reader();
     let mut ops = Vec::new();
@@ -286,12 +287,29 @@ fn parse_serialized_init_expr(
         match op {
             Operator::End => break,
             Operator::I32Const { value } => ops.push(InitExprOp::I32Const(value)),
+            Operator::I64Const { value } => ops.push(InitExprOp::I64Const(value)),
             Operator::GlobalGet { global_index } => {
-                ops.push(InitExprOp::GlobalGet(GlobalIndex::from_u32(global_index)))
+                let global_index = GlobalIndex::from_u32(global_index);
+                let global_type = module
+                    .global_type(global_index)
+                    .expect("Global index must be valid");
+
+                match global_type.ty {
+                    Type::I32 => ops.push(InitExprOp::GlobalGetI32(global_index)),
+                    Type::I64 => ops.push(InitExprOp::GlobalGetI64(global_index)),
+                    other => {
+                        return Err(wasm_unsupported!(
+                            "unsupported init expr in {section_name}: global.get type must be i32 or i64, got {other:?}",
+                        ));
+                    }
+                }
             }
             Operator::I32Add => ops.push(InitExprOp::I32Add),
             Operator::I32Sub => ops.push(InitExprOp::I32Sub),
             Operator::I32Mul => ops.push(InitExprOp::I32Mul),
+            Operator::I64Add => ops.push(InitExprOp::I64Add),
+            Operator::I64Sub => ops.push(InitExprOp::I64Sub),
+            Operator::I64Mul => ops.push(InitExprOp::I64Mul),
             other => {
                 return Err(wasm_unsupported!(
                     "unsupported init expr in {section_name}: {other:?}",
@@ -307,7 +325,10 @@ fn parse_serialized_init_expr(
     Ok(InitExpr::new(ops.into_boxed_slice()))
 }
 
-fn parse_global_initializer(init_expr: &wasmparser::ConstExpr<'_>) -> WasmResult<GlobalInit> {
+fn parse_global_initializer(
+    init_expr: &wasmparser::ConstExpr<'_>,
+    module: &ModuleInfo,
+) -> WasmResult<GlobalInit> {
     let mut init_expr_reader = init_expr.get_operators_reader();
     let first = init_expr_reader
         .read()
@@ -339,7 +360,7 @@ fn parse_global_initializer(init_expr: &wasmparser::ConstExpr<'_>) -> WasmResult
         };
     }
 
-    let expr = parse_serialized_init_expr(init_expr, "global section")?;
+    let expr = parse_serialized_init_expr(init_expr, "global section", module)?;
     Ok(GlobalInit::Expr(expr))
 }
 
@@ -360,7 +381,7 @@ pub fn parse_global_section(
                 },
             init_expr,
         } = entry.map_err(from_binaryreadererror_wasmerror)?;
-        let initializer = parse_global_initializer(&init_expr)?;
+        let initializer = parse_global_initializer(&init_expr, &environ.module)?;
         let global = GlobalType {
             ty: wptype_to_type(content_type).unwrap(),
             mutability: mutable.into(),
@@ -478,7 +499,8 @@ pub fn parse_element_section(
                 offset_expr,
             } => {
                 let table_index = TableIndex::from_u32(table_index.unwrap_or(0));
-                let offset_expr = parse_serialized_init_expr(&offset_expr, "element section")?;
+                let offset_expr =
+                    parse_serialized_init_expr(&offset_expr, "element section", &environ.module)?;
                 environ.declare_table_initializers(table_index, offset_expr, segments)?
             }
             ElementKind::Passive => {
@@ -509,7 +531,8 @@ pub fn parse_data_section<'data>(
                 memory_index,
                 offset_expr,
             } => {
-                let offset_expr = parse_serialized_init_expr(&offset_expr, "data section")?;
+                let offset_expr =
+                    parse_serialized_init_expr(&offset_expr, "data section", &environ.module)?;
                 environ.declare_data_initialization(
                     MemoryIndex::from_u32(memory_index),
                     offset_expr,

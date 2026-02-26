@@ -39,7 +39,8 @@ use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap, packed_option::Res
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
     InitExpr, InitExprOp, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    MemoryError, MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TagIndex, VMOffsets,
+    MemoryError, MemoryIndex, ModuleInfo, Pages, RawValue, SignatureIndex, TableIndex, TagIndex,
+    VMOffsets,
 };
 
 /// A WebAssembly instance.
@@ -1403,45 +1404,87 @@ unsafe fn get_memory_slice<'instance>(
     }
 }
 
-fn get_global_i32(index: GlobalIndex, instance: &Instance) -> i32 {
+fn get_global(index: GlobalIndex, instance: &Instance) -> RawValue {
     unsafe {
         if let Some(local_global_index) = instance.module.local_global_index(index) {
-            instance.global(local_global_index).val.i32
+            instance.global(local_global_index).val
         } else {
-            instance.imported_global(index).definition.as_ref().val.i32
+            instance.imported_global(index).definition.as_ref().val
         }
     }
 }
 
-fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> u32 {
-    let mut stack = Vec::with_capacity(expr.ops().len());
-
-    for op in expr.ops() {
-        match *op {
-            InitExprOp::I32Const(value) => stack.push(value),
-            InitExprOp::GlobalGet(global) => stack.push(get_global_i32(global, instance)),
-            InitExprOp::I32Add => {
-                let rhs = stack.pop().expect("invalid init expr stack for i32.add");
-                let lhs = stack.pop().expect("invalid init expr stack for i32.add");
-                stack.push(lhs.wrapping_add(rhs));
-            }
-            InitExprOp::I32Sub => {
-                let rhs = stack.pop().expect("invalid init expr stack for i32.sub");
-                let lhs = stack.pop().expect("invalid init expr stack for i32.sub");
-                stack.push(lhs.wrapping_sub(rhs));
-            }
-            InitExprOp::I32Mul => {
-                let rhs = stack.pop().expect("invalid init expr stack for i32.mul");
-                let lhs = stack.pop().expect("invalid init expr stack for i32.mul");
-                stack.push(lhs.wrapping_mul(rhs));
+fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> u64 {
+    if expr
+        .ops()
+        .first()
+        .expect("missing expression")
+        .is_32bit_expression()
+    {
+        let mut stack = Vec::with_capacity(expr.ops().len());
+        for op in expr.ops() {
+            match *op {
+                InitExprOp::I32Const(value) => stack.push(value),
+                InitExprOp::GlobalGetI32(global) => {
+                    stack.push(unsafe { get_global(global, instance).i32 })
+                }
+                InitExprOp::I32Add => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.add");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.add");
+                    stack.push(lhs.wrapping_add(rhs));
+                }
+                InitExprOp::I32Sub => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.sub");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.sub");
+                    stack.push(lhs.wrapping_sub(rhs));
+                }
+                InitExprOp::I32Mul => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.mul");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.mul");
+                    stack.push(lhs.wrapping_mul(rhs));
+                }
+                _ => {
+                    panic!("unexpected init expr statement");
+                }
             }
         }
+        stack
+            .into_iter()
+            .exactly_one()
+            .expect("invalid init expr stack shape") as u64
+    } else {
+        let mut stack = Vec::with_capacity(expr.ops().len());
+        for op in expr.ops() {
+            match *op {
+                InitExprOp::I64Const(value) => stack.push(value),
+                InitExprOp::GlobalGetI64(global) => {
+                    stack.push(unsafe { get_global(global, instance).i64 })
+                }
+                InitExprOp::I64Add => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.add");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.add");
+                    stack.push(lhs.wrapping_add(rhs));
+                }
+                InitExprOp::I64Sub => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.sub");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.sub");
+                    stack.push(lhs.wrapping_sub(rhs));
+                }
+                InitExprOp::I64Mul => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.mul");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.mul");
+                    stack.push(lhs.wrapping_mul(rhs));
+                }
+                _ => {
+                    panic!("unexpected init expr statement");
+                }
+            }
+        }
+        stack
+            .into_iter()
+            .exactly_one()
+            .expect("invalid init expr stack shape") as u64
     }
-
-    stack
-        .into_iter()
-        .exactly_one()
-        .expect("invalid init expr stack shape") as u32
 }
 
 /// Initialize the table memory from the provided initializers.
