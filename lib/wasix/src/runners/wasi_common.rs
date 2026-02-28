@@ -203,6 +203,24 @@ fn prepare_filesystem(
     mounted_dirs: &[MountedDirectory],
     container_fs: Option<UnionFileSystem>,
 ) -> Result<WasiFsRoot, Error> {
+    let opaque_prefixes = mounted_dirs
+        .iter()
+        .map(|dir| {
+            let mut guest_path = PathBuf::from(&dir.guest);
+            if guest_path.is_relative() {
+                guest_path = apply_relative_path_mounting_hack(&guest_path);
+            }
+            root_fs
+                .canonicalize_unchecked(&guest_path)
+                .with_context(|| {
+                    format!(
+                        "Unable to canonicalize guest path '{}'",
+                        guest_path.display()
+                    )
+                })
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+
     if !mounted_dirs.is_empty() {
         build_directory_mappings(&mut root_fs, mounted_dirs)?;
     }
@@ -218,7 +236,7 @@ fn prepare_filesystem(
 
     let fs = if let Some(container) = container_fs {
         let container = RelativeOrAbsolutePathHack(container);
-        let fs = OverlayFileSystem::new(root_fs, [container]);
+        let fs = OverlayFileSystem::new_with_opaque_prefixes(root_fs, [container], opaque_prefixes);
         WasiFsRoot::Overlay(Arc::new(fs))
     } else {
         WasiFsRoot::Sandbox(root_fs)
@@ -426,6 +444,43 @@ mod tests {
                     .metadata("lib/python3.6/encodings/__init__.py".as_ref())
                     .unwrap()
                     .is_file()
+            );
+        }
+    }
+
+    #[tokio::test]
+    #[cfg_attr(not(feature = "host-fs"), ignore)]
+    async fn mapped_directory_replaces_container_path() {
+        let temp = TempDir::new().unwrap();
+        let mapping = [MountedDirectory::from(MappedDirectory {
+            guest: "/app/wp-content".to_string(),
+            host: temp.path().to_path_buf(),
+        })];
+
+        let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+        let webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
+        let union_fs = UnionFileSystem::new();
+        union_fs
+            .mount("webc".to_string(), Path::new("/"), Box::new(webc_fs))
+            .unwrap();
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(root_fs, &mapping, Some(union_fs)).unwrap();
+
+        assert!(matches!(fs, WasiFsRoot::Overlay(_)));
+        if let WasiFsRoot::Overlay(overlay_fs) = &fs {
+            use virtual_fs::FileSystem;
+            assert!(
+                overlay_fs
+                    .metadata("/app/wp-content".as_ref())
+                    .unwrap()
+                    .is_dir()
+            );
+            assert_eq!(
+                overlay_fs
+                    .metadata("/app/wp-content/themes".as_ref())
+                    .unwrap_err(),
+                virtual_fs::FsError::EntryNotFound
             );
         }
     }
