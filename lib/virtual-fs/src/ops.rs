@@ -99,7 +99,7 @@ where
     if let Some(filename) = path.as_ref().file_name() {
         let mut path = path.as_ref().to_owned();
         path.set_file_name(format!("{}{}", WHITEOUT_PREFIX, filename.to_string_lossy()));
-        fs.remove_file(&path).ok();
+        fs.unlink(&path).ok();
     }
 }
 

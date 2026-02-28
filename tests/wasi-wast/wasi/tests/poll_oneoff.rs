@@ -130,11 +130,7 @@ fn poll(fds: &[u32], read: &[bool], write: &[bool]) -> Result<Vec<__wasi_event_t
         )
     };
 
-    if result == 0 {
-        Ok(out_)
-    } else {
-        Err(result)
-    }
+    if result == 0 { Ok(out_) } else { Err(result) }
 }
 
 fn main() {
@@ -206,8 +202,14 @@ fn main() {
         }
         #[cfg(not(target_os = "wasi"))]
         {
-            println!("{}", "__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }");
-            println!("{}", "[__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }, __wasi_event_t { userdata: 1193046, error: 0, type_: 2, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 1234, flags: 0 } } }]");
+            println!(
+                "{}",
+                "__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }"
+            );
+            println!(
+                "{}",
+                "[__wasi_event_t { userdata: 1193046, error: 0, type_: 1, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 2259, flags: 0 } } }, __wasi_event_t { userdata: 1193046, error: 0, type_: 2, u: __wasi_event_u { __wasi_event_fd_readwrite_t { nbytes: 1234, flags: 0 } } }]"
+            );
             println!("Stdin: OK");
             println!("Stdout: OK");
             println!("Stderr: OK");

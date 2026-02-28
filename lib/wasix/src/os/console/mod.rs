@@ -262,7 +262,7 @@ impl Console {
         // otherwise they will be overriden by their attached file systems
         for (path, data) in self.ro_files.clone() {
             let path = PathBuf::from(path);
-            env.fs_root().remove_file(&path).ok();
+            env.fs_root().unlink(&path).ok();
             let mut file = env
                 .fs_root()
                 .new_open_options()

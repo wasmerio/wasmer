@@ -99,13 +99,17 @@ impl FileSystem for WebcVolumeFileSystem {
         }
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+    fn rmdir(&self, path: &Path) -> Result<(), FsError> {
         // The original directory should exist
         let meta = self.metadata(path)?;
 
         // and it should be a directory
         if !meta.is_dir() {
-            return Err(FsError::BaseNotDirectory);
+            // TODO: Handle symlinks once we have them in WebC.
+            // if meta.is_symlink() {
+            //     return Err(FsError::PermissionDenied);
+            // }
+            return Err(FsError::NotADirectory);
         }
 
         // but we are a readonly filesystem, so you can't modify anything
@@ -142,10 +146,14 @@ impl FileSystem for WebcVolumeFileSystem {
         self.metadata(path)
     }
 
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+    fn unlink(&self, path: &Path) -> Result<(), FsError> {
         let meta = self.metadata(path)?;
 
         if !meta.is_file() {
+            // TODO: Handle symlinks once we have them in WebC.
+            // if meta.is_symlink() {
+            //     return Err(FsError::PermissionDenied);
+            // }
             return Err(FsError::NotAFile);
         }
 
@@ -602,29 +610,22 @@ mod tests {
     }
 
     #[test]
-    fn remove_dir_is_not_allowed() {
+    fn unlink_dir_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
 
         let fs = WebcVolumeFileSystem::new(volume);
 
+        assert_eq!(fs.unlink("/lib".as_ref()).unwrap_err(), FsError::NotAFile,);
         assert_eq!(
-            fs.remove_dir("/lib".as_ref()).unwrap_err(),
-            FsError::PermissionDenied,
-        );
-        assert_eq!(
-            fs.remove_dir("/this/does/not/exist".as_ref()).unwrap_err(),
+            fs.unlink("/this/does/not/exist".as_ref()).unwrap_err(),
             FsError::EntryNotFound,
-        );
-        assert_eq!(
-            fs.remove_dir("/lib/python.wasm".as_ref()).unwrap_err(),
-            FsError::BaseNotDirectory,
         );
     }
 
     #[test]
-    fn remove_file_is_not_allowed() {
+    fn unlink_file_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
@@ -632,15 +633,11 @@ mod tests {
         let fs = WebcVolumeFileSystem::new(volume);
 
         assert_eq!(
-            fs.remove_file("/lib".as_ref()).unwrap_err(),
-            FsError::NotAFile,
-        );
-        assert_eq!(
-            fs.remove_file("/this/does/not/exist".as_ref()).unwrap_err(),
+            fs.unlink("/this/does/not/exist".as_ref()).unwrap_err(),
             FsError::EntryNotFound,
         );
         assert_eq!(
-            fs.remove_file("/lib/python.wasm".as_ref()).unwrap_err(),
+            fs.unlink("/lib/python.wasm".as_ref()).unwrap_err(),
             FsError::PermissionDenied,
         );
     }

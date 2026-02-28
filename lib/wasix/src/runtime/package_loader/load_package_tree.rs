@@ -609,9 +609,9 @@ where
         self.inner.create_dir(&path)
     }
 
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+    fn rmdir(&self, path: &Path) -> virtual_fs::Result<()> {
         let path = self.path(path)?;
-        self.inner.remove_dir(&path)
+        self.inner.rmdir(&path)
     }
 
     fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
@@ -634,9 +634,9 @@ where
         self.inner.symlink_metadata(&path)
     }
 
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+    fn unlink(&self, path: &Path) -> virtual_fs::Result<()> {
         let path = self.path(path)?;
-        self.inner.remove_file(&path)
+        self.inner.unlink(&path)
     }
 
     fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {

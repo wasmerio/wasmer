@@ -89,14 +89,27 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
-    fn remove_dir(&self, path: &Path) -> Result<()>;
+
+    /// Remove an empty directory at the specified path.
+    /// This matches POSIX rmdir(2) semantics:
+    /// - Only succeeds if directory is empty
+    /// - Fails with NotADirectory if it is not a directory
+    /// - Fails with DirectoryNotEmpty if directory contains entries
+    fn rmdir(&self, path: &Path) -> Result<()>;
+
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
-    fn remove_file(&self, path: &Path) -> Result<()>;
+
+    /// Remove a file at the specified path.
+    /// This matches POSIX unlink(2) semantics:
+    /// - Removes the directory entry for the file
+    /// - Fails with NotAFile if path is a directory
+    /// - Unlinked files will only be deleted once all references to them (e.g. open file handles) are removed
+    fn unlink(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions<'_>;
 
@@ -133,8 +146,8 @@ where
         (**self).create_dir(path)
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
-        (**self).remove_dir(path)
+    fn rmdir(&self, path: &Path) -> Result<()> {
+        (**self).rmdir(path)
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
@@ -149,8 +162,8 @@ where
         (**self).symlink_metadata(path)
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        (**self).remove_file(path)
+    fn unlink(&self, path: &Path) -> Result<()> {
+        (**self).unlink(path)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -471,6 +484,9 @@ pub enum FsError {
     /// The fd given as a base was not a directory so the operation was not possible
     #[error("fd not a directory")]
     BaseNotDirectory,
+    /// Expected a directory but found not a directory
+    #[error("not a directory")]
+    NotADirectory,
     /// Expected a file but found not a file
     #[error("fd not a file")]
     NotAFile,
@@ -571,8 +587,9 @@ impl From<io::Error> for FsError {
             io::ErrorKind::UnexpectedEof => FsError::UnexpectedEof,
             io::ErrorKind::WouldBlock => FsError::WouldBlock,
             io::ErrorKind::WriteZero => FsError::WriteZero,
-            // NOTE: Add this once the "io_error_more" Rust feature is stabilized
-            // io::ErrorKind::StorageFull => FsError::StorageFull,
+            io::ErrorKind::DirectoryNotEmpty => FsError::DirectoryNotEmpty,
+            io::ErrorKind::StorageFull => FsError::StorageFull,
+            io::ErrorKind::NotADirectory => FsError::NotADirectory,
             io::ErrorKind::Other => FsError::IOError,
             // if the following triggers, a new error type was added to this non-exhaustive enum
             _ => FsError::UnknownError,
@@ -600,6 +617,7 @@ impl From<FsError> for io::Error {
             FsError::UnexpectedEof => io::ErrorKind::UnexpectedEof,
             FsError::WouldBlock => io::ErrorKind::WouldBlock,
             FsError::WriteZero => io::ErrorKind::WriteZero,
+            FsError::NotADirectory => io::ErrorKind::NotADirectory,
             FsError::IOError => io::ErrorKind::Other,
             FsError::BaseNotDirectory => io::ErrorKind::Other,
             FsError::NotAFile => io::ErrorKind::Other,

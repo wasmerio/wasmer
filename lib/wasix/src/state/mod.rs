@@ -180,10 +180,10 @@ impl WasiState {
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+    pub(crate) fn fs_rmdir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
         self.fs
             .root_fs
-            .remove_dir(path.as_ref())
+            .rmdir(path.as_ref())
             .map_err(fs_error_into_wasi_err)
     }
 
@@ -199,10 +199,10 @@ impl WasiState {
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+    pub(crate) fn fs_unlink<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
         self.fs
             .root_fs
-            .remove_file(path.as_ref())
+            .unlink(path.as_ref())
             .map_err(fs_error_into_wasi_err)
     }
 

@@ -17,7 +17,10 @@ use crate::Metadata;
 use std::{
     ffi::{OsStr, OsString},
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
 };
 
 use self::offloaded_file::OffloadedFile;
@@ -31,6 +34,8 @@ struct FileNode {
     name: OsString,
     file: File,
     metadata: Metadata,
+    ref_count: Arc<AtomicUsize>,
+    is_unlinked: Arc<AtomicBool>,
 }
 
 #[derive(Debug)]
@@ -39,6 +44,8 @@ struct ReadOnlyFileNode {
     name: OsString,
     file: ReadOnlyFile,
     metadata: Metadata,
+    ref_count: Arc<AtomicUsize>,
+    is_unlinked: Arc<AtomicBool>,
 }
 
 #[derive(Debug)]
@@ -47,6 +54,8 @@ struct OffloadedFileNode {
     name: OsString,
     file: OffloadedFile,
     metadata: Metadata,
+    ref_count: Arc<AtomicUsize>,
+    is_unlinked: Arc<AtomicBool>,
 }
 
 #[derive(Debug)]
@@ -56,6 +65,8 @@ struct ArcFileNode {
     fs: Arc<dyn crate::FileSystem + Send + Sync>,
     path: PathBuf,
     metadata: Metadata,
+    ref_count: Arc<AtomicUsize>,
+    is_unlinked: Arc<AtomicBool>,
 }
 
 // FIXME: this is broken!!! A `VirtualFile` stores its own offset,
@@ -66,6 +77,8 @@ struct CustomFileNode {
     name: OsString,
     file: Mutex<Box<dyn crate::VirtualFile + Send + Sync>>,
     metadata: Metadata,
+    ref_count: Arc<AtomicUsize>,
+    is_unlinked: Arc<AtomicBool>,
 }
 
 #[derive(Debug)]

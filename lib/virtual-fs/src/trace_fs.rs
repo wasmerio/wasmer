@@ -55,8 +55,8 @@ where
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn remove_dir(&self, path: &std::path::Path) -> crate::Result<()> {
-        self.0.remove_dir(path)
+    fn rmdir(&self, path: &std::path::Path) -> crate::Result<()> {
+        self.0.rmdir(path)
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
@@ -79,8 +79,8 @@ where
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn remove_file(&self, path: &std::path::Path) -> crate::Result<()> {
-        self.0.remove_file(path)
+    fn unlink(&self, path: &std::path::Path) -> crate::Result<()> {
+        self.0.unlink(path)
     }
 
     #[tracing::instrument(level = "trace", skip(self))]
