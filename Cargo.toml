@@ -140,7 +140,7 @@ cranelift-frontend = { version = "=0.129.0", default-features = false }
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
 crossbeam-queue = "0.3.8"
-cynic = { version = "3.7.2", default-features = false }
+cynic = { version = "3.13.0", default-features = false }
 dashmap = "6.1.0"
 derive_builder = "0.20.2"
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
@@ -232,7 +232,7 @@ rayon = "1.7.0"
 regex = "1.11"
 region = "3.0"
 replace_with = "0.1.7"
-reqwest = { version = "0.12.0", default-features = false }
+reqwest = { version = "0.13.0", default-features = false }
 rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
 rustc-demangle = "0.1"
 rustc_version = "0.4"
@@ -354,7 +354,7 @@ tracing-subscriber = { workspace = true, default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }
-reqwest = { workspace = true, features = ["blocking", "rustls-tls"] }
+reqwest = { workspace = true, features = ["blocking", "rustls"] }
 itertools.workspace = true
 
 [features]
