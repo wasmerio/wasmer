@@ -91,12 +91,57 @@ impl StoreObjects {
     }
 
     /// Set a global, at index idx. Will panic if idx is out of range
-    /// Safety: the caller should check taht the raw value is compatible
+    /// Safety: the caller should check that the raw value is compatible
     /// with destination VMGlobal type
     #[inline]
     pub fn set_global_unchecked(&self, idx: usize, val: u128) {
         match_rt!(on self => s {
             s.set_global_unchecked(idx, val)
         })
+    }
+
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+    /// Builds an [`Interrupter`] for this store
+    pub fn interrupter(&self) -> Interrupter {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => Interrupter(InterrupterInner::Sys(
+                crate::backend::sys::store::Interrupter::new(s.id()),
+            )),
+            _ => panic!("Interrupters can only be built for stores from the sys backend"),
+        }
+    }
+}
+
+/// Allows embedders to interrupt a running WASM instance.
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+#[derive(Clone)]
+pub struct Interrupter(InterrupterInner);
+
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+impl Interrupter {
+    /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
+    pub fn interrupt(&self) {
+        self.0.interrupt()
+    }
+}
+
+/// Allows embedders to interrupt a running WASM instance.
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+#[derive(Clone)]
+pub enum InterrupterInner {
+    #[cfg(feature = "sys")]
+    /// Interrupter for the `sys` runtime.
+    Sys(crate::backend::sys::store::Interrupter),
+}
+
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+impl InterrupterInner {
+    /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
+    pub fn interrupt(&self) {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(i) => i.interrupt(),
+        }
     }
 }

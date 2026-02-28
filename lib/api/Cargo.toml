@@ -66,6 +66,7 @@ wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=7.1.0-
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=7.1.0-alpha.1", optional = true }
 corosensei = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+dashmap = { workspace = true, optional = true }
 
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
@@ -83,6 +84,7 @@ anyhow.workspace = true
 macro-wasmer-universal-test = { version = "7.1.0-alpha.1", path = "./macro-wasmer-universal-test" }
 futures = "0.3"
 tokio = { workspace = true, features = ["full"] }
+crossbeam-channel.workspace = true
 
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -136,6 +138,12 @@ headless = []
 
 # Experimental concurrent execution support
 experimental-async = ["dep:futures", "dep:corosensei"]
+
+# Experimental host-triggered interruption support
+experimental-host-interrupt = [
+	"dep:dashmap",
+	"wasmer-vm/experimental-host-interrupt",
+]
 
 # - Compilers.
 compiler = [

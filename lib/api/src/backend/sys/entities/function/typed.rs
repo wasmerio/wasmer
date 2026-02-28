@@ -1,4 +1,9 @@
-use crate::backend::sys::engine::NativeEngineExt;
+#[cfg(feature = "experimental-host-interrupt")]
+use crate::backend::sys::vm::interrupt_registry;
+use crate::backend::sys::{
+    engine::NativeEngineExt,
+    vm::{Trap, TrapCode},
+};
 use crate::{
     FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, StoreContext, TypedFunction,
     Value, WasmTypeList,
@@ -53,6 +58,15 @@ macro_rules! impl_native_traits {
                 };
 
                 let store_id = store.objects_mut().id();
+
+                #[cfg(feature = "experimental-host-interrupt")]
+                let interrupt_guard = match interrupt_registry::install(store_id) {
+                    Ok(x) => x,
+                    Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
+                        return Err(Trap::lib(TrapCode::HostInterrupt).into());
+                    }
+                };
+
                 // Install the store into the store context
                 let store_install_guard = unsafe {
                     StoreContext::ensure_installed(store.as_store_mut().inner as *mut _)
@@ -88,6 +102,8 @@ macro_rules! impl_native_traits {
                 }
 
                 drop(store_install_guard);
+                #[cfg(feature = "experimental-host-interrupt")]
+                drop(interrupt_guard);
 
                 r?;
 
@@ -179,6 +195,15 @@ macro_rules! impl_native_traits {
                 };
 
                 let store_id = store.objects_mut().id();
+
+                #[cfg(feature = "experimental-host-interrupt")]
+                let interrupt_guard = match interrupt_registry::install(store_id) {
+                    Ok(x) => x,
+                    Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
+                        return Err(Trap::lib(TrapCode::HostInterrupt).into());
+                    }
+                };
+
                 // Install the store into the store context
                 let store_install_guard = unsafe {
                     StoreContext::ensure_installed(store.as_store_mut().inner as *mut _)
@@ -215,6 +240,8 @@ macro_rules! impl_native_traits {
                 }
 
                 drop(store_install_guard);
+                #[cfg(feature = "experimental-host-interrupt")]
+                drop(interrupt_guard);
 
                 r?;
 
