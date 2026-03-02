@@ -71,6 +71,7 @@ macro_rules! log {
 
 pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result<EHAction, ()> {
     if lsda.is_null() {
+        log!("(pers) LSDA is null for IP {:?}", context.ip);
         return Ok(EHAction::None);
     }
 
