@@ -200,7 +200,7 @@ fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
 /// The path to the compiled `main` binary
 pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::Error> {
     let input_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/wasix_wasm_tests")
+        .join("tests/wasm_tests")
         .join(PathBuf::from(
             file.split('/')
                 .next_back()
