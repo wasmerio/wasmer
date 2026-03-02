@@ -1,7 +1,4 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
-mod wasixcc_test_utils;
-
-use wasixcc_test_utils::{run_build_script, run_wasm};
+use super::{run_build_script, run_wasm};
 
 // macOS is currently disabled, because cranelift does not
 // support exception handling on that platform yet.

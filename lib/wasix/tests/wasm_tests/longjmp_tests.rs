@@ -1,11 +1,8 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Longjmp tests
 //!
 //! These tests verify setjmp/longjmp functionality within and across module boundaries.
 
-mod wasixcc_test_utils;
-
-use wasixcc_test_utils::{run_build_script, run_wasm_with_result};
+use super::{run_build_script, run_wasm_with_result};
 
 #[test]
 fn test_simple_longjmp() {

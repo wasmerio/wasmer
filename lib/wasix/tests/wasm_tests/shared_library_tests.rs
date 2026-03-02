@@ -6,9 +6,7 @@
 //! - errno-in-shared-lib: errno (thread-local) works correctly in shared libraries
 //! - simple-exceptions-in-shared-lib: C++ exceptions in shared libraries
 
-mod wasixcc_test_utils;
-
-use wasixcc_test_utils::{run_build_script, run_wasm};
+use super::{run_build_script, run_wasm};
 
 #[test]
 fn test_simple_shared_lib() {

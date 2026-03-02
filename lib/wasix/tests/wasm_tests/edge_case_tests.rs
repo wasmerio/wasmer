@@ -1,12 +1,9 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Edge case tests
 //!
 //! These tests verify various edge cases and corner cases in WASM/WASIX functionality,
 //! including weak symbols, extern variables, and indirect function calls.
 
-mod wasixcc_test_utils;
-
-use wasixcc_test_utils::{run_build_script, run_wasm_with_result};
+use super::{run_build_script, run_wasm_with_result};
 
 #[test]
 fn test_weak_symbol_defined() {

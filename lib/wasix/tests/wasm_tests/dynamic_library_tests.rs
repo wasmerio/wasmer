@@ -1,11 +1,8 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Dynamic library tests
 //!
 //! These tests verify dynamic library loading and unloading functionality using dlopen/dlsym/dlclose.
 
-mod wasixcc_test_utils;
-
-use wasixcc_test_utils::{run_build_script, run_wasm_with_result};
+use super::{run_build_script, run_wasm_with_result};
 
 #[test]
 fn test_simple_dynamic_lib() {

@@ -1,12 +1,9 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Basic tests from wasix-tests directory
 //!
 //! These tests verify fundamental functionality:
 //! - helloworld: Basic printf and return 0
 
-mod wasixcc_test_utils;
-
-use wasixcc_test_utils::{run_build_script, run_wasm};
+use super::{run_build_script, run_wasm};
 
 #[test]
 fn test_helloworld() {

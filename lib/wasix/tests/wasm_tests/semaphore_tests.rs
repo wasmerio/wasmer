@@ -1,4 +1,3 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
 //! Semaphore tests
 //!
 //! These tests verify POSIX semaphore functionality:
@@ -7,9 +6,7 @@
 //! - Semaphore operations (sem_wait, sem_post)
 //! - Edge cases and error handling
 
-mod wasixcc_test_utils;
-
-use wasixcc_test_utils::{run_build_script, run_wasm, run_wasm_with_result};
+use super::{run_build_script, run_wasm, run_wasm_with_result};
 
 #[test]
 fn test_semaphore_named() {

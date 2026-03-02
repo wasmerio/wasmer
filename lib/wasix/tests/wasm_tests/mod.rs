@@ -1,4 +1,18 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
+mod basic_tests;
+mod context_switching;
+mod dynamic_library_tests;
+mod edge_case_tests;
+mod exception_tests;
+mod exit_tests;
+mod ffi_tests;
+mod libc_tests;
+mod lifecycle_tests;
+mod longjmp_tests;
+mod reflection_tests;
+mod semaphore_tests;
+mod shared_library_tests;
+mod threadlocal_tests;
+
 use std::borrow::Cow;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -186,7 +200,7 @@ fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
 /// The path to the compiled `main` binary
 pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::Error> {
     let input_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
+        .join("tests/wasix_wasm_tests")
         .join(PathBuf::from(
             file.split('/')
                 .next_back()
