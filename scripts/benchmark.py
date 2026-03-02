@@ -14,7 +14,7 @@ RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
 CACHE_DIR = Path("/home/marxin/.wasmer/cache")
-ITERATIONS = 3
+ITERATIONS = 10
 WASM_BUILD_CONFIGS = {
     "default": {},
     "simd128+wide-arithmetic": {
