@@ -7391,6 +7391,7 @@ dependencies = [
  "fnv",
  "gimli 0.33.0",
  "indexmap",
+ "itertools 0.14.0",
  "libc",
  "libunwind",
  "loupe",

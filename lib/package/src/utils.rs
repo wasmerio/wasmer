@@ -206,6 +206,9 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
             "wide-arithmetic" => {
                 features.wide_arithmetic(true);
             }
+            "extended-const" => {
+                features.extended_const(true);
+            }
             // Ignore unrecognized features
             _ => {}
         }

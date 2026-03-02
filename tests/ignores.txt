@@ -1,13 +1,26 @@
 # Compilers
+# SIMD
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
-singlepass spec::relaxed_simd # Singlepass doesn't support relaxed SIMD yet
+singlepass relaxed # Singlepass doesn't support relaxed SIMD yet
 singlepass wasmer::simd_generated_ext_ops
 singlepass wasmer::simd
-singlepass spec::exceptions # Singlepass doesn't support EH yet (no one asked for this feature)
-singlepass wasmer::exception_handling
-windows spec::exceptions # No EH support on Windows yet
-macos+cranelift spec::exceptions
+
+# Exception handling
+singlepass      spec::throw
+singlepass      spec::try_table
+singlepass      wasmer::exception_handling
+windows         spec::throw
+windows         spec::try_table
+windows         wasmer::exception_handling
+macos+cranelift spec::throw
+macos+cranelift spec::try_table
+macos+cranelift wasmer::exception_handling
+
+# Misc
 singlepass wide_arithmetic
+singlepass spec::linking
+cranelift spec::linking
+llvm spec::linking
 
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
@@ -71,7 +84,7 @@ cranelift+riscv64 spec::r#if::cranelift
 
 # no SIMD on riscv, Cranelift will not handle them
 cranelift+riscv64 spec::simd
-cranelift+riscv64 spec::relaxed_simd
+cranelift+riscv64 relaxed
 # 6078
 cranelift+riscv64 wasmer::simd_generated_ext_ops
 cranelift+riscv64 wasmer::simd

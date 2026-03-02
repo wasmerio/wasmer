@@ -627,7 +627,7 @@ fn compiler_debug_dir_test(mut config: crate::Config) {
     compiler_config.callbacks(Some(LLVMCallbacks::new(temp.path().to_path_buf()).unwrap()));
     let mut store = Store::new(EngineBuilder::new(compiler_config));
 
-    let mut wat = include_str!("../wast/spec/fac.wast").to_string();
+    let mut wat = include_str!("../wast/wasmer/fac.wast").to_string();
     wat.truncate(
         wat.find("(assert_return")
             .expect("assert expected in the test"),
