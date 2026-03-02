@@ -34,33 +34,34 @@ def main():
     perfmap = args.perfmap
     if perfmap is None:
         perfmap = find_youngest_perfmap()
-        if perfmap is None:
-            print(
-                "No perf map provided and no /tmp/perf-*.map files found.",
-                file=sys.stderr,
-            )
-            return 2
-        else:
-            print(f"Using {perfmap} map file")
 
-        with open(perfmap, "r", encoding="utf-8") as f:
-            for raw_line in f:
-                parts = raw_line.strip().split(maxsplit=2)
-                if len(parts) < 3:
-                    continue
+    if perfmap is None:
+        print(
+            "No perf map provided and no /tmp/perf-*.map files found.",
+            file=sys.stderr,
+        )
+        return 2
+    else:
+        print(f"Using {perfmap} map file")
 
-                start_s, size_s, symbol = parts
-                try:
-                    start = int(start_s, 16)
-                    size = int(size_s, 16)
-                except ValueError:
-                    continue
+    with open(perfmap, "r", encoding="utf-8") as f:
+        for raw_line in f:
+            parts = raw_line.strip().split(maxsplit=2)
+            if len(parts) < 3:
+                continue
 
-                end = start + size
-                if start <= addr < end:
-                    offset = addr - start
-                    print(f"{symbol}+0x{offset:x}")
-                    return 0
+            start_s, size_s, symbol = parts
+            try:
+                start = int(start_s, 16)
+                size = int(size_s, 16)
+            except ValueError:
+                continue
+
+            end = start + size
+            if start <= addr < end:
+                offset = addr - start
+                print(f"{symbol}+0x{offset:x}")
+                return 0
 
     print("Address not found")
     return 1
