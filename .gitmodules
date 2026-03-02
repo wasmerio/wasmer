@@ -1,0 +1,3 @@
+[submodule "tests/wast/spec"]
+	path = tests/wast/spec
+	url = https://github.com/WebAssembly/testsuite.git

@@ -54,6 +54,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -104,6 +106,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           log-level: error
@@ -113,6 +117,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -150,6 +156,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -199,6 +207,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -257,6 +267,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -324,6 +336,8 @@ jobs:
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
 
       - name: Setup MSVC (Windows)
         uses: ilammy/msvc-dev-cmd@v1
@@ -389,6 +403,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "nightly-2025-09-27"
@@ -441,6 +457,8 @@ jobs:
           ]
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       #- uses: ./.github/actions/load_toolchain
       #  id: load_toolchain
       #- uses: dtolnay/rust-toolchain@stable
@@ -586,7 +604,14 @@ jobs:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
+      - name: Set up git on musl
+        if: matrix.metadata.build == 'linux-musl'
+        run: |
+          apk update
+          apk add git
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Set up Depot CLI
         uses: depot/setup-action@v1
       - name: Set up libstdc++ on Linux
@@ -877,7 +902,14 @@ jobs:
         - /usr/local:/host/usr/local
 
     steps:
+      - name: Set up git on musl
+        if: matrix.metadata.build == 'linux-musl'
+        run: |
+          apk update
+          apk add git
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')
         run: df -h
