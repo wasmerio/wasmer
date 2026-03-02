@@ -513,3 +513,62 @@ fn instance_local_memory_lifetime(config: crate::Config) -> Result<()> {
 
     Ok(())
 }
+
+/// Test that floating-point return values from imported host functions are
+/// correctly propagated back to WASM. This covers f32 and f64 return values
+/// which use SIMD registers (XMM0 on x86_64, V0 on ARM64, FA0 on RISC-V)
+/// per the platform's C ABI, whereas singlepass internally expects all return
+/// values in GPR registers.
+#[compiler_test(imports)]
+fn float_return_values_from_imports(config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+
+    // Test f32 return from import
+    let wat_f32 = r#"(module
+        (import "host" "get" (func $get (result f32)))
+        (func (export "test") (result f32) call $get)
+    )"#;
+    let module = Module::new(&store, wat_f32)?;
+    let get_f32 = Function::new_typed(&mut store, || -> f32 { -0.125 });
+    let imports = imports! { "host" => { "get" => get_f32 } };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let test: TypedFunction<(), f32> = instance.exports.get_typed_function(&store, "test")?;
+    assert_eq!(test.call(&mut store)?, -0.125f32);
+
+    // Test f64 return from import
+    let wat_f64 = r#"(module
+        (import "host" "get" (func $get (result f64)))
+        (func (export "test") (result f64) call $get)
+    )"#;
+    let module = Module::new(&store, wat_f64)?;
+    let get_f64 = Function::new_typed(&mut store, || -> f64 { 128.25 });
+    let imports = imports! { "host" => { "get" => get_f64 } };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let test: TypedFunction<(), f64> = instance.exports.get_typed_function(&store, "test")?;
+    assert_eq!(test.call(&mut store)?, 128.25f64);
+
+    // Verify i32 and i64 still work (regression guard)
+    let wat_i32 = r#"(module
+        (import "host" "get" (func $get (result i32)))
+        (func (export "test") (result i32) call $get)
+    )"#;
+    let module = Module::new(&store, wat_i32)?;
+    let get_i32 = Function::new_typed(&mut store, || -> i32 { 42 });
+    let imports = imports! { "host" => { "get" => get_i32 } };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let test: TypedFunction<(), i32> = instance.exports.get_typed_function(&store, "test")?;
+    assert_eq!(test.call(&mut store)?, 42);
+
+    let wat_i64 = r#"(module
+        (import "host" "get" (func $get (result i64)))
+        (func (export "test") (result i64) call $get)
+    )"#;
+    let module = Module::new(&store, wat_i64)?;
+    let get_i64 = Function::new_typed(&mut store, || -> i64 { 123456789 });
+    let imports = imports! { "host" => { "get" => get_i64 } };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let test: TypedFunction<(), i64> = instance.exports.get_typed_function(&store, "test")?;
+    assert_eq!(test.call(&mut store)?, 123456789i64);
+
+    Ok(())
+}

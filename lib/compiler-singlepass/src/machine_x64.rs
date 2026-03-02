@@ -2397,6 +2397,15 @@ impl Machine for MachineX86_64 {
         )
     }
 
+    fn get_simd_return_register(&self, float_idx: usize) -> Option<Location> {
+        // System V AMD64 ABI: floating-point return values are in XMM0-XMM1.
+        // Windows x64: floating-point return value is in XMM0 only.
+        const SYSV_FLOAT_RETURN_REGISTERS: [XMM; 2] = [XMM::XMM0, XMM::XMM1];
+        SYSV_FLOAT_RETURN_REGISTERS
+            .get(float_idx)
+            .map(|&reg| Location::SIMD(reg))
+    }
+
     // move a location to another
     fn move_location(
         &mut self,

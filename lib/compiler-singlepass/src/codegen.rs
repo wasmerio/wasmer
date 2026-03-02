@@ -663,7 +663,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             _ => Size::S64,
         };
         let param_sizes = params_type.map(get_size).collect_vec();
-        let return_value_sizes = return_types.map(get_size).collect_vec();
+        let return_wptypes = return_types.collect_vec();
+        let return_value_sizes = return_wptypes.iter().map(|t| get_size(*t)).collect_vec();
 
         /* We're going to reuse the memory param locations for the return values. Any extra needed slots will be allocated on stack. */
         let used_stack_params = stack_params
@@ -711,6 +712,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 &mut stack_offset,
                 self.calling_convention,
             ));
+        }
+        // The C ABI returns floating-point values in SIMD registers (XMM0 on x86_64,
+        // V0 on ARM64, FA0 on RISC-V), not in GPRs. Fix up the return value locations
+        // so that we read float results from the correct registers.
+        let mut float_idx = 0usize;
+        for (i, wp_type) in return_wptypes.iter().enumerate() {
+            if matches!(wp_type, WpType::F32 | WpType::F64) {
+                if let Some(simd_loc) = self.machine.get_simd_return_register(float_idx) {
+                    return_args[i] = simd_loc;
+                }
+                float_idx += 1;
+            }
         }
 
         // Allocate space for arguments relative to SP.

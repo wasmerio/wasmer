@@ -1830,6 +1830,17 @@ impl Machine for MachineARM64 {
         )
     }
 
+    fn get_simd_return_register(&self, float_idx: usize) -> Option<AbstractLocation<Self::GPR, Self::SIMD>> {
+        // AAPCS64: floating-point return values are in V0-V7.
+        const AAPCS64_FLOAT_RETURN_REGISTERS: [NEON; 8] = [
+            NEON::V0, NEON::V1, NEON::V2, NEON::V3,
+            NEON::V4, NEON::V5, NEON::V6, NEON::V7,
+        ];
+        AAPCS64_FLOAT_RETURN_REGISTERS
+            .get(float_idx)
+            .map(|&reg| AbstractLocation::SIMD(reg))
+    }
+
     // move a location to another
     fn move_location(
         &mut self,
