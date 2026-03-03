@@ -34,7 +34,7 @@ shared-buffer.workspace = true
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
 reqwest = { workspace = true, default-features = false, features = [
-  "rustls-tls",
+  "rustls",
   "json",
   "multipart",
   "gzip",
