@@ -1,0 +1,1 @@
+void get_data_proxy();
