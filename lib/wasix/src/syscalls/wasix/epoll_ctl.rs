@@ -1,22 +1,10 @@
-use serde::{Deserialize, Serialize};
-use tokio::sync::{mpsc::UnboundedSender, watch};
-use virtual_mio::{InterestHandler, InterestType};
-use virtual_net::net_error_into_io_err;
-use wasmer_wasix_types::wasi::{
-    EpollCtl, EpollEvent, EpollEventCtl, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,
-};
-
-use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
-
-use futures::Future;
+use wasmer_wasix_types::wasi::{EpollCtl, EpollEvent, EpollEventCtl, SubscriptionClock, Userdata};
 
 use super::*;
 use crate::{
     WasiInodes,
-    fs::{
-        EpollFd, EpollInterest, EpollJoinGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin,
-        InodeValFilePollGuardMode, POLL_GUARD_MAX_RET,
-    },
+    fs::{InodeValFilePollGuard, InodeValFilePollGuardJoin},
+    os::epoll::register_epoll_handler,
     state::PollEventSet,
     syscalls::*,
 };
@@ -83,181 +71,69 @@ pub(crate) fn epoll_ctl_internal(
     let env = ctx.data();
     let fd_entry = wasi_try_ok_ok!(env.state.fs.get_fd(epfd));
 
-    let tasks = env.tasks().clone();
     let mut inode_guard = fd_entry.inode.read();
     match inode_guard.deref() {
-        Kind::Epoll {
-            subscriptions, tx, ..
-        } => {
-            if let EpollCtl::Del | EpollCtl::Mod = op {
-                let mut guard = subscriptions.lock().unwrap();
-                guard.remove(&fd);
+        Kind::Epoll { state } => {
+            let res = match op {
+                EpollCtl::Add => {
+                    let Some(event) = event_ctl else {
+                        return Ok(Err(Errno::Inval));
+                    };
+                    let (epoll_fd, sub_state) = match state.prepare_add(fd, event) {
+                        Ok(v) => v,
+                        Err(err) => return Ok(Err(err)),
+                    };
 
-                tracing::trace!(fd, "unregistering waker");
-            }
-            if let EpollCtl::Add | EpollCtl::Mod = op
-                && let Some(event) = event_ctl
-            {
-                let epoll_fd = EpollFd {
-                    events: event.events,
-                    ptr: event.ptr,
-                    fd: event.fd,
-                    data1: event.data1,
-                    data2: event.data2,
-                };
-
-                // Output debug
-                tracing::trace!(
-                    peb = ?event.events,
-                    ptr = ?event.ptr,
-                    data1 = event.data1,
-                    data2 = event.data2,
-                    fd = event.fd,
-                    "registering waker"
-                );
-
-                {
-                    // We have to register the subscription before we register the waker
-                    // as otherwise there is a race condition
-                    let mut guard = subscriptions.lock().unwrap();
-                    guard.insert(event.fd, (epoll_fd.clone(), Vec::new()));
+                    match register_epoll_handler(
+                        &env.state,
+                        &epoll_fd,
+                        state.clone(),
+                        sub_state.clone(),
+                    ) {
+                        Ok(fd_guard) => {
+                            if let Some(fd_guard) = fd_guard {
+                                sub_state.add_join(fd_guard);
+                            }
+                            Ok(())
+                        }
+                        Err(err) => {
+                            state.rollback_registration(fd, None);
+                            Err(err)
+                        }
+                    }
                 }
+                EpollCtl::Mod => {
+                    let Some(event) = event_ctl else {
+                        return Ok(Err(Errno::Inval));
+                    };
+                    let (epoll_fd, sub_state, old_subscription) = match state.prepare_mod(fd, event) {
+                        Ok(v) => v,
+                        Err(err) => return Ok(Err(err)),
+                    };
 
-                // Now we register the epoll waker
-                let tx = tx.clone();
-                let mut fd_guard =
-                    wasi_try_ok_ok!(register_epoll_handler(&env.state, &epoll_fd, tx));
-
-                // After the guards are created we need to attach them to the subscription
-                let mut guard = subscriptions.lock().unwrap();
-                if let Some(subs) = guard.get_mut(&event.fd)
-                    && let Some(fd_guard) = fd_guard
-                {
-                    subs.1.push(fd_guard);
+                    match register_epoll_handler(
+                        &env.state,
+                        &epoll_fd,
+                        state.clone(),
+                        sub_state.clone(),
+                    ) {
+                        Ok(fd_guard) => {
+                            if let Some(fd_guard) = fd_guard {
+                                sub_state.add_join(fd_guard);
+                            }
+                            Ok(())
+                        }
+                        Err(err) => {
+                            state.rollback_registration(fd, Some(old_subscription));
+                            Err(err)
+                        }
+                    }
                 }
-            }
-            Ok(Ok(()))
+                EpollCtl::Del => state.apply_del(fd),
+                EpollCtl::Unknown => Err(Errno::Inval),
+            };
+            Ok(res)
         }
         _ => Ok(Err(Errno::Inval)),
     }
-}
-
-#[derive(Debug)]
-pub struct EpollHandler {
-    fd: WasiFd,
-    tx: Arc<watch::Sender<EpollInterest>>,
-}
-impl EpollHandler {
-    pub fn new(fd: WasiFd, tx: Arc<watch::Sender<EpollInterest>>) -> Box<Self> {
-        Box::new(Self { fd, tx })
-    }
-}
-impl InterestHandler for EpollHandler {
-    fn push_interest(&mut self, interest: InterestType) {
-        let readiness = match interest {
-            InterestType::Readable => EpollType::EPOLLIN,
-            InterestType::Writable => EpollType::EPOLLOUT,
-            InterestType::Closed => EpollType::EPOLLHUP,
-            InterestType::Error => EpollType::EPOLLERR,
-        };
-        self.tx.send_modify(|i| {
-            i.interest.insert((self.fd, readiness));
-        });
-    }
-
-    fn pop_interest(&mut self, interest: InterestType) -> bool {
-        let readiness = match interest {
-            InterestType::Readable => EpollType::EPOLLIN,
-            InterestType::Writable => EpollType::EPOLLOUT,
-            InterestType::Closed => EpollType::EPOLLHUP,
-            InterestType::Error => EpollType::EPOLLERR,
-        };
-        let mut ret = false;
-        self.tx.send_modify(move |i| {
-            ret = i.interest.iter().any(|(_, b)| *b == readiness);
-            i.interest.retain(|(_, b)| *b != readiness);
-        });
-        ret
-    }
-
-    fn has_interest(&self, interest: InterestType) -> bool {
-        let readiness = match interest {
-            InterestType::Readable => EpollType::EPOLLIN,
-            InterestType::Writable => EpollType::EPOLLOUT,
-            InterestType::Closed => EpollType::EPOLLHUP,
-            InterestType::Error => EpollType::EPOLLERR,
-        };
-        let mut ret = false;
-        self.tx.send_modify(move |i| {
-            ret = i.interest.iter().any(|(_, b)| *b == readiness);
-        });
-        ret
-    }
-}
-
-pub(super) fn register_epoll_handler(
-    state: &Arc<WasiState>,
-    event: &EpollFd,
-    tx: Arc<watch::Sender<EpollInterest>>,
-) -> Result<Option<EpollJoinGuard>, Errno> {
-    let mut type_ = Eventtype::FdRead;
-    let mut peb = PollEventBuilder::new();
-    if event.events.contains(EpollType::EPOLLOUT) {
-        type_ = Eventtype::FdWrite;
-        peb = peb.add(PollEvent::PollOut);
-    }
-    if event.events.contains(EpollType::EPOLLIN) {
-        type_ = Eventtype::FdRead;
-        peb = peb.add(PollEvent::PollIn);
-    }
-    if event.events.contains(EpollType::EPOLLERR) {
-        peb = peb.add(PollEvent::PollError);
-    }
-    if event.events.contains(EpollType::EPOLLHUP) | event.events.contains(EpollType::EPOLLRDHUP) {
-        peb = peb.add(PollEvent::PollHangUp);
-    }
-
-    // Create a dummy subscription
-    let s = Subscription {
-        userdata: event.data2,
-        type_,
-        data: SubscriptionUnion {
-            fd_readwrite: SubscriptionFsReadwrite {
-                file_descriptor: event.fd,
-            },
-        },
-    };
-
-    // Get guard object which we will register the waker against
-    let fd_guard = poll_fd_guard(state, peb.build(), event.fd, s)?;
-    let handler = EpollHandler::new(event.fd, tx);
-
-    match &fd_guard.mode {
-        InodeValFilePollGuardMode::File(_) => {
-            // Intentionally ignored, epoll doesn't work with files
-            return Ok(None);
-        }
-        InodeValFilePollGuardMode::Socket { inner, .. } => {
-            let mut inner = inner.protected.write().unwrap();
-            inner.set_handler(handler).map_err(net_error_into_io_err)?;
-            drop(inner);
-        }
-        InodeValFilePollGuardMode::EventNotifications(inner) => inner.set_interest_handler(handler),
-        InodeValFilePollGuardMode::DuplexPipe { pipe } => {
-            let mut inner = pipe.write().unwrap();
-            inner.set_interest_handler(handler);
-        }
-        InodeValFilePollGuardMode::PipeRx { rx } => {
-            let mut inner = rx.write().unwrap();
-            inner.set_interest_handler(handler);
-        }
-        InodeValFilePollGuardMode::PipeTx { tx } => {
-            // The sending end of a pipe can't have an interest handler, since we
-            // only support "readable" interest on pipes; they're considered to
-            // always be writable.
-            return Ok(None);
-        }
-    }
-
-    Ok(Some(EpollJoinGuard { fd_guard }))
 }
