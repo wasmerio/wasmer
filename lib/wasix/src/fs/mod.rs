@@ -1151,10 +1151,10 @@ impl WasiFs {
         // This keeps "/" behavior aligned with historical path traversal semantics.
         if path_str == "/" {
             let guard = cur_inode.read();
-            if let Kind::Root { entries } = guard.deref() {
-                if let Some(root_entry) = entries.get("/") {
-                    return Ok(root_entry.clone());
-                }
+            if let Kind::Root { entries } = guard.deref()
+                && let Some(root_entry) = entries.get("/")
+            {
+                return Ok(root_entry.clone());
             }
         }
 
