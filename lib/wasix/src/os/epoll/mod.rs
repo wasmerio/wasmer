@@ -256,7 +256,8 @@ impl EpollState {
         };
         tracing::trace!(fd, "unregistering waker");
 
-        let (epoll_fd, sub_state) = self.build_pending_subscription(fd, event, previous.next_generation());
+        let (epoll_fd, sub_state) =
+            self.build_pending_subscription(fd, event, previous.next_generation());
         self.insert_subscription(fd, sub_state.clone());
         Ok((epoll_fd, sub_state, previous))
     }
@@ -265,11 +266,7 @@ impl EpollState {
         self.remove_subscription(fd).map(|_| ()).ok_or(Errno::Noent)
     }
 
-    pub(crate) fn rollback_registration(
-        &self,
-        fd: WasiFd,
-        previous: Option<Arc<EpollSubState>>,
-    ) {
+    pub(crate) fn rollback_registration(&self, fd: WasiFd, previous: Option<Arc<EpollSubState>>) {
         self.restore_subscription(fd, previous);
     }
 
