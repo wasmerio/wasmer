@@ -144,8 +144,6 @@ def annotate_function(
     for ip, count in ip_counts.items():
         rel = ip - entry.start
         idx = bisect.bisect_right(sorted_offsets, rel) - 1
-        if idx < 0:
-            continue
         per_offset[sorted_offsets[idx]] += count
 
     fn_percent = (
