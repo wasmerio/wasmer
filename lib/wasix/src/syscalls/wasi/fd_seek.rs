@@ -97,7 +97,6 @@ pub(crate) fn fd_seek_internal(
                     #[allow(clippy::await_holding_lock)]
                     if let Some(handle) = handle {
                         let handle = handle.clone();
-                        let fd_offset = fd_entry.inner.offset.clone();
                         drop(guard);
 
                         wasi_try_ok_ok!(__asyncify(ctx, None, async move {
@@ -107,9 +106,11 @@ pub(crate) fn fd_seek_internal(
                                 .await
                                 .map_err(map_io_err)?;
 
-                            // Keep updating the original file description offset even if this
-                            // numeric FD was concurrently closed or reused.
-                            fd_offset.store(end, Ordering::Release);
+                            // TODO: handle case if fd_entry.offset uses 64 bits of a u64
+                            drop(handle);
+                            let mut fd_map = state.fs.fd_map.write().unwrap();
+                            let fd_entry = fd_map.get_mut(fd).ok_or(Errno::Badf)?;
+                            fd_entry.offset.store(end, Ordering::Release);
                             Ok(())
                         })?);
                     } else {
