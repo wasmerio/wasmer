@@ -207,8 +207,12 @@ fn apply_fd_op<M: MemorySize>(
                 && !fd.is_stdio
                 && fd.inode.is_preopened
             {
-                warn!("Refusing dup2 FD action over pre-opened FD ({})", op.fd);
-                return Err(Errno::Notsup);
+                warn!(
+                    "FD {} is a pre-open and should not be closed, \
+                        but will be closed in response to a dup2 FD action. \
+                        This will likely break stuff.",
+                    op.fd
+                );
             }
 
             // According to POSIX dup2 semantics, the target fd should always be closed before duplication

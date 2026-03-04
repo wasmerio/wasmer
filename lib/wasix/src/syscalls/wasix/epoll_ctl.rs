@@ -106,8 +106,7 @@ pub(crate) fn epoll_ctl_internal(
                     let Some(event) = event_ctl else {
                         return Ok(Err(Errno::Inval));
                     };
-                    let (epoll_fd, sub_state, old_subscription) = match state.prepare_mod(fd, event)
-                    {
+                    let (epoll_fd, sub_state, old_subscription) = match state.prepare_mod(fd, event) {
                         Ok(v) => v,
                         Err(err) => return Ok(Err(err)),
                     };
