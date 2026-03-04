@@ -426,95 +426,93 @@
 <a href=#426 id=426 data-nosnippet>426</a>
 <a href=#427 id=427 data-nosnippet>427</a>    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
 <a href=#428 id=428 data-nosnippet>428</a>        <span class="kw">match </span>n {
-<a href=#429 id=429 data-nosnippet>429</a>            <span class="comment">// Linux epoll op constants are 1/2/3 for ADD/MOD/DEL.
-<a href=#430 id=430 data-nosnippet>430</a>            // Keep 0=&gt;ADD for backward compatibility with older WASIX encodings.
-<a href=#431 id=431 data-nosnippet>431</a>            </span><span class="number">0 </span>| <span class="number">1 </span>=&gt; <span class="self">Self</span>::Add,
-<a href=#432 id=432 data-nosnippet>432</a>            <span class="number">2 </span>=&gt; <span class="self">Self</span>::Del,
-<a href=#433 id=433 data-nosnippet>433</a>            <span class="number">3 </span>=&gt; <span class="self">Self</span>::Mod,
-<a href=#434 id=434 data-nosnippet>434</a>
-<a href=#435 id=435 data-nosnippet>435</a>            q =&gt; {
-<a href=#436 id=436 data-nosnippet>436</a>                <span class="macro">tracing::debug!</span>(<span class="string">"could not serialize number {q} to enum EpollCtl"</span>);
-<a href=#437 id=437 data-nosnippet>437</a>                <span class="self">Self</span>::Unknown
-<a href=#438 id=438 data-nosnippet>438</a>            }
-<a href=#439 id=439 data-nosnippet>439</a>        }
-<a href=#440 id=440 data-nosnippet>440</a>    }
-<a href=#441 id=441 data-nosnippet>441</a>
-<a href=#442 id=442 data-nosnippet>442</a>    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, _store: <span class="kw-2">&amp;</span><span class="kw">impl </span>wasmer::AsStoreRef) -&gt; bool {
-<a href=#443 id=443 data-nosnippet>443</a>        <span class="bool-val">false
-<a href=#444 id=444 data-nosnippet>444</a>    </span>}
-<a href=#445 id=445 data-nosnippet>445</a>}
-<a href=#446 id=446 data-nosnippet>446</a>
-<a href=#447 id=447 data-nosnippet>447</a><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-<a href=#448 id=448 data-nosnippet>448</a>#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
-<a href=#449 id=449 data-nosnippet>449</a></span><span class="kw">pub struct </span>EpollEventCtl {
-<a href=#450 id=450 data-nosnippet>450</a>    <span class="kw">pub </span>events: EpollType,
-<a href=#451 id=451 data-nosnippet>451</a>    <span class="kw">pub </span>ptr: u64,
-<a href=#452 id=452 data-nosnippet>452</a>    <span class="kw">pub </span>fd: Fd,
-<a href=#453 id=453 data-nosnippet>453</a>    <span class="kw">pub </span>data1: u32,
-<a href=#454 id=454 data-nosnippet>454</a>    <span class="kw">pub </span>data2: u64,
-<a href=#455 id=455 data-nosnippet>455</a>}
-<a href=#456 id=456 data-nosnippet>456</a>
-<a href=#457 id=457 data-nosnippet>457</a><span class="doccomment">/// An event that can be triggered
-<a href=#458 id=458 data-nosnippet>458</a></span><span class="attr">#[repr(C)]
-<a href=#459 id=459 data-nosnippet>459</a>#[derive(Copy, Clone)]
-<a href=#460 id=460 data-nosnippet>460</a></span><span class="kw">pub struct </span>EpollData&lt;M: MemorySize&gt; {
-<a href=#461 id=461 data-nosnippet>461</a>    <span class="doccomment">/// Pointer to the data
-<a href=#462 id=462 data-nosnippet>462</a>    </span><span class="kw">pub </span>ptr: M::Offset,
-<a href=#463 id=463 data-nosnippet>463</a>    <span class="doccomment">/// File descriptor
-<a href=#464 id=464 data-nosnippet>464</a>    </span><span class="kw">pub </span>fd: Fd,
+<a href=#429 id=429 data-nosnippet>429</a>            <span class="number">0 </span>=&gt; <span class="self">Self</span>::Add,
+<a href=#430 id=430 data-nosnippet>430</a>            <span class="number">1 </span>=&gt; <span class="self">Self</span>::Mod,
+<a href=#431 id=431 data-nosnippet>431</a>            <span class="number">2 </span>=&gt; <span class="self">Self</span>::Del,
+<a href=#432 id=432 data-nosnippet>432</a>
+<a href=#433 id=433 data-nosnippet>433</a>            q =&gt; {
+<a href=#434 id=434 data-nosnippet>434</a>                <span class="macro">tracing::debug!</span>(<span class="string">"could not serialize number {q} to enum EpollCtl"</span>);
+<a href=#435 id=435 data-nosnippet>435</a>                <span class="self">Self</span>::Unknown
+<a href=#436 id=436 data-nosnippet>436</a>            }
+<a href=#437 id=437 data-nosnippet>437</a>        }
+<a href=#438 id=438 data-nosnippet>438</a>    }
+<a href=#439 id=439 data-nosnippet>439</a>
+<a href=#440 id=440 data-nosnippet>440</a>    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, _store: <span class="kw-2">&amp;</span><span class="kw">impl </span>wasmer::AsStoreRef) -&gt; bool {
+<a href=#441 id=441 data-nosnippet>441</a>        <span class="bool-val">false
+<a href=#442 id=442 data-nosnippet>442</a>    </span>}
+<a href=#443 id=443 data-nosnippet>443</a>}
+<a href=#444 id=444 data-nosnippet>444</a>
+<a href=#445 id=445 data-nosnippet>445</a><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+<a href=#446 id=446 data-nosnippet>446</a>#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+<a href=#447 id=447 data-nosnippet>447</a></span><span class="kw">pub struct </span>EpollEventCtl {
+<a href=#448 id=448 data-nosnippet>448</a>    <span class="kw">pub </span>events: EpollType,
+<a href=#449 id=449 data-nosnippet>449</a>    <span class="kw">pub </span>ptr: u64,
+<a href=#450 id=450 data-nosnippet>450</a>    <span class="kw">pub </span>fd: Fd,
+<a href=#451 id=451 data-nosnippet>451</a>    <span class="kw">pub </span>data1: u32,
+<a href=#452 id=452 data-nosnippet>452</a>    <span class="kw">pub </span>data2: u64,
+<a href=#453 id=453 data-nosnippet>453</a>}
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a><span class="doccomment">/// An event that can be triggered
+<a href=#456 id=456 data-nosnippet>456</a></span><span class="attr">#[repr(C)]
+<a href=#457 id=457 data-nosnippet>457</a>#[derive(Copy, Clone)]
+<a href=#458 id=458 data-nosnippet>458</a></span><span class="kw">pub struct </span>EpollData&lt;M: MemorySize&gt; {
+<a href=#459 id=459 data-nosnippet>459</a>    <span class="doccomment">/// Pointer to the data
+<a href=#460 id=460 data-nosnippet>460</a>    </span><span class="kw">pub </span>ptr: M::Offset,
+<a href=#461 id=461 data-nosnippet>461</a>    <span class="doccomment">/// File descriptor
+<a href=#462 id=462 data-nosnippet>462</a>    </span><span class="kw">pub </span>fd: Fd,
+<a href=#463 id=463 data-nosnippet>463</a>    <span class="doccomment">/// Associated user data
+<a href=#464 id=464 data-nosnippet>464</a>    </span><span class="kw">pub </span>data1: u32,
 <a href=#465 id=465 data-nosnippet>465</a>    <span class="doccomment">/// Associated user data
-<a href=#466 id=466 data-nosnippet>466</a>    </span><span class="kw">pub </span>data1: u32,
-<a href=#467 id=467 data-nosnippet>467</a>    <span class="doccomment">/// Associated user data
-<a href=#468 id=468 data-nosnippet>468</a>    </span><span class="kw">pub </span>data2: u64,
-<a href=#469 id=469 data-nosnippet>469</a>}
-<a href=#470 id=470 data-nosnippet>470</a><span class="kw">impl</span>&lt;M&gt; core::fmt::Debug <span class="kw">for </span>EpollData&lt;M&gt;
-<a href=#471 id=471 data-nosnippet>471</a><span class="kw">where
-<a href=#472 id=472 data-nosnippet>472</a>    </span>M: MemorySize,
-<a href=#473 id=473 data-nosnippet>473</a>{
-<a href=#474 id=474 data-nosnippet>474</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
-<a href=#475 id=475 data-nosnippet>475</a>        f.debug_struct(<span class="string">"EpollData"</span>)
-<a href=#476 id=476 data-nosnippet>476</a>            .field(<span class="string">"ptr"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.ptr)
-<a href=#477 id=477 data-nosnippet>477</a>            .field(<span class="string">"fd"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fd)
-<a href=#478 id=478 data-nosnippet>478</a>            .field(<span class="string">"data1"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data1)
-<a href=#479 id=479 data-nosnippet>479</a>            .field(<span class="string">"data2"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data2)
-<a href=#480 id=480 data-nosnippet>480</a>            .finish()
-<a href=#481 id=481 data-nosnippet>481</a>    }
-<a href=#482 id=482 data-nosnippet>482</a>}
-<a href=#483 id=483 data-nosnippet>483</a>
-<a href=#484 id=484 data-nosnippet>484</a><span class="doccomment">/// An event that can be triggered
-<a href=#485 id=485 data-nosnippet>485</a></span><span class="attr">#[repr(C)]
-<a href=#486 id=486 data-nosnippet>486</a>#[derive(Copy, Clone)]
-<a href=#487 id=487 data-nosnippet>487</a></span><span class="kw">pub struct </span>EpollEvent&lt;M: MemorySize&gt; {
-<a href=#488 id=488 data-nosnippet>488</a>    <span class="doccomment">/// Pointer to the data
-<a href=#489 id=489 data-nosnippet>489</a>    </span><span class="kw">pub </span>events: EpollType,
-<a href=#490 id=490 data-nosnippet>490</a>    <span class="doccomment">/// File descriptor
-<a href=#491 id=491 data-nosnippet>491</a>    </span><span class="kw">pub </span>data: EpollData&lt;M&gt;,
-<a href=#492 id=492 data-nosnippet>492</a>}
-<a href=#493 id=493 data-nosnippet>493</a><span class="kw">impl</span>&lt;M&gt; core::fmt::Debug <span class="kw">for </span>EpollEvent&lt;M&gt;
-<a href=#494 id=494 data-nosnippet>494</a><span class="kw">where
-<a href=#495 id=495 data-nosnippet>495</a>    </span>M: MemorySize,
-<a href=#496 id=496 data-nosnippet>496</a>{
-<a href=#497 id=497 data-nosnippet>497</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
-<a href=#498 id=498 data-nosnippet>498</a>        f.debug_struct(<span class="string">"EpollData"</span>)
-<a href=#499 id=499 data-nosnippet>499</a>            .field(<span class="string">"events"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.events)
-<a href=#500 id=500 data-nosnippet>500</a>            .field(<span class="string">"data"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data)
-<a href=#501 id=501 data-nosnippet>501</a>            .finish()
-<a href=#502 id=502 data-nosnippet>502</a>    }
-<a href=#503 id=503 data-nosnippet>503</a>}
-<a href=#504 id=504 data-nosnippet>504</a><span class="kw">unsafe impl</span>&lt;M&gt; ValueType <span class="kw">for </span>EpollEvent&lt;M&gt;
-<a href=#505 id=505 data-nosnippet>505</a><span class="kw">where
-<a href=#506 id=506 data-nosnippet>506</a>    </span>M: MemorySize,
-<a href=#507 id=507 data-nosnippet>507</a>{
-<a href=#508 id=508 data-nosnippet>508</a>    <span class="attr">#[inline]
-<a href=#509 id=509 data-nosnippet>509</a>    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
-<a href=#510 id=510 data-nosnippet>510</a>}
-<a href=#511 id=511 data-nosnippet>511</a>
-<a href=#512 id=512 data-nosnippet>512</a><span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>SignalDisposition {
-<a href=#513 id=513 data-nosnippet>513</a>    <span class="attr">#[inline]
-<a href=#514 id=514 data-nosnippet>514</a>    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
-<a href=#515 id=515 data-nosnippet>515</a>}
-<a href=#516 id=516 data-nosnippet>516</a>
-<a href=#517 id=517 data-nosnippet>517</a><span class="kw">unsafe impl</span>&lt;M: MemorySize&gt; ValueType <span class="kw">for </span>ProcSpawnFdOp&lt;M&gt; {
-<a href=#518 id=518 data-nosnippet>518</a>    <span class="attr">#[inline]
-<a href=#519 id=519 data-nosnippet>519</a>    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
-<a href=#520 id=520 data-nosnippet>520</a>}</code></pre></div></section></main></body></html>
+<a href=#466 id=466 data-nosnippet>466</a>    </span><span class="kw">pub </span>data2: u64,
+<a href=#467 id=467 data-nosnippet>467</a>}
+<a href=#468 id=468 data-nosnippet>468</a><span class="kw">impl</span>&lt;M&gt; core::fmt::Debug <span class="kw">for </span>EpollData&lt;M&gt;
+<a href=#469 id=469 data-nosnippet>469</a><span class="kw">where
+<a href=#470 id=470 data-nosnippet>470</a>    </span>M: MemorySize,
+<a href=#471 id=471 data-nosnippet>471</a>{
+<a href=#472 id=472 data-nosnippet>472</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+<a href=#473 id=473 data-nosnippet>473</a>        f.debug_struct(<span class="string">"EpollData"</span>)
+<a href=#474 id=474 data-nosnippet>474</a>            .field(<span class="string">"ptr"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.ptr)
+<a href=#475 id=475 data-nosnippet>475</a>            .field(<span class="string">"fd"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fd)
+<a href=#476 id=476 data-nosnippet>476</a>            .field(<span class="string">"data1"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data1)
+<a href=#477 id=477 data-nosnippet>477</a>            .field(<span class="string">"data2"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data2)
+<a href=#478 id=478 data-nosnippet>478</a>            .finish()
+<a href=#479 id=479 data-nosnippet>479</a>    }
+<a href=#480 id=480 data-nosnippet>480</a>}
+<a href=#481 id=481 data-nosnippet>481</a>
+<a href=#482 id=482 data-nosnippet>482</a><span class="doccomment">/// An event that can be triggered
+<a href=#483 id=483 data-nosnippet>483</a></span><span class="attr">#[repr(C)]
+<a href=#484 id=484 data-nosnippet>484</a>#[derive(Copy, Clone)]
+<a href=#485 id=485 data-nosnippet>485</a></span><span class="kw">pub struct </span>EpollEvent&lt;M: MemorySize&gt; {
+<a href=#486 id=486 data-nosnippet>486</a>    <span class="doccomment">/// Pointer to the data
+<a href=#487 id=487 data-nosnippet>487</a>    </span><span class="kw">pub </span>events: EpollType,
+<a href=#488 id=488 data-nosnippet>488</a>    <span class="doccomment">/// File descriptor
+<a href=#489 id=489 data-nosnippet>489</a>    </span><span class="kw">pub </span>data: EpollData&lt;M&gt;,
+<a href=#490 id=490 data-nosnippet>490</a>}
+<a href=#491 id=491 data-nosnippet>491</a><span class="kw">impl</span>&lt;M&gt; core::fmt::Debug <span class="kw">for </span>EpollEvent&lt;M&gt;
+<a href=#492 id=492 data-nosnippet>492</a><span class="kw">where
+<a href=#493 id=493 data-nosnippet>493</a>    </span>M: MemorySize,
+<a href=#494 id=494 data-nosnippet>494</a>{
+<a href=#495 id=495 data-nosnippet>495</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+<a href=#496 id=496 data-nosnippet>496</a>        f.debug_struct(<span class="string">"EpollData"</span>)
+<a href=#497 id=497 data-nosnippet>497</a>            .field(<span class="string">"events"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.events)
+<a href=#498 id=498 data-nosnippet>498</a>            .field(<span class="string">"data"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data)
+<a href=#499 id=499 data-nosnippet>499</a>            .finish()
+<a href=#500 id=500 data-nosnippet>500</a>    }
+<a href=#501 id=501 data-nosnippet>501</a>}
+<a href=#502 id=502 data-nosnippet>502</a><span class="kw">unsafe impl</span>&lt;M&gt; ValueType <span class="kw">for </span>EpollEvent&lt;M&gt;
+<a href=#503 id=503 data-nosnippet>503</a><span class="kw">where
+<a href=#504 id=504 data-nosnippet>504</a>    </span>M: MemorySize,
+<a href=#505 id=505 data-nosnippet>505</a>{
+<a href=#506 id=506 data-nosnippet>506</a>    <span class="attr">#[inline]
+<a href=#507 id=507 data-nosnippet>507</a>    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
+<a href=#508 id=508 data-nosnippet>508</a>}
+<a href=#509 id=509 data-nosnippet>509</a>
+<a href=#510 id=510 data-nosnippet>510</a><span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>SignalDisposition {
+<a href=#511 id=511 data-nosnippet>511</a>    <span class="attr">#[inline]
+<a href=#512 id=512 data-nosnippet>512</a>    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
+<a href=#513 id=513 data-nosnippet>513</a>}
+<a href=#514 id=514 data-nosnippet>514</a>
+<a href=#515 id=515 data-nosnippet>515</a><span class="kw">unsafe impl</span>&lt;M: MemorySize&gt; ValueType <span class="kw">for </span>ProcSpawnFdOp&lt;M&gt; {
+<a href=#516 id=516 data-nosnippet>516</a>    <span class="attr">#[inline]
+<a href=#517 id=517 data-nosnippet>517</a>    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
+<a href=#518 id=518 data-nosnippet>518</a>}</code></pre></div></section></main></body></html>
