@@ -65,8 +65,7 @@ pub async fn load_package_tree(
     let fs_opt = filesystem(&containers, &resolution.package, root_is_local_dir)?;
 
     let root = &resolution.package.root_package;
-    let commands: Vec<BinaryPackageCommand> =
-        commands(&resolution.package.commands, &containers, resolution)?;
+    let commands = commands(&resolution.package.commands, &containers, resolution)?;
 
     let file_system_memory_footprint = if let Some(fs) = &fs_opt {
         count_file_system(fs, Path::new("/"))
@@ -184,7 +183,7 @@ fn load_binary_command(
 
     if atom.is_none() && cmd.annotations.is_empty() {
         tracing::info!("applying legacy atom hack");
-        return legacy_atom_hack(webc, command_name, cmd);
+        return legacy_atom_hack(webc, package_id, command_name, cmd);
     }
 
     let hash = to_module_hash(webc.manifest().atom_signature(&atom_name)?);
@@ -212,8 +211,15 @@ fn load_binary_command(
         None
     };
 
-    let cmd =
-        BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash, features);
+    let cmd = BinaryPackageCommand::new(
+        command_name.to_string(),
+        cmd.clone(),
+        atom,
+        hash,
+        features,
+        package_id.clone(),
+        resolved_package_id.clone(),
+    );
 
     Ok(Some(cmd))
 }
@@ -260,6 +266,7 @@ fn atom_name_for_command(
 /// for more.
 fn legacy_atom_hack(
     webc: &Container,
+    package_id: &PackageId,
     command_name: &str,
     metadata: &webc::metadata::Command,
 ) -> Result<Option<BinaryPackageCommand>, anyhow::Error> {
@@ -291,6 +298,8 @@ fn legacy_atom_hack(
         atom,
         hash,
         features,
+        package_id.clone(),
+        package_id.clone(),
     )))
 }
 

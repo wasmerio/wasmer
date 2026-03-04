@@ -52,6 +52,7 @@ pub enum TaintReason {
 /// different sources.
 ///
 /// All variants are wrapped in `Cow` to allow for zero-copy usage when possible.
+#[allow(clippy::large_enum_variant)]
 pub enum ModuleInput<'a> {
     /// Raw bytes.
     Bytes(Cow<'a, [u8]>),
