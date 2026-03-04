@@ -1881,7 +1881,7 @@ impl WasiFs {
                 let after = self.next_fd_candidate.load(Ordering::Acquire);
                 let new_fd = guard.insert_first_free_after(fd, after);
                 self.next_fd_candidate
-                    .store(new_fd.saturating_add(1), Ordering::Release);
+                    .fetch_max(new_fd.saturating_add(1), Ordering::AcqRel);
                 Ok(new_fd)
             }
         }

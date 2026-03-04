@@ -251,15 +251,18 @@ pub(crate) fn path_open_internal(
                 if minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
-                // Keep a stable shared handle per inode. Replacing this handle on every open
-                // can invalidate concurrent users and race under load.
+                // Keep a stable shared handle per inode whenever possible, but reopen it
+                // when this open requires stronger rights than the existing handle may have.
+                let requires_stronger_handle =
+                    minimum_rights.write || minimum_rights.truncate || minimum_rights.create;
                 if handle.is_none() {
                     *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
                         open_options.open(&path).map_err(fs_error_into_wasi_err)
                     ))));
-                } else if minimum_rights.truncate {
+                } else if requires_stronger_handle {
                     let mut file = handle.as_ref().unwrap().write().unwrap();
-                    wasi_try_ok_ok!(file.set_len(0).map_err(fs_error_into_wasi_err));
+                    *file =
+                        wasi_try_ok_ok!(open_options.open(&path).map_err(fs_error_into_wasi_err));
                 }
 
                 if let Some(handle) = handle {
