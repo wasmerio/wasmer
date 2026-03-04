@@ -111,9 +111,6 @@ pub(crate) fn epoll_ctl_internal(
                         Ok(v) => v,
                         Err(err) => return Ok(Err(err)),
                     };
-                    // Detach the previous generation before installing the new
-                    // handler so dropping old guards cannot remove the new one.
-                    old_subscription.detach_joins();
 
                     match register_epoll_handler(
                         &env.state,
@@ -128,31 +125,7 @@ pub(crate) fn epoll_ctl_internal(
                             Ok(())
                         }
                         Err(err) => {
-                            state.rollback_registration(fd, Some(old_subscription.clone()));
-                            let old_epoll_fd = old_subscription.fd_meta();
-                            match register_epoll_handler(
-                                &env.state,
-                                &old_epoll_fd,
-                                state.clone(),
-                                old_subscription.clone(),
-                            ) {
-                                Ok(fd_guard) => {
-                                    if let Some(fd_guard) = fd_guard {
-                                        old_subscription.add_join(fd_guard);
-                                    }
-                                }
-                                Err(reinstall_err) => {
-                                    // Do not leave a restored subscription without handlers.
-                                    state.rollback_registration(fd, None);
-                                    tracing::warn!(
-                                        fd,
-                                        ?err,
-                                        ?reinstall_err,
-                                        "failed to reinstall previous epoll handler after MOD failure"
-                                    );
-                                    return Ok(Err(reinstall_err));
-                                }
-                            }
+                            state.rollback_registration(fd, Some(old_subscription));
                             Err(err)
                         }
                     }

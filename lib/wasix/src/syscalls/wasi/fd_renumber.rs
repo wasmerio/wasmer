@@ -1,22 +1,5 @@
 use super::*;
 use crate::syscalls::*;
-use std::{future::Future, pin::Pin, sync::Arc, task::Context, task::Poll};
-use virtual_fs::VirtualFile;
-
-struct FlushPoller {
-    file: Arc<std::sync::RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-}
-
-impl Future for FlushPoller {
-    type Output = Result<(), Errno>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut file = self.file.write().unwrap();
-        Pin::new(file.as_mut())
-            .poll_flush(cx)
-            .map_err(|_| Errno::Io)
-    }
-}
 
 /// ### `fd_renumber()`
 /// Atomically copy file descriptor
@@ -102,22 +85,9 @@ pub(crate) fn fd_renumber_internal(
             panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
         }
     }
-    // Flush and drop the old FD outside the lock. This keeps fd-map updates
-    // atomic while preserving the prior best-effort flush behavior.
-    let flush_target = old_fd.as_ref().and_then(|fd_entry| {
-        let guard = fd_entry.inode.read();
-        match guard.deref() {
-            Kind::File {
-                handle: Some(file), ..
-            } => Some(file.clone()),
-            _ => None,
-        }
-    });
+    // Drop the old FD outside the lock to avoid blocking other threads
+    // if Fd::drop performs non-trivial cleanup.
     drop(old_fd);
-
-    if let Some(file) = flush_target {
-        let _ = __asyncify_light(env, None, FlushPoller { file })?;
-    }
 
     Ok(Errno::Success)
 }

@@ -195,9 +195,12 @@ impl EpollState {
         }
     }
 
-    #[cfg(test)]
     fn insert_subscription(&self, fd: WasiFd, state: Arc<EpollSubState>) {
         self.subscriptions.lock().unwrap().insert(fd, state);
+    }
+
+    fn remove_subscription(&self, fd: WasiFd) -> Option<Arc<EpollSubState>> {
+        self.subscriptions.lock().unwrap().remove(&fd)
     }
 
     fn restore_subscription(&self, fd: WasiFd, previous: Option<Arc<EpollSubState>>) {
@@ -234,13 +237,12 @@ impl EpollState {
         fd: WasiFd,
         event: &EpollEventCtl,
     ) -> Result<(EpollFd, Arc<EpollSubState>), Errno> {
-        let mut subscriptions = self.subscriptions.lock().unwrap();
-        if subscriptions.contains_key(&fd) {
+        if self.subscriptions.lock().unwrap().contains_key(&fd) {
             return Err(Errno::Exist);
         }
 
         let (epoll_fd, sub_state) = self.build_pending_subscription(fd, event, 1);
-        subscriptions.insert(fd, sub_state.clone());
+        self.insert_subscription(fd, sub_state.clone());
         Ok((epoll_fd, sub_state))
     }
 
@@ -249,25 +251,19 @@ impl EpollState {
         fd: WasiFd,
         event: &EpollEventCtl,
     ) -> Result<(EpollFd, Arc<EpollSubState>, Arc<EpollSubState>), Errno> {
-        let mut subscriptions = self.subscriptions.lock().unwrap();
-        let Some(previous) = subscriptions.remove(&fd) else {
+        let Some(previous) = self.remove_subscription(fd) else {
             return Err(Errno::Noent);
         };
         tracing::trace!(fd, "unregistering waker");
 
         let (epoll_fd, sub_state) =
             self.build_pending_subscription(fd, event, previous.next_generation());
-        subscriptions.insert(fd, sub_state.clone());
+        self.insert_subscription(fd, sub_state.clone());
         Ok((epoll_fd, sub_state, previous))
     }
 
     pub(crate) fn apply_del(&self, fd: WasiFd) -> Result<(), Errno> {
-        self.subscriptions
-            .lock()
-            .unwrap()
-            .remove(&fd)
-            .map(|_| ())
-            .ok_or(Errno::Noent)
+        self.remove_subscription(fd).map(|_| ()).ok_or(Errno::Noent)
     }
 
     pub(crate) fn rollback_registration(&self, fd: WasiFd, previous: Option<Arc<EpollSubState>>) {
@@ -332,16 +328,11 @@ impl EpollSubState {
         self.joins.lock().unwrap().push(join);
     }
 
-    /// Detaches and drops all registered handlers for this subscription.
-    pub fn detach_joins(&self) {
-        self.joins.lock().unwrap().clear();
-    }
-
     fn generation(&self) -> u64 {
         self.generation.load(Ordering::Acquire)
     }
 
-    pub(crate) fn fd_meta(&self) -> EpollFd {
+    fn fd_meta(&self) -> EpollFd {
         self.fd_meta.lock().unwrap().clone()
     }
 
