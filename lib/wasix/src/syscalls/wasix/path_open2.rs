@@ -128,13 +128,19 @@ pub(crate) fn path_open_internal(
     let state = env.state.deref();
     let inodes = &state.inodes;
     let follow_symlinks = dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0;
-
-    let path_arg = std::path::PathBuf::from(&path);
+    let effective_dirfd = if path.starts_with('/') {
+        VIRTUAL_ROOT_FD
+    } else {
+        dirfd
+    };
+    let path_arg = std::path::PathBuf::from(path);
+    let working_dir = match state.fs.get_fd(effective_dirfd) {
+        Ok(fd) => fd,
+        Err(err) => return Ok(Err(err)),
+    };
     let maybe_inode = state
         .fs
-        .get_inode_at_path(inodes, dirfd, path, follow_symlinks);
-
-    let working_dir = wasi_try_ok_ok!(state.fs.get_fd(dirfd));
+        .get_inode_at_path(inodes, effective_dirfd, path, follow_symlinks);
     let working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
 
     // ASSUMPTION: open rights apply recursively
@@ -245,11 +251,16 @@ pub(crate) fn path_open_internal(
                 if minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
-                // TODO: I strongly suspect that assigning the handle unconditionally
-                // breaks opening the same file multiple times.
-                *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
-                    open_options.open(&path).map_err(fs_error_into_wasi_err)
-                ))));
+                // Keep a stable shared handle per inode. Replacing this handle on every open
+                // can invalidate concurrent users and race under load.
+                if handle.is_none() {
+                    *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
+                        open_options.open(&path).map_err(fs_error_into_wasi_err)
+                    ))));
+                } else if minimum_rights.truncate {
+                    let mut file = handle.as_ref().unwrap().write().unwrap();
+                    wasi_try_ok_ok!(file.set_len(0).map_err(fs_error_into_wasi_err));
+                }
 
                 if let Some(handle) = handle {
                     let handle = handle.read().unwrap();
@@ -328,11 +339,13 @@ pub(crate) fn path_open_internal(
 
             // strip end file name
 
-            let (parent_inode, new_entity_name) = wasi_try_ok_ok!(
-                state
-                    .fs
-                    .get_parent_inode_at_path(inodes, dirfd, &path_arg, follow_symlinks)
-            );
+            let (parent_inode, new_entity_name) =
+                wasi_try_ok_ok!(state.fs.get_parent_inode_at_path(
+                    inodes,
+                    effective_dirfd,
+                    &path_arg,
+                    follow_symlinks
+                ));
             let new_file_host_path = {
                 let guard = parent_inode.read();
                 match guard.deref() {

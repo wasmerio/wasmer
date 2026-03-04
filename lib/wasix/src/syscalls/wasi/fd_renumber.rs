@@ -43,23 +43,6 @@ pub(crate) fn fd_renumber_internal(
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
-    if let Ok(fd) = state.fs.get_fd(to) {
-        if !fd.is_stdio && fd.inode.is_preopened {
-            warn!(
-                "FD ({to}) is a pre-open and should not be closed, \
-                but will be closed in response to an fd_renumber operation. \
-                This will likely break stuff."
-            );
-        }
-        // Flush before acquiring the write lock since this may perform async I/O.
-        match __asyncify_light(env, None, state.fs.flush(to))? {
-            Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
-            Err(e) => {
-                return Ok(e);
-            }
-        }
-    }
-
     // Hold a single write lock for both the remove and insert to prevent
     // another thread from allocating into the target slot between the two
     // operations.
@@ -67,11 +50,17 @@ pub(crate) fn fd_renumber_internal(
     {
         let mut fd_map = state.fs.fd_map.write().unwrap();
 
-        // Remove the target FD under the same lock (replaces the separate
-        // close_fd call which would acquire its own lock).
-        old_fd = fd_map.remove(to);
-
+        // Validate the source first. If `from` is invalid we must not mutate `to`.
         let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
+
+        // Never allow renumbering over preopens.
+        if let Some(target_fd) = fd_map.get(to)
+            && !target_fd.is_stdio
+            && target_fd.inode.is_preopened
+        {
+            warn!("Refusing fd_renumber({from}, {to}) because FD {to} is pre-opened");
+            return Ok(Errno::Notsup);
+        }
 
         let new_fd_entry = Fd {
             inner: FdInner {
@@ -87,6 +76,10 @@ pub(crate) fn fd_renumber_internal(
             inode: fd_entry.inode.clone(),
             ..*fd_entry
         };
+
+        // Remove the target FD under the same lock (replaces the separate
+        // close_fd call which would acquire its own lock).
+        old_fd = fd_map.remove(to);
 
         if !fd_map.insert(true, to, new_fd_entry) {
             panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
