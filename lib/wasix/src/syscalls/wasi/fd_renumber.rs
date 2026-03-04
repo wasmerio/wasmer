@@ -102,9 +102,8 @@ pub(crate) fn fd_renumber_internal(
             panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
         }
     }
-    // Flush and drop the old FD outside the lock. The flush is best-effort:
-    // failures are intentionally ignored so fd_renumber result depends only on
-    // descriptor map updates and validation.
+    // Flush and drop the old FD outside the lock. This keeps fd-map updates
+    // atomic while preserving the prior best-effort flush behavior.
     let flush_target = old_fd.as_ref().and_then(|fd_entry| {
         let guard = fd_entry.inode.read();
         match guard.deref() {
