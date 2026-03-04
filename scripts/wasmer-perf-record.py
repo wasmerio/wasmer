@@ -156,7 +156,7 @@ def annotate_function(
     print(f"Function: {function_name}")
     print(f"Address: 0x{entry.start:x}-0x{entry.end:x}  Size: 0x{entry.size:x}")
     print(f"Object : {obj_path}")
-    print(f"Samples: {fn_total} ({fn_percent:.2f}% of mapped samples)")
+    print(f"Samples: {fn_total} ({fn_percent:.1f}% of mapped samples)")
     print("Annotate:")
 
     for offset, line in zip(offsets, lines):
@@ -169,7 +169,7 @@ def annotate_function(
             elif percent >= 3.0:
                 line_color = "yellow"
         if samples:
-            rendered = f"{percent:6.2f}%  {samples:6d}  {line}"
+            rendered = f"{percent:6.1f}%  {samples:6d}  {line}"
             if line_color:
                 rendered = colored(rendered, line_color)
             print(rendered)
@@ -293,10 +293,10 @@ def main():
     sorted_fns = fn_counts.most_common()
     for entry, count in sorted_fns[: args.top]:
         p = count / mapped_total * 100.0
-        print(f"  {p:6.2f}%  {count:8d}  {entry.name} @ 0x{entry.start:x}")
+        print(f"  {p:6.1f}%  {count:8d}  {entry.name} @ 0x{entry.start:x}")
 
     print()
-    print(f"Annotating functions with >= {args.coverage_threshold:.2f}% coverage:")
+    print(f"Annotating functions with >= {args.coverage_threshold:.1f}% coverage:")
 
     annotated = 0
     for entry, count in sorted_fns:
