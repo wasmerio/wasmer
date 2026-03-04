@@ -1,5 +1,22 @@
 use super::*;
 use crate::syscalls::*;
+use std::{future::Future, pin::Pin, sync::Arc, task::Context, task::Poll};
+use virtual_fs::VirtualFile;
+
+struct FlushPoller {
+    file: Arc<std::sync::RwLock<Box<dyn VirtualFile + Send + Sync>>>,
+}
+
+impl Future for FlushPoller {
+    type Output = Result<(), Errno>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut file = self.file.write().unwrap();
+        Pin::new(file.as_mut())
+            .poll_flush(cx)
+            .map_err(|_| Errno::Io)
+    }
+}
 
 /// ### `fd_close()`
 /// Close an open file descriptor
@@ -29,16 +46,42 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
         trace!("Skipping fd_close for pre-opened FD ({})", fd);
         return Ok(Errno::Success);
     }
-    // HACK: we use tokio files to back WASI file handles. Since tokio
-    // does writes in the background, it may miss writes if the file is
-    // closed without flushing first. Hence, we flush once here.
-    match __asyncify_light(env, None, state.fs.flush(fd))? {
-        Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
-        Err(e) => {
-            return Ok(e);
+    // Keep stdio behavior unchanged: flush before close.
+    if fd <= __WASI_STDERR_FILENO {
+        match __asyncify_light(env, None, state.fs.flush(fd))? {
+            Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
+            Err(e) => {
+                return Ok(e);
+            }
+        }
+        wasi_try_ok!(state.fs.close_fd(fd));
+    } else {
+        // Capture the file handle before removing the fd, then close first.
+        // This avoids an fd-number reuse race where an async pre-close flush
+        // can end up closing a newly allocated descriptor with the same number.
+        let flush_target = {
+            state.fs.get_fd(fd).ok().and_then(|fd_entry| {
+                let guard = fd_entry.inode.read();
+                match guard.deref() {
+                    Kind::File {
+                        handle: Some(file), ..
+                    } => Some(file.clone()),
+                    _ => None,
+                }
+            })
+        };
+
+        wasi_try_ok!(state.fs.close_fd(fd));
+
+        if let Some(file) = flush_target {
+            match __asyncify_light(env, None, FlushPoller { file })? {
+                Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
+                Err(e) => {
+                    return Ok(e);
+                }
+            }
         }
     }
-    wasi_try_ok!(state.fs.close_fd(fd));
 
     #[cfg(feature = "journal")]
     if env.enable_journal {
