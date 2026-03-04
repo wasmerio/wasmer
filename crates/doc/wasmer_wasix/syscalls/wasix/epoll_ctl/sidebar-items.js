@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["epoll_ctl","epoll_ctl_internal","register_epoll_handler"],"struct":["EpollHandler"]};
+window.SIDEBAR_ITEMS = {"fn":["epoll_ctl","epoll_ctl_internal"]};

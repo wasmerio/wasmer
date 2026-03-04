@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["command","common","console","task","tty"]};
+window.SIDEBAR_ITEMS = {"mod":["command","common","console","epoll","task","tty"]};

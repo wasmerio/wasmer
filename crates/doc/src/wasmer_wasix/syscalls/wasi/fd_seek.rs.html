@@ -97,58 +97,57 @@
 <a href=#97 id=97 data-nosnippet>97</a>                    </span><span class="attr">#[allow(clippy::await_holding_lock)]
 <a href=#98 id=98 data-nosnippet>98</a>                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
 <a href=#99 id=99 data-nosnippet>99</a>                        <span class="kw">let </span>handle = handle.clone();
-<a href=#100 id=100 data-nosnippet>100</a>                        drop(guard);
-<a href=#101 id=101 data-nosnippet>101</a>
-<a href=#102 id=102 data-nosnippet>102</a>                        <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-<a href=#103 id=103 data-nosnippet>103</a>                            <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
-<a href=#104 id=104 data-nosnippet>104</a>                            <span class="kw">let </span>end = handle
-<a href=#105 id=105 data-nosnippet>105</a>                                .seek(SeekFrom::End(offset))
-<a href=#106 id=106 data-nosnippet>106</a>                                .<span class="kw">await
-<a href=#107 id=107 data-nosnippet>107</a>                                </span>.map_err(map_io_err)<span class="question-mark">?</span>;
-<a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a>                            <span class="comment">// TODO: handle case if fd_entry.offset uses 64 bits of a u64
-<a href=#110 id=110 data-nosnippet>110</a>                            </span>drop(handle);
-<a href=#111 id=111 data-nosnippet>111</a>                            <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-<a href=#112 id=112 data-nosnippet>112</a>                            <span class="kw">let </span>fd_entry = fd_map.get_mut(fd).ok_or(Errno::Badf)<span class="question-mark">?</span>;
-<a href=#113 id=113 data-nosnippet>113</a>                            fd_entry.offset.store(end, Ordering::Release);
-<a href=#114 id=114 data-nosnippet>114</a>                            <span class="prelude-val">Ok</span>(())
-<a href=#115 id=115 data-nosnippet>115</a>                        })<span class="question-mark">?</span>);
-<a href=#116 id=116 data-nosnippet>116</a>                    } <span class="kw">else </span>{
-<a href=#117 id=117 data-nosnippet>117</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
-<a href=#118 id=118 data-nosnippet>118</a>                    }
-<a href=#119 id=119 data-nosnippet>119</a>                }
-<a href=#120 id=120 data-nosnippet>120</a>                Kind::Symlink { .. } =&gt; {
-<a href=#121 id=121 data-nosnippet>121</a>                    <span class="macro">unimplemented!</span>(<span class="string">"wasi::fd_seek not implemented for symlinks"</span>)
-<a href=#122 id=122 data-nosnippet>122</a>                }
-<a href=#123 id=123 data-nosnippet>123</a>                Kind::Dir { .. }
-<a href=#124 id=124 data-nosnippet>124</a>                | Kind::Root { .. }
-<a href=#125 id=125 data-nosnippet>125</a>                | Kind::Socket { .. }
-<a href=#126 id=126 data-nosnippet>126</a>                | Kind::PipeRx { .. }
-<a href=#127 id=127 data-nosnippet>127</a>                | Kind::PipeTx { .. }
-<a href=#128 id=128 data-nosnippet>128</a>                | Kind::DuplexPipe { .. }
-<a href=#129 id=129 data-nosnippet>129</a>                | Kind::EventNotifications { .. }
-<a href=#130 id=130 data-nosnippet>130</a>                | Kind::Epoll { .. } =&gt; {
-<a href=#131 id=131 data-nosnippet>131</a>                    <span class="comment">// TODO: check this
-<a href=#132 id=132 data-nosnippet>132</a>                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
-<a href=#133 id=133 data-nosnippet>133</a>                }
-<a href=#134 id=134 data-nosnippet>134</a>                Kind::Buffer { .. } =&gt; {
-<a href=#135 id=135 data-nosnippet>135</a>                    <span class="comment">// seeking buffers probably makes sense
-<a href=#136 id=136 data-nosnippet>136</a>                    // FIXME: implement this
-<a href=#137 id=137 data-nosnippet>137</a>                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
-<a href=#138 id=138 data-nosnippet>138</a>                }
-<a href=#139 id=139 data-nosnippet>139</a>            }
-<a href=#140 id=140 data-nosnippet>140</a>            fd_entry.inner.offset.load(Ordering::Acquire)
-<a href=#141 id=141 data-nosnippet>141</a>        }
-<a href=#142 id=142 data-nosnippet>142</a>        Whence::Set =&gt; {
-<a href=#143 id=143 data-nosnippet>143</a>            <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-<a href=#144 id=144 data-nosnippet>144</a>            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
-<a href=#145 id=145 data-nosnippet>145</a>            <span class="kw">let </span>offset: u64 = <span class="macro">wasi_try_ok_ok!</span>(u64::try_from(offset).map_err(|<span class="kw">_</span>| Errno::Inval));
-<a href=#146 id=146 data-nosnippet>146</a>
-<a href=#147 id=147 data-nosnippet>147</a>            fd_entry.offset.store(offset, Ordering::Release);
-<a href=#148 id=148 data-nosnippet>148</a>            offset
-<a href=#149 id=149 data-nosnippet>149</a>        }
-<a href=#150 id=150 data-nosnippet>150</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval)),
-<a href=#151 id=151 data-nosnippet>151</a>    };
-<a href=#152 id=152 data-nosnippet>152</a>
-<a href=#153 id=153 data-nosnippet>153</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(new_offset))
-<a href=#154 id=154 data-nosnippet>154</a>}</code></pre></div></section></main></body></html>
+<a href=#100 id=100 data-nosnippet>100</a>                        <span class="kw">let </span>fd_offset = fd_entry.inner.offset.clone();
+<a href=#101 id=101 data-nosnippet>101</a>                        drop(guard);
+<a href=#102 id=102 data-nosnippet>102</a>
+<a href=#103 id=103 data-nosnippet>103</a>                        <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+<a href=#104 id=104 data-nosnippet>104</a>                            <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
+<a href=#105 id=105 data-nosnippet>105</a>                            <span class="kw">let </span>end = handle
+<a href=#106 id=106 data-nosnippet>106</a>                                .seek(SeekFrom::End(offset))
+<a href=#107 id=107 data-nosnippet>107</a>                                .<span class="kw">await
+<a href=#108 id=108 data-nosnippet>108</a>                                </span>.map_err(map_io_err)<span class="question-mark">?</span>;
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>                            <span class="comment">// Keep updating the original file description offset even if this
+<a href=#111 id=111 data-nosnippet>111</a>                            // numeric FD was concurrently closed or reused.
+<a href=#112 id=112 data-nosnippet>112</a>                            </span>fd_offset.store(end, Ordering::Release);
+<a href=#113 id=113 data-nosnippet>113</a>                            <span class="prelude-val">Ok</span>(())
+<a href=#114 id=114 data-nosnippet>114</a>                        })<span class="question-mark">?</span>);
+<a href=#115 id=115 data-nosnippet>115</a>                    } <span class="kw">else </span>{
+<a href=#116 id=116 data-nosnippet>116</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
+<a href=#117 id=117 data-nosnippet>117</a>                    }
+<a href=#118 id=118 data-nosnippet>118</a>                }
+<a href=#119 id=119 data-nosnippet>119</a>                Kind::Symlink { .. } =&gt; {
+<a href=#120 id=120 data-nosnippet>120</a>                    <span class="macro">unimplemented!</span>(<span class="string">"wasi::fd_seek not implemented for symlinks"</span>)
+<a href=#121 id=121 data-nosnippet>121</a>                }
+<a href=#122 id=122 data-nosnippet>122</a>                Kind::Dir { .. }
+<a href=#123 id=123 data-nosnippet>123</a>                | Kind::Root { .. }
+<a href=#124 id=124 data-nosnippet>124</a>                | Kind::Socket { .. }
+<a href=#125 id=125 data-nosnippet>125</a>                | Kind::PipeRx { .. }
+<a href=#126 id=126 data-nosnippet>126</a>                | Kind::PipeTx { .. }
+<a href=#127 id=127 data-nosnippet>127</a>                | Kind::DuplexPipe { .. }
+<a href=#128 id=128 data-nosnippet>128</a>                | Kind::EventNotifications { .. }
+<a href=#129 id=129 data-nosnippet>129</a>                | Kind::Epoll { .. } =&gt; {
+<a href=#130 id=130 data-nosnippet>130</a>                    <span class="comment">// TODO: check this
+<a href=#131 id=131 data-nosnippet>131</a>                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
+<a href=#132 id=132 data-nosnippet>132</a>                }
+<a href=#133 id=133 data-nosnippet>133</a>                Kind::Buffer { .. } =&gt; {
+<a href=#134 id=134 data-nosnippet>134</a>                    <span class="comment">// seeking buffers probably makes sense
+<a href=#135 id=135 data-nosnippet>135</a>                    // FIXME: implement this
+<a href=#136 id=136 data-nosnippet>136</a>                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
+<a href=#137 id=137 data-nosnippet>137</a>                }
+<a href=#138 id=138 data-nosnippet>138</a>            }
+<a href=#139 id=139 data-nosnippet>139</a>            fd_entry.inner.offset.load(Ordering::Acquire)
+<a href=#140 id=140 data-nosnippet>140</a>        }
+<a href=#141 id=141 data-nosnippet>141</a>        Whence::Set =&gt; {
+<a href=#142 id=142 data-nosnippet>142</a>            <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
+<a href=#143 id=143 data-nosnippet>143</a>            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
+<a href=#144 id=144 data-nosnippet>144</a>            <span class="kw">let </span>offset: u64 = <span class="macro">wasi_try_ok_ok!</span>(u64::try_from(offset).map_err(|<span class="kw">_</span>| Errno::Inval));
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a>            fd_entry.offset.store(offset, Ordering::Release);
+<a href=#147 id=147 data-nosnippet>147</a>            offset
+<a href=#148 id=148 data-nosnippet>148</a>        }
+<a href=#149 id=149 data-nosnippet>149</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval)),
+<a href=#150 id=150 data-nosnippet>150</a>    };
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(new_offset))
+<a href=#153 id=153 data-nosnippet>153</a>}</code></pre></div></section></main></body></html>

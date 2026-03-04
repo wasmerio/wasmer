@@ -149,75 +149,75 @@
 <a href=#149 id=149 data-nosnippet>149</a>            <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();
 <a href=#150 id=150 data-nosnippet>150</a>            <span class="kw">match </span>guard.deref_mut() {
 <a href=#151 id=151 data-nosnippet>151</a>                Kind::File { handle, .. } =&gt; {
-<a href=#152 id=152 data-nosnippet>152</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
-<a href=#153 id=153 data-nosnippet>153</a>                        <span class="kw">let </span>handle = handle.clone();
-<a href=#154 id=154 data-nosnippet>154</a>
-<a href=#155 id=155 data-nosnippet>155</a>                        drop(guard);
-<a href=#156 id=156 data-nosnippet>156</a>
-<a href=#157 id=157 data-nosnippet>157</a>                        <span class="kw">let </span>res = __asyncify_light(
-<a href=#158 id=158 data-nosnippet>158</a>                            env,
-<a href=#159 id=159 data-nosnippet>159</a>                            <span class="kw">if </span>fd_flags.contains(Fdflags::NONBLOCK) {
-<a href=#160 id=160 data-nosnippet>160</a>                                <span class="prelude-val">Some</span>(Duration::ZERO)
-<a href=#161 id=161 data-nosnippet>161</a>                            } <span class="kw">else </span>{
-<a href=#162 id=162 data-nosnippet>162</a>                                <span class="prelude-val">None
-<a href=#163 id=163 data-nosnippet>163</a>                            </span>},
-<a href=#164 id=164 data-nosnippet>164</a>                            <span class="kw">async move </span>{
-<a href=#165 id=165 data-nosnippet>165</a>                                <span class="kw">let </span><span class="kw-2">mut </span>handle = <span class="kw">match </span>handle.write() {
-<a href=#166 id=166 data-nosnippet>166</a>                                    <span class="prelude-val">Ok</span>(a) =&gt; a,
-<a href=#167 id=167 data-nosnippet>167</a>                                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Fault),
-<a href=#168 id=168 data-nosnippet>168</a>                                };
-<a href=#169 id=169 data-nosnippet>169</a>                                <span class="kw">if </span>!is_stdio {
-<a href=#170 id=170 data-nosnippet>170</a>                                    handle
-<a href=#171 id=171 data-nosnippet>171</a>                                        .seek(std::io::SeekFrom::Start(offset <span class="kw">as </span>u64))
-<a href=#172 id=172 data-nosnippet>172</a>                                        .<span class="kw">await
-<a href=#173 id=173 data-nosnippet>173</a>                                        </span>.map_err(map_io_err)<span class="question-mark">?</span>;
-<a href=#174 id=174 data-nosnippet>174</a>                                }
-<a href=#175 id=175 data-nosnippet>175</a>
-<a href=#176 id=176 data-nosnippet>176</a>                                <span class="kw">let </span><span class="kw-2">mut </span>total_read = <span class="number">0usize</span>;
-<a href=#177 id=177 data-nosnippet>177</a>
-<a href=#178 id=178 data-nosnippet>178</a>                                <span class="kw">let </span>iovs_arr =
-<a href=#179 id=179 data-nosnippet>179</a>                                    iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len).map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#180 id=180 data-nosnippet>180</a>                                <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#181 id=181 data-nosnippet>181</a>                                <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
-<a href=#182 id=182 data-nosnippet>182</a>                                    <span class="kw">let </span><span class="kw-2">mut </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
-<a href=#183 id=183 data-nosnippet>183</a>                                        .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
-<a href=#184 id=184 data-nosnippet>184</a>                                        .map_err(mem_error_to_wasi)<span class="question-mark">?
-<a href=#185 id=185 data-nosnippet>185</a>                                        </span>.access()
-<a href=#186 id=186 data-nosnippet>186</a>                                        .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#187 id=187 data-nosnippet>187</a>                                    <span class="kw">let </span>r = handle.read(buf.as_mut()).<span class="kw">await</span>.map_err(|err| {
-<a href=#188 id=188 data-nosnippet>188</a>                                        <span class="kw">let </span>err = From::&lt;std::io::Error&gt;::from(err);
-<a href=#189 id=189 data-nosnippet>189</a>                                        <span class="kw">match </span>err {
-<a href=#190 id=190 data-nosnippet>190</a>                                            Errno::Again =&gt; {
-<a href=#191 id=191 data-nosnippet>191</a>                                                <span class="kw">if </span>is_stdio {
-<a href=#192 id=192 data-nosnippet>192</a>                                                    Errno::Badf
-<a href=#193 id=193 data-nosnippet>193</a>                                                } <span class="kw">else </span>{
-<a href=#194 id=194 data-nosnippet>194</a>                                                    Errno::Again
-<a href=#195 id=195 data-nosnippet>195</a>                                                }
-<a href=#196 id=196 data-nosnippet>196</a>                                            }
-<a href=#197 id=197 data-nosnippet>197</a>                                            a =&gt; a,
-<a href=#198 id=198 data-nosnippet>198</a>                                        }
-<a href=#199 id=199 data-nosnippet>199</a>                                    });
-<a href=#200 id=200 data-nosnippet>200</a>                                    <span class="kw">let </span>local_read = <span class="kw">match </span>r {
-<a href=#201 id=201 data-nosnippet>201</a>                                        <span class="prelude-val">Ok</span>(s) =&gt; s,
-<a href=#202 id=202 data-nosnippet>202</a>                                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>total_read &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
-<a href=#203 id=203 data-nosnippet>203</a>                                        <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
-<a href=#204 id=204 data-nosnippet>204</a>                                    };
-<a href=#205 id=205 data-nosnippet>205</a>                                    total_read += local_read;
-<a href=#206 id=206 data-nosnippet>206</a>                                    <span class="kw">if </span>local_read != buf.len() {
-<a href=#207 id=207 data-nosnippet>207</a>                                        <span class="kw">break</span>;
-<a href=#208 id=208 data-nosnippet>208</a>                                    }
-<a href=#209 id=209 data-nosnippet>209</a>                                }
-<a href=#210 id=210 data-nosnippet>210</a>                                <span class="prelude-val">Ok</span>(total_read)
-<a href=#211 id=211 data-nosnippet>211</a>                            },
-<a href=#212 id=212 data-nosnippet>212</a>                        );
-<a href=#213 id=213 data-nosnippet>213</a>                        <span class="kw">let </span>read = <span class="macro">wasi_try_ok_ok!</span>(res<span class="question-mark">?</span>.map_err(|err| <span class="kw">match </span>err {
-<a href=#214 id=214 data-nosnippet>214</a>                            Errno::Timedout =&gt; Errno::Again,
-<a href=#215 id=215 data-nosnippet>215</a>                            a =&gt; a,
-<a href=#216 id=216 data-nosnippet>216</a>                        }));
-<a href=#217 id=217 data-nosnippet>217</a>                        (read, <span class="bool-val">true</span>)
-<a href=#218 id=218 data-nosnippet>218</a>                    } <span class="kw">else </span>{
-<a href=#219 id=219 data-nosnippet>219</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Badf));
-<a href=#220 id=220 data-nosnippet>220</a>                    }
+<a href=#152 id=152 data-nosnippet>152</a>                    <span class="kw">let </span><span class="prelude-val">Some</span>(handle) = handle <span class="kw">else </span>{
+<a href=#153 id=153 data-nosnippet>153</a>                        <span class="macro">tracing::warn!</span>(<span class="string">"fd_read: file handle is None"</span>);
+<a href=#154 id=154 data-nosnippet>154</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Badf));
+<a href=#155 id=155 data-nosnippet>155</a>                    };
+<a href=#156 id=156 data-nosnippet>156</a>                    <span class="kw">let </span>handle = handle.clone();
+<a href=#157 id=157 data-nosnippet>157</a>
+<a href=#158 id=158 data-nosnippet>158</a>                    drop(guard);
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>                    <span class="kw">let </span>res = __asyncify_light(
+<a href=#161 id=161 data-nosnippet>161</a>                        env,
+<a href=#162 id=162 data-nosnippet>162</a>                        <span class="kw">if </span>fd_flags.contains(Fdflags::NONBLOCK) {
+<a href=#163 id=163 data-nosnippet>163</a>                            <span class="prelude-val">Some</span>(Duration::ZERO)
+<a href=#164 id=164 data-nosnippet>164</a>                        } <span class="kw">else </span>{
+<a href=#165 id=165 data-nosnippet>165</a>                            <span class="prelude-val">None
+<a href=#166 id=166 data-nosnippet>166</a>                        </span>},
+<a href=#167 id=167 data-nosnippet>167</a>                        <span class="kw">async move </span>{
+<a href=#168 id=168 data-nosnippet>168</a>                            <span class="kw">let </span><span class="kw-2">mut </span>handle = <span class="kw">match </span>handle.write() {
+<a href=#169 id=169 data-nosnippet>169</a>                                <span class="prelude-val">Ok</span>(a) =&gt; a,
+<a href=#170 id=170 data-nosnippet>170</a>                                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Fault),
+<a href=#171 id=171 data-nosnippet>171</a>                            };
+<a href=#172 id=172 data-nosnippet>172</a>                            <span class="kw">if </span>!is_stdio {
+<a href=#173 id=173 data-nosnippet>173</a>                                handle
+<a href=#174 id=174 data-nosnippet>174</a>                                    .seek(std::io::SeekFrom::Start(offset <span class="kw">as </span>u64))
+<a href=#175 id=175 data-nosnippet>175</a>                                    .<span class="kw">await
+<a href=#176 id=176 data-nosnippet>176</a>                                    </span>.map_err(map_io_err)<span class="question-mark">?</span>;
+<a href=#177 id=177 data-nosnippet>177</a>                            }
+<a href=#178 id=178 data-nosnippet>178</a>
+<a href=#179 id=179 data-nosnippet>179</a>                            <span class="kw">let </span><span class="kw-2">mut </span>total_read = <span class="number">0usize</span>;
+<a href=#180 id=180 data-nosnippet>180</a>
+<a href=#181 id=181 data-nosnippet>181</a>                            <span class="kw">let </span>iovs_arr =
+<a href=#182 id=182 data-nosnippet>182</a>                                iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len).map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#183 id=183 data-nosnippet>183</a>                            <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#184 id=184 data-nosnippet>184</a>                            <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+<a href=#185 id=185 data-nosnippet>185</a>                                <span class="kw">let </span><span class="kw-2">mut </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+<a href=#186 id=186 data-nosnippet>186</a>                                    .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
+<a href=#187 id=187 data-nosnippet>187</a>                                    .map_err(mem_error_to_wasi)<span class="question-mark">?
+<a href=#188 id=188 data-nosnippet>188</a>                                    </span>.access()
+<a href=#189 id=189 data-nosnippet>189</a>                                    .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#190 id=190 data-nosnippet>190</a>                                <span class="kw">let </span>r = handle.read(buf.as_mut()).<span class="kw">await</span>.map_err(|err| {
+<a href=#191 id=191 data-nosnippet>191</a>                                    <span class="kw">let </span>err = From::&lt;std::io::Error&gt;::from(err);
+<a href=#192 id=192 data-nosnippet>192</a>                                    <span class="kw">match </span>err {
+<a href=#193 id=193 data-nosnippet>193</a>                                        Errno::Again =&gt; {
+<a href=#194 id=194 data-nosnippet>194</a>                                            <span class="kw">if </span>is_stdio {
+<a href=#195 id=195 data-nosnippet>195</a>                                                Errno::Badf
+<a href=#196 id=196 data-nosnippet>196</a>                                            } <span class="kw">else </span>{
+<a href=#197 id=197 data-nosnippet>197</a>                                                Errno::Again
+<a href=#198 id=198 data-nosnippet>198</a>                                            }
+<a href=#199 id=199 data-nosnippet>199</a>                                        }
+<a href=#200 id=200 data-nosnippet>200</a>                                        a =&gt; a,
+<a href=#201 id=201 data-nosnippet>201</a>                                    }
+<a href=#202 id=202 data-nosnippet>202</a>                                });
+<a href=#203 id=203 data-nosnippet>203</a>                                <span class="kw">let </span>local_read = <span class="kw">match </span>r {
+<a href=#204 id=204 data-nosnippet>204</a>                                    <span class="prelude-val">Ok</span>(s) =&gt; s,
+<a href=#205 id=205 data-nosnippet>205</a>                                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>total_read &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
+<a href=#206 id=206 data-nosnippet>206</a>                                    <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
+<a href=#207 id=207 data-nosnippet>207</a>                                };
+<a href=#208 id=208 data-nosnippet>208</a>                                total_read += local_read;
+<a href=#209 id=209 data-nosnippet>209</a>                                <span class="kw">if </span>local_read != buf.len() {
+<a href=#210 id=210 data-nosnippet>210</a>                                    <span class="kw">break</span>;
+<a href=#211 id=211 data-nosnippet>211</a>                                }
+<a href=#212 id=212 data-nosnippet>212</a>                            }
+<a href=#213 id=213 data-nosnippet>213</a>                            <span class="prelude-val">Ok</span>(total_read)
+<a href=#214 id=214 data-nosnippet>214</a>                        },
+<a href=#215 id=215 data-nosnippet>215</a>                    );
+<a href=#216 id=216 data-nosnippet>216</a>                    <span class="kw">let </span>read = <span class="macro">wasi_try_ok_ok!</span>(res<span class="question-mark">?</span>.map_err(|err| <span class="kw">match </span>err {
+<a href=#217 id=217 data-nosnippet>217</a>                        Errno::Timedout =&gt; Errno::Again,
+<a href=#218 id=218 data-nosnippet>218</a>                        a =&gt; a,
+<a href=#219 id=219 data-nosnippet>219</a>                    }));
+<a href=#220 id=220 data-nosnippet>220</a>                    (read, <span class="bool-val">true</span>)
 <a href=#221 id=221 data-nosnippet>221</a>                }
 <a href=#222 id=222 data-nosnippet>222</a>                Kind::Socket { socket } =&gt; {
 <a href=#223 id=223 data-nosnippet>223</a>                    <span class="kw">let </span>socket = socket.clone();
@@ -448,16 +448,14 @@
 <a href=#448 id=448 data-nosnippet>448</a>        };
 <a href=#449 id=449 data-nosnippet>449</a>
 <a href=#450 id=450 data-nosnippet>450</a>        <span class="kw">if </span>!is_stdio &amp;&amp; should_update_cursor &amp;&amp; can_update_cursor {
-<a href=#451 id=451 data-nosnippet>451</a>            <span class="comment">// reborrow
-<a href=#452 id=452 data-nosnippet>452</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-<a href=#453 id=453 data-nosnippet>453</a>            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
-<a href=#454 id=454 data-nosnippet>454</a>            <span class="kw">let </span>old = fd_entry
-<a href=#455 id=455 data-nosnippet>455</a>                .offset
-<a href=#456 id=456 data-nosnippet>456</a>                .fetch_add(bytes_read <span class="kw">as </span>u64, Ordering::AcqRel);
-<a href=#457 id=457 data-nosnippet>457</a>        }
-<a href=#458 id=458 data-nosnippet>458</a>
-<a href=#459 id=459 data-nosnippet>459</a>        bytes_read
-<a href=#460 id=460 data-nosnippet>460</a>    };
-<a href=#461 id=461 data-nosnippet>461</a>
-<a href=#462 id=462 data-nosnippet>462</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(bytes_read))
-<a href=#463 id=463 data-nosnippet>463</a>}</code></pre></div></section></main></body></html>
+<a href=#451 id=451 data-nosnippet>451</a>            fd_entry
+<a href=#452 id=452 data-nosnippet>452</a>                .inner
+<a href=#453 id=453 data-nosnippet>453</a>                .offset
+<a href=#454 id=454 data-nosnippet>454</a>                .fetch_add(bytes_read <span class="kw">as </span>u64, Ordering::AcqRel);
+<a href=#455 id=455 data-nosnippet>455</a>        }
+<a href=#456 id=456 data-nosnippet>456</a>
+<a href=#457 id=457 data-nosnippet>457</a>        bytes_read
+<a href=#458 id=458 data-nosnippet>458</a>    };
+<a href=#459 id=459 data-nosnippet>459</a>
+<a href=#460 id=460 data-nosnippet>460</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(bytes_read))
+<a href=#461 id=461 data-nosnippet>461</a>}</code></pre></div></section></main></body></html>
