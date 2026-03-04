@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+
+# /// script
+# dependencies = [
+#   "termcolor",
+# ]
+# ///
+
 """Run Wasmer with perf/perfmap and annotate hot JIT functions.
 
 Workflow:
