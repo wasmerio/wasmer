@@ -426,11 +426,9 @@ unsafe impl wasmer::FromToNativeWasmType for EpollCtl {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            // Linux epoll op constants are 1/2/3 for ADD/MOD/DEL.
-            // Keep 0=>ADD for backward compatibility with older WASIX encodings.
-            0 | 1 => Self::Add,
+            0 => Self::Add,
+            1 => Self::Mod,
             2 => Self::Del,
-            3 => Self::Mod,
 
             q => {
                 tracing::debug!("could not serialize number {q} to enum EpollCtl");
