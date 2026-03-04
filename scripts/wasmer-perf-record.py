@@ -22,15 +22,12 @@ import shutil
 from collections import Counter, namedtuple
 from pathlib import Path
 
+from termcolor import colored
+
 
 INSTR_RE = re.compile(r"^\s*([0-9a-fA-F]+):")
 
 MapEntry = namedtuple("MapEntry", ["start", "end", "size", "name"])
-
-ANSI_RESET = "\033[0m"
-ANSI_BOLD = "\033[1m"
-ANSI_ORANGE = "\033[38;5;208m"
-ANSI_RED = "\033[31m"
 
 
 def run_cmd(cmd):
@@ -95,9 +92,14 @@ def find_object_file(debug_dir, symbol):
     return exact[0]
 
 
-def disassemble(obj_path):
+def disassemble(obj_path, use_color):
+    cmd = ["llvm-objdump", "-d", "--no-show-raw-insn"]
+    if use_color:
+        cmd.append("--disassembler-color=on")
+    cmd.append(str(obj_path))
+
     proc = subprocess.run(
-        ["llvm-objdump", "-d", str(obj_path)],
+        cmd,
         check=True,
         capture_output=True,
         text=True,
@@ -123,7 +125,7 @@ def annotate_function(
     obj_path,
     use_color,
 ):
-    offsets, lines = disassemble(obj_path)
+    offsets, lines = disassemble(obj_path, use_color)
     if not offsets:
         print(f"No disassembly instructions parsed from {obj_path}")
         return
@@ -144,7 +146,7 @@ def annotate_function(
     )
     print()
     function_name = (
-        f"{ANSI_BOLD}{entry.name}{ANSI_RESET}" if use_color else f"{entry.name}"
+        colored(entry.name, "green", attrs=["bold"]) if use_color else entry.name
     )
     print(f"Function: {function_name}")
     print(f"Address: 0x{entry.start:x}-0x{entry.end:x}  Size: 0x{entry.size:x}")
@@ -155,16 +157,16 @@ def annotate_function(
     for offset, line in zip(offsets, lines):
         samples = per_offset.get(offset, 0)
         percent = samples / fn_total * 100.0
-        line_color = ""
+        line_color = None
         if use_color:
             if percent >= 10.0:
-                line_color = ANSI_RED
+                line_color = "red"
             elif percent >= 3.0:
-                line_color = ANSI_ORANGE
+                line_color = "yellow"
         if samples:
             rendered = f"{percent:6.2f}%  {samples:6d}  {line}"
             if line_color:
-                rendered = f"{line_color}{rendered}{ANSI_RESET}"
+                rendered = colored(rendered, line_color)
             print(rendered)
         else:
             print(f"{'':16} {line}")
@@ -286,7 +288,7 @@ def main():
     sorted_fns = fn_counts.most_common()
     for entry, count in sorted_fns[: args.top]:
         p = count / mapped_total * 100.0
-        print(f"  {p:6.2f}% ({count:8d}) {entry.name} @ 0x{entry.start:x}")
+        print(f"  {p:6.2f}%  {count:8d}  {entry.name} @ 0x{entry.start:x}")
 
     print()
     print(f"Annotating functions with >= {args.coverage_threshold:.2f}% coverage:")
