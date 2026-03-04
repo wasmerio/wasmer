@@ -27,6 +27,11 @@ INSTR_RE = re.compile(r"^\s*([0-9a-fA-F]+):")
 
 MapEntry = namedtuple("MapEntry", ["start", "end", "size", "name"])
 
+ANSI_RESET = "\033[0m"
+ANSI_BOLD = "\033[1m"
+ANSI_ORANGE = "\033[38;5;208m"
+ANSI_RED = "\033[31m"
+
 
 def run_cmd(cmd):
     print("+", " ".join(cmd))
@@ -116,6 +121,7 @@ def annotate_function(
     ip_counts,
     mapped_total_samples,
     obj_path,
+    use_color,
 ):
     offsets, lines = disassemble(obj_path)
     if not offsets:
@@ -137,7 +143,10 @@ def annotate_function(
         (fn_total / mapped_total_samples * 100.0) if mapped_total_samples else 0.0
     )
     print()
-    print(f"Function: {entry.name}")
+    function_name = (
+        f"{ANSI_BOLD}{entry.name}{ANSI_RESET}" if use_color else f"{entry.name}"
+    )
+    print(f"Function: {function_name}")
     print(f"Address: 0x{entry.start:x}-0x{entry.end:x}  Size: 0x{entry.size:x}")
     print(f"Object : {obj_path}")
     print(f"Samples: {fn_total} ({fn_percent:.2f}% of mapped samples)")
@@ -146,8 +155,17 @@ def annotate_function(
     for offset, line in zip(offsets, lines):
         samples = per_offset.get(offset, 0)
         percent = samples / fn_total * 100.0
+        line_color = ""
+        if use_color:
+            if percent >= 10.0:
+                line_color = ANSI_RED
+            elif percent >= 3.0:
+                line_color = ANSI_ORANGE
         if samples:
-            print(f"{percent:6.2f}%  {samples:6d} {line}")
+            rendered = f"{percent:6.2f}%  {samples:6d}  {line}"
+            if line_color:
+                rendered = f"{line_color}{rendered}{ANSI_RESET}"
+            print(rendered)
         else:
             print(f"{'':16} {line}")
 
@@ -186,6 +204,7 @@ def main():
     )
 
     args = parser.parse_args()
+    use_color = sys.stdout.isatty()
 
     wasmer_args = args.wasmer_args
     shutil.rmtree(args.tmpdir, ignore_errors=True)
@@ -290,6 +309,7 @@ def main():
             fn_ip_counts.get(entry, Counter()),
             mapped_total,
             obj_path,
+            use_color,
         )
         annotated += 1
 
