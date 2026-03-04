@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+#
+# Wasmer maps JIT-compiled code directly into memory, so resolving function names
+# from an instruction pointer (IP) address is not straightforward. Use
+# `--profiler=perfmap`, then run this script to look up the function name and
+# offset from the generated map file (`/tmp/perf-*.map`).
 
 import argparse
 import glob
