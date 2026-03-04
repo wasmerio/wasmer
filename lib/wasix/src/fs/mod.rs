@@ -1147,17 +1147,6 @@ impl WasiFs {
             return Err(Errno::Mlink);
         }
 
-        // Absolute root paths should resolve to the mounted "/" inode when present.
-        // This keeps "/" behavior aligned with historical path traversal semantics.
-        if path_str == "/" {
-            let guard = cur_inode.read();
-            if let Kind::Root { entries } = guard.deref() {
-                if let Some(root_entry) = entries.get("/") {
-                    return Ok(root_entry.clone());
-                }
-            }
-        }
-
         let path: &Path = Path::new(path_str);
         let n_components = path.components().count();
 
