@@ -444,6 +444,36 @@ fn epoll_mask_to_pending_bits(mask: EpollType) -> u8 {
     bits
 }
 
+fn prime_immediate_writable_if_applicable(
+    event: &EpollFd,
+    fd_guard: &InodeValFilePollGuard,
+    epoll_state: &Arc<EpollState>,
+    sub_state: &Arc<EpollSubState>,
+) {
+    if !event.events().contains(EpollType::EPOLLOUT) {
+        return;
+    }
+
+    // Some fd kinds are effectively writable immediately (for example eventfd-like
+    // notifications and pipe write-ends), but may not emit a writable transition.
+    // Prime EPOLLOUT once at registration so level-triggered epoll can observe them.
+    let writable_now = matches!(
+        fd_guard.mode,
+        InodeValFilePollGuardMode::EventNotifications(_) | InodeValFilePollGuardMode::PipeTx { .. }
+    );
+
+    if !writable_now {
+        return;
+    }
+
+    sub_state
+        .pending_bits
+        .fetch_or(WRITABLE_BIT, Ordering::AcqRel);
+    if sub_state.mark_enqueued() {
+        epoll_state.enqueue_ready(event.fd(), sub_state.generation());
+    }
+}
+
 /// Re-enqueues a subscription if new pending bits arrived during/after consumer drain.
 fn repair_ready_queue_after_drain(
     epoll_state: &Arc<EpollState>,
@@ -606,7 +636,7 @@ pub(crate) fn register_epoll_handler(
     };
 
     let fd_guard = poll_fd_guard(state, peb.build(), event.fd(), s)?;
-    let handler = EpollHandler::new(event.fd(), epoll_state, sub_state);
+    let handler = EpollHandler::new(event.fd(), epoll_state.clone(), sub_state.clone());
 
     match &fd_guard.mode {
         InodeValFilePollGuardMode::File(_) => {
@@ -631,9 +661,12 @@ pub(crate) fn register_epoll_handler(
             // The sending end of a pipe can't have an interest handler, since we
             // only support "readable" interest on pipes; they're considered to
             // always be writable.
+            prime_immediate_writable_if_applicable(event, &fd_guard, &epoll_state, &sub_state);
             return Ok(None);
         }
     }
+
+    prime_immediate_writable_if_applicable(event, &fd_guard, &epoll_state, &sub_state);
 
     Ok(Some(EpollJoinGuard::new(fd_guard)))
 }
