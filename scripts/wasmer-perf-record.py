@@ -181,7 +181,7 @@ def annotate_function(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Record + annotate Wasmer LLVM perfmap profile (perf.data -> JSON -> annotate)."
+        description="Create perf report + annotate like output for a WebAssembly module run with Wasmer"
     )
     parser.add_argument(
         "--coverage-threshold",
@@ -204,12 +204,12 @@ def main():
     parser.add_argument(
         "--wasmer-binary",
         default="wasmer",
-        help="The default wasmer binary to be invoked",
+        help="The default wasmer binary to be invoked.",
     )
     parser.add_argument(
         "wasmer_args",
         nargs=argparse.REMAINDER,
-        help="Arguments passed to `wasmer run --llvm ...` (use `--` separator).",
+        help="Arguments passed to `wasmer run`.",
     )
 
     args = parser.parse_args()
@@ -232,7 +232,7 @@ def main():
         ]
     )
 
-    # TODO
+    # TODO: fix once --disable-cache will start storing to artifact cache
     run_cmd(
         [
             args.wasmer_binary,
