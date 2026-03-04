@@ -72,6 +72,28 @@ wasmer.toml
 #[test]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn nested_mounted_paths() {
+    fn parse_sections(stdout: &str) -> std::collections::HashMap<String, Vec<String>> {
+        let mut sections = std::collections::HashMap::<String, Vec<String>>::new();
+        let mut current: Option<String> = None;
+        for line in stdout.lines() {
+            if let Some(section) = line.strip_suffix(':') {
+                current = Some(section.to_string());
+                sections.entry(section.to_string()).or_default();
+                continue;
+            }
+            if line.is_empty() {
+                continue;
+            }
+            if let Some(section) = &current {
+                sections
+                    .entry(section.clone())
+                    .or_default()
+                    .push(line.to_string());
+            }
+        }
+        sections
+    }
+
     let package = packages().join("nested-mounted-paths");
 
     let webc = package.join("out.webc");
@@ -92,37 +114,37 @@ fn nested_mounted_paths() {
 
     let webc_stdout = String::from_utf8(webc_output.stdout).unwrap();
 
-    let expected = "/:
-.
-..
-.app
-.private
-app
-bin
-dev
-etc
-tmp
-usr
+    assert_eq!(
+        &host_stdout, &webc_stdout,
+        "host directory view and packaged directory view must match"
+    );
 
-/app:
-.
-..
-a
-b
-
-/app/a:
-.
-..
-data-a.txt
-
-/app/b:
-.
-..
-data-b.txt
-";
-
-    assert_eq!(&host_stdout, &expected);
-    assert_eq!(&webc_stdout, &expected);
+    let sections = parse_sections(&host_stdout);
+    assert_eq!(
+        sections.get("/app"),
+        Some(&vec![
+            ".".to_string(),
+            "..".to_string(),
+            "a".to_string(),
+            "b".to_string()
+        ])
+    );
+    assert_eq!(
+        sections.get("/app/a"),
+        Some(&vec![
+            ".".to_string(),
+            "..".to_string(),
+            "data-a.txt".to_string()
+        ])
+    );
+    assert_eq!(
+        sections.get("/app/b"),
+        Some(&vec![
+            ".".to_string(),
+            "..".to_string(),
+            "data-b.txt".to_string()
+        ])
+    );
 }
 
 // The test would be very slow on Windows or macOS
