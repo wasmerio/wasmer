@@ -5,11 +5,11 @@ use super::*;
 use crate::{
     WasiInodes,
     fs::{InodeValFilePollGuard, InodeValFilePollGuardJoin},
-    os::epoll::EpollState,
     state::PollEventSet,
     syscalls::*,
 };
-use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
+use tokio::sync::Mutex as AsyncMutex;
 
 /// ### `epoll_create()`
 /// Create an epoll interest list
@@ -47,11 +47,15 @@ pub fn epoll_create_internal(
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let epoll_state = Arc::new(EpollState::new());
+    let (tx, rx) = tokio::sync::watch::channel(Default::default());
 
     let inode = state.fs.create_inode_with_default_stat(
         inodes,
-        Kind::Epoll { state: epoll_state },
+        Kind::Epoll {
+            subscriptions: Arc::new(StdMutex::new(HashMap::new())),
+            tx: Arc::new(tx),
+            rx: Arc::new(AsyncMutex::new(rx)),
+        },
         false,
         "pipe".to_string().into(),
     );
