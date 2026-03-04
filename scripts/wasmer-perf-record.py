@@ -18,7 +18,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 import shutil
 from collections import Counter, namedtuple
 from pathlib import Path
@@ -86,21 +85,9 @@ def find_object_file(debug_dir, symbol):
         return None
 
     target = sanitize_filename(symbol)
-    exact = []
-    startswith = []
-
-    for p in candidates:
-        stem = p.stem
-        if stem == target:
-            exact.append(p)
-        elif stem.startswith(target):
-            startswith.append(p)
-
-    if exact:
-        return max(exact, key=lambda p: p.stat().st_mtime)
-    if startswith:
-        return max(startswith, key=lambda p: p.stat().st_mtime)
-    return None
+    exact = [p for p in candidates if p.stem == target]
+    assert len(exact) == 1
+    return exact[0]
 
 
 def disassemble(obj_path):
@@ -160,7 +147,7 @@ def annotate_function(
         samples = per_offset.get(offset, 0)
         percent = samples / fn_total * 100.0
         if samples:
-            print(f"{percent:6.2f}% ({samples:6d}) {line}")
+            print(f"{percent:6.2f}%  {samples:6d} {line}")
         else:
             print(f"{'':16} {line}")
 
