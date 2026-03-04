@@ -33,7 +33,6 @@ wasmer-config = { version = "0.701.0-alpha.1", path = "../config" }
 
 http.workspace = true
 dashmap.workspace = true
-fnv.workspace = true
 base64.workspace = true
 webc.workspace = true
 serde_yaml.workspace = true

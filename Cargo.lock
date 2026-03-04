@@ -7507,7 +7507,6 @@ dependencies = [
  "derive_more",
  "env_logger",
  "flate2",
- "fnv",
  "futures",
  "getrandom 0.3.4",
  "getrandom 0.4.1",

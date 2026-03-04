@@ -47,10 +47,10 @@ use wasmer_wasix_types::{
     },
 };
 
-pub use self::fd::{Fd, FdInner, InodeVal, Kind};
+pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, FdInner, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
-    InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
+    InodeValFileReadGuard, InodeValFileWriteGuard, POLL_GUARD_MAX_RET, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
 use self::relative_path_hack::RelativeOrAbsolutePathHack;

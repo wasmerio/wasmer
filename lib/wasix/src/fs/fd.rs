@@ -1,19 +1,21 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::AtomicU64},
 };
 
-#[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
+use std::sync::Mutex as StdMutex;
+use tokio::sync::{Mutex as AsyncMutex, watch};
 use virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
-use wasmer_wasix_types::wasi::{Fd as WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
+use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
-use crate::os::epoll::EpollState;
 
-use super::{InodeGuard, InodeWeakGuard, NotificationInner};
+use super::{
+    InodeGuard, InodeValFilePollGuard, InodeValFilePollGuardMode, InodeWeakGuard, NotificationInner,
+};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -81,6 +83,63 @@ impl InodeVal {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpollFd {
+    /// The events we are polling on
+    pub events: EpollType,
+    /// Pointer to the user data
+    pub ptr: u64,
+    /// File descriptor we are polling on
+    pub fd: WasiFd,
+    /// Associated user data
+    pub data1: u32,
+    /// Associated user data
+    pub data2: u64,
+}
+
+/// Represents all the EpollInterests that have occurred
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct EpollInterest {
+    /// Using a hash set prevents the same interest from
+    /// being triggered more than once
+    pub interest: HashSet<(WasiFd, EpollType)>,
+}
+
+/// Guard the cleans up the selector registrations
+#[derive(Debug)]
+pub struct EpollJoinGuard {
+    pub(crate) fd_guard: InodeValFilePollGuard,
+}
+impl Drop for EpollJoinGuard {
+    fn drop(&mut self) {
+        match &self.fd_guard.mode {
+            InodeValFilePollGuardMode::File(_) => {
+                // Intentionally ignored, epoll doesn't work with files
+            }
+            InodeValFilePollGuardMode::Socket { inner } => {
+                let mut inner = inner.protected.write().unwrap();
+                inner.remove_handler();
+            }
+            InodeValFilePollGuardMode::EventNotifications(inner) => {
+                inner.remove_interest_handler();
+            }
+            InodeValFilePollGuardMode::DuplexPipe { pipe } => {
+                let inner = pipe.write().unwrap();
+                inner.remove_interest_handler();
+            }
+            InodeValFilePollGuardMode::PipeRx { rx } => {
+                let inner = rx.write().unwrap();
+                inner.remove_interest_handler();
+            }
+            InodeValFilePollGuardMode::PipeTx { .. } => {
+                // Intentionally ignored, the sending end of a pipe can't have an interest handler
+            }
+        }
+    }
+}
+
+pub type EpollSubscriptions = HashMap<WasiFd, (EpollFd, Vec<EpollJoinGuard>)>;
+
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
 #[derive(Debug)]
@@ -116,9 +175,14 @@ pub enum Kind {
     DuplexPipe {
         pipe: Pipe,
     },
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     Epoll {
-        state: Arc<EpollState>,
+        // List of events we are polling on
+        subscriptions: Arc<StdMutex<EpollSubscriptions>>,
+        // Notification pipeline for sending events
+        tx: Arc<watch::Sender<EpollInterest>>,
+        // Notification pipeline for events that need to be
+        // checked on the next wait
+        rx: Arc<AsyncMutex<watch::Receiver<EpollInterest>>>,
     },
     Dir {
         /// Parent directory
