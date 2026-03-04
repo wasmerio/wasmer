@@ -8,13 +8,10 @@
 
 """Run Wasmer with perf/perfmap and annotate hot JIT functions.
 
-Workflow:
-1. Run `perf record -- wasmer run --llvm ... --profiler=perfmap`.
-2. Parse newest `/tmp/perf-*.map`.
-3. Convert `perf.data` to JSON via `perf data convert --to-json`.
-4. Map sampled IPs to perfmap functions.
-5. Disassemble hot functions from `--compiler-debug-dir` and print per-instruction
-   sample percentages (perf-annotate style).
+The script profiles a Wasmer run with Linux perf, captures JIT symbol mappings from the latest /tmp/perf-*.map,
+and converts perf.data to JSON for analysis. It then correlates sampled instruction pointers to perfmap functions
+and disassembles the hottest functions from `--compiler-debug-dir` to report per-instruction sample percentages,
+similar to perf annotate.
 """
 
 import argparse
