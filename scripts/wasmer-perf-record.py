@@ -219,7 +219,8 @@ def main():
     llvm_debug_dir = debug_dir / "llvm"
     perf_json_path = args.tmpdir / "perf.json"
 
-    # First invocations generates the artifact and the compiler debug directory output.
+    # First invocations generates the artifact and the compiler debug directory output,
+    # however right now, the artifact is not persisted into the cache!
     run_cmd(
         [
             args.wasmer_binary,
@@ -230,7 +231,7 @@ def main():
         ]
     )
 
-    # TODO: fix once --disable-cache will start storing to artifact cache
+    # The second builds it again for a quick start in the next stage.
     run_cmd(
         [
             args.wasmer_binary,
@@ -241,7 +242,7 @@ def main():
         ]
     )
 
-    # The second invocation runs under perf record
+    # Profile it in the third stage.
     run_cmd(
         [
             "perf",
