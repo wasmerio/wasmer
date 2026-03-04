@@ -322,11 +322,6 @@ def main():
         )
         annotated += 1
 
-    if annotated == 0:
-        print(
-            "No functions annotated (no hot functions found or no matching object files)."
-        )
-
     return 0
 
 
