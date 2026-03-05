@@ -149,75 +149,75 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
             let mut guard = inode.write();
             match guard.deref_mut() {
                 Kind::File { handle, .. } => {
-                    if let Some(handle) = handle {
-                        let handle = handle.clone();
-
-                        drop(guard);
-
-                        let res = __asyncify_light(
-                            env,
-                            if fd_flags.contains(Fdflags::NONBLOCK) {
-                                Some(Duration::ZERO)
-                            } else {
-                                None
-                            },
-                            async move {
-                                let mut handle = match handle.write() {
-                                    Ok(a) => a,
-                                    Err(_) => return Err(Errno::Fault),
-                                };
-                                if !is_stdio {
-                                    handle
-                                        .seek(std::io::SeekFrom::Start(offset as u64))
-                                        .await
-                                        .map_err(map_io_err)?;
-                                }
-
-                                let mut total_read = 0usize;
-
-                                let iovs_arr =
-                                    iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-                                for iovs in iovs_arr.iter() {
-                                    let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
-                                        .slice(&memory, iovs.buf_len)
-                                        .map_err(mem_error_to_wasi)?
-                                        .access()
-                                        .map_err(mem_error_to_wasi)?;
-                                    let r = handle.read(buf.as_mut()).await.map_err(|err| {
-                                        let err = From::<std::io::Error>::from(err);
-                                        match err {
-                                            Errno::Again => {
-                                                if is_stdio {
-                                                    Errno::Badf
-                                                } else {
-                                                    Errno::Again
-                                                }
-                                            }
-                                            a => a,
-                                        }
-                                    });
-                                    let local_read = match r {
-                                        Ok(s) => s,
-                                        Err(_) if total_read > 0 => break,
-                                        Err(err) => return Err(err),
-                                    };
-                                    total_read += local_read;
-                                    if local_read != buf.len() {
-                                        break;
-                                    }
-                                }
-                                Ok(total_read)
-                            },
-                        );
-                        let read = wasi_try_ok_ok!(res?.map_err(|err| match err {
-                            Errno::Timedout => Errno::Again,
-                            a => a,
-                        }));
-                        (read, true)
-                    } else {
+                    let Some(handle) = handle else {
+                        tracing::warn!("fd_read: file handle is None");
                         return Ok(Err(Errno::Badf));
-                    }
+                    };
+                    let handle = handle.clone();
+
+                    drop(guard);
+
+                    let res = __asyncify_light(
+                        env,
+                        if fd_flags.contains(Fdflags::NONBLOCK) {
+                            Some(Duration::ZERO)
+                        } else {
+                            None
+                        },
+                        async move {
+                            let mut handle = match handle.write() {
+                                Ok(a) => a,
+                                Err(_) => return Err(Errno::Fault),
+                            };
+                            if !is_stdio {
+                                handle
+                                    .seek(std::io::SeekFrom::Start(offset as u64))
+                                    .await
+                                    .map_err(map_io_err)?;
+                            }
+
+                            let mut total_read = 0usize;
+
+                            let iovs_arr =
+                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                            for iovs in iovs_arr.iter() {
+                                let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
+                                    .slice(&memory, iovs.buf_len)
+                                    .map_err(mem_error_to_wasi)?
+                                    .access()
+                                    .map_err(mem_error_to_wasi)?;
+                                let r = handle.read(buf.as_mut()).await.map_err(|err| {
+                                    let err = From::<std::io::Error>::from(err);
+                                    match err {
+                                        Errno::Again => {
+                                            if is_stdio {
+                                                Errno::Badf
+                                            } else {
+                                                Errno::Again
+                                            }
+                                        }
+                                        a => a,
+                                    }
+                                });
+                                let local_read = match r {
+                                    Ok(s) => s,
+                                    Err(_) if total_read > 0 => break,
+                                    Err(err) => return Err(err),
+                                };
+                                total_read += local_read;
+                                if local_read != buf.len() {
+                                    break;
+                                }
+                            }
+                            Ok(total_read)
+                        },
+                    );
+                    let read = wasi_try_ok_ok!(res?.map_err(|err| match err {
+                        Errno::Timedout => Errno::Again,
+                        a => a,
+                    }));
+                    (read, true)
                 }
                 Kind::Socket { socket } => {
                     let socket = socket.clone();
@@ -448,10 +448,8 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
         };
 
         if !is_stdio && should_update_cursor && can_update_cursor {
-            // reborrow
-            let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
-            let old = fd_entry
+            fd_entry
+                .inner
                 .offset
                 .fetch_add(bytes_read as u64, Ordering::AcqRel);
         }
