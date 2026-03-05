@@ -1,2 +1,2 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
+#![cfg(all(unix, not(feature = "js")))]
 mod wasm_tests;
