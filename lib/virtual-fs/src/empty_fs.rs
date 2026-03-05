@@ -31,7 +31,7 @@ impl FileSystem for EmptyFileSystem {
         Err(FsError::EntryNotFound)
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
+    fn rmdir(&self, path: &Path) -> Result<()> {
         Err(FsError::EntryNotFound)
     }
 
@@ -60,7 +60,7 @@ impl FileSystem for EmptyFileSystem {
         Err(FsError::EntryNotFound)
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
+    fn unlink(&self, path: &Path) -> Result<()> {
         Err(FsError::EntryNotFound)
     }
 

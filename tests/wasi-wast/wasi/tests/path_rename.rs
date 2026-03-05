@@ -122,7 +122,6 @@ fn run_with_toplevel_dir_overwrite() {
         println!("The original file does not still exist!");
     }
 
-
     if !file_to_rename_to.exists() {
         println!("The moved file does not exist!");
         return;

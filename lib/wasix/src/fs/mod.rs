@@ -443,11 +443,11 @@ impl FileSystem for WasiFsRoot {
         }
     }
 
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+    fn rmdir(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
-            Self::Sandbox(fs) => fs.remove_dir(path),
-            Self::Overlay(overlay) => overlay.remove_dir(path),
-            Self::Backing(fs) => fs.remove_dir(path),
+            Self::Sandbox(fs) => fs.rmdir(path),
+            Self::Overlay(overlay) => overlay.rmdir(path),
+            Self::Backing(fs) => fs.rmdir(path),
         }
     }
 
@@ -480,11 +480,11 @@ impl FileSystem for WasiFsRoot {
         }
     }
 
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+    fn unlink(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
-            Self::Sandbox(fs) => fs.remove_file(path),
-            Self::Overlay(overlay) => overlay.remove_file(path),
-            Self::Backing(fs) => fs.remove_file(path),
+            Self::Sandbox(fs) => fs.unlink(path),
+            Self::Overlay(overlay) => overlay.unlink(path),
+            Self::Backing(fs) => fs.unlink(path),
         }
     }
 
@@ -2370,7 +2370,7 @@ impl FileSystem for FallbackFileSystem {
     fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
+    fn rmdir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
     fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> BoxFuture<'a, Result<(), FsError>> {
@@ -2382,7 +2382,7 @@ impl FileSystem for FallbackFileSystem {
     fn symlink_metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
         Self::fail();
     }
-    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
+    fn unlink(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
     fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
@@ -2433,6 +2433,7 @@ pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
         Errno::Again => FsError::WouldBlock,
         Errno::Nospc => FsError::WriteZero,
         Errno::Notempty => FsError::DirectoryNotEmpty,
+        Errno::Notdir => FsError::NotADirectory,
         _ => FsError::UnknownError,
     }
 }
@@ -2465,6 +2466,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::StorageFull => Errno::Overflow,
         FsError::Lock | FsError::UnknownError => Errno::Io,
         FsError::Unsupported => Errno::Notsup,
+        FsError::NotADirectory => Errno::Notdir,
     }
 }
 

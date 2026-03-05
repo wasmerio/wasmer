@@ -1,6 +1,6 @@
 use super::filesystem::InodeResolution;
 use super::*;
-use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
+use crate::{FileSystem as _, FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use shared_buffer::OwnedBuffer;
 use std::path::Path;
 use tracing::*;
@@ -9,7 +9,7 @@ impl FileSystem {
     /// Inserts a readonly file into the file system that uses copy-on-write
     /// (this is required for zero-copy creation of the same file)
     pub fn insert_ro_file(&self, path: &Path, contents: OwnedBuffer) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, path);
+        let _ = self.unlink(path);
         let (inode_of_parent, maybe_inode_of_file, name_of_file) = self.insert_inode(path)?;
 
         let inode_of_parent = match inode_of_parent {
@@ -51,6 +51,8 @@ impl FileSystem {
                             len: file_len,
                         }
                     },
+                    ref_count: Arc::new(AtomicUsize::new(0)),
+                    is_unlinked: Arc::new(AtomicBool::new(false)),
                 }));
 
                 assert_eq!(
@@ -75,7 +77,7 @@ impl FileSystem {
         fs: Arc<dyn crate::FileSystem + Send + Sync>,
         source_path: PathBuf,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, target_path.as_path());
+        let _ = self.unlink(target_path.as_path());
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(target_path.as_path())?;
 
@@ -121,6 +123,8 @@ impl FileSystem {
                     fs,
                     path: source_path,
                     metadata: meta,
+                    ref_count: Arc::new(AtomicUsize::new(0)),
+                    is_unlinked: Arc::new(AtomicBool::new(false)),
                 }));
 
                 assert_eq!(
@@ -155,7 +159,10 @@ impl FileSystem {
         other: Arc<dyn crate::FileSystem + Send + Sync>,
         source_path: PathBuf,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_dir(self, target_path.as_path());
+        // Try to remove any existing entry at the target path
+        let _ = self
+            .unlink(target_path.as_path())
+            .or_else(|_| self.rmdir(target_path.as_path()));
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(target_path.as_path())?;
 
@@ -229,7 +236,7 @@ impl FileSystem {
         path: PathBuf,
         file: Box<dyn crate::VirtualFile + Send + Sync>,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, path.as_path());
+        let _ = self.unlink(path.as_path());
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(path.as_path())?;
 
@@ -267,6 +274,8 @@ impl FileSystem {
                     len: 0,
                 }
             },
+            ref_count: Arc::new(AtomicUsize::new(0)),
+            is_unlinked: Arc::new(AtomicBool::new(false)),
         }));
 
         assert_eq!(
@@ -510,6 +519,8 @@ impl crate::FileOpener for FileSystem {
                             name: name_of_file,
                             file,
                             metadata,
+                            ref_count: Arc::new(AtomicUsize::new(0)),
+                            is_unlinked: Arc::new(AtomicBool::new(false)),
                         })
                     }
                     _ => {
@@ -519,6 +530,8 @@ impl crate::FileOpener for FileSystem {
                             name: name_of_file,
                             file,
                             metadata,
+                            ref_count: Arc::new(AtomicUsize::new(0)),
+                            is_unlinked: Arc::new(AtomicBool::new(false)),
                         })
                     }
                 };
@@ -629,7 +642,7 @@ mod test_file_opener {
             "creating a file in a directory that doesn't exist",
         );
 
-        assert_eq!(fs.remove_file(path!("/foo.txt")), Ok(()), "removing a file");
+        assert_eq!(fs.unlink(path!("/foo.txt")), Ok(()), "removing a file");
 
         assert!(
             fs.new_open_options()
