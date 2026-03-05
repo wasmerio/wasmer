@@ -1,4 +1,4 @@
-pub(crate) mod builtins;
+pub mod builtins;
 
 use std::{collections::HashMap, sync::Arc};
 
