@@ -191,13 +191,11 @@ impl LLVMCompiler {
 
         let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
-                let target_machine = self.config().target_machine(target);
-                let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
+                let target_machines = self.config().target_machines(target);
                 let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
                     target.triple().clone(),
-                    target_machine,
-                    Some(target_machine_no_opt),
+                    target_machines,
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),
@@ -332,15 +330,7 @@ impl Compiler for LLVMCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        format!(
-            "llvm-{}",
-            match self.config.opt_level {
-                inkwell::OptimizationLevel::None => "opt0",
-                inkwell::OptimizationLevel::Less => "optl",
-                inkwell::OptimizationLevel::Default => "optd",
-                inkwell::OptimizationLevel::Aggressive => "opta",
-            }
-        )
+        format!("llvm-{}", self.config.opt_level.deterministic_id())
     }
 
     /// Get the middlewares for this compiler
@@ -435,14 +425,11 @@ impl Compiler for LLVMCompiler {
             &pool,
             || {
                 let compiler = &self;
-                let target_machine = compiler.config().target_machine_with_opt(target, true);
-                let target_machine_no_opt =
-                    compiler.config().target_machine_with_opt(target, false);
+                let target_machines = compiler.config().target_machines(target);
                 let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
                     target.triple().clone(),
-                    target_machine,
-                    Some(target_machine_no_opt),
+                    target_machines,
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),

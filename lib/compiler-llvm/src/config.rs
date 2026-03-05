@@ -1,5 +1,5 @@
 use crate::compiler::LLVMCompiler;
-pub use inkwell::OptimizationLevel as LLVMOptLevel;
+use inkwell::OptimizationLevel as InkwellOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
     TargetMachineOptions, TargetTriple,
@@ -12,7 +12,10 @@ use std::sync::Arc;
 use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::misc::{CompiledKind, function_kind_to_filename};
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_compiler::{
+    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+    WASM_LARGE_FUNCTION_THRESHOLD, WASM_MEDIUM_FUNCTION_THRESHOLD,
+};
 use wasmer_types::{
     Features,
     target::{Architecture, OperatingSystem, Target, Triple},
@@ -23,6 +26,73 @@ pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 
 /// The InkWell MemoryBuffer type
 pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
+
+/// Optimization levels used by the LLVM backend.
+#[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
+pub enum LLVMOptLevel {
+    /// -O0 equivalent.
+    None,
+    /// -O1 equivalent.
+    Less,
+    #[default]
+    /// -O2 equivalent.
+    Default,
+    /// -O3 equivalent.
+    Aggressive,
+    /// A balanced mode, where -O0 is used for large functions, -O1 for medium and -O2 for smaller functions.
+    Balanced,
+}
+
+impl LLVMOptLevel {
+    pub(crate) fn get_level_and_passes(
+        self,
+        function_body_len: usize,
+    ) -> (InkwellOptLevel, String) {
+        let level = match self {
+            Self::None => InkwellOptLevel::None,
+            Self::Less => InkwellOptLevel::Less,
+            Self::Default => InkwellOptLevel::Default,
+            Self::Aggressive => InkwellOptLevel::Aggressive,
+            Self::Balanced => match function_body_len as u64 {
+                WASM_LARGE_FUNCTION_THRESHOLD.. => InkwellOptLevel::None,
+                WASM_MEDIUM_FUNCTION_THRESHOLD..WASM_LARGE_FUNCTION_THRESHOLD => {
+                    InkwellOptLevel::Less
+                }
+                0..WASM_MEDIUM_FUNCTION_THRESHOLD => InkwellOptLevel::Default,
+            },
+        };
+        (level, format!("default<O{}>", level as u32))
+    }
+
+    pub(crate) fn deterministic_id(self) -> &'static str {
+        match self {
+            Self::None => "opt0",
+            Self::Less => "opt1",
+            Self::Default => "opt2",
+            Self::Aggressive => "opt3",
+            Self::Balanced => "optb",
+        }
+    }
+}
+
+/// Target machines for every LLVM codegen optimization level.
+pub(crate) struct LLVMTargetMachines {
+    none: TargetMachine,
+    less: TargetMachine,
+    default: TargetMachine,
+    aggressive: TargetMachine,
+}
+
+impl LLVMTargetMachines {
+    pub(crate) fn by_level(&self, opt_level: InkwellOptLevel) -> &TargetMachine {
+        match opt_level {
+            InkwellOptLevel::None => &self.none,
+            InkwellOptLevel::Less => &self.less,
+            InkwellOptLevel::Default => &self.default,
+            InkwellOptLevel::Aggressive => &self.aggressive,
+        }
+    }
+}
 
 /// Callbacks to the different LLVM compilation phases.
 #[derive(Debug, Clone)]
@@ -125,7 +195,7 @@ impl LLVM {
             enable_non_volatile_memops: false,
             enable_verifier: false,
             enable_perfmap: false,
-            opt_level: LLVMOptLevel::Aggressive,
+            opt_level: LLVMOptLevel::Balanced,
             is_pic: false,
             callbacks: None,
             middlewares: vec![],
@@ -250,13 +320,22 @@ impl LLVM {
 
     /// Generates the target machine for the current target
     pub fn target_machine(&self, target: &Target) -> TargetMachine {
-        self.target_machine_with_opt(target, true)
+        self.target_machine_for_opt_level(target, InkwellOptLevel::Default)
     }
 
-    pub(crate) fn target_machine_with_opt(
+    pub(crate) fn target_machines(&self, target: &Target) -> LLVMTargetMachines {
+        LLVMTargetMachines {
+            none: self.target_machine_for_opt_level(target, InkwellOptLevel::None),
+            less: self.target_machine_for_opt_level(target, InkwellOptLevel::Less),
+            default: self.target_machine_for_opt_level(target, InkwellOptLevel::Default),
+            aggressive: self.target_machine_for_opt_level(target, InkwellOptLevel::Aggressive),
+        }
+    }
+
+    pub(crate) fn target_machine_for_opt_level(
         &self,
         target: &Target,
-        enable_optimization: bool,
+        opt_level: InkwellOptLevel,
     ) -> TargetMachine {
         let triple = target.triple();
         let cpu_features = &target.cpu_features();
@@ -326,11 +405,7 @@ impl LLVM {
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
-            .set_level(if enable_optimization {
-                self.opt_level
-            } else {
-                LLVMOptLevel::None
-            })
+            .set_level(opt_level)
             .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
             .set_code_model(match triple.architecture {
                 Architecture::LoongArch64 | Architecture::Riscv64(_) | Architecture::Riscv32(_) => {

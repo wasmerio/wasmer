@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use super::{
     intrinsics::{
@@ -11,12 +11,13 @@ use crate::compiler::ModuleBasedSymbolRegistry;
 use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
+    OptimizationLevel as InkwellOptLevel,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
     passes::PassBuilderOptions,
-    targets::{FileType, TargetMachine},
+    targets::FileType,
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
@@ -31,7 +32,7 @@ use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
     abi::{Abi, get_abi},
-    config::LLVM,
+    config::{LLVM, LLVMTargetMachines},
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
 };
@@ -71,8 +72,7 @@ const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
-    target_machine: TargetMachine,
-    target_machine_no_opt: Option<TargetMachine>,
+    target_machines: LLVMTargetMachines,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
@@ -86,19 +86,17 @@ impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 impl FuncTranslator {
     pub fn new(
         target_triple: Triple,
-        target_machine: TargetMachine,
-        target_machine_no_opt: Option<TargetMachine>,
+        target_machines: LLVMTargetMachines,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
         non_volatile_memory_ops: bool,
     ) -> Result<Self, CompileError> {
-        let abi = get_abi(&target_machine);
+        let abi = get_abi(target_machines.by_level(InkwellOptLevel::Default));
         Ok(Self {
             ctx: Context::create(),
             target_triple,
-            target_machine,
-            target_machine_no_opt,
+            target_machines,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -148,7 +146,10 @@ impl FuncTranslator {
         };
         let module = self.ctx.create_module(module_name.as_str());
 
-        let target_machine = &self.target_machine;
+        let (function_opt_level, llvm_passes) = config
+            .opt_level
+            .get_level_and_passes(function_body.data.len());
+        let target_machine = self.target_machines.by_level(function_opt_level);
         let target_triple = target_machine.get_triple();
         let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
@@ -364,45 +365,11 @@ impl FuncTranslator {
             callbacks.preopt_ir(&function, &wasm_module.hash_string(), &module);
         }
 
-        let mut passes = vec![];
-
-        if config.enable_verifier {
-            passes.push("verify");
-        }
-
-        passes.push("sccp");
-        passes.push("early-cse");
-        //passes.push("deadargelim");
-        passes.push("adce");
-        passes.push("sroa");
-        passes.push("aggressive-instcombine");
-        passes.push("jump-threading");
-        //passes.push("ipsccp");
-        passes.push("simplifycfg");
-        passes.push("reassociate");
-        passes.push("loop-rotate");
-        passes.push("indvars");
-        //passes.push("lcssa");
-        //passes.push("licm");
-        //passes.push("instcombine");
-        passes.push("sccp");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("gvn");
-        passes.push("memcpyopt");
-        passes.push("dse");
-        passes.push("dce");
-        //passes.push("instcombine");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("mem2reg");
+        let pass_builder_options = PassBuilderOptions::create();
+        pass_builder_options.set_verify_each(config.enable_verifier);
 
         module
-            .run_passes(
-                passes.join(",").as_str(),
-                target_machine,
-                PassBuilderOptions::create(),
-            )
+            .run_passes(&llvm_passes, target_machine, pass_builder_options)
             .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
@@ -441,16 +408,25 @@ impl FuncTranslator {
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
 
-        let target_machine = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
-            self.target_machine_no_opt
-                .as_ref()
-                .unwrap_or(&self.target_machine)
-        } else {
-            &self.target_machine
-        };
+        let function_opt_level = config
+            .opt_level
+            .get_level_and_passes(function_body.data.len())
+            .0;
+        let target_machine = self.target_machines.by_level(function_opt_level);
+        let start = std::time::Instant::now();
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
+        let duration = std::time::Instant::now() - start;
+        if duration >= Duration::from_secs(2)
+            || function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD
+        {
+            println!(
+                "{}: {}, {duration:?}",
+                wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
+                function_body.data.len()
+            );
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             let module_hash = wasm_module.hash().map(|m| m.to_string());

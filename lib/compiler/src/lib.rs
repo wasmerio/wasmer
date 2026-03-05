@@ -82,8 +82,8 @@ mod compiler;
 #[cfg(feature = "compiler")]
 pub use crate::compiler::{
     CompiledFunction, Compiler, CompilerConfig, FuncTranslator, FunctionBucket,
-    WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets,
-    translate_function_buckets,
+    WASM_LARGE_FUNCTION_THRESHOLD, WASM_MEDIUM_FUNCTION_THRESHOLD,
+    WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets, translate_function_buckets,
 };
 
 #[cfg(feature = "compiler")]

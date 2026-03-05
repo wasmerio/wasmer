@@ -332,5 +332,8 @@ where
 /// Byte size threshold for a function that is considered large.
 pub const WASM_LARGE_FUNCTION_THRESHOLD: u64 = 100_000;
 
+/// Byte size threshold for a function that is considered medium.
+pub const WASM_MEDIUM_FUNCTION_THRESHOLD: u64 = 65_000;
+
 /// Estimated byte size of a trampoline (used for progress bar reporting).
 pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
