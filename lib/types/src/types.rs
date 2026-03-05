@@ -548,7 +548,7 @@ pub enum TagKind {
 pub struct TagType {
     /// The kind of the tag.
     pub kind: TagKind,
-    /// The parameters of the function
+    /// The parameters of the tag
     pub params: Box<[Type]>,
 }
 
