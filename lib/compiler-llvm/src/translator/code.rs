@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use super::{
     intrinsics::{
@@ -28,7 +28,6 @@ use inkwell::{
 use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
-use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
     abi::{Abi, get_abi},
@@ -413,20 +412,9 @@ impl FuncTranslator {
             .get_level_and_passes(function_body.data.len())
             .0;
         let target_machine = self.target_machines.by_level(function_opt_level);
-        let start = std::time::Instant::now();
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
-        let duration = std::time::Instant::now() - start;
-        if duration >= Duration::from_secs(2)
-            || function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD
-        {
-            println!(
-                "{}: {}, {duration:?}",
-                wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
-                function_body.data.len()
-            );
-        }
 
         if let Some(ref callbacks) = config.callbacks {
             let module_hash = wasm_module.hash().map(|m| m.to_string());
