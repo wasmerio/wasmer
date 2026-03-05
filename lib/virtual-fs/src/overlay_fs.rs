@@ -65,6 +65,7 @@ use crate::{
 pub struct OverlayFileSystem<P, S> {
     primary: Arc<P>,
     secondaries: S,
+    opaque_prefixes: Vec<PathBuf>,
 }
 
 impl<P, S> OverlayFileSystem<P, S>
@@ -78,6 +79,21 @@ where
         OverlayFileSystem {
             primary: Arc::new(primary),
             secondaries,
+            opaque_prefixes: Vec::new(),
+        }
+    }
+
+    /// Create a new [`FileSystem`] with opaque prefixes that hide any secondary
+    /// entries under those paths.
+    pub fn new_with_opaque_prefixes(
+        primary: P,
+        secondaries: S,
+        opaque_prefixes: Vec<PathBuf>,
+    ) -> Self {
+        OverlayFileSystem {
+            primary: Arc::new(primary),
+            secondaries,
+            opaque_prefixes,
         }
     }
 
@@ -96,8 +112,31 @@ where
         &mut self.secondaries
     }
 
+    fn is_opaque(&self, path: &Path) -> bool {
+        let normalized = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            Path::new("/").join(path)
+        };
+
+        self.opaque_prefixes
+            .iter()
+            .any(|prefix| normalized.starts_with(prefix))
+    }
+
+    fn secondaries_iter<'a>(
+        &'a self,
+        path: &Path,
+    ) -> Box<dyn Iterator<Item = &'a (dyn FileSystem + Send)> + 'a> {
+        if self.is_opaque(path) {
+            Box::new(std::iter::empty())
+        } else {
+            Box::new(self.secondaries.filesystems().into_iter())
+        }
+    }
+
     fn permission_error_or_not_found(&self, path: &Path) -> Result<(), FsError> {
-        for fs in self.secondaries.filesystems() {
+        for fs in self.secondaries_iter(path) {
             if ops::exists(fs, path) {
                 return Err(FsError::PermissionDenied);
             }
@@ -132,7 +171,7 @@ where
         }
 
         // Otherwise scan the secondaries
-        for fs in self.secondaries.filesystems() {
+        for fs in self.secondaries_iter(path) {
             match fs.readlink(path) {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
@@ -148,7 +187,7 @@ where
         let mut white_outs = HashSet::new();
 
         let filesystems = std::iter::once(&self.primary as &(dyn FileSystem + Send))
-            .chain(self.secondaries().filesystems());
+            .chain(self.secondaries_iter(path));
 
         for fs in filesystems {
             match fs.read_dir(path) {
@@ -239,7 +278,7 @@ where
         // If the directory is contained in a secondary file system then we need to create a
         // whiteout file so that it is suppressed and is no longer returned in `readdir` calls.
 
-        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
+        let had_at_least_one_success = self.secondaries_iter(path).any(|fs| {
             fs.read_dir(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
         });
 
@@ -297,7 +336,8 @@ where
             // the secondaries, in which case we need to copy it to the
             // primary rather than rename it
             if !had_at_least_one_success {
-                for fs in self.secondaries.filesystems() {
+                let secondaries: Vec<_> = self.secondaries_iter(&from).collect();
+                for fs in secondaries {
                     if fs.metadata(&from).is_ok() {
                         ops::copy_reference_ext(fs, &self.primary, &from, &to).await?;
                         had_at_least_one_success = true;
@@ -309,7 +349,8 @@ where
             // If the rename operation was a success then we need to update any
             // whiteout files on the primary before we return success.
             if had_at_least_one_success {
-                for fs in self.secondaries.filesystems() {
+                let secondaries: Vec<_> = self.secondaries_iter(&from).collect();
+                for fs in secondaries {
                     if fs.metadata(&from).is_ok() {
                         tracing::trace!(
                             path=%from.display(),
@@ -347,7 +388,7 @@ where
         }
 
         // Otherwise scan the secondaries
-        for fs in self.secondaries.filesystems() {
+        for fs in self.secondaries_iter(path) {
             match fs.metadata(path) {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
@@ -376,7 +417,7 @@ where
         }
 
         // Otherwise scan the secondaries
-        for fs in self.secondaries.filesystems() {
+        for fs in self.secondaries_iter(path) {
             match fs.symlink_metadata(path) {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
@@ -395,7 +436,7 @@ where
 
         // If the file is contained in a secondary then then we need to create a
         // whiteout file so that it is suppressed.
-        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
+        let had_at_least_one_success = self.secondaries_iter(path).any(|fs| {
             fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
         });
 
@@ -503,7 +544,7 @@ where
 
         // If the file is on a secondary then we should open it
         if !ops::has_white_out(&self.primary, path) {
-            for fs in self.secondaries.filesystems() {
+            for fs in self.secondaries_iter(path) {
                 let mut sub_conf = conf.clone();
                 sub_conf.create = false;
                 sub_conf.create_new = false;
@@ -1166,6 +1207,72 @@ mod tests {
         assert_eq!(
             entries,
             vec![PathBuf::from("/app/wp-content/themes/twentytwentyfour")],
+        );
+    }
+
+    #[test]
+    fn overlay_opaque_prefix_hides_secondaries() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+
+        ops::create_dir_all(&primary, "/app/wp-content").unwrap();
+        primary
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open("/app/wp-content/host.txt")
+            .unwrap();
+
+        ops::create_dir_all(&secondary, "/app/wp-content/themes/twentyten").unwrap();
+
+        let overlay = OverlayFileSystem::new_with_opaque_prefixes(
+            primary,
+            [secondary],
+            vec![PathBuf::from("/app/wp-content")],
+        );
+
+        let entries: Vec<_> = overlay
+            .read_dir(Path::new("/app/wp-content"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path)
+            .collect();
+
+        assert_eq!(entries, vec![PathBuf::from("/app/wp-content/host.txt")]);
+        assert_eq!(
+            overlay
+                .metadata(Path::new("/app/wp-content/themes"))
+                .unwrap_err(),
+            FsError::EntryNotFound
+        );
+    }
+
+    #[test]
+    fn overlay_opaque_prefix_prevents_parent_copy_up_on_create() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+
+        ops::create_dir_all(&secondary, "/app/wp-content/themes").unwrap();
+
+        let overlay = OverlayFileSystem::new_with_opaque_prefixes(
+            primary,
+            [secondary],
+            vec![PathBuf::from("/app/wp-content")],
+        );
+
+        let err = overlay
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open("/app/wp-content/themes/foo.txt")
+            .unwrap_err();
+        assert_eq!(err, FsError::EntryNotFound);
+
+        assert_eq!(
+            overlay
+                .primary()
+                .metadata(Path::new("/app/wp-content/themes"))
+                .unwrap_err(),
+            FsError::EntryNotFound
         );
     }
 
