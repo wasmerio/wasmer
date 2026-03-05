@@ -1,7 +1,8 @@
 # Shared Wasmer configurations used by benchmark scripts.
 WASMER_CONFIGS = (
     # ("Wasmer 7 LLVM (w/ pass-params)", "wasmer-7", "-l --enable-pass-params-opt"),
-    ("Wasmer LLVM", "wasmer-next", "-l"),
+    ("Wasmer LLVM", "wasmer-7.1", "-l"),
+    ("Wasmer LLVM (balanced)", "wasmer-next", "-l"),
     # ("Wasmer LLVM (w/ non-volatile)", "wasmer-next", "-l"),
     # ("Wasmer LLVM (w/ non-volatile + -O2)", "wasmer-next-O2", "-l"),
     # (
