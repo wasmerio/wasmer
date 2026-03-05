@@ -683,7 +683,7 @@ test-js: test-js-api test-js-wasi
 # 	cd lib/api && wasm-pack test --node -- --no-default-features --features js,core,wasm-types-polyfill,wat
 
 test-js-api:
-	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
+	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat,experimental-async
 
 lint-js:
 	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default" --locked -- -D clippy::all
