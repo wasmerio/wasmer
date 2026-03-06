@@ -1563,9 +1563,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     }
 
     fn emit_return_call(&mut self, call_site: CallSiteValue<'ctx>) -> Result<(), CompileError> {
-        if self.state.get_innermost_landingpad().is_none() {
-            call_site.set_tail_call_kind(LLVMTailCallKind::LLVMTailCallKindTail);
-        }
+        // It's a weird spec corner-case, but tail-call must bypass any existing try_table blocks
+        // of the function: https://github.com/WebAssembly/exception-handling/issues/249.
+        call_site.set_tail_call_kind(LLVMTailCallKind::LLVMTailCallKindTail);
 
         if self.function.get_type().get_return_type().is_none() {
             err!(self.builder.build_return(None));
@@ -1654,7 +1654,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             //let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(local_idx_block);
             let local_call_site =
-                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
+                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0), is_return_call)?;
 
             let local_rets = if is_return_call {
                 self.emit_return_call(local_call_site)?;
@@ -1671,7 +1671,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             };
 
             self.builder.position_at_end(foreign_idx_block);
-            let foreign_call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
+            let foreign_call_site =
+                self.build_indirect_call(ctx_ptr, func_type, func_ptr, None, is_return_call)?;
 
             let foreign_rets = if is_return_call {
                 self.emit_return_call(foreign_call_site)?;
@@ -1702,7 +1703,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {
-            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
+            let call_site =
+                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0), is_return_call)?;
 
             if is_return_call {
                 self.emit_return_call(call_site)?;
@@ -1713,7 +1715,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .for_each(|ret| self.state.push1(*ret));
             }
         } else {
-            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
+            let call_site =
+                self.build_indirect_call(ctx_ptr, func_type, func_ptr, None, is_return_call)?;
             if is_return_call {
                 self.emit_return_call(call_site)?;
             } else {
@@ -1733,6 +1736,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
         m0_param: Option<PointerValue<'ctx>>,
+        is_return_call: bool,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
             self.context,
@@ -1805,6 +1809,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             typed_func_ptr,
             params.as_slice(),
             "then_block",
+            is_return_call,
         )?;
         for (attr, attr_loc) in llvm_func_attrs {
             call_site_local.add_attribute(attr_loc, attr);
@@ -1819,8 +1824,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         params: &[BasicValueEnum<'ctx>],
         then_block_name: &str,
+        is_return_call: bool,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
-        if let Some(lpad) = self.state.get_innermost_landingpad() {
+        // It's a weird spec corner-case, but tail-call must bypass any existing try_table blocks
+        // of the function: https://github.com/WebAssembly/exception-handling/issues/249.
+        if let Some(lpad) = self.state.get_innermost_landingpad()
+            && !is_return_call
+        {
             let then_block = self
                 .context
                 .append_basic_block(self.function, then_block_name);
@@ -3072,6 +3082,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params_with_m0.as_slice(),
                         "then_block_with_m0",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in &attrs {
                         call_site_with_m0.add_attribute(*attr_loc, *attr);
@@ -3095,6 +3106,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params_no_m0.as_slice(),
                         "then_block",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in &llvm_func_attrs_no_m0 {
                         call_site_no_m0.add_attribute(*attr_loc, *attr);
@@ -3155,6 +3167,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params.as_slice(),
                         "then_block",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in attrs {
                         call_site.add_attribute(attr_loc, attr);
@@ -3432,6 +3445,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func_type,
                         func_ptr,
                         None,
+                        is_return_call,
                     )?;
 
                     if is_return_call {
