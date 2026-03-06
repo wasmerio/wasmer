@@ -20,8 +20,8 @@ use inkwell::{
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
-        FunctionValue, InstructionOpcode, InstructionValue, IntValue, PhiValue, PointerValue,
-        VectorValue,
+        FunctionValue, InstructionOpcode, InstructionValue, IntValue, LLVMTailCallKind, PhiValue,
+        PointerValue, VectorValue,
     },
 };
 use itertools::Itertools;
@@ -1562,6 +1562,32 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
+    fn emit_return_call(
+        &mut self,
+        call_site: CallSiteValue<'ctx>,
+        callee_llvm_func_type: inkwell::types::FunctionType<'ctx>,
+    ) -> Result<(), CompileError> {
+        // `musttail` requires an immediate `ret` and ABI-compatible caller/callee signatures.
+        if self.state.get_innermost_landingpad().is_none()
+            && self.function.get_type() == callee_llvm_func_type
+        {
+            call_site.set_tail_call_kind(LLVMTailCallKind::LLVMTailCallKindMustTail);
+        }
+
+        if self.function.get_type().get_return_type().is_none() {
+            err!(self.builder.build_return(None));
+        } else {
+            let ret = call_site.try_as_basic_value();
+            if ret.is_instruction() {
+                return Err(CompileError::Codegen(
+                    "return_call expected a non-void call result".to_string(),
+                ));
+            }
+            err!(self.builder.build_return(Some(&ret.unwrap_basic())));
+        }
+        Ok(())
+    }
+
     fn build_m0_indirect_call(
         &mut self,
         table_index: u32,
@@ -2916,7 +2942,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 };
                 self.state.push1_extra(res, info);
             }
-            Operator::Call { function_index } => {
+            Operator::Call { function_index } | Operator::ReturnCall { function_index } => {
+                let is_return_call = matches!(op, Operator::ReturnCall { .. });
                 let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
@@ -2983,7 +3010,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 {
                     /* For imported functions, we must be careful about when to include `g0_param`:
                     imports from another Wasm module expect it, while host-function imports do not.
-                    */
+                    We intentionally leverage tail-calls for such function calls. */
                     let (llvm_func_type_no_m0, llvm_func_attrs_no_m0) =
                         self.abi.func_type_to_llvm(
                             self.context,
@@ -3132,10 +3159,17 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     }
                     */
 
-                    self.abi
-                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                        .iter()
-                        .for_each(|ret| self.state.push1(*ret));
+                    if is_return_call {
+                        self.emit_return_call(call_site, llvm_func_type)?;
+                    } else {
+                        self.abi
+                            .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                            .iter()
+                            .for_each(|ret| self.state.push1(*ret));
+                    }
+                }
+                if is_return_call {
+                    self.state.reachable = false;
                 }
             }
             Operator::CallIndirect {
