@@ -87,6 +87,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: gc proposal must be enabled to use subtypes",
         "Validation error: array indexed types not supported without the gc feature",
         "Validation error: struct indexed types not supported without the gc feature",
+        // TODO: remove once added for Cranelift
+        "Unsupported feature: proposed tail-call operator ReturnCallIndirect",
         "Validation error: multiple tables",
         "Validation error: unknown memory 0",
         "Validation error: invalid var_u32",
