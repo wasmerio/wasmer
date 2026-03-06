@@ -1563,7 +1563,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     }
 
     fn emit_return_call(&mut self, call_site: CallSiteValue<'ctx>) -> Result<(), CompileError> {
-        // `musttail` requires an immediate `ret` and ABI-compatible caller/callee signatures.
         if self.state.get_innermost_landingpad().is_none() {
             call_site.set_tail_call_kind(LLVMTailCallKind::LLVMTailCallKindTail);
         }
