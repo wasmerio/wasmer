@@ -34,7 +34,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         || wast_path.ends_with("throw_ref.wast")
         || wast_path.ends_with("imports.wast");
     let is_wide_arithmetic = wast_path.contains("wide-arithmetic");
-    let is_tail_call = wast_path.contains("return_call");
+    let is_tail_call = wast_path.contains("return_call") || wast_path.ends_with("try_table.wast");
 
     if is_bulkmemory {
         features.bulk_memory(true);
