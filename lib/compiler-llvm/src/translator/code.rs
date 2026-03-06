@@ -1590,6 +1590,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
         func_index: IntValue<'ctx>,
+        is_return_call: bool,
     ) -> Result<(), CompileError> {
         let Some(m0) = self.m0_param else {
             return Err(CompileError::Codegen(
@@ -1657,26 +1658,40 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             let local_call_site =
                 self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
 
-            let local_rets = self.abi.rets_from_call(
-                &self.builder,
-                self.intrinsics,
-                local_call_site,
-                func_type,
-            )?;
-
-            err!(self.builder.build_unconditional_branch(cont));
+            let local_rets = if is_return_call {
+                self.emit_return_call(local_call_site)?;
+                Vec::new()
+            } else {
+                let rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    local_call_site,
+                    func_type,
+                )?;
+                err!(self.builder.build_unconditional_branch(cont));
+                rets
+            };
 
             self.builder.position_at_end(foreign_idx_block);
             let foreign_call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
 
-            let foreign_rets = self.abi.rets_from_call(
-                &self.builder,
-                self.intrinsics,
-                foreign_call_site,
-                func_type,
-            )?;
+            let foreign_rets = if is_return_call {
+                self.emit_return_call(foreign_call_site)?;
+                Vec::new()
+            } else {
+                let rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    foreign_call_site,
+                    func_type,
+                )?;
+                err!(self.builder.build_unconditional_branch(cont));
+                rets
+            };
 
-            err!(self.builder.build_unconditional_branch(cont));
+            if is_return_call {
+                return Ok(());
+            }
 
             self.builder.position_at_end(cont);
 
@@ -1691,16 +1706,24 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         } else if foreign_func_indices.is_empty() {
             let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
 
-            self.abi
-                .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                .iter()
-                .for_each(|ret| self.state.push1(*ret));
+            if is_return_call {
+                self.emit_return_call(call_site)?;
+            } else {
+                self.abi
+                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
+            }
         } else {
             let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
-            self.abi
-                .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                .iter()
-                .for_each(|ret| self.state.push1(*ret));
+            if is_return_call {
+                self.emit_return_call(call_site)?;
+            } else {
+                self.abi
+                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
+            }
         }
 
         Ok(())
@@ -3170,7 +3193,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::CallIndirect {
                 type_index,
                 table_index,
+            }
+            | Operator::ReturnCallIndirect {
+                type_index,
+                table_index,
             } => {
+                let is_return_call = matches!(op, Operator::ReturnCallIndirect { .. });
                 let sigindex = SignatureIndex::from_u32(type_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
                 let expected_dynamic_sigindex =
@@ -3398,6 +3426,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func_type,
                         func_ptr,
                         func_index,
+                        is_return_call,
                     )?;
                 } else {
                     let call_site = self.build_indirect_call(
@@ -3407,10 +3436,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         None,
                     )?;
 
-                    self.abi
-                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                        .iter()
-                        .for_each(|ret| self.state.push1(*ret));
+                    if is_return_call {
+                        self.emit_return_call(call_site)?;
+                    } else {
+                        self.abi
+                            .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                            .iter()
+                            .for_each(|ret| self.state.push1(*ret));
+                    }
+                }
+
+                if is_return_call {
+                    self.state.reachable = false;
                 }
             }
 
