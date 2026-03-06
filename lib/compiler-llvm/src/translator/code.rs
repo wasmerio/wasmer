@@ -1562,15 +1562,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
-    fn emit_return_call(
-        &mut self,
-        call_site: CallSiteValue<'ctx>,
-        callee_llvm_func_type: inkwell::types::FunctionType<'ctx>,
-    ) -> Result<(), CompileError> {
+    fn emit_return_call(&mut self, call_site: CallSiteValue<'ctx>) -> Result<(), CompileError> {
         // `musttail` requires an immediate `ret` and ABI-compatible caller/callee signatures.
-        if self.state.get_innermost_landingpad().is_none()
-            && self.function.get_type() == callee_llvm_func_type
-        {
+        // We can assume the function signatures match as the wasmparser verifed that.
+        if self.state.get_innermost_landingpad().is_none() {
             call_site.set_tail_call_kind(LLVMTailCallKind::LLVMTailCallKindMustTail);
         }
 
@@ -3160,7 +3155,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     */
 
                     if is_return_call {
-                        self.emit_return_call(call_site, llvm_func_type)?;
+                        self.emit_return_call(call_site)?;
                     } else {
                         self.abi
                             .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
