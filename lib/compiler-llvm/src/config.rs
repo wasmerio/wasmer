@@ -391,6 +391,7 @@ impl CompilerConfig for LLVM {
         feats.exceptions(true);
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
+        feats.tail_call(true);
         feats
     }
 }
