@@ -308,7 +308,6 @@ impl Features {
         self
     }
 
-    // TODO
     /// Configures whether the WebAssembly wide arithmetic proposal will be enabled.
     ///
     /// The [Wide Arithmetic][wa] is not currently fully
