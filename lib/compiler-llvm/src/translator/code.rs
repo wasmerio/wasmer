@@ -1566,7 +1566,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         // `musttail` requires an immediate `ret` and ABI-compatible caller/callee signatures.
         // We can assume the function signatures match as the wasmparser verifed that.
         if self.state.get_innermost_landingpad().is_none() {
-            call_site.set_tail_call_kind(LLVMTailCallKind::LLVMTailCallKindMustTail);
+            call_site.set_tail_call_kind(LLVMTailCallKind::LLVMTailCallKindTail);
         }
 
         if self.function.get_type().get_return_type().is_none() {
