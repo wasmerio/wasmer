@@ -24,7 +24,7 @@ use std::pin::Pin;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use wasmer::{sys::EngineBuilder, sys::LLVMOptLevel, sys::Target};
+use wasmer::{sys::EngineBuilder, sys::Target};
 use wasmer_wasix::VirtualFile as VirtualFileTrait;
 use wasmer_wasix::runners::MappedDirectory;
 use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
@@ -307,9 +307,7 @@ fn create_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
             wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::LLVM, &target)
         });
 
-        // Reduce opt level as it speeds up compilation dramatically and for tests no opt is fine
-        let mut compiler = wasmer::sys::LLVM::default();
-        compiler.opt_level(LLVMOptLevel::None);
+        let compiler = wasmer::sys::LLVM::default();
 
         return EngineBuilder::new(compiler)
             .set_features(Some(features))

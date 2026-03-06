@@ -184,12 +184,6 @@ wasmer = { path = "../api", version = "=7.1.0-rc.2", default-features = false, f
 	"wat",
 	"js-serializable-module",
 	"cranelift",
-] }
-
-[target.'cfg(all(not(target_arch = "wasm32"), target_os = "macos"))'.dev-dependencies]
-wasmer = { path = "../api", version = "=7.1.0-alpha.1", default-features = false, features = [
-	"wat",
-	"js-serializable-module",
 	"llvm",
 ] }
 
