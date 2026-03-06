@@ -3036,7 +3036,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 {
                     /* For imported functions, we must be careful about when to include `g0_param`:
                     imports from another Wasm module expect it, while host-function imports do not.
-                    We intentionally leverage tail-calls for such function calls. */
+                    We intentionally not leverage tail-calls for such function calls. */
                     let (llvm_func_type_no_m0, llvm_func_attrs_no_m0) =
                         self.abi.func_type_to_llvm(
                             self.context,

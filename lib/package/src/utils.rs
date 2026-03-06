@@ -156,7 +156,7 @@ pub fn features_to_wasm_annotations(features: &Features) -> Vec<String> {
     if features.tail_call {
         feature_strings.push("tail-call".to_string());
     }
-    // Note: We don't currently include tail_call, module_linking, multi_memory,
+    // Note: We don't currently include module_linking, multi_memory,
     // or extended_const in the feature strings
 
     feature_strings
