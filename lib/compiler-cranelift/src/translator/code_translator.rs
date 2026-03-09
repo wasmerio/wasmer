@@ -82,7 +82,7 @@ pub(crate) const EXN_REF_TYPE: ir::Type = I32;
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
-use crate::{HashMap, hash_map};
+use crate::{hash_map, HashMap};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::immediates::Offset32;
@@ -98,10 +98,10 @@ use smallvec::SmallVec;
 use std::vec::Vec;
 
 use wasmer_compiler::wasmparser::{self, Catch, MemArg, Operator};
-use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
+use wasmer_compiler::{from_binaryreadererror_wasmerror, wasm_unsupported, ModuleTranslationState};
 use wasmer_types::{
-    CATCH_ALL_TAG_VALUE, FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
-    TagIndex, WasmResult,
+    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, TagIndex, WasmResult,
+    CATCH_ALL_TAG_VALUE,
 };
 
 /// Given a `Reachability<T>`, unwrap the inner `T` or, when unreachable, set

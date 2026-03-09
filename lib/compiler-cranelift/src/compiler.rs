@@ -4,25 +4,26 @@
 use crate::dwarf::WriterRelocate;
 
 #[cfg(feature = "unwind")]
-use crate::eh::{FunctionLsdaData, build_function_lsda, build_lsda_section, build_tag_section};
+use crate::eh::{build_function_lsda, build_lsda_section, build_tag_section, FunctionLsdaData};
 
 #[cfg(feature = "unwind")]
 use crate::translator::CraneliftUnwindInfo;
 use crate::{
     address_map::get_function_address_map,
     config::Cranelift,
-    func_environ::{FuncEnvironment, get_function_name},
+    func_environ::{get_function_name, FuncEnvironment},
     trampoline::{
-        FunctionBuilderContext, make_trampoline_dynamic_function, make_trampoline_function_call,
+        make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
     },
     translator::{
-        FuncTranslator, compiled_function_unwind_info, irlibcall_to_libcall,
-        irreloc_to_relocationkind, signature_to_cranelift_ir,
+        compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
+        signature_to_cranelift_ir, signature_to_cranelift_ir_with_call_conv, FuncTranslator,
     },
 };
 use cranelift_codegen::{
-    Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
     ir::{self, ExternalName, UserFuncName},
+    isa::CallConv,
+    Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
 };
 
 #[cfg(feature = "unwind")]
@@ -41,9 +42,9 @@ use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
+#[cfg(feature = "rayon")]
+use wasmer_compiler::{build_function_buckets, translate_function_buckets};
 use wasmer_compiler::{
-    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState,
     types::{
         function::{
             Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
@@ -51,9 +52,9 @@ use wasmer_compiler::{
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
     },
+    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
+    ModuleMiddlewareChain, ModuleTranslationState,
 };
-#[cfg(feature = "rayon")]
-use wasmer_compiler::{build_function_buckets, translate_function_buckets};
 #[cfg(feature = "unwind")]
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
@@ -113,10 +114,19 @@ impl CraneliftCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
-        let signatures = module
+        let platform_signatures = module
             .signatures
             .iter()
             .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
+            .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
+        // Cranelift only enables `return_call` for `CallConv::Tail`, so local Wasm functions use
+        // a native Tail-call ABI internally even though host-facing calls still use the platform ABI.
+        let native_signatures = module
+            .signatures
+            .iter()
+            .map(|(_sig_index, func_type)| {
+                signature_to_cranelift_ir_with_call_conv(func_type, frontend_config, CallConv::Tail)
+            })
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
 
         let total_function_call_trampolines = module.signatures.len();
@@ -172,7 +182,8 @@ impl CraneliftCompiler {
             let mut func_env = FuncEnvironment::new(
                 isa.frontend_config(),
                 module,
-                &signatures,
+                &native_signatures,
+                &platform_signatures,
                 memory_styles,
                 table_styles,
             );
@@ -188,7 +199,7 @@ impl CraneliftCompiler {
                 ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
                 _ => UserFuncName::default(),
             };
-            context.func.signature = signatures[module.functions[func_index]].clone();
+            context.func.signature = native_signatures[module.functions[func_index]].clone();
             // if generate_debug_info {
             //     context.func.collect_debug_info();
             // }

@@ -10,12 +10,12 @@
 //! ```
 use crate::{
     CraneliftCallbacks,
-    translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
+    translator::{compiled_function_unwind_info, signature_to_cranelift_ir_with_call_conv},
 };
 use cranelift_codegen::{
     Context,
     ir::{self, InstBuilder},
-    isa::TargetIsa,
+    isa::{CallConv, TargetIsa},
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::mem;
@@ -34,7 +34,8 @@ pub fn make_trampoline_function_call(
 ) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
-    let signature = signature_to_cranelift_ir(func_type, frontend_config);
+    let signature =
+        signature_to_cranelift_ir_with_call_conv(func_type, frontend_config, CallConv::Tail);
     let mut wrapper_sig = ir::Signature::new(frontend_config.default_call_conv);
 
     // Add the callee `vmctx` parameter.

@@ -11,16 +11,16 @@ use super::code_translator::translate_operator;
 use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
-use crate::translator::EXN_REF_TYPE;
 use crate::translator::code_translator::bitcast_wasm_returns;
+use crate::translator::EXN_REF_TYPE;
 use core::convert::TryFrom;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasmer_compiler::wasmparser::RefType;
-use wasmer_compiler::{FunctionBinaryReader, ModuleTranslationState, wptype_to_type};
 use wasmer_compiler::{wasm_unsupported, wasmparser};
+use wasmer_compiler::{wptype_to_type, FunctionBinaryReader, ModuleTranslationState};
 use wasmer_types::{LocalFunctionIndex, WasmResult};
 
 /// WebAssembly to Cranelift IR function translator.

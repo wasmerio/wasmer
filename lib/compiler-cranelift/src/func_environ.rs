@@ -15,7 +15,7 @@ use cranelift_codegen::{
     ir::{
         self, AbiParam, ArgumentPurpose, BlockArg, Endianness, ExceptionTableData,
         ExceptionTableItem, ExceptionTag, Function, InstBuilder, MemFlags, Signature,
-        UserExternalName,
+        StackSlotData, StackSlotKind, UserExternalName,
         condcodes::IntCC,
         immediates::{Offset32, Uimm64},
         types::*,
@@ -24,7 +24,7 @@ use cranelift_codegen::{
 };
 use cranelift_frontend::FunctionBuilder;
 use smallvec::SmallVec;
-use std::convert::TryFrom;
+use std::{cmp, convert::TryFrom, mem};
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
@@ -69,8 +69,11 @@ pub struct FuncEnvironment<'module_environment> {
     /// A stack tracking the type of local variables.
     type_stack: Vec<WasmerType>,
 
-    /// The module function signatures
-    signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+    /// The native wasm signatures used for local functions.
+    native_signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+
+    /// The host-facing signatures used for imports and mixed-ABI call paths.
+    platform_signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
 
     /// Heaps implementing WebAssembly linear memories.
     heaps: PrimaryMap<Heap, HeapData>,
@@ -145,6 +148,7 @@ pub struct FuncEnvironment<'module_environment> {
     alloc_exception_sig: Option<ir::SigRef>,
     read_exception_sig: Option<ir::SigRef>,
     read_exnref_sig: Option<ir::SigRef>,
+    call_trampoline_sig: Option<ir::SigRef>,
 
     /// Cached payload layouts for exception tags.
     exception_type_layouts: HashMap<u32, ExceptionTypeLayout>,
@@ -165,14 +169,16 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     pub fn new(
         target_config: TargetFrontendConfig,
         module: &'module_environment ModuleInfo,
-        signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+        native_signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+        platform_signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
         memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
         Self {
             target_config,
             module,
-            signatures,
+            native_signatures,
+            platform_signatures,
             type_stack: vec![],
             heaps: PrimaryMap::new(),
             vmctx: None,
@@ -199,6 +205,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             alloc_exception_sig: None,
             read_exception_sig: None,
             read_exnref_sig: None,
+            call_trampoline_sig: None,
             exception_type_layouts: HashMap::new(),
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
@@ -209,6 +216,19 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
 
     fn pointer_type(&self) -> ir::Type {
         self.target_config.pointer_type()
+    }
+
+    fn get_call_trampoline_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        self.call_trampoline_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            let pointer_type = self.pointer_type();
+            signature.params.push(AbiParam::new(pointer_type));
+            signature.params.push(AbiParam::new(pointer_type));
+            signature.params.push(AbiParam::new(pointer_type));
+            let sig = func.import_signature(signature);
+            self.call_trampoline_sig = Some(sig);
+            sig
+        })
     }
 
     fn ensure_table_exists(&mut self, func: &mut ir::Function, index: TableIndex) {
@@ -1570,7 +1590,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         func: &mut ir::Function,
         index: SignatureIndex,
     ) -> WasmResult<ir::SigRef> {
-        Ok(func.import_signature(self.signatures[index].clone()))
+        Ok(func.import_signature(self.platform_signatures[index].clone()))
     }
 
     fn make_direct_func(
@@ -1579,7 +1599,11 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         index: FunctionIndex,
     ) -> WasmResult<ir::FuncRef> {
         let sigidx = self.module.functions[index];
-        let signature = func.import_signature(self.signatures[sigidx].clone());
+        let signature = if self.module.is_imported_function(index) {
+            func.import_signature(self.platform_signatures[sigidx].clone())
+        } else {
+            func.import_signature(self.native_signatures[sigidx].clone())
+        };
         let name = get_function_name(func, index);
 
         Ok(func.import_function(ir::ExtFuncData {
@@ -1619,6 +1643,12 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             anyfunc_ptr,
             i32::from(self.offsets.vmcaller_checked_anyfunc_func_ptr()),
         );
+        let call_trampoline = builder.ins().load(
+            pointer_type,
+            mem_flags,
+            anyfunc_ptr,
+            i32::from(self.offsets.vmcaller_checked_anyfunc_call_trampoline()),
+        );
 
         // If necessary, check the signature.
         match self.table_styles[table_index] {
@@ -1652,8 +1682,10 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             }
         }
 
-        let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
-
+        // Once local Wasm functions use the Tail calling convention, `VMFunctionKind::Static`
+        // no longer tells us whether a table entry points to guest Wasm code or a host
+        // function. Route indirect calls through the stored trampoline so the ABI is
+        // normalized for both cases.
         // First append the callee vmctx address.
         let vmctx = builder.ins().load(
             pointer_type,
@@ -1661,20 +1693,50 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             anyfunc_ptr,
             i32::from(self.offsets.vmcaller_checked_anyfunc_vmctx()),
         );
-        real_call_args.push(vmctx);
+        let value_size = mem::size_of::<u128>();
+        let values_vec_len = (value_size
+            * cmp::max(
+                call_args.len(),
+                builder.func.dfg.signatures[sig_ref].returns.len(),
+            )) as u32;
+        let ss = builder.func.create_sized_stack_slot(StackSlotData::new(
+            StackSlotKind::ExplicitSlot,
+            values_vec_len,
+            0,
+        ));
+        let values_vec_ptr = builder.ins().stack_addr(pointer_type, ss, 0);
 
-        // Then append the regular call arguments.
-        real_call_args.extend_from_slice(call_args);
+        for (i, arg) in call_args.iter().enumerate() {
+            builder
+                .ins()
+                .store(mem_flags, *arg, values_vec_ptr, (i * value_size) as i32);
+        }
 
-        let results = self.call_indirect_with_handlers(
+        let trampoline_sig = self.get_call_trampoline_sig(builder.func);
+        let trampoline_args = [vmctx, func_addr, values_vec_ptr];
+        let _ = self.call_indirect_with_handlers(
             builder,
-            sig_ref,
-            func_addr,
-            &real_call_args,
+            trampoline_sig,
+            call_trampoline,
+            &trampoline_args,
             Some(vmctx),
             landing_pad,
             false,
         );
+
+        let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig_ref]
+            .returns
+            .iter()
+            .map(|ret| ret.value_type)
+            .collect();
+        let mut results = SmallVec::<[ir::Value; 4]>::new();
+        let mflags = MemFlags::trusted();
+        for (i, ty) in return_types.iter().enumerate() {
+            let load = builder
+                .ins()
+                .load(*ty, mflags, values_vec_ptr, (i * value_size) as i32);
+            results.push(load);
+        }
         Ok(results)
     }
 

@@ -18,7 +18,7 @@ use cranelift_frontend::FunctionBuilder;
 use itertools::Itertools;
 use std::vec::Vec;
 use wasmer_types::{
-    CATCH_ALL_TAG_VALUE, FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult,
+    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult, CATCH_ALL_TAG_VALUE,
 };
 
 /// Information about the presence of an associated `else` for an `if`, or the
