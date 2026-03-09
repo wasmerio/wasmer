@@ -180,11 +180,14 @@ pub trait FuncEnvironment: TargetEnvironment {
 
     /// Translate a `call` WebAssembly instruction at `pos`.
     ///
-    /// Insert instructions at `pos` for a direct call to the function `callee_index`.
+    /// Insert instructions at `pos` for a direct call to the function
+    /// `callee_index`, or a direct tail call when `tail_call` is `true`.
     ///
     /// The function reference `callee` was previously created by `make_direct_func()`.
     ///
-    /// Return the call instruction whose results are the WebAssembly return values.
+    /// Return the call instruction whose results are the WebAssembly return
+    /// values. For return calls, this is empty because control does not return to
+    /// the current function.
     fn translate_call(
         &mut self,
         builder: &mut FunctionBuilder,
@@ -192,19 +195,21 @@ pub trait FuncEnvironment: TargetEnvironment {
         callee: ir::FuncRef,
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
+        is_return_call: bool,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Translate a `call_indirect` WebAssembly instruction at `pos`.
     ///
     /// Insert instructions at `pos` for an indirect call to the function `callee` in the table
-    /// `table_index` with WebAssembly signature `sig_index`. The `callee` value will have type
+    /// `table_index` with WebAssembly signature `sig_index`, or an indirect
+    /// tail call when `tail_call` is `true`. The `callee` value will have type
     /// `i32`.
     ///
     /// The signature `sig_ref` was previously created by `make_indirect_sig()`.
     ///
     /// Return the call instruction whose results are the WebAssembly return values.
-    /// Returns `None` if this statically traps instead of creating a call
-    /// instruction.
+    /// For return calls, this is empty because control does not return to the
+    /// current function.
     #[allow(clippy::too_many_arguments)]
     fn translate_call_indirect(
         &mut self,
@@ -215,6 +220,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         callee: ir::Value,
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
+        is_return_call: bool,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Return the number of WebAssembly values contained in the payload for the given exception tag.

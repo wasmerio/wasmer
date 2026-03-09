@@ -1112,6 +1112,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn call_with_handlers(
         &mut self,
         builder: &mut FunctionBuilder,
@@ -1120,6 +1121,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         context: Option<ir::Value>,
         landing_pad: Option<LandingPad>,
         unreachable_on_return: bool,
+        is_return_call: bool,
     ) -> SmallVec<[ir::Value; 4]> {
         let sig_ref = builder.func.dfg.ext_funcs[callee].signature;
         let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig_ref]
@@ -1127,6 +1129,11 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             .iter()
             .map(|ret| ret.value_type)
             .collect();
+
+        if is_return_call {
+            builder.ins().return_call(callee, args);
+            return SmallVec::new();
+        }
 
         if landing_pad.is_none() {
             let inst = builder.ins().call(callee, args);
@@ -1188,12 +1195,18 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         context: Option<ir::Value>,
         landing_pad: Option<LandingPad>,
         unreachable_on_return: bool,
+        is_return_call: bool,
     ) -> SmallVec<[ir::Value; 4]> {
         let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig]
             .returns
             .iter()
             .map(|ret| ret.value_type)
             .collect();
+
+        if is_return_call {
+            builder.ins().return_call_indirect(sig, func_addr, args);
+            return SmallVec::new();
+        }
 
         if landing_pad.is_none() {
             let inst = builder.ins().call_indirect(sig, func_addr, args);
@@ -1623,6 +1636,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         callee: ir::Value,
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
+        is_return_call: bool,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let pointer_type = self.pointer_type();
 
@@ -1722,6 +1736,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             Some(vmctx),
             landing_pad,
             false,
+            is_return_call,
         );
 
         let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig_ref]
@@ -1747,6 +1762,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         callee: ir::FuncRef,
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
+        is_return_call: bool,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
 
@@ -1771,6 +1787,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 Some(caller_vmctx),
                 landing_pad,
                 false,
+                is_return_call,
             );
             return Ok(results);
         }
@@ -1810,6 +1827,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             Some(vmctx),
             landing_pad,
             false,
+            is_return_call,
         );
         Ok(results)
     }
@@ -1931,6 +1949,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             Some(vmctx_value),
             landing_pad,
             true,
+            false,
         );
 
         Ok(())
@@ -1956,6 +1975,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             Some(vmctx_value),
             landing_pad,
             true,
+            false,
         );
 
         Ok(())

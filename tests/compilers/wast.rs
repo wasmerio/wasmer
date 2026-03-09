@@ -35,6 +35,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         || wast_path.ends_with("imports.wast");
     let is_wide_arithmetic = wast_path.contains("wide-arithmetic");
 
+    let is_tail_call = wast_path.contains("return_call") || wast_path.ends_with("try_table.wast");
+
     if is_bulkmemory {
         features.bulk_memory(true);
     }
@@ -52,6 +54,9 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     }
     if is_wide_arithmetic {
         features.wide_arithmetic(true);
+    }
+    if is_tail_call {
+        features.tail_call(true);
     }
     config.set_features(features);
     config.set_nan_canonicalization(try_nan_canonicalization);
@@ -82,7 +87,6 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: gc proposal must be enabled to use subtypes",
         "Validation error: array indexed types not supported without the gc feature",
         "Validation error: struct indexed types not supported without the gc feature",
-        "Validation error: tail calls support is not enabled",
         "Validation error: multiple tables",
         "Validation error: unknown memory 0",
         "Validation error: invalid var_u32",

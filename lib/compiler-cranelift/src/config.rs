@@ -262,6 +262,11 @@ impl Cranelift {
             )
             .expect("should be valid flag");
 
+        // Mandatory for tail-call operations.
+        flags
+            .set("preserve_frame_pointers", "true")
+            .expect("should be a valid flag");
+
         settings::Flags::new(flags)
     }
 
@@ -307,6 +312,7 @@ impl CompilerConfig for Cranelift {
         }
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
+        feats.tail_call(true);
         feats
     }
 }
