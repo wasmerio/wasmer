@@ -51,7 +51,8 @@ def parse_perfmap(path):
     with path.open("r", encoding="utf-8", errors="replace") as f:
         for line in f:
             parts = line.strip().split(maxsplit=2)
-            assert len(parts) == 3
+            if len(parts) != 3:
+                raise AssertionError(f"Expected 3 parts, got {len(parts)}: {parts!r}")
             start_s, size_s, name = parts
             start = int(start_s, 16)
             size = int(size_s, 16)
@@ -69,7 +70,10 @@ def load_sample_ips(perf_json_path):
         sample_ips = []
         for samples in data["samples"]:
             callchain = samples["callchain"]
-            assert len(callchain) == 1
+            if len(callchain) != 1:
+                raise AssertionError(
+                    f"Expected a single callchain entry, got {len(callchain)}: {callchain!r}"
+                )
             sample_ips.append(int(callchain[0]["ip"], 16))
 
     return sample_ips
