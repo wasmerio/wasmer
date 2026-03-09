@@ -1203,15 +1203,14 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             .map(|ret| ret.value_type)
             .collect();
 
-        if is_return_call {
-            builder.ins().return_call_indirect(sig, func_addr, args);
-            return SmallVec::new();
-        }
-
         if landing_pad.is_none() {
             let inst = builder.ins().call_indirect(sig, func_addr, args);
             let results: SmallVec<[ir::Value; 4]> =
                 builder.inst_results(inst).iter().copied().collect();
+            if is_return_call {
+                builder.ins().return_(&results);
+                return SmallVec::new();
+            }
             if unreachable_on_return {
                 builder.ins().trap(crate::TRAP_UNREACHABLE);
             }
@@ -1256,6 +1255,10 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         builder.ins().try_call_indirect(func_addr, args, et);
         builder.switch_to_block(continuation);
         builder.seal_block(continuation);
+        if is_return_call {
+            builder.ins().return_(&result_values);
+            return SmallVec::new();
+        }
         if unreachable_on_return {
             builder.ins().trap(crate::TRAP_UNREACHABLE);
         }
