@@ -222,7 +222,7 @@
 <a href=#222 id=222 data-nosnippet>222</a>        }
 <a href=#223 id=223 data-nosnippet>223</a>
 <a href=#224 id=224 data-nosnippet>224</a>        <span class="kw">let </span>builder = <span class="kw">crate</span>::runners::wasi::WasiRunner::new()
-<a href=#225 id=225 data-nosnippet>225</a>            .with_envs(<span class="self">self</span>.env.clone().into_iter())
+<a href=#225 id=225 data-nosnippet>225</a>            .with_envs(<span class="self">self</span>.env.clone())
 <a href=#226 id=226 data-nosnippet>226</a>            .with_args(args)
 <a href=#227 id=227 data-nosnippet>227</a>            .with_capabilities(<span class="self">self</span>.capabilities.clone())
 <a href=#228 id=228 data-nosnippet>228</a>            .with_stdin(Box::new(<span class="self">self</span>.stdin.clone()))
