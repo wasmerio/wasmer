@@ -88,6 +88,22 @@ def sanitize_filename(name):
     return "".join(c if c.isalnum() or c in "_-" else "_" for c in name)
 
 
+PATH_LIMIT = 255
+
+
+def matches_truncated_stem(target, stem, suffix=".o"):
+
+    if len(target) + len(suffix) <= PATH_LIMIT:
+        return False
+
+    prefix, sep, local_index = stem.rpartition("_")
+    if not sep or not local_index.isdigit():
+        return False
+
+    expected_prefix_len = PATH_LIMIT - len(local_index) - len(suffix) - 1
+    return len(prefix) == expected_prefix_len and target.startswith(prefix)
+
+
 def find_object_file(debug_dir, symbol):
     # LLVM callback writes into <debug-dir>/llvm/**/<sanitized-symbol>.o.
     candidates = list(debug_dir.rglob("*.o"))
@@ -96,8 +112,20 @@ def find_object_file(debug_dir, symbol):
 
     target = sanitize_filename(symbol)
     exact = [p for p in candidates if p.stem == target]
-    assert len(exact) == 1
-    return exact[0]
+    if len(exact) == 1:
+        return exact[0]
+    if len(exact) > 1:
+        raise AssertionError(f"Multiple exact object matches for {symbol!r}: {exact}")
+
+    truncated = [p for p in candidates if matches_truncated_stem(target, p.stem)]
+    if len(truncated) == 1:
+        return truncated[0]
+    if len(truncated) > 1:
+        raise AssertionError(
+            f"Multiple truncated object matches for {symbol!r}: {truncated}"
+        )
+
+    return None
 
 
 def disassemble(obj_path, use_color):
