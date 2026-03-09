@@ -1195,7 +1195,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         context: Option<ir::Value>,
         landing_pad: Option<LandingPad>,
         unreachable_on_return: bool,
-        is_return_call: bool,
     ) -> SmallVec<[ir::Value; 4]> {
         let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig]
             .returns
@@ -1207,10 +1206,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             let inst = builder.ins().call_indirect(sig, func_addr, args);
             let results: SmallVec<[ir::Value; 4]> =
                 builder.inst_results(inst).iter().copied().collect();
-            if is_return_call {
-                builder.ins().return_(&results);
-                return SmallVec::new();
-            }
             if unreachable_on_return {
                 builder.ins().trap(crate::TRAP_UNREACHABLE);
             }
@@ -1255,10 +1250,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         builder.ins().try_call_indirect(func_addr, args, et);
         builder.switch_to_block(continuation);
         builder.seal_block(continuation);
-        if is_return_call {
-            builder.ins().return_(&result_values);
-            return SmallVec::new();
-        }
         if unreachable_on_return {
             builder.ins().trap(crate::TRAP_UNREACHABLE);
         }
@@ -1639,7 +1630,6 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         callee: ir::Value,
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
-        is_return_call: bool,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let pointer_type = self.pointer_type();
 
@@ -1739,7 +1729,6 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             Some(vmctx),
             landing_pad,
             false,
-            is_return_call,
         );
 
         let return_types: SmallVec<[ir::Type; 4]> = builder.func.dfg.signatures[sig_ref]
@@ -1830,8 +1819,11 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             Some(vmctx),
             landing_pad,
             false,
-            is_return_call,
         );
+        if is_return_call {
+            builder.ins().return_(results.as_slice());
+            return Ok(SmallVec::new());
+        }
         Ok(results)
     }
 
@@ -1952,7 +1944,6 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             Some(vmctx_value),
             landing_pad,
             true,
-            false,
         );
 
         Ok(())
@@ -1978,7 +1969,6 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             Some(vmctx_value),
             landing_pad,
             true,
-            false,
         );
 
         Ok(())

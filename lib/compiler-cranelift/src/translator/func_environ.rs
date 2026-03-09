@@ -220,7 +220,6 @@ pub trait FuncEnvironment: TargetEnvironment {
         callee: ir::Value,
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
-        is_return_call: bool,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Return the number of WebAssembly values contained in the payload for the given exception tag.
@@ -354,7 +353,7 @@ pub trait FuncEnvironment: TargetEnvironment {
 
     /// Translate a `table.size` WebAssembly instruction.
     fn translate_table_size(&mut self, pos: FuncCursor, index: TableIndex)
-        -> WasmResult<ir::Value>;
+    -> WasmResult<ir::Value>;
 
     /// Translate a `table.grow` WebAssembly instruction.
     fn translate_table_grow(

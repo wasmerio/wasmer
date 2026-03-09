@@ -82,7 +82,7 @@ pub(crate) const EXN_REF_TYPE: ir::Type = I32;
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
-use crate::{hash_map, HashMap};
+use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::immediates::Offset32;
@@ -98,10 +98,10 @@ use smallvec::SmallVec;
 use std::vec::Vec;
 
 use wasmer_compiler::wasmparser::{self, Catch, MemArg, Operator};
-use wasmer_compiler::{from_binaryreadererror_wasmerror, wasm_unsupported, ModuleTranslationState};
+use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, TagIndex, WasmResult,
-    CATCH_ALL_TAG_VALUE,
+    CATCH_ALL_TAG_VALUE, FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
+    TagIndex, WasmResult,
 };
 
 /// Given a `Reachability<T>`, unwrap the inner `T` or, when unreachable, set
@@ -748,18 +748,20 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 callee,
                 args,
                 state.handlers.landing_pad(),
-                is_return_call,
             )?;
+            debug_assert_eq!(
+                results.len(),
+                builder.func.dfg.signatures[sigref].returns.len(),
+                "translate_call_indirect results should match the call signature"
+            );
+
+            state.popn(num_args);
             if is_return_call {
-                state.popn(num_args);
+                let mut return_values = results;
+                bitcast_wasm_returns(environ, return_values.as_mut_slice(), builder);
+                builder.ins().return_(return_values.as_slice());
                 state.reachable = false;
             } else {
-                debug_assert_eq!(
-                    results.len(),
-                    builder.func.dfg.signatures[sigref].returns.len(),
-                    "translate_call_indirect results should match the call signature"
-                );
-                state.popn(num_args);
                 state.pushn(results.as_slice());
             }
         }
