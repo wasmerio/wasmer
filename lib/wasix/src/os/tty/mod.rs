@@ -660,8 +660,19 @@ impl Tty {
                     .await;
             }
             ParsedInput::Backspace => {
+                let old_cursor = self.line.cursor();
+                let old_len = self.line.len();
                 if self.line.backspace() && echo {
-                    self.write_stdout("\u{0008} \u{0008}".as_bytes()).await;
+                    if old_cursor < old_len {
+                        let tail: String = self.line.chars[self.line.cursor()..].iter().collect();
+                        self.write_stdout(tail.as_bytes()).await;
+                        self.write_stdout(b" ").await;
+                        for _ in 0..(tail.chars().count() + 1) {
+                            self.write_stdout(b"\x08").await;
+                        }
+                    } else {
+                        self.write_stdout("\u{0008} \u{0008}".as_bytes()).await;
+                    }
                 }
             }
             ParsedInput::CtrlU => {
@@ -750,8 +761,8 @@ pub struct WasiTtyState {
 impl Default for WasiTtyState {
     fn default() -> Self {
         Self {
-            rows: 80,
-            cols: 25,
+            cols: 80,
+            rows: 25,
             width: 800,
             height: 600,
             stdin_tty: true,
@@ -790,7 +801,7 @@ mod tests {
     use virtual_mio::block_on;
     use wasmer_wasix_types::wasi::Signal;
 
-    use super::{InputEvent, Tty, TtyOptions};
+    use super::{InputEvent, Tty, TtyOptions, WasiTtyState};
     use crate::os::task::signal::{SignalDeliveryError, SignalHandlerAbi};
 
     #[derive(Debug)]
@@ -1736,6 +1747,24 @@ mod tests {
     }
 
     #[test]
+    fn tty_backspace_after_cursor_move_repaints_tail() {
+        let (tty, stdin_buf, stdout_buf) = new_tty(true, true);
+        let _tty = run_events(
+            tty,
+            vec![
+                InputEvent::Data("ab".to_string()),
+                InputEvent::Data("\u{001B}\u{005B}\u{0044}".to_string()),
+                InputEvent::Data("\u{007F}".to_string()),
+                InputEvent::Data("\r".to_string()),
+            ],
+        );
+
+        // Expect deleting in the middle of the line to repaint the remaining tail and restore the cursor.
+        assert_eq!(captured(&stdin_buf), "b\n");
+        assert_eq!(captured(&stdout_buf), "abb \u{0008}\u{0008}\n");
+    }
+
+    #[test]
     fn tty_backspace_ascii_bs_alias_matches_del() {
         let (tty, stdin_buf, stdout_buf) = new_tty(true, true);
         let _tty = run_events(
@@ -1906,5 +1935,14 @@ mod tests {
         // Expect common Home/End tilde variants to be consumed as navigation keys.
         assert_eq!(captured(&stdin_buf), "x\n");
         assert_eq!(captured(&stdout_buf), "x\n");
+    }
+
+    #[test]
+    fn tty_state_default_size_matches_console_defaults() {
+        let tty_state = WasiTtyState::default();
+
+        // Expect terminal defaults to match the conventional 80x25 console geometry.
+        assert_eq!(tty_state.cols, 80);
+        assert_eq!(tty_state.rows, 25);
     }
 }
