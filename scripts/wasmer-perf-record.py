@@ -211,6 +211,8 @@ def main():
     use_color = sys.stdout.isatty()
 
     wasmer_args = args.wasmer_args
+    if wasmer_args[0] == "--":
+        wasmer_args = wasmer_args[1:]
     shutil.rmtree(args.tmpdir, ignore_errors=True)
     debug_dir = args.tmpdir / "compiler-debug"
     llvm_debug_dir = debug_dir / "llvm"
