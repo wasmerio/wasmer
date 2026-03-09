@@ -470,7 +470,7 @@ jobs:
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
       - name: Build C API
         run: |
-          make build-capi
+          make package-build-capi
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true
