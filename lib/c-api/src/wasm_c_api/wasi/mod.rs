@@ -293,7 +293,6 @@ fn prepare_webc_env(
                 .top_level
                 .iter()
                 .filter(|entry| entry.fs_type == FsEntryType::Dir)
-                .cloned()
                 .map(|e| e.text.to_string())
                 .collect::<Vec<_>>()
                 .into_iter()
