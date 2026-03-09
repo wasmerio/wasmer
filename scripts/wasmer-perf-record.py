@@ -58,7 +58,9 @@ def parse_perfmap(path):
             entries.append(
                 MapEntry(start=start, end=start + size, size=size, name=name)
             )
-    return entries
+    entries.sort(key=lambda entry: entry.start)
+    entry_starts = [entry.start for entry in entries]
+    return entries, entry_starts
 
 
 def load_sample_ips(perf_json_path):
@@ -73,9 +75,11 @@ def load_sample_ips(perf_json_path):
     return sample_ips
 
 
-def find_entry(ip, entries):
-    for entry in entries:
-        if entry.start <= ip < entry.end:
+def find_entry(ip, entries, entry_starts):
+    idx = bisect.bisect_right(entry_starts, ip) - 1
+    if idx >= 0:
+        entry = entries[idx]
+        if ip < entry.end:
             return entry
     return None
 
@@ -258,7 +262,7 @@ def main():
     perfmap_path = find_youngest_perfmap()
     print(f"Using perf map: {perfmap_path}")
 
-    entries = parse_perfmap(perfmap_path)
+    entries, entry_starts = parse_perfmap(perfmap_path)
 
     run_cmd(
         [
@@ -276,7 +280,7 @@ def main():
     fn_ip_counts = {}
 
     for ip in sample_ips:
-        entry = find_entry(ip, entries)
+        entry = find_entry(ip, entries, entry_starts)
         if entry is None:
             continue
         fn_counts[entry] += 1
