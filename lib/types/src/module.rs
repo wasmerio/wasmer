@@ -654,6 +654,13 @@ impl<I: Iterator<Item = ExportType> + Sized> ExportsIterator<I> {
             _ => None,
         })
     }
+    /// Get only the tags
+    pub fn tags(self) -> impl Iterator<Item = ExportType<TagType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Tag(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
 }
 
 impl<I: Iterator<Item = ExportType> + Sized> Iterator for ExportsIterator<I> {
@@ -714,6 +721,17 @@ impl<I: Iterator<Item = ImportType> + Sized> ImportsIterator<I> {
     pub fn globals(self) -> impl Iterator<Item = ImportType<GlobalType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
             ExternType::Global(ty) => Some(ImportType::new(extern_.module(), extern_.name(), *ty)),
+            _ => None,
+        })
+    }
+    /// Get only the tags
+    pub fn tags(self) -> impl Iterator<Item = ImportType<TagType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Tag(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
             _ => None,
         })
     }
