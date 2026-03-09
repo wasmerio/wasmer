@@ -128,10 +128,10 @@ async fn command_tracks_declaring_package_and_atom_provider_package() {
         &[],
     );
 
-    let dep_container: Container = Package::from_manifest(&dep_dir.join("wasmer.toml"))
+    let dep_container: Container = Package::from_manifest(dep_dir.join("wasmer.toml"))
         .unwrap()
         .into();
-    let root_container: Container = Package::from_manifest(&root_dir.join("wasmer.toml"))
+    let root_container: Container = Package::from_manifest(root_dir.join("wasmer.toml"))
         .unwrap()
         .into();
 

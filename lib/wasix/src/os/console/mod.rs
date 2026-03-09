@@ -222,7 +222,7 @@ impl Console {
         }
 
         let builder = crate::runners::wasi::WasiRunner::new()
-            .with_envs(self.env.clone().into_iter())
+            .with_envs(self.env.clone())
             .with_args(args)
             .with_capabilities(self.capabilities.clone())
             .with_stdin(Box::new(self.stdin.clone()))
