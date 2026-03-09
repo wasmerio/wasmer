@@ -19,6 +19,8 @@ jobs:
         run: pip install boto3
       - name: Clone repository
         uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Run cleanup
         env:
           AWS_ENDPOINT: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com

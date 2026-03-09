@@ -249,7 +249,7 @@ clap = { workspace = true, default-features = false, features = [
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies]
 reqwest = { workspace = true, default-features = false, features = [
-	"rustls-tls",
+	"rustls",
 	"json",
 	"multipart",
 	"gzip",

@@ -21,6 +21,8 @@ jobs:
             os: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust

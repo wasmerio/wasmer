@@ -4,8 +4,9 @@
  */
 #![allow(missing_docs)]
 
-use crate::indexes::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
+use crate::indexes::{FunctionIndex, MemoryIndex, TableIndex};
 use crate::lib::std::boxed::Box;
+use crate::types::InitExpr;
 
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -19,10 +20,8 @@ use serde::{Deserialize, Serialize};
 pub struct TableInitializer {
     /// The index of a table to initialize.
     pub table_index: TableIndex,
-    /// Optionally, a global variable giving a base index.
-    pub base: Option<GlobalIndex>,
-    /// The offset to add to the base.
-    pub offset: usize,
+    /// Serialized offset expression.
+    pub offset_expr: InitExpr,
     /// The values to write into the table elements.
     pub elements: Box<[FunctionIndex]>,
 }
@@ -37,19 +36,15 @@ pub struct DataInitializerLocation {
     /// The index of the memory to initialize.
     pub memory_index: MemoryIndex,
 
-    /// Optionally a Global variable base to initialize at.
-    pub base: Option<GlobalIndex>,
-
-    /// A constant offset to initialize at.
-    pub offset: usize,
+    /// Serialized offset expression.
+    pub offset_expr: InitExpr,
 }
 
 /// Any struct that acts like a `DataInitializerLocation`.
 #[allow(missing_docs)]
 pub trait DataInitializerLocationLike {
     fn memory_index(&self) -> MemoryIndex;
-    fn base(&self) -> Option<GlobalIndex>;
-    fn offset(&self) -> usize;
+    fn offset_expr(&self) -> InitExpr;
 }
 
 impl DataInitializerLocationLike for &DataInitializerLocation {
@@ -57,12 +52,8 @@ impl DataInitializerLocationLike for &DataInitializerLocation {
         self.memory_index
     }
 
-    fn base(&self) -> Option<GlobalIndex> {
-        self.base
-    }
-
-    fn offset(&self) -> usize {
-        self.offset
+    fn offset_expr(&self) -> InitExpr {
+        self.offset_expr.clone()
     }
 }
 
@@ -71,15 +62,8 @@ impl DataInitializerLocationLike for &ArchivedDataInitializerLocation {
         MemoryIndex::from_u32(rkyv::deserialize::<_, ()>(&self.memory_index).unwrap().0)
     }
 
-    fn base(&self) -> Option<GlobalIndex> {
-        match &self.base {
-            rkyv::option::ArchivedOption::None => None,
-            rkyv::option::ArchivedOption::Some(base) => rkyv::deserialize::<_, String>(base).ok(),
-        }
-    }
-
-    fn offset(&self) -> usize {
-        rkyv::deserialize::<_, ()>(&self.offset).unwrap()
+    fn offset_expr(&self) -> InitExpr {
+        rkyv::deserialize::<_, rkyv::rancor::Error>(&self.offset_expr).unwrap()
     }
 }
 

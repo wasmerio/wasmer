@@ -6320,8 +6320,7 @@ impl Machine for MachineRiscv {
                     ));
                     instructions.push((
                         instruction_offset,
-                        // TODO: use RiscV::FP: https://github.com/gimli-rs/gimli/pull/802
-                        CallFrameInstruction::Offset(RiscV::X8, -(up_to_sp as i32)),
+                        CallFrameInstruction::Offset(RiscV::FP, -(up_to_sp as i32)),
                     ));
                 }
                 UnwindOps::DefineNewFrame => {

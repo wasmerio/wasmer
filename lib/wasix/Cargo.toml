@@ -130,7 +130,7 @@ bus.workspace = true
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true
 default-features = false
-features = ["rustls-tls", "json", "stream", "socks", "blocking"]
+features = ["rustls", "json", "stream", "socks", "blocking"]
 optional = true
 
 [target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies.reqwest]

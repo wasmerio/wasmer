@@ -16,7 +16,7 @@ md5.workspace = true
 hex.workspace = true
 pretty_assertions.workspace = true
 object.workspace = true
-reqwest = { workspace = true, default-features = false, features = ["json", "blocking", "rustls-tls"] }
+reqwest = { workspace = true, default-features = false, features = ["json", "blocking", "rustls"] }
 tokio = { workspace = true, features = [ "rt", "rt-multi-thread", "macros", "process" ] }
 assert_cmd.workspace = true
 predicates.workspace = true

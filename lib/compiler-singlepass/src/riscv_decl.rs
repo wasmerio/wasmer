@@ -152,8 +152,7 @@ impl AbstractReg for GPR {
             GPR::X5 => RiscV::X5,
             GPR::X6 => RiscV::X6,
             GPR::X7 => RiscV::X7,
-            // TODO: use new constant: https://github.com/gimli-rs/gimli/pull/802
-            GPR::Fp => RiscV::X8,
+            GPR::Fp => RiscV::FP,
             GPR::X9 => RiscV::X9,
             GPR::X10 => RiscV::X10,
             GPR::X11 => RiscV::X11,
