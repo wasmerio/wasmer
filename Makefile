@@ -817,6 +817,7 @@ ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wasmer || true
 endif
 endif
+	ls -l package/bin
 
 package-capi: build-capi
 	mkdir -p "package/include"
@@ -855,20 +856,38 @@ package-capi-headless: build-capi-headless
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.dll ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll package/lib/wasmer-headless.dll ;\
 	fi
+	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.dll ]; then \
+		cp target/headless/$(HOST_TARGET)/release/wasmer.dll package/lib/wasmer-headless.dll ;\
+	fi
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib package/lib/wasmer-headless.dll.lib ;\
+	fi
+	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.dll.lib ]; then \
+		cp target/headless/$(HOST_TARGET)/release/wasmer.dll.lib package/lib/wasmer-headless.dll.lib ;\
 	fi
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.lib ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.lib package/lib/wasmer-headless.lib ;\
 	fi
+	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.lib ]; then \
+		cp target/headless/$(HOST_TARGET)/release/wasmer.lib package/lib/wasmer-headless.lib ;\
+	fi
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.dylib ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
+	fi
+	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.dylib ]; then \
+		cp target/headless/$(HOST_TARGET)/release/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
 	fi
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.so ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.so package/lib/libwasmer-headless.so ;\
 	fi
+	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.so ]; then \
+		cp target/headless/$(HOST_TARGET)/release/libwasmer.so package/lib/libwasmer-headless.so ;\
+	fi
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.a ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.a package/lib/libwasmer-headless.a ;\
+	fi
+	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.a ]; then \
+		cp target/headless/$(HOST_TARGET)/release/libwasmer.a package/lib/libwasmer-headless.a ;\
 	fi
 	ls -l package/lib
 
