@@ -140,7 +140,7 @@ impl Table {
         vm_extern: crate::vm::VMExternTable,
     ) -> Self {
         Self {
-            handle: vm_extern.into_jsc(),
+            handle: vm_extern.unwrap_jsc(),
         }
     }
 

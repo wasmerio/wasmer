@@ -200,7 +200,7 @@ impl Function {
         let callback: CCallback = unsafe {
             std::mem::transmute(
                 func.function_callback(crate::BackendKind::Wasmi)
-                    .into_wasmi(),
+                    .unwrap_wasmi(),
             )
         };
 
@@ -282,7 +282,7 @@ impl Function {
         let callback: CCallback = unsafe {
             std::mem::transmute(
                 func.function_callback(crate::BackendKind::Wasmi)
-                    .into_wasmi(),
+                    .unwrap_wasmi(),
             )
         };
 
@@ -419,7 +419,7 @@ impl Function {
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
         Self {
-            handle: internal.into_wasmi(),
+            handle: internal.unwrap_wasmi(),
         }
     }
 

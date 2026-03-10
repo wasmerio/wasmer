@@ -83,42 +83,42 @@ impl BackendExternRef {
             crate::BackendStore::Sys(_) => Self::Sys(unsafe {
                 crate::backend::sys::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_sys(),
+                    vm_externref.unwrap_sys(),
                 )
             }),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => Self::Wamr(unsafe {
                 crate::backend::wamr::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_wamr(),
+                    vm_externref.unwrap_wamr(),
                 )
             }),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => Self::Wasmi(unsafe {
                 crate::backend::wasmi::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_wasmi(),
+                    vm_externref.unwrap_wasmi(),
                 )
             }),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(unsafe {
                 crate::backend::v8::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_v8(),
+                    vm_externref.unwrap_v_8(),
                 )
             }),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(unsafe {
                 crate::backend::js::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_js(),
+                    vm_externref.unwrap_js(),
                 )
             }),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => Self::Jsc(unsafe {
                 crate::backend::jsc::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_jsc(),
+                    vm_externref.unwrap_jsc(),
                 )
             }),
         }
