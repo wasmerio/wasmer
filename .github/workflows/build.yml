@@ -220,7 +220,7 @@ jobs:
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
         run: |
-          make build-wasmer
+          make package-wasmer
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
@@ -229,7 +229,7 @@ jobs:
       - name: Build Wasmer on linux-x64
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
-          make build-wasmer
+          make package-wasmer
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
@@ -470,7 +470,7 @@ jobs:
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
       - name: Build C API
         run: |
-          make package-build-capi
+          make package-capi
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true

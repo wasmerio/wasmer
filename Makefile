@@ -796,7 +796,7 @@ else
 	fi
 endif
 
-package-wasmer:
+package-wasmer: build-wasmer
 	mkdir -p "package/bin"
 	ls -R target
 ifeq ($(IS_WINDOWS), 1)
