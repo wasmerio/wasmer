@@ -208,28 +208,28 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Build & Package C API headless
+      - name: Build C API headless
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make package-capi-headless
-      - name: Build & Package C API
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi-headless
+      - name: Build C API
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make package-capi
-      - name: Build & Package Wasmer binary
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi
+      - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
         run: |
-          make package-wasmer
+          make build-wasmer
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
-      - name: Build & Package Wasmer on linux-x64
+      - name: Build Wasmer on linux-x64
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
-          make package-wasmer
+          make build-wasmer
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
@@ -458,7 +458,7 @@ jobs:
       - name: Build C API headless
         shell: bash
         run: |
-          make package-capi-headless
+          make build-capi-headless
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true
@@ -470,7 +470,7 @@ jobs:
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
       - name: Build C API
         run: |
-          make package-capi
+          make build-capi
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true

@@ -796,7 +796,7 @@ else
 	fi
 endif
 
-package-wasmer: build-wasmer
+package-wasmer:
 	mkdir -p "package/bin"
 ifeq ($(IS_WINDOWS), 1)
 	if [ -f "$(TARGET_DIR)/wasmer.exe" ]; then \
@@ -818,7 +818,7 @@ endif
 endif
 	ls -l package/bin
 
-package-capi: build-capi
+package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
 	mkdir -p "package/winsdk"
@@ -847,7 +847,7 @@ package-capi: build-capi
 	fi
 	ls -l package/lib
 
-package-capi-headless: build-capi-headless
+package-capi-headless:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
 	mkdir -p "package/winsdk"
