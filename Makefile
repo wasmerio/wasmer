@@ -798,7 +798,6 @@ endif
 
 package-wasmer: build-wasmer
 	mkdir -p "package/bin"
-	ls -R target
 ifeq ($(IS_WINDOWS), 1)
 	if [ -f "$(TARGET_DIR)/wasmer.exe" ]; then \
 		cp "$(TARGET_DIR)/wasmer.exe" package/bin ;\
@@ -903,43 +902,9 @@ tar-capi:
 	ls -R package
 	tar -C package -zcvf build-capi.tar.gz lib include winsdk
 
-untar-capi:
-	mkdir -p package
-	mkdir -p target/release
-	mkdir -p target/$(HOST_TARGET)/release
-	tar -C package -xf ./build-capi.tar.gz
-	cp package/lib/* target/release
-	cp package/lib/* target/$(HOST_TARGET)/release
-	mkdir -p target/debug
-	mkdir -p target/$(HOST_TARGET)/debug
-	tar -C package -xf ./build-capi.tar.gz
-	cp package/lib/* target/debug
-	cp package/lib/* target/$(HOST_TARGET)/debug
-	echo "untar capi"
-	ls -R target
-	echo "package"
-	ls -R package
-
 tar-wasmer:
 	ls -R package
 	tar -C package -zcvf build-wasmer.tar.gz bin
-
-untar-wasmer:
-	mkdir -p package
-	mkdir -p target/release
-	mkdir -p target/$(HOST_TARGET)/release
-	tar -C package -xf ./build-wasmer.tar.gz
-	cp package/bin/* target/release
-	cp package/bin/* target/$(HOST_TARGET)/release
-	mkdir -p target/debug
-	mkdir -p target/$(HOST_TARGET)/debug
-	tar -C package -xf ./build-wasmer.tar.gz
-	cp package/bin/* target/debug
-	cp package/bin/* target/$(HOST_TARGET)/debug
-	echo "untar wasmer"
-	ls -R target
-	echo "package"
-	ls -R package
 
 distribution-gnu: package-capi
 	cp LICENSE package/LICENSE

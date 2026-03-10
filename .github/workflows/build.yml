@@ -226,7 +226,7 @@ jobs:
           ENABLE_V8: ${{ matrix.enable_v8 }}
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
-      - name: Build Wasmer on linux-x64
+      - name: Build & Package Wasmer on linux-x64
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
           make package-wasmer
