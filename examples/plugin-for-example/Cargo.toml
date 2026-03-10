@@ -1,0 +1,8 @@
+[package]
+name = "plugin-for-example"
+version = "0.1.0"
+authors = ["Dharitri <contact@dharitri.org>"]
+license = "MIT"
+edition = "2018"
+
+[dependencies]

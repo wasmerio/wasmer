@@ -1,0 +1,16 @@
+[package]
+name = "wasmer-win-exception-handler"
+version = "0.15.0"
+description = "Wasmer runtime exception handling for Windows"
+license = "MIT"
+authors = ["Dharitri <contact@dharitri.org>"]
+repository = "https://github.com/TerraDharitri/wasmer"
+edition = "2018"
+
+[target.'cfg(windows)'.dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.15.0" }
+winapi = { version = "0.3.8", features = ["winbase", "errhandlingapi", "minwindef", "minwinbase", "winnt"] }
+libc = "0.2.60"
+
+[build-dependencies]
+cmake = "0.1"

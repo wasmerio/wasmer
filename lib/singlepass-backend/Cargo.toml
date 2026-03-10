@@ -1,0 +1,32 @@
+[package]
+name = "wasmer-singlepass-backend"
+repository = "https://github.com/TerraDharitri/wasmer"
+version = "0.15.0"
+description = "Wasmer runtime single pass compiler backend"
+license = "MIT"
+authors = ["Dharitri <contact@dharitri.org>"]
+keywords = ["wasm", "webassembly", "compiler", "JIT", "AOT"]
+categories = ["wasm"]
+edition = "2018"
+readme = "README.md"
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.15.0" }
+dynasm = "0.7"
+dynasmrt = "0.7"
+lazy_static = "1.4"
+byteorder = "1.3"
+nix = "0.15"
+libc = "0.2.60"
+smallvec = "0.6"
+wasmparser = { git = "https://github.com/TerraDharitri/wasmparser.rs" }
+bincode = "1.2"
+serde = "1.0"
+serde_derive = "1.0"
+
+[dependencies.rkyv]
+version = "0.7.26"
+
+[features]
+default = ["deterministic-execution"]
+deterministic-execution = ["wasmparser/deterministic", "wasmer-runtime-core/deterministic-execution"]

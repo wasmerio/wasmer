@@ -1,0 +1,44 @@
+name: libwasmer-build-shim-linux-arm64
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  build:
+    name: Build shim library for Linux ARM64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          platforms: linux/arm64
+          file: ./Docker/arm64.dockerfile
+          tags: mx-builder
+
+      - name: Copy library from Docker image
+        run: docker run --platform="linux/arm64" --rm mx-builder cat /data/libwasmer_linux_arm64_shim.so > $GITHUB_WORKSPACE/libwasmer_linux_arm64_shim.so
+
+      - name: Save artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-linux-arm64
+          path: |
+            libwasmer_linux_arm64_shim.so
+          if-no-files-found: error

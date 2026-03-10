@@ -1,0 +1,17 @@
+(module
+    (func $main (export "main")
+        (local $count i32)
+        (local $sum i32)
+        (loop (result i32)
+            (set_local $count (i32.add (get_local $count) (i32.const 1)))
+            (set_local $sum (i32.add (get_local $sum) (get_local $count)))
+            (i32.sub (i32.const 1) (i32.eq
+                (get_local $count)
+                (i32.const 50000)
+            ))
+            (br_if 0)
+            (get_local $sum)
+        )
+        (if (i32.ne (i32.const 1250025000)) (unreachable))
+    )
+)

@@ -1,0 +1,49 @@
+[package]
+name = "wasmer-llvm-backend"
+version = "0.15.0"
+license = "MIT"
+authors = ["Dharitri <contact@dharitri.org>"]
+repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "compiler", "JIT", "llvm"]
+categories = ["wasm"]
+edition = "2018"
+readme = "README.md"
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.15.0" }
+wasmparser = { git = "https://github.com/TerraDharitri/wasmparser.rs" }
+smallvec = "0.6"
+goblin = "0.0.24"
+libc = "0.2.60"
+byteorder = "1"
+
+[target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
+git = "https://github.com/TheDan64/inkwell"
+rev = "0a864ebf68b33d4d514b67796264b03898aa0944"
+default-features = false
+features = ["llvm8-0", "target-x86"]
+
+[target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
+git = "https://github.com/TheDan64/inkwell"
+rev = "0a864ebf68b33d4d514b67796264b03898aa0944"
+default-features = false
+features = ["llvm8-0", "target-aarch64"]
+
+[target.'cfg(unix)'.dependencies]
+nix = "0.15"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["memoryapi"] }
+
+[build-dependencies]
+cc = "1.0"
+lazy_static = "1.4"
+regex = "1.2"
+semver = "0.9"
+rustc_version = "0.2"
+
+[dev-dependencies]
+wabt = "0.9.1"
+
+[features]
+test = []

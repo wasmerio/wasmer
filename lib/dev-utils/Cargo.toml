@@ -1,0 +1,12 @@
+[package]
+name = "wasmer-dev-utils"
+version = "0.15.0"
+description = "Wasmer runtime core library"
+license = "MIT"
+authors = ["Dharitri <contact@dharitri.org>"]
+edition = "2018"
+repository = "https://github.com/TerraDharitri/wasmer"
+publish = false
+
+[dependencies]
+libc = "0.2.60"

@@ -1,7 +1,7 @@
 // use std::collections::HashMap;
-use crate::EmEnv;
+use wasmer_runtime_core::vm::Ctx;
 
-pub fn ___seterrno(_ctx: &EmEnv, _value: i32) {
+pub fn ___seterrno(_ctx: &mut Ctx, _value: i32) {
     debug!("emscripten::___seterrno {}", _value);
     // TODO: Incomplete impl
     eprintln!("failed to set errno!");

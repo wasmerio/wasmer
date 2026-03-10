@@ -19,50 +19,49 @@ use crate::{
 };
 
 use std::os::raw::c_int;
-use std::sync::MutexGuard;
+use wasmer_runtime_core::{types::ValueType, vm::Ctx};
 
-use crate::EmEnv;
-use wasmer::ValueType;
-
-pub fn call_malloc(ctx: &EmEnv, size: u32) -> u32 {
+pub fn call_malloc(ctx: &mut Ctx, size: u32) -> u32 {
     get_emscripten_data(ctx)
-        .malloc_ref()
+        .malloc
+        .as_ref()
         .unwrap()
         .call(size)
         .unwrap()
 }
 
 #[warn(dead_code)]
-pub fn call_malloc_with_cast<T: Copy, Ty>(ctx: &EmEnv, size: u32) -> WasmPtr<T, Ty> {
+pub fn call_malloc_with_cast<T: Copy, Ty>(ctx: &mut Ctx, size: u32) -> WasmPtr<T, Ty> {
     WasmPtr::new(call_malloc(ctx, size))
 }
 
-pub fn call_memalign(ctx: &EmEnv, alignment: u32, size: u32) -> u32 {
-    if let Some(memalign) = &get_emscripten_data(ctx).memalign_ref() {
+pub fn call_memalign(ctx: &mut Ctx, alignment: u32, size: u32) -> u32 {
+    if let Some(memalign) = &get_emscripten_data(ctx).memalign {
         memalign.call(alignment, size).unwrap()
     } else {
         panic!("Memalign is set to None");
     }
 }
 
-pub fn call_memset(ctx: &EmEnv, pointer: u32, value: u32, size: u32) -> u32 {
+pub fn call_memset(ctx: &mut Ctx, pointer: u32, value: u32, size: u32) -> u32 {
     get_emscripten_data(ctx)
-        .memset_ref()
+        .memset
+        .as_ref()
         .unwrap()
         .call(pointer, value, size)
         .unwrap()
 }
 
-pub(crate) fn get_emscripten_data(ctx: &EmEnv) -> MutexGuard<EmscriptenData> {
-    ctx.data.lock().unwrap()
+pub(crate) fn get_emscripten_data(ctx: &mut Ctx) -> &mut EmscriptenData {
+    unsafe { &mut *(ctx.data as *mut EmscriptenData) }
 }
 
-pub fn _getpagesize(_ctx: &EmEnv) -> u32 {
+pub fn _getpagesize(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getpagesize");
     16384
 }
 
-pub fn _times(ctx: &EmEnv, buffer: u32) -> u32 {
+pub fn _times(ctx: &mut Ctx, buffer: u32) -> u32 {
     if buffer != 0 {
         call_memset(ctx, buffer, 0, 16);
     }
@@ -70,7 +69,7 @@ pub fn _times(ctx: &EmEnv, buffer: u32) -> u32 {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___build_environment(ctx: &EmEnv, environ: c_int) {
+pub fn ___build_environment(ctx: &mut Ctx, environ: c_int) {
     debug!("emscripten::___build_environment {}", environ);
     const MAX_ENV_VALUES: u32 = 64;
     const TOTAL_ENV_SIZE: u32 = 1024;
@@ -122,13 +121,13 @@ pub fn ___build_environment(ctx: &EmEnv, environ: c_int) {
     }
 }
 
-pub fn ___assert_fail(_ctx: &EmEnv, _a: c_int, _b: c_int, _c: c_int, _d: c_int) {
+pub fn ___assert_fail(_ctx: &mut Ctx, _a: c_int, _b: c_int, _c: c_int, _d: c_int) {
     debug!("emscripten::___assert_fail {} {} {} {}", _a, _b, _c, _d);
     // TODO: Implement like emscripten expects regarding memory/page size
     // TODO raise an error
 }
 
-pub fn _pathconf(ctx: &EmEnv, path_addr: c_int, name: c_int) -> c_int {
+pub fn _pathconf(ctx: &mut Ctx, path_addr: c_int, name: c_int) -> c_int {
     debug!(
         "emscripten::_pathconf {} {} - UNIMPLEMENTED",
         path_addr, name
@@ -149,7 +148,7 @@ pub fn _pathconf(ctx: &EmEnv, path_addr: c_int, name: c_int) -> c_int {
     }
 }
 
-pub fn _fpathconf(_ctx: &EmEnv, _fildes: c_int, name: c_int) -> c_int {
+pub fn _fpathconf(_ctx: &mut Ctx, _fildes: c_int, name: c_int) -> c_int {
     debug!("emscripten::_fpathconf {} {}", _fildes, name);
     match name {
         0 => 32000,

@@ -1,0 +1,38 @@
+name: libwasmer-build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build dynamic library for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-18.04
+            artifact_name: libwasmer_linux_amd64.so
+            make_target: capi-linux-amd64
+          - os: macos-11
+            artifact_name: libwasmer_darwin_amd64.dylib
+            make_target: capi-osx-amd64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Make
+        run: make ${{ matrix.make_target }}
+      - name: Save artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: libs
+          path: |
+            target/release/*.so
+            target/release/*.dylib
+            lib/runtime-c-api/wasmer.h
+            lib/runtime-c-api/wasmer.hh

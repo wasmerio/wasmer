@@ -1,0 +1,10 @@
+[package]
+name = "wasmer-kernel-loader"
+version = "0.1.0"
+authors = ["Dharitri <contact@dharitri.org>"]
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+libc = "0.2.60"
+wasmer-runtime-core = { path = "../runtime-core" }

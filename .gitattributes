@@ -1,4 +1,3 @@
+lib/emscripten/emtests/* linguist-vendored
+lib/spectests/spectests/* linguist-vendored
 CHANGELOG.md merge=union
-*.wast linguist-vendored
-*.wat linguist-vendored
-scene*.txt -text

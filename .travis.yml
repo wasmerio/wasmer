@@ -1,0 +1,65 @@
+os:
+  - linux
+  - osx
+arch:
+  - amd64
+  - arm64
+osx_image: xcode11.3
+
+language: rust
+before_install:
+- if [[ $TRAVIS_OS_NAME == linux ]]; then sudo apt-get install -y patchelf; fi
+install: travis_retry
+rust:
+  - nightly-2021-01-25
+
+cache:
+  directories:
+    - $HOME/.sccache/
+    - $HOME/.cargo/bin/
+
+script:
+  - test -f $HOME/.cargo/bin/sccache || travis_retry cargo install sccache
+  - export RUSTC_WRAPPER=$HOME/.cargo/bin/sccache
+  - mkdir -p $HOME/.sccache/
+  - export SCCACHE_DIR="$HOME/.sccache/"
+  - SCCACHE_ERROR_LOG=`pwd`/sccache.log RUST_LOG=debug $RUSTC_WRAPPER --start-server
+  - $RUSTC_WRAPPER -s
+
+  - make capi
+  - ls ./target/release
+  - mkdir artifacts
+  
+  - if [[ "$TRAVIS_OS_NAME" == osx ]];
+    then
+      mv ./target/release/libwasmer_runtime_c_api.dylib ./artifacts/libwasmer_darwin_amd64.dylib;
+      install_name_tool -id @executable_path/libwasmer_darwin_amd64.dylib ./artifacts/libwasmer_darwin_amd64.dylib;
+    fi
+  - if [[ "$TRAVIS_OS_NAME" == linux && "$TRAVIS_CPU_ARCH" == amd64 ]];
+    then
+      mv ./target/release/libwasmer_runtime_c_api.so ./artifacts/libwasmer_linux_amd64.so;
+      patchelf --set-soname libwasmer_linux_amd64.so ./artifacts/libwasmer_linux_amd64.so;
+    fi
+  - if [[ "$TRAVIS_OS_NAME" == linux && "$TRAVIS_CPU_ARCH" == arm64 ]];
+    then
+      mv ./target/release/libwasmer_runtime_c_api.so ./artifacts/libwasmer_linux_arm64.so;
+      patchelf --set-soname libwasmer_linux_arm64.so ./artifacts/libwasmer_linux_arm64.so;
+    fi
+    
+deploy:
+  provider: releases
+  file_glob: true
+  file: artifacts/*
+  api_key: $GITHUB_OAUTH_TOKEN
+  skip_cleanup: true
+  draft: true
+  
+addons:
+  apt:
+    packages:
+      - cmake
+
+branches:
+  only:
+    - main
+    - development

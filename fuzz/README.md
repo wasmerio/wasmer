@@ -1,80 +1,59 @@
-# Wasmer Fuzz Testing
-
-[Fuzz testing](https://en.wikipedia.org/wiki/Fuzzing) is:
-
-> An automated testing technique that involves providing invalid,
-> unexpected, or random data as inputs to a program.
-
-We use fuzz testing to automatically discover bugs in the Wasmer runtime.
-
-This `fuzz/` directory contains the configuration and the fuzz tests
-for Wasmer. To generate and to run the fuzz tests, we use the
-[`cargo-fuzz`] library.
+This directory contains the fuzz tests for wasmer. To fuzz, we use the `cargo-fuzz` package.
 
 ## Installation
 
-You may need to install the [`cargo-fuzz`] library to get the `cargo
-fuzz` subcommand. Use
+You may need to install the `cargo-fuzz` package to get the `cargo fuzz` subcommand. Use
 
 ```sh
 $ cargo install cargo-fuzz
 ```
 
-`cargo-fuzz` is documented in the [Rust Fuzz
-Book](https://rust-fuzz.github.io/book/cargo-fuzz.html).
+`cargo-fuzz` is documented in the [Rust Fuzz Book](https://rust-fuzz.github.io/book/cargo-fuzz.html).
 
-## Running a fuzzer
+## Running a fuzzer (simple_instantiate, validate_wasm, compile_wasm)
 
-This directory provides multiple fuzzers, like for example `validate`. You can run it with:
-
+Once `cargo-fuzz` is installed, you can run the `simple_instantiate` fuzzer with
 ```sh
-$ cargo fuzz run validate
+cargo fuzz run simple_instantiate
 ```
-
-Another example with the `universal_cranelift` fuzzer:
-
+or the `validate_wasm` fuzzer
 ```sh
-$ cargo fuzz run universal_cranelift
+cargo fuzz run validate_wasm
 ```
-
-See the
-[`fuzz/fuzz_targets`](https://github.com/wasmerio/wasmer/tree/fuzz/fuzz_targets/)
-directory for the full list of fuzzers.
+or the `compile_wasm` fuzzer
+```sh
+cargo fuzz run compile_wasm
+```
 
 You should see output that looks something like this:
 
 ```
-#1408022        NEW    cov: 115073 ft: 503843 corp: 4659/1807Kb lim: 4096 exec/s: 889 rss: 857Mb L: 2588/4096 MS: 1 ChangeASCIIInt-
-#1408273        NEW    cov: 115073 ft: 503844 corp: 4660/1808Kb lim: 4096 exec/s: 888 rss: 857Mb L: 1197/4096 MS: 1 ShuffleBytes-
-#1408534        NEW    cov: 115073 ft: 503866 corp: 4661/1809Kb lim: 4096 exec/s: 886 rss: 857Mb L: 977/4096 MS: 1 ShuffleBytes-
-#1408540        NEW    cov: 115073 ft: 503869 corp: 4662/1811Kb lim: 4096 exec/s: 886 rss: 857Mb L: 2067/4096 MS: 1 ChangeBit-
-#1408831        NEW    cov: 115073 ft: 503945 corp: 4663/1811Kb lim: 4096 exec/s: 885 rss: 857Mb L: 460/4096 MS: 1 CMP- DE: "\x16\x00\x00\x00\x00\x00\x00\x00"-
-#1408977        NEW    cov: 115073 ft: 503946 corp: 4664/1813Kb lim: 4096 exec/s: 885 rss: 857Mb L: 1972/4096 MS: 1 ShuffleBytes-
-#1408999        NEW    cov: 115073 ft: 503949 corp: 4665/1814Kb lim: 4096 exec/s: 884 rss: 857Mb L: 964/4096 MS: 2 ChangeBit-ShuffleBytes-
-#1409040        NEW    cov: 115073 ft: 503950 corp: 4666/1814Kb lim: 4096 exec/s: 884 rss: 857Mb L: 90/4096 MS: 1 ChangeBit-
-#1409042        NEW    cov: 115073 ft: 503951 corp: 4667/1814Kb lim: 4096 exec/s: 884 rss: 857Mb L: 174/4096 MS: 2 ChangeByte-ChangeASCIIInt-
+INFO: Seed: 3276026494
+INFO:        8 files found in wasmer/fuzz/corpus/simple_instantiate
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
+INFO: seed corpus: files: 8 min: 1b max: 1b total: 8b rss: 133Mb
+#9      INITED ft: 3 corp: 3/3b lim: 4 exec/s: 0 rss: 142Mb
+#23     NEW    ft: 4 corp: 4/5b lim: 4 exec/s: 0 rss: 142Mb L: 2/2 MS: 4 ChangeByte-InsertByte-ShuffleBytes-ChangeBit-
+#25     NEW    ft: 5 corp: 5/6b lim: 4 exec/s: 0 rss: 142Mb L: 1/2 MS: 2 ChangeBinInt-ChangeBit-
+#27     NEW    ft: 6 corp: 6/9b lim: 4 exec/s: 0 rss: 142Mb L: 3/3 MS: 2 InsertByte-ChangeByte-
+#190    REDUCE ft: 6 corp: 6/7b lim: 4 exec/s: 0 rss: 142Mb L: 1/2 MS: 3 ChangeBit-EraseBytes-CrossOver-
+#205    REDUCE ft: 7 corp: 7/11b lim: 4 exec/s: 0 rss: 142Mb L: 4/4 MS: 5 ShuffleBytes-CrossOver-InsertByte-ChangeBinInt-CrossOver-
 ```
+It will continue to generate random inputs forever, until it finds a bug or is terminated. The testcases for bugs it finds go into `fuzz/artifacts/simple_instantiate` and you can rerun the fuzzer on a single input by passing it on the command line `cargo fuzz run simple_instantiate my_testcase.wasm`.
 
-It will continue to generate random inputs forever, until it finds a
-bug or is terminated. The testcases for bugs it finds go into
-`fuzz/artifacts/universal_cranelift` and you can rerun the fuzzer on a
-single input by passing it on the command line `cargo fuzz run
-universal_cranelift /path/to/testcase`.
+## Seeding the corpus, optional
 
-## The corpus
-
-Each fuzzer has an individual corpus under `fuzz/corpus/test_name`,
-created on first run if not already present. The fuzzers use
-`wasm-smith` which means that the testcase files are random number
-seeds input to the Wasm generator, not `.wasm` files themselves. In
-order to debug a testcase, you may find that you need to convert it
-into a `.wasm` file. Using the standalone `wasm-smith` tool doesn't
-work for this purpose because we use a custom configuration to our
-`wasm_smith::Module`. Instead, our fuzzers use an environment variable
-`DUMP_TESTCASE=path`. For example:
+The fuzzer works best when it has examples of small Wasm files to start with. Using `wast2json` from [wabt](https://github.com/WebAssembly/wabt), we can easily produce `.wasm` files out of the WebAssembly spec tests.
 
 ```sh
-$ DUMP_TESTCASE=/tmp/crash.wasm cargo fuzz run --features=universal,singlepass universal_singlepass fuzz/artifacts/universal_singlepass/crash-0966412eab4f89c52ce5d681807c8030349470f6
+mkdir spec-test-corpus
+for i in lib/spectests/spectests/*.wast; do wast2json --enable-all $i -o spec-test-corpus/$(basename $i).json; done
+mv spec-test-corpus/*.wasm fuzz/corpus/simple_instantiate/
+rm -r spec-test-corpus
 ```
 
-[`cargo-fuzz`]: https://github.com/rust-fuzz/cargo-fuzz
+The corpus directory is created on the first run of the fuzzer. If it doesn't exist, run it first and then seed the corpus. The fuzzer will pick up new files added to the corpus while it is running.
+
+## Trophy case
+
+- [x] https://github.com/wasmerio/wasmer/issues/558

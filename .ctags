@@ -1,0 +1,13 @@
+--exclude=target/*
+--exclude=*/target/*
+--exclude=docs/*
+--exclude=examples/*
+--exclude=integration_tests/*
+--exclude=fuzz/*
+--exclude=*.md
+--exclude=*.yml
+--exclude=*.txt
+--exclude=tags
+--exclude=*.sh
+--exclude=scripts/*
+--exclude=Makefile

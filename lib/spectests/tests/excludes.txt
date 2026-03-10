@@ -1,0 +1,488 @@
+
+# Comment lines begin with # are ignored, empty lines are ignored
+# Exclude lines follow the format:
+#       <backend>:<exclude-kind>:<test-file-name>:<test-file-line>
+#       clif:fail:data.wast:172
+#       clif:skip:data.wast:172
+#       clif:skip:data.wast:172  # comments are allowed here
+#       clif:fail:conversions.wast:418
+#
+# Use skip when the test failure prevents the spec suite from running, otherwise use fail
+#
+# Star line allows skipping an entire wast file
+#    clif:skip:simd.wast:*
+#
+# Excludes can also contain target family
+#    clif:skip:data.wast:172:windows
+#    clif:skip:data.wast:172:unix
+#
+# Or target arch
+#    singlepass:skip:atomic.wast:*:*:aarch64
+
+# Cranelift
+clif:skip:atomic.wast:*        # Threads not implemented
+clif:skip:simd.wast:*          # SIMD not implemented
+clif:skip:simd_binaryen.wast:* # SIMD not implemented
+
+# linking.wast:387,388 appear to be related to WABT issue: https://github.com/pepyakin/wabt-rs/issues/51
+
+clif:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883037 - illegal instruction"
+clif:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883037 - illegal instruction"
+clif:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error "unknown trap at 0x106883062 - illegal instruction"
+clif:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: `call_indirect` out-of-bounds
+
+# clif:skip:skip-stack-guard-page.wast:2 # Slow test
+
+# Cranelift Windows
+clif:skip:address.wast:*:windows
+clif:skip:call.wast:*:windows
+clif:skip:call_indirect.wast:*:windows
+clif:skip:conversions.wast:*:windows
+clif:skip:elem.wast:*:windows
+clif:skip:fac.wast:*:windows
+clif:skip:func_ptrs.wast:*:windows
+clif:skip:globals.wast:*:windows
+clif:skip:i32.wast:*:windows
+clif:skip:i64.wast:*:windows
+clif:skip:if.wast:*:windows
+clif:skip:imports.wast:*:windows
+clif:skip:int_exprs.wast:*:windows
+clif:skip:linking.wast:*:windows
+clif:skip:memory_grow.wast:*:windows
+clif:skip:memory_trap.wast:*:windows
+clif:skip:select.wast:*:windows
+clif:skip:skip-stack-guard-page.wast:*:windows
+clif:skip:traps.wast:*:windows
+clif:skip:unreachable.wast:*:windows
+clif:skip:unwind.wast:*:windows
+
+clif:fail:binary-leb128.wast:74:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:86:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:98:windows # Module - caught panic Any
+clif:fail:data.wast:27:windows # Module - caught panic Any
+clif:fail:data.wast:40:windows # Module - caught panic Any
+clif:fail:data.wast:50:windows # Module - caught panic Any
+clif:fail:data.wast:55:windows # Module - caught panic Any
+clif:fail:data.wast:61:windows # Module - caught panic Any
+clif:fail:data.wast:66:windows # Module - caught panic Any
+clif:fail:data.wast:83:windows # Module - caught panic Any
+clif:fail:data.wast:98:windows # Module - caught panic Any
+clif:fail:data.wast:117:windows # Module - caught panic Any
+clif:fail:data.wast:127:windows # Module - caught panic Any
+clif:fail:data.wast:132:windows # Module - caught panic Any
+clif:fail:data.wast:137:windows # Module - caught panic Any
+clif:fail:data.wast:143:windows # Module - caught panic Any
+clif:fail:data.wast:149:windows # Module - caught panic Any
+clif:fail:data.wast:154:windows # Module - caught panic Any
+clif:fail:data.wast:211:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:227:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:258:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:273:windows # AssertUnlinkable - caught panic Any
+clif:fail:start.wast:92:windows # Module - caught panic Any
+clif:skip:start.wast:98:windows
+
+clif:fail:align.wast:3:windows # Module - caught panic Any
+clif:fail:align.wast:4:windows # Module - caught panic Any
+clif:fail:align.wast:5:windows # Module - caught panic Any
+clif:fail:align.wast:6:windows # Module - caught panic Any
+clif:fail:align.wast:7:windows # Module - caught panic Any
+clif:fail:align.wast:8:windows # Module - caught panic Any
+clif:fail:align.wast:9:windows # Module - caught panic Any
+clif:fail:align.wast:10:windows # Module - caught panic Any
+clif:fail:align.wast:11:windows # Module - caught panic Any
+clif:fail:align.wast:12:windows # Module - caught panic Any
+clif:fail:align.wast:13:windows # Module - caught panic Any
+clif:fail:align.wast:14:windows # Module - caught panic Any
+clif:fail:align.wast:15:windows # Module - caught panic Any
+clif:fail:align.wast:16:windows # Module - caught panic Any
+clif:fail:align.wast:17:windows # Module - caught panic Any
+clif:fail:align.wast:18:windows # Module - caught panic Any
+clif:fail:align.wast:19:windows # Module - caught panic Any
+clif:fail:align.wast:20:windows # Module - caught panic Any
+clif:fail:align.wast:21:windows # Module - caught panic Any
+clif:fail:align.wast:22:windows # Module - caught panic Any
+clif:fail:align.wast:23:windows # Module - caught panic Any
+clif:fail:align.wast:24:windows # Module - caught panic Any
+clif:fail:align.wast:25:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:2:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:7:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:12:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:18:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:24:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:32:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:40:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:48:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:56:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:65:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:110:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:145:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:157:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:164:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:171:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:178:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:186:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:193:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:200:windows # Module - caught panic Any
+clif:fail:binary-leb128.wast:207:windows # Module - caught panic Any
+clif:fail:binary.wast:1:windows # Module - caught panic Any
+clif:fail:binary.wast:2:windows # Module - caught panic Any
+clif:fail:binary.wast:3:windows # Module - caught panic Any
+clif:fail:binary.wast:4:windows # Module - caught panic Any
+clif:fail:binary.wast:350:windows # Module - caught panic Any
+clif:fail:binary.wast:406:windows # Module - caught panic Any
+clif:fail:binary.wast:412:windows # Module - caught panic Any
+clif:fail:binary.wast:418:windows # Module - caught panic Any
+clif:fail:binary.wast:446:windows # Module - caught panic Any
+clif:fail:binary.wast:498:windows # Module - caught panic Any
+clif:fail:binary.wast:514:windows # Module - caught panic Any
+clif:fail:binary.wast:530:windows # Module - caught panic Any
+clif:fail:binary.wast:558:windows # Module - caught panic Any
+clif:fail:binary.wast:612:windows # Module - caught panic Any
+clif:fail:binary.wast:661:windows # Module - caught panic Any
+clif:fail:binary.wast:723:windows # Module - caught panic Any
+clif:fail:comments.wast:10:windows # Module - caught panic Any
+clif:fail:comments.wast:52:windows # Module - caught panic Any
+clif:fail:comments.wast:62:windows # Module - caught panic Any
+clif:fail:comments.wast:71:windows # Module - caught panic Any
+clif:fail:const.wast:5:windows # Module - caught panic Any
+clif:fail:const.wast:6:windows # Module - caught panic Any
+clif:fail:const.wast:16:windows # Module - caught panic Any
+clif:fail:const.wast:17:windows # Module - caught panic Any
+clif:fail:const.wast:27:windows # Module - caught panic Any
+clif:fail:const.wast:28:windows # Module - caught panic Any
+clif:fail:const.wast:38:windows # Module - caught panic Any
+clif:fail:const.wast:39:windows # Module - caught panic Any
+clif:fail:const.wast:49:windows # Module - caught panic Any
+clif:fail:const.wast:50:windows # Module - caught panic Any
+clif:fail:const.wast:51:windows # Module - caught panic Any
+clif:fail:const.wast:52:windows # Module - caught panic Any
+clif:fail:const.wast:53:windows # Module - caught panic Any
+clif:fail:const.wast:54:windows # Module - caught panic Any
+clif:fail:const.wast:55:windows # Module - caught panic Any
+clif:fail:const.wast:56:windows # Module - caught panic Any
+clif:fail:const.wast:57:windows # Module - caught panic Any
+clif:fail:const.wast:58:windows # Module - caught panic Any
+clif:fail:const.wast:76:windows # Module - caught panic Any
+clif:fail:const.wast:77:windows # Module - caught panic Any
+clif:fail:const.wast:87:windows # Module - caught panic Any
+clif:fail:const.wast:88:windows # Module - caught panic Any
+clif:fail:const.wast:98:windows # Module - caught panic Any
+clif:fail:const.wast:99:windows # Module - caught panic Any
+clif:fail:const.wast:100:windows # Module - caught panic Any
+clif:fail:const.wast:101:windows # Module - caught panic Any
+clif:fail:const.wast:102:windows # Module - caught panic Any
+clif:fail:const.wast:103:windows # Module - caught panic Any
+clif:fail:const.wast:104:windows # Module - caught panic Any
+clif:fail:const.wast:105:windows # Module - caught panic Any
+clif:fail:const.wast:123:windows # Module - caught panic Any
+clif:fail:const.wast:124:windows # Module - caught panic Any
+clif:fail:const.wast:134:windows # Module - caught panic Any
+clif:fail:const.wast:135:windows # Module - caught panic Any
+clif:fail:const.wast:145:windows # Module - caught panic Any
+clif:fail:const.wast:146:windows # Module - caught panic Any
+clif:fail:const.wast:147:windows # Module - caught panic Any
+clif:fail:const.wast:148:windows # Module - caught panic Any
+clif:fail:custom.wast:1:windows # Module - caught panic Any
+clif:fail:custom.wast:14:windows # Module - caught panic Any
+clif:fail:data.wast:5:windows # Module - caught panic Any
+clif:fail:data.wast:23:windows # Module - caught panic Any
+clif:fail:data.wast:32:windows # Module - caught panic Any
+clif:fail:data.wast:78:windows # Module - caught panic Any
+clif:fail:data.wast:89:windows # Module - caught panic Any
+clif:fail:data.wast:94:windows # Module - caught panic Any
+clif:fail:data.wast:103:windows # Module - caught panic Any
+clif:fail:data.wast:108:windows # Module - caught panic Any
+clif:fail:data.wast:113:windows # Module - caught panic Any
+clif:fail:data.wast:122:windows # Module - caught panic Any
+clif:fail:exports.wast:24:windows # Module - caught panic Any
+clif:fail:exports.wast:25:windows # Module - caught panic Any
+clif:fail:exports.wast:56:windows # Module - caught panic Any
+clif:fail:exports.wast:57:windows # Module - caught panic Any
+clif:fail:exports.wast:58:windows # Module - caught panic Any
+clif:fail:exports.wast:60:windows # Module - caught panic Any
+clif:fail:exports.wast:61:windows # Module - caught panic Any
+clif:fail:exports.wast:62:windows # Module - caught panic Any
+clif:fail:exports.wast:63:windows # Module - caught panic Any
+clif:fail:exports.wast:64:windows # Module - caught panic Any
+clif:fail:exports.wast:65:windows # Module - caught panic Any
+clif:fail:exports.wast:67:windows # Module - caught panic Any
+clif:fail:exports.wast:71:windows # AssertReturn Get - No instance available None
+clif:fail:exports.wast:72:windows # AssertReturn Get - No instance available Some("$Global")
+clif:fail:exports.wast:73:windows # Module - caught panic Any
+clif:fail:exports.wast:74:windows # Module - caught panic Any
+clif:fail:exports.wast:75:windows # AssertReturn Get - No instance available Some("$Global")
+clif:fail:exports.wast:105:windows # Module - caught panic Any
+clif:fail:exports.wast:106:windows # Module - caught panic Any
+clif:fail:exports.wast:110:windows # Module - caught panic Any
+clif:fail:exports.wast:111:windows # Module - caught panic Any
+clif:fail:exports.wast:112:windows # Module - caught panic Any
+clif:fail:exports.wast:113:windows # Module - caught panic Any
+clif:fail:exports.wast:114:windows # Module - caught panic Any
+clif:fail:exports.wast:115:windows # Module - caught panic Any
+clif:fail:exports.wast:116:windows # Module - caught panic Any
+clif:fail:exports.wast:117:windows # Module - caught panic Any
+clif:fail:exports.wast:118:windows # Module - caught panic Any
+clif:fail:exports.wast:119:windows # Module - caught panic Any
+clif:fail:exports.wast:120:windows # Module - caught panic Any
+clif:fail:exports.wast:121:windows # Module - caught panic Any
+clif:fail:exports.wast:154:windows # Module - caught panic Any
+clif:fail:exports.wast:155:windows # Module - caught panic Any
+clif:fail:exports.wast:159:windows # Module - caught panic Any
+clif:fail:exports.wast:160:windows # Module - caught panic Any
+clif:fail:exports.wast:161:windows # Module - caught panic Any
+clif:fail:exports.wast:162:windows # Module - caught panic Any
+clif:fail:exports.wast:163:windows # Module - caught panic Any
+clif:fail:exports.wast:164:windows # Module - caught panic Any
+clif:fail:exports.wast:165:windows # Module - caught panic Any
+clif:fail:exports.wast:166:windows # Module - caught panic Any
+clif:fail:exports.wast:167:windows # Module - caught panic Any
+clif:fail:exports.wast:168:windows # Module - caught panic Any
+clif:fail:exports.wast:169:windows # Module - caught panic Any
+clif:fail:exports.wast:170:windows # Module - caught panic Any
+clif:fail:f32.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+clif:fail:f32.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
+clif:fail:f64.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+clif:fail:f64.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
+clif:fail:func.wast:289:windows # Module - caught panic Any
+clif:fail:memory.wast:3:windows # Module - caught panic Any
+clif:fail:memory.wast:4:windows # Module - caught panic Any
+clif:fail:memory.wast:5:windows # Module - caught panic Any
+clif:fail:memory.wast:6:windows # Module - caught panic Any
+clif:fail:stack.wast:137:windows # Module - caught panic Any
+clif:fail:type.wast:3:windows # Module - caught panic Any
+clif:fail:data.wast:162:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:170:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:178:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:220:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:235:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:243:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:251:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:266:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:186:windows # AssertUnlinkable - caught panic Any
+clif:fail:data.wast:194:windows # AssertUnlinkable - caught panic Any
+
+# LLVM
+llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
+
+# LLVM AArch64
+llvm:skip:atomic.wast:*:*:aarch64 # Out of range relocations.
+llvm:skip:skip-stack-guard-page.wast:2275:*:aarch64 # Uncaught SIGSEGV only in release builds
+llvm:skip:skip-stack-guard-page.wast:2282:*:aarch64 # Uncaught SIGSEGV only in release builds
+
+# LLVM Windows
+llvm:skip:address.wast:*:windows
+llvm:skip:align.wast:*:windows
+llvm:skip:call.wast:*:windows
+llvm:skip:br_table.wast:*:windows
+llvm:skip:call_indirect.wast:*:windows
+llvm:skip:conversions.wast:*:windows
+llvm:skip:elem.wast:*:windows
+llvm:skip:func_ptrs.wast:*:windows
+llvm:skip:const.wast:*:windows
+llvm:skip:globals.wast:*:windows
+llvm:skip:i32.wast:*:windows
+llvm:skip:i64.wast:*:windows
+llvm:skip:if.wast:*:windows
+llvm:skip:imports.wast:*:windows
+llvm:skip:int_exprs.wast:*:windows
+llvm:skip:linking.wast:*:windows
+llvm:skip:memory_grow.wast:*:windows
+llvm:skip:memory_trap.wast:*:windows
+llvm:skip:select.wast:*:windows
+llvm:skip:traps.wast:*:windows
+llvm:skip:unreachable.wast:*:windows
+llvm:skip:unwind.wast:*:windows
+
+# LLVM Linux after OSR - https://github.com/wasmerio/wasmer/pull/567
+llvm:skip:simd.wast:352:unix # Module - caught panic Any
+llvm:skip:simd_binaryen.wast:*:unix # Module - caught panic Any
+
+# Singlepass
+singlepass:skip:simd.wast:*          # SIMD not implemented
+singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
+
+singlepass:skip:atomic.wast:*:*:aarch64 # Threads not yet supported on singlepass
+
+singlepass:fail:address.wast:200:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:139:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:142:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:144:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:147:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:149:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:185:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:187:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:388:linux # AssertReturn - Call failed RuntimeError: unknown error
+
+singlepass:fail:address.wast:194:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:195:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:196:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:197:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:198:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:200:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:481:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:482:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:483:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:484:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:485:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:486:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:487:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:493:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:494:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:541:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:588:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:macos # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:139:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:142:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:144:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:147:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:149:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:185:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:187:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:388:macos # AssertReturn - Call failed RuntimeError: unknown error
+
+# These failures only happen on AArch64 and not on x86-64. 
+singlepass:fail:conversions.wast:83:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]
+singlepass:fail:conversions.wast:84:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:conversions.wast:85:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]
+singlepass:fail:conversions.wast:86:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:conversions.wast:87:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:88:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:89:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:90:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:105:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:106:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:107:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:108:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:109:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:110:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:111:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:112:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:128:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]
+singlepass:fail:conversions.wast:129:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:conversions.wast:130:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]
+singlepass:fail:conversions.wast:131:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:conversions.wast:132:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:133:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:134:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:135:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:151:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:152:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:153:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:154:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:155:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:156:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:157:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:158:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:159:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:160:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:161:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:179:*:aarch64 # AssertTrap - expected trap, got [I64(9223372036854775807)]
+singlepass:fail:conversions.wast:180:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:conversions.wast:181:*:aarch64 # AssertTrap - expected trap, got [I64(9223372036854775807)]
+singlepass:fail:conversions.wast:182:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:conversions.wast:183:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:184:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:185:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:186:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:199:*:aarch64 # AssertTrap - expected trap, got [I64(-1)]
+singlepass:fail:conversions.wast:200:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:201:*:aarch64 # AssertTrap - expected trap, got [I64(-1)]
+singlepass:fail:conversions.wast:202:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:203:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:204:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:205:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:206:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:224:*:aarch64 # AssertTrap - expected trap, got [I64(9223372036854775807)]
+singlepass:fail:conversions.wast:225:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:conversions.wast:226:*:aarch64 # AssertTrap - expected trap, got [I64(9223372036854775807)]
+singlepass:fail:conversions.wast:227:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:conversions.wast:228:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:229:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:230:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:231:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:248:*:aarch64 # AssertTrap - expected trap, got [I64(-1)]
+singlepass:fail:conversions.wast:249:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:250:*:aarch64 # AssertTrap - expected trap, got [I64(-1)]
+singlepass:fail:conversions.wast:251:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:252:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:253:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:254:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:255:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i32.wast:62:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:63:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:64:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:i32.wast:82:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:83:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:99:*:aarch64 # AssertTrap - expected trap, got [I32(1)]
+singlepass:fail:i32.wast:100:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:120:*:aarch64 # AssertTrap - expected trap, got [I32(1)]
+singlepass:fail:i32.wast:121:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i64.wast:62:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:63:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:64:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:i64.wast:82:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:83:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:99:*:aarch64 # AssertTrap - expected trap, got [I64(1)]
+singlepass:fail:i64.wast:100:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:120:*:aarch64 # AssertTrap - expected trap, got [I64(1)]
+singlepass:fail:i64.wast:121:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:113:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:114:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:115:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:116:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:132:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:133:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:134:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:135:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:196:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:197:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:198:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:199:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:349:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:int_exprs.wast:350:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:traps.wast:16:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:17:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:18:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:19:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:20:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:21:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:34:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:35:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:36:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:37:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:50:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:51:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:52:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:53:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:54:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:55:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:56:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:57:*:aarch64 # AssertTrap - expected trap, got []

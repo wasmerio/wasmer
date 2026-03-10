@@ -1,0 +1,3 @@
+accessing preopen fd was a success
+Closing preopen fd was a success
+accessing closed preopen fd was an EBADF error: true

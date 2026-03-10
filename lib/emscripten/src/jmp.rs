@@ -2,12 +2,10 @@ use super::env::get_emscripten_data;
 use super::process::abort_with_message;
 use libc::c_int;
 // use std::cell::UnsafeCell;
-use crate::EmEnv;
-use std::error::Error;
-use std::fmt;
+use wasmer_runtime_core::vm::Ctx;
 
 /// setjmp
-pub fn __setjmp(ctx: &EmEnv, _env_addr: u32) -> c_int {
+pub fn __setjmp(ctx: &mut Ctx, _env_addr: u32) -> c_int {
     debug!("emscripten::__setjmp (setjmp)");
     abort_with_message(ctx, "missing function: _setjmp");
     unreachable!()
@@ -30,7 +28,7 @@ pub fn __setjmp(ctx: &EmEnv, _env_addr: u32) -> c_int {
 
 /// longjmp
 #[allow(unreachable_code)]
-pub fn __longjmp(ctx: &EmEnv, _env_addr: u32, _val: c_int) {
+pub fn __longjmp(ctx: &mut Ctx, _env_addr: u32, _val: c_int) {
     debug!("emscripten::__longjmp (longmp)");
     abort_with_message(ctx, "missing function: _longjmp");
     // unsafe {
@@ -43,28 +41,18 @@ pub fn __longjmp(ctx: &EmEnv, _env_addr: u32, _val: c_int) {
     // };
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct LongJumpRet;
-
-impl fmt::Display for LongJumpRet {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "LongJumpRet")
-    }
-}
-
-impl Error for LongJumpRet {}
-
 /// _longjmp
 // This function differs from the js implementation, it should return Result<(), &'static str>
-#[allow(unreachable_code)]
-pub fn _longjmp(ctx: &EmEnv, env_addr: i32, val: c_int) -> Result<(), LongJumpRet> {
+pub fn _longjmp(ctx: &mut Ctx, env_addr: i32, val: c_int) -> Result<(), ()> {
     let val = if val == 0 { 1 } else { val };
     get_emscripten_data(ctx)
-        .set_threw_ref()
+        .set_threw
+        .as_ref()
         .expect("set_threw is None")
         .call(env_addr, val)
         .expect("set_threw failed to call");
-    Err(LongJumpRet)
+    // TODO: return Err("longjmp")
+    Err(())
 }
 
 // extern "C" {

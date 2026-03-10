@@ -1,10 +1,14 @@
+#[macro_use]
+extern crate log;
+
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
-use tracing::debug;
-use wasmer_wasi::types::*;
-use wasmer_wasi::{Fd, VirtualFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
+use wasmer_wasi::{
+    state::{Fd, WasiFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD},
+    types::*,
+};
 
 use minifb::{Key, KeyRepeat, MouseButton, Scale, Window, WindowOptions};
 
@@ -164,15 +168,11 @@ impl FrameBufferState {
 
     pub fn draw(&mut self) {
         self.window
-            .update_with_buffer(
-                if self.front_buffer {
-                    &self.data_1[..]
-                } else {
-                    &self.data_2[..]
-                },
-                self.x_size.try_into().unwrap(),
-                self.y_size.try_into().unwrap(),
-            )
+            .update_with_buffer(if self.front_buffer {
+                &self.data_1[..]
+            } else {
+                &self.data_2[..]
+            })
             .expect("Internal error! Failed to draw to framebuffer");
     }
 
@@ -403,8 +403,8 @@ impl Write for FrameBuffer {
     }
 }
 
-#[cfg_attr(feature = "enable-serde", typetag::serde)]
-impl VirtualFile for FrameBuffer {
+#[typetag::serde]
+impl WasiFile for FrameBuffer {
     fn last_accessed(&self) -> u64 {
         0
     }

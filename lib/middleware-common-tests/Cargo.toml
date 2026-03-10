@@ -1,0 +1,28 @@
+[package]
+name = "wasmer-middleware-common-tests"
+version = "0.15.0"
+authors = ["Dharitri <contact@dharitri.org>"]
+edition = "2018"
+repository = "https://github.com/TerraDharitri/wasmer"
+license = "MIT"
+publish = false
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.15.0" }
+wasmer-middleware-common = { path = "../middleware-common", version = "0.15.0" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.15.0", optional = true }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.15.0", features = ["test"], optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.15.0", optional = true }
+
+[features]
+clif = ["wasmer-clif-backend"]
+llvm = ["wasmer-llvm-backend"]
+singlepass = ["wasmer-singlepass-backend"]
+
+[dev-dependencies]
+wabt = "0.9.1"
+criterion = "0.2"
+
+[[bench]]
+name = "metering_benchmark"
+harness = false

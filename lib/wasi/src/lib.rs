@@ -1,6 +1,15 @@
-#![deny(unused_mut)]
-#![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
-#![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
+#![deny(
+    dead_code,
+    nonstandard_style,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    unused_unsafe,
+    unreachable_patterns,
+    clippy::missing_safety_doc
+)]
+#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
 //! Wasmer's WASI implementation
 //!
@@ -9,263 +18,267 @@
 //! Wasm functions.
 //!
 //! See `state` for the experimental WASI FS API.  Also see the
-//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)
+//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
-#[cfg(all(not(feature = "sys"), not(feature = "js")))]
-compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
-
-#[cfg(all(feature = "sys", feature = "js"))]
-compile_error!(
-    "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
-);
-
-#[cfg(all(feature = "sys", target_arch = "wasm32"))]
-compile_error!("The `sys` feature must be enabled only for non-`wasm32` target.");
-
-#[cfg(all(feature = "js", not(target_arch = "wasm32")))]
-compile_error!(
-    "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
-);
-
-#[cfg(all(feature = "host-fs", feature = "mem-fs"))]
-compile_error!(
-    "Cannot have both `host-fs` and `mem-fs` features enabled at the same time. Please, pick one."
-);
+#[cfg(target = "windows")]
+extern crate winapi;
+#[macro_use]
+extern crate log;
 
 #[macro_use]
 mod macros;
 mod ptr;
-mod state;
+pub mod state;
 mod syscalls;
 mod utils;
 
-use crate::syscalls::*;
+use self::state::{WasiFs, WasiState};
+pub use self::syscalls::types;
+use self::syscalls::*;
 
-pub use crate::state::{
-    Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiState, WasiStateBuilder, WasiStateCreationError,
-    ALL_RIGHTS, VIRTUAL_ROOT_FD,
-};
-pub use crate::syscalls::types;
-pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
-#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
-pub use wasmer_vfs::FsError as WasiFsError;
-#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
-pub use wasmer_vfs::VirtualFile as WasiFile;
-pub use wasmer_vfs::{FsError, VirtualFile};
+use std::ffi::c_void;
+use std::path::PathBuf;
 
-use thiserror::Error;
-use wasmer::{
-    imports, ChainableNamedResolver, Function, ImportObject, LazyInit, Memory, Module,
-    NamedResolver, Store, WasmerEnv,
-};
+pub use self::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
-use std::sync::{Arc, Mutex, MutexGuard};
+use wasmer_runtime_core::{func, import::ImportObject, imports};
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
-#[derive(Error, Debug)]
-pub enum WasiError {
-    #[error("WASI exited with code: {0}")]
-    Exit(syscalls::types::__wasi_exitcode_t),
-    #[error("The WASI version could not be determined")]
-    UnknownWasiVersion,
+pub struct ExitCode {
+    pub code: syscalls::types::__wasi_exitcode_t,
 }
 
-/// The environment provided to the WASI imports.
-#[derive(Debug, Clone, WasmerEnv)]
-pub struct WasiEnv {
-    /// Shared state of the WASI system. Manages all the data that the
-    /// executing WASI program can see.
-    ///
-    /// Be careful when using this in host functions that call into Wasm:
-    /// if the lock is held and the Wasm calls into a host function that tries
-    /// to lock this mutex, the program will deadlock.
-    pub state: Arc<Mutex<WasiState>>,
-    #[wasmer(export)]
-    memory: LazyInit<Memory>,
-}
-
-impl WasiEnv {
-    pub fn new(state: WasiState) -> Self {
-        Self {
-            state: Arc::new(Mutex::new(state)),
-            memory: LazyInit::new(),
+/// Creates a Wasi [`ImportObject`] with [`WasiState`] with the latest snapshot
+/// of WASI.
+pub fn generate_import_object(
+    args: Vec<Vec<u8>>,
+    envs: Vec<Vec<u8>>,
+    preopened_files: Vec<PathBuf>,
+    mapped_dirs: Vec<(String, PathBuf)>,
+) -> ImportObject {
+    let state_gen = move || {
+        // TODO: look into removing all these unnecessary clones
+        fn state_destructor(data: *mut c_void) {
+            unsafe {
+                drop(Box::from_raw(data as *mut WasiState));
+            }
         }
-    }
+        let preopened_files = preopened_files.clone();
+        let mapped_dirs = mapped_dirs.clone();
 
-    /// Get an `ImportObject` for a specific version of WASI detected in the module.
-    pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
-        let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-        Ok(generate_import_object_from_env(
-            module.store(),
-            self.clone(),
-            wasi_version,
-        ))
-    }
+        // this deprecation warning only applies to external callers
+        #[allow(deprecated)]
+        let state = Box::new(WasiState {
+            fs: WasiFs::new(&preopened_files, &mapped_dirs).expect("Could not create WASI FS"),
+            args: args.clone(),
+            envs: envs.clone(),
+        });
 
-    /// Like `import_object` but containing all the WASI versions detected in
-    /// the module.
-    pub fn import_object_for_all_wasi_versions(
-        &mut self,
-        module: &Module,
-    ) -> Result<Box<dyn NamedResolver + Send + Sync>, WasiError> {
-        let wasi_versions =
-            get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
+        (
+            Box::into_raw(state) as *mut c_void,
+            state_destructor as fn(*mut c_void),
+        )
+    };
 
-        let mut resolver: Box<dyn NamedResolver + Send + Sync> =
-            { Box::new(()) as Box<dyn NamedResolver + Send + Sync> };
-        for version in wasi_versions.iter() {
-            let new_import_object =
-                generate_import_object_from_env(module.store(), self.clone(), *version);
-            resolver = Box::new(new_import_object.chain_front(resolver));
-        }
-        Ok(resolver)
-    }
-
-    /// Get the WASI state
-    ///
-    /// Be careful when using this in host functions that call into Wasm:
-    /// if the lock is held and the Wasm calls into a host function that tries
-    /// to lock this mutex, the program will deadlock.
-    pub fn state(&self) -> MutexGuard<WasiState> {
-        self.state.lock().unwrap()
-    }
-
-    /// Get a reference to the memory
-    pub fn memory(&self) -> &Memory {
-        self.memory_ref()
-            .expect("Memory should be set on `WasiEnv` first")
-    }
-
-    pub(crate) fn get_memory_and_wasi_state(
-        &self,
-        _mem_index: u32,
-    ) -> (&Memory, MutexGuard<WasiState>) {
-        let memory = self.memory();
-        let state = self.state.lock().unwrap();
-        (memory, state)
-    }
+    generate_import_object_snapshot1_inner(state_gen)
 }
 
-/// Create an [`ImportObject`] with an existing [`WasiEnv`]. `WasiEnv`
-/// needs a [`WasiState`], that can be constructed from a
-/// [`WasiStateBuilder`](state::WasiStateBuilder).
-pub fn generate_import_object_from_env(
-    store: &Store,
-    wasi_env: WasiEnv,
+/// Create an [`ImportObject`] with an existing [`WasiState`]. [`WasiState`]
+/// can be constructed from a [`WasiStateBuilder`](state::WasiStateBuilder).
+pub fn generate_import_object_from_state(
+    wasi_state: WasiState,
     version: WasiVersion,
 ) -> ImportObject {
+    // HACK(mark): this is really quite nasty and inefficient, a proper fix will
+    //             require substantial changes to the internals of the WasiFS
+    // copy WasiState by serializing and deserializing
+    let wasi_state_bytes = wasi_state.freeze().unwrap();
+    let state_gen = move || {
+        fn state_destructor(data: *mut c_void) {
+            unsafe {
+                drop(Box::from_raw(data as *mut WasiState));
+            }
+        }
+
+        let wasi_state = Box::new(WasiState::unfreeze(&wasi_state_bytes).unwrap());
+
+        (
+            Box::into_raw(wasi_state) as *mut c_void,
+            state_destructor as fn(*mut c_void),
+        )
+    };
     match version {
-        WasiVersion::Snapshot0 => generate_import_object_snapshot0(store, wasi_env),
+        WasiVersion::Snapshot0 => generate_import_object_snapshot0_inner(state_gen),
         WasiVersion::Snapshot1 | WasiVersion::Latest => {
-            generate_import_object_snapshot1(store, wasi_env)
+            generate_import_object_snapshot1_inner(state_gen)
         }
     }
+}
+
+/// Creates a Wasi [`ImportObject`] with [`WasiState`] for the given [`WasiVersion`].
+pub fn generate_import_object_for_version(
+    version: WasiVersion,
+    args: Vec<Vec<u8>>,
+    envs: Vec<Vec<u8>>,
+    preopened_files: Vec<PathBuf>,
+    mapped_dirs: Vec<(String, PathBuf)>,
+) -> ImportObject {
+    match version {
+        WasiVersion::Snapshot0 => {
+            generate_import_object_snapshot0(args, envs, preopened_files, mapped_dirs)
+        }
+        WasiVersion::Snapshot1 | WasiVersion::Latest => {
+            generate_import_object(args, envs, preopened_files, mapped_dirs)
+        }
+    }
+}
+
+/// Creates a legacy Wasi [`ImportObject`] with [`WasiState`].
+fn generate_import_object_snapshot0(
+    args: Vec<Vec<u8>>,
+    envs: Vec<Vec<u8>>,
+    preopened_files: Vec<PathBuf>,
+    mapped_dirs: Vec<(String, PathBuf)>,
+) -> ImportObject {
+    let state_gen = move || {
+        // TODO: look into removing all these unnecessary clones
+        fn state_destructor(data: *mut c_void) {
+            unsafe {
+                drop(Box::from_raw(data as *mut WasiState));
+            }
+        }
+        let preopened_files = preopened_files.clone();
+        let mapped_dirs = mapped_dirs.clone();
+        //let wasi_builder = create_wasi_instance();
+
+        // this deprecation warning only applies to external callers
+        #[allow(deprecated)]
+        let state = Box::new(WasiState {
+            fs: WasiFs::new(&preopened_files, &mapped_dirs).expect("Could not create WASI FS"),
+            args: args.clone(),
+            envs: envs.clone(),
+        });
+
+        (
+            Box::into_raw(state) as *mut c_void,
+            state_destructor as fn(*mut c_void),
+        )
+    };
+    generate_import_object_snapshot0_inner(state_gen)
 }
 
 /// Combines a state generating function with the import list for legacy WASI
-fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject {
+fn generate_import_object_snapshot0_inner<F>(state_gen: F) -> ImportObject
+where
+    F: Fn() -> (*mut c_void, fn(*mut c_void)) + Send + Sync + 'static,
+{
     imports! {
+        state_gen,
         "wasi_unstable" => {
-            "args_get" => Function::new_native_with_env(store, env.clone(), args_get),
-            "args_sizes_get" => Function::new_native_with_env(store, env.clone(), args_sizes_get),
-            "clock_res_get" => Function::new_native_with_env(store, env.clone(), clock_res_get),
-            "clock_time_get" => Function::new_native_with_env(store, env.clone(), clock_time_get),
-            "environ_get" => Function::new_native_with_env(store, env.clone(), environ_get),
-            "environ_sizes_get" => Function::new_native_with_env(store, env.clone(), environ_sizes_get),
-            "fd_advise" => Function::new_native_with_env(store, env.clone(), fd_advise),
-            "fd_allocate" => Function::new_native_with_env(store, env.clone(), fd_allocate),
-            "fd_close" => Function::new_native_with_env(store, env.clone(), fd_close),
-            "fd_datasync" => Function::new_native_with_env(store, env.clone(), fd_datasync),
-            "fd_fdstat_get" => Function::new_native_with_env(store, env.clone(), fd_fdstat_get),
-            "fd_fdstat_set_flags" => Function::new_native_with_env(store, env.clone(), fd_fdstat_set_flags),
-            "fd_fdstat_set_rights" => Function::new_native_with_env(store, env.clone(), fd_fdstat_set_rights),
-            "fd_filestat_get" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::fd_filestat_get),
-            "fd_filestat_set_size" => Function::new_native_with_env(store, env.clone(), fd_filestat_set_size),
-            "fd_filestat_set_times" => Function::new_native_with_env(store, env.clone(), fd_filestat_set_times),
-            "fd_pread" => Function::new_native_with_env(store, env.clone(), fd_pread),
-            "fd_prestat_get" => Function::new_native_with_env(store, env.clone(), fd_prestat_get),
-            "fd_prestat_dir_name" => Function::new_native_with_env(store, env.clone(), fd_prestat_dir_name),
-            "fd_pwrite" => Function::new_native_with_env(store, env.clone(), fd_pwrite),
-            "fd_read" => Function::new_native_with_env(store, env.clone(), fd_read),
-            "fd_readdir" => Function::new_native_with_env(store, env.clone(), fd_readdir),
-            "fd_renumber" => Function::new_native_with_env(store, env.clone(), fd_renumber),
-            "fd_seek" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::fd_seek),
-            "fd_sync" => Function::new_native_with_env(store, env.clone(), fd_sync),
-            "fd_tell" => Function::new_native_with_env(store, env.clone(), fd_tell),
-            "fd_write" => Function::new_native_with_env(store, env.clone(), fd_write),
-            "path_create_directory" => Function::new_native_with_env(store, env.clone(), path_create_directory),
-            "path_filestat_get" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::path_filestat_get),
-            "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
-            "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
-            "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
-            "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
-            "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),
-            "path_symlink" => Function::new_native_with_env(store, env.clone(), path_symlink),
-            "path_unlink_file" => Function::new_native_with_env(store, env.clone(), path_unlink_file),
-            "poll_oneoff" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::poll_oneoff),
-            "proc_exit" => Function::new_native_with_env(store, env.clone(), proc_exit),
-            "proc_raise" => Function::new_native_with_env(store, env.clone(), proc_raise),
-            "random_get" => Function::new_native_with_env(store, env.clone(), random_get),
-            "sched_yield" => Function::new_native_with_env(store, env.clone(), sched_yield),
-            "sock_recv" => Function::new_native_with_env(store, env.clone(), sock_recv),
-            "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
-            "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
+            "args_get" => func!(args_get),
+            "args_sizes_get" => func!(args_sizes_get),
+            "clock_res_get" => func!(clock_res_get),
+            "clock_time_get" => func!(clock_time_get),
+            "environ_get" => func!(environ_get),
+            "environ_sizes_get" => func!(environ_sizes_get),
+            "fd_advise" => func!(fd_advise),
+            "fd_allocate" => func!(fd_allocate),
+            "fd_close" => func!(fd_close),
+            "fd_datasync" => func!(fd_datasync),
+            "fd_fdstat_get" => func!(fd_fdstat_get),
+            "fd_fdstat_set_flags" => func!(fd_fdstat_set_flags),
+            "fd_fdstat_set_rights" => func!(fd_fdstat_set_rights),
+            "fd_filestat_get" => func!(legacy::snapshot0::fd_filestat_get),
+            "fd_filestat_set_size" => func!(fd_filestat_set_size),
+            "fd_filestat_set_times" => func!(fd_filestat_set_times),
+            "fd_pread" => func!(fd_pread),
+            "fd_prestat_get" => func!(fd_prestat_get),
+            "fd_prestat_dir_name" => func!(fd_prestat_dir_name),
+            "fd_pwrite" => func!(fd_pwrite),
+            "fd_read" => func!(fd_read),
+            "fd_readdir" => func!(fd_readdir),
+            "fd_renumber" => func!(fd_renumber),
+            "fd_seek" => func!(legacy::snapshot0::fd_seek),
+            "fd_sync" => func!(fd_sync),
+            "fd_tell" => func!(fd_tell),
+            "fd_write" => func!(fd_write),
+            "path_create_directory" => func!(path_create_directory),
+            "path_filestat_get" => func!(legacy::snapshot0::path_filestat_get),
+            "path_filestat_set_times" => func!(path_filestat_set_times),
+            "path_link" => func!(path_link),
+            "path_open" => func!(path_open),
+            "path_readlink" => func!(path_readlink),
+            "path_remove_directory" => func!(path_remove_directory),
+            "path_rename" => func!(path_rename),
+            "path_symlink" => func!(path_symlink),
+            "path_unlink_file" => func!(path_unlink_file),
+            "poll_oneoff" => func!(legacy::snapshot0::poll_oneoff),
+            "proc_exit" => func!(proc_exit),
+            "proc_raise" => func!(proc_raise),
+            "random_get" => func!(random_get),
+            "sched_yield" => func!(sched_yield),
+            "sock_recv" => func!(sock_recv),
+            "sock_send" => func!(sock_send),
+            "sock_shutdown" => func!(sock_shutdown),
         },
     }
 }
 
 /// Combines a state generating function with the import list for snapshot 1
-fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject {
+fn generate_import_object_snapshot1_inner<F>(state_gen: F) -> ImportObject
+where
+    F: Fn() -> (*mut c_void, fn(*mut c_void)) + Send + Sync + 'static,
+{
     imports! {
-        "wasi_snapshot_preview1" => {
-            "args_get" => Function::new_native_with_env(store, env.clone(), args_get),
-            "args_sizes_get" => Function::new_native_with_env(store, env.clone(), args_sizes_get),
-            "clock_res_get" => Function::new_native_with_env(store, env.clone(), clock_res_get),
-            "clock_time_get" => Function::new_native_with_env(store, env.clone(), clock_time_get),
-            "environ_get" => Function::new_native_with_env(store, env.clone(), environ_get),
-            "environ_sizes_get" => Function::new_native_with_env(store, env.clone(), environ_sizes_get),
-            "fd_advise" => Function::new_native_with_env(store, env.clone(), fd_advise),
-            "fd_allocate" => Function::new_native_with_env(store, env.clone(), fd_allocate),
-            "fd_close" => Function::new_native_with_env(store, env.clone(), fd_close),
-            "fd_datasync" => Function::new_native_with_env(store, env.clone(), fd_datasync),
-            "fd_fdstat_get" => Function::new_native_with_env(store, env.clone(), fd_fdstat_get),
-            "fd_fdstat_set_flags" => Function::new_native_with_env(store, env.clone(), fd_fdstat_set_flags),
-            "fd_fdstat_set_rights" => Function::new_native_with_env(store, env.clone(), fd_fdstat_set_rights),
-            "fd_filestat_get" => Function::new_native_with_env(store, env.clone(), fd_filestat_get),
-            "fd_filestat_set_size" => Function::new_native_with_env(store, env.clone(), fd_filestat_set_size),
-            "fd_filestat_set_times" => Function::new_native_with_env(store, env.clone(), fd_filestat_set_times),
-            "fd_pread" => Function::new_native_with_env(store, env.clone(), fd_pread),
-            "fd_prestat_get" => Function::new_native_with_env(store, env.clone(), fd_prestat_get),
-            "fd_prestat_dir_name" => Function::new_native_with_env(store, env.clone(), fd_prestat_dir_name),
-            "fd_pwrite" => Function::new_native_with_env(store, env.clone(), fd_pwrite),
-            "fd_read" => Function::new_native_with_env(store, env.clone(), fd_read),
-            "fd_readdir" => Function::new_native_with_env(store, env.clone(), fd_readdir),
-            "fd_renumber" => Function::new_native_with_env(store, env.clone(), fd_renumber),
-            "fd_seek" => Function::new_native_with_env(store, env.clone(), fd_seek),
-            "fd_sync" => Function::new_native_with_env(store, env.clone(), fd_sync),
-            "fd_tell" => Function::new_native_with_env(store, env.clone(), fd_tell),
-            "fd_write" => Function::new_native_with_env(store, env.clone(), fd_write),
-            "path_create_directory" => Function::new_native_with_env(store, env.clone(), path_create_directory),
-            "path_filestat_get" => Function::new_native_with_env(store, env.clone(), path_filestat_get),
-            "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
-            "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
-            "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
-            "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
-            "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),
-            "path_symlink" => Function::new_native_with_env(store, env.clone(), path_symlink),
-            "path_unlink_file" => Function::new_native_with_env(store, env.clone(), path_unlink_file),
-            "poll_oneoff" => Function::new_native_with_env(store, env.clone(), poll_oneoff),
-            "proc_exit" => Function::new_native_with_env(store, env.clone(), proc_exit),
-            "proc_raise" => Function::new_native_with_env(store, env.clone(), proc_raise),
-            "random_get" => Function::new_native_with_env(store, env.clone(), random_get),
-            "sched_yield" => Function::new_native_with_env(store, env.clone(), sched_yield),
-            "sock_recv" => Function::new_native_with_env(store, env.clone(), sock_recv),
-            "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
-            "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
-        }
+            state_gen,
+            "wasi_snapshot_preview1" => {
+                "args_get" => func!(args_get),
+                "args_sizes_get" => func!(args_sizes_get),
+                "clock_res_get" => func!(clock_res_get),
+                "clock_time_get" => func!(clock_time_get),
+                "environ_get" => func!(environ_get),
+                "environ_sizes_get" => func!(environ_sizes_get),
+                "fd_advise" => func!(fd_advise),
+                "fd_allocate" => func!(fd_allocate),
+                "fd_close" => func!(fd_close),
+                "fd_datasync" => func!(fd_datasync),
+                "fd_fdstat_get" => func!(fd_fdstat_get),
+                "fd_fdstat_set_flags" => func!(fd_fdstat_set_flags),
+                "fd_fdstat_set_rights" => func!(fd_fdstat_set_rights),
+                "fd_filestat_get" => func!(fd_filestat_get),
+                "fd_filestat_set_size" => func!(fd_filestat_set_size),
+                "fd_filestat_set_times" => func!(fd_filestat_set_times),
+                "fd_pread" => func!(fd_pread),
+                "fd_prestat_get" => func!(fd_prestat_get),
+                "fd_prestat_dir_name" => func!(fd_prestat_dir_name),
+                "fd_pwrite" => func!(fd_pwrite),
+                "fd_read" => func!(fd_read),
+                "fd_readdir" => func!(fd_readdir),
+                "fd_renumber" => func!(fd_renumber),
+                "fd_seek" => func!(fd_seek),
+                "fd_sync" => func!(fd_sync),
+                "fd_tell" => func!(fd_tell),
+                "fd_write" => func!(fd_write),
+                "path_create_directory" => func!(path_create_directory),
+                "path_filestat_get" => func!(path_filestat_get),
+                "path_filestat_set_times" => func!(path_filestat_set_times),
+                "path_link" => func!(path_link),
+                "path_open" => func!(path_open),
+                "path_readlink" => func!(path_readlink),
+                "path_remove_directory" => func!(path_remove_directory),
+                "path_rename" => func!(path_rename),
+                "path_symlink" => func!(path_symlink),
+                "path_unlink_file" => func!(path_unlink_file),
+                "poll_oneoff" => func!(poll_oneoff),
+                "proc_exit" => func!(proc_exit),
+                "proc_raise" => func!(proc_raise),
+                "random_get" => func!(random_get),
+                "sched_yield" => func!(sched_yield),
+                "sock_recv" => func!(sock_recv),
+                "sock_send" => func!(sock_send),
+                "sock_shutdown" => func!(sock_shutdown),
+            },
     }
 }

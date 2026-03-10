@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Wasmer build tool
+#
+# This is a script to build Wasmer in a Docker sandbox.
+#
+# To use the script, first make sure Docker is installed. Then build the
+# sandbox image with:
+#
+#   docker build --file Dockerfile --tag wasmer-build .
+#
+# After the sandbox image is built successfully, you can run commands in it
+# with this script.
+#
+# For example, to build Wasmer, run:
+#
+#   ./build make
+#
+# To test Wasmer, run:
+#
+#   ./build make test
+#
+# and so on.
+
+docker_hostname="wasmer-build"
+
+docker_img="wasmer-build"
+
+docker_workdir="/wasmer"
+
+docker_args=(
+  #
+  # General config.
+  #
+  --hostname=${docker_hostname}
+  --interactive
+  --network=host
+  --rm
+  --tty
+
+  #
+  # User and group config.
+  #
+  # Use the same user and group permissions as host to make integration
+  # between host and container simple.
+  #
+  --user "$(id --user):$(id --group)"
+  --volume "/etc/group:/etc/group:ro"
+  --volume "/etc/passwd:/etc/passwd:ro"
+  --volume "/etc/shadow:/etc/shadow:ro"
+
+  #
+  # Time zone config.
+  #
+  # Use the same time zone as the host.
+  #
+  --volume "/etc/localtime:/etc/localtime:ro"
+
+  #
+  # Linux capabilities.
+  #
+  # Add SYS_PTRACE capability to the container so that people can run
+  # `strace'.
+  #
+  --cap-add SYS_PTRACE
+
+  #
+  # Source directory.
+  #
+  --workdir=${docker_workdir}
+  --volume "$(pwd):${docker_workdir}:z"
+
+  #
+  # Environment variables.
+  #
+  --env "CARGO_HOME=${docker_workdir}/.cargo"
+)
+
+docker run ${docker_args[@]} ${docker_img} $*

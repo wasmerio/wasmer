@@ -1,31 +1,21 @@
 [package]
 name = "wasmer-wasi-experimental-io-devices"
-version = "2.2.1"
-description = "An experimental non-standard WASI extension for graphics"
-categories = ["wasm"]
-keywords = ["wasm", "webassembly", "types"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
-readme = "README.md"
+version = "0.15.0"
+authors = ["Dharitri <contact@dharitri.org>"]
 edition = "2018"
+repository = "https://github.com/wasmerio/wasmer"
+publish = true
+description = "An experimental non-standard WASI extension for graphics"
+license = "MIT"
 
 [badges]
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-wasi = { version = "=2.2.1", path = "../wasi", default-features=false }
-tracing = "0.1"
-minifb = "0.19"
-nix = "0.20.2"
-ref_thread_local = "0.1"
+log = "0.4"
+minifb = "0.13"
+wasmer-wasi = { version = "0.15.0", path = "../wasi" }
+wasmer-runtime-core = { version = "0.15.0", path = "../runtime-core" }
+ref_thread_local = "0.0"
 serde = "1"
 typetag = "0.1"
-
-[features]
-default = [
-    "wasmer-wasi/default"
-]
-enable-serde = [
-    "wasmer-wasi/enable-serde"
-]

@@ -1,0 +1,9 @@
+[package]
+name = "pipe"
+version = "0.1.0"
+authors = ["Dharitri <contact@dharitri.org>"]
+edition = "2018"
+
+[workspace]
+
+[dependencies]
