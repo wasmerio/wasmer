@@ -366,7 +366,7 @@ jobs:
           retention-days: 2
 
   darwin_aarch64_jsc:
-    name: JSC - macos-aarch64
+    name: macos-aarch64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: depot-macos-14
     steps:
@@ -403,7 +403,7 @@ jobs:
           retention-days: 2
 
   darwin_x86_64_jsc:
-    name: JSC - macos-x86_64
+    name: macos-x86_64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: macos-15-intel
     steps:
