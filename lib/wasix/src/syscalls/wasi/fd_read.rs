@@ -37,21 +37,19 @@ pub fn fd_read<M: MemorySize>(
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
 
-    let offset = {
-        let mut env = ctx.data();
+    let fd_entry = {
+        let env = ctx.data();
         let state = env.state.clone();
-        let inodes = state.inodes.clone();
-
-        let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-        fd_entry.inner.offset.load(Ordering::Acquire) as usize
+        wasi_try_ok!(state.fs.get_fd(fd))
     };
+    let offset = fd_entry.inner.offset.load(Ordering::Acquire) as usize;
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     if fd == DeviceFile::STDIN {
         ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstStdin)?);
     }
 
-    let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true)?;
+    let res = fd_read_internal::<M>(&mut ctx, fd, fd_entry, iovs, iovs_len, offset, nread, true)?;
     fd_read_internal_handler(ctx, res, nread)
 }
 
@@ -87,7 +85,21 @@ pub fn fd_pread<M: MemorySize>(
         ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstStdin)?);
     }
 
-    let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset as usize, nread, false)?;
+    let fd_entry = {
+        let env = ctx.data();
+        let state = env.state.clone();
+        wasi_try_ok!(state.fs.get_fd(fd))
+    };
+    let res = fd_read_internal::<M>(
+        &mut ctx,
+        fd,
+        fd_entry,
+        iovs,
+        iovs_len,
+        offset as usize,
+        nread,
+        false,
+    )?;
     fd_read_internal_handler::<M>(ctx, res, nread)
 }
 
@@ -123,6 +135,7 @@ pub(crate) fn fd_read_internal_handler<M: MemorySize>(
 pub(crate) fn fd_read_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
+    fd_entry: Fd,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
     offset: usize,
@@ -132,8 +145,6 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state();
-
-    let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
     let is_stdio = fd_entry.is_stdio;
 
     let bytes_read = {
