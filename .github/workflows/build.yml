@@ -468,6 +468,9 @@ jobs:
           ENABLE_LLVM: 0
           TARGET: riscv64gc-unknown-linux-gnu
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
+      - name: Package C API headless
+        run: |
+          make package-capi-headless
       - name: Build C API
         run: |
           make build-capi
@@ -478,6 +481,9 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
+      - name: Package C API
+        run: |
+          make package-capi
       - name: Dist
         run: |
           make distribution
