@@ -167,16 +167,29 @@ fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
         return Ok(sysroot);
     }
 
+    if let Ok(output) = Command::new("wasixccenv")
+        .arg("-sPIC=1")
+        .arg("print-sysroot")
+        .output()
+    {
+        if output.status.success() {
+            let sysroot = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !sysroot.is_empty() {
+                if !Path::new(&sysroot).exists() {
+                    anyhow::bail!(
+                        "`wasixccenv print-sysroot` returned a path that does not exist: {}",
+                        sysroot
+                    );
+                }
+                return Ok(sysroot);
+            }
+        }
+    }
+
     // Try to find a build-scripts style sysroot in common locations
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
 
-    // A wasix-clang sysroot should
-    let sysroot = format!("{}/.wasix-clang/wasix-sysroot", home);
-    if Path::new(&sysroot).exists() {
-        return Ok(sysroot);
-    }
-
-    let sysroot = format!("{}/.build-scripts/pkgs", home);
+    let sysroot = format!("{home}/.build-scripts/pkgs");
     if Path::new(&sysroot).exists() {
         return Ok(sysroot);
     }
