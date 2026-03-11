@@ -722,7 +722,8 @@ lint-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),lint-capi-crat
 
 # This test requires building the capi with all the available
 # compilers first
-test-capi: build-capi test-capi-ci
+test-capi: build-capi package-capi test-capi-ci
+test-capi-v8: build-capi-v8 package-capi test-capi-integration-v8
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
@@ -897,7 +898,7 @@ distribution-gnu: package-capi
 	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
-distribution: package
+distribution:
 	cp LICENSE package/LICENSE
 	cp docs/ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
