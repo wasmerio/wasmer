@@ -116,8 +116,7 @@ impl TtyOptions {
     }
 
     pub fn ignore_cr(&self) -> bool {
-        let inner = self.inner.lock().unwrap();
-        inner.ignore_cr
+        self.inner.lock().unwrap().ignore_cr
     }
 
     pub fn set_ignore_cr(&self, ignore_cr: bool) {
@@ -126,8 +125,7 @@ impl TtyOptions {
     }
 
     pub fn map_cr_to_lf(&self) -> bool {
-        let inner = self.inner.lock().unwrap();
-        inner.map_cr_to_lf
+        self.inner.lock().unwrap().map_cr_to_lf
     }
 
     pub fn set_map_cr_to_lf(&self, map_cr_to_lf: bool) {
@@ -136,8 +134,7 @@ impl TtyOptions {
     }
 
     pub fn map_lf_to_cr(&self) -> bool {
-        let inner = self.inner.lock().unwrap();
-        inner.map_lf_to_cr
+        self.inner.lock().unwrap().map_lf_to_cr
     }
 
     pub fn set_map_lf_to_cr(&self, map_lf_to_cr: bool) {
@@ -224,10 +221,12 @@ impl LineDiscipline {
         removed
     }
 
+    // Erase the whitespace run immediately before the cursor, then the preceding
+    // non-whitespace run. For example, with "foo_bar baz" and the cursor at EOL,
+    // the first ctrl-w removes "baz" and the next removes "foo_bar".
     fn ctrl_w(&mut self) -> usize {
         // TODO: This currently uses whitespace boundaries.
         // Linux n_tty ALTWERASE semantics are closer to [A-Za-z0-9_] word classes.
-        // Example: with "foo_bar baz", ctrl-w should usually erase "baz", then "foo_bar" as one word.
         let start = self.chars.len();
         while self.cursor > 0 && self.chars[self.cursor - 1].is_whitespace() {
             self.cursor -= 1;
@@ -289,10 +288,47 @@ enum EscapeMatch {
     Complete(ParsedInput),
 }
 
+const KNOWN_ESCAPE_SEQUENCES: [(&[u8], ParsedInput); 28] = [
+    (b"\x1b[D", ParsedInput::CursorLeft),
+    (b"\x1b[C", ParsedInput::CursorRight),
+    (b"\x1b[A", ParsedInput::CursorUp),
+    (b"\x1b[B", ParsedInput::CursorDown),
+    (b"\x1bOD", ParsedInput::CursorLeft),
+    (b"\x1bOC", ParsedInput::CursorRight),
+    (b"\x1bOA", ParsedInput::CursorUp),
+    (b"\x1bOB", ParsedInput::CursorDown),
+    (b"\x1b[H", ParsedInput::Home),
+    (b"\x1b[F", ParsedInput::End),
+    (b"\x1b[1~", ParsedInput::Home),
+    (b"\x1b[4~", ParsedInput::End),
+    (b"\x1b[7~", ParsedInput::Home),
+    (b"\x1b[8~", ParsedInput::End),
+    (b"\x1b[5~", ParsedInput::PageUp),
+    (b"\x1b[6~", ParsedInput::PageDown),
+    (b"\x1bOP", ParsedInput::F1),
+    (b"\x1bOQ", ParsedInput::F2),
+    (b"\x1bOR", ParsedInput::F3),
+    (b"\x1bOS", ParsedInput::F4),
+    (b"\x1b[15~", ParsedInput::F5),
+    (b"\x1b[17~", ParsedInput::F6),
+    (b"\x1b[18~", ParsedInput::F7),
+    (b"\x1b[19~", ParsedInput::F8),
+    (b"\x1b[20~", ParsedInput::F9),
+    (b"\x1b[21~", ParsedInput::F10),
+    (b"\x1b[23~", ParsedInput::F11),
+    (b"\x1b[24~", ParsedInput::F12),
+];
+
 #[derive(Debug, Default)]
 struct InputParser {
+    // Bytes of an in-flight escape sequence so CSI/SS3 fragments can be matched
+    // across separate websocket or PTY frames.
     esc_buf: Vec<u8>,
+    // Trailing bytes of an incomplete UTF-8 codepoint, replayed into the next
+    // chunk before decoding plain text.
     utf8_buf: Vec<u8>,
+    // When CR is mapped to LF, suppress the LF in a following CRLF pair so the
+    // parser emits only one Enter event.
     pending_lf_after_cr: bool,
 }
 
@@ -310,54 +346,8 @@ impl InputParser {
         self.pending_lf_after_cr = false;
     }
 
-    fn known_sequences() -> [(&'static [u8], ParsedInput); 26] {
-        [
-            (b"\x1b[D", ParsedInput::CursorLeft),
-            (b"\x1b[C", ParsedInput::CursorRight),
-            (b"\x1b[A", ParsedInput::CursorUp),
-            (b"\x1b[B", ParsedInput::CursorDown),
-            (b"\x1bOD", ParsedInput::CursorLeft),
-            (b"\x1bOC", ParsedInput::CursorRight),
-            (b"\x1bOA", ParsedInput::CursorUp),
-            (b"\x1bOB", ParsedInput::CursorDown),
-            (b"\x1b[H", ParsedInput::Home),
-            (b"\x1b[F", ParsedInput::End),
-            (b"\x1b[1~", ParsedInput::Home),
-            (b"\x1b[4~", ParsedInput::End),
-            (b"\x1b[7~", ParsedInput::Home),
-            (b"\x1b[8~", ParsedInput::End),
-            (b"\x1b[5~", ParsedInput::PageUp),
-            (b"\x1b[6~", ParsedInput::PageDown),
-            (b"\x1bOP", ParsedInput::F1),
-            (b"\x1bOQ", ParsedInput::F2),
-            (b"\x1bOR", ParsedInput::F3),
-            (b"\x1bOS", ParsedInput::F4),
-            (b"\x1b[15~", ParsedInput::F5),
-            (b"\x1b[17~", ParsedInput::F6),
-            (b"\x1b[18~", ParsedInput::F7),
-            (b"\x1b[19~", ParsedInput::F8),
-            (b"\x1b[20~", ParsedInput::F9),
-            (b"\x1b[21~", ParsedInput::F10),
-        ]
-    }
-
-    fn known_sequences_tail() -> [(&'static [u8], ParsedInput); 2] {
-        [
-            (b"\x1b[23~", ParsedInput::F11),
-            (b"\x1b[24~", ParsedInput::F12),
-        ]
-    }
-
     fn match_escape(seq: &[u8]) -> EscapeMatch {
-        for (known, parsed) in Self::known_sequences() {
-            if known == seq {
-                return EscapeMatch::Complete(parsed);
-            }
-            if known.starts_with(seq) {
-                return EscapeMatch::Prefix;
-            }
-        }
-        for (known, parsed) in Self::known_sequences_tail() {
+        for (known, parsed) in KNOWN_ESCAPE_SEQUENCES {
             if known == seq {
                 return EscapeMatch::Complete(parsed);
             }
