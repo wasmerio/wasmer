@@ -333,7 +333,7 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Build & Package Wasmer C-API without LLVM
+      - name: Build & Package C API without LLVM
         shell: bash
         run: |
           make build-capi
@@ -342,7 +342,7 @@ jobs:
           RUSTFLAGS: -Cpanic=abort
           CARGO_TARGET: x86_64-pc-windows-gnu
           ENABLE_LLVM: 0
-      - name: Build & Package Wasmer C-API headless without LLVM
+      - name: Build & Package C API headless without LLVM
         shell: bash
         run: |
           make build-capi-headless
@@ -380,10 +380,11 @@ jobs:
         shell: bash
         run: |
           rustup target add aarch64-apple-darwin
-      - name: Build Wasmer C-API (JSC)
+      - name: Build C API (JSC)
         shell: bash
         run: |
           make build-capi-jsc
+          make package-capi
         env:
           RUSTFLAGS: -Cpanic=abort
           CARGO_TARGET: aarch64-apple-darwin
@@ -412,10 +413,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: x86_64-apple-darwin
-      - name: Build Wasmer C-API (JSC)
+      - name: Build C API (JSC)
         shell: bash
         run: |
           make build-capi-jsc
+          make package-capi
         env:
           RUSTFLAGS: -Cpanic=abort
           CARGO_TARGET: x86_64-apple-darwin
@@ -459,10 +461,11 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
-      - name: Build C API headless
+      - name: Build & Package C API headless
         shell: bash
         run: |
           make build-capi-headless
+          make package-capi-headless
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true
