@@ -1066,17 +1066,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Operator::End => {
                     self.unreachable_depth -= 1;
                 }
-                Operator::Else => {
-                    // We are in a reachable true branch
+                Operator::Else
                     if self.unreachable_depth == 1
-                        && self
-                            .control_stack
-                            .last()
-                            .is_some_and(|frame| matches!(frame.state, ControlState::If { .. }))
-                    {
-                        self.unreachable_depth -= 1;
-                    }
+                        && self.control_stack.last().is_some_and(|frame| {
+                            matches!(frame.state, ControlState::If { .. })
+                        }) =>
+                {
+                    // We are in a reachable true branch
+                    self.unreachable_depth -= 1;
                 }
+
                 _ => {}
             }
             if self.unreachable_depth > 0 {
