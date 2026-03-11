@@ -597,8 +597,8 @@
 <a href=#597 id=597 data-nosnippet>597</a>                    pc = context.Rip <span class="kw">as </span>usize;
 <a href=#598 id=598 data-nosnippet>598</a>                    sp = context.Rsp <span class="kw">as </span>usize;
 <a href=#599 id=599 data-nosnippet>599</a>                } <span class="kw">else if </span><span class="attr">#[cfg(target_arch = <span class="string">"x86"</span>)] </span>{
-<a href=#600 id=600 data-nosnippet>600</a>                    pc = context.Rip <span class="kw">as </span>usize;
-<a href=#601 id=601 data-nosnippet>601</a>                    sp = context.Rsp <span class="kw">as </span>usize;
+<a href=#600 id=600 data-nosnippet>600</a>                    pc = context.Eip <span class="kw">as </span>usize;
+<a href=#601 id=601 data-nosnippet>601</a>                    sp = context.Esp <span class="kw">as </span>usize;
 <a href=#602 id=602 data-nosnippet>602</a>                } <span class="kw">else </span>{
 <a href=#603 id=603 data-nosnippet>603</a>                    <span class="macro">compile_error!</span>(<span class="string">"Unsupported platform"</span>);
 <a href=#604 id=604 data-nosnippet>604</a>                }
