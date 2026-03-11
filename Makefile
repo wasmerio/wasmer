@@ -898,7 +898,8 @@ distribution-gnu: package-capi
 	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
-distribution:
+# The C API builds are directly packaged in the same CI jobs (otherwise we'll overwrite it).
+distribution: package-wasmer package-minimal-headless-wasmer
 	cp LICENSE package/LICENSE
 	cp docs/ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
