@@ -208,14 +208,16 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Build C API headless
+      - name: Build & Package C API headless
         shell: bash
         run: |
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi-headless
-      - name: Build C API
+          make package-capi-headless
+      - name: Build & Package C API
         shell: bash
         run: |
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi
+          make package-capi
       - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
@@ -331,18 +333,20 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Build Wasmer C-API without LLVM
+      - name: Build & Package Wasmer C-API without LLVM
         shell: bash
         run: |
           make build-capi
+          make package-capi
         env:
           RUSTFLAGS: -Cpanic=abort
           CARGO_TARGET: x86_64-pc-windows-gnu
           ENABLE_LLVM: 0
-      - name: Build Wasmer C-API headless without LLVM
+      - name: Build & Package Wasmer C-API headless without LLVM
         shell: bash
         run: |
           make build-capi-headless
+          make package-capi-headless
         env:
           RUSTFLAGS: -Cpanic=abort
           CARGO_TARGET: x86_64-pc-windows-gnu
@@ -468,12 +472,10 @@ jobs:
           ENABLE_LLVM: 0
           TARGET: riscv64gc-unknown-linux-gnu
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
-      - name: Package C API headless
-        run: |
-          make package-capi-headless
-      - name: Build C API
+      - name: Build & Package C API
         run: |
           make build-capi
+          make package-capi
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true
@@ -481,9 +483,6 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
-      - name: Package C API
-        run: |
-          make package-capi
       - name: Dist
         run: |
           make distribution
