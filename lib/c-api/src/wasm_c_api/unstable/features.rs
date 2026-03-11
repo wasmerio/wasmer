@@ -418,8 +418,8 @@ pub extern "C" fn wasmer_features_relaxed_simd(
 
 /// Configures whether the WebAssembly Extended Constant Expressions proposal will be enabled.
 ///
-/// The [WebAssembly Extended Constant Expressions][extended-const] is now
-/// fully standardized.
+/// The [WebAssembly Extended Constant Expressions][extended-const] proposal is
+/// now fully standardized.
 /// Support for this feature can be enabled through this method
 /// for appropriate WebAssembly modules.
 ///
