@@ -724,12 +724,6 @@ lint-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),lint-capi-crat
 # compilers first
 test-capi: build-capi test-capi-ci
 
-test-capi-v8: build-capi-v8 test-capi-integration-v8
-test-capi-wasmi: build-capi-wasmi test-capi-integration-wasmi
-test-capi-wamr: build-capi-wamr test-capi-integration-wamr
-
-test-capi-jsc: build-capi-jsc test-capi-integration-jsc
-
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked -- --nocapture
@@ -895,8 +889,6 @@ package-docs: build-docs build-docs-capi
 	cp -R target/doc/ package/docs/crates
 	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
-
-package: package-wasmer package-minimal-headless-wasmer
 
 distribution-gnu: package-capi
 	cp LICENSE package/LICENSE
