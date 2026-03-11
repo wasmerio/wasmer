@@ -898,14 +898,6 @@ package-docs: build-docs build-docs-capi
 
 package: package-wasmer package-minimal-headless-wasmer
 
-tar-capi:
-	ls -R package
-	tar -C package -zcvf build-capi.tar.gz lib include winsdk
-
-tar-wasmer:
-	ls -R package
-	tar -C package -zcvf build-wasmer.tar.gz bin
-
 distribution-gnu: package-capi
 	cp LICENSE package/LICENSE
 	cp docs/ATTRIBUTIONS.md package/ATTRIBUTIONS
