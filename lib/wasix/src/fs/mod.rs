@@ -19,7 +19,7 @@ use std::{
     pin::Pin,
     sync::{
         Arc, Mutex, RwLock, Weak,
-        atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
     },
     task::{Context, Poll},
 };
@@ -582,8 +582,6 @@ pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
     pub fd_map: RwLock<FdList>,
-    #[cfg_attr(feature = "enable-serde", serde(skip, default))]
-    next_fd_candidate: AtomicU32,
     pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
@@ -678,7 +676,6 @@ impl WasiFs {
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
             fd_map: RwLock::new(self.fd_map.read().unwrap().clone()),
-            next_fd_candidate: AtomicU32::new(self.next_fd_candidate.load(Ordering::Acquire)),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
@@ -831,7 +828,6 @@ impl WasiFs {
         let wasi_fs = Self {
             preopen_fds: RwLock::new(vec![]),
             fd_map: RwLock::new(FdList::new()),
-            next_fd_candidate: AtomicU32::new(0),
             current_dir: Mutex::new("/".to_string()),
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
@@ -1881,20 +1877,12 @@ impl WasiFs {
         match idx {
             Some(idx) => {
                 if guard.insert(exclusive, idx, fd) {
-                    let next = idx.saturating_add(1);
-                    self.next_fd_candidate.fetch_max(next, Ordering::AcqRel);
                     Ok(idx)
                 } else {
                     Err(Errno::Exist)
                 }
             }
-            None => {
-                let after = self.next_fd_candidate.load(Ordering::Acquire);
-                let new_fd = guard.insert_first_free_after(fd, after);
-                self.next_fd_candidate
-                    .fetch_max(new_fd.saturating_add(1), Ordering::AcqRel);
-                Ok(new_fd)
-            }
+            None => Ok(guard.insert_first_free(fd)),
         }
     }
 

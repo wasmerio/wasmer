@@ -203,7 +203,8 @@ fn apply_fd_op<M: MemorySize>(
             env.state.fs.close_fd(op.fd)
         }
         ProcSpawnFdOpName::Dup2 => {
-            if let Ok(fd) = env.state.fs.get_fd(op.fd)
+            let target_fd = env.state.fs.get_fd(op.fd).ok();
+            if let Some(fd) = target_fd.as_ref()
                 && !fd.is_stdio
                 && fd.inode.is_preopened
             {
@@ -213,7 +214,7 @@ fn apply_fd_op<M: MemorySize>(
 
             // According to POSIX dup2 semantics, the target fd should always be closed before duplication
             // EXCEPT when duplicating a fd to itself (src_fd == fd), which is a no-op.
-            if op.src_fd != op.fd && env.state.fs.get_fd(op.fd).is_ok() {
+            if op.src_fd != op.fd && target_fd.is_some() {
                 env.state.fs.close_fd(op.fd)?;
             }
 

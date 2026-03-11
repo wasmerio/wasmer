@@ -35,11 +35,12 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
 
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let fd_entry = state.fs.get_fd(fd).ok();
 
     // We don't want to allow programs that blindly close all FDs in a loop
     // to be able to close pre-opens, as that breaks wasix-libc in rather
     // spectacular fashion.
-    if let Ok(pfd) = state.fs.get_fd(fd)
+    if let Some(pfd) = fd_entry.as_ref()
         && !pfd.is_stdio
         && pfd.inode.is_preopened
     {
@@ -59,17 +60,15 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
         // Capture the file handle before removing the fd, then close first.
         // This avoids an fd-number reuse race where an async pre-close flush
         // can end up closing a newly allocated descriptor with the same number.
-        let flush_target = {
-            state.fs.get_fd(fd).ok().and_then(|fd_entry| {
-                let guard = fd_entry.inode.read();
-                match guard.deref() {
-                    Kind::File {
-                        handle: Some(file), ..
-                    } => Some(file.clone()),
-                    _ => None,
-                }
-            })
-        };
+        let flush_target = fd_entry.as_ref().and_then(|fd_entry| {
+            let guard = fd_entry.inode.read();
+            match guard.deref() {
+                Kind::File {
+                    handle: Some(file), ..
+                } => Some(file.clone()),
+                _ => None,
+            }
+        });
 
         wasi_try_ok!(state.fs.close_fd(fd));
 
