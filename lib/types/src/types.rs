@@ -292,7 +292,8 @@ impl FunctionType {
     /// Returns a stable 64-bit signature hash derived from the Wasm value types.
     pub fn signature_hash(&self) -> u64 {
         fn update_types(hasher: &mut Sha256, types: &[Type]) {
-            hasher.update((types.len() as u64).to_le_bytes());
+            // Be sure the length part does not share values with the types!
+            hasher.update((types.len() as u64 + 16).to_le_bytes());
             for ty in types {
                 hasher.update([*ty as u8]);
             }

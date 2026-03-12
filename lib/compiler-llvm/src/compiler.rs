@@ -187,6 +187,12 @@ impl LLVMCompiler {
     ) -> Result<Vec<u8>, CompileError> {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
+        let signature_hashes = compile_info
+            .module
+            .signatures
+            .values()
+            .map(|sig| sig.signature_hash())
+            .collect::<PrimaryMap<SignatureIndex, _>>();
 
         // TODO: https:/github.com/rayon-rs/rayon/issues/822
 
@@ -214,6 +220,7 @@ impl LLVMCompiler {
                 let module = func_translator.translate_to_module(
                     &compile_info.module,
                     module_translation,
+                    &signature_hashes,
                     &i,
                     input,
                     self.config(),
@@ -427,6 +434,11 @@ impl Compiler for LLVMCompiler {
         let module = &compile_info.module;
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+        let signature_hashes = module
+            .signatures
+            .values()
+            .map(|sig| sig.signature_hash())
+            .collect::<PrimaryMap<SignatureIndex, _>>();
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
@@ -463,6 +475,7 @@ impl Compiler for LLVMCompiler {
                 func_translator.translate(
                     module,
                     module_translation,
+                    &signature_hashes,
                     i,
                     input,
                     self.config(),

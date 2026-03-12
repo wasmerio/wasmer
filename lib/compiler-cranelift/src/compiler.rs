@@ -118,6 +118,11 @@ impl CraneliftCompiler {
             .iter()
             .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
+        let signature_hashes = module
+            .signatures
+            .values()
+            .map(|sig| sig.signature_hash())
+            .collect::<PrimaryMap<SignatureIndex, _>>();
 
         let total_function_call_trampolines = module.signatures.len();
         let total_dynamic_trampolines = module.num_imported_functions;
@@ -173,6 +178,7 @@ impl CraneliftCompiler {
                 isa.frontend_config(),
                 module,
                 &signatures,
+                &signature_hashes,
                 memory_styles,
                 table_styles,
             );

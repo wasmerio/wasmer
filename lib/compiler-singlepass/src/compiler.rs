@@ -132,6 +132,11 @@ impl SinglepassCompiler {
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
+        let signature_hashes = module
+            .signatures
+            .values()
+            .map(|sig| sig.signature_hash())
+            .collect::<PrimaryMap<_, _>>();
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
@@ -182,6 +187,7 @@ impl SinglepassCompiler {
                             &vmoffsets,
                             memory_styles,
                             table_styles,
+                            &signature_hashes,
                             i,
                             &locals,
                             machine,
@@ -203,6 +209,7 @@ impl SinglepassCompiler {
                             &vmoffsets,
                             memory_styles,
                             table_styles,
+                            &signature_hashes,
                             i,
                             &locals,
                             machine,
@@ -224,6 +231,7 @@ impl SinglepassCompiler {
                             &vmoffsets,
                             memory_styles,
                             table_styles,
+                            &signature_hashes,
                             i,
                             &locals,
                             machine,
