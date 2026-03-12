@@ -72,7 +72,7 @@
 <a href=#72 id=72 data-nosnippet>72</a>///
 <a href=#73 id=73 data-nosnippet>73</a>/// The [WebAssembly threads proposal][threads] is not currently fully
 <a href=#74 id=74 data-nosnippet>74</a>/// standardized and is undergoing development. Support for this feature can
-<a href=#75 id=75 data-nosnippet>75</a>/// be disabled through this method for appropriate WebAssembly modules.
+<a href=#75 id=75 data-nosnippet>75</a>/// be enabled through this method for appropriate WebAssembly modules.
 <a href=#76 id=76 data-nosnippet>76</a>///
 <a href=#77 id=77 data-nosnippet>77</a>/// This feature gates items such as shared memories and atomic
 <a href=#78 id=78 data-nosnippet>78</a>/// instructions.
@@ -109,7 +109,7 @@
 <a href=#109 id=109 data-nosnippet>109</a>/// being in a module. Note that enabling the reference types feature will
 <a href=#110 id=110 data-nosnippet>110</a>/// also enable the bulk memory feature.
 <a href=#111 id=111 data-nosnippet>111</a>///
-<a href=#112 id=112 data-nosnippet>112</a>/// This is `false` by default.
+<a href=#112 id=112 data-nosnippet>112</a>/// This is `true` by default.
 <a href=#113 id=113 data-nosnippet>113</a>///
 <a href=#114 id=114 data-nosnippet>114</a>/// [proposal]: https://github.com/webassembly/reference-types
 <a href=#115 id=115 data-nosnippet>115</a>///
@@ -142,7 +142,7 @@
 <a href=#142 id=142 data-nosnippet>142</a>/// This feature gates items such as the `v128` type and all of its
 <a href=#143 id=143 data-nosnippet>143</a>/// operators being in a module.
 <a href=#144 id=144 data-nosnippet>144</a>///
-<a href=#145 id=145 data-nosnippet>145</a>/// This is `false` by default.
+<a href=#145 id=145 data-nosnippet>145</a>/// This is `true` by default.
 <a href=#146 id=146 data-nosnippet>146</a>///
 <a href=#147 id=147 data-nosnippet>147</a>/// [proposal]: https://github.com/webassembly/simd
 <a href=#148 id=148 data-nosnippet>148</a>///
@@ -355,4 +355,120 @@
 <a href=#355 id=355 data-nosnippet>355</a>    features.inner.memory64(enable);
 <a href=#356 id=356 data-nosnippet>356</a>
 <a href=#357 id=357 data-nosnippet>357</a>    <span class="bool-val">true
-<a href=#358 id=358 data-nosnippet>358</a></span>}</code></pre></div></section></main></body></html>
+<a href=#358 id=358 data-nosnippet>358</a></span>}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a><span class="doccomment">/// Configures whether the WebAssembly exception-handling proposal will be enabled.
+<a href=#361 id=361 data-nosnippet>361</a>///
+<a href=#362 id=362 data-nosnippet>362</a>/// The [WebAssembly exception-handling proposal][eh] is now
+<a href=#363 id=363 data-nosnippet>363</a>/// fully standardized.
+<a href=#364 id=364 data-nosnippet>364</a>/// Support for this feature can be enabled through this method
+<a href=#365 id=365 data-nosnippet>365</a>/// for appropriate WebAssembly modules.
+<a href=#366 id=366 data-nosnippet>366</a>///
+<a href=#367 id=367 data-nosnippet>367</a>/// This is `false` by default.
+<a href=#368 id=368 data-nosnippet>368</a>///
+<a href=#369 id=369 data-nosnippet>369</a>/// [eh]: https://github.com/webassembly/exception-handling
+<a href=#370 id=370 data-nosnippet>370</a>///
+<a href=#371 id=371 data-nosnippet>371</a>/// # Example
+<a href=#372 id=372 data-nosnippet>372</a>///
+<a href=#373 id=373 data-nosnippet>373</a>/// See the module's documentation.
+<a href=#374 id=374 data-nosnippet>374</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#375 id=375 data-nosnippet>375</a></span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_features_exceptions(
+<a href=#376 id=376 data-nosnippet>376</a>    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+<a href=#377 id=377 data-nosnippet>377</a>    enable: bool,
+<a href=#378 id=378 data-nosnippet>378</a>) -&gt; bool {
+<a href=#379 id=379 data-nosnippet>379</a>    <span class="kw">let </span>features = <span class="kw">match </span>features {
+<a href=#380 id=380 data-nosnippet>380</a>        <span class="prelude-val">Some</span>(features) =&gt; features,
+<a href=#381 id=381 data-nosnippet>381</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+<a href=#382 id=382 data-nosnippet>382</a>    };
+<a href=#383 id=383 data-nosnippet>383</a>
+<a href=#384 id=384 data-nosnippet>384</a>    features.inner.exceptions(enable);
+<a href=#385 id=385 data-nosnippet>385</a>
+<a href=#386 id=386 data-nosnippet>386</a>    <span class="bool-val">true
+<a href=#387 id=387 data-nosnippet>387</a></span>}
+<a href=#388 id=388 data-nosnippet>388</a>
+<a href=#389 id=389 data-nosnippet>389</a><span class="doccomment">/// Configures whether the WebAssembly Relaxed SIMD proposal will be
+<a href=#390 id=390 data-nosnippet>390</a>/// enabled.
+<a href=#391 id=391 data-nosnippet>391</a>///
+<a href=#392 id=392 data-nosnippet>392</a>/// The [WebAssembly Relaxed SIMD proposal][proposal] is now
+<a href=#393 id=393 data-nosnippet>393</a>/// fully standardized.
+<a href=#394 id=394 data-nosnippet>394</a>/// Support for this feature can be enabled through this method
+<a href=#395 id=395 data-nosnippet>395</a>/// for appropriate WebAssembly modules.
+<a href=#396 id=396 data-nosnippet>396</a>///
+<a href=#397 id=397 data-nosnippet>397</a>/// This is `false` by default.
+<a href=#398 id=398 data-nosnippet>398</a>///
+<a href=#399 id=399 data-nosnippet>399</a>/// [proposal]: https://github.com/WebAssembly/relaxed-simd
+<a href=#400 id=400 data-nosnippet>400</a>///
+<a href=#401 id=401 data-nosnippet>401</a>/// # Example
+<a href=#402 id=402 data-nosnippet>402</a>///
+<a href=#403 id=403 data-nosnippet>403</a>/// See the module's documentation.
+<a href=#404 id=404 data-nosnippet>404</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#405 id=405 data-nosnippet>405</a></span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_features_relaxed_simd(
+<a href=#406 id=406 data-nosnippet>406</a>    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+<a href=#407 id=407 data-nosnippet>407</a>    enable: bool,
+<a href=#408 id=408 data-nosnippet>408</a>) -&gt; bool {
+<a href=#409 id=409 data-nosnippet>409</a>    <span class="kw">let </span>features = <span class="kw">match </span>features {
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="prelude-val">Some</span>(features) =&gt; features,
+<a href=#411 id=411 data-nosnippet>411</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+<a href=#412 id=412 data-nosnippet>412</a>    };
+<a href=#413 id=413 data-nosnippet>413</a>
+<a href=#414 id=414 data-nosnippet>414</a>    features.inner.relaxed_simd(enable);
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>    <span class="bool-val">true
+<a href=#417 id=417 data-nosnippet>417</a></span>}
+<a href=#418 id=418 data-nosnippet>418</a>
+<a href=#419 id=419 data-nosnippet>419</a><span class="doccomment">/// Configures whether the WebAssembly Extended Constant Expressions proposal will be enabled.
+<a href=#420 id=420 data-nosnippet>420</a>///
+<a href=#421 id=421 data-nosnippet>421</a>/// The [WebAssembly Extended Constant Expressions][extended-const] proposal is
+<a href=#422 id=422 data-nosnippet>422</a>/// now fully standardized.
+<a href=#423 id=423 data-nosnippet>423</a>/// Support for this feature can be enabled through this method
+<a href=#424 id=424 data-nosnippet>424</a>/// for appropriate WebAssembly modules.
+<a href=#425 id=425 data-nosnippet>425</a>///
+<a href=#426 id=426 data-nosnippet>426</a>/// This is `true` by default.
+<a href=#427 id=427 data-nosnippet>427</a>///
+<a href=#428 id=428 data-nosnippet>428</a>/// [extended-const]: https://github.com/WebAssembly/extended-const
+<a href=#429 id=429 data-nosnippet>429</a>///
+<a href=#430 id=430 data-nosnippet>430</a>/// # Example
+<a href=#431 id=431 data-nosnippet>431</a>///
+<a href=#432 id=432 data-nosnippet>432</a>/// See the module's documentation.
+<a href=#433 id=433 data-nosnippet>433</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#434 id=434 data-nosnippet>434</a></span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_features_extended_const(
+<a href=#435 id=435 data-nosnippet>435</a>    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+<a href=#436 id=436 data-nosnippet>436</a>    enable: bool,
+<a href=#437 id=437 data-nosnippet>437</a>) -&gt; bool {
+<a href=#438 id=438 data-nosnippet>438</a>    <span class="kw">let </span>features = <span class="kw">match </span>features {
+<a href=#439 id=439 data-nosnippet>439</a>        <span class="prelude-val">Some</span>(features) =&gt; features,
+<a href=#440 id=440 data-nosnippet>440</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+<a href=#441 id=441 data-nosnippet>441</a>    };
+<a href=#442 id=442 data-nosnippet>442</a>
+<a href=#443 id=443 data-nosnippet>443</a>    features.inner.extended_const(enable);
+<a href=#444 id=444 data-nosnippet>444</a>
+<a href=#445 id=445 data-nosnippet>445</a>    <span class="bool-val">true
+<a href=#446 id=446 data-nosnippet>446</a></span>}
+<a href=#447 id=447 data-nosnippet>447</a>
+<a href=#448 id=448 data-nosnippet>448</a><span class="doccomment">/// Configures whether the WebAssembly wide arithmetic proposal will be enabled.
+<a href=#449 id=449 data-nosnippet>449</a>///
+<a href=#450 id=450 data-nosnippet>450</a>/// The [Wide Arithmetic][wa] is not currently fully
+<a href=#451 id=451 data-nosnippet>451</a>/// standardized and is undergoing development. Support for this feature can
+<a href=#452 id=452 data-nosnippet>452</a>/// be enabled through this method for appropriate WebAssembly modules.
+<a href=#453 id=453 data-nosnippet>453</a>///
+<a href=#454 id=454 data-nosnippet>454</a>/// This is `false` by default.
+<a href=#455 id=455 data-nosnippet>455</a>///
+<a href=#456 id=456 data-nosnippet>456</a>/// [wa]: https://github.com/WebAssembly/wide-arithmetic
+<a href=#457 id=457 data-nosnippet>457</a>///
+<a href=#458 id=458 data-nosnippet>458</a>/// # Example
+<a href=#459 id=459 data-nosnippet>459</a>///
+<a href=#460 id=460 data-nosnippet>460</a>/// See the module's documentation.
+<a href=#461 id=461 data-nosnippet>461</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#462 id=462 data-nosnippet>462</a></span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_features_wide_arithmetic(
+<a href=#463 id=463 data-nosnippet>463</a>    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+<a href=#464 id=464 data-nosnippet>464</a>    enable: bool,
+<a href=#465 id=465 data-nosnippet>465</a>) -&gt; bool {
+<a href=#466 id=466 data-nosnippet>466</a>    <span class="kw">let </span>features = <span class="kw">match </span>features {
+<a href=#467 id=467 data-nosnippet>467</a>        <span class="prelude-val">Some</span>(features) =&gt; features,
+<a href=#468 id=468 data-nosnippet>468</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+<a href=#469 id=469 data-nosnippet>469</a>    };
+<a href=#470 id=470 data-nosnippet>470</a>
+<a href=#471 id=471 data-nosnippet>471</a>    features.inner.wide_arithmetic(enable);
+<a href=#472 id=472 data-nosnippet>472</a>
+<a href=#473 id=473 data-nosnippet>473</a>    <span class="bool-val">true
+<a href=#474 id=474 data-nosnippet>474</a></span>}</code></pre></div></section></main></body></html>

@@ -623,29 +623,32 @@
 <a href=#623 id=623 data-nosnippet>623</a>    </span>MemoryCreateFailed(MemoryError),
 <a href=#624 id=624 data-nosnippet>624</a>    <span class="attr">#[error(<span class="string">"{0}"</span>)]
 <a href=#625 id=625 data-nosnippet>625</a>    </span>ExportError(ExportError),
-<a href=#626 id=626 data-nosnippet>626</a>    <span class="attr">#[error(<span class="string">"Linker error: {0}"</span>)]
-<a href=#627 id=627 data-nosnippet>627</a>    </span>LinkError(Arc&lt;LinkError&gt;),
-<a href=#628 id=628 data-nosnippet>628</a>    <span class="attr">#[error(<span class="string">"Failed to create the instance - {0}"</span>)]
-<a href=#629 id=629 data-nosnippet>629</a>    </span><span class="comment">// Note: Boxed so we can keep the error size down
-<a href=#630 id=630 data-nosnippet>630</a>    </span>InstanceCreateFailed(Box&lt;InstantiationError&gt;),
-<a href=#631 id=631 data-nosnippet>631</a>    <span class="attr">#[error(<span class="string">"Initialization function failed - {0}"</span>)]
-<a href=#632 id=632 data-nosnippet>632</a>    </span>InitFailed(Arc&lt;anyhow::Error&gt;),
-<a href=#633 id=633 data-nosnippet>633</a>    <span class="doccomment">/// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
-<a href=#634 id=634 data-nosnippet>634</a>    </span><span class="attr">#[error(<span class="string">"WASM context is invalid"</span>)]
-<a href=#635 id=635 data-nosnippet>635</a>    </span>InvalidWasmContext,
-<a href=#636 id=636 data-nosnippet>636</a>}
-<a href=#637 id=637 data-nosnippet>637</a>
-<a href=#638 id=638 data-nosnippet>638</a><span class="kw">impl </span>From&lt;WasiThreadError&gt; <span class="kw">for </span>Errno {
-<a href=#639 id=639 data-nosnippet>639</a>    <span class="kw">fn </span>from(a: WasiThreadError) -&gt; Errno {
-<a href=#640 id=640 data-nosnippet>640</a>        <span class="kw">match </span>a {
-<a href=#641 id=641 data-nosnippet>641</a>            WasiThreadError::Unsupported =&gt; Errno::Notsup,
-<a href=#642 id=642 data-nosnippet>642</a>            WasiThreadError::MethodNotFound =&gt; Errno::Inval,
-<a href=#643 id=643 data-nosnippet>643</a>            WasiThreadError::MemoryCreateFailed(<span class="kw">_</span>) =&gt; Errno::Nomem,
-<a href=#644 id=644 data-nosnippet>644</a>            WasiThreadError::ExportError(<span class="kw">_</span>) =&gt; Errno::Noexec,
-<a href=#645 id=645 data-nosnippet>645</a>            WasiThreadError::LinkError(<span class="kw">_</span>) =&gt; Errno::Noexec,
-<a href=#646 id=646 data-nosnippet>646</a>            WasiThreadError::InstanceCreateFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
-<a href=#647 id=647 data-nosnippet>647</a>            WasiThreadError::InitFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
-<a href=#648 id=648 data-nosnippet>648</a>            WasiThreadError::InvalidWasmContext =&gt; Errno::Noexec,
-<a href=#649 id=649 data-nosnippet>649</a>        }
-<a href=#650 id=650 data-nosnippet>650</a>    }
-<a href=#651 id=651 data-nosnippet>651</a>}</code></pre></div></section></main></body></html>
+<a href=#626 id=626 data-nosnippet>626</a>    <span class="attr">#[error(<span class="string">"Failed to create additional imports - {0}"</span>)]
+<a href=#627 id=627 data-nosnippet>627</a>    </span>AdditionalImportCreationFailed(Arc&lt;anyhow::Error&gt;),
+<a href=#628 id=628 data-nosnippet>628</a>    <span class="attr">#[error(<span class="string">"Linker error: {0}"</span>)]
+<a href=#629 id=629 data-nosnippet>629</a>    </span>LinkError(Arc&lt;LinkError&gt;),
+<a href=#630 id=630 data-nosnippet>630</a>    <span class="attr">#[error(<span class="string">"Failed to create the instance - {0}"</span>)]
+<a href=#631 id=631 data-nosnippet>631</a>    </span><span class="comment">// Note: Boxed so we can keep the error size down
+<a href=#632 id=632 data-nosnippet>632</a>    </span>InstanceCreateFailed(Box&lt;InstantiationError&gt;),
+<a href=#633 id=633 data-nosnippet>633</a>    <span class="attr">#[error(<span class="string">"Initialization function failed - {0}"</span>)]
+<a href=#634 id=634 data-nosnippet>634</a>    </span>InitFailed(Arc&lt;anyhow::Error&gt;),
+<a href=#635 id=635 data-nosnippet>635</a>    <span class="doccomment">/// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
+<a href=#636 id=636 data-nosnippet>636</a>    </span><span class="attr">#[error(<span class="string">"WASM context is invalid"</span>)]
+<a href=#637 id=637 data-nosnippet>637</a>    </span>InvalidWasmContext,
+<a href=#638 id=638 data-nosnippet>638</a>}
+<a href=#639 id=639 data-nosnippet>639</a>
+<a href=#640 id=640 data-nosnippet>640</a><span class="kw">impl </span>From&lt;WasiThreadError&gt; <span class="kw">for </span>Errno {
+<a href=#641 id=641 data-nosnippet>641</a>    <span class="kw">fn </span>from(a: WasiThreadError) -&gt; Errno {
+<a href=#642 id=642 data-nosnippet>642</a>        <span class="kw">match </span>a {
+<a href=#643 id=643 data-nosnippet>643</a>            WasiThreadError::Unsupported =&gt; Errno::Notsup,
+<a href=#644 id=644 data-nosnippet>644</a>            WasiThreadError::MethodNotFound =&gt; Errno::Inval,
+<a href=#645 id=645 data-nosnippet>645</a>            WasiThreadError::MemoryCreateFailed(<span class="kw">_</span>) =&gt; Errno::Nomem,
+<a href=#646 id=646 data-nosnippet>646</a>            WasiThreadError::ExportError(<span class="kw">_</span>) =&gt; Errno::Noexec,
+<a href=#647 id=647 data-nosnippet>647</a>            WasiThreadError::AdditionalImportCreationFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
+<a href=#648 id=648 data-nosnippet>648</a>            WasiThreadError::LinkError(<span class="kw">_</span>) =&gt; Errno::Noexec,
+<a href=#649 id=649 data-nosnippet>649</a>            WasiThreadError::InstanceCreateFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
+<a href=#650 id=650 data-nosnippet>650</a>            WasiThreadError::InitFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
+<a href=#651 id=651 data-nosnippet>651</a>            WasiThreadError::InvalidWasmContext =&gt; Errno::Noexec,
+<a href=#652 id=652 data-nosnippet>652</a>        }
+<a href=#653 id=653 data-nosnippet>653</a>    }
+<a href=#654 id=654 data-nosnippet>654</a>}</code></pre></div></section></main></body></html>
