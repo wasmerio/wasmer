@@ -70,3 +70,9 @@ fn static_thrower_via_shared_proxy_static_catcher() {
     let wasm = run_build_script(file!(), "static-thrower-via-shared-proxy-static-catcher").unwrap();
     run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
 }
+
+#[test]
+fn nested_exceptions() {
+    let wasm = run_build_script(file!(), "nested-exceptions").unwrap();
+    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
+}
