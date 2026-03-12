@@ -524,7 +524,7 @@ mod test_vmglobal_definition {
         let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
-            size_of::<*const VMGlobalDefinition>(),
+            size_of::<VMGlobalDefinition>(),
             usize::from(offsets.size_of_vmglobal_local())
         );
     }

@@ -3018,7 +3018,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     None
                 };
 
-                let table_bound = if let Some(_) = local_fixed_funcref_table {
+                let table_bound = if local_fixed_funcref_table.is_some() {
                     self.intrinsics
                         .i32_ty
                         .const_int(table.minimum.into(), false)
