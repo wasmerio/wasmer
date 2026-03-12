@@ -569,43 +569,12 @@ impl VMSharedTagIndex {
 #[repr(C)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
-pub struct VMSharedSignatureIndex(u32);
+pub struct VMSignatureHash(u64);
 
-#[cfg(test)]
-mod test_vmshared_signature_index {
-    use super::VMSharedSignatureIndex;
-    use std::mem::size_of;
-    use wasmer_types::{ModuleInfo, TargetSharedSignatureIndex, VMOffsets};
-
-    #[test]
-    fn check_vmshared_signature_index() {
-        let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
-        assert_eq!(
-            size_of::<VMSharedSignatureIndex>(),
-            usize::from(offsets.size_of_vmshared_signature_index())
-        );
-    }
-
-    #[test]
-    fn check_target_shared_signature_index() {
-        assert_eq!(
-            size_of::<VMSharedSignatureIndex>(),
-            size_of::<TargetSharedSignatureIndex>()
-        );
-    }
-}
-
-impl VMSharedSignatureIndex {
-    /// Create a new `VMSharedSignatureIndex`.
-    pub fn new(value: u32) -> Self {
+impl VMSignatureHash {
+    /// Create a new `VMSignatureHash`.
+    pub fn new(value: u64) -> Self {
         Self(value)
-    }
-}
-
-impl Default for VMSharedSignatureIndex {
-    fn default() -> Self {
-        Self::new(u32::MAX)
     }
 }
 
@@ -618,7 +587,7 @@ pub struct VMCallerCheckedAnyfunc {
     /// Function body.
     pub func_ptr: *const VMFunctionBody,
     /// Function signature id.
-    pub type_index: VMSharedSignatureIndex,
+    pub type_signature_hash: VMSignatureHash,
     /// Function `VMContext` or host env.
     pub vmctx: VMFunctionContext,
     /// Address of the function call trampoline to invoke this function using
@@ -630,7 +599,7 @@ pub struct VMCallerCheckedAnyfunc {
 impl PartialEq for VMCallerCheckedAnyfunc {
     fn eq(&self, other: &Self) -> bool {
         self.func_ptr == other.func_ptr
-            && self.type_index == other.type_index
+            && self.type_signature_hash == other.type_signature_hash
             && self.vmctx == other.vmctx
             && ptr::fn_addr_eq(self.call_trampoline, other.call_trampoline)
     }
@@ -641,7 +610,7 @@ impl Eq for VMCallerCheckedAnyfunc {}
 impl Hash for VMCallerCheckedAnyfunc {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.func_ptr.hash(state);
-        self.type_index.hash(state);
+        self.type_signature_hash.hash(state);
         self.vmctx.hash(state);
         ptr::hash(self.call_trampoline as *const (), state);
     }
@@ -668,7 +637,7 @@ mod test_vmcaller_checked_anyfunc {
             usize::from(offsets.vmcaller_checked_anyfunc_func_ptr())
         );
         assert_eq!(
-            offset_of!(VMCallerCheckedAnyfunc, type_index),
+            offset_of!(VMCallerCheckedAnyfunc, type_signature_hash),
             usize::from(offsets.vmcaller_checked_anyfunc_type_index())
         );
         assert_eq!(

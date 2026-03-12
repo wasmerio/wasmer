@@ -4,10 +4,8 @@
 //! Implement a registry of function signatures, for fast indirect call
 //! signature checking.
 
-use crate::vmcontext::VMSharedSignatureIndex;
-use more_asserts::debug_assert_lt;
-use std::collections::{HashMap, hash_map};
-use std::convert::TryFrom;
+use crate::vmcontext::VMSignatureHash;
+use std::collections::HashMap;
 use std::sync::RwLock;
 use wasmer_types::FunctionType;
 
@@ -27,8 +25,8 @@ pub struct SignatureRegistry {
 
 #[derive(Debug, Default)]
 struct Inner {
-    signature2index: HashMap<FunctionType, VMSharedSignatureIndex>,
-    index2signature: HashMap<VMSharedSignatureIndex, FunctionType>,
+    signature_to_hash: HashMap<FunctionType, VMSignatureHash>,
+    hash_to_signature: HashMap<VMSignatureHash, FunctionType>,
 }
 
 impl SignatureRegistry {
@@ -37,39 +35,32 @@ impl SignatureRegistry {
         Default::default()
     }
 
-    /// Register a signature and return its unique index.
-    pub fn register(&self, sig: &FunctionType) -> VMSharedSignatureIndex {
+    /// Register a signature and return its unique hash.
+    pub fn register(&self, sig: &FunctionType) -> VMSignatureHash {
         let mut inner = self.inner.write().unwrap();
-        let len = inner.signature2index.len();
-        let entry = inner.signature2index.entry(sig.clone());
-        match entry {
-            hash_map::Entry::Occupied(entry) => *entry.get(),
-            hash_map::Entry::Vacant(entry) => {
-                // Keep `signature_hash` len under 2**32 -- VMSharedSignatureIndex::new(u32::MAX)
-                // is reserved for VMSharedSignatureIndex::default().
-                debug_assert_lt!(
-                    len,
-                    u32::MAX as usize,
-                    "Invariant check: signature_hash.len() < u32::MAX"
-                );
-                let sig_id = VMSharedSignatureIndex::new(u32::try_from(len).unwrap());
-                entry.insert(sig_id);
-                inner.index2signature.insert(sig_id, sig.clone());
-                sig_id
-            }
+
+        if let Some(sig_hash) = inner.signature_to_hash.get(sig) {
+            return *sig_hash;
         }
+
+        let sig_hash = VMSignatureHash::new(sig.signature_hash());
+        if inner.hash_to_signature.contains_key(&sig_hash) {
+            // TODO
+            unreachable!("type signature collision");
+        }
+
+        inner.hash_to_signature.insert(sig_hash, sig.clone());
+        inner.signature_to_hash.insert(sig.clone(), sig_hash);
+        sig_hash
     }
 
-    /// Looks up a shared signature index within this registry.
-    ///
-    /// Note that for this operation to be semantically correct the `idx` must
-    /// have previously come from a call to `register` of this same object.
-    pub fn lookup(&self, idx: VMSharedSignatureIndex) -> Option<FunctionType> {
+    /// Looks up a registered signature by its hash.
+    pub fn lookup_signature(&self, sig_hash: VMSignatureHash) -> Option<FunctionType> {
         self.inner
             .read()
             .unwrap()
-            .index2signature
-            .get(&idx)
+            .hash_to_signature
+            .get(&sig_hash)
             .cloned()
     }
 }

@@ -2341,19 +2341,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::Imm32(0),
                     self.special_labels.indirect_call_null,
                 )?;
+                let expected_signature_hash = self.module.signatures[index].signature_hash();
                 self.machine.move_location(
-                    Size::S32,
-                    Location::Memory(
-                        self.machine.get_vmctx_reg(),
-                        self.vmoffsets.vmctx_vmshared_signature_id(index) as i32,
-                    ),
+                    Size::S64,
+                    Location::Imm64(expected_signature_hash),
                     Location::GPR(sigidx),
                 )?;
 
                 // Trap if signature mismatches.
                 self.machine.jmp_on_condition(
                     UnsignedCondition::NotEqual,
-                    Size::S32,
+                    Size::S64,
                     Location::GPR(sigidx),
                     Location::Memory(
                         table_count,
