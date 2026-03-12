@@ -825,20 +825,38 @@ package-capi:
 	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
 		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer.dll ;\
 	fi
+	if [ -f "target/$(HOST_TARGET)/release/wasmer.dll" ]; then \
+		cp "target/$(HOST_TARGET)/release/wasmer.dll" package/lib/wasmer.dll ;\
+	fi
 	if [ -f $(TARGET_DIR)/wasmer.dll.lib ]; then \
 		cp $(TARGET_DIR)/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/wasmer.dll.lib" ]; then \
+		cp "target/$(HOST_TARGET)/release/wasmer.dll.lib" package/lib/wasmer.dll.lib ;\
 	fi
 	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
 		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer.lib ;\
 	fi
+	if [ -f "target/$(HOST_TARGET)/release/wasmer.lib" ]; then \
+		cp "target/$(HOST_TARGET)/release/wasmer.lib" package/lib/wasmer.lib ;\
+	fi
 	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
 		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer.dylib ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/libwasmer.dylib" ]; then \
+		cp "target/$(HOST_TARGET)/release/libwasmer.dylib" package/lib/libwasmer.dylib ;\
 	fi
 	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
 		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer.so ;\
 	fi
+	if [ -f "target/$(HOST_TARGET)/release/libwasmer.so" ]; then \
+		cp "target/$(HOST_TARGET)/release/libwasmer.so" package/lib/libwasmer.so ;\
+	fi
 	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
 		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/libwasmer.a" ]; then \
+		cp "target/$(HOST_TARGET)/release/libwasmer.a" package/lib/libwasmer.a ;\
 	fi
 	ls -l package/lib
 
