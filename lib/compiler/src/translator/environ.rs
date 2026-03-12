@@ -89,6 +89,7 @@ impl<'data> ModuleEnvironment<'data> {
     pub fn translate(mut self, data: &'data [u8]) -> WasmResult<Self> {
         assert!(self.module_translation_state.is_none());
         let module_translation_state = translate_module(data, &mut self)?;
+        self.module.validate_signature_hashes()?;
         self.module_translation_state = Some(module_translation_state);
 
         Ok(self)

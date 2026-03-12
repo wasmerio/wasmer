@@ -45,7 +45,7 @@ impl SignatureRegistry {
 
         let sig_hash = VMSignatureHash::new(sig.signature_hash());
         if inner.hash_to_signature.contains_key(&sig_hash) {
-            // TODO
+            // We are checking type signature checking at the ModuleInfo level, thus the can't reach this point.
             unreachable!("type signature collision");
         }
 

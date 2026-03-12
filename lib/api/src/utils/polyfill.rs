@@ -351,6 +351,7 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
         }
     }
 
+    module_info.info.validate_signature_hashes()?;
     Ok(module_info)
 }
 
