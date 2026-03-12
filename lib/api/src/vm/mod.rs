@@ -2,31 +2,16 @@
 
 mod impls;
 
-use crate::VMExternToExtern;
+use crate::{VMExternToExtern, macros::backend::gen_rt_ty};
 use wasmer_types::RawValue;
 
 macro_rules! define_vm_like {
-    ($name: ident $(, $derive:ident)*) => {
+    ($name:ident $(, $derives:ident)*) => {
         paste::paste! {
-        /// The enum for all those VM values of this kind.
-        $(#[derive($derive)])*
-        #[derive(derive_more::Unwrap)]
-        #[unwrap(owned, ref, ref_mut)]
-        #[repr(C)]
-        pub enum [<VM $name>] {
-            #[cfg(feature = "sys")]
-            Sys(crate::backend::sys::vm::[<VM $name>]),
-            #[cfg(feature = "wamr")]
-            Wamr(crate::backend::wamr::vm::[<VM $name>]),
-            #[cfg(feature = "wasmi")]
-            Wasmi(crate::backend::wasmi::vm::[<VM $name>]),
-            #[cfg(feature = "v8")]
-            V8(crate::backend::v8::vm::[<VM $name>]),
-            #[cfg(feature = "js")]
-            Js(crate::backend::js::vm::[<VM $name>]),
-            #[cfg(feature = "jsc")]
-            Jsc(crate::backend::jsc::vm::[<VM $name>]),
-        }
+            gen_rt_ty! {
+                #[derive($($derives,)*)]
+                pub [<VM $name>](vm::[<VM $name>]);
+            }
         }
     };
 }
