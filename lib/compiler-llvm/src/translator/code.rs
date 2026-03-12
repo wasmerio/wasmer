@@ -318,6 +318,7 @@ impl FuncTranslator {
             alloca_builder,
             intrinsics: &intrinsics,
             state,
+            wasm_fn_type,
             function: func,
             locals: params_locals,
             ctx: CtxType::new(
@@ -1562,10 +1563,21 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
-    fn emit_return_call(&mut self, call_site: CallSiteValue<'ctx>) -> Result<(), CompileError> {
-        // It's a weird spec corner-case, but tail-call must bypass any existing try_table blocks
-        // of the function: https://github.com/WebAssembly/exception-handling/issues/249.
-        call_site.set_tail_call_kind(LLVMTailCallKind::LLVMTailCallKindTail);
+    fn emit_return_call(
+        &mut self,
+        call_site: CallSiteValue<'ctx>,
+        callee_wasm_fn_type: &FunctionType,
+    ) -> Result<(), CompileError> {
+        // This is an unintuitive spec corner case: a tail call must bypass all enclosing
+        // try_table blocks in the function. See https://github.com/WebAssembly/exception-handling/issues/249.
+        //
+        // The LLVM MustTail is more restrictive than the one defined in the WebAssembly spec.
+        let tail_call_kind = if self.wasm_fn_type == callee_wasm_fn_type {
+            LLVMTailCallKind::LLVMTailCallKindMustTail
+        } else {
+            LLVMTailCallKind::LLVMTailCallKindTail
+        };
+        call_site.set_tail_call_kind(tail_call_kind);
 
         if self.function.get_type().get_return_type().is_none() {
             err!(self.builder.build_return(None));
@@ -1657,7 +1669,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0), is_return_call)?;
 
             let local_rets = if is_return_call {
-                self.emit_return_call(local_call_site)?;
+                self.emit_return_call(local_call_site, func_type)?;
                 Vec::new()
             } else {
                 let rets = self.abi.rets_from_call(
@@ -1675,7 +1687,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.build_indirect_call(ctx_ptr, func_type, func_ptr, None, is_return_call)?;
 
             let foreign_rets = if is_return_call {
-                self.emit_return_call(foreign_call_site)?;
+                self.emit_return_call(foreign_call_site, func_type)?;
                 Vec::new()
             } else {
                 let rets = self.abi.rets_from_call(
@@ -1707,7 +1719,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0), is_return_call)?;
 
             if is_return_call {
-                self.emit_return_call(call_site)?;
+                self.emit_return_call(call_site, func_type)?;
             } else {
                 self.abi
                     .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
@@ -1718,7 +1730,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             let call_site =
                 self.build_indirect_call(ctx_ptr, func_type, func_ptr, None, is_return_call)?;
             if is_return_call {
-                self.emit_return_call(call_site)?;
+                self.emit_return_call(call_site, func_type)?;
             } else {
                 self.abi
                     .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
@@ -1826,8 +1838,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         then_block_name: &str,
         is_return_call: bool,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
-        // It's a weird spec corner-case, but tail-call must bypass any existing try_table blocks
-        // of the function: https://github.com/WebAssembly/exception-handling/issues/249.
+        // This is an unintuitive spec corner case: a tail call must bypass all enclosing
+        // try_table blocks in the function. See https://github.com/WebAssembly/exception-handling/issues/249.
         if let Some(lpad) = self.state.get_innermost_landingpad()
             && !is_return_call
         {
@@ -1954,6 +1966,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     alloca_builder: Builder<'ctx>,
     intrinsics: &'a Intrinsics<'ctx>,
     state: State<'ctx>,
+    wasm_fn_type: &'a FunctionType,
     function: FunctionValue<'ctx>,
     locals: Vec<(BasicTypeEnum<'ctx>, PointerValue<'ctx>)>, // Contains params and locals
     ctx: CtxType<'ctx, 'a>,
@@ -3189,7 +3202,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     */
 
                     if is_return_call {
-                        self.emit_return_call(call_site)?;
+                        self.emit_return_call(call_site, func_type)?;
                     } else {
                         self.abi
                             .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
@@ -3449,7 +3462,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     )?;
 
                     if is_return_call {
-                        self.emit_return_call(call_site)?;
+                        self.emit_return_call(call_site, func_type)?;
                     } else {
                         self.abi
                             .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
