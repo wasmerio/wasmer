@@ -38,6 +38,29 @@ use crate::{
     },
 };
 
+pub type MakeImportCallback =
+    dyn Fn(&mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> + Send + Sync + 'static;
+pub type ConfigureInstanceCallback =
+    dyn Fn(&mut wasmer::StoreMut, &wasmer::Instance) -> anyhow::Result<()> + Send + Sync + 'static;
+
+#[derive(Clone)]
+pub struct ImportCallback(pub Arc<MakeImportCallback>);
+
+impl fmt::Debug for ImportCallback {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("ImportCallback(..)")
+    }
+}
+
+#[derive(Clone)]
+pub struct InstanceCallback(pub Arc<ConfigureInstanceCallback>);
+
+impl fmt::Debug for InstanceCallback {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("InstanceCallback(..)")
+    }
+}
+
 #[derive(Clone)]
 pub enum TaintReason {
     UnknownWasiVersion,
@@ -52,6 +75,7 @@ pub enum TaintReason {
 /// different sources.
 ///
 /// All variants are wrapped in `Cow` to allow for zero-copy usage when possible.
+#[allow(clippy::large_enum_variant)]
 pub enum ModuleInput<'a> {
     /// Raw bytes.
     Bytes(Cow<'a, [u8]>),
@@ -161,6 +185,24 @@ where
                 wasmer::Store::default()
             }
         }
+    }
+
+    /// Create additional imports for a new WASIX instance in the provided store.
+    ///
+    /// This callback may be invoked multiple times (e.g. process bootstrap,
+    /// thread spawn), so implementations should create imports that are valid
+    /// for the given store each time.
+    fn additional_imports(&self, _store: &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> {
+        Ok(wasmer::Imports::new())
+    }
+
+    /// Configure an instantiated instance before initialization/startup.
+    fn configure_new_instance(
+        &self,
+        _store: &mut wasmer::StoreMut,
+        _instance: &wasmer::Instance,
+    ) -> anyhow::Result<()> {
+        Ok(())
     }
 
     /// Get a custom HTTP client
@@ -407,6 +449,8 @@ pub struct PluggableRuntime {
     pub read_only_journals: Vec<Arc<DynReadableJournal>>,
     #[cfg(feature = "journal")]
     pub writable_journals: Vec<Arc<DynJournal>>,
+    pub additional_imports: Vec<ImportCallback>,
+    pub instance_callbacks: Vec<InstanceCallback>,
 }
 
 impl PluggableRuntime {
@@ -445,6 +489,8 @@ impl PluggableRuntime {
             read_only_journals: Vec::new(),
             #[cfg(feature = "journal")]
             writable_journals: Vec::new(),
+            additional_imports: Vec::new(),
+            instance_callbacks: Vec::new(),
         }
     }
 
@@ -506,6 +552,30 @@ impl PluggableRuntime {
         self.writable_journals.push(journal);
         self
     }
+
+    pub fn with_additional_imports(
+        &mut self,
+        imports: impl Fn(&mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>
+        + Send
+        + Sync
+        + 'static,
+    ) -> &mut Self {
+        self.additional_imports
+            .push(ImportCallback(Arc::new(imports)));
+        self
+    }
+
+    pub fn with_instance_setup(
+        &mut self,
+        callback: impl Fn(&mut wasmer::StoreMut, &wasmer::Instance) -> anyhow::Result<()>
+        + Send
+        + Sync
+        + 'static,
+    ) -> &mut Self {
+        self.instance_callbacks
+            .push(InstanceCallback(Arc::new(callback)));
+        self
+    }
 }
 
 impl Runtime for PluggableRuntime {
@@ -543,6 +613,25 @@ impl Runtime for PluggableRuntime {
 
     fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
         self.module_cache.clone()
+    }
+
+    fn additional_imports(&self, store: &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> {
+        let mut imports = wasmer::Imports::new();
+        for cb in &self.additional_imports {
+            imports.extend(&(*(cb.0))(store)?);
+        }
+        Ok(imports)
+    }
+
+    fn configure_new_instance(
+        &self,
+        store: &mut wasmer::StoreMut,
+        instance: &wasmer::Instance,
+    ) -> anyhow::Result<()> {
+        for cb in &self.instance_callbacks {
+            (*(cb.0))(store, instance)?;
+        }
+        Ok(())
     }
 
     #[cfg(feature = "journal")]
@@ -710,6 +799,18 @@ impl Runtime for OverriddenRuntime {
         } else {
             self.inner.new_store()
         }
+    }
+
+    fn additional_imports(&self, store: &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> {
+        self.inner.additional_imports(store)
+    }
+
+    fn configure_new_instance(
+        &self,
+        store: &mut wasmer::StoreMut,
+        instance: &wasmer::Instance,
+    ) -> anyhow::Result<()> {
+        self.inner.configure_new_instance(store, instance)
     }
 
     fn http_client(&self) -> Option<&DynHttpClient> {

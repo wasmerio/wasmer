@@ -332,15 +332,32 @@ impl WasiEnv {
     /// This function should only be called from within a syscall
     /// as it accessed objects that are a thread local (functions)
     pub unsafe fn capable_of_deep_sleep(&self) -> bool {
-        if !self.control_plane.config().enable_asynchronous_threading {
-            return false;
-        }
-        self.inner()
-            .static_module_instance_handles()
+        self.deep_sleep_capability_requested() && self.deep_sleep_supported_by_module()
+    }
+
+    pub(crate) fn refresh_deep_sleep_capability(&mut self) {
+        self.enable_deep_sleep = if cfg!(feature = "js") {
+            false
+        } else {
+            self.deep_sleep_capability_requested() && self.deep_sleep_supported_by_module()
+        };
+    }
+
+    fn deep_sleep_capability_requested(&self) -> bool {
+        self.capabilities.threading.enable_deep_sleep
+    }
+
+    fn deep_sleep_supported_by_module(&self) -> bool {
+        self.try_inner()
             .map(|handles| {
-                handles.asyncify_get_state.is_some()
-                    && handles.asyncify_start_rewind.is_some()
-                    && handles.asyncify_start_unwind.is_some()
+                handles
+                    .static_module_instance_handles()
+                    .map(|handles| {
+                        handles.asyncify_get_state.is_some()
+                            && handles.asyncify_start_rewind.is_some()
+                            && handles.asyncify_start_unwind.is_some()
+                    })
+                    .unwrap_or(false)
             })
             .unwrap_or(false)
     }
@@ -391,7 +408,7 @@ impl WasiEnv {
             enable_journal: false,
             replaying_journal: false,
             skip_stdio_during_bootstrap: init.skip_stdio_during_bootstrap,
-            enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
+            enable_deep_sleep: false,
             enable_exponential_cpu_backoff: init
                 .capabilities
                 .threading
@@ -492,8 +509,32 @@ impl WasiEnv {
         // Let's instantiate the module with the imports.
         let mut import_object =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
+        let runtime = func_env.data(&store).runtime.clone();
+        let additional_imports = runtime
+            .additional_imports(&mut store)
+            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
-        let imported_memory = if let Some(memory) = memory {
+        for ((namespace, name), value) in &additional_imports {
+            // Downstream runtime imports must not override WASIX imports.
+            if import_object.exists(&namespace, &name) {
+                tracing::warn!(
+                    "Skipping duplicate additional import {}.{}",
+                    namespace,
+                    name
+                );
+            } else {
+                import_object.define(&namespace, &name, value);
+            }
+        }
+
+        let imported_memory = if let Some(existing_memory) = import_object
+            .get_export("env", "memory")
+            .and_then(|ext| match ext {
+                wasmer::Extern::Memory(memory) => Some(memory),
+                _ => None,
+            }) {
+            Some(existing_memory)
+        } else if let Some(memory) = memory {
             import_object.define("env", "memory", memory.clone());
             Some(memory)
         } else {
@@ -515,6 +556,10 @@ impl WasiEnv {
                 return Err(WasiThreadError::InstanceCreateFailed(Box::new(err)));
             }
         };
+
+        runtime
+            .configure_new_instance(&mut store, &instance)
+            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
         let handles = match imported_memory {
             Some(memory) => WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
@@ -706,7 +751,7 @@ impl WasiEnv {
             let mut now = 0;
             {
                 let mut has_signal_interval = false;
-                let inner = env.process.inner.0.lock().unwrap();
+                let mut inner = env.process.inner.0.lock().unwrap();
                 if !inner.signal_intervals.is_empty() {
                     now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap()
                         as u128;
@@ -719,7 +764,6 @@ impl WasiEnv {
                     }
                 }
                 if has_signal_interval {
-                    let mut inner = env.process.inner.0.lock().unwrap();
                     for signal in inner.signal_intervals.values_mut() {
                         let elapsed = now - signal.last_signal;
                         if elapsed >= signal.interval.as_nanos() {
@@ -839,7 +883,8 @@ impl WasiEnv {
     /// of the WasiEnv)
     #[doc(hidden)]
     pub(crate) fn set_inner(&mut self, handles: WasiModuleTreeHandles) {
-        self.inner.set(handles)
+        self.inner.set(handles);
+        self.refresh_deep_sleep_capability();
     }
 
     /// Swaps this inner with the WasiEnvironment of another, this

@@ -112,6 +112,16 @@ impl ContextSwitchingEnvironment {
         entrypoint: wasmer::Function,
         params: Vec<wasmer::Value>,
     ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
+        if !ctx
+            .data(&store)
+            .capabilities
+            .threading
+            .enable_asynchronous_threading
+        {
+            let result = entrypoint.call(&mut store, &params);
+            return (store, result);
+        }
+
         // If we are already in a context-switching environment, something went wrong
         if ctx
             .data_mut(&mut store)

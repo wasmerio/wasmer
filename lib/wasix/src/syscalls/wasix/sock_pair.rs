@@ -45,15 +45,11 @@ pub fn sock_pair<M: MemorySize>(
 
     // only certain combinations are supported
     match pt {
-        SockProto::Tcp => {
-            if ty != Socktype::Stream {
-                return Ok(Errno::Notsup);
-            }
+        SockProto::Tcp if ty != Socktype::Stream => {
+            return Ok(Errno::Notsup);
         }
-        SockProto::Udp => {
-            if ty != Socktype::Dgram {
-                return Ok(Errno::Notsup);
-            }
+        SockProto::Udp if ty != Socktype::Dgram => {
+            return Ok(Errno::Notsup);
         }
         _ => {}
     }

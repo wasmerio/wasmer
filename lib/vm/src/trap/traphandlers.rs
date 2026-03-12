@@ -597,8 +597,8 @@ cfg_if::cfg_if! {
                     pc = context.Rip as usize;
                     sp = context.Rsp as usize;
                 } else if #[cfg(target_arch = "x86")] {
-                    pc = context.Rip as usize;
-                    sp = context.Rsp as usize;
+                    pc = context.Eip as usize;
+                    sp = context.Esp as usize;
                 } else {
                     compile_error!("Unsupported platform");
                 }
