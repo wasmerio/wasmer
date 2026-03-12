@@ -349,11 +349,15 @@ impl WasiEnv {
 
     fn deep_sleep_supported_by_module(&self) -> bool {
         self.try_inner()
-            .and_then(|handles| handles.static_module_instance_handles())
             .map(|handles| {
-                handles.asyncify_get_state.is_some()
-                    && handles.asyncify_start_rewind.is_some()
-                    && handles.asyncify_start_unwind.is_some()
+                handles
+                    .static_module_instance_handles()
+                    .map(|handles| {
+                        handles.asyncify_get_state.is_some()
+                            && handles.asyncify_start_rewind.is_some()
+                            && handles.asyncify_start_unwind.is_some()
+                    })
+                    .unwrap_or(false)
             })
             .unwrap_or(false)
     }
