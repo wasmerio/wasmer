@@ -10,9 +10,11 @@ use crate::{
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex, MemoryIndex, MemoryType,
     ModuleHash, SignatureIndex, TableIndex, TableInitializer, TableType, TagIndex, TagType,
+    WasmError, WasmResult,
 };
 
 use indexmap::IndexMap;
+use itertools::Itertools;
 use rkyv::rancor::{Fallible, Source, Trace};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -359,6 +361,22 @@ impl ModuleInfo {
     /// Returns the module hash as String if available
     pub fn hash_string(&self) -> Option<String> {
         self.hash.map(|m| m.to_string())
+    }
+
+    /// Validates invariants for the precomputed signature hashes.
+    pub fn validate_signature_hashes(&self) -> WasmResult<()> {
+        if self
+            .signatures
+            .iter()
+            .map(|(_, signature)| signature)
+            .unique()
+            .map(|signature| signature.signature_hash())
+            .all_unique()
+        {
+            Ok(())
+        } else {
+            Err(WasmError::Generic("signature hash collision".to_string()))
+        }
     }
 
     /// Get the given passive element, if it exists.
