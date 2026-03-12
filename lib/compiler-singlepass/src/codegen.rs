@@ -2235,6 +2235,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(table_index as _);
                 let index = SignatureIndex::new(type_index as usize);
                 let sig = self.module.signatures.get(index).unwrap();
+                let table = self.module.tables.get(table_index).unwrap();
+                let local_fixed_funcref_table = self
+                    .module
+                    .local_table_index(table_index)
+                    .filter(|_| table.is_fixed_funcref_table());
                 let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
@@ -2263,7 +2268,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
                 let sigidx = self.machine.acquire_temp_gpr().unwrap();
 
-                if let Some(local_table_index) = self.module.local_table_index(table_index) {
+                if let Some(local_table_index) = local_fixed_funcref_table {
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::GPR(self.machine.get_vmctx_reg()),
+                        Location::GPR(table_base),
+                    )?;
+                    self.machine.location_add(
+                        Size::S64,
+                        Location::Imm32(
+                            self.vmoffsets
+                                .vmctx_fixed_funcref_table_anyfuncs(local_table_index)
+                                .expect("fixed funcref table must have inline VMContext storage"),
+                        ),
+                        Location::GPR(table_base),
+                        false,
+                    )?;
+                    self.machine.move_location(
+                        Size::S32,
+                        Location::Imm32(table.minimum),
+                        Location::GPR(table_count),
+                    )?;
+                } else if let Some(local_table_index) = self.module.local_table_index(table_index) {
                     let (vmctx_offset_base, vmctx_offset_len) = (
                         self.vmoffsets.vmctx_vmtable_definition(local_table_index),
                         self.vmoffsets
@@ -2317,7 +2343,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .move_location(Size::S32, func_index, Location::GPR(table_count))?;
                 self.machine.emit_imul_imm32(
                     Size::S64,
-                    self.vmoffsets.size_of_vm_funcref() as u32,
+                    if local_fixed_funcref_table.is_some() {
+                        self.vmoffsets.size_of_vmcaller_checked_anyfunc() as u32
+                    } else {
+                        self.vmoffsets.size_of_vm_funcref() as u32
+                    },
                     table_count,
                 )?;
                 self.machine.location_add(
@@ -2327,20 +2357,41 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     false,
                 )?;
 
-                // deref the table to get a VMFuncRef
-                self.machine.move_location(
-                    Size::S64,
-                    Location::Memory(table_count, self.vmoffsets.vm_funcref_anyfunc_ptr() as i32),
-                    Location::GPR(table_count),
-                )?;
-                // Trap if the FuncRef is null
-                self.machine.jmp_on_condition(
-                    UnsignedCondition::Equal,
-                    Size::S64,
-                    Location::GPR(table_count),
-                    Location::Imm32(0),
-                    self.special_labels.indirect_call_null,
-                )?;
+                if local_fixed_funcref_table.is_some() {
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::Memory(
+                            table_count,
+                            self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as i32,
+                        ),
+                        Location::GPR(table_base),
+                    )?;
+                    self.machine.jmp_on_condition(
+                        UnsignedCondition::Equal,
+                        Size::S64,
+                        Location::GPR(table_base),
+                        Location::Imm32(0),
+                        self.special_labels.indirect_call_null,
+                    )?;
+                } else {
+                    // deref the table to get a VMFuncRef
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::Memory(
+                            table_count,
+                            self.vmoffsets.vm_funcref_anyfunc_ptr() as i32,
+                        ),
+                        Location::GPR(table_count),
+                    )?;
+                    // Trap if the FuncRef is null
+                    self.machine.jmp_on_condition(
+                        UnsignedCondition::Equal,
+                        Size::S64,
+                        Location::GPR(table_count),
+                        Location::Imm32(0),
+                        self.special_labels.indirect_call_null,
+                    )?;
+                }
                 self.machine.move_location(
                     Size::S32,
                     Location::Memory(
