@@ -1623,22 +1623,16 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         // If necessary, check the signature.
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
-                let sig_id_size = self.offsets.size_of_vmshared_signature_index();
-                let sig_id_type = ir::Type::int(u16::from(sig_id_size) * 8).unwrap();
-                let vmctx = self.vmctx(builder.func);
-                let base = builder.ins().global_value(pointer_type, vmctx);
-                let offset =
-                    i32::try_from(self.offsets.vmctx_vmshared_signature_id(sig_index)).unwrap();
-
-                // Load the caller ID.
-                let mut mem_flags = ir::MemFlags::trusted();
-                mem_flags.set_readonly();
-                let caller_sig_id = builder.ins().load(sig_id_type, mem_flags, base, offset);
+                let sig_hash_type = ir::types::I64;
+                let expected_sig_hash = builder.ins().iconst(
+                    sig_hash_type,
+                    self.module.signatures[sig_index].signature_hash() as i64,
+                );
 
                 // Load the callee ID.
                 let mem_flags = ir::MemFlags::trusted();
-                let callee_sig_id = builder.ins().load(
-                    sig_id_type,
+                let callee_sig_hash = builder.ins().load(
+                    sig_hash_type,
                     mem_flags,
                     anyfunc_ptr,
                     i32::from(self.offsets.vmcaller_checked_anyfunc_type_index()),
@@ -1647,7 +1641,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 // Check that they match.
                 let cmp = builder
                     .ins()
-                    .icmp(IntCC::Equal, callee_sig_id, caller_sig_id);
+                    .icmp(IntCC::Equal, callee_sig_hash, expected_sig_hash);
                 builder.ins().trapz(cmp, crate::TRAP_BAD_SIGNATURE);
             }
         }
