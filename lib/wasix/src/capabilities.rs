@@ -40,15 +40,15 @@ impl Default for Capabilities {
 }
 
 /// Defines threading related permissions.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CapabilityThreadingV1 {
     /// Maximum number of threads that can be spawned.
     ///
     /// [`None`] means no limit.
     pub max_threads: Option<usize>,
 
-    /// Flag that indicates if asynchronous threading is disabled
-    /// (default = false)
+    /// Flag that indicates if asynchronous threading is enabled.
+    /// (default = true)
     pub enable_asynchronous_threading: bool,
 
     /// Enables an exponential backoff of the process CPU usage when there
@@ -60,6 +60,17 @@ pub struct CapabilityThreadingV1 {
     /// Switches to a blocking sleep implementation instead
     /// of the asynchronous runtime based implementation
     pub enable_blocking_sleep: bool,
+}
+
+impl Default for CapabilityThreadingV1 {
+    fn default() -> Self {
+        Self {
+            max_threads: None,
+            enable_asynchronous_threading: true,
+            enable_exponential_cpu_backoff: None,
+            enable_blocking_sleep: false,
+        }
+    }
 }
 
 impl CapabilityThreadingV1 {
