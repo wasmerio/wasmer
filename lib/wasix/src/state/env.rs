@@ -492,8 +492,32 @@ impl WasiEnv {
         // Let's instantiate the module with the imports.
         let mut import_object =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
+        let runtime = func_env.data(&store).runtime.clone();
+        let additional_imports = runtime
+            .additional_imports(&mut store)
+            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
-        let imported_memory = if let Some(memory) = memory {
+        for ((namespace, name), value) in &additional_imports {
+            // Downstream runtime imports must not override WASIX imports.
+            if import_object.exists(&namespace, &name) {
+                tracing::warn!(
+                    "Skipping duplicate additional import {}.{}",
+                    namespace,
+                    name
+                );
+            } else {
+                import_object.define(&namespace, &name, value);
+            }
+        }
+
+        let imported_memory = if let Some(existing_memory) = import_object
+            .get_export("env", "memory")
+            .and_then(|ext| match ext {
+                wasmer::Extern::Memory(memory) => Some(memory),
+                _ => None,
+            }) {
+            Some(existing_memory)
+        } else if let Some(memory) = memory {
             import_object.define("env", "memory", memory.clone());
             Some(memory)
         } else {
@@ -515,6 +539,10 @@ impl WasiEnv {
                 return Err(WasiThreadError::InstanceCreateFailed(Box::new(err)));
             }
         };
+
+        runtime
+            .configure_new_instance(&mut store, &instance)
+            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
         let handles = match imported_memory {
             Some(memory) => WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(

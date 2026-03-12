@@ -28,8 +28,6 @@ use wasmer_wasix_types::wasi::SignalDisposition;
 
 use super::env::WasiEnvInit;
 
-// FIXME: additional import support was broken and has been removed. We need to re-introduce
-// it in a way that works with multi-threaded WASIX apps.
 /// Builder API for configuring a [`WasiEnv`] environment needed to run WASI modules.
 ///
 /// Usage:
