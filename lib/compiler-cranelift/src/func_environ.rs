@@ -72,6 +72,9 @@ pub struct FuncEnvironment<'module_environment> {
     /// The module function signatures
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
 
+    /// Cached stable hashes for module signatures.
+    signature_hashes: &'module_environment PrimaryMap<SignatureIndex, u64>,
+
     /// Heaps implementing WebAssembly linear memories.
     heaps: PrimaryMap<Heap, HeapData>,
 
@@ -166,6 +169,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         target_config: TargetFrontendConfig,
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+        signature_hashes: &'module_environment PrimaryMap<SignatureIndex, u64>,
         memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
@@ -173,6 +177,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             target_config,
             module,
             signatures,
+            signature_hashes,
             type_stack: vec![],
             heaps: PrimaryMap::new(),
             vmctx: None,
@@ -1624,10 +1629,10 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
                 let sig_hash_type = ir::types::I64;
-                let expected_sig_hash = builder.ins().iconst(
-                    sig_hash_type,
-                    self.module.signatures[sig_index].signature_hash() as i64,
-                );
+                let expected_sig_hash =
+                    builder
+                        .ins()
+                        .iconst(sig_hash_type, self.signature_hashes[sig_index] as i64);
 
                 // Load the callee ID.
                 let mem_flags = ir::MemFlags::trusted();

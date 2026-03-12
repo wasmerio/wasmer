@@ -62,8 +62,9 @@ pub struct FuncGen<'a, M: Machine> {
     // // Memory plans.
     memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
 
-    // // Table plans.
-    // table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
+    /// Cached stable hashes for module signatures.
+    signature_hashes: &'a PrimaryMap<SignatureIndex, u64>,
+
     /// Function signature.
     signature: FunctionType,
 
@@ -915,6 +916,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         vmoffsets: &'a VMOffsets,
         memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
+        signature_hashes: &'a PrimaryMap<SignatureIndex, u64>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
         machine: M,
@@ -949,6 +951,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             vmoffsets,
             memory_styles,
             // table_styles,
+            signature_hashes,
             signature,
             locals: vec![], // initialization deferred to emit_head
             local_types,
@@ -2341,7 +2344,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::Imm32(0),
                     self.special_labels.indirect_call_null,
                 )?;
-                let expected_signature_hash = self.module.signatures[index].signature_hash();
+                let expected_signature_hash = self.signature_hashes[index];
                 self.machine.move_location(
                     Size::S64,
                     Location::Imm64(expected_signature_hash),
