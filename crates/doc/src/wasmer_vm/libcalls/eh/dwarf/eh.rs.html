@@ -421,16 +421,23 @@
 <a href=#421 id=421 data-nosnippet>421</a>        <span class="macro">log!</span>(<span class="string">"(pers) since base_ptr is not null, we must an offset"</span>);
 <a href=#422 id=422 data-nosnippet>422</a>        <span class="kw">let </span>offset = <span class="kw">unsafe </span>{ read_encoded_offset(reader, DwEhPe(encoding.<span class="number">0 </span>&amp; <span class="number">0x0f</span>))<span class="question-mark">? </span>};
 <a href=#423 id=423 data-nosnippet>423</a>        <span class="macro">log!</span>(<span class="string">"(pers) read offset is {offset:x?}"</span>);
-<a href=#424 id=424 data-nosnippet>424</a>        base_ptr.wrapping_add(offset)
-<a href=#425 id=425 data-nosnippet>425</a>    };
-<a href=#426 id=426 data-nosnippet>426</a>
-<a href=#427 id=427 data-nosnippet>427</a>    <span class="macro">log!</span>(<span class="string">"(pers) about to read from {ptr:?}"</span>);
-<a href=#428 id=428 data-nosnippet>428</a>
-<a href=#429 id=429 data-nosnippet>429</a>    <span class="kw">if </span>encoding.<span class="number">0 </span>&amp; gimli::DW_EH_PE_indirect.<span class="number">0 </span>!= <span class="number">0 </span>{
-<a href=#430 id=430 data-nosnippet>430</a>        ptr = <span class="kw">unsafe </span>{ ptr.cast::&lt;<span class="kw-2">*const </span>u8&gt;().read_unaligned() };
-<a href=#431 id=431 data-nosnippet>431</a>    }
-<a href=#432 id=432 data-nosnippet>432</a>
-<a href=#433 id=433 data-nosnippet>433</a>    <span class="macro">log!</span>(<span class="string">"(pers) returning ptr value {ptr:?}"</span>);
-<a href=#434 id=434 data-nosnippet>434</a>
-<a href=#435 id=435 data-nosnippet>435</a>    <span class="prelude-val">Ok</span>(ptr)
-<a href=#436 id=436 data-nosnippet>436</a>}</code></pre></div></section></main></body></html>
+<a href=#424 id=424 data-nosnippet>424</a>        <span class="comment">// For relative encodings, a raw zero denotes a null pointer. Do not
+<a href=#425 id=425 data-nosnippet>425</a>        // apply the base or indirect dereference in that case.
+<a href=#426 id=426 data-nosnippet>426</a>        // Upstream implementation: https://github.com/llvm/llvm-project/blob/main/libcxxabi/src/cxa_personality.cpp#L341-L342.
+<a href=#427 id=427 data-nosnippet>427</a>        </span><span class="kw">if </span>offset == <span class="number">0 </span>{
+<a href=#428 id=428 data-nosnippet>428</a>            core::ptr::null()
+<a href=#429 id=429 data-nosnippet>429</a>        } <span class="kw">else </span>{
+<a href=#430 id=430 data-nosnippet>430</a>            base_ptr.wrapping_add(offset)
+<a href=#431 id=431 data-nosnippet>431</a>        }
+<a href=#432 id=432 data-nosnippet>432</a>    };
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a>    <span class="macro">log!</span>(<span class="string">"(pers) about to read from {ptr:?}"</span>);
+<a href=#435 id=435 data-nosnippet>435</a>
+<a href=#436 id=436 data-nosnippet>436</a>    <span class="kw">if </span>!ptr.is_null() &amp;&amp; encoding.<span class="number">0 </span>&amp; gimli::DW_EH_PE_indirect.<span class="number">0 </span>!= <span class="number">0 </span>{
+<a href=#437 id=437 data-nosnippet>437</a>        ptr = <span class="kw">unsafe </span>{ ptr.cast::&lt;<span class="kw-2">*const </span>u8&gt;().read_unaligned() };
+<a href=#438 id=438 data-nosnippet>438</a>    }
+<a href=#439 id=439 data-nosnippet>439</a>
+<a href=#440 id=440 data-nosnippet>440</a>    <span class="macro">log!</span>(<span class="string">"(pers) returning ptr value {ptr:?}"</span>);
+<a href=#441 id=441 data-nosnippet>441</a>
+<a href=#442 id=442 data-nosnippet>442</a>    <span class="prelude-val">Ok</span>(ptr)
+<a href=#443 id=443 data-nosnippet>443</a>}</code></pre></div></section></main></body></html>
