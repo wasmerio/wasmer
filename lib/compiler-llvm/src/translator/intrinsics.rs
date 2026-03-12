@@ -28,7 +28,8 @@ use target_lexicon::{Architecture, Triple};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex, TableIndex, Type,
+    LocalTableIndex, MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex,
+    TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
@@ -388,7 +389,12 @@ impl<'ctx> Intrinsics<'ctx> {
         let sigindex_ty = i32_ty;
 
         let anyfunc_ty = context.struct_type(
-            &[i8_ptr_ty_basic, sigindex_ty.into(), ctx_ptr_ty_basic],
+            &[
+                i8_ptr_ty_basic,
+                sigindex_ty.into(),
+                ctx_ptr_ty_basic,
+                ptr_ty.into(),
+            ],
             false,
         );
         let funcref_ty = ptr_ty;
@@ -1758,6 +1764,25 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             bounds.as_instruction_value().unwrap(),
         );
         Ok((base_ptr, bounds))
+    }
+
+    // Return a pointer to the beginning of a local funcref Table (a pointer related to vmctx).
+    pub fn fixed_funcref_table_anyfuncs(
+        &self,
+        index: LocalTableIndex,
+        intrinsics: &Intrinsics<'ctx>,
+        builder: &Builder<'ctx>,
+    ) -> Result<PointerValue<'ctx>, CompileError> {
+        let offset = intrinsics.i64_ty.const_int(
+            self.offsets
+                .vmctx_fixed_funcref_table_anyfuncs(index)
+                .expect("fixed funcref table must have inline VMContext storage")
+                .into(),
+            false,
+        );
+        let ptr =
+            unsafe { err!(builder.build_gep(intrinsics.i8_ty, self.ctx_ptr_value, &[offset], "")) };
+        Ok(err!(builder.build_bit_cast(ptr, intrinsics.ptr_ty, "")).into_pointer_value())
     }
 
     pub fn dynamic_sigindex(
