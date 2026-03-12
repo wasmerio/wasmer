@@ -5,7 +5,6 @@ mod interest;
 #[cfg(feature = "sys")]
 mod selector;
 pub mod waker;
-pub use self::waker::block_on;
 
 pub use arc::*;
 #[cfg(feature = "sys")]
