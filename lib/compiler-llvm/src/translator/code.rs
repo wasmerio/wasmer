@@ -1738,26 +1738,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             "typed_func_ptr",
         ));
 
-        /*
-        if self.track_state {
-            if let Some(offset) = opcode_offset {
-                let mut stackmaps = self.stackmaps.borrow_mut();
-                emit_stack_map(
-                    &info,
-                    self.intrinsics,
-                    self.builder,
-                    self.index,
-                    &mut *stackmaps,
-                    StackmapEntryKind::Call,
-                    &self.locals,
-                    state,
-                    ctx,
-                    offset,
-                )
-            }
-        }
-        */
-
         let call_site_local = self.build_indirect_call_or_invoke(
             llvm_func_type,
             typed_func_ptr,
@@ -1810,91 +1790,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     }
 }
 
-/*
-fn emit_stack_map<'ctx>(
-    intrinsics: &Intrinsics<'ctx>,
-    builder: &Builder<'ctx>,
-    local_function_id: usize,
-    target: &mut StackmapRegistry,
-    kind: StackmapEntryKind,
-    locals: &[PointerValue],
-    state: &State<'ctx>,
-    _ctx: &mut CtxType<'ctx>,
-    opcode_offset: usize,
-) {
-    let stackmap_id = target.entries.len();
-
-    let mut params = Vec::with_capacity(2 + locals.len() + state.stack.len());
-
-    params.push(
-        intrinsics
-            .i64_ty
-            .const_int(stackmap_id as u64, false)
-            .as_basic_value_enum(),
-    );
-    params.push(intrinsics.i32_ty.const_zero().as_basic_value_enum());
-
-    let locals: Vec<_> = locals.iter().map(|x| x.as_basic_value_enum()).collect();
-    let mut value_semantics: Vec<ValueSemantic> =
-        Vec::with_capacity(locals.len() + state.stack.len());
-
-    params.extend_from_slice(&locals);
-    value_semantics.extend((0..locals.len()).map(ValueSemantic::WasmLocal));
-
-    params.extend(state.stack.iter().map(|x| x.0));
-    value_semantics.extend((0..state.stack.len()).map(ValueSemantic::WasmStack));
-
-    // FIXME: Information needed for Abstract -> Runtime state transform is not fully preserved
-    // to accelerate compilation and reduce memory usage. Check this again when we try to support
-    // "full" LLVM OSR.
-
-    assert_eq!(params.len(), value_semantics.len() + 2);
-
-    builder.build_call(intrinsics.experimental_stackmap, &params, "");
-
-    target.entries.push(StackmapEntry {
-        kind,
-        local_function_id,
-        local_count: locals.len(),
-        stack_count: state.stack.len(),
-        opcode_offset,
-        value_semantics,
-        is_start: true,
-    });
-}
-
-fn finalize_opcode_stack_map<'ctx>(
-    intrinsics: &Intrinsics<'ctx>,
-    builder: &Builder<'ctx>,
-    local_function_id: usize,
-    target: &mut StackmapRegistry,
-    kind: StackmapEntryKind,
-    opcode_offset: usize,
-) {
-    let stackmap_id = target.entries.len();
-    builder.build_call(
-        intrinsics.experimental_stackmap,
-        &[
-            intrinsics
-                .i64_ty
-                .const_int(stackmap_id as u64, false)
-                .as_basic_value_enum(),
-            intrinsics.i32_ty.const_zero().as_basic_value_enum(),
-        ],
-        "opcode_stack_map_end",
-    );
-    target.entries.push(StackmapEntry {
-        kind,
-        local_function_id,
-        local_count: 0,
-        stack_count: 0,
-        opcode_offset,
-        value_semantics: vec![],
-        is_start: false,
-    });
-}
- */
-
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     m0_param: Option<PointerValue<'ctx>>,
     context: &'ctx Context,
@@ -1908,14 +1803,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     unreachable_depth: usize,
     memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
-
-    // This is support for stackmaps:
-    /*
-    stackmaps: Rc<RefCell<StackmapRegistry>>,
-    index: usize,
-    opcode_offset: usize,
-    track_state: bool,
-    */
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
@@ -2307,7 +2194,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 // For each result of the block we're branching to,
                 // pop a value off the value stack and load it into
                 // the corresponding phi.
-                for (phi, value) in phis.iter().zip(values.into_iter()) {
+                for (phi, value) in phis.iter().zip(values) {
                     phi.add_incoming(&[(&value, current_block)]);
                 }
 
@@ -3088,25 +2975,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.m0_param,
                     )?;
 
-                    /*
-                    if self.track_state {
-                        if let Some(offset) = opcode_offset {
-                            let mut stackmaps = self.stackmaps.borrow_mut();
-                            emit_stack_map(
-                                &info,
-                                self.intrinsics,
-                                self.builder,
-                                self.index,
-                                &mut *stackmaps,
-                                StackmapEntryKind::Call,
-                                &self.locals,
-                                state,
-                                ctx,
-                                offset,
-                            )
-                        }
-                    }
-                    */
                     let call_site = self.build_indirect_call_or_invoke(
                         llvm_func_type,
                         func,
@@ -3116,21 +2984,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     for (attr, attr_loc) in attrs {
                         call_site.add_attribute(attr_loc, attr);
                     }
-                    /*
-                    if self.track_state {
-                        if let Some(offset) = opcode_offset {
-                            let mut stackmaps = self.stackmaps.borrow_mut();
-                            finalize_opcode_stack_map(
-                                self.intrinsics,
-                                self.builder,
-                                self.index,
-                                &mut *stackmaps,
-                                StackmapEntryKind::Call,
-                                offset,
-                            )
-                        }
-                    }
-                    */
 
                     self.abi
                         .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?

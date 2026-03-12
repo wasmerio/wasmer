@@ -46,12 +46,6 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
                     // Update FileStat to reflect the correct current size.
                     // TODO: don't lock twice - currently needed to not keep a lock on all inodes
                     {
-                        let env = ctx.data();
-                        let (_, mut state, inodes) =
-                            unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-
-                        let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-                        let inode = fd_entry.inode;
                         let mut guard = inode.stat.write().unwrap();
                         guard.st_size = size;
                     }

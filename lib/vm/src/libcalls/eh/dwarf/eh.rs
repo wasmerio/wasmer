@@ -421,12 +421,19 @@ unsafe fn read_encoded_pointer(
         log!("(pers) since base_ptr is not null, we must an offset");
         let offset = unsafe { read_encoded_offset(reader, DwEhPe(encoding.0 & 0x0f))? };
         log!("(pers) read offset is {offset:x?}");
-        base_ptr.wrapping_add(offset)
+        // For relative encodings, a raw zero denotes a null pointer. Do not
+        // apply the base or indirect dereference in that case.
+        // Upstream implementation: https://github.com/llvm/llvm-project/blob/main/libcxxabi/src/cxa_personality.cpp#L341-L342.
+        if offset == 0 {
+            core::ptr::null()
+        } else {
+            base_ptr.wrapping_add(offset)
+        }
     };
 
     log!("(pers) about to read from {ptr:?}");
 
-    if encoding.0 & gimli::DW_EH_PE_indirect.0 != 0 {
+    if !ptr.is_null() && encoding.0 & gimli::DW_EH_PE_indirect.0 != 0 {
         ptr = unsafe { ptr.cast::<*const u8>().read_unaligned() };
     }
 

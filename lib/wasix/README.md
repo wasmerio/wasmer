@@ -116,5 +116,5 @@ of links that may help you:
 * [WASI C API header
   file](https://github.com/WebAssembly/wasi-libc/blob/main/libc-bottom-half/headers/public/wasi/api.h),
 * [WASI Application Binary Interface
-  (ABI)](https://github.com/WebAssembly/WASI/blob/main/legacy/application-abi.md),
+  (ABI)](https://github.com/WebAssembly/WASI/blob/v0.2.9/legacy/application-abi.md),
   where we learn about `_start` and `_initialize` (for _reactors_) for example.
