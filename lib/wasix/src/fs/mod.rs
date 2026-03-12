@@ -47,10 +47,10 @@ use wasmer_wasix_types::{
     },
 };
 
-pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, FdInner, InodeVal, Kind};
+pub use self::fd::{Fd, FdInner, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
-    InodeValFileReadGuard, InodeValFileWriteGuard, POLL_GUARD_MAX_RET, WasiStateFileGuard,
+    InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
 use self::relative_path_hack::RelativeOrAbsolutePathHack;
@@ -1141,6 +1141,17 @@ impl WasiFs {
     ) -> Result<InodeGuard, Errno> {
         if symlink_count > MAX_SYMLINKS {
             return Err(Errno::Mlink);
+        }
+
+        // Absolute root paths should resolve to the mounted "/" inode when present.
+        // This keeps "/" behavior aligned with historical path traversal semantics.
+        if path_str == "/" {
+            let guard = cur_inode.read();
+            if let Kind::Root { entries } = guard.deref()
+                && let Some(root_entry) = entries.get("/")
+            {
+                return Ok(root_entry.clone());
+            }
         }
 
         let path: &Path = Path::new(path_str);

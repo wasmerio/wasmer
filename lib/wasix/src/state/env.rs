@@ -706,7 +706,7 @@ impl WasiEnv {
             let mut now = 0;
             {
                 let mut has_signal_interval = false;
-                let inner = env.process.inner.0.lock().unwrap();
+                let mut inner = env.process.inner.0.lock().unwrap();
                 if !inner.signal_intervals.is_empty() {
                     now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap()
                         as u128;
@@ -719,7 +719,6 @@ impl WasiEnv {
                     }
                 }
                 if has_signal_interval {
-                    let mut inner = env.process.inner.0.lock().unwrap();
                     for signal in inner.signal_intervals.values_mut() {
                         let elapsed = now - signal.last_signal;
                         if elapsed >= signal.interval.as_nanos() {
