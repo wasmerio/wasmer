@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["TTY_MOBILE_PAUSE"],"enum":["InputEvent"],"mod":["tty_sys"],"struct":["ConsoleRect","Tty","TtyOptions","TtyOptionsInner","WasiTtyState"],"trait":["TtyBridge"]};
+window.SIDEBAR_ITEMS = {"constant":["KNOWN_ESCAPE_SEQUENCES","TTY_MOBILE_PAUSE"],"enum":["EscapeMatch","InputEvent","ParsedInput"],"mod":["tty_sys"],"struct":["ConsoleRect","InputParser","InputParserConfig","LineDiscipline","Tty","TtyOptions","TtyOptionsInner","WasiTtyState"],"trait":["TtyBridge"]};
