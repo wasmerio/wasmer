@@ -7,10 +7,11 @@ use crate::{
     vm::{VMExtern, VMExternMemory, VMMemory},
 };
 
-gen_rt_ty!(Memory
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
+    pub BackendMemory(entities::memory::Memory);
+}
 
 impl BackendMemory {
     /// Creates a new host [`BackendMemory`] from the provided [`MemoryType`].
