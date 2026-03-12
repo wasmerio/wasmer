@@ -1629,10 +1629,9 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
                 let sig_hash_type = ir::types::I64;
-                let expected_sig_hash =
-                    builder
-                        .ins()
-                        .iconst(sig_hash_type, self.signature_hashes[sig_index] as i64);
+                let expected_sig_hash = builder
+                    .ins()
+                    .iconst(sig_hash_type, self.signature_hashes[sig_index] as i64);
 
                 // Load the callee ID.
                 let mem_flags = ir::MemFlags::trusted();
