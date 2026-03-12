@@ -332,11 +332,24 @@ impl WasiEnv {
     /// This function should only be called from within a syscall
     /// as it accessed objects that are a thread local (functions)
     pub unsafe fn capable_of_deep_sleep(&self) -> bool {
-        if !self.control_plane.config().enable_asynchronous_threading {
-            return false;
-        }
-        self.inner()
-            .static_module_instance_handles()
+        self.deep_sleep_capability_requested() && self.deep_sleep_supported_by_module()
+    }
+
+    pub(crate) fn refresh_deep_sleep_capability(&mut self) {
+        self.enable_deep_sleep = if cfg!(feature = "js") {
+            false
+        } else {
+            self.deep_sleep_capability_requested() && self.deep_sleep_supported_by_module()
+        };
+    }
+
+    fn deep_sleep_capability_requested(&self) -> bool {
+        self.capabilities.threading.enable_deep_sleep
+    }
+
+    fn deep_sleep_supported_by_module(&self) -> bool {
+        self.try_inner()
+            .and_then(|handles| handles.static_module_instance_handles())
             .map(|handles| {
                 handles.asyncify_get_state.is_some()
                     && handles.asyncify_start_rewind.is_some()
@@ -391,7 +404,7 @@ impl WasiEnv {
             enable_journal: false,
             replaying_journal: false,
             skip_stdio_during_bootstrap: init.skip_stdio_during_bootstrap,
-            enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
+            enable_deep_sleep: false,
             enable_exponential_cpu_backoff: init
                 .capabilities
                 .threading
@@ -867,7 +880,8 @@ impl WasiEnv {
     /// of the WasiEnv)
     #[doc(hidden)]
     pub(crate) fn set_inner(&mut self, handles: WasiModuleTreeHandles) {
-        self.inner.set(handles)
+        self.inner.set(handles);
+        self.refresh_deep_sleep_capability();
     }
 
     /// Swaps this inner with the WasiEnvironment of another, this
