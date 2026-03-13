@@ -262,12 +262,14 @@ impl EpollState {
     }
 
     pub(crate) fn apply_del(&self, fd: WasiFd) -> Result<(), Errno> {
-        self.subscriptions
+        let removed = self
+            .subscriptions
             .lock()
             .unwrap()
             .remove(&fd)
-            .map(|_| ())
-            .ok_or(Errno::Noent)
+            .ok_or(Errno::Noent)?;
+        removed.detach_joins();
+        Ok(())
     }
 
     pub(crate) fn rollback_registration(&self, fd: WasiFd, previous: Option<Arc<EpollSubState>>) {
@@ -684,6 +686,8 @@ pub(crate) fn epoll_empty_dequeue_entry() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::RwLock;
+    use virtual_fs::Pipe;
 
     fn test_epoll_event_ctl(fd: WasiFd) -> EpollEventCtl {
         EpollEventCtl {
@@ -940,5 +944,38 @@ mod tests {
         assert!(sub.enqueued.load(Ordering::Acquire));
         let queued = epoll_state.ready.lock().unwrap().pop_front().unwrap();
         assert_eq!(queued.fd, 44);
+    }
+
+    #[test]
+    fn apply_del_detaches_joins_even_if_subscription_stays_alive() {
+        let epoll_state = Arc::new(EpollState::new());
+        let event = test_epoll_event_ctl(55);
+        let sub = Arc::new(EpollSubState::new(EpollFd::from_event_ctl(55, &event), 1));
+        epoll_state.insert_subscription(55, sub.clone());
+
+        let (tx, _rx) = Pipe::new().split();
+        sub.add_join(EpollJoinGuard::new(InodeValFilePollGuard {
+            fd: 55,
+            peb: PollEventBuilder::new().build(),
+            subscription: Subscription {
+                userdata: 0,
+                type_: Eventtype::FdRead,
+                data: SubscriptionUnion {
+                    fd_readwrite: SubscriptionFsReadwrite {
+                        file_descriptor: 55,
+                    },
+                },
+            },
+            mode: InodeValFilePollGuardMode::PipeTx {
+                tx: Arc::new(RwLock::new(Box::new(tx))),
+            },
+        }));
+
+        let leaked_ref = sub.clone();
+        assert_eq!(leaked_ref.joins.lock().unwrap().len(), 1);
+
+        epoll_state.apply_del(55).unwrap();
+
+        assert_eq!(leaked_ref.joins.lock().unwrap().len(), 0);
     }
 }
