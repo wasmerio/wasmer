@@ -233,7 +233,7 @@
 <a href=#233 id=233 data-nosnippet>233</a>
 <a href=#234 id=234 data-nosnippet>234</a>    <span class="kw">pub fn </span>poll_write_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
 <a href=#235 id=235 data-nosnippet>235</a>        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-<a href=#236 id=236 data-nosnippet>236</a>        inner.poll_read_ready(cx)
+<a href=#236 id=236 data-nosnippet>236</a>        inner.poll_write_ready(cx)
 <a href=#237 id=237 data-nosnippet>237</a>    }
 <a href=#238 id=238 data-nosnippet>238</a>
 <a href=#239 id=239 data-nosnippet>239</a>    <span class="comment">// When a sendto or connect call comes in for a UDP "pre-socket", it must be bound to
@@ -1580,4 +1580,172 @@
 <a href=#1580 id=1580 data-nosnippet>1580</a>        .union(Rights::SOCK_ADDR_REMOTE)
 <a href=#1581 id=1581 data-nosnippet>1581</a>        .union(Rights::SOCK_RECV_FROM)
 <a href=#1582 id=1582 data-nosnippet>1582</a>        .union(Rights::SOCK_SEND_TO)
-<a href=#1583 id=1583 data-nosnippet>1583</a>}</code></pre></div></section></main></body></html>
+<a href=#1583 id=1583 data-nosnippet>1583</a>}
+<a href=#1584 id=1584 data-nosnippet>1584</a>
+<a href=#1585 id=1585 data-nosnippet>1585</a><span class="attr">#[cfg(test)]
+<a href=#1586 id=1586 data-nosnippet>1586</a></span><span class="kw">mod </span>tests {
+<a href=#1587 id=1587 data-nosnippet>1587</a>    <span class="kw">use super</span>::{InodeSocket, InodeSocketKind};
+<a href=#1588 id=1588 data-nosnippet>1588</a>    <span class="kw">use </span>std::{
+<a href=#1589 id=1589 data-nosnippet>1589</a>        mem::MaybeUninit,
+<a href=#1590 id=1590 data-nosnippet>1590</a>        net::{Ipv4Addr, Shutdown, SocketAddr},
+<a href=#1591 id=1591 data-nosnippet>1591</a>        pin::Pin,
+<a href=#1592 id=1592 data-nosnippet>1592</a>        sync::{
+<a href=#1593 id=1593 data-nosnippet>1593</a>            Arc,
+<a href=#1594 id=1594 data-nosnippet>1594</a>            atomic::{AtomicUsize, Ordering},
+<a href=#1595 id=1595 data-nosnippet>1595</a>        },
+<a href=#1596 id=1596 data-nosnippet>1596</a>        task::{Context, Poll},
+<a href=#1597 id=1597 data-nosnippet>1597</a>        time::Duration,
+<a href=#1598 id=1598 data-nosnippet>1598</a>    };
+<a href=#1599 id=1599 data-nosnippet>1599</a>    <span class="kw">use </span>virtual_mio::InterestHandler;
+<a href=#1600 id=1600 data-nosnippet>1600</a>    <span class="kw">use </span>virtual_net::{
+<a href=#1601 id=1601 data-nosnippet>1601</a>        NetworkError, <span class="prelude-ty">Result</span> <span class="kw">as </span>NetResult, SocketStatus, VirtualConnectedSocket, VirtualIoSource,
+<a href=#1602 id=1602 data-nosnippet>1602</a>        VirtualSocket, VirtualTcpSocket,
+<a href=#1603 id=1603 data-nosnippet>1603</a>    };
+<a href=#1604 id=1604 data-nosnippet>1604</a>
+<a href=#1605 id=1605 data-nosnippet>1605</a>    <span class="attr">#[derive(Debug)]
+<a href=#1606 id=1606 data-nosnippet>1606</a>    </span><span class="kw">struct </span>MockTcpSocket {
+<a href=#1607 id=1607 data-nosnippet>1607</a>        read_calls: Arc&lt;AtomicUsize&gt;,
+<a href=#1608 id=1608 data-nosnippet>1608</a>        write_calls: Arc&lt;AtomicUsize&gt;,
+<a href=#1609 id=1609 data-nosnippet>1609</a>    }
+<a href=#1610 id=1610 data-nosnippet>1610</a>
+<a href=#1611 id=1611 data-nosnippet>1611</a>    <span class="kw">impl </span>VirtualIoSource <span class="kw">for </span>MockTcpSocket {
+<a href=#1612 id=1612 data-nosnippet>1612</a>        <span class="kw">fn </span>remove_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+<a href=#1613 id=1613 data-nosnippet>1613</a>
+<a href=#1614 id=1614 data-nosnippet>1614</a>        <span class="kw">fn </span>poll_read_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;NetResult&lt;usize&gt;&gt; {
+<a href=#1615 id=1615 data-nosnippet>1615</a>            <span class="self">self</span>.read_calls.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#1616 id=1616 data-nosnippet>1616</a>            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">3</span>))
+<a href=#1617 id=1617 data-nosnippet>1617</a>        }
+<a href=#1618 id=1618 data-nosnippet>1618</a>
+<a href=#1619 id=1619 data-nosnippet>1619</a>        <span class="kw">fn </span>poll_write_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;NetResult&lt;usize&gt;&gt; {
+<a href=#1620 id=1620 data-nosnippet>1620</a>            <span class="self">self</span>.write_calls.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#1621 id=1621 data-nosnippet>1621</a>            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">7</span>))
+<a href=#1622 id=1622 data-nosnippet>1622</a>        }
+<a href=#1623 id=1623 data-nosnippet>1623</a>    }
+<a href=#1624 id=1624 data-nosnippet>1624</a>
+<a href=#1625 id=1625 data-nosnippet>1625</a>    <span class="kw">impl </span>VirtualSocket <span class="kw">for </span>MockTcpSocket {
+<a href=#1626 id=1626 data-nosnippet>1626</a>        <span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _ttl: u32) -&gt; NetResult&lt;()&gt; {
+<a href=#1627 id=1627 data-nosnippet>1627</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1628 id=1628 data-nosnippet>1628</a>        }
+<a href=#1629 id=1629 data-nosnippet>1629</a>
+<a href=#1630 id=1630 data-nosnippet>1630</a>        <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;u32&gt; {
+<a href=#1631 id=1631 data-nosnippet>1631</a>            <span class="prelude-val">Ok</span>(<span class="number">64</span>)
+<a href=#1632 id=1632 data-nosnippet>1632</a>        }
+<a href=#1633 id=1633 data-nosnippet>1633</a>
+<a href=#1634 id=1634 data-nosnippet>1634</a>        <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketAddr&gt; {
+<a href=#1635 id=1635 data-nosnippet>1635</a>            <span class="prelude-val">Ok</span>(SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">0</span>)))
+<a href=#1636 id=1636 data-nosnippet>1636</a>        }
+<a href=#1637 id=1637 data-nosnippet>1637</a>
+<a href=#1638 id=1638 data-nosnippet>1638</a>        <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketStatus&gt; {
+<a href=#1639 id=1639 data-nosnippet>1639</a>            <span class="prelude-val">Ok</span>(SocketStatus::Opened)
+<a href=#1640 id=1640 data-nosnippet>1640</a>        }
+<a href=#1641 id=1641 data-nosnippet>1641</a>
+<a href=#1642 id=1642 data-nosnippet>1642</a>        <span class="kw">fn </span>set_handler(
+<a href=#1643 id=1643 data-nosnippet>1643</a>            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1644 id=1644 data-nosnippet>1644</a>            _handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
+<a href=#1645 id=1645 data-nosnippet>1645</a>        ) -&gt; NetResult&lt;()&gt; {
+<a href=#1646 id=1646 data-nosnippet>1646</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1647 id=1647 data-nosnippet>1647</a>        }
+<a href=#1648 id=1648 data-nosnippet>1648</a>    }
+<a href=#1649 id=1649 data-nosnippet>1649</a>
+<a href=#1650 id=1650 data-nosnippet>1650</a>    <span class="kw">impl </span>VirtualConnectedSocket <span class="kw">for </span>MockTcpSocket {
+<a href=#1651 id=1651 data-nosnippet>1651</a>        <span class="kw">fn </span>set_linger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _linger: <span class="prelude-ty">Option</span>&lt;Duration&gt;) -&gt; NetResult&lt;()&gt; {
+<a href=#1652 id=1652 data-nosnippet>1652</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1653 id=1653 data-nosnippet>1653</a>        }
+<a href=#1654 id=1654 data-nosnippet>1654</a>
+<a href=#1655 id=1655 data-nosnippet>1655</a>        <span class="kw">fn </span>linger(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;<span class="prelude-ty">Option</span>&lt;Duration&gt;&gt; {
+<a href=#1656 id=1656 data-nosnippet>1656</a>            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+<a href=#1657 id=1657 data-nosnippet>1657</a>        }
+<a href=#1658 id=1658 data-nosnippet>1658</a>
+<a href=#1659 id=1659 data-nosnippet>1659</a>        <span class="kw">fn </span>try_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _data: <span class="kw-2">&amp;</span>[u8]) -&gt; NetResult&lt;usize&gt; {
+<a href=#1660 id=1660 data-nosnippet>1660</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#1661 id=1661 data-nosnippet>1661</a>        }
+<a href=#1662 id=1662 data-nosnippet>1662</a>
+<a href=#1663 id=1663 data-nosnippet>1663</a>        <span class="kw">fn </span>try_flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetResult&lt;()&gt; {
+<a href=#1664 id=1664 data-nosnippet>1664</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#1665 id=1665 data-nosnippet>1665</a>        }
+<a href=#1666 id=1666 data-nosnippet>1666</a>
+<a href=#1667 id=1667 data-nosnippet>1667</a>        <span class="kw">fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetResult&lt;()&gt; {
+<a href=#1668 id=1668 data-nosnippet>1668</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1669 id=1669 data-nosnippet>1669</a>        }
+<a href=#1670 id=1670 data-nosnippet>1670</a>
+<a href=#1671 id=1671 data-nosnippet>1671</a>        <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;], _peek: bool) -&gt; NetResult&lt;usize&gt; {
+<a href=#1672 id=1672 data-nosnippet>1672</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#1673 id=1673 data-nosnippet>1673</a>        }
+<a href=#1674 id=1674 data-nosnippet>1674</a>    }
+<a href=#1675 id=1675 data-nosnippet>1675</a>
+<a href=#1676 id=1676 data-nosnippet>1676</a>    <span class="kw">impl </span>VirtualTcpSocket <span class="kw">for </span>MockTcpSocket {
+<a href=#1677 id=1677 data-nosnippet>1677</a>        <span class="kw">fn </span>set_recv_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _size: usize) -&gt; NetResult&lt;()&gt; {
+<a href=#1678 id=1678 data-nosnippet>1678</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1679 id=1679 data-nosnippet>1679</a>        }
+<a href=#1680 id=1680 data-nosnippet>1680</a>
+<a href=#1681 id=1681 data-nosnippet>1681</a>        <span class="kw">fn </span>recv_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;usize&gt; {
+<a href=#1682 id=1682 data-nosnippet>1682</a>            <span class="prelude-val">Ok</span>(<span class="number">0</span>)
+<a href=#1683 id=1683 data-nosnippet>1683</a>        }
+<a href=#1684 id=1684 data-nosnippet>1684</a>
+<a href=#1685 id=1685 data-nosnippet>1685</a>        <span class="kw">fn </span>set_send_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _size: usize) -&gt; NetResult&lt;()&gt; {
+<a href=#1686 id=1686 data-nosnippet>1686</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1687 id=1687 data-nosnippet>1687</a>        }
+<a href=#1688 id=1688 data-nosnippet>1688</a>
+<a href=#1689 id=1689 data-nosnippet>1689</a>        <span class="kw">fn </span>send_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;usize&gt; {
+<a href=#1690 id=1690 data-nosnippet>1690</a>            <span class="prelude-val">Ok</span>(<span class="number">0</span>)
+<a href=#1691 id=1691 data-nosnippet>1691</a>        }
+<a href=#1692 id=1692 data-nosnippet>1692</a>
+<a href=#1693 id=1693 data-nosnippet>1693</a>        <span class="kw">fn </span>set_nodelay(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _reuse: bool) -&gt; NetResult&lt;()&gt; {
+<a href=#1694 id=1694 data-nosnippet>1694</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1695 id=1695 data-nosnippet>1695</a>        }
+<a href=#1696 id=1696 data-nosnippet>1696</a>
+<a href=#1697 id=1697 data-nosnippet>1697</a>        <span class="kw">fn </span>nodelay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
+<a href=#1698 id=1698 data-nosnippet>1698</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
+<a href=#1699 id=1699 data-nosnippet>1699</a>        }
+<a href=#1700 id=1700 data-nosnippet>1700</a>
+<a href=#1701 id=1701 data-nosnippet>1701</a>        <span class="kw">fn </span>set_keepalive(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _keepalive: bool) -&gt; NetResult&lt;()&gt; {
+<a href=#1702 id=1702 data-nosnippet>1702</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1703 id=1703 data-nosnippet>1703</a>        }
+<a href=#1704 id=1704 data-nosnippet>1704</a>
+<a href=#1705 id=1705 data-nosnippet>1705</a>        <span class="kw">fn </span>keepalive(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
+<a href=#1706 id=1706 data-nosnippet>1706</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+<a href=#1707 id=1707 data-nosnippet>1707</a>        }
+<a href=#1708 id=1708 data-nosnippet>1708</a>
+<a href=#1709 id=1709 data-nosnippet>1709</a>        <span class="kw">fn </span>set_dontroute(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _keepalive: bool) -&gt; NetResult&lt;()&gt; {
+<a href=#1710 id=1710 data-nosnippet>1710</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1711 id=1711 data-nosnippet>1711</a>        }
+<a href=#1712 id=1712 data-nosnippet>1712</a>
+<a href=#1713 id=1713 data-nosnippet>1713</a>        <span class="kw">fn </span>dontroute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
+<a href=#1714 id=1714 data-nosnippet>1714</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+<a href=#1715 id=1715 data-nosnippet>1715</a>        }
+<a href=#1716 id=1716 data-nosnippet>1716</a>
+<a href=#1717 id=1717 data-nosnippet>1717</a>        <span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketAddr&gt; {
+<a href=#1718 id=1718 data-nosnippet>1718</a>            <span class="prelude-val">Ok</span>(SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">80</span>)))
+<a href=#1719 id=1719 data-nosnippet>1719</a>        }
+<a href=#1720 id=1720 data-nosnippet>1720</a>
+<a href=#1721 id=1721 data-nosnippet>1721</a>        <span class="kw">fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _how: Shutdown) -&gt; NetResult&lt;()&gt; {
+<a href=#1722 id=1722 data-nosnippet>1722</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1723 id=1723 data-nosnippet>1723</a>        }
+<a href=#1724 id=1724 data-nosnippet>1724</a>
+<a href=#1725 id=1725 data-nosnippet>1725</a>        <span class="kw">fn </span>is_closed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#1726 id=1726 data-nosnippet>1726</a>            <span class="bool-val">false
+<a href=#1727 id=1727 data-nosnippet>1727</a>        </span>}
+<a href=#1728 id=1728 data-nosnippet>1728</a>    }
+<a href=#1729 id=1729 data-nosnippet>1729</a>
+<a href=#1730 id=1730 data-nosnippet>1730</a>    <span class="attr">#[test]
+<a href=#1731 id=1731 data-nosnippet>1731</a>    </span><span class="kw">fn </span>inode_socket_poll_write_ready_uses_write_path() {
+<a href=#1732 id=1732 data-nosnippet>1732</a>        <span class="kw">let </span>read_calls = Arc::new(AtomicUsize::new(<span class="number">0</span>));
+<a href=#1733 id=1733 data-nosnippet>1733</a>        <span class="kw">let </span>write_calls = Arc::new(AtomicUsize::new(<span class="number">0</span>));
+<a href=#1734 id=1734 data-nosnippet>1734</a>        <span class="kw">let </span><span class="kw-2">mut </span>inode = InodeSocket::new(InodeSocketKind::TcpStream {
+<a href=#1735 id=1735 data-nosnippet>1735</a>            socket: Box::new(MockTcpSocket {
+<a href=#1736 id=1736 data-nosnippet>1736</a>                read_calls: read_calls.clone(),
+<a href=#1737 id=1737 data-nosnippet>1737</a>                write_calls: write_calls.clone(),
+<a href=#1738 id=1738 data-nosnippet>1738</a>            }),
+<a href=#1739 id=1739 data-nosnippet>1739</a>            write_timeout: <span class="prelude-val">None</span>,
+<a href=#1740 id=1740 data-nosnippet>1740</a>            read_timeout: <span class="prelude-val">None</span>,
+<a href=#1741 id=1741 data-nosnippet>1741</a>        });
+<a href=#1742 id=1742 data-nosnippet>1742</a>
+<a href=#1743 id=1743 data-nosnippet>1743</a>        <span class="kw">let </span>waker = futures::task::noop_waker();
+<a href=#1744 id=1744 data-nosnippet>1744</a>        <span class="kw">let </span><span class="kw-2">mut </span>cx = Context::from_waker(<span class="kw-2">&amp;</span>waker);
+<a href=#1745 id=1745 data-nosnippet>1745</a>        <span class="kw">let </span>ready = Pin::new(<span class="kw-2">&amp;mut </span>inode).poll_write_ready(<span class="kw-2">&amp;mut </span>cx);
+<a href=#1746 id=1746 data-nosnippet>1746</a>
+<a href=#1747 id=1747 data-nosnippet>1747</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(ready, Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">7</span>))));
+<a href=#1748 id=1748 data-nosnippet>1748</a>        <span class="macro">assert_eq!</span>(read_calls.load(Ordering::Relaxed), <span class="number">0</span>);
+<a href=#1749 id=1749 data-nosnippet>1749</a>        <span class="macro">assert_eq!</span>(write_calls.load(Ordering::Relaxed), <span class="number">1</span>);
+<a href=#1750 id=1750 data-nosnippet>1750</a>    }
+<a href=#1751 id=1751 data-nosnippet>1751</a>}</code></pre></div></section></main></body></html>
