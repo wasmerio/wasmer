@@ -50,8 +50,8 @@ where
     ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>>>>;
 }
 
-macro_rules! impl_async_host_function_without_env {
-    ( $( $x:ident ),* ) => {
+macro_rules! impl_async_host_function {
+    ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
         impl<$( $x, )* Rets, RetsAsResult, F, Fut > AsyncHostFunction<(), ( $( $x ),* ), Rets, WithoutEnv> for F
         where
             F: Fn($( $x ),*) -> Fut + 'static,
@@ -76,11 +76,7 @@ macro_rules! impl_async_host_function_without_env {
                 })
             }
         }
-    };
-}
 
-macro_rules! impl_async_host_function_with_env {
-    ( $( $x:ident ),* ) => {
         impl<$( $x, )* Rets, RetsAsResult,  T, F, Fut > AsyncHostFunction<T, ( $( $x ),* ), Rets, WithEnv> for F
         where
             T: 'static,
@@ -109,70 +105,30 @@ macro_rules! impl_async_host_function_with_env {
     };
 }
 
-impl_async_host_function_without_env!();
-impl_async_host_function_without_env!(A1);
-impl_async_host_function_without_env!(A1, A2);
-impl_async_host_function_without_env!(A1, A2, A3);
-impl_async_host_function_without_env!(A1, A2, A3, A4);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6, A7);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6, A7, A8);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
-impl_async_host_function_without_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-impl_async_host_function_without_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15
-);
-impl_async_host_function_without_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16
-);
-impl_async_host_function_without_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
-);
-impl_async_host_function_without_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18
-);
-impl_async_host_function_without_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19
-);
-impl_async_host_function_without_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
-);
-
-impl_async_host_function_with_env!();
-impl_async_host_function_with_env!(A1);
-impl_async_host_function_with_env!(A1, A2);
-impl_async_host_function_with_env!(A1, A2, A3);
-impl_async_host_function_with_env!(A1, A2, A3, A4);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6, A7);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6, A7, A8);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
-impl_async_host_function_with_env!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-impl_async_host_function_with_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15
-);
-impl_async_host_function_with_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16
-);
-impl_async_host_function_with_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
-);
-impl_async_host_function_with_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18
-);
-impl_async_host_function_with_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19
-);
-impl_async_host_function_with_env!(
-    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
-);
+impl_async_host_function!([C] S0,);
+impl_async_host_function!([transparent] S1, A1);
+impl_async_host_function!([C] S2, A1, A2);
+impl_async_host_function!([C] S3, A1, A2, A3);
+impl_async_host_function!([C] S4, A1, A2, A3, A4);
+impl_async_host_function!([C] S5, A1, A2, A3, A4, A5);
+impl_async_host_function!([C] S6, A1, A2, A3, A4, A5, A6);
+impl_async_host_function!([C] S7, A1, A2, A3, A4, A5, A6, A7);
+impl_async_host_function!([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+impl_async_host_function!([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+impl_async_host_function!([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+impl_async_host_function!([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+impl_async_host_function!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+impl_async_host_function!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+impl_async_host_function!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+impl_async_host_function!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+impl_async_host_function!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+impl_async_host_function!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_async_host_function!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+impl_async_host_function!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+impl_async_host_function!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+impl_async_host_function!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+impl_async_host_function!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+impl_async_host_function!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+impl_async_host_function!([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+impl_async_host_function!([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+impl_async_host_function!([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);

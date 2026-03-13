@@ -88,7 +88,7 @@ pub(crate) struct StoreContext {
 }
 
 pub(crate) struct StorePtrWrapper {
-    store_ptr: *mut StoreInner,
+    pub(crate) store_ptr: *mut StoreInner,
 }
 
 #[cfg(feature = "experimental-async")]
