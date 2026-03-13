@@ -3526,6 +3526,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "napi_wasmer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cc",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing-subscriber",
+ "virtual-fs",
+ "virtual-mio",
+ "wasmer",
+ "wasmer-cache",
+ "wasmer-compiler-llvm",
+ "wasmer-types",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7522,6 +7540,7 @@ dependencies = [
  "linked_hash_set",
  "log",
  "lz4_flex",
+ "napi_wasmer",
  "num_enum",
  "once_cell",
  "petgraph",
