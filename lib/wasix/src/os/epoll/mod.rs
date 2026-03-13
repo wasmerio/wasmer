@@ -262,12 +262,14 @@ impl EpollState {
     }
 
     pub(crate) fn apply_del(&self, fd: WasiFd) -> Result<(), Errno> {
-        self.subscriptions
+        let removed = self
+            .subscriptions
             .lock()
             .unwrap()
             .remove(&fd)
-            .map(|_| ())
-            .ok_or(Errno::Noent)
+            .ok_or(Errno::Noent)?;
+        removed.detach_joins();
+        Ok(())
     }
 
     pub(crate) fn rollback_registration(&self, fd: WasiFd, previous: Option<Arc<EpollSubState>>) {
