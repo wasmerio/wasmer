@@ -175,7 +175,17 @@ impl VirtualNetworking for LocalNetworking {
             return Err(NetworkError::PermissionDenied);
         }
 
-        let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
+        let stream = self
+            .handle
+            .spawn(async move { tokio::net::TcpStream::connect(peer).await })
+            .await
+            .map_err(|_| NetworkError::IOError)?
+            .map_err(io_err_into_net_error)?;
+        let stream = stream.into_std().map_err(io_err_into_net_error)?;
+        stream
+            .set_nonblocking(true)
+            .map_err(io_err_into_net_error)?;
+        let stream = mio::net::TcpStream::from_std(stream);
 
         if let Ok(p) = stream.peer_addr() {
             peer = p;
