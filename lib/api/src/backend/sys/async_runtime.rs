@@ -6,15 +6,17 @@ use std::{
     pin::Pin,
     ptr,
     rc::Rc,
+    sync::{LazyLock, atomic::AtomicU64},
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
 use corosensei::{Coroutine, CoroutineResult, Yielder};
+use dashmap::DashMap;
 
 use super::entities::function::Function as SysFunction;
 use crate::{
-    AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, LocalRwLockWriteGuard, RuntimeError, Store,
-    StoreAsync, StoreContext, StoreInner, StoreMut, StoreRef, Value,
+    AsStoreAsync, AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, LocalRwLockWriteGuard,
+    RuntimeError, Store, StoreAsync, StoreContext, StoreInner, StoreMut, StoreRef, Value,
 };
 use wasmer_types::StoreId;
 
@@ -35,8 +37,17 @@ enum AsyncResume {
     HostFutureReady(Result<Vec<Value>, RuntimeError>),
 }
 
+type AsyncCallFutureId = u64;
+
+static NEXT_ASYNC_CALL_FUTURE_ID: AtomicU64 = AtomicU64::new(0);
+
+static ASYNC_CALL_FUTURE_WAKERS: LazyLock<DashMap<StoreId, HashMap<AsyncCallFutureId, Waker>>> =
+    LazyLock::new(|| DashMap::new());
+
 #[allow(clippy::type_complexity)]
 pub(crate) struct AsyncCallFuture {
+    id: AsyncCallFutureId,
+
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
@@ -54,7 +65,7 @@ pub(crate) struct AsyncCallFuture {
 // when resuming the coroutine, this is safe in that it can access the store
 // through the store context. HOWEVER, references returned from this struct
 // CAN NOT BE HELD ACROSS A YIELD POINT. We don't do this anywhere in the
-// `Function::call code.
+// `Function::call` code.
 struct AsyncCallStoreMut {
     store_id: StoreId,
 }
@@ -119,12 +130,26 @@ impl AsyncCallFuture {
             });
 
         Self {
+            id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
             coroutine: Some(coroutine),
             pending_store_install: None,
             pending_future: None,
             next_resume: Some(AsyncResume::Start),
             result: None,
             store,
+        }
+    }
+
+    fn remove_from_wakers_list(&self) {
+        let mut wakers_entry = match ASYNC_CALL_FUTURE_WAKERS.entry(self.store.store_id()) {
+            dashmap::Entry::Occupied(o) => o,
+            dashmap::Entry::Vacant(v) => return,
+        };
+
+        let mut waker_map_ref = wakers_entry.get_mut();
+        waker_map_ref.remove(&self.id);
+        if waker_map_ref.is_empty() {
+            wakers_entry.remove();
         }
     }
 }
@@ -134,6 +159,16 @@ impl Future for AsyncCallFuture {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
+            let store_id = self.store.store_id();
+
+            if super::vm::interrupt_registry::is_interrupted(store_id) {
+                self.remove_from_wakers_list();
+                return Poll::Ready(Err(super::vm::Trap::lib(
+                    super::vm::TrapCode::HostInterrupt,
+                )
+                .into()));
+            }
+
             if let Some(future) = self.pending_future.as_mut() {
                 match future.as_mut().poll(cx) {
                     Poll::Ready(result) => {
@@ -146,7 +181,15 @@ impl Future for AsyncCallFuture {
 
             // If we're ready, return early
             if self.coroutine.is_none() {
+                self.remove_from_wakers_list();
                 return Poll::Ready(self.result.take().expect("polled after completion"));
+            }
+
+            {
+                let mut wakers_entry = ASYNC_CALL_FUTURE_WAKERS
+                    .entry(store_id)
+                    .or_insert_with(Default::default);
+                wakers_entry.insert(self.id, cx.waker().clone());
             }
 
             // Start a store installation if not in progress already
@@ -192,6 +235,12 @@ impl Future for AsyncCallFuture {
     }
 }
 
+impl Drop for AsyncCallFuture {
+    fn drop(&mut self) {
+        self.remove_from_wakers_list();
+    }
+}
+
 async fn install_store_context(store: StoreAsync) -> ForcedStoreInstallGuard {
     match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
         crate::GetStoreAsyncGuardResult::NotInstalled => {
@@ -215,10 +264,10 @@ async fn install_store_context(store: StoreAsync) -> ForcedStoreInstallGuard {
             // your use-case.
             panic!(
                 "Function::call_async futures cannot be polled recursively \
-                    from within another imported function. If you need to await \
-                    a recursive call_async, consider spawning the future into \
-                    your async runtime and awaiting the resulting task; \
-                    e.g. tokio::task::spawn(func.call_async(...)).await"
+                from within another imported function. If you need to await \
+                a recursive call_async, consider spawning the future into \
+                your async runtime and awaiting the resulting task; \
+                e.g. tokio::task::spawn(func.call_async(...)).await"
             );
         }
     }
@@ -233,19 +282,31 @@ pub(crate) fn block_on_host_future<Fut>(future: Fut) -> Result<Vec<Value>, Async
 where
     Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
 {
-    CURRENT_CONTEXT.with(|cell| {
-        match CoroutineContext::get_current() {
-            None => {
-                // If there is no async context or we haven't entered it,
-                // we can still directly run a future that doesn't block
-                // inline.
-                run_immediate(future)
-            }
-            Some(context) => unsafe { context.as_ref().expect("valid context pointer") }
-                .block_on_future(Box::pin(future))
-                .map_err(AsyncRuntimeError::RuntimeError),
+    match CoroutineContext::get_current() {
+        None => {
+            // If there is no async context or we haven't entered it,
+            // we can still directly run a future that doesn't block
+            // inline.
+            run_immediate(future)
         }
-    })
+        Some(context) => unsafe { context.as_ref().expect("valid context pointer") }
+            .block_on_future(Box::pin(future))
+            .map_err(AsyncRuntimeError::RuntimeError),
+    }
+}
+
+// This function will only *wake* pending futures belonging to the given store.
+// It is expected that the interrupt happens before this function is called, so
+// that the futures can catch and react to `interrupt_registry::is_interrupted`
+// correctly.
+pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
+    let dashmap::Entry::Occupied(entry) = ASYNC_CALL_FUTURE_WAKERS.entry(store_id) else {
+        return;
+    };
+
+    for waker in entry.get().values() {
+        waker.wake_by_ref();
+    }
 }
 
 thread_local! {
