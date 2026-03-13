@@ -85,6 +85,8 @@ pub use virtual_fs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSh
 pub use virtual_net;
 pub use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 
+#[cfg(feature = "napi-v8")]
+pub use napi_wasmer::{NapiCtx, NapiCtxBuilder, NapiLimits, NapiRuntimeHooks, module_needs_napi};
 #[cfg(feature = "host-vnet")]
 pub use virtual_net::{
     host::{LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket},
