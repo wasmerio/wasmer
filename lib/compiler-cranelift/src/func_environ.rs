@@ -72,6 +72,9 @@ pub struct FuncEnvironment<'module_environment> {
     /// The module function signatures
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
 
+    /// Cached stable hashes for module signatures.
+    signature_hashes: &'module_environment PrimaryMap<SignatureIndex, u64>,
+
     /// Heaps implementing WebAssembly linear memories.
     heaps: PrimaryMap<Heap, HeapData>,
 
@@ -166,6 +169,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         target_config: TargetFrontendConfig,
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+        signature_hashes: &'module_environment PrimaryMap<SignatureIndex, u64>,
         memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
@@ -173,6 +177,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             target_config,
             module,
             signatures,
+            signature_hashes,
             type_stack: vec![],
             heaps: PrimaryMap::new(),
             vmctx: None,
@@ -1623,22 +1628,15 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         // If necessary, check the signature.
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
-                let sig_id_size = self.offsets.size_of_vmshared_signature_index();
-                let sig_id_type = ir::Type::int(u16::from(sig_id_size) * 8).unwrap();
-                let vmctx = self.vmctx(builder.func);
-                let base = builder.ins().global_value(pointer_type, vmctx);
-                let offset =
-                    i32::try_from(self.offsets.vmctx_vmshared_signature_id(sig_index)).unwrap();
-
-                // Load the caller ID.
-                let mut mem_flags = ir::MemFlags::trusted();
-                mem_flags.set_readonly();
-                let caller_sig_id = builder.ins().load(sig_id_type, mem_flags, base, offset);
+                let sig_hash_type = ir::types::I64;
+                let expected_sig_hash = builder
+                    .ins()
+                    .iconst(sig_hash_type, self.signature_hashes[sig_index] as i64);
 
                 // Load the callee ID.
                 let mem_flags = ir::MemFlags::trusted();
-                let callee_sig_id = builder.ins().load(
-                    sig_id_type,
+                let callee_sig_hash = builder.ins().load(
+                    sig_hash_type,
                     mem_flags,
                     anyfunc_ptr,
                     i32::from(self.offsets.vmcaller_checked_anyfunc_type_index()),
@@ -1647,7 +1645,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 // Check that they match.
                 let cmp = builder
                     .ins()
-                    .icmp(IntCC::Equal, callee_sig_id, caller_sig_id);
+                    .icmp(IntCC::Equal, callee_sig_hash, expected_sig_hash);
                 builder.ins().trapz(cmp, crate::TRAP_BAD_SIGNATURE);
             }
         }

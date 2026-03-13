@@ -7440,6 +7440,7 @@ dependencies = [
  "getrandom 0.4.1",
  "hex",
  "indexmap",
+ "itertools 0.14.0",
  "loupe",
  "memoffset 0.9.1",
  "more-asserts",

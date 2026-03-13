@@ -103,7 +103,7 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let func_ptr = std::ptr::null() as VMFunctionCallback;
-        let type_index = store
+        let type_signature_hash = store
             .as_store_ref()
             .engine()
             .as_sys()
@@ -114,7 +114,7 @@ impl Function {
         let call_trampoline = host_data.ctx.call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_index,
+            type_signature_hash,
             vmctx,
             call_trampoline,
         };
@@ -218,7 +218,7 @@ impl Function {
         host_data.address = host_data.ctx.func_body_ptr();
 
         let func_ptr = std::ptr::null() as VMFunctionCallback;
-        let type_index = store
+        let type_signature_hash = store
             .as_store_ref()
             .engine()
             .as_sys()
@@ -229,7 +229,7 @@ impl Function {
         let call_trampoline = host_data.ctx.call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_index,
+            type_signature_hash,
             vmctx,
             call_trampoline,
         };
@@ -261,7 +261,7 @@ impl Function {
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let type_index = store
+        let type_signature_hash = store
             .as_store_ref()
             .engine()
             .as_sys()
@@ -273,7 +273,7 @@ impl Function {
             <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address().into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_index,
+            type_signature_hash,
             vmctx,
             call_trampoline,
         };
@@ -426,7 +426,7 @@ impl Function {
             <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address().into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_index,
+            type_signature_hash: type_index,
             vmctx,
             call_trampoline,
         };
@@ -645,7 +645,7 @@ impl Function {
                 .as_store_mut()
                 .engine()
                 .as_sys()
-                .lookup_signature(anyfunc.type_index)
+                .lookup_signature(anyfunc.type_signature_hash)
                 .expect("Signature not found in store")
         };
         let vm_function = VMFunction {

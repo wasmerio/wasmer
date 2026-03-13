@@ -44,7 +44,7 @@ use wasmer_types::{
 
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
-    VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
+    VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -63,7 +63,7 @@ pub struct AllocatedArtifact {
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
-    signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
@@ -808,7 +808,7 @@ impl Artifact {
     }
 
     /// Returns the associated VM signatures for this `Artifact`.
-    pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+    pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSignatureHash> {
         &self
             .allocated
             .as_ref()
@@ -1082,7 +1082,7 @@ impl Artifact {
         - TableIndex -> TableStyle
         - LocalFunctionIndex -> FunctionBodyPtr // finished functions
         - FunctionIndex -> FunctionBodyPtr // finished dynamic function trampolines
-        - SignatureIndex -> VMSharedSignatureindextureIndex // signatures
+        - SignatureIndex -> SignatureHash // signatures
          */
 
         let mut metadata_builder =

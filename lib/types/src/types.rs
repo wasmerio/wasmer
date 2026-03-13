@@ -1,6 +1,7 @@
 use crate::indexes::{FunctionIndex, GlobalIndex};
 use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::boxed::Box;
+use crate::lib::std::convert::TryInto;
 use crate::lib::std::fmt;
 use crate::lib::std::format;
 use crate::lib::std::string::{String, ToString};
@@ -10,6 +11,7 @@ use crate::units::Pages;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 // Type Representations
 
@@ -285,6 +287,24 @@ impl FunctionType {
     /// Return types.
     pub fn results(&self) -> &[Type] {
         &self.results
+    }
+
+    /// Returns a stable 64-bit signature hash derived from the Wasm value types.
+    pub fn signature_hash(&self) -> u64 {
+        fn update_types(hasher: &mut Sha256, types: &[Type]) {
+            // Be sure the length part does not share values with the types!
+            hasher.update((types.len() as u64 + 16).to_le_bytes());
+            for ty in types {
+                hasher.update([*ty as u8]);
+            }
+        }
+
+        let mut hasher = Sha256::new();
+        update_types(&mut hasher, &self.params);
+        update_types(&mut hasher, &self.results);
+
+        let digest = hasher.finalize();
+        u64::from_le_bytes(digest[..8].try_into().unwrap())
     }
 }
 
@@ -787,5 +807,22 @@ mod tests {
         let ty: FunctionType = NINE_V128_TO_NINE_I32.into();
         assert_eq!(ty.params().len(), 9);
         assert_eq!(ty.results().len(), 9);
+    }
+
+    #[test]
+    fn signature_hash_is_stable() {
+        let ty: FunctionType = ([Type::I32, Type::F64], [Type::ExternRef]).into();
+        assert_eq!(ty.signature_hash(), ty.signature_hash());
+    }
+
+    #[test]
+    fn signature_hash_distinguishes() {
+        let left: FunctionType = ([Type::I32], [Type::I64]).into();
+        let right: FunctionType = ([Type::I64], [Type::I32]).into();
+        assert_ne!(left.signature_hash(), right.signature_hash());
+
+        let left: FunctionType = ([], [Type::I32, Type::I64]).into();
+        let right: FunctionType = ([Type::I32], [Type::I64]).into();
+        assert_ne!(left.signature_hash(), right.signature_hash());
     }
 }
