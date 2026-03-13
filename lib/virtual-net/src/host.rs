@@ -175,7 +175,16 @@ impl VirtualNetworking for LocalNetworking {
             return Err(NetworkError::PermissionDenied);
         }
 
-        let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
+        // This future may be polled outside Tokio's executor context, so run
+        // the connect itself on the stored runtime handle to guarantee a reactor.
+        let stream = self
+            .handle
+            .spawn(tokio::net::TcpStream::connect(peer))
+            .await
+            .map_err(|_| NetworkError::IOError)?
+            .map_err(io_err_into_net_error)?;
+        let stream = stream.into_std().map_err(io_err_into_net_error)?;
+        let stream = mio::net::TcpStream::from_std(stream);
 
         if let Ok(p) = stream.peer_addr() {
             peer = p;
