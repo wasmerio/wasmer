@@ -85,6 +85,7 @@ pin-project.workspace = true
 semver.workspace = true
 tempfile.workspace = true
 num_enum.workspace = true
+napi_wasmer = { path = "../../../ubi/napi/wasmer", default-features = false, optional = true }
 # Used by the WCGI runner
 wcgi = { workspace = true, optional = true }
 wcgi-host = { workspace = true, optional = true }
@@ -257,6 +258,7 @@ js = [
 ]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
+napi-v8 = ["dep:napi_wasmer"]
 
 host-vnet = ["virtual-net/host-net"]
 host-threads = []
