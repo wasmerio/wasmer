@@ -190,7 +190,7 @@ impl Module {
                 engine.tunables(),
                 &imports
                     .iter()
-                    .map(|e| crate::Extern::to_vm_extern(e).into_sys())
+                    .map(|e| crate::Extern::to_vm_extern(e).unwrap_sys())
                     .collect::<Vec<_>>(),
                 objects.as_sys_mut(),
             )?;

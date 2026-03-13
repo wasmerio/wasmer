@@ -145,7 +145,7 @@ impl Memory {
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
         Self {
-            handle: internal.into_wamr(),
+            handle: internal.unwrap_wamr(),
         }
     }
 

@@ -112,7 +112,7 @@ impl Global {
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
         Self {
-            handle: vm_global.into_wamr(),
+            handle: vm_global.unwrap_wamr(),
         }
     }
 
