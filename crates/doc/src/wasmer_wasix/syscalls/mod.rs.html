@@ -1163,7 +1163,7 @@
 <a href=#1163 id=1163 data-nosnippet>1163</a>    {
 <a href=#1164 id=1164 data-nosnippet>1164</a>        asyncify_start_unwind.call(<span class="kw-2">&amp;mut </span>ctx, asyncify_data);
 <a href=#1165 id=1165 data-nosnippet>1165</a>    } <span class="kw">else </span>{
-<a href=#1166 id=1166 data-nosnippet>1166</a>        <span class="macro">warn!</span>(<span class="string">"failed to unwind the stack because the asyncify_start_rewind export is missing"</span>);
+<a href=#1166 id=1166 data-nosnippet>1166</a>        <span class="macro">warn!</span>(<span class="string">"failed to unwind the stack because the asyncify_start_unwind export is missing"</span>);
 <a href=#1167 id=1167 data-nosnippet>1167</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(Errno::Noexec.into()));
 <a href=#1168 id=1168 data-nosnippet>1168</a>    }
 <a href=#1169 id=1169 data-nosnippet>1169</a>
@@ -1229,7 +1229,7 @@
 <a href=#1229 id=1229 data-nosnippet>1229</a>        {
 <a href=#1230 id=1230 data-nosnippet>1230</a>            asyncify_stop_unwind.call(<span class="kw-2">&amp;mut </span>ctx);
 <a href=#1231 id=1231 data-nosnippet>1231</a>        } <span class="kw">else </span>{
-<a href=#1232 id=1232 data-nosnippet>1232</a>            <span class="macro">warn!</span>(<span class="string">"failed to unwind the stack because the asyncify_start_rewind export is missing"</span>);
+<a href=#1232 id=1232 data-nosnippet>1232</a>            <span class="macro">warn!</span>(<span class="string">"failed to unwind the stack because the asyncify_stop_unwind export is missing"</span>);
 <a href=#1233 id=1233 data-nosnippet>1233</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(OnCalledAction::Finish);
 <a href=#1234 id=1234 data-nosnippet>1234</a>        }
 <a href=#1235 id=1235 data-nosnippet>1235</a>
@@ -1444,12 +1444,12 @@
 <a href=#1444 id=1444 data-nosnippet>1444</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_stop_rewind) = env
 <a href=#1445 id=1445 data-nosnippet>1445</a>            .inner()
 <a href=#1446 id=1446 data-nosnippet>1446</a>            .static_module_instance_handles()
-<a href=#1447 id=1447 data-nosnippet>1447</a>            .and_then(|handles| handles.asyncify_stop_unwind.clone())
+<a href=#1447 id=1447 data-nosnippet>1447</a>            .and_then(|handles| handles.asyncify_stop_rewind.clone())
 <a href=#1448 id=1448 data-nosnippet>1448</a>        {
 <a href=#1449 id=1449 data-nosnippet>1449</a>            asyncify_stop_rewind.call(ctx);
 <a href=#1450 id=1450 data-nosnippet>1450</a>        } <span class="kw">else </span>{
 <a href=#1451 id=1451 data-nosnippet>1451</a>            <span class="macro">warn!</span>(
-<a href=#1452 id=1452 data-nosnippet>1452</a>                <span class="string">"failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible"
+<a href=#1452 id=1452 data-nosnippet>1452</a>                <span class="string">"failed to handle rewind because the asyncify_stop_rewind export is missing or inaccessible"
 <a href=#1453 id=1453 data-nosnippet>1453</a>            </span>);
 <a href=#1454 id=1454 data-nosnippet>1454</a>            <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="prelude-val">None</span>);
 <a href=#1455 id=1455 data-nosnippet>1455</a>        }
