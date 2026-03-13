@@ -185,6 +185,13 @@ wasmer = { path = "../api", version = "=7.1.0-alpha.1", default-features = false
 	"cranelift",
 ] }
 
+[target.'cfg(all(not(target_arch = "wasm32"), target_os = "macos"))'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.1.0-alpha.1", default-features = false, features = [
+	"wat",
+	"js-serializable-module",
+	"llvm",
+] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom03]
 # Enable wasm_js for the getrandom 0.3.x instance pulled in by rand 0.9.
 package = "getrandom"
