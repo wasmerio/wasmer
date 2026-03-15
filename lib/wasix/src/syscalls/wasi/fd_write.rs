@@ -1,12 +1,12 @@
 use std::task::Waker;
 
 use super::*;
+use crate::{fs::NotificationInner, net::socket::TimeType, syscalls::*};
 #[cfg(feature = "journal")]
 use crate::{
     journal::{JournalEffector, JournalEntry},
     utils::map_snapshot_err,
 };
-use crate::{fs::NotificationInner, net::socket::TimeType, syscalls::*};
 
 /// ### `fd_write()`
 /// Write data to the file descriptor
@@ -175,9 +175,7 @@ fn write_to_file<M: MemorySize>(
             let mut written = 0usize;
             match data {
                 FdWriteSource::Iovs { iovs, iovs_len } => {
-                    let iovs_arr = iovs
-                        .slice(memory, *iovs_len)
-                        .map_err(mem_error_to_wasi)?;
+                    let iovs_arr = iovs.slice(memory, *iovs_len).map_err(mem_error_to_wasi)?;
                     let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
                     for iov in iovs_arr.iter() {
                         let buf = WasmPtr::<u8, M>::new(iov.buf)
@@ -237,8 +235,7 @@ fn write_to_socket<M: MemorySize>(
         let mut sent = 0usize;
         match data {
             FdWriteSource::Iovs { iovs, iovs_len } => {
-                let iovs_arr =
-                    iovs.slice(memory, *iovs_len).map_err(mem_error_to_wasi)?;
+                let iovs_arr = iovs.slice(memory, *iovs_len).map_err(mem_error_to_wasi)?;
                 let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
                 for iov in iovs_arr.iter() {
                     let buf = WasmPtr::<u8, M>::new(iov.buf)
@@ -247,12 +244,7 @@ fn write_to_socket<M: MemorySize>(
                         .access()
                         .map_err(mem_error_to_wasi)?;
                     let local_sent = socket
-                        .send(
-                            tasks.deref(),
-                            buf.as_ref(),
-                            Some(timeout),
-                            nonblocking,
-                        )
+                        .send(tasks.deref(), buf.as_ref(), Some(timeout), nonblocking)
                         .await?;
                     sent += local_sent;
                     if local_sent != buf.len() {
@@ -323,15 +315,11 @@ fn write_to_pipe<M: MemorySize>(
                 Ok(PipeWriteResult::Ok(written))
             }
         }
-        FdWriteSource::Buffer(data) => {
-            match std::io::Write::write_all(writer, data) {
-                Ok(()) => Ok(PipeWriteResult::Ok(data.len())),
-                Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
-                    Ok(PipeWriteResult::BrokenPipe)
-                }
-                Err(e) => Err(map_io_err(e)),
-            }
-        }
+        FdWriteSource::Buffer(data) => match std::io::Write::write_all(writer, data) {
+            Ok(()) => Ok(PipeWriteResult::Ok(data.len())),
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => Ok(PipeWriteResult::BrokenPipe),
+            Err(e) => Err(map_io_err(e)),
+        },
     }
 }
 
@@ -451,20 +439,33 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                 let handle = handle.clone();
                 drop(inode);
 
-                let written = wasi_try_ok_ok!(
-                    write_to_file::<M>(env, &fd_entry, &data, &memory, &mut offset, is_stdio, handle)?
-                );
-                WriteOutcome { bytes_written: written, is_file: true, can_snapshot: true }
+                let written = wasi_try_ok_ok!(write_to_file::<M>(
+                    env,
+                    &fd_entry,
+                    &data,
+                    &memory,
+                    &mut offset,
+                    is_stdio,
+                    handle
+                )?);
+                WriteOutcome {
+                    bytes_written: written,
+                    is_file: true,
+                    can_snapshot: true,
+                }
             }
 
             Kind::Socket { socket } => {
                 let socket = socket.clone();
                 drop(inode);
 
-                let written = wasi_try_ok_ok!(
-                    write_to_socket::<M>(env, &data, &memory, fd_flags, socket)?
-                );
-                WriteOutcome { bytes_written: written, is_file: false, can_snapshot: false }
+                let written =
+                    wasi_try_ok_ok!(write_to_socket::<M>(env, &data, &memory, fd_flags, socket)?);
+                WriteOutcome {
+                    bytes_written: written,
+                    is_file: false,
+                    can_snapshot: false,
+                }
             }
 
             Kind::PipeRx { .. } => return Ok(Err(Errno::Badf)),
@@ -472,9 +473,11 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             Kind::PipeTx { tx } => {
                 let result = wasi_try_ok_ok!(write_to_pipe::<M>(tx, &data, &memory));
                 match result {
-                    PipeWriteResult::Ok(written) => {
-                        WriteOutcome { bytes_written: written, is_file: false, can_snapshot: true }
-                    }
+                    PipeWriteResult::Ok(written) => WriteOutcome {
+                        bytes_written: written,
+                        is_file: false,
+                        can_snapshot: true,
+                    },
                     PipeWriteResult::BrokenPipe => {
                         env.process.signal_process(Signal::Sigpipe);
                         wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
@@ -486,9 +489,11 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             Kind::DuplexPipe { pipe } => {
                 let result = wasi_try_ok_ok!(write_to_pipe::<M>(pipe, &data, &memory));
                 match result {
-                    PipeWriteResult::Ok(written) => {
-                        WriteOutcome { bytes_written: written, is_file: false, can_snapshot: true }
-                    }
+                    PipeWriteResult::Ok(written) => WriteOutcome {
+                        bytes_written: written,
+                        is_file: false,
+                        can_snapshot: true,
+                    },
                     PipeWriteResult::BrokenPipe => {
                         env.process.signal_process(Signal::Sigpipe);
                         wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
@@ -501,22 +506,31 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             Kind::Symlink { .. } | Kind::Epoll { .. } => return Ok(Err(Errno::Inval)),
 
             Kind::EventNotifications { inner } => {
-                let written = wasi_try_ok_ok!(
-                    write_to_event_notifications::<M>(inner, &data, &memory)
-                );
-                WriteOutcome { bytes_written: written, is_file: false, can_snapshot: true }
+                let written =
+                    wasi_try_ok_ok!(write_to_event_notifications::<M>(inner, &data, &memory));
+                WriteOutcome {
+                    bytes_written: written,
+                    is_file: false,
+                    can_snapshot: true,
+                }
             }
 
             Kind::Buffer { buffer } => {
-                let written = wasi_try_ok_ok!(
-                    write_to_buffer::<M>(buffer, &data, &memory)
-                );
-                WriteOutcome { bytes_written: written, is_file: false, can_snapshot: true }
+                let written = wasi_try_ok_ok!(write_to_buffer::<M>(buffer, &data, &memory));
+                WriteOutcome {
+                    bytes_written: written,
+                    is_file: false,
+                    can_snapshot: true,
+                }
             }
         }
     };
 
-    let WriteOutcome { bytes_written, is_file, can_snapshot } = outcome;
+    let WriteOutcome {
+        bytes_written,
+        is_file,
+        can_snapshot,
+    } = outcome;
 
     // Journal snapshot
     #[cfg(feature = "journal")]
@@ -525,11 +539,12 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         && bytes_written > 0
         && let FdWriteSource::Iovs { iovs, iovs_len } = data
     {
-        JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
-            .map_err(|err| {
+        JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len).map_err(
+            |err| {
                 tracing::error!("failed to save terminal data - {}", err);
                 WasiError::Exit(ExitCode::from(Errno::Fault))
-            })?;
+            },
+        )?;
     }
 
     env = ctx.data();
@@ -557,8 +572,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
     // we set the size but we don't return any errors if it fails as
     // pipes and sockets will not do anything with this
-    let (mut memory, _, inodes) =
-        unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (mut memory, _, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     if is_file {
         let mut stat = fd_entry.inode.stat.write().unwrap();

@@ -1,12 +1,11 @@
 use std::io::{IoSlice, SeekFrom};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Poll};
+use std::task::Poll;
 use tokio::io::ReadBuf;
 use virtual_mio::{InterestHandler, InterestType};
 
 use crate::{ArcFile, FsError, VirtualFile};
-
 
 #[derive(Debug)]
 struct PipeBuffer {
@@ -27,8 +26,8 @@ struct PipeBuffer {
     interest_handler: Option<Box<dyn InterestHandler>>,
 }
 
-impl PipeBuffer{
-    fn new(capacity: usize) -> PipeBuffer{
+impl PipeBuffer {
+    fn new(capacity: usize) -> PipeBuffer {
         PipeBuffer {
             buf: std::collections::VecDeque::with_capacity(capacity),
             capacity,
@@ -42,29 +41,33 @@ impl PipeBuffer{
         }
     }
 
-    fn close_write(&mut self){
+    fn close_write(&mut self) {
         self.write_closed = true;
-        if let Some(w) = self.read_waker.take() { w.wake(); }
+        if let Some(w) = self.read_waker.take() {
+            w.wake();
+        }
         self.not_empty.notify_all();
     }
     fn close_read(&mut self) {
         self.read_closed = true;
-        if let Some(w) = self.write_waker.take() { w.wake(); }
+        if let Some(w) = self.write_waker.take() {
+            w.wake();
+        }
         self.not_full.notify_all();
     }
-    fn is_read_closed(&self) -> bool{
+    fn is_read_closed(&self) -> bool {
         self.read_closed
     }
-    fn is_write_closed(&self) -> bool{
+    fn is_write_closed(&self) -> bool {
         self.write_closed
     }
-    fn is_empty(&self) -> bool{
+    fn is_empty(&self) -> bool {
         self.buf.is_empty()
     }
-    fn len(&self) -> usize{
+    fn len(&self) -> usize {
         self.buf.len()
     }
-    fn available_capacity(&self) -> usize{
+    fn available_capacity(&self) -> usize {
         self.capacity - self.len()
     }
     fn write_bytes(&mut self, data: &[u8]) -> usize {
@@ -73,11 +76,13 @@ impl PipeBuffer{
         self.buf.extend(&data[..to_write]);
 
         // If a reader is waiting for bytes, wake them
-        if let Some(w) = self.read_waker.take() { w.wake(); }
+        if let Some(w) = self.read_waker.take() {
+            w.wake();
+        }
         // If a thread is waiting for bytes, notify them
         self.not_empty.notify_all();
         // If an interest handler is registered, fire it
-    self.fire_interest_readable();
+        self.fire_interest_readable();
 
         to_write
     }
@@ -86,7 +91,7 @@ impl PipeBuffer{
     /// data available.
     /// # Returns
     /// * `usize` - the number of bytes read into `buf`
-    fn read_bytes(&mut self, buf: &mut [u8]) -> usize{
+    fn read_bytes(&mut self, buf: &mut [u8]) -> usize {
         let to_read = std::cmp::min(self.buf.len(), buf.len());
         for i in 0..to_read {
             if let Some(byte) = self.buf.pop_front() {
@@ -97,7 +102,9 @@ impl PipeBuffer{
         }
 
         // If a writer is waiting for space, wake them
-        if let Some(w) = self.write_waker.take() { w.wake(); }
+        if let Some(w) = self.write_waker.take() {
+            w.wake();
+        }
         // If a thread is waiting for space, notify them
         self.not_full.notify_all();
         // If an interest handler is registered, fire it
@@ -109,7 +116,7 @@ impl PipeBuffer{
     /// Reads bytes from the buffer into the provided `ReadBuf`, advancing its internal cursor.
     /// # Returns
     /// * `usize` - the number of bytes read into `buf`
-    fn read_into_tokio_buf(&mut self, buf: &mut ReadBuf<'_>){
+    fn read_into_tokio_buf(&mut self, buf: &mut ReadBuf<'_>) {
         let to_read = std::cmp::min(self.buf.len(), buf.remaining());
         for _ in 0..to_read {
             if let Some(byte) = self.buf.pop_front() {
@@ -119,32 +126,33 @@ impl PipeBuffer{
             }
         }
         // If a writer is waiting for space, wake them
-        if let Some(w) = self.write_waker.take() { w.wake(); }
+        if let Some(w) = self.write_waker.take() {
+            w.wake();
+        }
         // If a thread is waiting for space, notify them
         self.not_full.notify_all();
         // If an interest handler is registered, fire it
         self.fire_interest_writable();
-
     }
-    fn store_read_waker(&mut self, waker: std::task::Waker){
+    fn store_read_waker(&mut self, waker: std::task::Waker) {
         self.read_waker = Some(waker);
     }
-    fn store_write_waker(&mut self, waker: std::task::Waker){
+    fn store_write_waker(&mut self, waker: std::task::Waker) {
         self.write_waker = Some(waker);
     }
 
-    fn set_interest_handler(&mut self, handler: Box<dyn InterestHandler>){
+    fn set_interest_handler(&mut self, handler: Box<dyn InterestHandler>) {
         self.interest_handler = Some(handler);
     }
-    fn take_interest_handler(&mut self) -> Option<Box<dyn InterestHandler>>{
+    fn take_interest_handler(&mut self) -> Option<Box<dyn InterestHandler>> {
         self.interest_handler.take()
     }
-    fn fire_interest_readable(&mut self){
+    fn fire_interest_readable(&mut self) {
         if let Some(handler) = self.interest_handler.as_mut() {
             handler.push_interest(InterestType::Readable);
         }
     }
-    fn fire_interest_writable(&mut self){
+    fn fire_interest_writable(&mut self) {
         if let Some(handler) = self.interest_handler.as_mut() {
             handler.push_interest(InterestType::Writable);
         }
@@ -258,16 +266,22 @@ impl tokio::io::AsyncWrite for PipeTx {
 }
 
 impl std::io::Seek for PipeTx {
-    fn seek(&mut self, _: SeekFrom) -> std::io::Result<u64> { Ok(0) }
-}
-
-impl tokio::io::AsyncSeek for PipeTx {
-    fn start_seek(self: Pin<&mut Self>, _: SeekFrom) -> std::io::Result<()> { Ok(()) }
-    fn poll_complete(self: Pin<&mut Self>, _: &mut std::task::Context<'_>) -> Poll<std::io::Result<u64>> {
-        Poll::Ready(Ok(0))
+    fn seek(&mut self, _: SeekFrom) -> std::io::Result<u64> {
+        Ok(0)
     }
 }
 
+impl tokio::io::AsyncSeek for PipeTx {
+    fn start_seek(self: Pin<&mut Self>, _: SeekFrom) -> std::io::Result<()> {
+        Ok(())
+    }
+    fn poll_complete(
+        self: Pin<&mut Self>,
+        _: &mut std::task::Context<'_>,
+    ) -> Poll<std::io::Result<u64>> {
+        Poll::Ready(Ok(0))
+    }
+}
 
 impl PipeRx {
     pub fn close(&mut self) {
@@ -289,7 +303,11 @@ impl PipeRx {
     pub fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
         let mut inner = self.buf.lock().expect("pipe buffer mutex was poisoned");
         if inner.is_empty() {
-            return if inner.is_write_closed() { Some(0) } else { None };
+            return if inner.is_write_closed() {
+                Some(0)
+            } else {
+                None
+            };
         }
         Some(inner.read_bytes(buf))
     }
@@ -317,11 +335,17 @@ impl PipeRx {
     }
 
     pub fn set_interest_handler(&self, handler: Box<dyn InterestHandler>) {
-        self.buf.lock().expect("pipe buffer mutex was poisoned").set_interest_handler(handler);
+        self.buf
+            .lock()
+            .expect("pipe buffer mutex was poisoned")
+            .set_interest_handler(handler);
     }
 
     pub fn remove_interest_handler(&self) -> Option<Box<dyn InterestHandler>> {
-        self.buf.lock().expect("pipe buffer mutex was poisoned").take_interest_handler()
+        self.buf
+            .lock()
+            .expect("pipe buffer mutex was poisoned")
+            .take_interest_handler()
     }
 }
 
@@ -336,7 +360,9 @@ impl std::io::Read for PipeRx {
                 return Ok(0);
             }
             let cv = inner.not_empty.clone();
-            inner = cv.wait(inner).expect("pipe buffer mutex was poisoned while waiting for data");
+            inner = cv
+                .wait(inner)
+                .expect("pipe buffer mutex was poisoned while waiting for data");
         }
     }
 }
@@ -366,12 +392,19 @@ impl tokio::io::AsyncRead for PipeRx {
 }
 
 impl std::io::Seek for PipeRx {
-    fn seek(&mut self, _: SeekFrom) -> std::io::Result<u64> { Ok(0) }
+    fn seek(&mut self, _: SeekFrom) -> std::io::Result<u64> {
+        Ok(0)
+    }
 }
 
 impl tokio::io::AsyncSeek for PipeRx {
-    fn start_seek(self: Pin<&mut Self>, _: SeekFrom) -> std::io::Result<()> { Ok(()) }
-    fn poll_complete(self: Pin<&mut Self>, _: &mut std::task::Context<'_>) -> Poll<std::io::Result<u64>> {
+    fn start_seek(self: Pin<&mut Self>, _: SeekFrom) -> std::io::Result<()> {
+        Ok(())
+    }
+    fn poll_complete(
+        self: Pin<&mut Self>,
+        _: &mut std::task::Context<'_>,
+    ) -> Poll<std::io::Result<u64>> {
         Poll::Ready(Ok(0))
     }
 }
@@ -379,8 +412,6 @@ impl tokio::io::AsyncSeek for PipeRx {
 // --------------------------------------------------------------------
 // Pipe
 // --------------------------------------------------------------------
-
-
 
 /// POSIX atomicity guarantee: writes of this many bytes or fewer
 /// are guaranteed to be atomic (not interleaved with other writes).
@@ -407,12 +438,8 @@ impl Pipe {
     pub fn new() -> Self {
         let buf = Arc::new(std::sync::Mutex::new(PipeBuffer::new(PIPE_CAPACITY)));
         Self {
-            send: PipeTx {
-                buf: buf.clone(),
-            },
-            recv: PipeRx {
-                buf,
-            },
+            send: PipeTx { buf: buf.clone() },
+            recv: PipeRx { buf },
         }
     }
 
@@ -492,7 +519,10 @@ impl tokio::io::AsyncWrite for Pipe {
         this.poll_write(cx, buf)
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), std::io::Error>> {
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<(), std::io::Error>> {
         let this = Pin::new(&mut self.send);
         this.poll_flush(cx)
     }
@@ -521,7 +551,10 @@ impl tokio::io::AsyncSeek for Pipe {
         this.start_seek(position)
     }
 
-    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<std::io::Result<u64>> {
+    fn poll_complete(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<std::io::Result<u64>> {
         let this = Pin::new(&mut self.recv);
         this.poll_complete(cx)
     }
@@ -562,12 +595,19 @@ impl VirtualFile for Pipe {
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
     fn is_open(&self) -> bool {
-        let buf = self.send.buf.lock().expect("pipe buffer mutex was poisoned");
+        let buf = self
+            .send
+            .buf
+            .lock()
+            .expect("pipe buffer mutex was poisoned");
         !buf.is_write_closed() && !buf.is_read_closed()
     }
 
     /// Polls the file for when there is data to be read
-    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<std::io::Result<usize>> {
+    fn poll_read_ready(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<std::io::Result<usize>> {
         Pin::new(&mut self.recv).poll_read_ready(cx)
     }
 
@@ -586,12 +626,9 @@ impl std::io::Seek for Pipe {
     }
 }
 
-
-
 // --------------------------------------------------------------------
 // Duplex Pipe
 // --------------------------------------------------------------------
-
 
 /// A pair of pipes that are connected together.
 #[derive(Clone, Debug)]
@@ -656,8 +693,6 @@ impl DuplexPipe {
 /// Shared version of BidiPipe for situations where you need
 /// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
 pub type WasiBidirectionalSharedPipePair = ArcFile<DuplexPipe>;
-
-
 
 #[cfg(test)]
 mod tests {
@@ -736,7 +771,10 @@ mod tests {
             }
         }
 
-        assert!(got_would_block, "expected WouldBlock when pipe buffer is full");
+        assert!(
+            got_would_block,
+            "expected WouldBlock when pipe buffer is full"
+        );
         assert!(
             bytes_written <= PIPE_CAPACITY,
             "pipe buffer should be bounded at {}B, but accepted {} bytes",
@@ -788,7 +826,10 @@ mod tests {
         let mut pipe = Pipe::new();
         assert!(pipe.is_open());
         pipe.send.close();
-        assert!(!pipe.is_open(), "pipe should be closed after send end closes");
+        assert!(
+            !pipe.is_open(),
+            "pipe should be closed after send end closes"
+        );
     }
 
     #[tokio::test]
@@ -796,7 +837,10 @@ mod tests {
         let mut pipe = Pipe::new();
         assert!(pipe.is_open());
         pipe.recv.close();
-        assert!(!pipe.is_open(), "pipe should be closed after recv end closes");
+        assert!(
+            !pipe.is_open(),
+            "pipe should be closed after recv end closes"
+        );
     }
 
     #[tokio::test]
@@ -821,7 +865,10 @@ mod tests {
         let mut pipe = Pipe::new();
         let data = vec![0u8; PIPE_BUF];
         let result = pipe.write(&data);
-        assert!(result.is_ok(), "write of exactly PIPE_BUF bytes should succeed");
+        assert!(
+            result.is_ok(),
+            "write of exactly PIPE_BUF bytes should succeed"
+        );
         assert_eq!(result.unwrap(), PIPE_BUF);
     }
 
@@ -849,7 +896,6 @@ mod tests {
             "write of PIPE_BUF bytes must fail when less than PIPE_BUF space available"
         );
         assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
-
     }
 
     #[tokio::test]
@@ -906,12 +952,17 @@ mod tests {
 
         // Sanity check — if we hit WouldBlock before fill_target
         // the pipe is full anyway, which also satisfies available < PIPE_BUF
-        let buf_inner = pipe.send.buf.lock().expect("pipe buffer mutex was poisoned");
+        let buf_inner = pipe
+            .send
+            .buf
+            .lock()
+            .expect("pipe buffer mutex was poisoned");
         let available = buf_inner.available_capacity();
         assert!(
             available < PIPE_BUF,
             "test setup failed: {} bytes available, need < {}",
-            available, PIPE_BUF
+            available,
+            PIPE_BUF
         );
         drop(buf_inner);
 
@@ -922,10 +973,7 @@ mod tests {
             "atomic write must fail when only {} bytes available, got Ok",
             available
         );
-        assert_eq!(
-        result.unwrap_err().kind(),
-        std::io::ErrorKind::WouldBlock,
-    );
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::WouldBlock,);
     }
 
     #[tokio::test]
@@ -1071,7 +1119,10 @@ mod tests {
             }
         }
 
-        assert_eq!(front_written, PIPE_CAPACITY, "front direction capacity wrong");
+        assert_eq!(
+            front_written, PIPE_CAPACITY,
+            "front direction capacity wrong"
+        );
         assert_eq!(back_written, PIPE_CAPACITY, "back direction capacity wrong");
     }
 
