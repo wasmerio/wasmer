@@ -229,7 +229,7 @@ fn write_to_socket<M: MemorySize>(
         .unwrap_or(Duration::from_secs(30));
     let tasks = env.tasks().clone();
 
-    let res = __asyncify_light(env, None, async {
+    __asyncify_light(env, None, async {
         let mut sent = 0usize;
         match data {
             FdWriteSource::Iovs { iovs, iovs_len } => {
@@ -257,9 +257,7 @@ fn write_to_socket<M: MemorySize>(
             }
         }
         Ok(sent)
-    });
-
-    res
+    })
 }
 
 /// Result of writing to a pipe-like fd. `BrokenPipe` is returned instead of an

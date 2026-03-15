@@ -207,7 +207,10 @@ impl PipeTx {
     }
 
     /// Returns how many bytes can be written right now without blocking.
-    pub fn poll_write_ready(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<std::io::Result<usize>> {
+    pub fn poll_write_ready(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<std::io::Result<usize>> {
         let mut buf = self.buf.lock().expect("pipe buffer mutex was poisoned");
         if buf.is_read_closed() {
             // No readers — any write would BrokenPipe
@@ -237,7 +240,6 @@ impl PipeTx {
         }
         Some(inner.write_bytes(buf))
     }
-
 }
 
 impl std::io::Write for PipeTx {
@@ -252,7 +254,8 @@ impl std::io::Write for PipeTx {
                 return Ok(inner.write_bytes(buf));
             }
             let cv = inner.not_full.clone();
-            inner = cv.wait(inner)
+            inner = cv
+                .wait(inner)
                 .expect("pipe buffer mutex was poisoned while waiting for space");
         }
     }
@@ -276,9 +279,7 @@ impl tokio::io::AsyncWrite for PipeTx {
         }
 
         let available = inner.available_capacity();
-        if available == 0
-            || (buf.len() <= PIPE_BUF && available < buf.len())
-        {
+        if available == 0 || (buf.len() <= PIPE_BUF && available < buf.len()) {
             // Not enough capacity — register waker and suspend
             inner.store_write_waker(cx.waker().clone());
             return Poll::Pending;
@@ -1152,7 +1153,10 @@ mod tests {
             front_bytes_written, PIPE_CAPACITY,
             "front direction capacity wrong"
         );
-        assert_eq!(back_bytes_written, PIPE_CAPACITY, "back direction capacity wrong");
+        assert_eq!(
+            back_bytes_written, PIPE_CAPACITY,
+            "back direction capacity wrong"
+        );
     }
 
     #[tokio::test]
