@@ -116,7 +116,7 @@ impl PipeBuffer {
     /// Reads bytes from the buffer into the provided `ReadBuf`, advancing its internal cursor.
     /// # Returns
     /// * `usize` - the number of bytes read into `buf`
-    fn read_into_tokio_buf(&mut self, buf: &mut ReadBuf<'_>) {
+    fn read_into_tokio_buf(&mut self, buf: &mut ReadBuf<'_>) -> usize {
         let to_read = std::cmp::min(self.buf.len(), buf.remaining());
         for _ in 0..to_read {
             if let Some(byte) = self.buf.pop_front() {
@@ -133,6 +133,8 @@ impl PipeBuffer {
         self.not_full.notify_all();
         // If an interest handler is registered, fire it
         self.fire_interest_writable();
+
+        to_read
     }
     fn store_read_waker(&mut self, waker: std::task::Waker) {
         self.read_waker = Some(waker);
