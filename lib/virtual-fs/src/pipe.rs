@@ -978,7 +978,11 @@ mod tests {
         let mut buf = [0u8; 4];
         assert_eq!(rx.try_read(&mut buf), None, "expected None on empty pipe");
         drop(tx); // now write end closes via drop guard
-        assert_eq!(rx.try_read(&mut buf), Some(0), "expected EOF after tx dropped");
+        assert_eq!(
+            rx.try_read(&mut buf),
+            Some(0),
+            "expected EOF after tx dropped"
+        );
     }
 
     #[tokio::test]
