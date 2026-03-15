@@ -13,7 +13,6 @@ struct PipeBuffer {
     capacity: usize,
     write_closed: bool,
     read_closed: bool,
-    ///
     read_waker: Option<std::task::Waker>,
     write_waker: Option<std::task::Waker>,
     /// Conditional Variable for OS threads synchronization
@@ -22,7 +21,6 @@ struct PipeBuffer {
     /// Conditional Variable for OS threads synchronization
     /// Used to wake up threads blocked on write when space is freed up.
     not_full: Arc<std::sync::Condvar>,
-    ///
     interest_handler: Option<Box<dyn InterestHandler>>,
 }
 
@@ -93,9 +91,9 @@ impl PipeBuffer {
     /// * `usize` - the number of bytes read into `buf`
     fn read_bytes(&mut self, buf: &mut [u8]) -> usize {
         let to_read = std::cmp::min(self.buf.len(), buf.len());
-        for i in 0..to_read {
+        for dst in buf.iter_mut().take(to_read) {
             if let Some(byte) = self.buf.pop_front() {
-                buf[i] = byte;
+                *dst = byte;
             } else {
                 break;
             }
@@ -300,8 +298,7 @@ impl PipeRx {
     /// * `Option<usize>`
     ///     - `Some(n)` if n bytes were read into `buf`
     ///     - `Some(0)` if the write end is closed and there is no more data (EOF)
-    ///     - `None` if there is no data available right now but the write end is still open
-    ///             (would block)
+    ///     - `None` if there is no data available right now but the write end is still open (would block)
     pub fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
         let mut inner = self.buf.lock().expect("pipe buffer mutex was poisoned");
         if inner.is_empty() {

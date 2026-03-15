@@ -8,9 +8,11 @@
 #include <signal.h>
 // Needed for PIPE_BUF
 // TODO: wasi sysroot does not expose PIPE_BUF, but it should
-// once it does, the hardcoded value mut be removed.
+// once it does, the hardcoded value should be removed.
 #include <limits.h>
-#define PIPE_BUF 4096
+ #ifndef PIPE_BUF
+ #define PIPE_BUF 4096
+ #endif
 
 int read_write()
 {

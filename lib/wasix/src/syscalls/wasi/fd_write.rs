@@ -547,9 +547,6 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         )?;
     }
 
-    env = ctx.data();
-    memory = unsafe { env.memory_view(&ctx) };
-
     // For stdio we don't need to update the offset or file size, we can just return
     if is_stdio {
         return Ok(Ok(bytes_written));
@@ -569,10 +566,6 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     } else {
         fd_entry.inner.offset.load(Ordering::Acquire)
     };
-
-    // we set the size but we don't return any errors if it fails as
-    // pipes and sockets will not do anything with this
-    let (mut memory, _, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     if is_file {
         let mut stat = fd_entry.inode.stat.write().unwrap();
