@@ -1,5 +1,3 @@
-use std::task::Waker;
-
 use super::*;
 use crate::{fs::NotificationInner, net::socket::TimeType, syscalls::*};
 #[cfg(feature = "journal")]
@@ -261,7 +259,7 @@ fn write_to_socket<M: MemorySize>(
         Ok(sent)
     });
 
-    Ok(res?)
+    res
 }
 
 /// Result of writing to a pipe-like fd. `BrokenPipe` is returned instead of an
@@ -426,7 +424,6 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     }
 
     let fd_flags = fd_entry.inner.flags;
-    let mut memory = unsafe { env.memory_view(&ctx) };
 
     let outcome = {
         let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };

@@ -91,12 +91,29 @@ impl PipeBuffer {
     /// * `usize` - the number of bytes read into `buf`
     fn read_bytes(&mut self, buf: &mut [u8]) -> usize {
         let to_read = std::cmp::min(self.buf.len(), buf.len());
-        for dst in buf.iter_mut().take(to_read) {
-            if let Some(byte) = self.buf.pop_front() {
-                *dst = byte;
-            } else {
-                break;
+        // Fast-path: copy out in contiguous chunks to avoid per-byte pop_front overhead.
+        {
+            let (front, back) = self.buf.as_slices();
+            let mut remaining = to_read;
+            let mut offset = 0;
+            // Copy from the first contiguous slice.
+            let first_chunk = std::cmp::min(front.len(), remaining);
+            if first_chunk > 0 {
+                buf[offset..offset + first_chunk].copy_from_slice(&front[..first_chunk]);
+                remaining -= first_chunk;
+                offset += first_chunk;
             }
+            // Copy from the second contiguous slice, if we still have bytes to read.
+            if remaining > 0 {
+                let second_chunk = std::cmp::min(back.len(), remaining);
+                if second_chunk > 0 {
+                    buf[offset..offset + second_chunk].copy_from_slice(&back[..second_chunk]);
+                }
+            }
+        }
+        // Remove the bytes we just read from the front of the deque.
+        if to_read > 0 {
+            self.buf.drain(..to_read);
         }
 
         // If a writer is waiting for space, wake them
@@ -116,21 +133,26 @@ impl PipeBuffer {
     /// * `usize` - the number of bytes read into `buf`
     fn read_into_tokio_buf(&mut self, buf: &mut ReadBuf<'_>) -> usize {
         let to_read = std::cmp::min(self.buf.len(), buf.remaining());
-        for _ in 0..to_read {
-            if let Some(byte) = self.buf.pop_front() {
-                buf.put_slice(&[byte]);
-            } else {
-                break;
+        if to_read > 0 {
+            // Copy from the front contiguous slice first.
+            let (front, _) = self.buf.as_slices();
+            let read_front = std::cmp::min(front.len(), to_read);
+            if read_front > 0 {
+                buf.put_slice(&front[..read_front]);
+                self.buf.drain(0..read_front);
+            }
+            // If we still have bytes to read, they reside in what was previously
+            // the wrapped-around portion of the VecDeque. Drain them in one chunk.
+            let remaining = to_read - read_front;
+            if remaining > 0 {
+                let (front2, _) = self.buf.as_slices();
+                let read_back = std::cmp::min(front2.len(), remaining);
+                if read_back > 0 {
+                    buf.put_slice(&front2[..read_back]);
+                    self.buf.drain(0..read_back);
+                }
             }
         }
-        // If a writer is waiting for space, wake them
-        if let Some(w) = self.write_waker.take() {
-            w.wake();
-        }
-        // If a thread is waiting for space, notify them
-        self.not_full.notify_all();
-        // If an interest handler is registered, fire it
-        self.fire_interest_writable();
 
         to_read
     }
@@ -185,8 +207,8 @@ impl PipeTx {
     }
 
     /// Returns how many bytes can be written right now without blocking.
-    pub fn poll_write_ready(self: Pin<&mut Self>) -> Poll<std::io::Result<usize>> {
-        let buf = self.buf.lock().expect("pipe buffer mutex was poisoned");
+    pub fn poll_write_ready(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<std::io::Result<usize>> {
+        let mut buf = self.buf.lock().expect("pipe buffer mutex was poisoned");
         if buf.is_read_closed() {
             // No readers — any write would BrokenPipe
             return Poll::Ready(Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe)));
@@ -195,28 +217,44 @@ impl PipeTx {
         //   capacity - data.len()
         let space = buf.available_capacity();
         if space == 0 {
-            Poll::Ready(Ok(0))
+            buf.store_write_waker(cx.waker().clone());
+            Poll::Pending
         } else {
             Poll::Ready(Ok(space))
         }
     }
+
+    /// Non-blocking write. Returns None if there's not enough space
+    /// (equivalent to WouldBlock), Some(n) on success.
+    pub fn try_write(&mut self, buf: &[u8]) -> Option<usize> {
+        let mut inner = self.buf.lock().expect("pipe buffer mutex was poisoned");
+        if inner.is_read_closed() {
+            return Some(0); // or could return a Result with BrokenPipe
+        }
+        let write_len = buf.len().min(PIPE_BUF);
+        if inner.available_capacity() < write_len {
+            return None;
+        }
+        Some(inner.write_bytes(buf))
+    }
+
 }
 
 impl std::io::Write for PipeTx {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let mut inner = self.buf.lock().expect("pipe buffer mutex was poisoned");
-
-        if inner.is_read_closed() {
-            return Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe));
+        let write_len = buf.len().min(PIPE_BUF);
+        loop {
+            if inner.is_read_closed() {
+                return Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe));
+            }
+            if inner.available_capacity() >= write_len {
+                return Ok(inner.write_bytes(buf));
+            }
+            let cv = inner.not_full.clone();
+            inner = cv.wait(inner)
+                .expect("pipe buffer mutex was poisoned while waiting for space");
         }
-
-        // POSIX: atomic writes <= PIPE_BUF must be all-or-nothing
-        // If there isn't enough space right now, return WouldBlock
-        if inner.available_capacity() < buf.len().min(PIPE_BUF) {
-            return Err(std::io::Error::from(std::io::ErrorKind::WouldBlock));
-        }
-
-        Ok(inner.write_bytes(buf))
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
@@ -237,9 +275,11 @@ impl tokio::io::AsyncWrite for PipeTx {
             return Poll::Ready(Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe)));
         }
 
-        if inner.available_capacity() < buf.len().min(PIPE_BUF) {
-            // Full — register waker and suspend
-            // PipeBuffer::store_write_waker(&mut self, waker: Waker)
+        let available = inner.available_capacity();
+        if available == 0
+            || (buf.len() <= PIPE_BUF && available < buf.len())
+        {
+            // Not enough capacity — register waker and suspend
             inner.store_write_waker(cx.waker().clone());
             return Poll::Pending;
         }
@@ -463,6 +503,10 @@ impl Pipe {
         self.recv.try_read(buf)
     }
 
+    pub fn try_write(&mut self, buf: &[u8]) -> Option<usize> {
+        self.send.try_write(buf)
+    }
+
     pub fn set_interest_handler(&self, handler: Box<dyn InterestHandler>) {
         self.recv.set_interest_handler(handler);
     }
@@ -613,9 +657,9 @@ impl VirtualFile for Pipe {
     /// Polls the file for when it is available for writing
     fn poll_write_ready(
         mut self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<usize>> {
-        Pin::new(&mut self.send).poll_write_ready()
+        Pin::new(&mut self.send).poll_write_ready(cx)
     }
 }
 
@@ -745,34 +789,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pipe_write_returns_would_block_when_full() {
+    async fn pipe_write_returns_none_when_full() {
         let mut pipe = Pipe::new();
         let mut bytes_written = 0usize;
-        #[allow(unused_assignments)]
-        let mut got_would_block = false;
 
         loop {
-            match pipe.write(b"x") {
-                Ok(n) => {
+            match pipe.send.try_write(b"x") {
+                Some(n) if n > 0 => {
                     bytes_written += n;
                     if bytes_written > 2 * 1024 * 1024 {
                         panic!(
-                            "BUG: wrote {} bytes without WouldBlock — pipe buffer is unbounded",
+                            "BUG: wrote {} bytes without None — pipe buffer is unbounded",
                             bytes_written
                         );
                     }
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    got_would_block = true;
-                    break;
-                }
-                Err(e) => panic!("unexpected error: {}", e),
+                _ => break,
             }
         }
 
+        // Verify that try_write now returns None (pipe is full)
         assert!(
-            got_would_block,
-            "expected WouldBlock when pipe buffer is full"
+            pipe.send.try_write(b"x").is_none(),
+            "expected None when pipe buffer is full"
         );
         assert!(
             bytes_written <= PIPE_CAPACITY,
@@ -786,11 +825,11 @@ mod tests {
     async fn pipe_write_resumes_after_drain() {
         let mut pipe = Pipe::new();
 
+        // Fill the pipe using try_write (non-blocking)
         loop {
-            match pipe.write(b"x") {
-                Ok(_) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(e) => panic!("unexpected error filling pipe: {}", e),
+            match pipe.send.try_write(b"x") {
+                Some(n) if n > 0 => {}
+                _ => break,
             }
         }
 
@@ -798,11 +837,10 @@ mod tests {
         let drained = pipe.read(&mut drain_buf).unwrap();
         assert!(drained > 0, "expected to drain some bytes");
 
-        let result = pipe.write(b"y");
+        let result = pipe.send.try_write(b"y");
         assert!(
-            result.is_ok(),
-            "expected write to succeed after draining, got: {:?}",
-            result
+            result.is_some(),
+            "expected write to succeed after draining, got None",
         );
     }
 
@@ -863,9 +901,9 @@ mod tests {
     async fn pipe_write_exactly_pipe_buf_succeeds_when_space_available() {
         let mut pipe = Pipe::new();
         let data = vec![0u8; PIPE_BUF];
-        let result = pipe.write(&data);
+        let result = pipe.try_write(&data);
         assert!(
-            result.is_ok(),
+            result.is_some(),
             "write of exactly PIPE_BUF bytes should succeed"
         );
         assert_eq!(result.unwrap(), PIPE_BUF);
@@ -877,24 +915,22 @@ mod tests {
 
         // Fill until only PIPE_BUF - 1 bytes remain
         let target_remaining = PIPE_BUF - 1;
-        let mut filled = 0usize;
-        while filled < PIPE_CAPACITY - target_remaining {
-            match pipe.write(b"x") {
-                Ok(n) => filled += n,
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(e) => panic!("unexpected: {}", e),
+        let mut bytes_written = 0usize;
+        while bytes_written < PIPE_CAPACITY - target_remaining {
+            match pipe.send.try_write(b"x") {
+                Some(n) if n > 0 => bytes_written += n,
+                _ => break,
             }
         }
 
         // Available space is now less than PIPE_BUF
         // A write of exactly PIPE_BUF must fail atomically
         let data = vec![0u8; PIPE_BUF];
-        let result = pipe.write(&data);
+        let result = pipe.try_write(&data);
         assert!(
-            result.is_err(),
-            "write of PIPE_BUF bytes must fail when less than PIPE_BUF space available"
+            result.is_none(),
+            "write of PIPE_BUF bytes must return None when less than PIPE_BUF space available"
         );
-        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
     }
 
     #[tokio::test]
@@ -940,12 +976,11 @@ mod tests {
         // We need available_capacity < PIPE_BUF
         // So we must fill at least PIPE_CAPACITY - PIPE_BUF + 1 bytes
         let fill_target = PIPE_CAPACITY - PIPE_BUF + 1;
-        let mut filled = 0usize;
-        while filled < fill_target {
-            match pipe.write(b"x") {
-                Ok(n) => filled += n,
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(e) => panic!("unexpected fill error: {}", e),
+        let mut bytes_written = 0usize;
+        while bytes_written < fill_target {
+            match pipe.send.try_write(b"x") {
+                Some(n) if n > 0 => bytes_written += n,
+                _ => break,
             }
         }
 
@@ -966,13 +1001,12 @@ mod tests {
         drop(buf_inner);
 
         let atomic_data = vec![0xCDu8; PIPE_BUF];
-        let result = pipe.write(&atomic_data);
+        let result = pipe.try_write(&atomic_data);
         assert!(
-            result.is_err(),
-            "atomic write must fail when only {} bytes available, got Ok",
+            result.is_none(),
+            "atomic write must return None when only {} bytes available",
             available
         );
-        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::WouldBlock,);
     }
 
     #[tokio::test]
@@ -980,12 +1014,11 @@ mod tests {
         let mut pipe = Pipe::new();
 
         let fill_target = PIPE_CAPACITY - PIPE_BUF + 1;
-        let mut filled = 0usize;
-        while filled < fill_target {
-            match pipe.write(b"x") {
-                Ok(n) => filled += n,
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(e) => panic!("unexpected fill error: {}", e),
+        let mut bytes_written = 0usize;
+        while bytes_written < fill_target {
+            match pipe.send.try_write(b"x") {
+                Some(n) if n > 0 => bytes_written += n,
+                _ => break,
             }
         }
 
@@ -999,10 +1032,10 @@ mod tests {
         );
 
         let atomic_data = vec![0xCDu8; PIPE_BUF];
-        let result = pipe.write(&atomic_data);
+        let result = pipe.try_write(&atomic_data);
         assert!(
-            result.is_err(),
-            "atomic write must fail when only {} bytes available, got Ok",
+            result.is_none(),
+            "atomic write must return None when only {} bytes available",
             available
         );
     }
@@ -1012,19 +1045,18 @@ mod tests {
     #[tokio::test]
     async fn pipe_capacity_is_exactly_pipe_capacity() {
         let mut pipe = Pipe::new();
-        let mut total = 0usize;
+        let mut bytes_written = 0usize;
 
         // Write 1 byte at a time to count exact capacity
         loop {
-            match pipe.write(b"x") {
-                Ok(n) => total += n,
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(e) => panic!("unexpected: {}", e),
+            match pipe.send.try_write(b"x") {
+                Some(n) if n > 0 => bytes_written += n,
+                _ => break,
             }
         }
 
         assert_eq!(
-            total, PIPE_CAPACITY,
+            bytes_written, PIPE_CAPACITY,
             "pipe capacity should be exactly PIPE_CAPACITY bytes"
         );
     }
@@ -1099,30 +1131,28 @@ mod tests {
     async fn duplex_pipe_independent_capacities() {
         // Each direction has its own independent PIPE_CAPACITY
         let mut dp = DuplexPipe::new();
-        let mut front_written = 0usize;
-        let mut back_written = 0usize;
+        let mut front_bytes_written = 0usize;
+        let mut back_bytes_written = 0usize;
 
         loop {
-            match dp.front_mut().write(b"x") {
-                Ok(n) => front_written += n,
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(e) => panic!("unexpected: {}", e),
+            match dp.front_mut().try_write(b"x") {
+                Some(n) if n > 0 => front_bytes_written += n,
+                _ => break,
             }
         }
 
         loop {
-            match dp.back_mut().write(b"y") {
-                Ok(n) => back_written += n,
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(e) => panic!("unexpected: {}", e),
+            match dp.back_mut().try_write(b"y") {
+                Some(n) if n > 0 => back_bytes_written += n,
+                _ => break,
             }
         }
 
         assert_eq!(
-            front_written, PIPE_CAPACITY,
+            front_bytes_written, PIPE_CAPACITY,
             "front direction capacity wrong"
         );
-        assert_eq!(back_written, PIPE_CAPACITY, "back direction capacity wrong");
+        assert_eq!(back_bytes_written, PIPE_CAPACITY, "back direction capacity wrong");
     }
 
     #[tokio::test]
@@ -1149,14 +1179,13 @@ mod tests {
 
         let producer = thread::spawn(move || {
             for i in 0u8..=255 {
-                // Retry on WouldBlock — simulate blocking write
+                // Retry when pipe is full
                 loop {
-                    match tx.write(&[i]) {
-                        Ok(_) => break,
-                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    match tx.try_write(&[i]) {
+                        Some(_) => break,
+                        None => {
                             std::thread::yield_now();
                         }
-                        Err(e) => panic!("producer error: {}", e),
                     }
                 }
             }

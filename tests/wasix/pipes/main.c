@@ -639,8 +639,23 @@ int pipe_dup2_redirect()
     close(saved_stdout);
 
     char buf[7];
-    int r = read(pipefd[0], buf, 6);
-    buf[r] = '\0';
+    ssize_t total = 0;
+    while (total < 6)
+    {
+     ssize_t r = read(pipefd[0], buf + total, 6 - total);
+     if (r < 0)
+     {
+         perror("read");
+         close(pipefd[0]);
+         return 1;
+     }
+     if (r == 0)
+     {
+         break;
+     }
+     total += r;
+    }
+    buf[total] = '\0';
     close(pipefd[0]);
 
     if (strcmp(buf, "piped"))
@@ -676,7 +691,18 @@ int atomic_write_pipe_buf()
     if (r == PIPE_BUF)
         printf("OK: PIPE_BUF atomic write succeeded (%d bytes)\n", r);
     else
+    {
+        if (errno != EAGAIN)
+        {
+            printf("BUG: atomic write of PIPE_BUF failed with errno %d (%s), expected EAGAIN\n",
+                errno,
+                strerror(errno));
+            close(pipefd[0]);
+            close(pipefd[1]);
+            return 1;
+        }
         printf("OK: PIPE_BUF atomic write correctly returned EAGAIN when full\n");
+    }
 
     close(pipefd[0]);
     close(pipefd[1]);
