@@ -184,16 +184,48 @@ impl PipeBuffer {
 type SharedBuf = Arc<std::sync::Mutex<PipeBuffer>>;
 
 // --------------------------------------------------------------------
+// Drop guards — close the pipe end when the last clone is dropped
+// --------------------------------------------------------------------
+
+#[derive(Debug)]
+struct PipeTxDropGuard {
+    buf: SharedBuf,
+}
+
+impl Drop for PipeTxDropGuard {
+    fn drop(&mut self) {
+        let mut buf = self.buf.lock().expect("pipe buffer mutex was poisoned");
+        buf.close_write();
+    }
+}
+
+#[derive(Debug)]
+struct PipeRxDropGuard {
+    buf: SharedBuf,
+}
+
+impl Drop for PipeRxDropGuard {
+    fn drop(&mut self) {
+        let mut buf = self.buf.lock().expect("pipe buffer mutex was poisoned");
+        buf.close_read();
+    }
+}
+
+// --------------------------------------------------------------------
 // Transmitter / Receiver
 // --------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 pub struct PipeTx {
     buf: SharedBuf,
+    /// When the last `PipeTx` clone is dropped, `close_write()` fires automatically.
+    _drop_guard: Arc<PipeTxDropGuard>,
 }
 #[derive(Debug, Clone)]
 pub struct PipeRx {
     buf: SharedBuf,
+    /// When the last `PipeRx` clone is dropped, `close_read()` fires automatically.
+    _drop_guard: Arc<PipeRxDropGuard>,
 }
 
 impl PipeTx {
@@ -478,8 +510,14 @@ impl Pipe {
     pub fn new() -> Self {
         let buf = Arc::new(std::sync::Mutex::new(PipeBuffer::new(PIPE_CAPACITY)));
         Self {
-            send: PipeTx { buf: buf.clone() },
-            recv: PipeRx { buf },
+            send: PipeTx {
+                _drop_guard: Arc::new(PipeTxDropGuard { buf: buf.clone() }),
+                buf: buf.clone(),
+            },
+            recv: PipeRx {
+                _drop_guard: Arc::new(PipeRxDropGuard { buf: buf.clone() }),
+                buf,
+            },
         }
     }
 
@@ -935,10 +973,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pipe_try_read_returns_none_when_empty() {
-        let (_, mut rx) = Pipe::new().split();
+    async fn pipe_try_read_returns_none_when_empty_and_open() {
+        let (tx, mut rx) = Pipe::new().split();
         let mut buf = [0u8; 4];
         assert_eq!(rx.try_read(&mut buf), None, "expected None on empty pipe");
+        drop(tx); // now write end closes via drop guard
+        assert_eq!(rx.try_read(&mut buf), Some(0), "expected EOF after tx dropped");
     }
 
     #[tokio::test]
