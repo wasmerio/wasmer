@@ -30,6 +30,7 @@ virtual-net = { path = "../virtual-net", version = "0.701.0-alpha.1", default-fe
 ] }
 wasmer-journal = { path = "../journal", version = "0.701.0-alpha.1", default-features = false }
 wasmer-config = { version = "0.701.0-alpha.1", path = "../config" }
+wasmer-napi = { version = "0.701.0-alpha.1", path = "../napi", default-features = false, optional = true }
 
 http.workspace = true
 dashmap.workspace = true
@@ -85,7 +86,6 @@ pin-project.workspace = true
 semver.workspace = true
 tempfile.workspace = true
 num_enum.workspace = true
-napi_wasmer = { path = "../../../ubi/napi/wasmer", default-features = false, optional = true }
 # Used by the WCGI runner
 wcgi = { workspace = true, optional = true }
 wcgi-host = { workspace = true, optional = true }
@@ -258,7 +258,7 @@ js = [
 ]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
-napi-v8 = ["dep:napi_wasmer"]
+napi-v8 = ["dep:wasmer-napi"]
 
 host-vnet = ["virtual-net/host-net"]
 host-threads = []
