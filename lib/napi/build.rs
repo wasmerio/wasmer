@@ -152,19 +152,6 @@ fn main() {
         };
     println!("cargo:rustc-link-lib={v8_link_kind}=v8");
 
-    let v8_libplatform_kind = if v8_lib_dir.join("libv8_libplatform.a").exists() {
-        "static"
-    } else {
-        "dylib"
-    };
-    println!("cargo:rustc-link-lib={v8_libplatform_kind}=v8_libplatform");
-
-    let v8_libbase_kind = if v8_lib_dir.join("libv8_libbase.a").exists() {
-        "static"
-    } else {
-        "dylib"
-    };
-    println!("cargo:rustc-link-lib={v8_libbase_kind}=v8_libbase");
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os == "macos" || target_os == "ios" {
         println!("cargo:rustc-link-lib=dylib=c++");
