@@ -96,7 +96,7 @@ If you want support for the Wasmer LLVM compiler, then you will also need to:
   - You can also [download and use a prebuilt LLVM binary](https://releases.llvm.org/download.html)
 - In case `llvm-config` is not accessible, set the correct environment variable
   for LLVM to access: For example, the environment variable for LLVM 21.1.x
-  would be: `LLVM_SYS_211_PREFIX=/path/to/unpacked/llvm-21.1`
+  would be: `LLLVM_SYS_221_PREFIX=/path/to/unpacked/llvm-21.1`
 
 And create a Wasmer release
 
