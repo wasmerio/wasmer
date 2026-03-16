@@ -42,7 +42,12 @@ pub type MakeImportCallback = dyn Fn(&wasmer::Module, &mut wasmer::StoreMut) -> 
     + Send
     + Sync
     + 'static;
-pub type ConfigureInstanceCallback = dyn Fn(&wasmer::Module, &mut wasmer::StoreMut, &wasmer::Instance) -> anyhow::Result<()>
+pub type ConfigureInstanceCallback = dyn Fn(
+        &wasmer::Module,
+        &mut wasmer::StoreMut,
+        &wasmer::Instance,
+        Option<&wasmer::Memory>,
+    ) -> anyhow::Result<()>
     + Send
     + Sync
     + 'static;
@@ -210,6 +215,7 @@ where
         _module: &wasmer::Module,
         _store: &mut wasmer::StoreMut,
         _instance: &wasmer::Instance,
+        _imported_memory: Option<&wasmer::Memory>,
     ) -> anyhow::Result<()> {
         Ok(())
     }
@@ -580,6 +586,7 @@ impl PluggableRuntime {
             &wasmer::Module,
             &mut wasmer::StoreMut,
             &wasmer::Instance,
+            Option<&wasmer::Memory>,
         ) -> anyhow::Result<()>
         + Send
         + Sync
@@ -645,9 +652,10 @@ impl Runtime for PluggableRuntime {
         module: &wasmer::Module,
         store: &mut wasmer::StoreMut,
         instance: &wasmer::Instance,
+        imported_memory: Option<&wasmer::Memory>,
     ) -> anyhow::Result<()> {
         for cb in &self.instance_callbacks {
-            (*(cb.0))(module, store, instance)?;
+            (*(cb.0))(module, store, instance, imported_memory)?;
         }
         Ok(())
     }
@@ -771,6 +779,7 @@ impl OverriddenRuntime {
             &wasmer::Module,
             &mut wasmer::StoreMut,
             &wasmer::Instance,
+            Option<&wasmer::Memory>,
         ) -> anyhow::Result<()>
         + Send
         + Sync
@@ -868,10 +877,12 @@ impl Runtime for OverriddenRuntime {
         module: &wasmer::Module,
         store: &mut wasmer::StoreMut,
         instance: &wasmer::Instance,
+        imported_memory: Option<&wasmer::Memory>,
     ) -> anyhow::Result<()> {
-        self.inner.configure_new_instance(module, store, instance)?;
+        self.inner
+            .configure_new_instance(module, store, instance, imported_memory)?;
         for cb in &self.instance_callbacks {
-            (*(cb.0))(module, store, instance)?;
+            (*(cb.0))(module, store, instance, imported_memory)?;
         }
         Ok(())
     }

@@ -191,8 +191,8 @@ impl WasiRunner {
             let hooks = hooks.clone();
             move |module, store| hooks.additional_imports(module, store)
         });
-        runtime.with_instance_setup(move |module, store, instance| {
-            hooks.configure_instance(module, store, instance)
+        runtime.with_instance_setup(move |module, store, instance, imported_memory| {
+            hooks.configure_instance(module, store, instance, imported_memory)
         });
 
         self
