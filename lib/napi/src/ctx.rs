@@ -1,20 +1,20 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
 };
 use wasmer::{ExternType, FunctionEnv, Imports, Instance, Module, StoreMut, Table, Value};
 
 #[cfg(feature = "wasix")]
-use wasmer_wasix::{runners::wasi::WasiRunner, PluggableRuntime};
+use wasmer_wasix::{PluggableRuntime, runners::wasi::WasiRunner};
 
 use crate::{
+    RuntimeEnv,
     guest::{
         callback::{clear_top_level_callback_state, set_top_level_callback_state},
         napi::{register_env_imports, register_napi_imports},
     },
-    RuntimeEnv,
 };
 
 #[derive(Debug, Clone, Default)]

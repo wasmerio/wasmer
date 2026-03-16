@@ -4,28 +4,24 @@
 
 // --- Init ---
 
-use std::ffi::{c_void, CString};
+use std::ffi::{CString, c_void};
 
 use wasmer::{AsStoreMut, Function, FunctionEnv, FunctionEnvMut, Imports};
 
 use crate::{
+    RuntimeEnv,
     guest::{
-        callback::{set_top_level_callback_state, CB_ENV_PTR},
         MAX_GUEST_CSTRING_SCAN,
+        callback::{CB_ENV_PTR, set_top_level_callback_state},
     },
     snapi::*,
-    RuntimeEnv,
 };
 
 use super::util::*;
 
 fn guest_napi_wasm_init_env(_env: FunctionEnvMut<RuntimeEnv>) -> i32 {
     let ok = unsafe { snapi_bridge_init() };
-    if ok != 0 {
-        1
-    } else {
-        0
-    }
+    if ok != 0 { 1 } else { 0 }
 }
 
 fn guest_unofficial_napi_set_flags_from_string(

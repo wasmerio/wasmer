@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use wasmer::{AsStoreMut, FunctionEnvMut, StoreMut, Table, Value};
 
-use crate::{snapi::SnapiEnv, RuntimeEnv};
+use crate::{RuntimeEnv, snapi::SnapiEnv};
 
 // Thread-local raw pointer to the current FunctionEnvMut, used by the
 // C++ → Rust callback trampoline. Set before any C++ FFI call that might

@@ -579,7 +579,7 @@ unsafe extern "C" {
     pub fn snapi_bridge_object_seal(env: SnapiEnv, obj_id: u32) -> i32;
     // Comparison
     pub fn snapi_bridge_strict_equals(env: SnapiEnv, a_id: u32, b_id: u32, result: *mut i32)
-        -> i32;
+    -> i32;
     // Error handling
     pub fn snapi_bridge_create_error(
         env: SnapiEnv,

@@ -4,12 +4,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer_wasix::{
+    Pipe, PluggableRuntime, WasiError,
     runners::wasi::{RuntimeOrEngine, WasiRunner},
     runtime::task_manager::tokio::TokioTaskManager,
-    Pipe, PluggableRuntime, WasiError,
 };
 
-use crate::{load_wasix_module, NapiCtx};
+use crate::{NapiCtx, load_wasix_module};
 
 #[derive(Debug, Clone)]
 pub struct GuestMount {
