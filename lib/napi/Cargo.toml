@@ -1,0 +1,32 @@
+[package]
+name = "wasmer-napi"
+version = "0.701.0-alpha.1"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["wasix"]
+wasix = ["dep:wasmer-wasix"]
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Published crates variant:
+wasmer = { version = "=7.1.0-alpha.1", features = ["llvm"] }
+wasmer-compiler-llvm = { version = "=7.1.0-alpha.1" }
+wasmer-types = { version = "=7.1.0-alpha.1" }
+wasmer-wasix = { version = "=0.701.0-alpha.1", optional = true }
+virtual-fs = { version = "=0.701.0-alpha.1" }
+virtual-mio = { version = "=0.701.0-alpha.1" }
+wasmer-cache = { version = "=7.1.0-alpha.1" }
+
+[build-dependencies]
+cc = "1"
