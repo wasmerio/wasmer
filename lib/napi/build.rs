@@ -1,6 +1,7 @@
 use std::{
     env,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 fn download_v8() {
@@ -53,6 +54,45 @@ fn download_v8() {
     archive.unpack(out_dir.clone()).unwrap();
 }
 
+fn command_output(cmd: &str, args: &[&str]) -> Option<String> {
+    let output = Command::new(cmd).args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn macos_sdk_path() -> Option<String> {
+    if let Ok(sdkroot) = env::var("SDKROOT") {
+        let sdkroot = sdkroot.trim();
+        if !sdkroot.is_empty() {
+            return Some(sdkroot.to_string());
+        }
+    }
+
+    command_output("xcrun", &["--sdk", "macosx", "--show-sdk-path"])
+}
+
+fn clang_resource_dir() -> Option<String> {
+    if let Ok(cxx) = env::var("CXX") {
+        let cxx = cxx.trim();
+        if !cxx.is_empty() {
+            if let Some(path) = command_output(cxx, &["-print-resource-dir"]) {
+                return Some(path);
+            }
+        }
+    }
+
+    command_output("clang++", &["-print-resource-dir"])
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=src/napi_bridge_init.cc");
     println!("cargo:rerun-if-changed=v8/src/edge_v8_platform.cc");
@@ -62,6 +102,8 @@ fn main() {
     println!("cargo:rerun-if-changed=v8/src/unofficial_napi_contextify.cc");
     println!("cargo:rerun-if-env-changed=V8_INCLUDE_DIR");
     println!("cargo:rerun-if-env-changed=V8_LIB_DIR");
+    println!("cargo:rerun-if-env-changed=SDKROOT");
+    println!("cargo:rerun-if-env-changed=CXX");
 
     let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
 
@@ -130,6 +172,24 @@ fn main() {
         )
         .file(napi_v8_src.join("edge_v8_platform.cc").to_str().unwrap());
 
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if target_os == "macos" {
+        build.flag_if_supported("-stdlib=libc++");
+
+        if let Some(sdk_path) = macos_sdk_path() {
+            build.flag("-isysroot");
+            build.flag(&sdk_path);
+            build.flag("-nostdinc++");
+            build.flag("-isystem");
+            build.flag(&format!("{sdk_path}/usr/include/c++/v1"));
+        }
+
+        if let Some(resource_dir) = clang_resource_dir() {
+            build.flag("-isystem");
+            build.flag(&format!("{resource_dir}/include"));
+        }
+    }
+
     for raw in v8_defines.split(&[';', ',', ' '][..]) {
         let entry = raw.trim();
         if entry.is_empty() {
@@ -152,8 +212,7 @@ fn main() {
         };
     println!("cargo:rustc-link-lib={v8_link_kind}=v8");
 
-    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-    if target_os == "macos" || target_os == "ios" {
+    if target_os == "macos" {
         println!("cargo:rustc-link-lib=dylib=c++");
     } else {
         println!("cargo:rustc-link-lib=dylib=stdc++");
