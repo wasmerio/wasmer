@@ -127,20 +127,7 @@ impl NapiCtx {
     }
 
     pub fn module_needs_napi(module: &Module) -> bool {
-        const NAPI_ENV_IMPORTS: &[&str] = &[
-            "uv_cpu_info",
-            "uv_interface_addresses",
-            "uv_free_interface_addresses",
-            "uv_resident_set_memory",
-            "uv_get_free_memory",
-            "uv_get_total_memory",
-            "_Z20OSSL_set_max_threadsP15ossl_lib_ctx_sty",
-        ];
-
-        module.imports().any(|import| {
-            import.module() == "napi"
-                || (import.module() == "env" && NAPI_ENV_IMPORTS.contains(&import.name()))
-        })
+        module.imports().any(|import| import.module() == "napi")
     }
 
     pub fn runtime_hooks(&self) -> NapiRuntimeHooks {
