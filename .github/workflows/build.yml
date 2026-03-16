@@ -129,11 +129,11 @@ jobs:
         if: startsWith(matrix.build, 'linux-arm64')
         run: |
           sudo apt install ninja-build cmake make libzstd1 zstd libzstd-dev
-      - name: Install `ninja` on macOS
-        if: startsWith(matrix.build, 'macos-')
-        shell: bash
-        run: |
-          brew install ninja gcc
+      # - name: Install `ninja` on macOS
+      #   if: startsWith(matrix.build, 'macos-')
+      #   shell: bash
+      #   run: |
+      #     brew install ninja gcc
       - name: Install `ninja` on Windows
         if: startsWith(matrix.build, 'windows-')
         shell: bash
