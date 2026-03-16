@@ -1,3 +1,58 @@
+fn download_v8() {
+    use std::{env, path::PathBuf};
+
+    let url = match (
+        env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
+        env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
+        env::var("CARGO_CFG_TARGET_ENV")
+            .unwrap_or_default()
+            .as_str(),
+    ) {
+        ("macos", "aarch64", _) => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-aarch64.tar.xz"
+        }
+        ("macos", "x86_64", _) => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-amd64.tar.xz"
+        }
+        ("linux", "x86_64", "gnu") => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-amd64.tar.xz"
+        }
+        ("linux", "x86_64", "musl") => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-musl-amd64.tar.xz"
+        }
+        ("android", "aarch64", _) => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-android-arm64.tar.xz"
+        }
+        (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
+    };
+
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
+
+    let tar_data = ureq::get(url)
+        .call()
+        .expect("failed to download v8")
+        .body_mut()
+        .with_config()
+        .limit(50 * 1024 * 1024) // 50MB
+        .read_to_vec()
+        .expect("failed to download v8 lib");
+
+    let tar = xz::read::XzDecoder::new(tar_data.as_slice());
+    let mut archive = tar::Archive::new(tar);
+
+    for entry in archive.entries().unwrap() {
+        eprintln!("entry: {:?}", entry.unwrap().path());
+    }
+
+    let tar = xz::read::XzDecoder::new(tar_data.as_slice());
+    let mut archive = tar::Archive::new(tar);
+
+    archive.unpack(out_dir.clone()).unwrap();
+    println!("cargo:rustc-link-search=native={out_dir}");
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=src/napi_bridge_init.cc");
     println!("cargo:rerun-if-changed=src/edge_environment_shim.cc");
@@ -12,6 +67,8 @@ fn main() {
     println!("cargo:rerun-if-env-changed=NAPI_V8_DEFINES");
     println!("cargo:rerun-if-env-changed=NAPI_V8_INCLUDE_DIR");
     println!("cargo:rerun-if-env-changed=NAPI_V8_LIBRARY");
+
+    download_v8();
 
     let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
 

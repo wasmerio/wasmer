@@ -7349,11 +7349,17 @@ version = "0.701.0-alpha.1"
 dependencies = [
  "anyhow",
  "cc",
+ "cmake",
  "serde",
  "serde_json",
+ "tar",
  "tokio",
  "tracing-subscriber",
+ "ureq",
  "wasmer",
+ "which",
+ "xz",
+ "zip",
 ]
 
 [[package]]

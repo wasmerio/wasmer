@@ -15,8 +15,14 @@ serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
+[build-dependencies]
+cmake.workspace = true
+tar.workspace = true
+ureq.workspace = true
+which.workspace = true
+xz.workspace = true
+zip = { workspace = true, features = ["deflate"] }
+cc.workspace = true
+
 # Published crates variant:
 wasmer = { path = "../api", version = "=7.1.0-alpha.1" }
-
-[build-dependencies]
-cc = "1"
