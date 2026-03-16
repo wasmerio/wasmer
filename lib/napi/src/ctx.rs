@@ -352,7 +352,7 @@ impl NapiSession {
 #[cfg(test)]
 mod tests {
     use super::NapiCtx;
-    use wasmer::{Module,Store};
+    use wasmer::{Module, Store};
 
     const EMPTY_WASM_MODULE: &[u8] = b"\0asm\x01\0\0\0";
 
