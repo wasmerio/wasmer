@@ -511,7 +511,7 @@ impl WasiEnv {
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
         let runtime = func_env.data(&store).runtime.clone();
         let additional_imports = runtime
-            .additional_imports(&mut store)
+            .additional_imports(&module, &mut store)
             .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
         for ((namespace, name), value) in &additional_imports {
@@ -558,7 +558,7 @@ impl WasiEnv {
         };
 
         runtime
-            .configure_new_instance(&mut store, &instance)
+            .configure_new_instance(&module, &mut store, &instance)
             .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
         let handles = match imported_memory {
