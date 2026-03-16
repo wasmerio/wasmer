@@ -23,6 +23,7 @@
 
 #include "node_api.h"
 #include "unofficial_napi.h"
+#include "internal/napi_v8_env.h"
 
 namespace {
 
@@ -128,6 +129,83 @@ napi_value LoadValue(SnapiEnvState& state, uint32_t id) {
     return nullptr;
   }
   return value;
+}
+
+bool SnapshotValueBytes(napi_env env, napi_value value, void** data_out, size_t* length_out) {
+  if (env == nullptr || value == nullptr || data_out == nullptr || length_out == nullptr) {
+    return false;
+  }
+
+  v8::Local<v8::Context> context = env->context();
+  v8::Context::Scope context_scope(context);
+  v8::Local<v8::Value> local = napi_v8_unwrap_value(value);
+  size_t byte_length = 0;
+  void* copy = nullptr;
+  v8::Local<v8::Object> target;
+
+  if (local->IsArrayBufferView()) {
+    v8::Local<v8::ArrayBufferView> view = local.As<v8::ArrayBufferView>();
+    byte_length = view->ByteLength();
+    target = view.As<v8::Object>();
+  } else if (local->IsArrayBuffer()) {
+    v8::Local<v8::ArrayBuffer> buffer = local.As<v8::ArrayBuffer>();
+    byte_length = buffer->ByteLength();
+    v8::Local<v8::Uint8Array> view = v8::Uint8Array::New(buffer, 0, byte_length);
+    if (view.IsEmpty()) return false;
+    target = view.As<v8::Object>();
+  } else if (local->IsSharedArrayBuffer()) {
+    v8::Local<v8::SharedArrayBuffer> buffer = local.As<v8::SharedArrayBuffer>();
+    byte_length = buffer->ByteLength();
+    return false;
+  } else {
+    return false;
+  }
+
+  if (byte_length > 0) {
+    copy = std::malloc(byte_length);
+    if (copy == nullptr) return false;
+    uint8_t* bytes = static_cast<uint8_t*>(copy);
+    for (uint32_t i = 0; i < byte_length; ++i) {
+      v8::Local<v8::Value> elem;
+      if (!target->Get(context, i).ToLocal(&elem)) {
+        std::free(copy);
+        return false;
+      }
+      bytes[i] = static_cast<uint8_t>(elem->Uint32Value(context).FromMaybe(0));
+    }
+  }
+
+  *data_out = copy;
+  *length_out = byte_length;
+  return true;
+}
+
+bool OverwriteValueBytes(napi_env env, napi_value value, const uint8_t* data, size_t byte_length) {
+  if (env == nullptr || value == nullptr) return false;
+
+  v8::Local<v8::Context> context = env->context();
+  v8::Context::Scope context_scope(context);
+  v8::Local<v8::Value> local = napi_v8_unwrap_value(value);
+  v8::Local<v8::Object> target;
+
+  if (local->IsArrayBufferView()) {
+    target = local.As<v8::Object>();
+  } else if (local->IsArrayBuffer()) {
+    v8::Local<v8::Uint8Array> view =
+        v8::Uint8Array::New(local.As<v8::ArrayBuffer>(), 0, byte_length);
+    if (view.IsEmpty()) return false;
+    target = view.As<v8::Object>();
+  } else {
+    return false;
+  }
+
+  for (uint32_t i = 0; i < byte_length; ++i) {
+    v8::Local<v8::Integer> byte = v8::Integer::NewFromUnsigned(env->isolate, data[i]);
+    if (!target->Set(context, i, byte).FromMaybe(false)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 uint32_t StoreRef(SnapiEnvState& state, napi_ref ref) {
@@ -1198,6 +1276,7 @@ extern "C" int snapi_bridge_create_arraybuffer(SnapiEnvState* env_state, uint32_
 
 extern "C" int snapi_bridge_create_external_arraybuffer(SnapiEnvState* env_state, uint64_t data_addr,
                                                         uint32_t byte_length,
+                                                        uint64_t* backing_store_token_out,
                                                         uint32_t* out_id) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
@@ -1207,12 +1286,16 @@ extern "C" int snapi_bridge_create_external_arraybuffer(SnapiEnvState* env_state
   napi_status s = napi_create_external_arraybuffer(
       env, data, (size_t)byte_length, nullptr, nullptr, &result);
   if (s != napi_ok) return s;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_backing_store_token(env, result);
+  }
   *out_id = StoreValue(*bridge_state, result);
   return napi_ok;
 }
 
 extern "C" int snapi_bridge_create_external_buffer(SnapiEnvState* env_state, uint64_t data_addr,
                                                    uint32_t byte_length,
+                                                   uint64_t* backing_store_token_out,
                                                    uint32_t* out_id) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
@@ -1222,6 +1305,9 @@ extern "C" int snapi_bridge_create_external_buffer(SnapiEnvState* env_state, uin
   napi_status s = napi_create_external_buffer(
       env, (size_t)byte_length, data, nullptr, nullptr, &result);
   if (s != napi_ok) return s;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, result);
+  }
   *out_id = StoreValue(*bridge_state, result);
   return napi_ok;
 }
@@ -1268,7 +1354,8 @@ extern "C" int snapi_bridge_node_api_set_prototype(SnapiEnvState* env_state, uin
 
 extern "C" int snapi_bridge_get_arraybuffer_info(SnapiEnvState* env_state, uint32_t id,
                                                  uint64_t* data_out,
-                                                 uint32_t* byte_length) {
+                                                 uint32_t* byte_length,
+                                                 uint64_t* backing_store_token_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
@@ -1280,6 +1367,9 @@ extern "C" int snapi_bridge_get_arraybuffer_info(SnapiEnvState* env_state, uint3
   if (s != napi_ok) return s;
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   *byte_length = (uint32_t)len;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_backing_store_token(env, val);
+  }
   return napi_ok;
 }
 
@@ -1331,7 +1421,8 @@ extern "C" int snapi_bridge_get_typedarray_info(SnapiEnvState* env_state, uint32
                                                 uint32_t* length_out,
                                                 uint64_t* data_out,
                                                 uint32_t* arraybuffer_out,
-                                                uint32_t* byte_offset_out) {
+                                                uint32_t* byte_offset_out,
+                                                uint64_t* backing_store_token_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
@@ -1350,6 +1441,9 @@ extern "C" int snapi_bridge_get_typedarray_info(SnapiEnvState* env_state, uint32
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   if (arraybuffer_out) *arraybuffer_out = StoreValue(*bridge_state, arraybuffer);
   if (byte_offset_out) *byte_offset_out = (uint32_t)byte_offset;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, val);
+  }
   return napi_ok;
 }
 
@@ -1378,7 +1472,8 @@ extern "C" int snapi_bridge_get_dataview_info(SnapiEnvState* env_state, uint32_t
                                               uint32_t* byte_length_out,
                                               uint64_t* data_out,
                                               uint32_t* arraybuffer_out,
-                                              uint32_t* byte_offset_out) {
+                                              uint32_t* byte_offset_out,
+                                              uint64_t* backing_store_token_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
@@ -1395,7 +1490,46 @@ extern "C" int snapi_bridge_get_dataview_info(SnapiEnvState* env_state, uint32_t
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   if (arraybuffer_out) *arraybuffer_out = StoreValue(*bridge_state, arraybuffer);
   if (byte_offset_out) *byte_offset_out = (uint32_t)byte_offset;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, val);
+  }
   return napi_ok;
+}
+
+extern "C" int snapi_bridge_snapshot_value_bytes(SnapiEnvState* env_state, uint32_t id,
+                                                 uint64_t* data_out,
+                                                 uint32_t* byte_length_out) {
+  auto* bridge_state = RequireEnvState(env_state);
+  if (bridge_state == nullptr) return napi_invalid_arg;
+  napi_value val = LoadValue(*bridge_state, id);
+  if (!val || data_out == nullptr || byte_length_out == nullptr) return napi_invalid_arg;
+
+  void* snapshot = nullptr;
+  size_t byte_length = 0;
+  if (!SnapshotValueBytes(bridge_state->env, val, &snapshot, &byte_length)) {
+    return napi_invalid_arg;
+  }
+
+  *data_out = (uint64_t)(uintptr_t)snapshot;
+  *byte_length_out = (uint32_t)byte_length;
+  return napi_ok;
+}
+
+extern "C" int snapi_bridge_overwrite_value_bytes(SnapiEnvState* env_state, uint32_t id,
+                                                  const void* data,
+                                                  uint32_t byte_length) {
+  auto* bridge_state = RequireEnvState(env_state);
+  if (bridge_state == nullptr || (data == nullptr && byte_length != 0)) return napi_invalid_arg;
+  napi_value val = LoadValue(*bridge_state, id);
+  if (!val) return napi_invalid_arg;
+
+  return OverwriteValueBytes(
+             bridge_state->env,
+             val,
+             static_cast<const uint8_t*>(data),
+             static_cast<size_t>(byte_length))
+             ? napi_ok
+             : napi_invalid_arg;
 }
 
 // ============================================================
@@ -1762,7 +1896,8 @@ extern "C" int snapi_bridge_is_buffer(SnapiEnvState* env_state, uint32_t id, int
 
 extern "C" int snapi_bridge_get_buffer_info(SnapiEnvState* env_state, uint32_t id,
                                             uint64_t* data_out,
-                                            uint32_t* length_out) {
+                                            uint32_t* length_out,
+                                            uint64_t* backing_store_token_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
@@ -1774,6 +1909,9 @@ extern "C" int snapi_bridge_get_buffer_info(SnapiEnvState* env_state, uint32_t i
   if (s != napi_ok) return s;
   if (length_out) *length_out = (uint32_t)length;
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, val);
+  }
   return napi_ok;
 }
 

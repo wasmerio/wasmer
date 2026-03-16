@@ -644,12 +644,14 @@ unsafe extern "C" {
         env: SnapiEnv,
         data_addr: u64,
         byte_length: u32,
+        backing_store_token_out: *mut u64,
         out_id: *mut u32,
     ) -> i32;
     pub fn snapi_bridge_create_external_buffer(
         env: SnapiEnv,
         data_addr: u64,
         byte_length: u32,
+        backing_store_token_out: *mut u64,
         out_id: *mut u32,
     ) -> i32;
     pub fn snapi_bridge_get_arraybuffer_info(
@@ -657,6 +659,7 @@ unsafe extern "C" {
         id: u32,
         data_out: *mut u64,
         byte_length: *mut u32,
+        backing_store_token_out: *mut u64,
     ) -> i32;
     pub fn snapi_bridge_detach_arraybuffer(env: SnapiEnv, id: u32) -> i32;
     pub fn snapi_bridge_is_detached_arraybuffer(env: SnapiEnv, id: u32, result: *mut i32) -> i32;
@@ -689,6 +692,7 @@ unsafe extern "C" {
         data_out: *mut u64,
         arraybuffer_out: *mut u32,
         byte_offset_out: *mut u32,
+        backing_store_token_out: *mut u64,
     ) -> i32;
     // DataView
     pub fn snapi_bridge_create_dataview(
@@ -705,6 +709,19 @@ unsafe extern "C" {
         data_out: *mut u64,
         arraybuffer_out: *mut u32,
         byte_offset_out: *mut u32,
+        backing_store_token_out: *mut u64,
+    ) -> i32;
+    pub fn snapi_bridge_snapshot_value_bytes(
+        env: SnapiEnv,
+        id: u32,
+        data_out: *mut u64,
+        byte_length_out: *mut u32,
+    ) -> i32;
+    pub fn snapi_bridge_overwrite_value_bytes(
+        env: SnapiEnv,
+        id: u32,
+        data: *const c_void,
+        byte_length: u32,
     ) -> i32;
     // External
     pub fn snapi_bridge_create_external(env: SnapiEnv, data_val: u64, out_id: *mut u32) -> i32;
@@ -811,6 +828,7 @@ unsafe extern "C" {
         id: u32,
         data_out: *mut u64,
         length_out: *mut u32,
+        backing_store_token_out: *mut u64,
     ) -> i32;
     // Node version
     pub fn snapi_bridge_get_node_version(
