@@ -460,7 +460,7 @@ check-capi:
 		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
 
 build-wasmer:
-	c++ --version && which c++ && xcrun -f clang++ && CC="$(xcrun -f clang)" CXX="$(xcrun -f clang++)" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(build_compiler_features) --bin wasmer --locked
+	c++ --version && which c++ && xcrun -f clang++ && CC=/Library/Developer/CommandLineTools/usr/bin/clang CXX=/Library/Developer/CommandLineTools/usr/bin/clang++ $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(build_compiler_features) --bin wasmer --locked
 	
 build-wasmer-v8:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="v8" --bin wasmer --locked
