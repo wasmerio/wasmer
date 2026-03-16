@@ -80,7 +80,7 @@ jobs:
             enable_wasmi: true
             enable_wamr: true
           - build: macos-arm64
-            os: depot-macos-15
+            os: macos-latest
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
             build_wasm: false
