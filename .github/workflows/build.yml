@@ -40,7 +40,7 @@ jobs:
 
   build:
     name: ${{ matrix.build }}
-    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-') || true
     runs-on: ${{ matrix.os }}
     needs: setup
     strategy:
