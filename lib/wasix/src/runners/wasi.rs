@@ -24,7 +24,7 @@ use crate::{
 use super::wasi_common::{MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand};
 
 #[cfg(feature = "napi-v8")]
-use napi_wasmer::NapiCtx;
+use wasmer_napi::NapiCtx;
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
