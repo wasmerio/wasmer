@@ -352,14 +352,13 @@ impl NapiSession {
 #[cfg(test)]
 mod tests {
     use super::NapiCtx;
-    use crate::module::make_store;
-    use wasmer::Module;
+    use wasmer::{Module,Store};
 
     const EMPTY_WASM_MODULE: &[u8] = b"\0asm\x01\0\0\0";
 
     #[test]
     fn max_sessions_limit_is_enforced() {
-        let store = make_store();
+        let store = Store::default();
         let module = Module::new(&store, EMPTY_WASM_MODULE).expect("empty wasm module compiles");
         let ctx = NapiCtx::builder().max_sessions(1).build();
 

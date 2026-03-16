@@ -20,13 +20,6 @@ pub(crate) struct RuntimeEnv {
 }
 
 impl RuntimeEnv {
-    pub(crate) fn with_memory(memory: Memory) -> Self {
-        Self {
-            memory: Some(memory),
-            ..Self::default()
-        }
-    }
-
     pub(crate) fn register_napi_env(&mut self, env: SnapiEnv) -> (u32, u32) {
         let env_id = self.next_napi_env_id.max(1);
         self.next_napi_env_id = env_id.saturating_add(1);
