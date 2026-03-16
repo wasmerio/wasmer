@@ -295,6 +295,33 @@ bool GetArrayBufferViewInfo(v8::Local<v8::Value> value, void** data, size_t* len
   return true;
 }
 
+uint64_t GetOrCreateBackingStoreToken(
+    napi_env env, const std::shared_ptr<v8::BackingStore>& backing_store) {
+  if (!CheckEnv(env) || !backing_store) return 0;
+
+  auto& entries = env->backing_store_tokens;
+  for (auto it = entries.begin(); it != entries.end();) {
+    std::shared_ptr<v8::BackingStore> existing = it->backing_store.lock();
+    if (!existing) {
+      it = entries.erase(it);
+      continue;
+    }
+    if (existing.get() == backing_store.get()) {
+      return it->token;
+    }
+    ++it;
+  }
+
+  uint64_t token = env->next_backing_store_token++;
+  if (token == 0) token = env->next_backing_store_token++;
+
+  napi_env__::BackingStoreTokenEntry entry;
+  entry.token = token;
+  entry.backing_store = backing_store;
+  entries.push_back(std::move(entry));
+  return token;
+}
+
 v8::Local<v8::Object> CreateBufferObject(napi_env env,
                                          std::shared_ptr<v8::BackingStore> backing_store,
                                          size_t offset,
@@ -651,6 +678,26 @@ void napi_v8_finalize_buffer_records(napi_env env) {
     }
   }
   env->buffer_records.clear();
+}
+
+uint64_t napi_v8_get_arraybuffer_backing_store_token(napi_env env, napi_value value) {
+  if (!CheckEnv(env) || value == nullptr) return 0;
+  v8::Local<v8::Value> local = napi_v8_unwrap_value(value);
+  if (local->IsArrayBuffer()) {
+    return GetOrCreateBackingStoreToken(env, local.As<v8::ArrayBuffer>()->GetBackingStore());
+  }
+  if (local->IsSharedArrayBuffer()) {
+    return GetOrCreateBackingStoreToken(env, local.As<v8::SharedArrayBuffer>()->GetBackingStore());
+  }
+  return 0;
+}
+
+uint64_t napi_v8_get_arraybuffer_view_backing_store_token(napi_env env, napi_value value) {
+  if (!CheckEnv(env) || value == nullptr) return 0;
+  v8::Local<v8::Value> local = napi_v8_unwrap_value(value);
+  if (!local->IsArrayBufferView()) return 0;
+  v8::Local<v8::ArrayBufferView> view = local.As<v8::ArrayBufferView>();
+  return GetOrCreateBackingStoreToken(env, view->Buffer()->GetBackingStore());
 }
 
 extern "C" {
