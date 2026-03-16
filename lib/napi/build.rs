@@ -13,15 +13,11 @@ fn main() {
     println!("cargo:rerun-if-env-changed=NAPI_V8_INCLUDE_DIR");
     println!("cargo:rerun-if-env-changed=NAPI_V8_LIBRARY");
 
-    let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
+    let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
 
     // napi/v8 paths
-    let napi_v8_dir = project_root.join("napi/v8");
-    let napi_include = project_root.join("napi/include");
+    let napi_v8_dir = project_root.join("v8");
+    let napi_include = project_root.join("include");
     let napi_v8_src = napi_v8_dir.join("src");
     let edge_src = project_root.join("src");
     let libuv_include = if project_root.join("deps/libuv-wasix/include").exists() {

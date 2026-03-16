@@ -90,7 +90,7 @@ pub fn clear_top_level_callback_state() {
 /// Rust trampoline called from C++ when a V8 callback fires.
 /// Retrieves the WASM store from the thread-local, then calls
 /// __napi_callback_dispatch in the WASM guest.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn snapi_host_invoke_wasm_callback(
     snapi_env: SnapiEnv,
     wasm_fn_ptr: u32,
