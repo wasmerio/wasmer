@@ -80,7 +80,6 @@ fn main() {
     let v8_lib = Path::new(&env::var("OUT_DIR").unwrap()).join("lib");
 
     let v8_include_dir = Path::new(&v8_include);
-    dbg!(&v8_include_dir);
     let v8_lib_dir = Path::new(&v8_lib);
     assert!(
         v8_include_dir.join("v8.h").exists(),
