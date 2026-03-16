@@ -34,8 +34,7 @@ default = [
 	"wast",
 	"journal",
 	"wasmer-artifact-create",
-	"static-artifact-create",
-	"napi-v8"
+	"static-artifact-create"
 ]
 
 # # Tun-tap client for connecting to Wasmer Edge VPNs
