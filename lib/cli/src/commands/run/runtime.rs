@@ -93,6 +93,23 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         self.runtime.tty()
     }
 
+    fn additional_imports(
+        &self,
+        module: &Module,
+        store: &mut wasmer::StoreMut,
+    ) -> anyhow::Result<wasmer::Imports> {
+        self.runtime.additional_imports(module, store)
+    }
+
+    fn configure_new_instance(
+        &self,
+        module: &Module,
+        store: &mut wasmer::StoreMut,
+        instance: &wasmer::Instance,
+    ) -> anyhow::Result<()> {
+        self.runtime.configure_new_instance(module, store, instance)
+    }
+
     #[cfg(feature = "journal")]
     fn read_only_journals<'a>(
         &'a self,

@@ -51,6 +51,7 @@ members = [
 	"lib/compiler",
 	"lib/config",
 	"lib/derive",
+	"lib/napi",
 	"lib/sys-utils",
 	"lib/types",
 	"lib/sdk",

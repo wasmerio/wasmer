@@ -34,7 +34,7 @@ default = [
 	"wast",
 	"journal",
 	"wasmer-artifact-create",
-	"static-artifact-create",
+	"static-artifact-create"
 ]
 
 # # Tun-tap client for connecting to Wasmer Edge VPNs
@@ -98,6 +98,7 @@ disable-all-logging = [
 headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
+napi-v8 = ["wasmer-wasix/napi-v8"]
 
 # Optional
 enable-serde = [
