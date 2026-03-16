@@ -1787,7 +1787,29 @@ impl WasiFs {
             _ => {}
         }
 
-        let st_ino = Inode::from_path(&name);
+        let inode_key: Cow<'_, str> = match &kind {
+            Kind::File { path, .. } | Kind::Dir { path, .. } => {
+                let path_str = path.to_string_lossy();
+                if path_str.is_empty() {
+                    Cow::Borrowed(name.as_ref())
+                } else {
+                    path_str
+                }
+            }
+            Kind::Symlink {
+                path_to_symlink, ..
+            } => {
+                let path_str = path_to_symlink.to_string_lossy();
+                if path_str.is_empty() {
+                    Cow::Borrowed(name.as_ref())
+                } else {
+                    path_str
+                }
+            }
+            _ => Cow::Borrowed(name.as_ref()),
+        };
+
+        let st_ino = Inode::from_path(&inode_key);
         stat.st_ino = st_ino.as_u64();
 
         inodes.add_inode_val(InodeVal {
