@@ -1,4 +1,7 @@
-use std::{env, path::Path};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 fn download_v8() {
     let url = match (
@@ -59,8 +62,8 @@ fn main() {
     println!("cargo:rerun-if-changed=../v8/src/unofficial_napi.cc");
     println!("cargo:rerun-if-changed=../v8/src/unofficial_napi_error_utils.cc");
     println!("cargo:rerun-if-changed=../v8/src/unofficial_napi_contextify.cc");
-
-    download_v8();
+    println!("cargo:rerun-if-env-changed=V8_INCLUDE_DIR");
+    println!("cargo:rerun-if-env-changed=V8_LIB_DIR");
 
     let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
 
@@ -76,11 +79,18 @@ fn main() {
     };
 
     // V8 paths
-    let v8_include = Path::new(&env::var("OUT_DIR").unwrap()).join("include");
-    let v8_lib = Path::new(&env::var("OUT_DIR").unwrap()).join("lib");
+    let v8_include = std::env::var("V8_INCLUDE_DIR");
+    let v8_lib = std::env::var("V8_LIB_DIR");
 
-    let v8_include_dir = Path::new(&v8_include);
-    let v8_lib_dir = Path::new(&v8_lib);
+    let (v8_include_dir, v8_lib_dir): (PathBuf, PathBuf) =
+        if let (Ok(v8_include), Ok(v8_lib)) = (&v8_include, &v8_lib) {
+            (PathBuf::from(v8_include), PathBuf::from(v8_lib))
+        } else {
+            download_v8();
+            let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+            (out_dir.join("include"), out_dir.join("lib"))
+        };
+
     assert!(
         v8_include_dir.join("v8.h").exists(),
         "V8 headers not found in V8_INCLUDE_DIR={v8_include:?}"
@@ -105,7 +115,7 @@ fn main() {
         .flag_if_supported("-fno-rtti")
         .flag_if_supported("-w")
         .define("NAPI_EXTERN", Some(""))
-        .include(&v8_include)
+        .include(&v8_include_dir)
         .include(edge_src.to_str().unwrap())
         .include(libuv_include.to_str().unwrap())
         .include(napi_include.to_str().unwrap())
