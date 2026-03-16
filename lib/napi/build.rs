@@ -56,7 +56,6 @@ fn download_v8() {
 
 fn main() {
     println!("cargo:rerun-if-changed=src/napi_bridge_init.cc");
-    println!("cargo:rerun-if-changed=src/edge_environment_shim.cc");
     println!("cargo:rerun-if-changed=../v8/src/edge_v8_platform.cc");
     println!("cargo:rerun-if-changed=../v8/src/js_native_api_v8.cc");
     println!("cargo:rerun-if-changed=../v8/src/unofficial_napi.cc");
@@ -72,11 +71,6 @@ fn main() {
     let napi_include = project_root.join("include");
     let napi_v8_src = napi_v8_dir.join("src");
     let edge_src = project_root.join("src");
-    let libuv_include = if project_root.join("deps/libuv-wasix/include").exists() {
-        project_root.join("deps/libuv-wasix/include")
-    } else {
-        project_root.join("deps/uv/include")
-    };
 
     // V8 paths
     let v8_include = std::env::var("V8_INCLUDE_DIR");
@@ -101,6 +95,7 @@ fn main() {
             || v8_lib_dir.join("libv8.dylib").exists(),
         "V8 library not found in V8_LIB_DIR={v8_lib:?}"
     );
+    println!("cargo:rustc-link-search=native={}", v8_lib_dir.display());
 
     let v8_defines = std::env::var("V8_DEFINES")
         .or_else(|_| std::env::var("NAPI_V8_DEFINES"))
@@ -117,11 +112,9 @@ fn main() {
         .define("NAPI_EXTERN", Some(""))
         .include(&v8_include_dir)
         .include(edge_src.to_str().unwrap())
-        .include(libuv_include.to_str().unwrap())
         .include(napi_include.to_str().unwrap())
         .include(napi_v8_src.to_str().unwrap())
         .file("src/napi_bridge_init.cc")
-        .file("src/edge_environment_shim.cc")
         .file(napi_v8_src.join("js_native_api_v8.cc").to_str().unwrap())
         .file(napi_v8_src.join("unofficial_napi.cc").to_str().unwrap())
         .file(
