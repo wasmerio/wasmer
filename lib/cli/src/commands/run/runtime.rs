@@ -106,8 +106,10 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         module: &Module,
         store: &mut wasmer::StoreMut,
         instance: &wasmer::Instance,
+        imported_memory: Option<&wasmer::Memory>,
     ) -> anyhow::Result<()> {
-        self.runtime.configure_new_instance(module, store, instance)
+        self.runtime
+            .configure_new_instance(module, store, instance, imported_memory)
     }
 
     #[cfg(feature = "journal")]
