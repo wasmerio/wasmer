@@ -93,6 +93,23 @@ fn clang_resource_dir() -> Option<String> {
     command_output("clang++", &["-print-resource-dir"])
 }
 
+fn clang_path() -> Option<PathBuf> {
+    if let Ok(cxx) = env::var("CXX") {
+        let cxx = cxx.trim();
+        if !cxx.is_empty() {
+            return Some(PathBuf::from(cxx));
+        }
+    }
+
+    command_output("xcrun", &["--find", "clang++"]).map(PathBuf::from)
+}
+
+fn clang_toolchain_include_dir() -> Option<PathBuf> {
+    let clang = clang_path()?;
+    let usr_dir = clang.parent()?.parent()?;
+    Some(usr_dir.join("include"))
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=src/napi_bridge_init.cc");
     println!("cargo:rerun-if-changed=v8/src/edge_v8_platform.cc");
@@ -182,6 +199,13 @@ fn main() {
             build.flag("-nostdinc++");
             build.flag("-isystem");
             build.flag(&format!("{sdk_path}/usr/include/c++/v1"));
+            build.flag("-isystem");
+            build.flag(&format!("{sdk_path}/usr/include"));
+        }
+
+        if let Some(toolchain_include_dir) = clang_toolchain_include_dir() {
+            build.flag("-isystem");
+            build.flag(toolchain_include_dir.to_str().unwrap());
         }
 
         if let Some(resource_dir) = clang_resource_dir() {
