@@ -51,11 +51,4 @@ impl RuntimeEnv {
             .map(|env| *env as SnapiEnv)
             .unwrap_or(std::ptr::null_mut())
     }
-
-    pub(crate) fn guest_napi_env(&self, env: SnapiEnv) -> Option<u32> {
-        if env.is_null() {
-            return None;
-        };
-        self.napi_state_to_guest_env.get(&(env as usize)).copied()
-    }
 }
