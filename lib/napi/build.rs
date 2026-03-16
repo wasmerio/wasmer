@@ -130,10 +130,10 @@ fn main() {
         )
         .file(napi_v8_src.join("edge_v8_platform.cc").to_str().unwrap());
 
-    #[cfg(target_os = "macos")]
-    {
-        build.cpp_set_stdlib("c++");
-    }
+    // #[cfg(target_os = "macos")]
+    // {
+    //     build.cpp_set_stdlib("c++");
+    // }
 
     for raw in v8_defines.split(&[';', ',', ' '][..]) {
         let entry = raw.trim();
