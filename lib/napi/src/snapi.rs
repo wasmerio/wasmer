@@ -73,7 +73,8 @@ unsafe extern "C" {
     pub fn snapi_bridge_unofficial_cancel_terminate_execution(env: SnapiEnv) -> i32;
     pub fn snapi_bridge_unofficial_request_interrupt(
         env: SnapiEnv,
-        callback_id: u32,
+        guest_env: u32,
+        wasm_fn_ptr: u32,
         data: u32,
     ) -> i32;
     pub fn snapi_bridge_unofficial_set_promise_hooks(
@@ -849,29 +850,36 @@ unsafe extern "C" {
         reg_id: u32,
         out_id: *mut u32,
     ) -> i32;
+    pub fn snapi_bridge_swap_active_callback_ctx(
+        env: SnapiEnv,
+        callback_ctx: *mut c_void,
+    ) -> *mut c_void;
     pub fn snapi_bridge_alloc_cb_reg_id(env: SnapiEnv) -> u32;
     pub fn snapi_bridge_register_callback(
         env: SnapiEnv,
         reg_id: u32,
+        guest_env: u32,
         wasm_fn_ptr: u32,
         data_val: u64,
     );
     pub fn snapi_bridge_register_callback_pair(
         env: SnapiEnv,
         reg_id: u32,
+        guest_env: u32,
         wasm_getter_fn_ptr: u32,
         wasm_setter_fn_ptr: u32,
         data_val: u64,
     );
     pub fn snapi_bridge_get_cb_info(
         env: SnapiEnv,
+        cbinfo_id: u32,
         argc_ptr: *mut u32,
         argv_out: *mut u32,
         max_argv: u32,
         this_out: *mut u32,
         data_out: *mut u64,
     ) -> i32;
-    pub fn snapi_bridge_get_new_target(env: SnapiEnv, out_id: *mut u32) -> i32;
+    pub fn snapi_bridge_get_new_target(env: SnapiEnv, cbinfo_id: u32, out_id: *mut u32) -> i32;
     // napi_define_class
     pub fn snapi_bridge_define_class(
         env: SnapiEnv,

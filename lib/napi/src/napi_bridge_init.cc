@@ -6,6 +6,8 @@
 // instead of opaque pointers, so the Rust host can translate between
 // WASM guest memory and native N-API calls.
 
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -25,18 +27,16 @@
 namespace {
 
 std::recursive_mutex g_mu;
-struct CbContext {
-  uint32_t this_id;
-  uint32_t argc;
-  uint32_t argv_ids[64];
-  uint64_t data_val;
-  napi_callback_info original_info;
-};
 
 struct CbRegistration {
+  uint32_t guest_env;
   uint32_t wasm_fn_ptr;
   uint32_t wasm_setter_fn_ptr;
   uint64_t data_val;
+};
+
+struct CallbackInvocation {
+  napi_callback_info info = nullptr;
 };
 
 struct CallbackBinding;
@@ -69,7 +69,11 @@ struct SnapiEnvState {
   std::unordered_map<uint32_t, void*> module_wrap_handles;
   uint32_t next_module_wrap_handle_id = 1;
 
-  std::vector<CbContext> cb_stack;
+  // Current guest invocation driving this env. This is only valid while the
+  // driving host import remains on the stack.
+  std::atomic<void*> active_callback_ctx{nullptr};
+  std::unordered_map<uint32_t, CallbackInvocation> callback_invocations;
+  uint32_t next_callback_invocation_id = 1;
   std::unordered_map<uint32_t, CbRegistration> cb_registry;
   uint32_t next_cb_reg_id = 1;
   std::vector<std::unique_ptr<CallbackBinding>> callback_bindings;
@@ -92,6 +96,14 @@ CallbackBinding* RegisterCallbackBinding(SnapiEnvState* state, uint32_t reg_id) 
 SnapiEnvState* LookupEnvState(SnapiEnvState* env_state) {
   if (env_state == nullptr || env_state->env == nullptr) return nullptr;
   return env_state;
+}
+
+uint32_t RegisterCallbackInvocation(SnapiEnvState* state, napi_callback_info info) {
+  if (state == nullptr || info == nullptr) return 0;
+  uint32_t id = state->next_callback_invocation_id++;
+  if (id == 0) id = state->next_callback_invocation_id++;
+  state->callback_invocations[id] = CallbackInvocation{info};
+  return id;
 }
 
 uint32_t StoreValue(SnapiEnvState& state, napi_value val) {
@@ -211,7 +223,9 @@ napi_status DisposeBridgeStateLocked(SnapiEnvState* state) {
   state->next_esc_scope_id = 1;
   state->module_wrap_handles.clear();
   state->next_module_wrap_handle_id = 1;
-  state->cb_stack.clear();
+  state->active_callback_ctx.store(nullptr, std::memory_order_release);
+  state->callback_invocations.clear();
+  state->next_callback_invocation_id = 1;
   state->cb_registry.clear();
   state->next_cb_reg_id = 1;
   state->callback_bindings.clear();
@@ -2002,80 +2016,99 @@ extern "C" int snapi_bridge_define_class(SnapiEnvState* env_state,
 // Callback system (napi_create_function + napi_get_cb_info)
 // ============================================================
 
-extern "C" void snapi_bridge_set_cb_context(uint32_t this_id, uint32_t argc,
-                                            const uint32_t* argv_ids,
-                                            uint64_t data_val) {
-  CbContext ctx;
-  ctx.this_id = this_id;
-  ctx.argc = argc;
-  for (uint32_t i = 0; i < argc && i < 64; i++) ctx.argv_ids[i] = argv_ids[i];
-  ctx.data_val = data_val;
-  ctx.original_info = nullptr;
+extern "C" void* snapi_bridge_swap_active_callback_ctx(SnapiEnvState* env_state, void* callback_ctx) {
+  auto* bridge_state = LookupEnvState(env_state);
+  if (bridge_state == nullptr) return nullptr;
+  return bridge_state->active_callback_ctx.exchange(callback_ctx, std::memory_order_acq_rel);
 }
 
-extern "C" void snapi_bridge_clear_cb_context() {
-}
-
-extern "C" int snapi_bridge_get_cb_info(SnapiEnvState* env_state, uint32_t* argc_ptr, uint32_t* argv_out,
+extern "C" int snapi_bridge_get_cb_info(SnapiEnvState* env_state, uint32_t cbinfo_id,
+                                        uint32_t* argc_ptr, uint32_t* argv_out,
                                         uint32_t max_argv,
                                         uint32_t* this_out, uint64_t* data_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
-  if (bridge_state->cb_stack.empty()) return napi_generic_failure;
-  const CbContext& ctx = bridge_state->cb_stack.back();
-  uint32_t actual = ctx.argc;
-  uint32_t wanted = *argc_ptr;
-  *argc_ptr = actual;
-  if (this_out) *this_out = ctx.this_id;
-  if (data_out) *data_out = ctx.data_val;
-  uint32_t to_copy = (wanted < actual) ? wanted : actual;
-  if (argv_out) {
-    for (uint32_t i = 0; i < to_copy; i++) argv_out[i] = ctx.argv_ids[i];
+  auto it = bridge_state->callback_invocations.find(cbinfo_id);
+  if (it == bridge_state->callback_invocations.end()) return napi_generic_failure;
+
+  size_t wanted = argc_ptr != nullptr ? static_cast<size_t>(*argc_ptr) : 0;
+  size_t actual = wanted;
+  std::vector<napi_value> argv(wanted);
+  napi_value this_arg = nullptr;
+  void* raw_data = nullptr;
+  napi_status s =
+      napi_get_cb_info(env, it->second.info, &actual, wanted > 0 ? argv.data() : nullptr,
+                       &this_arg, &raw_data);
+  if (s != napi_ok) return s;
+
+  if (argc_ptr) *argc_ptr = static_cast<uint32_t>(actual);
+  if (this_out) *this_out = this_arg != nullptr ? StoreValue(*bridge_state, this_arg) : 0;
+
+  auto* binding = static_cast<CallbackBinding*>(raw_data);
+  uint64_t data_val = 0;
+  if (binding != nullptr) {
+    auto reg_it = bridge_state->cb_registry.find(binding->reg_id);
+    if (reg_it != bridge_state->cb_registry.end()) {
+      data_val = reg_it->second.data_val;
+    }
+  }
+  if (data_out) *data_out = data_val;
+
+  const uint32_t to_copy = static_cast<uint32_t>(std::min<size_t>(wanted, actual));
+  if (argv_out != nullptr) {
+    for (uint32_t i = 0; i < to_copy; i++) {
+      argv_out[i] = StoreValue(*bridge_state, argv[i]);
+    }
   }
   return napi_ok;
 }
 
 // napi_get_new_target — only valid inside a constructor callback
-extern "C" int snapi_bridge_get_new_target(SnapiEnvState* env_state, uint32_t* out_id) {
+extern "C" int snapi_bridge_get_new_target(SnapiEnvState* env_state, uint32_t cbinfo_id,
+                                           uint32_t* out_id) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
-  if (bridge_state->cb_stack.empty()) return napi_generic_failure;
-  const CbContext& ctx = bridge_state->cb_stack.back();
-  if (!ctx.original_info) {
-    // Not inside a V8-triggered callback (shouldn't happen with trampoline)
-    *out_id = 0;
-    return napi_ok;
-  }
+  auto it = bridge_state->callback_invocations.find(cbinfo_id);
+  if (it == bridge_state->callback_invocations.end()) return napi_generic_failure;
   napi_value result;
-  napi_status s = napi_get_new_target(env, ctx.original_info, &result);
+  napi_status s = napi_get_new_target(env, it->second.info, &result);
   if (s != napi_ok) return s;
   *out_id = result ? StoreValue(*bridge_state, result) : 0;
   return napi_ok;
 }
 
 // Forward-declare the Rust trampoline (defined in lib.rs via #[no_mangle] extern "C")
-extern "C" uint32_t snapi_host_invoke_wasm_callback(SnapiEnvState* env_state,
+extern "C" uint32_t snapi_host_invoke_wasm_callback(void* callback_ctx,
+                                                    uint32_t guest_env,
                                                     uint32_t wasm_fn_ptr,
-                                                    uint64_t data_val);
+                                                    uint32_t callback_arg);
 
 struct WasmInterruptRequest {
   SnapiEnvState* state;
+  uint32_t guest_env;
   uint32_t wasm_fn_ptr;
-  uint32_t data_val;
+  uint32_t callback_arg;
 };
 
 void WasmInterruptCallback(napi_env /*env*/, void* raw) {
   auto* request = static_cast<WasmInterruptRequest*>(raw);
   if (request == nullptr) return;
-  snapi_host_invoke_wasm_callback(request->state, request->wasm_fn_ptr, request->data_val);
+  void* callback_ctx =
+      request->state != nullptr
+          ? request->state->active_callback_ctx.load(std::memory_order_acquire)
+          : nullptr;
+  if (callback_ctx != nullptr) {
+    snapi_host_invoke_wasm_callback(
+        callback_ctx, request->guest_env, request->wasm_fn_ptr, request->callback_arg);
+  }
   delete request;
 }
 
 // Generic C++ callback invoked by V8 for all napi_create_function functions.
-// Stores the V8 call args in the context stack, then calls the Rust trampoline
-// which dispatches to the WASM callback.
+// Passes the real callback frame explicitly to the Rust trampoline via a
+// short-lived callback-info token.
 static napi_value generic_wasm_callback(napi_env env, napi_callback_info info) {
   void* raw_data;
   size_t argc = 64;
@@ -2095,23 +2128,25 @@ static napi_value generic_wasm_callback(napi_env env, napi_callback_info info) {
     napi_get_undefined(env, &undef);
     return undef;
   }
+  void* callback_ctx =
+      bridge_state->active_callback_ctx.load(std::memory_order_acquire);
+  if (callback_ctx == nullptr) {
+    napi_value undef;
+    napi_get_undefined(env, &undef);
+    return undef;
+  }
   auto it = bridge_state->cb_registry.find(binding->reg_id);
   if (it == bridge_state->cb_registry.end()) {
     napi_value undef;
     napi_get_undefined(env, &undef);
     return undef;
   }
-
-  // Push context onto stack
-  CbContext ctx;
-  ctx.this_id = StoreValue(*bridge_state, this_arg);
-  ctx.argc = (uint32_t)argc;
-  for (uint32_t i = 0; i < argc && i < 64; i++) {
-    ctx.argv_ids[i] = StoreValue(*bridge_state, argv[i]);
+  const uint32_t cbinfo_id = RegisterCallbackInvocation(bridge_state, info);
+  if (cbinfo_id == 0) {
+    napi_value undef;
+    napi_get_undefined(env, &undef);
+    return undef;
   }
-  ctx.data_val = it->second.data_val;
-  ctx.original_info = info;  // Store for napi_get_new_target
-  bridge_state->cb_stack.push_back(ctx);
 
   // Call Rust trampoline → WASM callback
   const uint32_t wasm_fn_ptr =
@@ -2120,9 +2155,9 @@ static napi_value generic_wasm_callback(napi_env env, napi_callback_info info) {
           : it->second.wasm_fn_ptr;
 
   uint32_t result_id =
-      snapi_host_invoke_wasm_callback(bridge_state, wasm_fn_ptr, it->second.data_val);
-
-  bridge_state->cb_stack.pop_back();
+      snapi_host_invoke_wasm_callback(
+          callback_ctx, it->second.guest_env, wasm_fn_ptr, cbinfo_id);
+  bridge_state->callback_invocations.erase(cbinfo_id);
 
   napi_value result = LoadValue(*bridge_state, result_id);
   if (!result) {
@@ -2140,19 +2175,21 @@ extern "C" uint32_t snapi_bridge_alloc_cb_reg_id(SnapiEnvState* env_state) {
 // Register callback data for a registration ID
 extern "C" void snapi_bridge_register_callback(SnapiEnvState* env_state,
                                                uint32_t reg_id,
+                                               uint32_t guest_env,
                                                uint32_t wasm_fn_ptr,
                                                uint64_t data_val) {
   if (env_state == nullptr || reg_id == 0) return;
-  env_state->cb_registry[reg_id] = { wasm_fn_ptr, 0, data_val };
+  env_state->cb_registry[reg_id] = { guest_env, wasm_fn_ptr, 0, data_val };
 }
 
 extern "C" void snapi_bridge_register_callback_pair(SnapiEnvState* env_state,
                                                     uint32_t reg_id,
+                                                    uint32_t guest_env,
                                                     uint32_t wasm_getter_fn_ptr,
                                                     uint32_t wasm_setter_fn_ptr,
                                                     uint64_t data_val) {
   if (env_state == nullptr || reg_id == 0) return;
-  env_state->cb_registry[reg_id] = { wasm_getter_fn_ptr, wasm_setter_fn_ptr, data_val };
+  env_state->cb_registry[reg_id] = { guest_env, wasm_getter_fn_ptr, wasm_setter_fn_ptr, data_val };
 }
 
 // Create a JS function with generic_wasm_callback as its native callback.
@@ -2510,14 +2547,16 @@ extern "C" int snapi_bridge_unofficial_cancel_terminate_execution(
 }
 
 extern "C" int snapi_bridge_unofficial_request_interrupt(SnapiEnvState* env_state,
-                                                         uint32_t callback_id,
+                                                         uint32_t guest_env,
+                                                         uint32_t wasm_fn_ptr,
                                                          uint32_t data) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
   std::lock_guard<std::recursive_mutex> lock(g_mu);
-  if (callback_id == 0) return napi_invalid_arg;
-  auto* request = new (std::nothrow) WasmInterruptRequest{bridge_state, callback_id, data};
+  if (wasm_fn_ptr == 0) return napi_invalid_arg;
+  auto* request =
+      new (std::nothrow) WasmInterruptRequest{bridge_state, guest_env, wasm_fn_ptr, data};
   if (request == nullptr) return napi_generic_failure;
   napi_status s =
       unofficial_napi_request_interrupt(env, WasmInterruptCallback, request);
