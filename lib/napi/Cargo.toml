@@ -26,3 +26,7 @@ which.workspace = true
 xz.workspace = true
 zip = { workspace = true, features = ["deflate"] }
 cc.workspace = true
+
+[features]
+# TODO: probably remove (otherwise we'll get a cyclic dependency)
+wasix = []
