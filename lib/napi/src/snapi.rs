@@ -62,6 +62,8 @@ unsafe extern "C" {
         env_out: *mut SnapiEnv,
     ) -> i32;
     pub fn snapi_bridge_unofficial_release_env(env: SnapiEnv) -> i32;
+    pub fn snapi_bridge_unofficial_release_env_with_loop(env: SnapiEnv, loop_id: u32) -> i32;
+    pub fn snapi_bridge_unofficial_low_memory_notification(env: SnapiEnv) -> i32;
     pub fn snapi_bridge_unofficial_process_microtasks(env: SnapiEnv) -> i32;
     pub fn snapi_bridge_unofficial_request_gc_for_testing(env: SnapiEnv) -> i32;
     pub fn snapi_bridge_unofficial_set_prepare_stack_trace_callback(
@@ -235,6 +237,12 @@ unsafe extern "C" {
     pub fn snapi_bridge_unofficial_structured_clone(
         env: SnapiEnv,
         value_id: u32,
+        out_id: *mut u32,
+    ) -> i32;
+    pub fn snapi_bridge_unofficial_structured_clone_with_transfer(
+        env: SnapiEnv,
+        value_id: u32,
+        transfer_list_id: u32,
         out_id: *mut u32,
     ) -> i32;
     pub fn snapi_bridge_unofficial_notify_datetime_configuration_change(env: SnapiEnv) -> i32;

@@ -190,6 +190,28 @@ fn guest_unofficial_napi_release_env(mut env: FunctionEnvMut<RuntimeEnv>, scope_
     unsafe { snapi_bridge_unofficial_release_env(snapi_env_state) }
 }
 
+fn guest_unofficial_napi_release_env_with_loop(
+    mut env: FunctionEnvMut<RuntimeEnv>,
+    scope_ptr: i32,
+    loop_ptr: i32,
+) -> i32 {
+    let scope_id = if scope_ptr > 0 { scope_ptr as u32 } else { 0 };
+    let Some(snapi_env_state) = env.data_mut().unregister_napi_scope(scope_id) else {
+        return 1;
+    };
+    refresh_top_level_callback_state(&mut env);
+    let loop_id = if loop_ptr > 0 { loop_ptr as u32 } else { 0 };
+    unsafe { snapi_bridge_unofficial_release_env_with_loop(snapi_env_state, loop_id) }
+}
+
+fn guest_unofficial_napi_low_memory_notification(
+    env: FunctionEnvMut<RuntimeEnv>,
+    napi_env: i32,
+) -> i32 {
+    let env_handle = snapi_env(&env, napi_env);
+    unsafe { snapi_bridge_unofficial_low_memory_notification(env_handle) }
+}
+
 fn guest_unofficial_napi_process_microtasks(
     mut env: FunctionEnvMut<RuntimeEnv>,
     napi_env: i32,
@@ -544,6 +566,35 @@ fn guest_unofficial_napi_structured_clone(
     let mut out = 0u32;
     let status =
         unsafe { snapi_bridge_unofficial_structured_clone(env_handle, value_id, &mut out) };
+    if status == 0 && result_ptr > 0 {
+        write_guest_u32(&mut env, result_ptr as u32, out);
+    }
+    status
+}
+
+fn guest_unofficial_napi_structured_clone_with_transfer(
+    mut env: FunctionEnvMut<RuntimeEnv>,
+    napi_env: i32,
+    value: i32,
+    transfer_list: i32,
+    result_ptr: i32,
+) -> i32 {
+    let env_handle = snapi_env(&env, napi_env);
+    let value_id = if value > 0 { value as u32 } else { 0 };
+    let transfer_list_id = if transfer_list > 0 {
+        transfer_list as u32
+    } else {
+        0
+    };
+    let mut out = 0u32;
+    let status = unsafe {
+        snapi_bridge_unofficial_structured_clone_with_transfer(
+            env_handle,
+            value_id,
+            transfer_list_id,
+            &mut out,
+        )
+    };
     if status == 0 && result_ptr > 0 {
         write_guest_u32(&mut env, result_ptr as u32, out);
     }
@@ -4595,6 +4646,14 @@ pub fn register_napi_imports(
         guest_unofficial_napi_release_env
     );
     reg!(
+        "unofficial_napi_release_env_with_loop",
+        guest_unofficial_napi_release_env_with_loop
+    );
+    reg!(
+        "unofficial_napi_low_memory_notification",
+        guest_unofficial_napi_low_memory_notification
+    );
+    reg!(
         "unofficial_napi_process_microtasks",
         guest_unofficial_napi_process_microtasks
     );
@@ -4677,6 +4736,10 @@ pub fn register_napi_imports(
     reg!(
         "unofficial_napi_structured_clone",
         guest_unofficial_napi_structured_clone
+    );
+    reg!(
+        "unofficial_napi_structured_clone_with_transfer",
+        guest_unofficial_napi_structured_clone_with_transfer
     );
     reg!(
         "unofficial_napi_serialize_value",

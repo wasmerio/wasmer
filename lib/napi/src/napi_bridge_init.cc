@@ -2243,10 +2243,25 @@ extern "C" int snapi_bridge_unofficial_release_env(SnapiEnvState* env_state) {
   return DisposeBridgeStateLocked(env_state);
 }
 
+extern "C" int snapi_bridge_unofficial_release_env_with_loop(SnapiEnvState* env_state,
+                                                             uint32_t loop_id) {
+  (void)loop_id;
+  std::lock_guard<std::recursive_mutex> lock(g_mu);
+  return DisposeBridgeStateLocked(env_state);
+}
+
 extern "C" int snapi_bridge_unofficial_set_flags_from_string(const char* flags,
                                                              uint32_t length) {
   std::lock_guard<std::recursive_mutex> lock(g_mu);
   return unofficial_napi_set_flags_from_string(flags, static_cast<size_t>(length));
+}
+
+extern "C" int snapi_bridge_unofficial_low_memory_notification(SnapiEnvState* env_state) {
+  auto* bridge_state = RequireEnvState(env_state);
+  if (bridge_state == nullptr) return napi_invalid_arg;
+  napi_env env = bridge_state->env;
+  std::lock_guard<std::recursive_mutex> lock(g_mu);
+  return unofficial_napi_low_memory_notification(env);
 }
 
 extern "C" int snapi_bridge_unofficial_process_microtasks(SnapiEnvState* env_state) {
@@ -2844,6 +2859,26 @@ extern "C" int snapi_bridge_unofficial_structured_clone(SnapiEnvState* env_state
   if (value == nullptr) return napi_invalid_arg;
   napi_value result = nullptr;
   napi_status s = unofficial_napi_structured_clone(env, value, &result);
+  if (s != napi_ok) return s;
+  if (out_id != nullptr) *out_id = StoreValue(*bridge_state, result);
+  return napi_ok;
+}
+
+extern "C" int snapi_bridge_unofficial_structured_clone_with_transfer(
+    SnapiEnvState* env_state,
+    uint32_t value_id,
+    uint32_t transfer_list_id,
+    uint32_t* out_id) {
+  auto* bridge_state = RequireEnvState(env_state);
+  if (bridge_state == nullptr) return napi_invalid_arg;
+  napi_env env = bridge_state->env;
+  std::lock_guard<std::recursive_mutex> lock(g_mu);
+  napi_value value = LoadValue(*bridge_state, value_id);
+  napi_value transfer_list = LoadValue(*bridge_state, transfer_list_id);
+  if (value == nullptr || transfer_list == nullptr) return napi_invalid_arg;
+  napi_value result = nullptr;
+  napi_status s = unofficial_napi_structured_clone_with_transfer(
+      env, value, transfer_list, &result);
   if (s != napi_ok) return s;
   if (out_id != nullptr) *out_id = StoreValue(*bridge_state, result);
   return napi_ok;
