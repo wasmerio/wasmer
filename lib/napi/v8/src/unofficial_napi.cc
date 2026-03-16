@@ -23,8 +23,15 @@
 #include <v8.h>
 #include <v8-profiler.h>
 
-extern "C" uint64_t uv_get_total_memory(void);
-extern "C" uint64_t uv_get_constrained_memory(void);
+extern "C" uint64_t uv_get_total_memory(void) {
+  return 0;
+}
+
+extern "C" uint64_t uv_get_constrained_memory(void) {
+  return 0;
+}
+
+
 struct uv_loop_s;
 using uv_loop_t = struct uv_loop_s;
 enum uv_run_mode {
@@ -32,7 +39,9 @@ enum uv_run_mode {
   UV_RUN_ONCE,
   UV_RUN_NOWAIT
 };
-extern "C" int uv_run(uv_loop_t* loop, uv_run_mode mode);
+
+// XXX: wa cannot depend on UV in NAPI!!!
+int uv_run(uv_loop_t *loop, uv_run_mode mode) { return 0; }
 
 #include "internal/node_v8_default_flags.h"
 #include "internal/napi_v8_env.h"
