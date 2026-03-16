@@ -55,11 +55,11 @@ fn download_v8() {
 
 fn main() {
     println!("cargo:rerun-if-changed=src/napi_bridge_init.cc");
-    println!("cargo:rerun-if-changed=../v8/src/edge_v8_platform.cc");
-    println!("cargo:rerun-if-changed=../v8/src/js_native_api_v8.cc");
-    println!("cargo:rerun-if-changed=../v8/src/unofficial_napi.cc");
-    println!("cargo:rerun-if-changed=../v8/src/unofficial_napi_error_utils.cc");
-    println!("cargo:rerun-if-changed=../v8/src/unofficial_napi_contextify.cc");
+    println!("cargo:rerun-if-changed=v8/src/edge_v8_platform.cc");
+    println!("cargo:rerun-if-changed=v8/src/js_native_api_v8.cc");
+    println!("cargo:rerun-if-changed=v8/src/unofficial_napi.cc");
+    println!("cargo:rerun-if-changed=v8/src/unofficial_napi_error_utils.cc");
+    println!("cargo:rerun-if-changed=v8/src/unofficial_napi_contextify.cc");
     println!("cargo:rerun-if-env-changed=V8_INCLUDE_DIR");
     println!("cargo:rerun-if-env-changed=V8_LIB_DIR");
 
