@@ -7344,6 +7344,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-napi"
+version = "0.701.0-alpha.1"
+dependencies = [
+ "anyhow",
+ "cc",
+ "cmake",
+ "serde",
+ "serde_json",
+ "tar",
+ "tokio",
+ "tracing-subscriber",
+ "ureq",
+ "wasmer",
+ "which",
+ "xz",
+ "zip",
+]
+
+[[package]]
 name = "wasmer-package"
 version = "0.701.0-alpha.1"
 dependencies = [
@@ -7567,6 +7586,7 @@ dependencies = [
  "wasmer",
  "wasmer-config",
  "wasmer-journal",
+ "wasmer-napi",
  "wasmer-package",
  "wasmer-types",
  "wasmer-wasix-types",
