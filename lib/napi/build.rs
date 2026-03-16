@@ -196,7 +196,7 @@ fn main() {
         if let Some(sdk_path) = macos_sdk_path() {
             build.flag("-isysroot");
             build.flag(&sdk_path);
-            build.flag("-nostdinc++");
+            //build.flag("-nostdinc++");
             build.flag("-isystem");
             build.flag(&format!("{sdk_path}/usr/include/c++/v1"));
             build.flag("-isystem");

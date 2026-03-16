@@ -208,16 +208,16 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Build & Package C API headless
-        shell: bash
-        run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi-headless
-          make package-capi-headless
-      - name: Build & Package C API
-        shell: bash
-        run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi
-          make package-capi
+      # - name: Build & Package C API headless
+      #   shell: bash
+      #   run: |
+      #     LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi-headless
+      #     make package-capi-headless
+      # - name: Build & Package C API
+      #   shell: bash
+      #   run: |
+      #     LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi
+      #     make package-capi
       - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
