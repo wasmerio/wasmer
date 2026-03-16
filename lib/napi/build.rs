@@ -12,7 +12,7 @@ fn download_v8() {
             .as_str(),
     ) {
         ("macos", "aarch64", _) => {
-            "https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.2/v8-darwin-aarch64.tar.xz"
+            "https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.2/v8-darwin-arm64.tar.xz"
         }
         ("macos", "x86_64", _) => {
             "https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.2/v8-darwin-amd64.tar.xz"
