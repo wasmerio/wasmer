@@ -748,29 +748,30 @@ impl WasiEnv {
         let inner = env_inner.main_module_instance_handles();
         if let Some(handler) = inner.signal.clone() {
             // We might also have signals that trigger on timers
-            let mut now = 0;
             {
-                let mut has_signal_interval = false;
                 let mut inner = env.process.inner.0.lock().unwrap();
+
                 if !inner.signal_intervals.is_empty() {
-                    now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap()
-                        as u128;
-                    for signal in inner.signal_intervals.values() {
+                    let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
+                        .unwrap() as u128;
+                    inner.signal_intervals.retain(|_, signal| {
+                        let mut should_retain = true;
                         let elapsed = now - signal.last_signal;
-                        if elapsed >= signal.interval.as_nanos() {
-                            has_signal_interval = true;
-                            break;
-                        }
-                    }
-                }
-                if has_signal_interval {
-                    for signal in inner.signal_intervals.values_mut() {
-                        let elapsed = now - signal.last_signal;
-                        if elapsed >= signal.interval.as_nanos() {
+                        if elapsed >= signal.current_value.as_nanos() {
                             signal.last_signal = now;
                             signals.push(signal.signal);
+                            match signal.interval {
+                                Some(interval) => {
+                                    signal.current_value = interval;
+                                }
+                                None => {
+                                    // interval is None, so we can remove the timer now.
+                                    should_retain = false;
+                                }
+                            }
                         }
-                    }
+                        should_retain
+                    });
                 }
             }
 

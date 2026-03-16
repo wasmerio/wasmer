@@ -291,7 +291,24 @@ pub mod net {
 }
 
 pub mod signal {
+    use wasmer::ValueType;
+
     pub use crate::wasi::Signal;
+    use crate::wasi::Timestamp;
+
+    #[derive(Debug, Copy, Clone, ValueType)]
+    #[repr(C)]
+    pub struct __wasi_timeval_t {
+        pub sec: Timestamp,
+        pub usec: Timestamp,
+    }
+
+    #[derive(Debug, Copy, Clone, ValueType)]
+    #[repr(C)]
+    pub struct __wasi_itimerval_t {
+        pub interval: __wasi_timeval_t,
+        pub value: __wasi_timeval_t,
+    }
 }
 
 pub mod subscription {
