@@ -139,27 +139,29 @@ impl NapiCtx {
 
     pub fn new_session(&self, module: &Module) -> Result<NapiSession> {
         let previous = self.inner.active_sessions.fetch_add(1, Ordering::AcqRel);
-        if let Some(max_sessions) = self.inner.limits.max_sessions {
-            if previous >= max_sessions {
-                self.inner.active_sessions.fetch_sub(1, Ordering::AcqRel);
-                bail!("refusing to create more than {max_sessions} active N-API sessions");
-            }
+        if let Some(max_sessions) = self.inner.limits.max_sessions
+            && previous >= max_sessions
+        {
+            self.inner.active_sessions.fetch_sub(1, Ordering::AcqRel);
+            bail!("refusing to create more than {max_sessions} active N-API sessions");
         }
 
         let imported_memory_type = module.imports().find_map(|import| {
-            if import.module() == "env" && import.name() == "memory" {
-                if let ExternType::Memory(ty) = import.ty() {
-                    return Some(*ty);
-                }
+            if import.module() == "env"
+                && import.name() == "memory"
+                && let ExternType::Memory(ty) = import.ty()
+            {
+                return Some(*ty);
             }
             None
         });
 
         let imported_table_type = module.imports().find_map(|import| {
-            if import.module() == "env" && import.name() == "__indirect_function_table" {
-                if let ExternType::Table(ty) = import.ty() {
-                    return Some(*ty);
-                }
+            if import.module() == "env"
+                && import.name() == "__indirect_function_table"
+                && let ExternType::Table(ty) = import.ty()
+            {
+                return Some(*ty);
             }
             None
         });

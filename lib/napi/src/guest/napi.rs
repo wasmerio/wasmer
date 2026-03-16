@@ -1129,6 +1129,7 @@ fn guest_unofficial_napi_contextify_contains_module_syntax(
     status
 }
 
+#[allow(clippy::too_many_arguments)]
 fn guest_unofficial_napi_contextify_make_context(
     mut env: FunctionEnvMut<RuntimeEnv>,
     napi_env: i32,
@@ -3005,12 +3006,11 @@ fn guest_napi_get_arraybuffer_info(
         write_guest_u32(&mut env, len_ptr as u32, bl);
     }
 
-    if data_ptr > 0 {
-        if let Some(guest_data_ptr) =
+    if data_ptr > 0
+        && let Some(guest_data_ptr) =
             resolve_or_copy_host_data_to_guest(&mut env, vh as u32, host_data_addr, bl as usize)
-        {
-            write_guest_u32(&mut env, data_ptr as u32, guest_data_ptr);
-        }
+    {
+        write_guest_u32(&mut env, data_ptr as u32, guest_data_ptr);
     }
     0
 }
@@ -4365,12 +4365,11 @@ fn guest_napi_get_buffer_info(
     if len_ptr > 0 {
         write_guest_u32(&mut env, len_ptr as u32, bl);
     }
-    if data_ptr > 0 {
-        if let Some(guest_data_ptr) =
+    if data_ptr > 0
+        && let Some(guest_data_ptr) =
             resolve_or_copy_host_data_to_guest(&mut env, vh as u32, host_data, bl as usize)
-        {
-            write_guest_u32(&mut env, data_ptr as u32, guest_data_ptr);
-        }
+    {
+        write_guest_u32(&mut env, data_ptr as u32, guest_data_ptr);
     }
     0
 }
