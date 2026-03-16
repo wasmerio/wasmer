@@ -262,683 +262,720 @@
 <a href=#262 id=262 data-nosnippet>262</a>    }
 <a href=#263 id=263 data-nosnippet>263</a>
 <a href=#264 id=264 data-nosnippet>264</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>apply_del(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
-<a href=#265 id=265 data-nosnippet>265</a>        <span class="self">self</span>.subscriptions
-<a href=#266 id=266 data-nosnippet>266</a>            .lock()
-<a href=#267 id=267 data-nosnippet>267</a>            .unwrap()
-<a href=#268 id=268 data-nosnippet>268</a>            .remove(<span class="kw-2">&amp;</span>fd)
-<a href=#269 id=269 data-nosnippet>269</a>            .map(|<span class="kw">_</span>| ())
-<a href=#270 id=270 data-nosnippet>270</a>            .ok_or(Errno::Noent)
-<a href=#271 id=271 data-nosnippet>271</a>    }
-<a href=#272 id=272 data-nosnippet>272</a>
-<a href=#273 id=273 data-nosnippet>273</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>rollback_registration(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd, previous: <span class="prelude-ty">Option</span>&lt;Arc&lt;EpollSubState&gt;&gt;) {
-<a href=#274 id=274 data-nosnippet>274</a>        <span class="self">self</span>.restore_subscription(fd, previous);
-<a href=#275 id=275 data-nosnippet>275</a>    }
-<a href=#276 id=276 data-nosnippet>276</a>
-<a href=#277 id=277 data-nosnippet>277</a>    <span class="kw">fn </span>build_pending_subscription(
-<a href=#278 id=278 data-nosnippet>278</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#279 id=279 data-nosnippet>279</a>        fd: WasiFd,
-<a href=#280 id=280 data-nosnippet>280</a>        event: <span class="kw-2">&amp;</span>EpollEventCtl,
-<a href=#281 id=281 data-nosnippet>281</a>        generation: u64,
-<a href=#282 id=282 data-nosnippet>282</a>    ) -&gt; (EpollFd, Arc&lt;EpollSubState&gt;) {
-<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">let </span>epoll_fd = EpollFd::from_event_ctl(fd, event);
-<a href=#284 id=284 data-nosnippet>284</a>        <span class="macro">tracing::trace!</span>(
-<a href=#285 id=285 data-nosnippet>285</a>            peb = <span class="question-mark">?</span>event.events,
-<a href=#286 id=286 data-nosnippet>286</a>            ptr = <span class="question-mark">?</span>event.ptr,
-<a href=#287 id=287 data-nosnippet>287</a>            data1 = event.data1,
-<a href=#288 id=288 data-nosnippet>288</a>            data2 = event.data2,
-<a href=#289 id=289 data-nosnippet>289</a>            fd,
-<a href=#290 id=290 data-nosnippet>290</a>            <span class="string">"registering waker"
-<a href=#291 id=291 data-nosnippet>291</a>        </span>);
-<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">let </span>sub_state = Arc::new(EpollSubState::new(epoll_fd.clone(), generation));
-<a href=#293 id=293 data-nosnippet>293</a>        (epoll_fd, sub_state)
-<a href=#294 id=294 data-nosnippet>294</a>    }
-<a href=#295 id=295 data-nosnippet>295</a>}
-<a href=#296 id=296 data-nosnippet>296</a>
-<a href=#297 id=297 data-nosnippet>297</a><span class="attr">#[derive(Debug)]
-<a href=#298 id=298 data-nosnippet>298</a></span><span class="kw">pub struct </span>EpollSubState {
-<a href=#299 id=299 data-nosnippet>299</a>    <span class="doccomment">/// Snapshot of user-visible metadata.
-<a href=#300 id=300 data-nosnippet>300</a>    </span>fd_meta: StdMutex&lt;EpollFd&gt;,
-<a href=#301 id=301 data-nosnippet>301</a>    <span class="doccomment">/// Guard ownership for all attached handlers.
-<a href=#302 id=302 data-nosnippet>302</a>    </span>joins: StdMutex&lt;Vec&lt;EpollJoinGuard&gt;&gt;,
-<a href=#303 id=303 data-nosnippet>303</a>    <span class="doccomment">/// Atomic readiness bitset (EPOLLIN/OUT/HUP/ERR).
-<a href=#304 id=304 data-nosnippet>304</a>    </span>pending_bits: AtomicU8,
-<a href=#305 id=305 data-nosnippet>305</a>    <span class="doccomment">/// Queue dedupe flag: whether this sub already has a ready-queue entry.
-<a href=#306 id=306 data-nosnippet>306</a>    </span>enqueued: AtomicBool,
-<a href=#307 id=307 data-nosnippet>307</a>    <span class="doccomment">/// Generation used to invalidate stale queue entries after DEL/MOD.
-<a href=#308 id=308 data-nosnippet>308</a>    </span>generation: AtomicU64,
-<a href=#309 id=309 data-nosnippet>309</a>}
-<a href=#310 id=310 data-nosnippet>310</a>
-<a href=#311 id=311 data-nosnippet>311</a><span class="kw">impl </span>EpollSubState {
-<a href=#312 id=312 data-nosnippet>312</a>    <span class="doccomment">/// Creates a new subscription state with empty readiness and queue state.
-<a href=#313 id=313 data-nosnippet>313</a>    </span><span class="kw">pub fn </span>new(fd_meta: EpollFd, generation: u64) -&gt; <span class="self">Self </span>{
-<a href=#314 id=314 data-nosnippet>314</a>        <span class="self">Self </span>{
-<a href=#315 id=315 data-nosnippet>315</a>            fd_meta: StdMutex::new(fd_meta),
-<a href=#316 id=316 data-nosnippet>316</a>            joins: StdMutex::new(Vec::new()),
-<a href=#317 id=317 data-nosnippet>317</a>            pending_bits: AtomicU8::new(<span class="number">0</span>),
-<a href=#318 id=318 data-nosnippet>318</a>            enqueued: AtomicBool::new(<span class="bool-val">false</span>),
-<a href=#319 id=319 data-nosnippet>319</a>            generation: AtomicU64::new(generation),
-<a href=#320 id=320 data-nosnippet>320</a>        }
-<a href=#321 id=321 data-nosnippet>321</a>    }
-<a href=#322 id=322 data-nosnippet>322</a>
-<a href=#323 id=323 data-nosnippet>323</a>    <span class="doccomment">/// Returns `generation + 1` without mutating the current subscription.
-<a href=#324 id=324 data-nosnippet>324</a>    ///
-<a href=#325 id=325 data-nosnippet>325</a>    /// Callers use this to seed the generation of a replacement subscription.
-<a href=#326 id=326 data-nosnippet>326</a>    </span><span class="kw">pub fn </span>next_generation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-<a href=#327 id=327 data-nosnippet>327</a>        <span class="self">self</span>.generation.load(Ordering::Acquire).saturating_add(<span class="number">1</span>)
-<a href=#328 id=328 data-nosnippet>328</a>    }
-<a href=#329 id=329 data-nosnippet>329</a>
-<a href=#330 id=330 data-nosnippet>330</a>    <span class="doccomment">/// Adds a registration guard that will detach handlers when dropped.
-<a href=#331 id=331 data-nosnippet>331</a>    </span><span class="kw">pub fn </span>add_join(<span class="kw-2">&amp;</span><span class="self">self</span>, join: EpollJoinGuard) {
-<a href=#332 id=332 data-nosnippet>332</a>        <span class="self">self</span>.joins.lock().unwrap().push(join);
-<a href=#333 id=333 data-nosnippet>333</a>    }
-<a href=#334 id=334 data-nosnippet>334</a>
-<a href=#335 id=335 data-nosnippet>335</a>    <span class="doccomment">/// Detaches and drops all registered handlers for this subscription.
-<a href=#336 id=336 data-nosnippet>336</a>    </span><span class="kw">pub fn </span>detach_joins(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-<a href=#337 id=337 data-nosnippet>337</a>        <span class="self">self</span>.joins.lock().unwrap().clear();
-<a href=#338 id=338 data-nosnippet>338</a>    }
-<a href=#339 id=339 data-nosnippet>339</a>
-<a href=#340 id=340 data-nosnippet>340</a>    <span class="kw">fn </span>generation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-<a href=#341 id=341 data-nosnippet>341</a>        <span class="self">self</span>.generation.load(Ordering::Acquire)
-<a href=#342 id=342 data-nosnippet>342</a>    }
-<a href=#343 id=343 data-nosnippet>343</a>
-<a href=#344 id=344 data-nosnippet>344</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd_meta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EpollFd {
-<a href=#345 id=345 data-nosnippet>345</a>        <span class="self">self</span>.fd_meta.lock().unwrap().clone()
-<a href=#346 id=346 data-nosnippet>346</a>    }
-<a href=#347 id=347 data-nosnippet>347</a>
-<a href=#348 id=348 data-nosnippet>348</a>    <span class="kw">fn </span>set_pending(<span class="kw-2">&amp;</span><span class="self">self</span>, bit: u8) -&gt; bool {
-<a href=#349 id=349 data-nosnippet>349</a>        <span class="kw">let </span>old_bits = <span class="self">self</span>.pending_bits.fetch_or(bit, Ordering::AcqRel);
-<a href=#350 id=350 data-nosnippet>350</a>        (old_bits &amp; bit) == <span class="number">0
-<a href=#351 id=351 data-nosnippet>351</a>    </span>}
-<a href=#352 id=352 data-nosnippet>352</a>
-<a href=#353 id=353 data-nosnippet>353</a>    <span class="kw">fn </span>take_pending_bits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
-<a href=#354 id=354 data-nosnippet>354</a>        <span class="self">self</span>.pending_bits.swap(<span class="number">0</span>, Ordering::AcqRel)
-<a href=#355 id=355 data-nosnippet>355</a>    }
-<a href=#356 id=356 data-nosnippet>356</a>
-<a href=#357 id=357 data-nosnippet>357</a>    <span class="kw">fn </span>pending_bits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
-<a href=#358 id=358 data-nosnippet>358</a>        <span class="self">self</span>.pending_bits.load(Ordering::Acquire)
-<a href=#359 id=359 data-nosnippet>359</a>    }
-<a href=#360 id=360 data-nosnippet>360</a>
-<a href=#361 id=361 data-nosnippet>361</a>    <span class="kw">fn </span>mark_enqueued(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#362 id=362 data-nosnippet>362</a>        <span class="self">self</span>.enqueued
-<a href=#363 id=363 data-nosnippet>363</a>            .compare_exchange(<span class="bool-val">false</span>, <span class="bool-val">true</span>, Ordering::AcqRel, Ordering::Acquire)
-<a href=#364 id=364 data-nosnippet>364</a>            .is_ok()
-<a href=#365 id=365 data-nosnippet>365</a>    }
-<a href=#366 id=366 data-nosnippet>366</a>
-<a href=#367 id=367 data-nosnippet>367</a>    <span class="kw">fn </span>clear_enqueued(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-<a href=#368 id=368 data-nosnippet>368</a>        <span class="self">self</span>.enqueued.store(<span class="bool-val">false</span>, Ordering::Release);
-<a href=#369 id=369 data-nosnippet>369</a>    }
-<a href=#370 id=370 data-nosnippet>370</a>}
-<a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a><span class="attr">#[derive(Debug, Clone, Copy)]
-<a href=#373 id=373 data-nosnippet>373</a></span><span class="kw">struct </span>ReadyItem {
-<a href=#374 id=374 data-nosnippet>374</a>    <span class="doccomment">/// Watched fd key used to resolve current subscription state.
-<a href=#375 id=375 data-nosnippet>375</a>    </span>fd: WasiFd,
-<a href=#376 id=376 data-nosnippet>376</a>    <span class="doccomment">/// Generation snapshot captured when enqueued.
-<a href=#377 id=377 data-nosnippet>377</a>    </span>generation: u64,
-<a href=#378 id=378 data-nosnippet>378</a>}
-<a href=#379 id=379 data-nosnippet>379</a>
-<a href=#380 id=380 data-nosnippet>380</a><span class="doccomment">/// Maps epoll readiness flags into internal pending-bit positions.
-<a href=#381 id=381 data-nosnippet>381</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>epoll_type_to_pending_bit(readiness: EpollType) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
-<a href=#382 id=382 data-nosnippet>382</a>    <span class="kw">if </span>readiness == EpollType::EPOLLIN {
-<a href=#383 id=383 data-nosnippet>383</a>        <span class="prelude-val">Some</span>(READABLE_BIT)
-<a href=#384 id=384 data-nosnippet>384</a>    } <span class="kw">else if </span>readiness == EpollType::EPOLLOUT {
-<a href=#385 id=385 data-nosnippet>385</a>        <span class="prelude-val">Some</span>(WRITABLE_BIT)
-<a href=#386 id=386 data-nosnippet>386</a>    } <span class="kw">else if </span>readiness == EpollType::EPOLLHUP {
-<a href=#387 id=387 data-nosnippet>387</a>        <span class="prelude-val">Some</span>(HUP_BIT)
-<a href=#388 id=388 data-nosnippet>388</a>    } <span class="kw">else if </span>readiness == EpollType::EPOLLERR {
-<a href=#389 id=389 data-nosnippet>389</a>        <span class="prelude-val">Some</span>(ERR_BIT)
-<a href=#390 id=390 data-nosnippet>390</a>    } <span class="kw">else </span>{
-<a href=#391 id=391 data-nosnippet>391</a>        <span class="prelude-val">None
-<a href=#392 id=392 data-nosnippet>392</a>    </span>}
-<a href=#393 id=393 data-nosnippet>393</a>}
-<a href=#394 id=394 data-nosnippet>394</a>
-<a href=#395 id=395 data-nosnippet>395</a><span class="doccomment">/// Maps a source interest callback variant into the internal pending-bit mask.
-<a href=#396 id=396 data-nosnippet>396</a></span><span class="kw">fn </span>interest_to_pending_bit(interest: InterestType) -&gt; u8 {
-<a href=#397 id=397 data-nosnippet>397</a>    <span class="kw">match </span>interest {
-<a href=#398 id=398 data-nosnippet>398</a>        InterestType::Readable =&gt; READABLE_BIT,
-<a href=#399 id=399 data-nosnippet>399</a>        InterestType::Writable =&gt; WRITABLE_BIT,
-<a href=#400 id=400 data-nosnippet>400</a>        InterestType::Closed =&gt; HUP_BIT,
-<a href=#401 id=401 data-nosnippet>401</a>        InterestType::Error =&gt; ERR_BIT,
-<a href=#402 id=402 data-nosnippet>402</a>    }
-<a href=#403 id=403 data-nosnippet>403</a>}
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a><span class="doccomment">/// Converts consumed pending bits into caller-visible epoll events.
-<a href=#406 id=406 data-nosnippet>406</a></span><span class="kw">fn </span>pending_bits_to_events(bits: u8, mask: EpollType) -&gt; Vec&lt;EpollType&gt; {
-<a href=#407 id=407 data-nosnippet>407</a>    <span class="kw">let </span><span class="kw-2">mut </span>events = Vec::with_capacity(<span class="number">4</span>);
-<a href=#408 id=408 data-nosnippet>408</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(EpollType::EPOLLIN)
-<a href=#409 id=409 data-nosnippet>409</a>        &amp;&amp; (bits &amp; bit) != <span class="number">0
-<a href=#410 id=410 data-nosnippet>410</a>        </span>&amp;&amp; mask.contains(EpollType::EPOLLIN)
-<a href=#411 id=411 data-nosnippet>411</a>    {
-<a href=#412 id=412 data-nosnippet>412</a>        events.push(EpollType::EPOLLIN);
-<a href=#413 id=413 data-nosnippet>413</a>    }
-<a href=#414 id=414 data-nosnippet>414</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(EpollType::EPOLLOUT)
-<a href=#415 id=415 data-nosnippet>415</a>        &amp;&amp; (bits &amp; bit) != <span class="number">0
-<a href=#416 id=416 data-nosnippet>416</a>        </span>&amp;&amp; mask.contains(EpollType::EPOLLOUT)
-<a href=#417 id=417 data-nosnippet>417</a>    {
-<a href=#418 id=418 data-nosnippet>418</a>        events.push(EpollType::EPOLLOUT);
-<a href=#419 id=419 data-nosnippet>419</a>    }
-<a href=#420 id=420 data-nosnippet>420</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(EpollType::EPOLLHUP)
-<a href=#421 id=421 data-nosnippet>421</a>        &amp;&amp; (bits &amp; bit) != <span class="number">0
-<a href=#422 id=422 data-nosnippet>422</a>    </span>{
-<a href=#423 id=423 data-nosnippet>423</a>        events.push(EpollType::EPOLLHUP);
-<a href=#424 id=424 data-nosnippet>424</a>    }
-<a href=#425 id=425 data-nosnippet>425</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(EpollType::EPOLLERR)
-<a href=#426 id=426 data-nosnippet>426</a>        &amp;&amp; (bits &amp; bit) != <span class="number">0
-<a href=#427 id=427 data-nosnippet>427</a>    </span>{
-<a href=#428 id=428 data-nosnippet>428</a>        events.push(EpollType::EPOLLERR);
-<a href=#429 id=429 data-nosnippet>429</a>    }
-<a href=#430 id=430 data-nosnippet>430</a>    events
-<a href=#431 id=431 data-nosnippet>431</a>}
-<a href=#432 id=432 data-nosnippet>432</a>
-<a href=#433 id=433 data-nosnippet>433</a><span class="kw">fn </span>epoll_mask_to_pending_bits(mask: EpollType) -&gt; u8 {
-<a href=#434 id=434 data-nosnippet>434</a>    <span class="kw">let </span><span class="kw-2">mut </span>bits = <span class="number">0</span>;
-<a href=#435 id=435 data-nosnippet>435</a>    <span class="kw">if </span>mask.contains(EpollType::EPOLLIN) {
-<a href=#436 id=436 data-nosnippet>436</a>        bits |= READABLE_BIT;
-<a href=#437 id=437 data-nosnippet>437</a>    }
-<a href=#438 id=438 data-nosnippet>438</a>    <span class="kw">if </span>mask.contains(EpollType::EPOLLOUT) {
-<a href=#439 id=439 data-nosnippet>439</a>        bits |= WRITABLE_BIT;
-<a href=#440 id=440 data-nosnippet>440</a>    }
-<a href=#441 id=441 data-nosnippet>441</a>    <span class="comment">// EPOLLHUP/EPOLLERR are always reported by epoll when present.
-<a href=#442 id=442 data-nosnippet>442</a>    </span>bits |= HUP_BIT;
-<a href=#443 id=443 data-nosnippet>443</a>    bits |= ERR_BIT;
-<a href=#444 id=444 data-nosnippet>444</a>    bits
-<a href=#445 id=445 data-nosnippet>445</a>}
-<a href=#446 id=446 data-nosnippet>446</a>
-<a href=#447 id=447 data-nosnippet>447</a><span class="kw">fn </span>prime_immediate_writable_if_applicable(
-<a href=#448 id=448 data-nosnippet>448</a>    event: <span class="kw-2">&amp;</span>EpollFd,
-<a href=#449 id=449 data-nosnippet>449</a>    fd_guard: <span class="kw-2">&amp;</span>InodeValFilePollGuard,
-<a href=#450 id=450 data-nosnippet>450</a>    epoll_state: <span class="kw-2">&amp;</span>Arc&lt;EpollState&gt;,
-<a href=#451 id=451 data-nosnippet>451</a>    sub_state: <span class="kw-2">&amp;</span>Arc&lt;EpollSubState&gt;,
-<a href=#452 id=452 data-nosnippet>452</a>) {
-<a href=#453 id=453 data-nosnippet>453</a>    <span class="kw">if </span>!event.events().contains(EpollType::EPOLLOUT) {
-<a href=#454 id=454 data-nosnippet>454</a>        <span class="kw">return</span>;
-<a href=#455 id=455 data-nosnippet>455</a>    }
-<a href=#456 id=456 data-nosnippet>456</a>
-<a href=#457 id=457 data-nosnippet>457</a>    <span class="comment">// Some fd kinds are effectively writable immediately (for example eventfd-like
-<a href=#458 id=458 data-nosnippet>458</a>    // notifications and pipe write-ends), but may not emit a writable transition.
-<a href=#459 id=459 data-nosnippet>459</a>    // Prime EPOLLOUT once at registration so level-triggered epoll can observe them.
-<a href=#460 id=460 data-nosnippet>460</a>    </span><span class="kw">let </span>writable_now = <span class="macro">matches!</span>(
-<a href=#461 id=461 data-nosnippet>461</a>        fd_guard.mode,
-<a href=#462 id=462 data-nosnippet>462</a>        InodeValFilePollGuardMode::EventNotifications(<span class="kw">_</span>) | InodeValFilePollGuardMode::PipeTx { .. }
-<a href=#463 id=463 data-nosnippet>463</a>    );
-<a href=#464 id=464 data-nosnippet>464</a>
-<a href=#465 id=465 data-nosnippet>465</a>    <span class="kw">if </span>!writable_now {
-<a href=#466 id=466 data-nosnippet>466</a>        <span class="kw">return</span>;
-<a href=#467 id=467 data-nosnippet>467</a>    }
-<a href=#468 id=468 data-nosnippet>468</a>
-<a href=#469 id=469 data-nosnippet>469</a>    sub_state
-<a href=#470 id=470 data-nosnippet>470</a>        .pending_bits
-<a href=#471 id=471 data-nosnippet>471</a>        .fetch_or(WRITABLE_BIT, Ordering::AcqRel);
-<a href=#472 id=472 data-nosnippet>472</a>    <span class="kw">if </span>sub_state.mark_enqueued() {
-<a href=#473 id=473 data-nosnippet>473</a>        epoll_state.enqueue_ready(event.fd(), sub_state.generation());
-<a href=#474 id=474 data-nosnippet>474</a>    }
-<a href=#475 id=475 data-nosnippet>475</a>}
-<a href=#476 id=476 data-nosnippet>476</a>
-<a href=#477 id=477 data-nosnippet>477</a><span class="doccomment">/// Re-enqueues a subscription if new pending bits arrived during/after consumer drain.
-<a href=#478 id=478 data-nosnippet>478</a></span><span class="kw">fn </span>repair_ready_queue_after_drain(
-<a href=#479 id=479 data-nosnippet>479</a>    epoll_state: <span class="kw-2">&amp;</span>Arc&lt;EpollState&gt;,
-<a href=#480 id=480 data-nosnippet>480</a>    fd: WasiFd,
-<a href=#481 id=481 data-nosnippet>481</a>    sub_state: <span class="kw-2">&amp;</span>Arc&lt;EpollSubState&gt;,
-<a href=#482 id=482 data-nosnippet>482</a>) {
-<a href=#483 id=483 data-nosnippet>483</a>    <span class="kw">if </span>sub_state.pending_bits() != <span class="number">0 </span>&amp;&amp; sub_state.mark_enqueued() {
-<a href=#484 id=484 data-nosnippet>484</a>        epoll_state.enqueue_ready(fd, sub_state.generation());
-<a href=#485 id=485 data-nosnippet>485</a>    }
-<a href=#486 id=486 data-nosnippet>486</a>}
-<a href=#487 id=487 data-nosnippet>487</a>
-<a href=#488 id=488 data-nosnippet>488</a><span class="doccomment">/// Drains ready items into `(EpollFd, readiness)` events up to `maxevents`.
-<a href=#489 id=489 data-nosnippet>489</a>///
-<a href=#490 id=490 data-nosnippet>490</a>/// This is the consumer hot path used by `epoll_wait`. It is designed to be:
-<a href=#491 id=491 data-nosnippet>491</a>/// - O(number of dequeued ready items)
-<a href=#492 id=492 data-nosnippet>492</a>/// - tolerant of stale queue entries
-<a href=#493 id=493 data-nosnippet>493</a>/// - race-safe with producers setting bits concurrently
-<a href=#494 id=494 data-nosnippet>494</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>drain_ready_events(
-<a href=#495 id=495 data-nosnippet>495</a>    epoll_state: <span class="kw-2">&amp;</span>Arc&lt;EpollState&gt;,
-<a href=#496 id=496 data-nosnippet>496</a>    maxevents: usize,
-<a href=#497 id=497 data-nosnippet>497</a>) -&gt; Vec&lt;(EpollFd, EpollType)&gt; {
-<a href=#498 id=498 data-nosnippet>498</a>    <span class="kw">let </span><span class="kw-2">mut </span>ret: Vec&lt;(EpollFd, EpollType)&gt; = Vec::new();
-<a href=#499 id=499 data-nosnippet>499</a>    <span class="kw">while </span>ret.len() &lt; maxevents {
-<a href=#500 id=500 data-nosnippet>500</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(item) = epoll_state.dequeue_ready() <span class="kw">else </span>{
-<a href=#501 id=501 data-nosnippet>501</a>            <span class="kw">break</span>;
-<a href=#502 id=502 data-nosnippet>502</a>        };
-<a href=#503 id=503 data-nosnippet>503</a>
-<a href=#504 id=504 data-nosnippet>504</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(sub_state) = epoll_state.subscription(item.fd) <span class="kw">else </span>{
-<a href=#505 id=505 data-nosnippet>505</a>            epoll_empty_dequeue_entry();
-<a href=#506 id=506 data-nosnippet>506</a>            <span class="kw">continue</span>;
-<a href=#507 id=507 data-nosnippet>507</a>        };
-<a href=#508 id=508 data-nosnippet>508</a>
-<a href=#509 id=509 data-nosnippet>509</a>        <span class="kw">if </span>sub_state.generation() != item.generation {
-<a href=#510 id=510 data-nosnippet>510</a>            epoll_stale_generation_drop();
-<a href=#511 id=511 data-nosnippet>511</a>            <span class="kw">continue</span>;
-<a href=#512 id=512 data-nosnippet>512</a>        }
-<a href=#513 id=513 data-nosnippet>513</a>
-<a href=#514 id=514 data-nosnippet>514</a>        <span class="kw">let </span>bits = sub_state.take_pending_bits();
-<a href=#515 id=515 data-nosnippet>515</a>        sub_state.clear_enqueued();
-<a href=#516 id=516 data-nosnippet>516</a>
-<a href=#517 id=517 data-nosnippet>517</a>        <span class="kw">if </span>bits == <span class="number">0 </span>{
-<a href=#518 id=518 data-nosnippet>518</a>            repair_ready_queue_after_drain(epoll_state, item.fd, <span class="kw-2">&amp;</span>sub_state);
-<a href=#519 id=519 data-nosnippet>519</a>            epoll_empty_dequeue_entry();
-<a href=#520 id=520 data-nosnippet>520</a>            <span class="kw">continue</span>;
-<a href=#521 id=521 data-nosnippet>521</a>        }
-<a href=#522 id=522 data-nosnippet>522</a>
-<a href=#523 id=523 data-nosnippet>523</a>        <span class="kw">let </span>event = sub_state.fd_meta();
-<a href=#524 id=524 data-nosnippet>524</a>        <span class="kw">let </span><span class="kw-2">mut </span>undispatched_bits = bits &amp; epoll_mask_to_pending_bits(event.events());
-<a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">for </span>readiness <span class="kw">in </span>pending_bits_to_events(bits, event.events()) {
-<a href=#526 id=526 data-nosnippet>526</a>            <span class="kw">if </span>ret.len() &gt;= maxevents {
-<a href=#527 id=527 data-nosnippet>527</a>                <span class="kw">break</span>;
-<a href=#528 id=528 data-nosnippet>528</a>            }
-<a href=#529 id=529 data-nosnippet>529</a>            ret.push((event.clone(), readiness));
-<a href=#530 id=530 data-nosnippet>530</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(readiness) {
-<a href=#531 id=531 data-nosnippet>531</a>                undispatched_bits &amp;= !bit;
-<a href=#532 id=532 data-nosnippet>532</a>            }
-<a href=#533 id=533 data-nosnippet>533</a>        }
-<a href=#534 id=534 data-nosnippet>534</a>
-<a href=#535 id=535 data-nosnippet>535</a>        <span class="kw">if </span>undispatched_bits != <span class="number">0 </span>{
-<a href=#536 id=536 data-nosnippet>536</a>            sub_state
-<a href=#537 id=537 data-nosnippet>537</a>                .pending_bits
-<a href=#538 id=538 data-nosnippet>538</a>                .fetch_or(undispatched_bits, Ordering::AcqRel);
-<a href=#539 id=539 data-nosnippet>539</a>        }
-<a href=#540 id=540 data-nosnippet>540</a>        repair_ready_queue_after_drain(epoll_state, item.fd, <span class="kw-2">&amp;</span>sub_state);
-<a href=#541 id=541 data-nosnippet>541</a>
-<a href=#542 id=542 data-nosnippet>542</a>        <span class="kw">if </span>ret.len() &gt;= maxevents {
-<a href=#543 id=543 data-nosnippet>543</a>            <span class="kw">break</span>;
-<a href=#544 id=544 data-nosnippet>544</a>        }
-<a href=#545 id=545 data-nosnippet>545</a>    }
-<a href=#546 id=546 data-nosnippet>546</a>    ret
-<a href=#547 id=547 data-nosnippet>547</a>}
-<a href=#548 id=548 data-nosnippet>548</a>
-<a href=#549 id=549 data-nosnippet>549</a><span class="attr">#[derive(Debug)]
-<a href=#550 id=550 data-nosnippet>550</a></span><span class="kw">struct </span>EpollHandler {
-<a href=#551 id=551 data-nosnippet>551</a>    <span class="doccomment">/// Watched fd associated with the subscription.
-<a href=#552 id=552 data-nosnippet>552</a>    </span>fd: WasiFd,
-<a href=#553 id=553 data-nosnippet>553</a>    <span class="doccomment">/// Parent epoll state for queueing and wakeups.
-<a href=#554 id=554 data-nosnippet>554</a>    </span>epoll_state: Arc&lt;EpollState&gt;,
-<a href=#555 id=555 data-nosnippet>555</a>    <span class="doccomment">/// Per-subscription state updated by interest callbacks.
-<a href=#556 id=556 data-nosnippet>556</a>    </span>sub_state: Arc&lt;EpollSubState&gt;,
-<a href=#557 id=557 data-nosnippet>557</a>}
-<a href=#558 id=558 data-nosnippet>558</a>
-<a href=#559 id=559 data-nosnippet>559</a><span class="kw">impl </span>EpollHandler {
-<a href=#560 id=560 data-nosnippet>560</a>    <span class="kw">fn </span>new(fd: WasiFd, epoll_state: Arc&lt;EpollState&gt;, sub_state: Arc&lt;EpollSubState&gt;) -&gt; Box&lt;<span class="self">Self</span>&gt; {
-<a href=#561 id=561 data-nosnippet>561</a>        Box::new(<span class="self">Self </span>{
-<a href=#562 id=562 data-nosnippet>562</a>            fd,
-<a href=#563 id=563 data-nosnippet>563</a>            epoll_state,
-<a href=#564 id=564 data-nosnippet>564</a>            sub_state,
-<a href=#565 id=565 data-nosnippet>565</a>        })
-<a href=#566 id=566 data-nosnippet>566</a>    }
-<a href=#567 id=567 data-nosnippet>567</a>}
-<a href=#568 id=568 data-nosnippet>568</a>
-<a href=#569 id=569 data-nosnippet>569</a><span class="kw">impl </span>InterestHandler <span class="kw">for </span>EpollHandler {
-<a href=#570 id=570 data-nosnippet>570</a>    <span class="doccomment">/// Producer path:
-<a href=#571 id=571 data-nosnippet>571</a>    /// set pending bits, enqueue once, and wake one waiter.
-<a href=#572 id=572 data-nosnippet>572</a>    </span><span class="kw">fn </span>push_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) {
-<a href=#573 id=573 data-nosnippet>573</a>        EPOLL_ENQUEUE_ATTEMPTS.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-<a href=#574 id=574 data-nosnippet>574</a>        <span class="kw">let </span>bit = interest_to_pending_bit(interest);
-<a href=#575 id=575 data-nosnippet>575</a>        <span class="kw">if </span>!<span class="self">self</span>.sub_state.set_pending(bit) {
-<a href=#576 id=576 data-nosnippet>576</a>            EPOLL_ENQUEUE_DEDUPE_HITS.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-<a href=#577 id=577 data-nosnippet>577</a>            <span class="kw">return</span>;
-<a href=#578 id=578 data-nosnippet>578</a>        }
-<a href=#579 id=579 data-nosnippet>579</a>
-<a href=#580 id=580 data-nosnippet>580</a>        <span class="kw">if </span><span class="self">self</span>.sub_state.mark_enqueued() {
-<a href=#581 id=581 data-nosnippet>581</a>            <span class="self">self</span>.epoll_state
-<a href=#582 id=582 data-nosnippet>582</a>                .enqueue_ready(<span class="self">self</span>.fd, <span class="self">self</span>.sub_state.generation());
-<a href=#583 id=583 data-nosnippet>583</a>        } <span class="kw">else </span>{
-<a href=#584 id=584 data-nosnippet>584</a>            EPOLL_ENQUEUE_DEDUPE_HITS.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-<a href=#585 id=585 data-nosnippet>585</a>        }
-<a href=#586 id=586 data-nosnippet>586</a>    }
-<a href=#587 id=587 data-nosnippet>587</a>
-<a href=#588 id=588 data-nosnippet>588</a>    <span class="doccomment">/// Clears one readiness bit from this subscription only.
-<a href=#589 id=589 data-nosnippet>589</a>    </span><span class="kw">fn </span>pop_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) -&gt; bool {
-<a href=#590 id=590 data-nosnippet>590</a>        <span class="kw">let </span>bit = interest_to_pending_bit(interest);
-<a href=#591 id=591 data-nosnippet>591</a>        <span class="kw">let </span>old = <span class="self">self
-<a href=#592 id=592 data-nosnippet>592</a>            </span>.sub_state
-<a href=#593 id=593 data-nosnippet>593</a>            .pending_bits
-<a href=#594 id=594 data-nosnippet>594</a>            .fetch_and(!bit, Ordering::AcqRel);
-<a href=#595 id=595 data-nosnippet>595</a>        (old &amp; bit) != <span class="number">0
-<a href=#596 id=596 data-nosnippet>596</a>    </span>}
-<a href=#597 id=597 data-nosnippet>597</a>
-<a href=#598 id=598 data-nosnippet>598</a>    <span class="doccomment">/// Checks whether this subscription currently has a readiness bit set.
-<a href=#599 id=599 data-nosnippet>599</a>    </span><span class="kw">fn </span>has_interest(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool {
-<a href=#600 id=600 data-nosnippet>600</a>        <span class="kw">let </span>bit = interest_to_pending_bit(interest);
-<a href=#601 id=601 data-nosnippet>601</a>        (<span class="self">self</span>.sub_state.pending_bits() &amp; bit) != <span class="number">0
-<a href=#602 id=602 data-nosnippet>602</a>    </span>}
-<a href=#603 id=603 data-nosnippet>603</a>}
-<a href=#604 id=604 data-nosnippet>604</a>
-<a href=#605 id=605 data-nosnippet>605</a><span class="doccomment">/// Registers an epoll interest handler on the watched fd and returns a guard.
-<a href=#606 id=606 data-nosnippet>606</a>///
-<a href=#607 id=607 data-nosnippet>607</a>/// `None` means the fd kind does not support handler attachment for epoll.
-<a href=#608 id=608 data-nosnippet>608</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_epoll_handler(
-<a href=#609 id=609 data-nosnippet>609</a>    state: <span class="kw-2">&amp;</span>Arc&lt;WasiState&gt;,
-<a href=#610 id=610 data-nosnippet>610</a>    event: <span class="kw-2">&amp;</span>EpollFd,
-<a href=#611 id=611 data-nosnippet>611</a>    epoll_state: Arc&lt;EpollState&gt;,
-<a href=#612 id=612 data-nosnippet>612</a>    sub_state: Arc&lt;EpollSubState&gt;,
-<a href=#613 id=613 data-nosnippet>613</a>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;EpollJoinGuard&gt;, Errno&gt; {
-<a href=#614 id=614 data-nosnippet>614</a>    <span class="kw">let </span><span class="kw-2">mut </span>type_ = Eventtype::FdRead;
-<a href=#615 id=615 data-nosnippet>615</a>    <span class="kw">let </span><span class="kw-2">mut </span>peb = PollEventBuilder::new();
-<a href=#616 id=616 data-nosnippet>616</a>    <span class="kw">if </span>event.events().contains(EpollType::EPOLLOUT) {
-<a href=#617 id=617 data-nosnippet>617</a>        type_ = Eventtype::FdWrite;
-<a href=#618 id=618 data-nosnippet>618</a>        peb = peb.add(PollEvent::PollOut);
-<a href=#619 id=619 data-nosnippet>619</a>    }
-<a href=#620 id=620 data-nosnippet>620</a>    <span class="kw">if </span>event.events().contains(EpollType::EPOLLIN) {
-<a href=#621 id=621 data-nosnippet>621</a>        type_ = Eventtype::FdRead;
-<a href=#622 id=622 data-nosnippet>622</a>        peb = peb.add(PollEvent::PollIn);
-<a href=#623 id=623 data-nosnippet>623</a>    }
-<a href=#624 id=624 data-nosnippet>624</a>    <span class="comment">// EPOLLERR/EPOLLHUP are always delivered by epoll regardless of requested mask.
-<a href=#625 id=625 data-nosnippet>625</a>    </span>peb = peb.add(PollEvent::PollError);
-<a href=#626 id=626 data-nosnippet>626</a>    peb = peb.add(PollEvent::PollHangUp);
-<a href=#627 id=627 data-nosnippet>627</a>
-<a href=#628 id=628 data-nosnippet>628</a>    <span class="kw">let </span>s = Subscription {
-<a href=#629 id=629 data-nosnippet>629</a>        userdata: event.data2(),
-<a href=#630 id=630 data-nosnippet>630</a>        type_,
-<a href=#631 id=631 data-nosnippet>631</a>        data: SubscriptionUnion {
-<a href=#632 id=632 data-nosnippet>632</a>            fd_readwrite: SubscriptionFsReadwrite {
-<a href=#633 id=633 data-nosnippet>633</a>                file_descriptor: event.fd(),
-<a href=#634 id=634 data-nosnippet>634</a>            },
-<a href=#635 id=635 data-nosnippet>635</a>        },
-<a href=#636 id=636 data-nosnippet>636</a>    };
-<a href=#637 id=637 data-nosnippet>637</a>
-<a href=#638 id=638 data-nosnippet>638</a>    <span class="kw">let </span>fd_guard = poll_fd_guard(state, peb.build(), event.fd(), s)<span class="question-mark">?</span>;
-<a href=#639 id=639 data-nosnippet>639</a>    <span class="kw">let </span>handler = EpollHandler::new(event.fd(), epoll_state.clone(), sub_state.clone());
-<a href=#640 id=640 data-nosnippet>640</a>
-<a href=#641 id=641 data-nosnippet>641</a>    <span class="kw">match </span><span class="kw-2">&amp;</span>fd_guard.mode {
-<a href=#642 id=642 data-nosnippet>642</a>        InodeValFilePollGuardMode::File(<span class="kw">_</span>) =&gt; {
-<a href=#643 id=643 data-nosnippet>643</a>            <span class="comment">// Intentionally ignored, epoll doesn't work with files
-<a href=#644 id=644 data-nosnippet>644</a>            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
-<a href=#645 id=645 data-nosnippet>645</a>        }
-<a href=#646 id=646 data-nosnippet>646</a>        InodeValFilePollGuardMode::Socket { inner, .. } =&gt; {
-<a href=#647 id=647 data-nosnippet>647</a>            <span class="kw">let </span><span class="kw-2">mut </span>inner = inner.protected.write().unwrap();
-<a href=#648 id=648 data-nosnippet>648</a>            inner.set_handler(handler).map_err(net_error_into_io_err)<span class="question-mark">?</span>;
-<a href=#649 id=649 data-nosnippet>649</a>            drop(inner);
-<a href=#650 id=650 data-nosnippet>650</a>        }
-<a href=#651 id=651 data-nosnippet>651</a>        InodeValFilePollGuardMode::EventNotifications(inner) =&gt; inner.set_interest_handler(handler),
-<a href=#652 id=652 data-nosnippet>652</a>        InodeValFilePollGuardMode::DuplexPipe { pipe } =&gt; {
-<a href=#653 id=653 data-nosnippet>653</a>            <span class="kw">let </span>inner = pipe.write().unwrap();
-<a href=#654 id=654 data-nosnippet>654</a>            inner.set_interest_handler(handler);
-<a href=#655 id=655 data-nosnippet>655</a>        }
-<a href=#656 id=656 data-nosnippet>656</a>        InodeValFilePollGuardMode::PipeRx { rx } =&gt; {
-<a href=#657 id=657 data-nosnippet>657</a>            <span class="kw">let </span>inner = rx.write().unwrap();
-<a href=#658 id=658 data-nosnippet>658</a>            inner.set_interest_handler(handler);
-<a href=#659 id=659 data-nosnippet>659</a>        }
-<a href=#660 id=660 data-nosnippet>660</a>        InodeValFilePollGuardMode::PipeTx { .. } =&gt; {
-<a href=#661 id=661 data-nosnippet>661</a>            <span class="comment">// The sending end of a pipe can't have an interest handler, since we
-<a href=#662 id=662 data-nosnippet>662</a>            // only support "readable" interest on pipes; they're considered to
-<a href=#663 id=663 data-nosnippet>663</a>            // always be writable.
-<a href=#664 id=664 data-nosnippet>664</a>            </span>prime_immediate_writable_if_applicable(event, <span class="kw-2">&amp;</span>fd_guard, <span class="kw-2">&amp;</span>epoll_state, <span class="kw-2">&amp;</span>sub_state);
-<a href=#665 id=665 data-nosnippet>665</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
-<a href=#666 id=666 data-nosnippet>666</a>        }
-<a href=#667 id=667 data-nosnippet>667</a>    }
-<a href=#668 id=668 data-nosnippet>668</a>
-<a href=#669 id=669 data-nosnippet>669</a>    prime_immediate_writable_if_applicable(event, <span class="kw-2">&amp;</span>fd_guard, <span class="kw-2">&amp;</span>epoll_state, <span class="kw-2">&amp;</span>sub_state);
+<a href=#265 id=265 data-nosnippet>265</a>        <span class="kw">let </span>removed = <span class="self">self
+<a href=#266 id=266 data-nosnippet>266</a>            </span>.subscriptions
+<a href=#267 id=267 data-nosnippet>267</a>            .lock()
+<a href=#268 id=268 data-nosnippet>268</a>            .unwrap()
+<a href=#269 id=269 data-nosnippet>269</a>            .remove(<span class="kw-2">&amp;</span>fd)
+<a href=#270 id=270 data-nosnippet>270</a>            .ok_or(Errno::Noent)<span class="question-mark">?</span>;
+<a href=#271 id=271 data-nosnippet>271</a>        removed.detach_joins();
+<a href=#272 id=272 data-nosnippet>272</a>        <span class="prelude-val">Ok</span>(())
+<a href=#273 id=273 data-nosnippet>273</a>    }
+<a href=#274 id=274 data-nosnippet>274</a>
+<a href=#275 id=275 data-nosnippet>275</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>rollback_registration(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd, previous: <span class="prelude-ty">Option</span>&lt;Arc&lt;EpollSubState&gt;&gt;) {
+<a href=#276 id=276 data-nosnippet>276</a>        <span class="self">self</span>.restore_subscription(fd, previous);
+<a href=#277 id=277 data-nosnippet>277</a>    }
+<a href=#278 id=278 data-nosnippet>278</a>
+<a href=#279 id=279 data-nosnippet>279</a>    <span class="kw">fn </span>build_pending_subscription(
+<a href=#280 id=280 data-nosnippet>280</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#281 id=281 data-nosnippet>281</a>        fd: WasiFd,
+<a href=#282 id=282 data-nosnippet>282</a>        event: <span class="kw-2">&amp;</span>EpollEventCtl,
+<a href=#283 id=283 data-nosnippet>283</a>        generation: u64,
+<a href=#284 id=284 data-nosnippet>284</a>    ) -&gt; (EpollFd, Arc&lt;EpollSubState&gt;) {
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">let </span>epoll_fd = EpollFd::from_event_ctl(fd, event);
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="macro">tracing::trace!</span>(
+<a href=#287 id=287 data-nosnippet>287</a>            peb = <span class="question-mark">?</span>event.events,
+<a href=#288 id=288 data-nosnippet>288</a>            ptr = <span class="question-mark">?</span>event.ptr,
+<a href=#289 id=289 data-nosnippet>289</a>            data1 = event.data1,
+<a href=#290 id=290 data-nosnippet>290</a>            data2 = event.data2,
+<a href=#291 id=291 data-nosnippet>291</a>            fd,
+<a href=#292 id=292 data-nosnippet>292</a>            <span class="string">"registering waker"
+<a href=#293 id=293 data-nosnippet>293</a>        </span>);
+<a href=#294 id=294 data-nosnippet>294</a>        <span class="kw">let </span>sub_state = Arc::new(EpollSubState::new(epoll_fd.clone(), generation));
+<a href=#295 id=295 data-nosnippet>295</a>        (epoll_fd, sub_state)
+<a href=#296 id=296 data-nosnippet>296</a>    }
+<a href=#297 id=297 data-nosnippet>297</a>}
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a><span class="attr">#[derive(Debug)]
+<a href=#300 id=300 data-nosnippet>300</a></span><span class="kw">pub struct </span>EpollSubState {
+<a href=#301 id=301 data-nosnippet>301</a>    <span class="doccomment">/// Snapshot of user-visible metadata.
+<a href=#302 id=302 data-nosnippet>302</a>    </span>fd_meta: StdMutex&lt;EpollFd&gt;,
+<a href=#303 id=303 data-nosnippet>303</a>    <span class="doccomment">/// Guard ownership for all attached handlers.
+<a href=#304 id=304 data-nosnippet>304</a>    </span>joins: StdMutex&lt;Vec&lt;EpollJoinGuard&gt;&gt;,
+<a href=#305 id=305 data-nosnippet>305</a>    <span class="doccomment">/// Atomic readiness bitset (EPOLLIN/OUT/HUP/ERR).
+<a href=#306 id=306 data-nosnippet>306</a>    </span>pending_bits: AtomicU8,
+<a href=#307 id=307 data-nosnippet>307</a>    <span class="doccomment">/// Queue dedupe flag: whether this sub already has a ready-queue entry.
+<a href=#308 id=308 data-nosnippet>308</a>    </span>enqueued: AtomicBool,
+<a href=#309 id=309 data-nosnippet>309</a>    <span class="doccomment">/// Generation used to invalidate stale queue entries after DEL/MOD.
+<a href=#310 id=310 data-nosnippet>310</a>    </span>generation: AtomicU64,
+<a href=#311 id=311 data-nosnippet>311</a>}
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a><span class="kw">impl </span>EpollSubState {
+<a href=#314 id=314 data-nosnippet>314</a>    <span class="doccomment">/// Creates a new subscription state with empty readiness and queue state.
+<a href=#315 id=315 data-nosnippet>315</a>    </span><span class="kw">pub fn </span>new(fd_meta: EpollFd, generation: u64) -&gt; <span class="self">Self </span>{
+<a href=#316 id=316 data-nosnippet>316</a>        <span class="self">Self </span>{
+<a href=#317 id=317 data-nosnippet>317</a>            fd_meta: StdMutex::new(fd_meta),
+<a href=#318 id=318 data-nosnippet>318</a>            joins: StdMutex::new(Vec::new()),
+<a href=#319 id=319 data-nosnippet>319</a>            pending_bits: AtomicU8::new(<span class="number">0</span>),
+<a href=#320 id=320 data-nosnippet>320</a>            enqueued: AtomicBool::new(<span class="bool-val">false</span>),
+<a href=#321 id=321 data-nosnippet>321</a>            generation: AtomicU64::new(generation),
+<a href=#322 id=322 data-nosnippet>322</a>        }
+<a href=#323 id=323 data-nosnippet>323</a>    }
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>    <span class="doccomment">/// Returns `generation + 1` without mutating the current subscription.
+<a href=#326 id=326 data-nosnippet>326</a>    ///
+<a href=#327 id=327 data-nosnippet>327</a>    /// Callers use this to seed the generation of a replacement subscription.
+<a href=#328 id=328 data-nosnippet>328</a>    </span><span class="kw">pub fn </span>next_generation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+<a href=#329 id=329 data-nosnippet>329</a>        <span class="self">self</span>.generation.load(Ordering::Acquire).saturating_add(<span class="number">1</span>)
+<a href=#330 id=330 data-nosnippet>330</a>    }
+<a href=#331 id=331 data-nosnippet>331</a>
+<a href=#332 id=332 data-nosnippet>332</a>    <span class="doccomment">/// Adds a registration guard that will detach handlers when dropped.
+<a href=#333 id=333 data-nosnippet>333</a>    </span><span class="kw">pub fn </span>add_join(<span class="kw-2">&amp;</span><span class="self">self</span>, join: EpollJoinGuard) {
+<a href=#334 id=334 data-nosnippet>334</a>        <span class="self">self</span>.joins.lock().unwrap().push(join);
+<a href=#335 id=335 data-nosnippet>335</a>    }
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>    <span class="doccomment">/// Detaches and drops all registered handlers for this subscription.
+<a href=#338 id=338 data-nosnippet>338</a>    </span><span class="kw">pub fn </span>detach_joins(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#339 id=339 data-nosnippet>339</a>        <span class="self">self</span>.joins.lock().unwrap().clear();
+<a href=#340 id=340 data-nosnippet>340</a>    }
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="kw">fn </span>generation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+<a href=#343 id=343 data-nosnippet>343</a>        <span class="self">self</span>.generation.load(Ordering::Acquire)
+<a href=#344 id=344 data-nosnippet>344</a>    }
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd_meta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EpollFd {
+<a href=#347 id=347 data-nosnippet>347</a>        <span class="self">self</span>.fd_meta.lock().unwrap().clone()
+<a href=#348 id=348 data-nosnippet>348</a>    }
+<a href=#349 id=349 data-nosnippet>349</a>
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="kw">fn </span>set_pending(<span class="kw-2">&amp;</span><span class="self">self</span>, bit: u8) -&gt; bool {
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">let </span>old_bits = <span class="self">self</span>.pending_bits.fetch_or(bit, Ordering::AcqRel);
+<a href=#352 id=352 data-nosnippet>352</a>        (old_bits &amp; bit) == <span class="number">0
+<a href=#353 id=353 data-nosnippet>353</a>    </span>}
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">fn </span>take_pending_bits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="self">self</span>.pending_bits.swap(<span class="number">0</span>, Ordering::AcqRel)
+<a href=#357 id=357 data-nosnippet>357</a>    }
+<a href=#358 id=358 data-nosnippet>358</a>
+<a href=#359 id=359 data-nosnippet>359</a>    <span class="kw">fn </span>pending_bits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+<a href=#360 id=360 data-nosnippet>360</a>        <span class="self">self</span>.pending_bits.load(Ordering::Acquire)
+<a href=#361 id=361 data-nosnippet>361</a>    }
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>    <span class="kw">fn </span>mark_enqueued(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#364 id=364 data-nosnippet>364</a>        <span class="self">self</span>.enqueued
+<a href=#365 id=365 data-nosnippet>365</a>            .compare_exchange(<span class="bool-val">false</span>, <span class="bool-val">true</span>, Ordering::AcqRel, Ordering::Acquire)
+<a href=#366 id=366 data-nosnippet>366</a>            .is_ok()
+<a href=#367 id=367 data-nosnippet>367</a>    }
+<a href=#368 id=368 data-nosnippet>368</a>
+<a href=#369 id=369 data-nosnippet>369</a>    <span class="kw">fn </span>clear_enqueued(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#370 id=370 data-nosnippet>370</a>        <span class="self">self</span>.enqueued.store(<span class="bool-val">false</span>, Ordering::Release);
+<a href=#371 id=371 data-nosnippet>371</a>    }
+<a href=#372 id=372 data-nosnippet>372</a>}
+<a href=#373 id=373 data-nosnippet>373</a>
+<a href=#374 id=374 data-nosnippet>374</a><span class="attr">#[derive(Debug, Clone, Copy)]
+<a href=#375 id=375 data-nosnippet>375</a></span><span class="kw">struct </span>ReadyItem {
+<a href=#376 id=376 data-nosnippet>376</a>    <span class="doccomment">/// Watched fd key used to resolve current subscription state.
+<a href=#377 id=377 data-nosnippet>377</a>    </span>fd: WasiFd,
+<a href=#378 id=378 data-nosnippet>378</a>    <span class="doccomment">/// Generation snapshot captured when enqueued.
+<a href=#379 id=379 data-nosnippet>379</a>    </span>generation: u64,
+<a href=#380 id=380 data-nosnippet>380</a>}
+<a href=#381 id=381 data-nosnippet>381</a>
+<a href=#382 id=382 data-nosnippet>382</a><span class="doccomment">/// Maps epoll readiness flags into internal pending-bit positions.
+<a href=#383 id=383 data-nosnippet>383</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>epoll_type_to_pending_bit(readiness: EpollType) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
+<a href=#384 id=384 data-nosnippet>384</a>    <span class="kw">if </span>readiness == EpollType::EPOLLIN {
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="prelude-val">Some</span>(READABLE_BIT)
+<a href=#386 id=386 data-nosnippet>386</a>    } <span class="kw">else if </span>readiness == EpollType::EPOLLOUT {
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="prelude-val">Some</span>(WRITABLE_BIT)
+<a href=#388 id=388 data-nosnippet>388</a>    } <span class="kw">else if </span>readiness == EpollType::EPOLLHUP {
+<a href=#389 id=389 data-nosnippet>389</a>        <span class="prelude-val">Some</span>(HUP_BIT)
+<a href=#390 id=390 data-nosnippet>390</a>    } <span class="kw">else if </span>readiness == EpollType::EPOLLERR {
+<a href=#391 id=391 data-nosnippet>391</a>        <span class="prelude-val">Some</span>(ERR_BIT)
+<a href=#392 id=392 data-nosnippet>392</a>    } <span class="kw">else </span>{
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="prelude-val">None
+<a href=#394 id=394 data-nosnippet>394</a>    </span>}
+<a href=#395 id=395 data-nosnippet>395</a>}
+<a href=#396 id=396 data-nosnippet>396</a>
+<a href=#397 id=397 data-nosnippet>397</a><span class="doccomment">/// Maps a source interest callback variant into the internal pending-bit mask.
+<a href=#398 id=398 data-nosnippet>398</a></span><span class="kw">fn </span>interest_to_pending_bit(interest: InterestType) -&gt; u8 {
+<a href=#399 id=399 data-nosnippet>399</a>    <span class="kw">match </span>interest {
+<a href=#400 id=400 data-nosnippet>400</a>        InterestType::Readable =&gt; READABLE_BIT,
+<a href=#401 id=401 data-nosnippet>401</a>        InterestType::Writable =&gt; WRITABLE_BIT,
+<a href=#402 id=402 data-nosnippet>402</a>        InterestType::Closed =&gt; HUP_BIT,
+<a href=#403 id=403 data-nosnippet>403</a>        InterestType::Error =&gt; ERR_BIT,
+<a href=#404 id=404 data-nosnippet>404</a>    }
+<a href=#405 id=405 data-nosnippet>405</a>}
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a><span class="doccomment">/// Converts consumed pending bits into caller-visible epoll events.
+<a href=#408 id=408 data-nosnippet>408</a></span><span class="kw">fn </span>pending_bits_to_events(bits: u8, mask: EpollType) -&gt; Vec&lt;EpollType&gt; {
+<a href=#409 id=409 data-nosnippet>409</a>    <span class="kw">let </span><span class="kw-2">mut </span>events = Vec::with_capacity(<span class="number">4</span>);
+<a href=#410 id=410 data-nosnippet>410</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(EpollType::EPOLLIN)
+<a href=#411 id=411 data-nosnippet>411</a>        &amp;&amp; (bits &amp; bit) != <span class="number">0
+<a href=#412 id=412 data-nosnippet>412</a>        </span>&amp;&amp; mask.contains(EpollType::EPOLLIN)
+<a href=#413 id=413 data-nosnippet>413</a>    {
+<a href=#414 id=414 data-nosnippet>414</a>        events.push(EpollType::EPOLLIN);
+<a href=#415 id=415 data-nosnippet>415</a>    }
+<a href=#416 id=416 data-nosnippet>416</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(EpollType::EPOLLOUT)
+<a href=#417 id=417 data-nosnippet>417</a>        &amp;&amp; (bits &amp; bit) != <span class="number">0
+<a href=#418 id=418 data-nosnippet>418</a>        </span>&amp;&amp; mask.contains(EpollType::EPOLLOUT)
+<a href=#419 id=419 data-nosnippet>419</a>    {
+<a href=#420 id=420 data-nosnippet>420</a>        events.push(EpollType::EPOLLOUT);
+<a href=#421 id=421 data-nosnippet>421</a>    }
+<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(EpollType::EPOLLHUP)
+<a href=#423 id=423 data-nosnippet>423</a>        &amp;&amp; (bits &amp; bit) != <span class="number">0
+<a href=#424 id=424 data-nosnippet>424</a>    </span>{
+<a href=#425 id=425 data-nosnippet>425</a>        events.push(EpollType::EPOLLHUP);
+<a href=#426 id=426 data-nosnippet>426</a>    }
+<a href=#427 id=427 data-nosnippet>427</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(EpollType::EPOLLERR)
+<a href=#428 id=428 data-nosnippet>428</a>        &amp;&amp; (bits &amp; bit) != <span class="number">0
+<a href=#429 id=429 data-nosnippet>429</a>    </span>{
+<a href=#430 id=430 data-nosnippet>430</a>        events.push(EpollType::EPOLLERR);
+<a href=#431 id=431 data-nosnippet>431</a>    }
+<a href=#432 id=432 data-nosnippet>432</a>    events
+<a href=#433 id=433 data-nosnippet>433</a>}
+<a href=#434 id=434 data-nosnippet>434</a>
+<a href=#435 id=435 data-nosnippet>435</a><span class="kw">fn </span>epoll_mask_to_pending_bits(mask: EpollType) -&gt; u8 {
+<a href=#436 id=436 data-nosnippet>436</a>    <span class="kw">let </span><span class="kw-2">mut </span>bits = <span class="number">0</span>;
+<a href=#437 id=437 data-nosnippet>437</a>    <span class="kw">if </span>mask.contains(EpollType::EPOLLIN) {
+<a href=#438 id=438 data-nosnippet>438</a>        bits |= READABLE_BIT;
+<a href=#439 id=439 data-nosnippet>439</a>    }
+<a href=#440 id=440 data-nosnippet>440</a>    <span class="kw">if </span>mask.contains(EpollType::EPOLLOUT) {
+<a href=#441 id=441 data-nosnippet>441</a>        bits |= WRITABLE_BIT;
+<a href=#442 id=442 data-nosnippet>442</a>    }
+<a href=#443 id=443 data-nosnippet>443</a>    <span class="comment">// EPOLLHUP/EPOLLERR are always reported by epoll when present.
+<a href=#444 id=444 data-nosnippet>444</a>    </span>bits |= HUP_BIT;
+<a href=#445 id=445 data-nosnippet>445</a>    bits |= ERR_BIT;
+<a href=#446 id=446 data-nosnippet>446</a>    bits
+<a href=#447 id=447 data-nosnippet>447</a>}
+<a href=#448 id=448 data-nosnippet>448</a>
+<a href=#449 id=449 data-nosnippet>449</a><span class="kw">fn </span>prime_immediate_writable_if_applicable(
+<a href=#450 id=450 data-nosnippet>450</a>    event: <span class="kw-2">&amp;</span>EpollFd,
+<a href=#451 id=451 data-nosnippet>451</a>    fd_guard: <span class="kw-2">&amp;</span>InodeValFilePollGuard,
+<a href=#452 id=452 data-nosnippet>452</a>    epoll_state: <span class="kw-2">&amp;</span>Arc&lt;EpollState&gt;,
+<a href=#453 id=453 data-nosnippet>453</a>    sub_state: <span class="kw-2">&amp;</span>Arc&lt;EpollSubState&gt;,
+<a href=#454 id=454 data-nosnippet>454</a>) {
+<a href=#455 id=455 data-nosnippet>455</a>    <span class="kw">if </span>!event.events().contains(EpollType::EPOLLOUT) {
+<a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">return</span>;
+<a href=#457 id=457 data-nosnippet>457</a>    }
+<a href=#458 id=458 data-nosnippet>458</a>
+<a href=#459 id=459 data-nosnippet>459</a>    <span class="comment">// Some fd kinds are effectively writable immediately (for example eventfd-like
+<a href=#460 id=460 data-nosnippet>460</a>    // notifications and pipe write-ends), but may not emit a writable transition.
+<a href=#461 id=461 data-nosnippet>461</a>    // Prime EPOLLOUT once at registration so level-triggered epoll can observe them.
+<a href=#462 id=462 data-nosnippet>462</a>    </span><span class="kw">let </span>writable_now = <span class="macro">matches!</span>(
+<a href=#463 id=463 data-nosnippet>463</a>        fd_guard.mode,
+<a href=#464 id=464 data-nosnippet>464</a>        InodeValFilePollGuardMode::EventNotifications(<span class="kw">_</span>) | InodeValFilePollGuardMode::PipeTx { .. }
+<a href=#465 id=465 data-nosnippet>465</a>    );
+<a href=#466 id=466 data-nosnippet>466</a>
+<a href=#467 id=467 data-nosnippet>467</a>    <span class="kw">if </span>!writable_now {
+<a href=#468 id=468 data-nosnippet>468</a>        <span class="kw">return</span>;
+<a href=#469 id=469 data-nosnippet>469</a>    }
+<a href=#470 id=470 data-nosnippet>470</a>
+<a href=#471 id=471 data-nosnippet>471</a>    sub_state
+<a href=#472 id=472 data-nosnippet>472</a>        .pending_bits
+<a href=#473 id=473 data-nosnippet>473</a>        .fetch_or(WRITABLE_BIT, Ordering::AcqRel);
+<a href=#474 id=474 data-nosnippet>474</a>    <span class="kw">if </span>sub_state.mark_enqueued() {
+<a href=#475 id=475 data-nosnippet>475</a>        epoll_state.enqueue_ready(event.fd(), sub_state.generation());
+<a href=#476 id=476 data-nosnippet>476</a>    }
+<a href=#477 id=477 data-nosnippet>477</a>}
+<a href=#478 id=478 data-nosnippet>478</a>
+<a href=#479 id=479 data-nosnippet>479</a><span class="doccomment">/// Re-enqueues a subscription if new pending bits arrived during/after consumer drain.
+<a href=#480 id=480 data-nosnippet>480</a></span><span class="kw">fn </span>repair_ready_queue_after_drain(
+<a href=#481 id=481 data-nosnippet>481</a>    epoll_state: <span class="kw-2">&amp;</span>Arc&lt;EpollState&gt;,
+<a href=#482 id=482 data-nosnippet>482</a>    fd: WasiFd,
+<a href=#483 id=483 data-nosnippet>483</a>    sub_state: <span class="kw-2">&amp;</span>Arc&lt;EpollSubState&gt;,
+<a href=#484 id=484 data-nosnippet>484</a>) {
+<a href=#485 id=485 data-nosnippet>485</a>    <span class="kw">if </span>sub_state.pending_bits() != <span class="number">0 </span>&amp;&amp; sub_state.mark_enqueued() {
+<a href=#486 id=486 data-nosnippet>486</a>        epoll_state.enqueue_ready(fd, sub_state.generation());
+<a href=#487 id=487 data-nosnippet>487</a>    }
+<a href=#488 id=488 data-nosnippet>488</a>}
+<a href=#489 id=489 data-nosnippet>489</a>
+<a href=#490 id=490 data-nosnippet>490</a><span class="doccomment">/// Drains ready items into `(EpollFd, readiness)` events up to `maxevents`.
+<a href=#491 id=491 data-nosnippet>491</a>///
+<a href=#492 id=492 data-nosnippet>492</a>/// This is the consumer hot path used by `epoll_wait`. It is designed to be:
+<a href=#493 id=493 data-nosnippet>493</a>/// - O(number of dequeued ready items)
+<a href=#494 id=494 data-nosnippet>494</a>/// - tolerant of stale queue entries
+<a href=#495 id=495 data-nosnippet>495</a>/// - race-safe with producers setting bits concurrently
+<a href=#496 id=496 data-nosnippet>496</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>drain_ready_events(
+<a href=#497 id=497 data-nosnippet>497</a>    epoll_state: <span class="kw-2">&amp;</span>Arc&lt;EpollState&gt;,
+<a href=#498 id=498 data-nosnippet>498</a>    maxevents: usize,
+<a href=#499 id=499 data-nosnippet>499</a>) -&gt; Vec&lt;(EpollFd, EpollType)&gt; {
+<a href=#500 id=500 data-nosnippet>500</a>    <span class="kw">let </span><span class="kw-2">mut </span>ret: Vec&lt;(EpollFd, EpollType)&gt; = Vec::new();
+<a href=#501 id=501 data-nosnippet>501</a>    <span class="kw">while </span>ret.len() &lt; maxevents {
+<a href=#502 id=502 data-nosnippet>502</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(item) = epoll_state.dequeue_ready() <span class="kw">else </span>{
+<a href=#503 id=503 data-nosnippet>503</a>            <span class="kw">break</span>;
+<a href=#504 id=504 data-nosnippet>504</a>        };
+<a href=#505 id=505 data-nosnippet>505</a>
+<a href=#506 id=506 data-nosnippet>506</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(sub_state) = epoll_state.subscription(item.fd) <span class="kw">else </span>{
+<a href=#507 id=507 data-nosnippet>507</a>            epoll_empty_dequeue_entry();
+<a href=#508 id=508 data-nosnippet>508</a>            <span class="kw">continue</span>;
+<a href=#509 id=509 data-nosnippet>509</a>        };
+<a href=#510 id=510 data-nosnippet>510</a>
+<a href=#511 id=511 data-nosnippet>511</a>        <span class="kw">if </span>sub_state.generation() != item.generation {
+<a href=#512 id=512 data-nosnippet>512</a>            epoll_stale_generation_drop();
+<a href=#513 id=513 data-nosnippet>513</a>            <span class="kw">continue</span>;
+<a href=#514 id=514 data-nosnippet>514</a>        }
+<a href=#515 id=515 data-nosnippet>515</a>
+<a href=#516 id=516 data-nosnippet>516</a>        <span class="kw">let </span>bits = sub_state.take_pending_bits();
+<a href=#517 id=517 data-nosnippet>517</a>        sub_state.clear_enqueued();
+<a href=#518 id=518 data-nosnippet>518</a>
+<a href=#519 id=519 data-nosnippet>519</a>        <span class="kw">if </span>bits == <span class="number">0 </span>{
+<a href=#520 id=520 data-nosnippet>520</a>            repair_ready_queue_after_drain(epoll_state, item.fd, <span class="kw-2">&amp;</span>sub_state);
+<a href=#521 id=521 data-nosnippet>521</a>            epoll_empty_dequeue_entry();
+<a href=#522 id=522 data-nosnippet>522</a>            <span class="kw">continue</span>;
+<a href=#523 id=523 data-nosnippet>523</a>        }
+<a href=#524 id=524 data-nosnippet>524</a>
+<a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">let </span>event = sub_state.fd_meta();
+<a href=#526 id=526 data-nosnippet>526</a>        <span class="kw">let </span><span class="kw-2">mut </span>undispatched_bits = bits &amp; epoll_mask_to_pending_bits(event.events());
+<a href=#527 id=527 data-nosnippet>527</a>        <span class="kw">for </span>readiness <span class="kw">in </span>pending_bits_to_events(bits, event.events()) {
+<a href=#528 id=528 data-nosnippet>528</a>            <span class="kw">if </span>ret.len() &gt;= maxevents {
+<a href=#529 id=529 data-nosnippet>529</a>                <span class="kw">break</span>;
+<a href=#530 id=530 data-nosnippet>530</a>            }
+<a href=#531 id=531 data-nosnippet>531</a>            ret.push((event.clone(), readiness));
+<a href=#532 id=532 data-nosnippet>532</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(bit) = epoll_type_to_pending_bit(readiness) {
+<a href=#533 id=533 data-nosnippet>533</a>                undispatched_bits &amp;= !bit;
+<a href=#534 id=534 data-nosnippet>534</a>            }
+<a href=#535 id=535 data-nosnippet>535</a>        }
+<a href=#536 id=536 data-nosnippet>536</a>
+<a href=#537 id=537 data-nosnippet>537</a>        <span class="kw">if </span>undispatched_bits != <span class="number">0 </span>{
+<a href=#538 id=538 data-nosnippet>538</a>            sub_state
+<a href=#539 id=539 data-nosnippet>539</a>                .pending_bits
+<a href=#540 id=540 data-nosnippet>540</a>                .fetch_or(undispatched_bits, Ordering::AcqRel);
+<a href=#541 id=541 data-nosnippet>541</a>        }
+<a href=#542 id=542 data-nosnippet>542</a>        repair_ready_queue_after_drain(epoll_state, item.fd, <span class="kw-2">&amp;</span>sub_state);
+<a href=#543 id=543 data-nosnippet>543</a>
+<a href=#544 id=544 data-nosnippet>544</a>        <span class="kw">if </span>ret.len() &gt;= maxevents {
+<a href=#545 id=545 data-nosnippet>545</a>            <span class="kw">break</span>;
+<a href=#546 id=546 data-nosnippet>546</a>        }
+<a href=#547 id=547 data-nosnippet>547</a>    }
+<a href=#548 id=548 data-nosnippet>548</a>    ret
+<a href=#549 id=549 data-nosnippet>549</a>}
+<a href=#550 id=550 data-nosnippet>550</a>
+<a href=#551 id=551 data-nosnippet>551</a><span class="attr">#[derive(Debug)]
+<a href=#552 id=552 data-nosnippet>552</a></span><span class="kw">struct </span>EpollHandler {
+<a href=#553 id=553 data-nosnippet>553</a>    <span class="doccomment">/// Watched fd associated with the subscription.
+<a href=#554 id=554 data-nosnippet>554</a>    </span>fd: WasiFd,
+<a href=#555 id=555 data-nosnippet>555</a>    <span class="doccomment">/// Parent epoll state for queueing and wakeups.
+<a href=#556 id=556 data-nosnippet>556</a>    </span>epoll_state: Arc&lt;EpollState&gt;,
+<a href=#557 id=557 data-nosnippet>557</a>    <span class="doccomment">/// Per-subscription state updated by interest callbacks.
+<a href=#558 id=558 data-nosnippet>558</a>    </span>sub_state: Arc&lt;EpollSubState&gt;,
+<a href=#559 id=559 data-nosnippet>559</a>}
+<a href=#560 id=560 data-nosnippet>560</a>
+<a href=#561 id=561 data-nosnippet>561</a><span class="kw">impl </span>EpollHandler {
+<a href=#562 id=562 data-nosnippet>562</a>    <span class="kw">fn </span>new(fd: WasiFd, epoll_state: Arc&lt;EpollState&gt;, sub_state: Arc&lt;EpollSubState&gt;) -&gt; Box&lt;<span class="self">Self</span>&gt; {
+<a href=#563 id=563 data-nosnippet>563</a>        Box::new(<span class="self">Self </span>{
+<a href=#564 id=564 data-nosnippet>564</a>            fd,
+<a href=#565 id=565 data-nosnippet>565</a>            epoll_state,
+<a href=#566 id=566 data-nosnippet>566</a>            sub_state,
+<a href=#567 id=567 data-nosnippet>567</a>        })
+<a href=#568 id=568 data-nosnippet>568</a>    }
+<a href=#569 id=569 data-nosnippet>569</a>}
+<a href=#570 id=570 data-nosnippet>570</a>
+<a href=#571 id=571 data-nosnippet>571</a><span class="kw">impl </span>InterestHandler <span class="kw">for </span>EpollHandler {
+<a href=#572 id=572 data-nosnippet>572</a>    <span class="doccomment">/// Producer path:
+<a href=#573 id=573 data-nosnippet>573</a>    /// set pending bits, enqueue once, and wake one waiter.
+<a href=#574 id=574 data-nosnippet>574</a>    </span><span class="kw">fn </span>push_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) {
+<a href=#575 id=575 data-nosnippet>575</a>        EPOLL_ENQUEUE_ATTEMPTS.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#576 id=576 data-nosnippet>576</a>        <span class="kw">let </span>bit = interest_to_pending_bit(interest);
+<a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">if </span>!<span class="self">self</span>.sub_state.set_pending(bit) {
+<a href=#578 id=578 data-nosnippet>578</a>            EPOLL_ENQUEUE_DEDUPE_HITS.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#579 id=579 data-nosnippet>579</a>            <span class="kw">return</span>;
+<a href=#580 id=580 data-nosnippet>580</a>        }
+<a href=#581 id=581 data-nosnippet>581</a>
+<a href=#582 id=582 data-nosnippet>582</a>        <span class="kw">if </span><span class="self">self</span>.sub_state.mark_enqueued() {
+<a href=#583 id=583 data-nosnippet>583</a>            <span class="self">self</span>.epoll_state
+<a href=#584 id=584 data-nosnippet>584</a>                .enqueue_ready(<span class="self">self</span>.fd, <span class="self">self</span>.sub_state.generation());
+<a href=#585 id=585 data-nosnippet>585</a>        } <span class="kw">else </span>{
+<a href=#586 id=586 data-nosnippet>586</a>            EPOLL_ENQUEUE_DEDUPE_HITS.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#587 id=587 data-nosnippet>587</a>        }
+<a href=#588 id=588 data-nosnippet>588</a>    }
+<a href=#589 id=589 data-nosnippet>589</a>
+<a href=#590 id=590 data-nosnippet>590</a>    <span class="doccomment">/// Clears one readiness bit from this subscription only.
+<a href=#591 id=591 data-nosnippet>591</a>    </span><span class="kw">fn </span>pop_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+<a href=#592 id=592 data-nosnippet>592</a>        <span class="kw">let </span>bit = interest_to_pending_bit(interest);
+<a href=#593 id=593 data-nosnippet>593</a>        <span class="kw">let </span>old = <span class="self">self
+<a href=#594 id=594 data-nosnippet>594</a>            </span>.sub_state
+<a href=#595 id=595 data-nosnippet>595</a>            .pending_bits
+<a href=#596 id=596 data-nosnippet>596</a>            .fetch_and(!bit, Ordering::AcqRel);
+<a href=#597 id=597 data-nosnippet>597</a>        (old &amp; bit) != <span class="number">0
+<a href=#598 id=598 data-nosnippet>598</a>    </span>}
+<a href=#599 id=599 data-nosnippet>599</a>
+<a href=#600 id=600 data-nosnippet>600</a>    <span class="doccomment">/// Checks whether this subscription currently has a readiness bit set.
+<a href=#601 id=601 data-nosnippet>601</a>    </span><span class="kw">fn </span>has_interest(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+<a href=#602 id=602 data-nosnippet>602</a>        <span class="kw">let </span>bit = interest_to_pending_bit(interest);
+<a href=#603 id=603 data-nosnippet>603</a>        (<span class="self">self</span>.sub_state.pending_bits() &amp; bit) != <span class="number">0
+<a href=#604 id=604 data-nosnippet>604</a>    </span>}
+<a href=#605 id=605 data-nosnippet>605</a>}
+<a href=#606 id=606 data-nosnippet>606</a>
+<a href=#607 id=607 data-nosnippet>607</a><span class="doccomment">/// Registers an epoll interest handler on the watched fd and returns a guard.
+<a href=#608 id=608 data-nosnippet>608</a>///
+<a href=#609 id=609 data-nosnippet>609</a>/// `None` means the fd kind does not support handler attachment for epoll.
+<a href=#610 id=610 data-nosnippet>610</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_epoll_handler(
+<a href=#611 id=611 data-nosnippet>611</a>    state: <span class="kw-2">&amp;</span>Arc&lt;WasiState&gt;,
+<a href=#612 id=612 data-nosnippet>612</a>    event: <span class="kw-2">&amp;</span>EpollFd,
+<a href=#613 id=613 data-nosnippet>613</a>    epoll_state: Arc&lt;EpollState&gt;,
+<a href=#614 id=614 data-nosnippet>614</a>    sub_state: Arc&lt;EpollSubState&gt;,
+<a href=#615 id=615 data-nosnippet>615</a>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;EpollJoinGuard&gt;, Errno&gt; {
+<a href=#616 id=616 data-nosnippet>616</a>    <span class="kw">let </span><span class="kw-2">mut </span>type_ = Eventtype::FdRead;
+<a href=#617 id=617 data-nosnippet>617</a>    <span class="kw">let </span><span class="kw-2">mut </span>peb = PollEventBuilder::new();
+<a href=#618 id=618 data-nosnippet>618</a>    <span class="kw">if </span>event.events().contains(EpollType::EPOLLOUT) {
+<a href=#619 id=619 data-nosnippet>619</a>        type_ = Eventtype::FdWrite;
+<a href=#620 id=620 data-nosnippet>620</a>        peb = peb.add(PollEvent::PollOut);
+<a href=#621 id=621 data-nosnippet>621</a>    }
+<a href=#622 id=622 data-nosnippet>622</a>    <span class="kw">if </span>event.events().contains(EpollType::EPOLLIN) {
+<a href=#623 id=623 data-nosnippet>623</a>        type_ = Eventtype::FdRead;
+<a href=#624 id=624 data-nosnippet>624</a>        peb = peb.add(PollEvent::PollIn);
+<a href=#625 id=625 data-nosnippet>625</a>    }
+<a href=#626 id=626 data-nosnippet>626</a>    <span class="comment">// EPOLLERR/EPOLLHUP are always delivered by epoll regardless of requested mask.
+<a href=#627 id=627 data-nosnippet>627</a>    </span>peb = peb.add(PollEvent::PollError);
+<a href=#628 id=628 data-nosnippet>628</a>    peb = peb.add(PollEvent::PollHangUp);
+<a href=#629 id=629 data-nosnippet>629</a>
+<a href=#630 id=630 data-nosnippet>630</a>    <span class="kw">let </span>s = Subscription {
+<a href=#631 id=631 data-nosnippet>631</a>        userdata: event.data2(),
+<a href=#632 id=632 data-nosnippet>632</a>        type_,
+<a href=#633 id=633 data-nosnippet>633</a>        data: SubscriptionUnion {
+<a href=#634 id=634 data-nosnippet>634</a>            fd_readwrite: SubscriptionFsReadwrite {
+<a href=#635 id=635 data-nosnippet>635</a>                file_descriptor: event.fd(),
+<a href=#636 id=636 data-nosnippet>636</a>            },
+<a href=#637 id=637 data-nosnippet>637</a>        },
+<a href=#638 id=638 data-nosnippet>638</a>    };
+<a href=#639 id=639 data-nosnippet>639</a>
+<a href=#640 id=640 data-nosnippet>640</a>    <span class="kw">let </span>fd_guard = poll_fd_guard(state, peb.build(), event.fd(), s)<span class="question-mark">?</span>;
+<a href=#641 id=641 data-nosnippet>641</a>    <span class="kw">let </span>handler = EpollHandler::new(event.fd(), epoll_state.clone(), sub_state.clone());
+<a href=#642 id=642 data-nosnippet>642</a>
+<a href=#643 id=643 data-nosnippet>643</a>    <span class="kw">match </span><span class="kw-2">&amp;</span>fd_guard.mode {
+<a href=#644 id=644 data-nosnippet>644</a>        InodeValFilePollGuardMode::File(<span class="kw">_</span>) =&gt; {
+<a href=#645 id=645 data-nosnippet>645</a>            <span class="comment">// Intentionally ignored, epoll doesn't work with files
+<a href=#646 id=646 data-nosnippet>646</a>            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+<a href=#647 id=647 data-nosnippet>647</a>        }
+<a href=#648 id=648 data-nosnippet>648</a>        InodeValFilePollGuardMode::Socket { inner, .. } =&gt; {
+<a href=#649 id=649 data-nosnippet>649</a>            <span class="kw">let </span><span class="kw-2">mut </span>inner = inner.protected.write().unwrap();
+<a href=#650 id=650 data-nosnippet>650</a>            inner.set_handler(handler).map_err(net_error_into_io_err)<span class="question-mark">?</span>;
+<a href=#651 id=651 data-nosnippet>651</a>            drop(inner);
+<a href=#652 id=652 data-nosnippet>652</a>        }
+<a href=#653 id=653 data-nosnippet>653</a>        InodeValFilePollGuardMode::EventNotifications(inner) =&gt; inner.set_interest_handler(handler),
+<a href=#654 id=654 data-nosnippet>654</a>        InodeValFilePollGuardMode::DuplexPipe { pipe } =&gt; {
+<a href=#655 id=655 data-nosnippet>655</a>            <span class="kw">let </span>inner = pipe.write().unwrap();
+<a href=#656 id=656 data-nosnippet>656</a>            inner.set_interest_handler(handler);
+<a href=#657 id=657 data-nosnippet>657</a>        }
+<a href=#658 id=658 data-nosnippet>658</a>        InodeValFilePollGuardMode::PipeRx { rx } =&gt; {
+<a href=#659 id=659 data-nosnippet>659</a>            <span class="kw">let </span>inner = rx.write().unwrap();
+<a href=#660 id=660 data-nosnippet>660</a>            inner.set_interest_handler(handler);
+<a href=#661 id=661 data-nosnippet>661</a>        }
+<a href=#662 id=662 data-nosnippet>662</a>        InodeValFilePollGuardMode::PipeTx { .. } =&gt; {
+<a href=#663 id=663 data-nosnippet>663</a>            <span class="comment">// The sending end of a pipe can't have an interest handler, since we
+<a href=#664 id=664 data-nosnippet>664</a>            // only support "readable" interest on pipes; they're considered to
+<a href=#665 id=665 data-nosnippet>665</a>            // always be writable.
+<a href=#666 id=666 data-nosnippet>666</a>            </span>prime_immediate_writable_if_applicable(event, <span class="kw-2">&amp;</span>fd_guard, <span class="kw-2">&amp;</span>epoll_state, <span class="kw-2">&amp;</span>sub_state);
+<a href=#667 id=667 data-nosnippet>667</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+<a href=#668 id=668 data-nosnippet>668</a>        }
+<a href=#669 id=669 data-nosnippet>669</a>    }
 <a href=#670 id=670 data-nosnippet>670</a>
-<a href=#671 id=671 data-nosnippet>671</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(EpollJoinGuard::new(fd_guard)))
-<a href=#672 id=672 data-nosnippet>672</a>}
-<a href=#673 id=673 data-nosnippet>673</a>
-<a href=#674 id=674 data-nosnippet>674</a><span class="doccomment">/// Increments stale-generation dequeue metric.
-<a href=#675 id=675 data-nosnippet>675</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>epoll_stale_generation_drop() {
-<a href=#676 id=676 data-nosnippet>676</a>    EPOLL_STALE_GENERATION_DROPS.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-<a href=#677 id=677 data-nosnippet>677</a>}
-<a href=#678 id=678 data-nosnippet>678</a>
-<a href=#679 id=679 data-nosnippet>679</a><span class="doccomment">/// Increments empty dequeue metric.
-<a href=#680 id=680 data-nosnippet>680</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>epoll_empty_dequeue_entry() {
-<a href=#681 id=681 data-nosnippet>681</a>    EPOLL_EMPTY_DEQUEUE_ENTRIES.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-<a href=#682 id=682 data-nosnippet>682</a>}
-<a href=#683 id=683 data-nosnippet>683</a>
-<a href=#684 id=684 data-nosnippet>684</a><span class="attr">#[cfg(test)]
-<a href=#685 id=685 data-nosnippet>685</a></span><span class="kw">mod </span>tests {
-<a href=#686 id=686 data-nosnippet>686</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#687 id=687 data-nosnippet>687</a>
-<a href=#688 id=688 data-nosnippet>688</a>    <span class="kw">fn </span>test_epoll_event_ctl(fd: WasiFd) -&gt; EpollEventCtl {
-<a href=#689 id=689 data-nosnippet>689</a>        EpollEventCtl {
-<a href=#690 id=690 data-nosnippet>690</a>            events: EpollType::EPOLLIN,
-<a href=#691 id=691 data-nosnippet>691</a>            ptr: <span class="number">77</span>,
-<a href=#692 id=692 data-nosnippet>692</a>            fd,
-<a href=#693 id=693 data-nosnippet>693</a>            data1: <span class="number">88</span>,
-<a href=#694 id=694 data-nosnippet>694</a>            data2: <span class="number">99</span>,
-<a href=#695 id=695 data-nosnippet>695</a>        }
-<a href=#696 id=696 data-nosnippet>696</a>    }
-<a href=#697 id=697 data-nosnippet>697</a>
-<a href=#698 id=698 data-nosnippet>698</a>    <span class="kw">fn </span>test_epoll_handler(fd: WasiFd) -&gt; (Arc&lt;EpollState&gt;, Arc&lt;EpollSubState&gt;, Box&lt;EpollHandler&gt;) {
-<a href=#699 id=699 data-nosnippet>699</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
-<a href=#700 id=700 data-nosnippet>700</a>        <span class="kw">let </span>sub_state = Arc::new(EpollSubState::new(
-<a href=#701 id=701 data-nosnippet>701</a>            EpollFd::new(
-<a href=#702 id=702 data-nosnippet>702</a>                EpollType::EPOLLIN
-<a href=#703 id=703 data-nosnippet>703</a>                    | EpollType::EPOLLOUT
-<a href=#704 id=704 data-nosnippet>704</a>                    | EpollType::EPOLLERR
-<a href=#705 id=705 data-nosnippet>705</a>                    | EpollType::EPOLLHUP,
-<a href=#706 id=706 data-nosnippet>706</a>                <span class="number">0</span>,
-<a href=#707 id=707 data-nosnippet>707</a>                fd,
-<a href=#708 id=708 data-nosnippet>708</a>                <span class="number">0</span>,
-<a href=#709 id=709 data-nosnippet>709</a>                <span class="number">0</span>,
-<a href=#710 id=710 data-nosnippet>710</a>            ),
-<a href=#711 id=711 data-nosnippet>711</a>            <span class="number">1</span>,
-<a href=#712 id=712 data-nosnippet>712</a>        ));
-<a href=#713 id=713 data-nosnippet>713</a>        <span class="kw">let </span>handler = EpollHandler::new(fd, epoll_state.clone(), sub_state.clone());
-<a href=#714 id=714 data-nosnippet>714</a>        (epoll_state, sub_state, handler)
-<a href=#715 id=715 data-nosnippet>715</a>    }
-<a href=#716 id=716 data-nosnippet>716</a>
-<a href=#717 id=717 data-nosnippet>717</a>    <span class="kw">fn </span>test_sub_state(fd: WasiFd, generation: u64) -&gt; Arc&lt;EpollSubState&gt; {
-<a href=#718 id=718 data-nosnippet>718</a>        Arc::new(EpollSubState::new(
-<a href=#719 id=719 data-nosnippet>719</a>            EpollFd::new(
-<a href=#720 id=720 data-nosnippet>720</a>                EpollType::EPOLLIN
-<a href=#721 id=721 data-nosnippet>721</a>                    | EpollType::EPOLLOUT
-<a href=#722 id=722 data-nosnippet>722</a>                    | EpollType::EPOLLERR
-<a href=#723 id=723 data-nosnippet>723</a>                    | EpollType::EPOLLHUP,
-<a href=#724 id=724 data-nosnippet>724</a>                <span class="number">0</span>,
-<a href=#725 id=725 data-nosnippet>725</a>                fd,
-<a href=#726 id=726 data-nosnippet>726</a>                <span class="number">0</span>,
-<a href=#727 id=727 data-nosnippet>727</a>                <span class="number">0</span>,
-<a href=#728 id=728 data-nosnippet>728</a>            ),
-<a href=#729 id=729 data-nosnippet>729</a>            generation,
-<a href=#730 id=730 data-nosnippet>730</a>        ))
-<a href=#731 id=731 data-nosnippet>731</a>    }
-<a href=#732 id=732 data-nosnippet>732</a>
-<a href=#733 id=733 data-nosnippet>733</a>    <span class="attr">#[test]
-<a href=#734 id=734 data-nosnippet>734</a>    </span><span class="kw">fn </span>epoll_fd_from_event_ctl_uses_explicit_fd() {
-<a href=#735 id=735 data-nosnippet>735</a>        <span class="kw">let </span>event = test_epoll_event_ctl(<span class="number">1234</span>);
-<a href=#736 id=736 data-nosnippet>736</a>        <span class="kw">let </span>epoll_fd = EpollFd::from_event_ctl(<span class="number">5678</span>, <span class="kw-2">&amp;</span>event);
-<a href=#737 id=737 data-nosnippet>737</a>        <span class="macro">assert_eq!</span>(epoll_fd.fd(), <span class="number">5678</span>);
-<a href=#738 id=738 data-nosnippet>738</a>        <span class="macro">assert_eq!</span>(epoll_fd.ptr(), <span class="number">77</span>);
-<a href=#739 id=739 data-nosnippet>739</a>        <span class="macro">assert_eq!</span>(epoll_fd.data1(), <span class="number">88</span>);
-<a href=#740 id=740 data-nosnippet>740</a>        <span class="macro">assert_eq!</span>(epoll_fd.data2(), <span class="number">99</span>);
-<a href=#741 id=741 data-nosnippet>741</a>        <span class="macro">assert_eq!</span>(epoll_fd.events(), EpollType::EPOLLIN);
-<a href=#742 id=742 data-nosnippet>742</a>    }
-<a href=#743 id=743 data-nosnippet>743</a>
-<a href=#744 id=744 data-nosnippet>744</a>    <span class="attr">#[test]
-<a href=#745 id=745 data-nosnippet>745</a>    </span><span class="kw">fn </span>epoll_handler_pop_interest_is_scoped_to_fd() {
-<a href=#746 id=746 data-nosnippet>746</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
-<a href=#747 id=747 data-nosnippet>747</a>        <span class="kw">let </span>sub_state1 = Arc::new(EpollSubState::new(
-<a href=#748 id=748 data-nosnippet>748</a>            EpollFd::new(EpollType::EPOLLIN, <span class="number">0</span>, <span class="number">10</span>, <span class="number">0</span>, <span class="number">0</span>),
-<a href=#749 id=749 data-nosnippet>749</a>            <span class="number">1</span>,
-<a href=#750 id=750 data-nosnippet>750</a>        ));
-<a href=#751 id=751 data-nosnippet>751</a>        <span class="kw">let </span>sub_state2 = Arc::new(EpollSubState::new(
-<a href=#752 id=752 data-nosnippet>752</a>            EpollFd::new(EpollType::EPOLLIN, <span class="number">0</span>, <span class="number">11</span>, <span class="number">0</span>, <span class="number">0</span>),
+<a href=#671 id=671 data-nosnippet>671</a>    prime_immediate_writable_if_applicable(event, <span class="kw-2">&amp;</span>fd_guard, <span class="kw-2">&amp;</span>epoll_state, <span class="kw-2">&amp;</span>sub_state);
+<a href=#672 id=672 data-nosnippet>672</a>
+<a href=#673 id=673 data-nosnippet>673</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(EpollJoinGuard::new(fd_guard)))
+<a href=#674 id=674 data-nosnippet>674</a>}
+<a href=#675 id=675 data-nosnippet>675</a>
+<a href=#676 id=676 data-nosnippet>676</a><span class="doccomment">/// Increments stale-generation dequeue metric.
+<a href=#677 id=677 data-nosnippet>677</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>epoll_stale_generation_drop() {
+<a href=#678 id=678 data-nosnippet>678</a>    EPOLL_STALE_GENERATION_DROPS.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#679 id=679 data-nosnippet>679</a>}
+<a href=#680 id=680 data-nosnippet>680</a>
+<a href=#681 id=681 data-nosnippet>681</a><span class="doccomment">/// Increments empty dequeue metric.
+<a href=#682 id=682 data-nosnippet>682</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>epoll_empty_dequeue_entry() {
+<a href=#683 id=683 data-nosnippet>683</a>    EPOLL_EMPTY_DEQUEUE_ENTRIES.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#684 id=684 data-nosnippet>684</a>}
+<a href=#685 id=685 data-nosnippet>685</a>
+<a href=#686 id=686 data-nosnippet>686</a><span class="attr">#[cfg(test)]
+<a href=#687 id=687 data-nosnippet>687</a></span><span class="kw">mod </span>tests {
+<a href=#688 id=688 data-nosnippet>688</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#689 id=689 data-nosnippet>689</a>    <span class="kw">use </span>std::sync::RwLock;
+<a href=#690 id=690 data-nosnippet>690</a>    <span class="kw">use </span>virtual_fs::Pipe;
+<a href=#691 id=691 data-nosnippet>691</a>
+<a href=#692 id=692 data-nosnippet>692</a>    <span class="kw">fn </span>test_epoll_event_ctl(fd: WasiFd) -&gt; EpollEventCtl {
+<a href=#693 id=693 data-nosnippet>693</a>        EpollEventCtl {
+<a href=#694 id=694 data-nosnippet>694</a>            events: EpollType::EPOLLIN,
+<a href=#695 id=695 data-nosnippet>695</a>            ptr: <span class="number">77</span>,
+<a href=#696 id=696 data-nosnippet>696</a>            fd,
+<a href=#697 id=697 data-nosnippet>697</a>            data1: <span class="number">88</span>,
+<a href=#698 id=698 data-nosnippet>698</a>            data2: <span class="number">99</span>,
+<a href=#699 id=699 data-nosnippet>699</a>        }
+<a href=#700 id=700 data-nosnippet>700</a>    }
+<a href=#701 id=701 data-nosnippet>701</a>
+<a href=#702 id=702 data-nosnippet>702</a>    <span class="kw">fn </span>test_epoll_handler(fd: WasiFd) -&gt; (Arc&lt;EpollState&gt;, Arc&lt;EpollSubState&gt;, Box&lt;EpollHandler&gt;) {
+<a href=#703 id=703 data-nosnippet>703</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
+<a href=#704 id=704 data-nosnippet>704</a>        <span class="kw">let </span>sub_state = Arc::new(EpollSubState::new(
+<a href=#705 id=705 data-nosnippet>705</a>            EpollFd::new(
+<a href=#706 id=706 data-nosnippet>706</a>                EpollType::EPOLLIN
+<a href=#707 id=707 data-nosnippet>707</a>                    | EpollType::EPOLLOUT
+<a href=#708 id=708 data-nosnippet>708</a>                    | EpollType::EPOLLERR
+<a href=#709 id=709 data-nosnippet>709</a>                    | EpollType::EPOLLHUP,
+<a href=#710 id=710 data-nosnippet>710</a>                <span class="number">0</span>,
+<a href=#711 id=711 data-nosnippet>711</a>                fd,
+<a href=#712 id=712 data-nosnippet>712</a>                <span class="number">0</span>,
+<a href=#713 id=713 data-nosnippet>713</a>                <span class="number">0</span>,
+<a href=#714 id=714 data-nosnippet>714</a>            ),
+<a href=#715 id=715 data-nosnippet>715</a>            <span class="number">1</span>,
+<a href=#716 id=716 data-nosnippet>716</a>        ));
+<a href=#717 id=717 data-nosnippet>717</a>        <span class="kw">let </span>handler = EpollHandler::new(fd, epoll_state.clone(), sub_state.clone());
+<a href=#718 id=718 data-nosnippet>718</a>        (epoll_state, sub_state, handler)
+<a href=#719 id=719 data-nosnippet>719</a>    }
+<a href=#720 id=720 data-nosnippet>720</a>
+<a href=#721 id=721 data-nosnippet>721</a>    <span class="kw">fn </span>test_sub_state(fd: WasiFd, generation: u64) -&gt; Arc&lt;EpollSubState&gt; {
+<a href=#722 id=722 data-nosnippet>722</a>        Arc::new(EpollSubState::new(
+<a href=#723 id=723 data-nosnippet>723</a>            EpollFd::new(
+<a href=#724 id=724 data-nosnippet>724</a>                EpollType::EPOLLIN
+<a href=#725 id=725 data-nosnippet>725</a>                    | EpollType::EPOLLOUT
+<a href=#726 id=726 data-nosnippet>726</a>                    | EpollType::EPOLLERR
+<a href=#727 id=727 data-nosnippet>727</a>                    | EpollType::EPOLLHUP,
+<a href=#728 id=728 data-nosnippet>728</a>                <span class="number">0</span>,
+<a href=#729 id=729 data-nosnippet>729</a>                fd,
+<a href=#730 id=730 data-nosnippet>730</a>                <span class="number">0</span>,
+<a href=#731 id=731 data-nosnippet>731</a>                <span class="number">0</span>,
+<a href=#732 id=732 data-nosnippet>732</a>            ),
+<a href=#733 id=733 data-nosnippet>733</a>            generation,
+<a href=#734 id=734 data-nosnippet>734</a>        ))
+<a href=#735 id=735 data-nosnippet>735</a>    }
+<a href=#736 id=736 data-nosnippet>736</a>
+<a href=#737 id=737 data-nosnippet>737</a>    <span class="attr">#[test]
+<a href=#738 id=738 data-nosnippet>738</a>    </span><span class="kw">fn </span>epoll_fd_from_event_ctl_uses_explicit_fd() {
+<a href=#739 id=739 data-nosnippet>739</a>        <span class="kw">let </span>event = test_epoll_event_ctl(<span class="number">1234</span>);
+<a href=#740 id=740 data-nosnippet>740</a>        <span class="kw">let </span>epoll_fd = EpollFd::from_event_ctl(<span class="number">5678</span>, <span class="kw-2">&amp;</span>event);
+<a href=#741 id=741 data-nosnippet>741</a>        <span class="macro">assert_eq!</span>(epoll_fd.fd(), <span class="number">5678</span>);
+<a href=#742 id=742 data-nosnippet>742</a>        <span class="macro">assert_eq!</span>(epoll_fd.ptr(), <span class="number">77</span>);
+<a href=#743 id=743 data-nosnippet>743</a>        <span class="macro">assert_eq!</span>(epoll_fd.data1(), <span class="number">88</span>);
+<a href=#744 id=744 data-nosnippet>744</a>        <span class="macro">assert_eq!</span>(epoll_fd.data2(), <span class="number">99</span>);
+<a href=#745 id=745 data-nosnippet>745</a>        <span class="macro">assert_eq!</span>(epoll_fd.events(), EpollType::EPOLLIN);
+<a href=#746 id=746 data-nosnippet>746</a>    }
+<a href=#747 id=747 data-nosnippet>747</a>
+<a href=#748 id=748 data-nosnippet>748</a>    <span class="attr">#[test]
+<a href=#749 id=749 data-nosnippet>749</a>    </span><span class="kw">fn </span>epoll_handler_pop_interest_is_scoped_to_fd() {
+<a href=#750 id=750 data-nosnippet>750</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
+<a href=#751 id=751 data-nosnippet>751</a>        <span class="kw">let </span>sub_state1 = Arc::new(EpollSubState::new(
+<a href=#752 id=752 data-nosnippet>752</a>            EpollFd::new(EpollType::EPOLLIN, <span class="number">0</span>, <span class="number">10</span>, <span class="number">0</span>, <span class="number">0</span>),
 <a href=#753 id=753 data-nosnippet>753</a>            <span class="number">1</span>,
 <a href=#754 id=754 data-nosnippet>754</a>        ));
-<a href=#755 id=755 data-nosnippet>755</a>        <span class="kw">let </span><span class="kw-2">mut </span>handler1 = EpollHandler::new(<span class="number">10</span>, epoll_state.clone(), sub_state1.clone());
-<a href=#756 id=756 data-nosnippet>756</a>        <span class="kw">let </span><span class="kw-2">mut </span>handler2 = EpollHandler::new(<span class="number">11</span>, epoll_state.clone(), sub_state2.clone());
-<a href=#757 id=757 data-nosnippet>757</a>
-<a href=#758 id=758 data-nosnippet>758</a>        handler1.push_interest(InterestType::Readable);
-<a href=#759 id=759 data-nosnippet>759</a>        handler2.push_interest(InterestType::Readable);
-<a href=#760 id=760 data-nosnippet>760</a>
-<a href=#761 id=761 data-nosnippet>761</a>        <span class="macro">assert!</span>(handler1.has_interest(InterestType::Readable));
-<a href=#762 id=762 data-nosnippet>762</a>        <span class="macro">assert!</span>(handler2.has_interest(InterestType::Readable));
-<a href=#763 id=763 data-nosnippet>763</a>
-<a href=#764 id=764 data-nosnippet>764</a>        <span class="macro">assert!</span>(handler1.pop_interest(InterestType::Readable));
-<a href=#765 id=765 data-nosnippet>765</a>        <span class="macro">assert!</span>(!handler1.has_interest(InterestType::Readable));
-<a href=#766 id=766 data-nosnippet>766</a>        <span class="macro">assert!</span>(
-<a href=#767 id=767 data-nosnippet>767</a>            handler2.has_interest(InterestType::Readable),
-<a href=#768 id=768 data-nosnippet>768</a>            <span class="string">"popping one fd interest must not clear another fd with the same readiness"
-<a href=#769 id=769 data-nosnippet>769</a>        </span>);
-<a href=#770 id=770 data-nosnippet>770</a>
-<a href=#771 id=771 data-nosnippet>771</a>        <span class="macro">assert!</span>(sub_state1.pending_bits() == <span class="number">0</span>);
-<a href=#772 id=772 data-nosnippet>772</a>        <span class="macro">assert!</span>(sub_state2.pending_bits() != <span class="number">0</span>);
-<a href=#773 id=773 data-nosnippet>773</a>        <span class="macro">assert_eq!</span>(epoll_state.ready.lock().unwrap().len(), <span class="number">2</span>);
-<a href=#774 id=774 data-nosnippet>774</a>    }
-<a href=#775 id=775 data-nosnippet>775</a>
-<a href=#776 id=776 data-nosnippet>776</a>    <span class="attr">#[test]
-<a href=#777 id=777 data-nosnippet>777</a>    </span><span class="kw">fn </span>epoll_handler_dedupes_queue_until_consumer_drains() {
-<a href=#778 id=778 data-nosnippet>778</a>        <span class="kw">let </span>(epoll_state, sub_state, <span class="kw-2">mut </span>handler) = test_epoll_handler(<span class="number">7</span>);
+<a href=#755 id=755 data-nosnippet>755</a>        <span class="kw">let </span>sub_state2 = Arc::new(EpollSubState::new(
+<a href=#756 id=756 data-nosnippet>756</a>            EpollFd::new(EpollType::EPOLLIN, <span class="number">0</span>, <span class="number">11</span>, <span class="number">0</span>, <span class="number">0</span>),
+<a href=#757 id=757 data-nosnippet>757</a>            <span class="number">1</span>,
+<a href=#758 id=758 data-nosnippet>758</a>        ));
+<a href=#759 id=759 data-nosnippet>759</a>        <span class="kw">let </span><span class="kw-2">mut </span>handler1 = EpollHandler::new(<span class="number">10</span>, epoll_state.clone(), sub_state1.clone());
+<a href=#760 id=760 data-nosnippet>760</a>        <span class="kw">let </span><span class="kw-2">mut </span>handler2 = EpollHandler::new(<span class="number">11</span>, epoll_state.clone(), sub_state2.clone());
+<a href=#761 id=761 data-nosnippet>761</a>
+<a href=#762 id=762 data-nosnippet>762</a>        handler1.push_interest(InterestType::Readable);
+<a href=#763 id=763 data-nosnippet>763</a>        handler2.push_interest(InterestType::Readable);
+<a href=#764 id=764 data-nosnippet>764</a>
+<a href=#765 id=765 data-nosnippet>765</a>        <span class="macro">assert!</span>(handler1.has_interest(InterestType::Readable));
+<a href=#766 id=766 data-nosnippet>766</a>        <span class="macro">assert!</span>(handler2.has_interest(InterestType::Readable));
+<a href=#767 id=767 data-nosnippet>767</a>
+<a href=#768 id=768 data-nosnippet>768</a>        <span class="macro">assert!</span>(handler1.pop_interest(InterestType::Readable));
+<a href=#769 id=769 data-nosnippet>769</a>        <span class="macro">assert!</span>(!handler1.has_interest(InterestType::Readable));
+<a href=#770 id=770 data-nosnippet>770</a>        <span class="macro">assert!</span>(
+<a href=#771 id=771 data-nosnippet>771</a>            handler2.has_interest(InterestType::Readable),
+<a href=#772 id=772 data-nosnippet>772</a>            <span class="string">"popping one fd interest must not clear another fd with the same readiness"
+<a href=#773 id=773 data-nosnippet>773</a>        </span>);
+<a href=#774 id=774 data-nosnippet>774</a>
+<a href=#775 id=775 data-nosnippet>775</a>        <span class="macro">assert!</span>(sub_state1.pending_bits() == <span class="number">0</span>);
+<a href=#776 id=776 data-nosnippet>776</a>        <span class="macro">assert!</span>(sub_state2.pending_bits() != <span class="number">0</span>);
+<a href=#777 id=777 data-nosnippet>777</a>        <span class="macro">assert_eq!</span>(epoll_state.ready.lock().unwrap().len(), <span class="number">2</span>);
+<a href=#778 id=778 data-nosnippet>778</a>    }
 <a href=#779 id=779 data-nosnippet>779</a>
-<a href=#780 id=780 data-nosnippet>780</a>        handler.push_interest(InterestType::Readable);
-<a href=#781 id=781 data-nosnippet>781</a>        handler.push_interest(InterestType::Readable);
-<a href=#782 id=782 data-nosnippet>782</a>        handler.push_interest(InterestType::Writable);
+<a href=#780 id=780 data-nosnippet>780</a>    <span class="attr">#[test]
+<a href=#781 id=781 data-nosnippet>781</a>    </span><span class="kw">fn </span>epoll_handler_dedupes_queue_until_consumer_drains() {
+<a href=#782 id=782 data-nosnippet>782</a>        <span class="kw">let </span>(epoll_state, sub_state, <span class="kw-2">mut </span>handler) = test_epoll_handler(<span class="number">7</span>);
 <a href=#783 id=783 data-nosnippet>783</a>
-<a href=#784 id=784 data-nosnippet>784</a>        <span class="macro">assert_eq!</span>(
-<a href=#785 id=785 data-nosnippet>785</a>            epoll_state.ready.lock().unwrap().len(),
-<a href=#786 id=786 data-nosnippet>786</a>            <span class="number">1</span>,
-<a href=#787 id=787 data-nosnippet>787</a>            <span class="string">"multiple pushes while enqueued must keep a single queue entry"
-<a href=#788 id=788 data-nosnippet>788</a>        </span>);
-<a href=#789 id=789 data-nosnippet>789</a>        <span class="macro">assert!</span>(handler.has_interest(InterestType::Readable));
-<a href=#790 id=790 data-nosnippet>790</a>        <span class="macro">assert!</span>(handler.has_interest(InterestType::Writable));
-<a href=#791 id=791 data-nosnippet>791</a>
-<a href=#792 id=792 data-nosnippet>792</a>        epoll_state.ready.lock().unwrap().pop_front().unwrap();
-<a href=#793 id=793 data-nosnippet>793</a>        sub_state.take_pending_bits();
-<a href=#794 id=794 data-nosnippet>794</a>        sub_state.clear_enqueued();
+<a href=#784 id=784 data-nosnippet>784</a>        handler.push_interest(InterestType::Readable);
+<a href=#785 id=785 data-nosnippet>785</a>        handler.push_interest(InterestType::Readable);
+<a href=#786 id=786 data-nosnippet>786</a>        handler.push_interest(InterestType::Writable);
+<a href=#787 id=787 data-nosnippet>787</a>
+<a href=#788 id=788 data-nosnippet>788</a>        <span class="macro">assert_eq!</span>(
+<a href=#789 id=789 data-nosnippet>789</a>            epoll_state.ready.lock().unwrap().len(),
+<a href=#790 id=790 data-nosnippet>790</a>            <span class="number">1</span>,
+<a href=#791 id=791 data-nosnippet>791</a>            <span class="string">"multiple pushes while enqueued must keep a single queue entry"
+<a href=#792 id=792 data-nosnippet>792</a>        </span>);
+<a href=#793 id=793 data-nosnippet>793</a>        <span class="macro">assert!</span>(handler.has_interest(InterestType::Readable));
+<a href=#794 id=794 data-nosnippet>794</a>        <span class="macro">assert!</span>(handler.has_interest(InterestType::Writable));
 <a href=#795 id=795 data-nosnippet>795</a>
-<a href=#796 id=796 data-nosnippet>796</a>        handler.push_interest(InterestType::Readable);
-<a href=#797 id=797 data-nosnippet>797</a>        <span class="macro">assert_eq!</span>(
-<a href=#798 id=798 data-nosnippet>798</a>            epoll_state.ready.lock().unwrap().len(),
-<a href=#799 id=799 data-nosnippet>799</a>            <span class="number">1</span>,
-<a href=#800 id=800 data-nosnippet>800</a>            <span class="string">"after drain, a new event should enqueue again"
-<a href=#801 id=801 data-nosnippet>801</a>        </span>);
-<a href=#802 id=802 data-nosnippet>802</a>    }
-<a href=#803 id=803 data-nosnippet>803</a>
-<a href=#804 id=804 data-nosnippet>804</a>    <span class="attr">#[test]
-<a href=#805 id=805 data-nosnippet>805</a>    </span><span class="kw">fn </span>epoll_type_to_pending_bit_has_stable_mapping() {
-<a href=#806 id=806 data-nosnippet>806</a>        <span class="macro">assert_eq!</span>(
-<a href=#807 id=807 data-nosnippet>807</a>            epoll_type_to_pending_bit(EpollType::EPOLLIN),
-<a href=#808 id=808 data-nosnippet>808</a>            <span class="prelude-val">Some</span>(READABLE_BIT)
-<a href=#809 id=809 data-nosnippet>809</a>        );
+<a href=#796 id=796 data-nosnippet>796</a>        epoll_state.ready.lock().unwrap().pop_front().unwrap();
+<a href=#797 id=797 data-nosnippet>797</a>        sub_state.take_pending_bits();
+<a href=#798 id=798 data-nosnippet>798</a>        sub_state.clear_enqueued();
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a>        handler.push_interest(InterestType::Readable);
+<a href=#801 id=801 data-nosnippet>801</a>        <span class="macro">assert_eq!</span>(
+<a href=#802 id=802 data-nosnippet>802</a>            epoll_state.ready.lock().unwrap().len(),
+<a href=#803 id=803 data-nosnippet>803</a>            <span class="number">1</span>,
+<a href=#804 id=804 data-nosnippet>804</a>            <span class="string">"after drain, a new event should enqueue again"
+<a href=#805 id=805 data-nosnippet>805</a>        </span>);
+<a href=#806 id=806 data-nosnippet>806</a>    }
+<a href=#807 id=807 data-nosnippet>807</a>
+<a href=#808 id=808 data-nosnippet>808</a>    <span class="attr">#[test]
+<a href=#809 id=809 data-nosnippet>809</a>    </span><span class="kw">fn </span>epoll_type_to_pending_bit_has_stable_mapping() {
 <a href=#810 id=810 data-nosnippet>810</a>        <span class="macro">assert_eq!</span>(
-<a href=#811 id=811 data-nosnippet>811</a>            epoll_type_to_pending_bit(EpollType::EPOLLOUT),
-<a href=#812 id=812 data-nosnippet>812</a>            <span class="prelude-val">Some</span>(WRITABLE_BIT)
+<a href=#811 id=811 data-nosnippet>811</a>            epoll_type_to_pending_bit(EpollType::EPOLLIN),
+<a href=#812 id=812 data-nosnippet>812</a>            <span class="prelude-val">Some</span>(READABLE_BIT)
 <a href=#813 id=813 data-nosnippet>813</a>        );
 <a href=#814 id=814 data-nosnippet>814</a>        <span class="macro">assert_eq!</span>(
-<a href=#815 id=815 data-nosnippet>815</a>            epoll_type_to_pending_bit(EpollType::EPOLLHUP),
-<a href=#816 id=816 data-nosnippet>816</a>            <span class="prelude-val">Some</span>(HUP_BIT)
+<a href=#815 id=815 data-nosnippet>815</a>            epoll_type_to_pending_bit(EpollType::EPOLLOUT),
+<a href=#816 id=816 data-nosnippet>816</a>            <span class="prelude-val">Some</span>(WRITABLE_BIT)
 <a href=#817 id=817 data-nosnippet>817</a>        );
 <a href=#818 id=818 data-nosnippet>818</a>        <span class="macro">assert_eq!</span>(
-<a href=#819 id=819 data-nosnippet>819</a>            epoll_type_to_pending_bit(EpollType::EPOLLERR),
-<a href=#820 id=820 data-nosnippet>820</a>            <span class="prelude-val">Some</span>(ERR_BIT)
+<a href=#819 id=819 data-nosnippet>819</a>            epoll_type_to_pending_bit(EpollType::EPOLLHUP),
+<a href=#820 id=820 data-nosnippet>820</a>            <span class="prelude-val">Some</span>(HUP_BIT)
 <a href=#821 id=821 data-nosnippet>821</a>        );
-<a href=#822 id=822 data-nosnippet>822</a>    }
-<a href=#823 id=823 data-nosnippet>823</a>
-<a href=#824 id=824 data-nosnippet>824</a>    <span class="attr">#[test]
-<a href=#825 id=825 data-nosnippet>825</a>    </span><span class="kw">fn </span>interest_to_pending_bit_has_stable_mapping() {
-<a href=#826 id=826 data-nosnippet>826</a>        <span class="macro">assert_eq!</span>(
-<a href=#827 id=827 data-nosnippet>827</a>            interest_to_pending_bit(InterestType::Readable),
-<a href=#828 id=828 data-nosnippet>828</a>            READABLE_BIT
-<a href=#829 id=829 data-nosnippet>829</a>        );
+<a href=#822 id=822 data-nosnippet>822</a>        <span class="macro">assert_eq!</span>(
+<a href=#823 id=823 data-nosnippet>823</a>            epoll_type_to_pending_bit(EpollType::EPOLLERR),
+<a href=#824 id=824 data-nosnippet>824</a>            <span class="prelude-val">Some</span>(ERR_BIT)
+<a href=#825 id=825 data-nosnippet>825</a>        );
+<a href=#826 id=826 data-nosnippet>826</a>    }
+<a href=#827 id=827 data-nosnippet>827</a>
+<a href=#828 id=828 data-nosnippet>828</a>    <span class="attr">#[test]
+<a href=#829 id=829 data-nosnippet>829</a>    </span><span class="kw">fn </span>interest_to_pending_bit_has_stable_mapping() {
 <a href=#830 id=830 data-nosnippet>830</a>        <span class="macro">assert_eq!</span>(
-<a href=#831 id=831 data-nosnippet>831</a>            interest_to_pending_bit(InterestType::Writable),
-<a href=#832 id=832 data-nosnippet>832</a>            WRITABLE_BIT
+<a href=#831 id=831 data-nosnippet>831</a>            interest_to_pending_bit(InterestType::Readable),
+<a href=#832 id=832 data-nosnippet>832</a>            READABLE_BIT
 <a href=#833 id=833 data-nosnippet>833</a>        );
-<a href=#834 id=834 data-nosnippet>834</a>        <span class="macro">assert_eq!</span>(interest_to_pending_bit(InterestType::Closed), HUP_BIT);
-<a href=#835 id=835 data-nosnippet>835</a>        <span class="macro">assert_eq!</span>(interest_to_pending_bit(InterestType::Error), ERR_BIT);
-<a href=#836 id=836 data-nosnippet>836</a>    }
-<a href=#837 id=837 data-nosnippet>837</a>
-<a href=#838 id=838 data-nosnippet>838</a>    <span class="attr">#[test]
-<a href=#839 id=839 data-nosnippet>839</a>    </span><span class="kw">fn </span>pending_bits_to_events_always_includes_hup_and_err() {
-<a href=#840 id=840 data-nosnippet>840</a>        <span class="kw">let </span>events = pending_bits_to_events(HUP_BIT | ERR_BIT, EpollType::EPOLLIN);
-<a href=#841 id=841 data-nosnippet>841</a>        <span class="macro">assert_eq!</span>(events, <span class="macro">vec!</span>[EpollType::EPOLLHUP, EpollType::EPOLLERR]);
-<a href=#842 id=842 data-nosnippet>842</a>    }
-<a href=#843 id=843 data-nosnippet>843</a>
-<a href=#844 id=844 data-nosnippet>844</a>    <span class="attr">#[test]
-<a href=#845 id=845 data-nosnippet>845</a>    </span><span class="kw">fn </span>epoll_mask_to_pending_bits_always_tracks_hup_and_err() {
-<a href=#846 id=846 data-nosnippet>846</a>        <span class="kw">let </span>bits = epoll_mask_to_pending_bits(EpollType::empty());
-<a href=#847 id=847 data-nosnippet>847</a>        <span class="macro">assert_eq!</span>(bits &amp; HUP_BIT, HUP_BIT);
-<a href=#848 id=848 data-nosnippet>848</a>        <span class="macro">assert_eq!</span>(bits &amp; ERR_BIT, ERR_BIT);
-<a href=#849 id=849 data-nosnippet>849</a>    }
-<a href=#850 id=850 data-nosnippet>850</a>
-<a href=#851 id=851 data-nosnippet>851</a>    <span class="attr">#[test]
-<a href=#852 id=852 data-nosnippet>852</a>    </span><span class="kw">fn </span>drain_ready_events_keeps_multi_fd_same_readiness_isolated() {
-<a href=#853 id=853 data-nosnippet>853</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
+<a href=#834 id=834 data-nosnippet>834</a>        <span class="macro">assert_eq!</span>(
+<a href=#835 id=835 data-nosnippet>835</a>            interest_to_pending_bit(InterestType::Writable),
+<a href=#836 id=836 data-nosnippet>836</a>            WRITABLE_BIT
+<a href=#837 id=837 data-nosnippet>837</a>        );
+<a href=#838 id=838 data-nosnippet>838</a>        <span class="macro">assert_eq!</span>(interest_to_pending_bit(InterestType::Closed), HUP_BIT);
+<a href=#839 id=839 data-nosnippet>839</a>        <span class="macro">assert_eq!</span>(interest_to_pending_bit(InterestType::Error), ERR_BIT);
+<a href=#840 id=840 data-nosnippet>840</a>    }
+<a href=#841 id=841 data-nosnippet>841</a>
+<a href=#842 id=842 data-nosnippet>842</a>    <span class="attr">#[test]
+<a href=#843 id=843 data-nosnippet>843</a>    </span><span class="kw">fn </span>pending_bits_to_events_always_includes_hup_and_err() {
+<a href=#844 id=844 data-nosnippet>844</a>        <span class="kw">let </span>events = pending_bits_to_events(HUP_BIT | ERR_BIT, EpollType::EPOLLIN);
+<a href=#845 id=845 data-nosnippet>845</a>        <span class="macro">assert_eq!</span>(events, <span class="macro">vec!</span>[EpollType::EPOLLHUP, EpollType::EPOLLERR]);
+<a href=#846 id=846 data-nosnippet>846</a>    }
+<a href=#847 id=847 data-nosnippet>847</a>
+<a href=#848 id=848 data-nosnippet>848</a>    <span class="attr">#[test]
+<a href=#849 id=849 data-nosnippet>849</a>    </span><span class="kw">fn </span>epoll_mask_to_pending_bits_always_tracks_hup_and_err() {
+<a href=#850 id=850 data-nosnippet>850</a>        <span class="kw">let </span>bits = epoll_mask_to_pending_bits(EpollType::empty());
+<a href=#851 id=851 data-nosnippet>851</a>        <span class="macro">assert_eq!</span>(bits &amp; HUP_BIT, HUP_BIT);
+<a href=#852 id=852 data-nosnippet>852</a>        <span class="macro">assert_eq!</span>(bits &amp; ERR_BIT, ERR_BIT);
+<a href=#853 id=853 data-nosnippet>853</a>    }
 <a href=#854 id=854 data-nosnippet>854</a>
-<a href=#855 id=855 data-nosnippet>855</a>        <span class="kw">let </span>sub_a = test_sub_state(<span class="number">10</span>, <span class="number">1</span>);
-<a href=#856 id=856 data-nosnippet>856</a>        <span class="kw">let </span>sub_b = test_sub_state(<span class="number">11</span>, <span class="number">1</span>);
-<a href=#857 id=857 data-nosnippet>857</a>        <span class="kw">let </span>readable_bit = epoll_type_to_pending_bit(EpollType::EPOLLIN).unwrap();
+<a href=#855 id=855 data-nosnippet>855</a>    <span class="attr">#[test]
+<a href=#856 id=856 data-nosnippet>856</a>    </span><span class="kw">fn </span>drain_ready_events_keeps_multi_fd_same_readiness_isolated() {
+<a href=#857 id=857 data-nosnippet>857</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
 <a href=#858 id=858 data-nosnippet>858</a>
-<a href=#859 id=859 data-nosnippet>859</a>        sub_a.pending_bits.store(readable_bit, Ordering::Release);
-<a href=#860 id=860 data-nosnippet>860</a>        sub_a.enqueued.store(<span class="bool-val">true</span>, Ordering::Release);
-<a href=#861 id=861 data-nosnippet>861</a>        sub_b.pending_bits.store(readable_bit, Ordering::Release);
-<a href=#862 id=862 data-nosnippet>862</a>        sub_b.enqueued.store(<span class="bool-val">true</span>, Ordering::Release);
-<a href=#863 id=863 data-nosnippet>863</a>
-<a href=#864 id=864 data-nosnippet>864</a>        epoll_state.insert_subscription(<span class="number">10</span>, sub_a);
-<a href=#865 id=865 data-nosnippet>865</a>        epoll_state.insert_subscription(<span class="number">11</span>, sub_b);
-<a href=#866 id=866 data-nosnippet>866</a>        epoll_state.enqueue_ready(<span class="number">10</span>, <span class="number">1</span>);
-<a href=#867 id=867 data-nosnippet>867</a>        epoll_state.enqueue_ready(<span class="number">11</span>, <span class="number">1</span>);
-<a href=#868 id=868 data-nosnippet>868</a>
-<a href=#869 id=869 data-nosnippet>869</a>        <span class="kw">let </span>events = drain_ready_events(<span class="kw-2">&amp;</span>epoll_state, <span class="number">8</span>);
-<a href=#870 id=870 data-nosnippet>870</a>        <span class="macro">assert_eq!</span>(events.len(), <span class="number">2</span>);
-<a href=#871 id=871 data-nosnippet>871</a>        <span class="macro">assert_eq!</span>(events[<span class="number">0</span>].<span class="number">0</span>.fd(), <span class="number">10</span>);
-<a href=#872 id=872 data-nosnippet>872</a>        <span class="macro">assert_eq!</span>(events[<span class="number">1</span>].<span class="number">0</span>.fd(), <span class="number">11</span>);
-<a href=#873 id=873 data-nosnippet>873</a>        <span class="macro">assert_eq!</span>(events[<span class="number">0</span>].<span class="number">1</span>, EpollType::EPOLLIN);
-<a href=#874 id=874 data-nosnippet>874</a>        <span class="macro">assert_eq!</span>(events[<span class="number">1</span>].<span class="number">1</span>, EpollType::EPOLLIN);
-<a href=#875 id=875 data-nosnippet>875</a>    }
-<a href=#876 id=876 data-nosnippet>876</a>
-<a href=#877 id=877 data-nosnippet>877</a>    <span class="attr">#[test]
-<a href=#878 id=878 data-nosnippet>878</a>    </span><span class="kw">fn </span>drain_ready_events_requeues_undispatched_bits_when_budget_exhausted() {
-<a href=#879 id=879 data-nosnippet>879</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
-<a href=#880 id=880 data-nosnippet>880</a>        <span class="kw">let </span>sub = Arc::new(EpollSubState::new(
-<a href=#881 id=881 data-nosnippet>881</a>            EpollFd::new(EpollType::EPOLLIN | EpollType::EPOLLOUT, <span class="number">0</span>, <span class="number">90</span>, <span class="number">0</span>, <span class="number">0</span>),
-<a href=#882 id=882 data-nosnippet>882</a>            <span class="number">1</span>,
-<a href=#883 id=883 data-nosnippet>883</a>        ));
-<a href=#884 id=884 data-nosnippet>884</a>
-<a href=#885 id=885 data-nosnippet>885</a>        sub.pending_bits
-<a href=#886 id=886 data-nosnippet>886</a>            .store(READABLE_BIT | WRITABLE_BIT, Ordering::Release);
-<a href=#887 id=887 data-nosnippet>887</a>        sub.enqueued.store(<span class="bool-val">true</span>, Ordering::Release);
-<a href=#888 id=888 data-nosnippet>888</a>        epoll_state.insert_subscription(<span class="number">90</span>, sub.clone());
-<a href=#889 id=889 data-nosnippet>889</a>        epoll_state.enqueue_ready(<span class="number">90</span>, <span class="number">1</span>);
-<a href=#890 id=890 data-nosnippet>890</a>
-<a href=#891 id=891 data-nosnippet>891</a>        <span class="kw">let </span>first = drain_ready_events(<span class="kw-2">&amp;</span>epoll_state, <span class="number">1</span>);
-<a href=#892 id=892 data-nosnippet>892</a>        <span class="macro">assert_eq!</span>(first.len(), <span class="number">1</span>);
-<a href=#893 id=893 data-nosnippet>893</a>        <span class="macro">assert_eq!</span>(first[<span class="number">0</span>].<span class="number">1</span>, EpollType::EPOLLIN);
-<a href=#894 id=894 data-nosnippet>894</a>        <span class="macro">assert_eq!</span>(sub.pending_bits(), WRITABLE_BIT);
-<a href=#895 id=895 data-nosnippet>895</a>        <span class="macro">assert!</span>(sub.enqueued.load(Ordering::Acquire));
-<a href=#896 id=896 data-nosnippet>896</a>        <span class="macro">assert_eq!</span>(epoll_state.ready.lock().unwrap().len(), <span class="number">1</span>);
-<a href=#897 id=897 data-nosnippet>897</a>
-<a href=#898 id=898 data-nosnippet>898</a>        <span class="kw">let </span>second = drain_ready_events(<span class="kw-2">&amp;</span>epoll_state, <span class="number">1</span>);
-<a href=#899 id=899 data-nosnippet>899</a>        <span class="macro">assert_eq!</span>(second.len(), <span class="number">1</span>);
-<a href=#900 id=900 data-nosnippet>900</a>        <span class="macro">assert_eq!</span>(second[<span class="number">0</span>].<span class="number">1</span>, EpollType::EPOLLOUT);
-<a href=#901 id=901 data-nosnippet>901</a>        <span class="macro">assert_eq!</span>(sub.pending_bits(), <span class="number">0</span>);
-<a href=#902 id=902 data-nosnippet>902</a>        <span class="macro">assert!</span>(!sub.enqueued.load(Ordering::Acquire));
-<a href=#903 id=903 data-nosnippet>903</a>        <span class="macro">assert_eq!</span>(epoll_state.ready.lock().unwrap().len(), <span class="number">0</span>);
-<a href=#904 id=904 data-nosnippet>904</a>    }
-<a href=#905 id=905 data-nosnippet>905</a>
-<a href=#906 id=906 data-nosnippet>906</a>    <span class="attr">#[test]
-<a href=#907 id=907 data-nosnippet>907</a>    </span><span class="kw">fn </span>drain_ready_events_drops_stale_generation_items() {
-<a href=#908 id=908 data-nosnippet>908</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
+<a href=#859 id=859 data-nosnippet>859</a>        <span class="kw">let </span>sub_a = test_sub_state(<span class="number">10</span>, <span class="number">1</span>);
+<a href=#860 id=860 data-nosnippet>860</a>        <span class="kw">let </span>sub_b = test_sub_state(<span class="number">11</span>, <span class="number">1</span>);
+<a href=#861 id=861 data-nosnippet>861</a>        <span class="kw">let </span>readable_bit = epoll_type_to_pending_bit(EpollType::EPOLLIN).unwrap();
+<a href=#862 id=862 data-nosnippet>862</a>
+<a href=#863 id=863 data-nosnippet>863</a>        sub_a.pending_bits.store(readable_bit, Ordering::Release);
+<a href=#864 id=864 data-nosnippet>864</a>        sub_a.enqueued.store(<span class="bool-val">true</span>, Ordering::Release);
+<a href=#865 id=865 data-nosnippet>865</a>        sub_b.pending_bits.store(readable_bit, Ordering::Release);
+<a href=#866 id=866 data-nosnippet>866</a>        sub_b.enqueued.store(<span class="bool-val">true</span>, Ordering::Release);
+<a href=#867 id=867 data-nosnippet>867</a>
+<a href=#868 id=868 data-nosnippet>868</a>        epoll_state.insert_subscription(<span class="number">10</span>, sub_a);
+<a href=#869 id=869 data-nosnippet>869</a>        epoll_state.insert_subscription(<span class="number">11</span>, sub_b);
+<a href=#870 id=870 data-nosnippet>870</a>        epoll_state.enqueue_ready(<span class="number">10</span>, <span class="number">1</span>);
+<a href=#871 id=871 data-nosnippet>871</a>        epoll_state.enqueue_ready(<span class="number">11</span>, <span class="number">1</span>);
+<a href=#872 id=872 data-nosnippet>872</a>
+<a href=#873 id=873 data-nosnippet>873</a>        <span class="kw">let </span>events = drain_ready_events(<span class="kw-2">&amp;</span>epoll_state, <span class="number">8</span>);
+<a href=#874 id=874 data-nosnippet>874</a>        <span class="macro">assert_eq!</span>(events.len(), <span class="number">2</span>);
+<a href=#875 id=875 data-nosnippet>875</a>        <span class="macro">assert_eq!</span>(events[<span class="number">0</span>].<span class="number">0</span>.fd(), <span class="number">10</span>);
+<a href=#876 id=876 data-nosnippet>876</a>        <span class="macro">assert_eq!</span>(events[<span class="number">1</span>].<span class="number">0</span>.fd(), <span class="number">11</span>);
+<a href=#877 id=877 data-nosnippet>877</a>        <span class="macro">assert_eq!</span>(events[<span class="number">0</span>].<span class="number">1</span>, EpollType::EPOLLIN);
+<a href=#878 id=878 data-nosnippet>878</a>        <span class="macro">assert_eq!</span>(events[<span class="number">1</span>].<span class="number">1</span>, EpollType::EPOLLIN);
+<a href=#879 id=879 data-nosnippet>879</a>    }
+<a href=#880 id=880 data-nosnippet>880</a>
+<a href=#881 id=881 data-nosnippet>881</a>    <span class="attr">#[test]
+<a href=#882 id=882 data-nosnippet>882</a>    </span><span class="kw">fn </span>drain_ready_events_requeues_undispatched_bits_when_budget_exhausted() {
+<a href=#883 id=883 data-nosnippet>883</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
+<a href=#884 id=884 data-nosnippet>884</a>        <span class="kw">let </span>sub = Arc::new(EpollSubState::new(
+<a href=#885 id=885 data-nosnippet>885</a>            EpollFd::new(EpollType::EPOLLIN | EpollType::EPOLLOUT, <span class="number">0</span>, <span class="number">90</span>, <span class="number">0</span>, <span class="number">0</span>),
+<a href=#886 id=886 data-nosnippet>886</a>            <span class="number">1</span>,
+<a href=#887 id=887 data-nosnippet>887</a>        ));
+<a href=#888 id=888 data-nosnippet>888</a>
+<a href=#889 id=889 data-nosnippet>889</a>        sub.pending_bits
+<a href=#890 id=890 data-nosnippet>890</a>            .store(READABLE_BIT | WRITABLE_BIT, Ordering::Release);
+<a href=#891 id=891 data-nosnippet>891</a>        sub.enqueued.store(<span class="bool-val">true</span>, Ordering::Release);
+<a href=#892 id=892 data-nosnippet>892</a>        epoll_state.insert_subscription(<span class="number">90</span>, sub.clone());
+<a href=#893 id=893 data-nosnippet>893</a>        epoll_state.enqueue_ready(<span class="number">90</span>, <span class="number">1</span>);
+<a href=#894 id=894 data-nosnippet>894</a>
+<a href=#895 id=895 data-nosnippet>895</a>        <span class="kw">let </span>first = drain_ready_events(<span class="kw-2">&amp;</span>epoll_state, <span class="number">1</span>);
+<a href=#896 id=896 data-nosnippet>896</a>        <span class="macro">assert_eq!</span>(first.len(), <span class="number">1</span>);
+<a href=#897 id=897 data-nosnippet>897</a>        <span class="macro">assert_eq!</span>(first[<span class="number">0</span>].<span class="number">1</span>, EpollType::EPOLLIN);
+<a href=#898 id=898 data-nosnippet>898</a>        <span class="macro">assert_eq!</span>(sub.pending_bits(), WRITABLE_BIT);
+<a href=#899 id=899 data-nosnippet>899</a>        <span class="macro">assert!</span>(sub.enqueued.load(Ordering::Acquire));
+<a href=#900 id=900 data-nosnippet>900</a>        <span class="macro">assert_eq!</span>(epoll_state.ready.lock().unwrap().len(), <span class="number">1</span>);
+<a href=#901 id=901 data-nosnippet>901</a>
+<a href=#902 id=902 data-nosnippet>902</a>        <span class="kw">let </span>second = drain_ready_events(<span class="kw-2">&amp;</span>epoll_state, <span class="number">1</span>);
+<a href=#903 id=903 data-nosnippet>903</a>        <span class="macro">assert_eq!</span>(second.len(), <span class="number">1</span>);
+<a href=#904 id=904 data-nosnippet>904</a>        <span class="macro">assert_eq!</span>(second[<span class="number">0</span>].<span class="number">1</span>, EpollType::EPOLLOUT);
+<a href=#905 id=905 data-nosnippet>905</a>        <span class="macro">assert_eq!</span>(sub.pending_bits(), <span class="number">0</span>);
+<a href=#906 id=906 data-nosnippet>906</a>        <span class="macro">assert!</span>(!sub.enqueued.load(Ordering::Acquire));
+<a href=#907 id=907 data-nosnippet>907</a>        <span class="macro">assert_eq!</span>(epoll_state.ready.lock().unwrap().len(), <span class="number">0</span>);
+<a href=#908 id=908 data-nosnippet>908</a>    }
 <a href=#909 id=909 data-nosnippet>909</a>
-<a href=#910 id=910 data-nosnippet>910</a>        <span class="kw">let </span>sub = test_sub_state(<span class="number">22</span>, <span class="number">2</span>);
-<a href=#911 id=911 data-nosnippet>911</a>        <span class="kw">let </span>readable_bit = epoll_type_to_pending_bit(EpollType::EPOLLIN).unwrap();
-<a href=#912 id=912 data-nosnippet>912</a>        sub.pending_bits.store(readable_bit, Ordering::Release);
-<a href=#913 id=913 data-nosnippet>913</a>        sub.enqueued.store(<span class="bool-val">true</span>, Ordering::Release);
-<a href=#914 id=914 data-nosnippet>914</a>
-<a href=#915 id=915 data-nosnippet>915</a>        epoll_state.insert_subscription(<span class="number">22</span>, sub.clone());
-<a href=#916 id=916 data-nosnippet>916</a>        epoll_state.enqueue_ready(<span class="number">22</span>, <span class="number">1</span>);
-<a href=#917 id=917 data-nosnippet>917</a>
-<a href=#918 id=918 data-nosnippet>918</a>        <span class="kw">let </span>events = drain_ready_events(<span class="kw-2">&amp;</span>epoll_state, <span class="number">8</span>);
-<a href=#919 id=919 data-nosnippet>919</a>        <span class="macro">assert!</span>(
-<a href=#920 id=920 data-nosnippet>920</a>            events.is_empty(),
-<a href=#921 id=921 data-nosnippet>921</a>            <span class="string">"stale generation items must not emit events"
-<a href=#922 id=922 data-nosnippet>922</a>        </span>);
-<a href=#923 id=923 data-nosnippet>923</a>        <span class="macro">assert_eq!</span>(
-<a href=#924 id=924 data-nosnippet>924</a>            sub.pending_bits.load(Ordering::Acquire),
-<a href=#925 id=925 data-nosnippet>925</a>            readable_bit,
-<a href=#926 id=926 data-nosnippet>926</a>            <span class="string">"stale dequeue must not clear pending bits for current generation"
-<a href=#927 id=927 data-nosnippet>927</a>        </span>);
-<a href=#928 id=928 data-nosnippet>928</a>    }
-<a href=#929 id=929 data-nosnippet>929</a>
-<a href=#930 id=930 data-nosnippet>930</a>    <span class="attr">#[test]
-<a href=#931 id=931 data-nosnippet>931</a>    </span><span class="kw">fn </span>repair_ready_queue_after_drain_requeues_when_new_bits_arrive() {
-<a href=#932 id=932 data-nosnippet>932</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
-<a href=#933 id=933 data-nosnippet>933</a>        <span class="kw">let </span>sub = test_sub_state(<span class="number">44</span>, <span class="number">3</span>);
-<a href=#934 id=934 data-nosnippet>934</a>        <span class="kw">let </span>writable_bit = epoll_type_to_pending_bit(EpollType::EPOLLOUT).unwrap();
-<a href=#935 id=935 data-nosnippet>935</a>        sub.pending_bits.store(writable_bit, Ordering::Release);
-<a href=#936 id=936 data-nosnippet>936</a>        sub.enqueued.store(<span class="bool-val">false</span>, Ordering::Release);
-<a href=#937 id=937 data-nosnippet>937</a>
-<a href=#938 id=938 data-nosnippet>938</a>        repair_ready_queue_after_drain(<span class="kw-2">&amp;</span>epoll_state, <span class="number">44</span>, <span class="kw-2">&amp;</span>sub);
-<a href=#939 id=939 data-nosnippet>939</a>
-<a href=#940 id=940 data-nosnippet>940</a>        <span class="macro">assert!</span>(sub.enqueued.load(Ordering::Acquire));
-<a href=#941 id=941 data-nosnippet>941</a>        <span class="kw">let </span>queued = epoll_state.ready.lock().unwrap().pop_front().unwrap();
-<a href=#942 id=942 data-nosnippet>942</a>        <span class="macro">assert_eq!</span>(queued.fd, <span class="number">44</span>);
-<a href=#943 id=943 data-nosnippet>943</a>    }
-<a href=#944 id=944 data-nosnippet>944</a>}</code></pre></div></section></main></body></html>
+<a href=#910 id=910 data-nosnippet>910</a>    <span class="attr">#[test]
+<a href=#911 id=911 data-nosnippet>911</a>    </span><span class="kw">fn </span>drain_ready_events_drops_stale_generation_items() {
+<a href=#912 id=912 data-nosnippet>912</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
+<a href=#913 id=913 data-nosnippet>913</a>
+<a href=#914 id=914 data-nosnippet>914</a>        <span class="kw">let </span>sub = test_sub_state(<span class="number">22</span>, <span class="number">2</span>);
+<a href=#915 id=915 data-nosnippet>915</a>        <span class="kw">let </span>readable_bit = epoll_type_to_pending_bit(EpollType::EPOLLIN).unwrap();
+<a href=#916 id=916 data-nosnippet>916</a>        sub.pending_bits.store(readable_bit, Ordering::Release);
+<a href=#917 id=917 data-nosnippet>917</a>        sub.enqueued.store(<span class="bool-val">true</span>, Ordering::Release);
+<a href=#918 id=918 data-nosnippet>918</a>
+<a href=#919 id=919 data-nosnippet>919</a>        epoll_state.insert_subscription(<span class="number">22</span>, sub.clone());
+<a href=#920 id=920 data-nosnippet>920</a>        epoll_state.enqueue_ready(<span class="number">22</span>, <span class="number">1</span>);
+<a href=#921 id=921 data-nosnippet>921</a>
+<a href=#922 id=922 data-nosnippet>922</a>        <span class="kw">let </span>events = drain_ready_events(<span class="kw-2">&amp;</span>epoll_state, <span class="number">8</span>);
+<a href=#923 id=923 data-nosnippet>923</a>        <span class="macro">assert!</span>(
+<a href=#924 id=924 data-nosnippet>924</a>            events.is_empty(),
+<a href=#925 id=925 data-nosnippet>925</a>            <span class="string">"stale generation items must not emit events"
+<a href=#926 id=926 data-nosnippet>926</a>        </span>);
+<a href=#927 id=927 data-nosnippet>927</a>        <span class="macro">assert_eq!</span>(
+<a href=#928 id=928 data-nosnippet>928</a>            sub.pending_bits.load(Ordering::Acquire),
+<a href=#929 id=929 data-nosnippet>929</a>            readable_bit,
+<a href=#930 id=930 data-nosnippet>930</a>            <span class="string">"stale dequeue must not clear pending bits for current generation"
+<a href=#931 id=931 data-nosnippet>931</a>        </span>);
+<a href=#932 id=932 data-nosnippet>932</a>    }
+<a href=#933 id=933 data-nosnippet>933</a>
+<a href=#934 id=934 data-nosnippet>934</a>    <span class="attr">#[test]
+<a href=#935 id=935 data-nosnippet>935</a>    </span><span class="kw">fn </span>repair_ready_queue_after_drain_requeues_when_new_bits_arrive() {
+<a href=#936 id=936 data-nosnippet>936</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
+<a href=#937 id=937 data-nosnippet>937</a>        <span class="kw">let </span>sub = test_sub_state(<span class="number">44</span>, <span class="number">3</span>);
+<a href=#938 id=938 data-nosnippet>938</a>        <span class="kw">let </span>writable_bit = epoll_type_to_pending_bit(EpollType::EPOLLOUT).unwrap();
+<a href=#939 id=939 data-nosnippet>939</a>        sub.pending_bits.store(writable_bit, Ordering::Release);
+<a href=#940 id=940 data-nosnippet>940</a>        sub.enqueued.store(<span class="bool-val">false</span>, Ordering::Release);
+<a href=#941 id=941 data-nosnippet>941</a>
+<a href=#942 id=942 data-nosnippet>942</a>        repair_ready_queue_after_drain(<span class="kw-2">&amp;</span>epoll_state, <span class="number">44</span>, <span class="kw-2">&amp;</span>sub);
+<a href=#943 id=943 data-nosnippet>943</a>
+<a href=#944 id=944 data-nosnippet>944</a>        <span class="macro">assert!</span>(sub.enqueued.load(Ordering::Acquire));
+<a href=#945 id=945 data-nosnippet>945</a>        <span class="kw">let </span>queued = epoll_state.ready.lock().unwrap().pop_front().unwrap();
+<a href=#946 id=946 data-nosnippet>946</a>        <span class="macro">assert_eq!</span>(queued.fd, <span class="number">44</span>);
+<a href=#947 id=947 data-nosnippet>947</a>    }
+<a href=#948 id=948 data-nosnippet>948</a>
+<a href=#949 id=949 data-nosnippet>949</a>    <span class="attr">#[test]
+<a href=#950 id=950 data-nosnippet>950</a>    </span><span class="kw">fn </span>apply_del_detaches_joins_even_if_subscription_stays_alive() {
+<a href=#951 id=951 data-nosnippet>951</a>        <span class="kw">let </span>epoll_state = Arc::new(EpollState::new());
+<a href=#952 id=952 data-nosnippet>952</a>        <span class="kw">let </span>event = test_epoll_event_ctl(<span class="number">55</span>);
+<a href=#953 id=953 data-nosnippet>953</a>        <span class="kw">let </span>sub = Arc::new(EpollSubState::new(EpollFd::from_event_ctl(<span class="number">55</span>, <span class="kw-2">&amp;</span>event), <span class="number">1</span>));
+<a href=#954 id=954 data-nosnippet>954</a>        epoll_state.insert_subscription(<span class="number">55</span>, sub.clone());
+<a href=#955 id=955 data-nosnippet>955</a>
+<a href=#956 id=956 data-nosnippet>956</a>        <span class="kw">let </span>(tx, _rx) = Pipe::new().split();
+<a href=#957 id=957 data-nosnippet>957</a>        sub.add_join(EpollJoinGuard::new(InodeValFilePollGuard {
+<a href=#958 id=958 data-nosnippet>958</a>            fd: <span class="number">55</span>,
+<a href=#959 id=959 data-nosnippet>959</a>            peb: PollEventBuilder::new().build(),
+<a href=#960 id=960 data-nosnippet>960</a>            subscription: Subscription {
+<a href=#961 id=961 data-nosnippet>961</a>                userdata: <span class="number">0</span>,
+<a href=#962 id=962 data-nosnippet>962</a>                type_: Eventtype::FdRead,
+<a href=#963 id=963 data-nosnippet>963</a>                data: SubscriptionUnion {
+<a href=#964 id=964 data-nosnippet>964</a>                    fd_readwrite: SubscriptionFsReadwrite {
+<a href=#965 id=965 data-nosnippet>965</a>                        file_descriptor: <span class="number">55</span>,
+<a href=#966 id=966 data-nosnippet>966</a>                    },
+<a href=#967 id=967 data-nosnippet>967</a>                },
+<a href=#968 id=968 data-nosnippet>968</a>            },
+<a href=#969 id=969 data-nosnippet>969</a>            mode: InodeValFilePollGuardMode::PipeTx {
+<a href=#970 id=970 data-nosnippet>970</a>                tx: Arc::new(RwLock::new(Box::new(tx))),
+<a href=#971 id=971 data-nosnippet>971</a>            },
+<a href=#972 id=972 data-nosnippet>972</a>        }));
+<a href=#973 id=973 data-nosnippet>973</a>
+<a href=#974 id=974 data-nosnippet>974</a>        <span class="kw">let </span>leaked_ref = sub.clone();
+<a href=#975 id=975 data-nosnippet>975</a>        <span class="macro">assert_eq!</span>(leaked_ref.joins.lock().unwrap().len(), <span class="number">1</span>);
+<a href=#976 id=976 data-nosnippet>976</a>
+<a href=#977 id=977 data-nosnippet>977</a>        epoll_state.apply_del(<span class="number">55</span>).unwrap();
+<a href=#978 id=978 data-nosnippet>978</a>
+<a href=#979 id=979 data-nosnippet>979</a>        <span class="macro">assert_eq!</span>(leaked_ref.joins.lock().unwrap().len(), <span class="number">0</span>);
+<a href=#980 id=980 data-nosnippet>980</a>    }
+<a href=#981 id=981 data-nosnippet>981</a>}</code></pre></div></section></main></body></html>
