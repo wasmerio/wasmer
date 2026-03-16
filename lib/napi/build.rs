@@ -51,7 +51,6 @@ fn download_v8() {
     let mut archive = tar::Archive::new(tar);
 
     archive.unpack(out_dir.clone()).unwrap();
-    println!("cargo:rustc-link-search=native={out_dir}");
 }
 
 fn main() {
