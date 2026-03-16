@@ -178,6 +178,7 @@ exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
 exclude_tests += --exclude wasmer-swift
+exclude_tests += --exclude wasmer-napi
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -376,6 +377,8 @@ ifneq (, $(filter x86_64-unknown-linux-gnu aarch64-apple-darwin,$(BUILD_WASMER_T
 	build_wasmer_extra_features += napi-v8
 endif
 
+workspace_doc_excludes := --exclude wasmer-c-api --exclude wasmer-swift --exclude wasmer-napi
+
 TARGET_DIR ?= target/release
 
 ifneq (, $(CARGO_TARGET))
@@ -505,7 +508,7 @@ else
 endif
 
 build-docs:
-	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --features wasmer/experimental-async --document-private-items --no-deps --workspace --exclude wasmer-c-api --exclude wasmer-swift --locked
+	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --features wasmer/experimental-async --document-private-items --no-deps --workspace $(workspace_doc_excludes) --locked
 
 # The tokio crate was excluded from the docs build because the code (which is not under our control)
 # does not currently compile its docs successfully
