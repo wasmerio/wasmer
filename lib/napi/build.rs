@@ -1,6 +1,6 @@
-fn download_v8() {
-    use std::{env, path::PathBuf};
+use std::{env, path::Path};
 
+fn download_v8() {
     let url = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
         env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
@@ -9,26 +9,24 @@ fn download_v8() {
             .as_str(),
     ) {
         ("macos", "aarch64", _) => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-aarch64.tar.xz"
+            "https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.2/v8-darwin-aarch64.tar.xz"
         }
         ("macos", "x86_64", _) => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-amd64.tar.xz"
+            "https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.2/v8-darwin-amd64.tar.xz"
         }
         ("linux", "x86_64", "gnu") => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-amd64.tar.xz"
+            "https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.2/v8-linux-amd64.tar.xz"
         }
         ("linux", "x86_64", "musl") => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-musl-amd64.tar.xz"
+            "https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.2/v8-linux-musl-amd64.tar.xz"
         }
         ("android", "aarch64", _) => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-android-arm64.tar.xz"
+            "https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.2/v8-android-arm64.tar.xz"
         }
         (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
     };
 
     let out_dir = env::var("OUT_DIR").unwrap();
-    let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
 
     let tar_data = ureq::get(url)
         .call()
@@ -61,16 +59,10 @@ fn main() {
     println!("cargo:rerun-if-changed=../v8/src/unofficial_napi.cc");
     println!("cargo:rerun-if-changed=../v8/src/unofficial_napi_error_utils.cc");
     println!("cargo:rerun-if-changed=../v8/src/unofficial_napi_contextify.cc");
-    println!("cargo:rerun-if-env-changed=V8_INCLUDE_DIR");
-    println!("cargo:rerun-if-env-changed=V8_LIB_DIR");
-    println!("cargo:rerun-if-env-changed=V8_DEFINES");
-    println!("cargo:rerun-if-env-changed=NAPI_V8_DEFINES");
-    println!("cargo:rerun-if-env-changed=NAPI_V8_INCLUDE_DIR");
-    println!("cargo:rerun-if-env-changed=NAPI_V8_LIBRARY");
 
     download_v8();
 
-    let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
 
     // napi/v8 paths
     let napi_v8_dir = project_root.join("v8");
@@ -84,31 +76,21 @@ fn main() {
     };
 
     // V8 paths
-    let v8_include = std::env::var("V8_INCLUDE_DIR")
-        .or_else(|_| std::env::var("NAPI_V8_INCLUDE_DIR"))
-        .expect("V8 include directory not configured; set V8_INCLUDE_DIR or NAPI_V8_INCLUDE_DIR");
-    let v8_lib = std::env::var("V8_LIB_DIR").or_else(|_| {
-        std::env::var("NAPI_V8_LIBRARY").map(|path| {
-            std::path::Path::new(&path)
-                .parent()
-                .map(|dir| dir.to_string_lossy().into_owned())
-                .unwrap_or(path)
-        })
-    });
-    let v8_lib =
-        v8_lib.expect("V8 library directory not configured; set V8_LIB_DIR or NAPI_V8_LIBRARY");
+    let v8_include = Path::new(&env::var("OUT_DIR").unwrap()).join("include");
+    let v8_lib = Path::new(&env::var("OUT_DIR").unwrap()).join("lib");
 
-    let v8_include_dir = std::path::Path::new(&v8_include);
-    let v8_lib_dir = std::path::Path::new(&v8_lib);
+    let v8_include_dir = Path::new(&v8_include);
+    dbg!(&v8_include_dir);
+    let v8_lib_dir = Path::new(&v8_lib);
     assert!(
         v8_include_dir.join("v8.h").exists(),
-        "V8 headers not found in V8_INCLUDE_DIR={v8_include}"
+        "V8 headers not found in V8_INCLUDE_DIR={v8_include:?}"
     );
     assert!(
         v8_lib_dir.join("libv8.a").exists()
             || v8_lib_dir.join("libv8.so").exists()
             || v8_lib_dir.join("libv8.dylib").exists(),
-        "V8 library not found in V8_LIB_DIR={v8_lib}"
+        "V8 library not found in V8_LIB_DIR={v8_lib:?}"
     );
 
     let v8_defines = std::env::var("V8_DEFINES")
@@ -161,7 +143,6 @@ fn main() {
 
     build.compile("napi_bridge");
 
-    println!("cargo:rustc-link-search=native={v8_lib}");
     let v8_link_kind =
         if v8_lib_dir.join("libv8.so").exists() || v8_lib_dir.join("libv8.dylib").exists() {
             "dylib"
