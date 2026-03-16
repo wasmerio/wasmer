@@ -18,17 +18,17 @@ curl https://sh.rustup.rs -sSf | sh
 
 Linux is fully supported by Wasmer. WASI(x) is also fully supported. Users
 building from source can enable the LLVM backend following the instruction in
-the dedicated section below and installing LLVM version 21. To install it,
+the dedicated section below and installing LLVM version 22. To install it,
 refer to [LLVM's download
-page](https://github.com/llvm/llvm-project/releases/tag/llvmorg-21.1.6) or
+page](https://github.com/llvm/llvm-project/releases/tag/llvmorg-22.1.1) or
 check your distro's package manager.
 
 ### macOS
 
 macOS is fully supported by Wasmer. WASI(x) is also fully supported. Users
 building from source can enable the LLVM backend following the instruction in
-the dedicated section below and installing LLVM version 21. To install it on
-macOS, you can use [homebrew](https://brew.sh/): `brew install llvm@21`.
+the dedicated section below and installing LLVM version 22. To install it on
+macOS, you can use [homebrew](https://brew.sh/): `brew install llvm@22`.
 
 ### Windows
 
@@ -96,7 +96,7 @@ If you want support for the Wasmer LLVM compiler, then you will also need to:
   - You can also [download and use a prebuilt LLVM binary](https://releases.llvm.org/download.html)
 - In case `llvm-config` is not accessible, set the correct environment variable
   for LLVM to access: For example, the environment variable for LLVM 22.1.x
-  would be: `LLLVM_SYS_221_PREFIX=/path/to/unpacked/llvm-21.1`
+  would be: `LLLVM_SYS_221_PREFIX=/path/to/unpacked/llvm-22.1`
 
 And create a Wasmer release
 

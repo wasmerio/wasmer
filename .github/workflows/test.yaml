@@ -71,10 +71,10 @@ jobs:
       - name: Install LLVM (Linux)
         run: |
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz
-          mkdir -p /opt/llvm-21
-          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-21
-          echo '/opt/llvm-21/bin' >> $GITHUB_PATH
-          echo 'LLLVM_SYS_221_PREFIX=/opt/llvm-21' >> $GITHUB_ENV
+          mkdir -p /opt/llvm-22
+          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-22
+          echo '/opt/llvm-22/bin' >> $GITHUB_PATH
+          echo 'LLLVM_SYS_221_PREFIX=/opt/llvm-22' >> $GITHUB_ENV
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
@@ -371,9 +371,9 @@ jobs:
         if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash
         run: |
-          brew install ninja llvm@21
-          echo "/opt/homebrew/opt/llvm@21/bin" >> $GITHUB_PATH
-          ls -laR /opt/homebrew/opt/llvm@21/bin/
+          brew install ninja llvm@22
+          echo "/opt/homebrew/opt/llvm@22/bin" >> $GITHUB_PATH
+          ls -laR /opt/homebrew/opt/llvm@22/bin/
 
       - name: Install `ninja` on Windows
         if: startsWith(matrix.metadata.build, 'windows-')

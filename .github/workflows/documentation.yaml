@@ -30,7 +30,7 @@ jobs:
           echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
           echo "LLLVM_SYS_221_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
-          LLVM_DIR: ${{ github.workspace }}/llvm-21
+          LLVM_DIR: ${{ github.workspace }}/llvm-22
           LLVM_URL: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.xz"
       - name: Build & package documentation
         run: make package-docs

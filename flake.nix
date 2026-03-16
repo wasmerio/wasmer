@@ -41,10 +41,10 @@
             openssl
 
             # LLVM and related dependencies
-            llvmPackages_21.libllvm
-            llvmPackages_21.llvm
-            llvmPackages_21.llvm.dev
-            llvmPackages_21.libclang.dev
+            llvmPackages_22.libllvm
+            llvmPackages_22.llvm
+            llvmPackages_22.llvm.dev
+            llvmPackages_22.libclang.dev
             libxml2
             libffi
             cmake
@@ -84,22 +84,22 @@
           ];
 
           shellHook = ''
-            export LLLVM_SYS_221_PREFIX="${pkgs.llvmPackages_21.llvm.dev}"
-            export LIBCLANG_PATH="${pkgs.llvmPackages_21.libclang.lib}/lib"
+            export LLLVM_SYS_221_PREFIX="${pkgs.llvmPackages_22.llvm.dev}"
+            export LIBCLANG_PATH="${pkgs.llvmPackages_22.libclang.lib}/lib"
             export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
-            export LIBRARY_PATH="${pkgs.llvmPackages_21.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
-            export LD_LIBRARY_PATH="${pkgs.llvmPackages_21.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
+            export LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
+            export LD_LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
             export BINDGEN_EXTRA_CLANG_ARGS="$(
-                  < ${pkgs.llvmPackages_21.stdenv.cc}/nix-support/libc-crt1-cflags
+                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libc-crt1-cflags
                 ) $(
-                  < ${pkgs.llvmPackages_21.stdenv.cc}/nix-support/libc-cflags
+                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libc-cflags
                 ) $(
-                  < ${pkgs.llvmPackages_21.stdenv.cc}/nix-support/cc-cflags
+                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/cc-cflags
                 ) $(
-                  < ${pkgs.llvmPackages_21.stdenv.cc}/nix-support/libcxx-cxxflags
+                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libcxx-cxxflags
                 ) \
                 -isystem ${pkgs.glibc.dev}/include \
-                -idirafter ${pkgs.llvmPackages_21.clang}/lib/clang/${pkgs.lib.getVersion pkgs.llvmPackages_21.clang}/include"
+                -idirafter ${pkgs.llvmPackages_22.clang}/lib/clang/${pkgs.lib.getVersion pkgs.llvmPackages_22.clang}/include"
             '';
         };
       }
