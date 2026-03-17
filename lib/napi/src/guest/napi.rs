@@ -101,6 +101,7 @@ fn remember_guest_backing_store(
     backing_store_token: u64,
     host_addr: u64,
     guest_ptr: u32,
+    byte_len: usize,
 ) {
     let state = env.data_mut();
     state.guest_data_ptrs.insert(handle_id, guest_ptr);
@@ -110,6 +111,7 @@ fn remember_guest_backing_store(
             crate::GuestBackingStoreMapping {
                 host_addr,
                 guest_ptr,
+                byte_len,
             },
         );
     }
@@ -134,6 +136,7 @@ fn remember_host_buffer_copy(
                 crate::GuestBackingStoreMapping {
                     host_addr,
                     guest_ptr,
+                    byte_len,
                 },
             );
         }
@@ -172,15 +175,13 @@ fn resolve_current_host_data_to_guest(
             .data()
             .guest_data_backing_stores
             .get(&backing_store_token)
+        && let Some(guest_data_ptr) =
+            resolve_guest_backing_store_mapping(mapping, host_addr, byte_len)
     {
-        if let Some(delta) = host_addr.checked_sub(mapping.host_addr)
-            && let Some(guest_data_ptr) = mapping.guest_ptr.checked_add(delta as u32)
-        {
-            env.data_mut()
-                .guest_data_ptrs
-                .insert(handle_id, guest_data_ptr);
-            return Some(guest_data_ptr);
-        }
+        env.data_mut()
+            .guest_data_ptrs
+            .insert(handle_id, guest_data_ptr);
+        return Some(guest_data_ptr);
     }
     if let Some(&guest_data_ptr) = env.data().guest_data_ptrs.get(&handle_id) {
         return Some(guest_data_ptr);
@@ -3012,6 +3013,7 @@ fn guest_napi_create_arraybuffer(
                 backing_store_token,
                 host_addr,
                 guest_ptr as u32,
+                byte_length as usize,
             );
             write_guest_u32(&mut env, rp as u32, out);
             if data_ptr > 0 {
@@ -3071,6 +3073,7 @@ fn guest_napi_create_external_arraybuffer(
             backing_store_token,
             host_addr,
             external_data as u32,
+            byte_length as usize,
         );
         write_guest_u32(&mut env, rp as u32, out);
     }
@@ -3116,6 +3119,7 @@ fn guest_napi_create_external_buffer(
             backing_store_token,
             host_addr,
             external_data as u32,
+            byte_length as usize,
         );
         write_guest_u32(&mut env, rp as u32, out);
     }
@@ -4428,6 +4432,7 @@ fn guest_napi_create_buffer(
             backing_store_token,
             host_addr,
             guest_ptr as u32,
+            length as usize,
         );
 
         write_guest_u32(&mut env, rp as u32, buf_id);
@@ -4508,6 +4513,7 @@ fn guest_napi_create_buffer_copy(
             backing_store_token,
             host_addr,
             guest_ptr as u32,
+            length as usize,
         );
 
         write_guest_u32(&mut env, rp as u32, buf_id);

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -131,48 +132,135 @@ napi_value LoadValue(SnapiEnvState& state, uint32_t id) {
   return value;
 }
 
+size_t TypedArrayElementSize(napi_typedarray_type type) {
+  switch (type) {
+    case napi_int8_array:
+    case napi_uint8_array:
+    case napi_uint8_clamped_array:
+      return 1;
+    case napi_int16_array:
+    case napi_uint16_array:
+      return 2;
+    case napi_int32_array:
+    case napi_uint32_array:
+    case napi_float32_array:
+      return 4;
+    case napi_float64_array:
+    case napi_bigint64_array:
+    case napi_biguint64_array:
+      return 8;
+  }
+  return 0;
+}
+
+bool GetValueByteSpan(napi_env env, napi_value value, uint8_t** data_out, size_t* length_out) {
+  if (env == nullptr || value == nullptr || data_out == nullptr || length_out == nullptr) {
+    return false;
+  }
+
+  *data_out = nullptr;
+  *length_out = 0;
+
+  bool is_buffer = false;
+  if (napi_is_buffer(env, value, &is_buffer) != napi_ok) {
+    return false;
+  }
+  if (is_buffer) {
+    void* data = nullptr;
+    size_t length = 0;
+    if (napi_get_buffer_info(env, value, &data, &length) != napi_ok) {
+      return false;
+    }
+    if (length > 0 && data == nullptr) {
+      return false;
+    }
+    *data_out = static_cast<uint8_t*>(data);
+    *length_out = length;
+    return true;
+  }
+
+  bool is_arraybuffer = false;
+  if (napi_is_arraybuffer(env, value, &is_arraybuffer) != napi_ok) {
+    return false;
+  }
+  if (is_arraybuffer) {
+    void* data = nullptr;
+    size_t length = 0;
+    if (napi_get_arraybuffer_info(env, value, &data, &length) != napi_ok) {
+      return false;
+    }
+    if (length > 0 && data == nullptr) {
+      return false;
+    }
+    *data_out = static_cast<uint8_t*>(data);
+    *length_out = length;
+    return true;
+  }
+
+  bool is_typedarray = false;
+  if (napi_is_typedarray(env, value, &is_typedarray) != napi_ok) {
+    return false;
+  }
+  if (is_typedarray) {
+    napi_typedarray_type type;
+    size_t length = 0;
+    void* data = nullptr;
+    if (napi_get_typedarray_info(env, value, &type, &length, &data, nullptr, nullptr) != napi_ok) {
+      return false;
+    }
+
+    size_t elem_size = TypedArrayElementSize(type);
+    if (elem_size == 0 ||
+        length > (std::numeric_limits<size_t>::max)() / elem_size) {
+      return false;
+    }
+
+    size_t byte_length = length * elem_size;
+    if (byte_length > 0 && data == nullptr) {
+      return false;
+    }
+    *data_out = static_cast<uint8_t*>(data);
+    *length_out = byte_length;
+    return true;
+  }
+
+  bool is_dataview = false;
+  if (napi_is_dataview(env, value, &is_dataview) != napi_ok) {
+    return false;
+  }
+  if (is_dataview) {
+    size_t byte_length = 0;
+    void* data = nullptr;
+    if (napi_get_dataview_info(env, value, &byte_length, &data, nullptr, nullptr) != napi_ok) {
+      return false;
+    }
+    if (byte_length > 0 && data == nullptr) {
+      return false;
+    }
+    *data_out = static_cast<uint8_t*>(data);
+    *length_out = byte_length;
+    return true;
+  }
+
+  return false;
+}
+
 bool SnapshotValueBytes(napi_env env, napi_value value, void** data_out, size_t* length_out) {
   if (env == nullptr || value == nullptr || data_out == nullptr || length_out == nullptr) {
     return false;
   }
 
-  v8::Local<v8::Context> context = env->context();
-  v8::Context::Scope context_scope(context);
-  v8::Local<v8::Value> local = napi_v8_unwrap_value(value);
+  uint8_t* data = nullptr;
   size_t byte_length = 0;
-  void* copy = nullptr;
-  v8::Local<v8::Object> target;
-
-  if (local->IsArrayBufferView()) {
-    v8::Local<v8::ArrayBufferView> view = local.As<v8::ArrayBufferView>();
-    byte_length = view->ByteLength();
-    target = view.As<v8::Object>();
-  } else if (local->IsArrayBuffer()) {
-    v8::Local<v8::ArrayBuffer> buffer = local.As<v8::ArrayBuffer>();
-    byte_length = buffer->ByteLength();
-    v8::Local<v8::Uint8Array> view = v8::Uint8Array::New(buffer, 0, byte_length);
-    if (view.IsEmpty()) return false;
-    target = view.As<v8::Object>();
-  } else if (local->IsSharedArrayBuffer()) {
-    v8::Local<v8::SharedArrayBuffer> buffer = local.As<v8::SharedArrayBuffer>();
-    byte_length = buffer->ByteLength();
-    return false;
-  } else {
+  if (!GetValueByteSpan(env, value, &data, &byte_length)) {
     return false;
   }
 
+  void* copy = nullptr;
   if (byte_length > 0) {
     copy = std::malloc(byte_length);
     if (copy == nullptr) return false;
-    uint8_t* bytes = static_cast<uint8_t*>(copy);
-    for (uint32_t i = 0; i < byte_length; ++i) {
-      v8::Local<v8::Value> elem;
-      if (!target->Get(context, i).ToLocal(&elem)) {
-        std::free(copy);
-        return false;
-      }
-      bytes[i] = static_cast<uint8_t>(elem->Uint32Value(context).FromMaybe(0));
-    }
+    std::memcpy(copy, data, byte_length);
   }
 
   *data_out = copy;
@@ -183,27 +271,20 @@ bool SnapshotValueBytes(napi_env env, napi_value value, void** data_out, size_t*
 bool OverwriteValueBytes(napi_env env, napi_value value, const uint8_t* data, size_t byte_length) {
   if (env == nullptr || value == nullptr) return false;
 
-  v8::Local<v8::Context> context = env->context();
-  v8::Context::Scope context_scope(context);
-  v8::Local<v8::Value> local = napi_v8_unwrap_value(value);
-  v8::Local<v8::Object> target;
-
-  if (local->IsArrayBufferView()) {
-    target = local.As<v8::Object>();
-  } else if (local->IsArrayBuffer()) {
-    v8::Local<v8::Uint8Array> view =
-        v8::Uint8Array::New(local.As<v8::ArrayBuffer>(), 0, byte_length);
-    if (view.IsEmpty()) return false;
-    target = view.As<v8::Object>();
-  } else {
+  uint8_t* target = nullptr;
+  size_t target_length = 0;
+  if (!GetValueByteSpan(env, value, &target, &target_length)) {
     return false;
   }
 
-  for (uint32_t i = 0; i < byte_length; ++i) {
-    v8::Local<v8::Integer> byte = v8::Integer::NewFromUnsigned(env->isolate, data[i]);
-    if (!target->Set(context, i, byte).FromMaybe(false)) {
+  if (byte_length > target_length) {
+    return false;
+  }
+  if (byte_length > 0) {
+    if (data == nullptr || target == nullptr) {
       return false;
     }
+    std::memcpy(target, data, byte_length);
   }
   return true;
 }
