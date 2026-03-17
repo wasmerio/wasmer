@@ -868,10 +868,6 @@ unsafe extern "C" {
         reg_id: u32,
         out_id: *mut u32,
     ) -> i32;
-    pub fn snapi_bridge_swap_active_callback_ctx(
-        env: SnapiEnv,
-        callback_ctx: *mut c_void,
-    ) -> *mut c_void;
     pub fn snapi_bridge_alloc_cb_reg_id(env: SnapiEnv) -> u32;
     pub fn snapi_bridge_register_callback(
         env: SnapiEnv,

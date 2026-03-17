@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex},
+};
 
 use wasmer::{Memory, Table, TypedFunction};
 
@@ -33,10 +36,9 @@ pub(crate) struct RuntimeEnv {
     /// duration of an active callback. These are written back on callback exit.
     pub(crate) host_buffer_copies: Vec<HostBufferCopy>,
     pub(crate) host_buffer_copy_frames: Vec<usize>,
-    /// Host-owned buffer copies created while servicing a single guest-side
-    /// native binding invocation (typically bracketed by napi_get_cb_info and a
-    /// return-value creation call).
-    pub(crate) host_buffer_method_frames: Vec<usize>,
+    /// Tracks host envs registered for callback re-entry so session teardown can
+    /// clear any stale top-level callback state.
+    pub(crate) callback_env_keys: Arc<Mutex<HashSet<usize>>>,
     pub(crate) next_napi_env_id: u32,
     pub(crate) next_napi_scope_id: u32,
     pub(crate) napi_envs: HashMap<u32, usize>,

@@ -12,7 +12,9 @@ use crate::{
     RuntimeEnv,
     guest::{
         MAX_GUEST_CSTRING_SCAN,
-        callback::{flush_host_buffer_copies_since, with_callback_state},
+        callback::{
+            clear_top_level_callback_state, set_top_level_callback_state, with_callback_state,
+        },
     },
     snapi::*,
 };
@@ -149,19 +151,6 @@ fn remember_host_buffer_copy(
     }
 }
 
-fn begin_host_buffer_method_frame(env: &mut FunctionEnvMut<RuntimeEnv>) {
-    let start = env.data().host_buffer_copies.len();
-    env.data_mut().host_buffer_method_frames.push(start);
-}
-
-fn flush_host_buffer_method_frame(env: &mut FunctionEnvMut<RuntimeEnv>, guest_env: i32) {
-    let Some(start) = env.data_mut().host_buffer_method_frames.pop() else {
-        return;
-    };
-    let snapi = env.data().resolve_napi_env(guest_env);
-    flush_host_buffer_copies_since(env, snapi, start);
-}
-
 fn resolve_current_host_data_to_guest(
     env: &mut FunctionEnvMut<RuntimeEnv>,
     guest_env: i32,
@@ -237,6 +226,7 @@ fn guest_unofficial_napi_create_env(
         return status;
     }
     let (env_id, scope_id) = env.data_mut().register_napi_env(snapi_env_state);
+    set_top_level_callback_state(&mut env, snapi_env_state);
     if env_out_ptr > 0 {
         write_guest_u32(&mut env, env_out_ptr as u32, env_id);
     }
@@ -287,6 +277,7 @@ fn guest_unofficial_napi_create_env_with_options(
         return status;
     }
     let (env_id, scope_id) = env.data_mut().register_napi_env(snapi_env_state);
+    set_top_level_callback_state(&mut env, snapi_env_state);
     if env_out_ptr > 0 {
         write_guest_u32(&mut env, env_out_ptr as u32, env_id);
     }
@@ -301,6 +292,7 @@ fn guest_unofficial_napi_release_env(mut env: FunctionEnvMut<RuntimeEnv>, scope_
     let Some(snapi_env_state) = env.data_mut().unregister_napi_scope(scope_id) else {
         return 1;
     };
+    clear_top_level_callback_state(&mut env, snapi_env_state);
     unsafe { snapi_bridge_unofficial_release_env(snapi_env_state) }
 }
 
@@ -313,6 +305,7 @@ fn guest_unofficial_napi_release_env_with_loop(
     let Some(snapi_env_state) = env.data_mut().unregister_napi_scope(scope_id) else {
         return 1;
     };
+    clear_top_level_callback_state(&mut env, snapi_env_state);
     let loop_id = if loop_ptr > 0 { loop_ptr as u32 } else { 0 };
     unsafe { snapi_bridge_unofficial_release_env_with_loop(snapi_env_state, loop_id) }
 }
@@ -2057,7 +2050,6 @@ fn guest_napi_create_int32(
     let s = unsafe { snapi_bridge_create_int32(snapi_env(&env, e), value, &mut out) };
     if s == 0 {
         write_guest_u32(&mut env, rp as u32, out);
-        flush_host_buffer_method_frame(&mut env, e);
     }
     s
 }
@@ -3649,7 +3641,6 @@ fn guest_napi_get_cb_info(
     this_ptr: i32,
     data_ptr: i32,
 ) -> i32 {
-    begin_host_buffer_method_frame(&mut env);
     // Read the caller's requested argc (size of their argv array)
     let wanted: u32 = if argc_ptr > 0 {
         let Some(bytes) = read_guest_bytes(&mut env, argc_ptr, 4) else {

@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
@@ -11,7 +11,10 @@ use wasmer_wasix::{PluggableRuntime, runners::wasi::WasiRunner};
 
 use crate::{
     RuntimeEnv,
-    guest::napi::{register_env_imports, register_napi_imports},
+    guest::{
+        callback::clear_tracked_top_level_callback_states,
+        napi::{register_env_imports, register_napi_imports},
+    },
 };
 
 #[derive(Debug, Clone, Default)]
@@ -54,6 +57,7 @@ struct NapiSessionInner {
     imported_memory_type: Option<wasmer::MemoryType>,
     imported_table_type: Option<wasmer::TableType>,
     func_env: Mutex<Option<FunctionEnv<RuntimeEnv>>>,
+    callback_env_keys: Arc<Mutex<HashSet<usize>>>,
 }
 
 impl std::fmt::Debug for NapiSession {
@@ -64,6 +68,7 @@ impl std::fmt::Debug for NapiSession {
 
 impl Drop for NapiSessionInner {
     fn drop(&mut self) {
+        clear_tracked_top_level_callback_states(&self.callback_env_keys);
         self.ctx.active_sessions.fetch_sub(1, Ordering::AcqRel);
     }
 }
@@ -168,6 +173,7 @@ impl NapiCtx {
                 imported_memory_type,
                 imported_table_type,
                 func_env: Mutex::new(None),
+                callback_env_keys: Default::default(),
             }),
         })
     }
@@ -286,6 +292,7 @@ impl NapiSession {
                 .expect("poisoned NapiSession mutex");
             *guard = Some(func_env.clone());
         }
+        func_env.as_mut(&mut *store).callback_env_keys = self.inner.callback_env_keys.clone();
         register_napi_imports(store, &func_env, &mut import_object);
 
         if let Some(memory_type) = self.inner.imported_memory_type {
