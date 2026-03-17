@@ -87,6 +87,20 @@ pub fn host_ptr_to_guest_ptr(env: &mut FunctionEnvMut<RuntimeEnv>, host_addr: u6
     u32::try_from(host_addr - host_base).ok()
 }
 
+pub fn resolve_guest_backing_store_mapping(
+    mapping: &GuestBackingStoreMapping,
+    host_addr: u64,
+    byte_len: usize,
+) -> Option<u32> {
+    let delta = usize::try_from(host_addr.checked_sub(mapping.host_addr)?).ok()?;
+    let end = delta.checked_add(byte_len)?;
+    if end > mapping.byte_len {
+        return None;
+    }
+    let guest_delta = u32::try_from(delta).ok()?;
+    mapping.guest_ptr.checked_add(guest_delta)
+}
+
 pub fn resolve_or_copy_host_data_to_guest(
     env: &mut FunctionEnvMut<RuntimeEnv>,
     handle_id: u32,
@@ -99,15 +113,13 @@ pub fn resolve_or_copy_host_data_to_guest(
             .data()
             .guest_data_backing_stores
             .get(&backing_store_token)
+        && let Some(guest_data_ptr) =
+            resolve_guest_backing_store_mapping(mapping, host_addr, byte_len)
     {
-        if let Some(delta) = host_addr.checked_sub(mapping.host_addr)
-            && let Some(guest_data_ptr) = mapping.guest_ptr.checked_add(delta as u32)
-        {
-            env.data_mut()
-                .guest_data_ptrs
-                .insert(handle_id, guest_data_ptr);
-            return Some(guest_data_ptr);
-        }
+        env.data_mut()
+            .guest_data_ptrs
+            .insert(handle_id, guest_data_ptr);
+        return Some(guest_data_ptr);
     }
     if let Some(&guest_data_ptr) = env.data().guest_data_ptrs.get(&handle_id) {
         return Some(guest_data_ptr);
@@ -129,6 +141,7 @@ pub fn resolve_or_copy_host_data_to_guest(
             GuestBackingStoreMapping {
                 host_addr,
                 guest_ptr,
+                byte_len,
             },
         );
     }

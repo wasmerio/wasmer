@@ -14,6 +14,7 @@ pub(crate) struct HostBufferCopy {
 pub(crate) struct GuestBackingStoreMapping {
     pub(crate) host_addr: u64,
     pub(crate) guest_ptr: u32,
+    pub(crate) byte_len: usize,
 }
 
 #[derive(Default)]
