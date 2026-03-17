@@ -165,9 +165,6 @@ else ifneq (, $(shell which llvm-config 2>/dev/null))
 	ifneq (, $(findstring 22,$(LLVM_VERSION)))
 		compilers += llvm
 		export LLVM_SYS_221_PREFIX = $(shell llvm-config --prefix)
-	else ifneq (, $(findstring 22,$(LLVM_VERSION)))
-		compilers += llvm
-		export LLVM_SYS_221_PREFIX = $(shell llvm-config --prefix)
 	endif
 endif
 
