@@ -213,7 +213,8 @@ pub struct RuntimeOptions {
     #[clap(long, alias = "llvm-num-threads")]
     compiler_threads: Option<NonZero<usize>>,
 
-    /// Replaces any NaN with the canonical QNaN, otherwise leaves the value alone.
+    /// Enable NaN canonicalization during compilation to produce deterministic
+    /// canonical quiet NaNs (QNaNs) across architectures.
     #[clap(long = "enable-nan-canonicalization")]
     enable_nan_canonicalization: bool,
 
