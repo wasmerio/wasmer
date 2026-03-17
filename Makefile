@@ -178,6 +178,7 @@ exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
 exclude_tests += --exclude wasmer-swift
+exclude_tests += --exclude wasmer-napi
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -337,10 +338,11 @@ compilers_engines := $(strip $(compilers_engines))
 # Small trick to define a space and a comma.
 space := $() $()
 comma := ,
+build_wasmer_extra_features_csv = $(subst $(space),$(comma),$(build_wasmer_extra_features))
 
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
-build_compiler_features := --features $(subst $(space),$(comma),$(build_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+build_compiler_features = --features $(subst $(space),$(comma),$(build_compilers))$(if $(build_wasmer_extra_features_csv),$(comma)$(build_wasmer_extra_features_csv)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 capi_compilers_engines_exclude :=
 
 # Define the compiler Cargo features for the C API. It always excludes
@@ -368,6 +370,14 @@ ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 endif
 
 HOST_TARGET=$(shell rustc -Vv | grep 'host: ' | cut -d':' -f2 | tr -d ' ')
+BUILD_WASMER_TARGET := $(if $(CARGO_TARGET),$(CARGO_TARGET),$(HOST_TARGET))
+
+build_wasmer_extra_features :=
+ifneq (, $(filter x86_64-unknown-linux-gnu aarch64-apple-darwin,$(BUILD_WASMER_TARGET)))
+	build_wasmer_extra_features += napi-v8
+endif
+
+workspace_doc_excludes := --exclude wasmer-c-api --exclude wasmer-swift --exclude wasmer-napi
 
 TARGET_DIR ?= target/release
 
@@ -498,7 +508,7 @@ else
 endif
 
 build-docs:
-	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --features wasmer/experimental-async --document-private-items --no-deps --workspace --exclude wasmer-c-api --exclude wasmer-swift --locked
+	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --features wasmer/experimental-async --document-private-items --no-deps --workspace $(workspace_doc_excludes) --locked
 
 # The tokio crate was excluded from the docs build because the code (which is not under our control)
 # does not currently compile its docs successfully

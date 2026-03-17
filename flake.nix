@@ -89,6 +89,15 @@
             export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
             export LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
             export LD_LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
+            if [ -z "$V8_INCLUDE_DIR" ] || [ -z "$V8_LIB_DIR" ]; then
+              for candidate in /nix/store/*-ubi-v8-prebuilt-11.9.2; do
+                if [ -d "$candidate/include" ] && [ -d "$candidate/lib" ]; then
+                  export V8_INCLUDE_DIR="$candidate/include"
+                  export V8_LIB_DIR="$candidate/lib"
+                  break
+                fi
+              done
+            fi
             export BINDGEN_EXTRA_CLANG_ARGS="$(
                   < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libc-crt1-cflags
                 ) $(
