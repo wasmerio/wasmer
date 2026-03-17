@@ -1797,13 +1797,15 @@ impl WasiFs {
                 }
             }
             Kind::Symlink {
-                path_to_symlink, ..
+                base_po_dir,
+                path_to_symlink,
+                ..
             } => {
                 let path_str = path_to_symlink.to_string_lossy();
                 if path_str.is_empty() {
-                    Cow::Borrowed(name.as_ref())
+                    Cow::Owned(format!("{base_po_dir}:{}", name.as_ref()))
                 } else {
-                    path_str
+                    Cow::Owned(format!("{base_po_dir}:{path_str}"))
                 }
             }
             _ => Cow::Borrowed(name.as_ref()),
