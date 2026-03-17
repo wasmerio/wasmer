@@ -1082,7 +1082,7 @@ impl Artifact {
         - TableIndex -> TableStyle
         - LocalFunctionIndex -> FunctionBodyPtr // finished functions
         - FunctionIndex -> FunctionBodyPtr // finished dynamic function trampolines
-        - SignatureIndex -> SignatureHash // signatures
+        - SignatureIndex -> VMSignatureHash // signatures
          */
 
         let mut metadata_builder =

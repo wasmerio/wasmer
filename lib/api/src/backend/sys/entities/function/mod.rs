@@ -414,7 +414,7 @@ impl Function {
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let type_index = store
+        let type_signature_hash = store
             .as_store_ref()
             .engine()
             .as_sys()
@@ -426,7 +426,7 @@ impl Function {
             <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address().into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_signature_hash: type_index,
+            type_signature_hash,
             vmctx,
             call_trampoline,
         };
