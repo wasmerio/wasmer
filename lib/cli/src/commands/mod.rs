@@ -569,7 +569,13 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     if cfg!(feature = "v8") {
         runtimes.push("v8");
     }
-
     println!("runtimes: {}", runtimes.join(", "));
+
+    let mut features = vec!["WASIX"];
+    if cfg!(feature = "napi-v8") {
+        features.push("NAPI");
+    }
+    println!("features: {}", features.join(", "));
+
     Ok(())
 }
