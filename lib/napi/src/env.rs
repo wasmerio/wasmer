@@ -17,6 +17,11 @@ pub(crate) struct GuestBackingStoreMapping {
     pub(crate) byte_len: usize,
 }
 
+pub(crate) struct PendingEnvRelease {
+    pub(crate) scope_id: u32,
+    pub(crate) loop_id: Option<u32>,
+}
+
 #[derive(Default)]
 pub(crate) struct RuntimeEnv {
     pub(crate) memory: Option<Memory>,
@@ -42,6 +47,7 @@ pub(crate) struct RuntimeEnv {
     pub(crate) napi_envs: HashMap<u32, usize>,
     pub(crate) napi_state_to_guest_env: HashMap<usize, u32>,
     pub(crate) napi_scopes: HashMap<u32, u32>,
+    pub(crate) pending_env_releases: Vec<PendingEnvRelease>,
 }
 
 impl RuntimeEnv {
@@ -62,6 +68,12 @@ impl RuntimeEnv {
         let env_id = self.napi_scopes.remove(&scope_id)?;
         let env = self.napi_envs.remove(&env_id)?;
         self.napi_state_to_guest_env.remove(&env);
+        Some(env as SnapiEnv)
+    }
+
+    pub(crate) fn resolve_napi_scope(&self, scope_id: u32) -> Option<SnapiEnv> {
+        let env_id = *self.napi_scopes.get(&scope_id)?;
+        let env = *self.napi_envs.get(&env_id)?;
         Some(env as SnapiEnv)
     }
 

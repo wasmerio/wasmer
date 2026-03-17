@@ -42,6 +42,14 @@ struct CallbackInvocation {
 };
 
 struct CallbackBinding;
+struct GuestBufferBinding;
+
+struct PendingGuestFinalizer {
+  uint32_t guest_env = 0;
+  uint32_t finalize_cb = 0;
+  uint64_t data_val = 0;
+  uint64_t hint_val = 0;
+};
 
 struct SnapiEnvState {
   napi_env env = nullptr;
@@ -79,11 +87,21 @@ struct SnapiEnvState {
   std::unordered_map<uint32_t, CbRegistration> cb_registry;
   uint32_t next_cb_reg_id = 1;
   std::vector<std::unique_ptr<CallbackBinding>> callback_bindings;
+  std::unordered_set<GuestBufferBinding*> active_guest_buffer_bindings;
+  std::vector<PendingGuestFinalizer> pending_guest_finalizers;
 };
 
 struct CallbackBinding {
   SnapiEnvState* state = nullptr;
   uint32_t reg_id = 0;
+};
+
+struct GuestBufferBinding {
+  SnapiEnvState* state = nullptr;
+  uint32_t guest_env = 0;
+  uint32_t finalize_cb = 0;
+  uint64_t data_val = 0;
+  uint64_t hint_val = 0;
 };
 
 std::unordered_set<SnapiEnvState*> g_envs;
@@ -93,6 +111,27 @@ CallbackBinding* RegisterCallbackBinding(SnapiEnvState* state, uint32_t reg_id) 
   state->callback_bindings.push_back(
       std::make_unique<CallbackBinding>(CallbackBinding{state, reg_id}));
   return state->callback_bindings.back().get();
+}
+
+GuestBufferBinding* RegisterGuestBufferBinding(SnapiEnvState* state,
+                                              uint32_t guest_env,
+                                              uint32_t finalize_cb,
+                                              uint64_t data_val,
+                                              uint64_t hint_val) {
+  if (state == nullptr) return nullptr;
+  auto* binding = new (std::nothrow) GuestBufferBinding{
+      state, guest_env, finalize_cb, data_val, hint_val};
+  if (binding == nullptr) return nullptr;
+  state->active_guest_buffer_bindings.insert(binding);
+  return binding;
+}
+
+void QueuePendingGuestFinalizer(GuestBufferBinding* binding) {
+  if (binding == nullptr || binding->state == nullptr) return;
+  if (binding->finalize_cb != 0) {
+    binding->state->pending_guest_finalizers.push_back(PendingGuestFinalizer{
+        binding->guest_env, binding->finalize_cb, binding->data_val, binding->hint_val});
+  }
 }
 
 SnapiEnvState* LookupEnvState(SnapiEnvState* env_state) {
@@ -140,6 +179,9 @@ size_t TypedArrayElementSize(napi_typedarray_type type) {
       return 1;
     case napi_int16_array:
     case napi_uint16_array:
+#ifdef NODE_API_HAS_FLOAT16_ARRAY
+    case napi_float16_array:
+#endif
       return 2;
     case napi_int32_array:
     case napi_uint32_array:
@@ -289,6 +331,17 @@ bool OverwriteValueBytes(napi_env env, napi_value value, const uint8_t* data, si
   return true;
 }
 
+void GuestBufferFinalizer(node_api_basic_env /*env*/, void* /*data*/, void* finalize_hint) {
+  auto* binding = static_cast<GuestBufferBinding*>(finalize_hint);
+  if (binding == nullptr) return;
+  auto* state = binding->state;
+  if (state != nullptr) {
+    state->active_guest_buffer_bindings.erase(binding);
+    QueuePendingGuestFinalizer(binding);
+  }
+  delete binding;
+}
+
 uint32_t StoreRef(SnapiEnvState& state, napi_ref ref) {
   if (ref == nullptr) return 0;
   uint32_t id = state.next_ref_id++;
@@ -388,6 +441,11 @@ napi_status DisposeBridgeStateLocked(SnapiEnvState* state) {
   state->cb_registry.clear();
   state->next_cb_reg_id = 1;
   state->callback_bindings.clear();
+  for (auto* binding : state->active_guest_buffer_bindings) {
+    if (binding != nullptr) binding->state = nullptr;
+  }
+  state->active_guest_buffer_bindings.clear();
+  state->pending_guest_finalizers.clear();
   if (state->scope != nullptr) {
     napi_status s = unofficial_napi_release_env(state->scope);
     state->scope = nullptr;
@@ -1357,6 +1415,10 @@ extern "C" int snapi_bridge_create_arraybuffer(SnapiEnvState* env_state, uint32_
 
 extern "C" int snapi_bridge_create_external_arraybuffer(SnapiEnvState* env_state, uint64_t data_addr,
                                                         uint32_t byte_length,
+                                                        uint32_t guest_env_id,
+                                                        uint32_t finalize_cb,
+                                                        uint64_t data_val,
+                                                        uint64_t finalize_hint_val,
                                                         uint64_t* backing_store_token_out,
                                                         uint32_t* out_id) {
   auto* bridge_state = RequireEnvState(env_state);
@@ -1364,9 +1426,19 @@ extern "C" int snapi_bridge_create_external_arraybuffer(SnapiEnvState* env_state
   napi_env env = bridge_state->env;
   void* data = (void*)(uintptr_t)data_addr;
   napi_value result;
+  GuestBufferBinding* binding =
+      RegisterGuestBufferBinding(bridge_state, guest_env_id, finalize_cb, data_val, finalize_hint_val);
+  if (guest_env_id != 0 && binding == nullptr) return napi_generic_failure;
   napi_status s = napi_create_external_arraybuffer(
-      env, data, (size_t)byte_length, nullptr, nullptr, &result);
-  if (s != napi_ok) return s;
+      env, data, (size_t)byte_length,
+      binding != nullptr ? GuestBufferFinalizer : nullptr, binding, &result);
+  if (s != napi_ok) {
+    if (binding != nullptr) {
+      bridge_state->active_guest_buffer_bindings.erase(binding);
+      delete binding;
+    }
+    return s;
+  }
   if (backing_store_token_out) {
     *backing_store_token_out = napi_v8_get_arraybuffer_backing_store_token(env, result);
   }
@@ -1376,6 +1448,10 @@ extern "C" int snapi_bridge_create_external_arraybuffer(SnapiEnvState* env_state
 
 extern "C" int snapi_bridge_create_external_buffer(SnapiEnvState* env_state, uint64_t data_addr,
                                                    uint32_t byte_length,
+                                                   uint32_t guest_env_id,
+                                                   uint32_t finalize_cb,
+                                                   uint64_t data_val,
+                                                   uint64_t finalize_hint_val,
                                                    uint64_t* backing_store_token_out,
                                                    uint32_t* out_id) {
   auto* bridge_state = RequireEnvState(env_state);
@@ -1383,9 +1459,19 @@ extern "C" int snapi_bridge_create_external_buffer(SnapiEnvState* env_state, uin
   napi_env env = bridge_state->env;
   void* data = (void*)(uintptr_t)data_addr;
   napi_value result;
+  GuestBufferBinding* binding =
+      RegisterGuestBufferBinding(bridge_state, guest_env_id, finalize_cb, data_val, finalize_hint_val);
+  if (guest_env_id != 0 && binding == nullptr) return napi_generic_failure;
   napi_status s = napi_create_external_buffer(
-      env, (size_t)byte_length, data, nullptr, nullptr, &result);
-  if (s != napi_ok) return s;
+      env, (size_t)byte_length, data,
+      binding != nullptr ? GuestBufferFinalizer : nullptr, binding, &result);
+  if (s != napi_ok) {
+    if (binding != nullptr) {
+      bridge_state->active_guest_buffer_bindings.erase(binding);
+      delete binding;
+    }
+    return s;
+  }
   if (backing_store_token_out) {
     *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, result);
   }
@@ -1446,6 +1532,7 @@ extern "C" int snapi_bridge_get_arraybuffer_info(SnapiEnvState* env_state, uint3
   size_t len;
   napi_status s = napi_get_arraybuffer_info(env, val, &data, &len);
   if (s != napi_ok) return s;
+  if (len > (std::numeric_limits<uint32_t>::max)()) return napi_invalid_arg;
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   *byte_length = (uint32_t)len;
   if (backing_store_token_out) {
@@ -1500,6 +1587,7 @@ extern "C" int snapi_bridge_create_typedarray(SnapiEnvState* env_state, int type
 
 extern "C" int snapi_bridge_get_typedarray_info(SnapiEnvState* env_state, uint32_t id, int* type_out,
                                                 uint32_t* length_out,
+                                                uint32_t* byte_length_out,
                                                 uint64_t* data_out,
                                                 uint32_t* arraybuffer_out,
                                                 uint32_t* byte_offset_out,
@@ -1517,8 +1605,19 @@ extern "C" int snapi_bridge_get_typedarray_info(SnapiEnvState* env_state, uint32
   napi_status s = napi_get_typedarray_info(env, val, &type, &length, &data,
                                            &arraybuffer, &byte_offset);
   if (s != napi_ok) return s;
+  size_t elem_size = TypedArrayElementSize(type);
+  if (elem_size == 0 || length > (std::numeric_limits<size_t>::max)() / elem_size) {
+    return napi_invalid_arg;
+  }
+  size_t byte_length = length * elem_size;
+  if (length > (std::numeric_limits<uint32_t>::max)() ||
+      byte_length > (std::numeric_limits<uint32_t>::max)() ||
+      byte_offset > (std::numeric_limits<uint32_t>::max)()) {
+    return napi_invalid_arg;
+  }
   if (type_out) *type_out = (int)type;
   if (length_out) *length_out = (uint32_t)length;
+  if (byte_length_out) *byte_length_out = (uint32_t)byte_length;
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   if (arraybuffer_out) *arraybuffer_out = StoreValue(*bridge_state, arraybuffer);
   if (byte_offset_out) *byte_offset_out = (uint32_t)byte_offset;
@@ -1567,6 +1666,10 @@ extern "C" int snapi_bridge_get_dataview_info(SnapiEnvState* env_state, uint32_t
   napi_status s = napi_get_dataview_info(env, val, &byte_length, &data,
                                          &arraybuffer, &byte_offset);
   if (s != napi_ok) return s;
+  if (byte_length > (std::numeric_limits<uint32_t>::max)() ||
+      byte_offset > (std::numeric_limits<uint32_t>::max)()) {
+    return napi_invalid_arg;
+  }
   if (byte_length_out) *byte_length_out = (uint32_t)byte_length;
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   if (arraybuffer_out) *arraybuffer_out = StoreValue(*bridge_state, arraybuffer);
@@ -1588,6 +1691,10 @@ extern "C" int snapi_bridge_snapshot_value_bytes(SnapiEnvState* env_state, uint3
   void* snapshot = nullptr;
   size_t byte_length = 0;
   if (!SnapshotValueBytes(bridge_state->env, val, &snapshot, &byte_length)) {
+    return napi_invalid_arg;
+  }
+  if (byte_length > (std::numeric_limits<uint32_t>::max)()) {
+    std::free(snapshot);
     return napi_invalid_arg;
   }
 
@@ -1988,6 +2095,7 @@ extern "C" int snapi_bridge_get_buffer_info(SnapiEnvState* env_state, uint32_t i
   size_t length = 0;
   napi_status s = napi_get_buffer_info(env, val, &data, &length);
   if (s != napi_ok) return s;
+  if (length > (std::numeric_limits<uint32_t>::max)()) return napi_invalid_arg;
   if (length_out) *length_out = (uint32_t)length;
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   if (backing_store_token_out) {
@@ -2429,6 +2537,35 @@ extern "C" int snapi_bridge_create_function(SnapiEnvState* env_state, const char
                                        &result);
   if (s != napi_ok) return s;
   *out_id = StoreValue(*bridge_state, result);
+  return napi_ok;
+}
+
+extern "C" int snapi_bridge_take_pending_guest_finalizer(SnapiEnvState* env_state,
+                                                         uint32_t* guest_env_out,
+                                                         uint32_t* finalize_cb_out,
+                                                         uint64_t* data_out,
+                                                         uint64_t* hint_out) {
+  auto* bridge_state = LookupEnvState(env_state);
+  if (bridge_state == nullptr) return 0;
+  if (guest_env_out == nullptr || finalize_cb_out == nullptr ||
+      data_out == nullptr || hint_out == nullptr) {
+    return 0;
+  }
+  if (bridge_state->pending_guest_finalizers.empty()) return 0;
+
+  PendingGuestFinalizer pending = bridge_state->pending_guest_finalizers.back();
+  bridge_state->pending_guest_finalizers.pop_back();
+  *guest_env_out = pending.guest_env;
+  *finalize_cb_out = pending.finalize_cb;
+  *data_out = pending.data_val;
+  *hint_out = pending.hint_val;
+  return 1;
+}
+
+extern "C" int snapi_bridge_has_live_guest_buffers(SnapiEnvState* env_state, int* result_out) {
+  auto* bridge_state = LookupEnvState(env_state);
+  if (bridge_state == nullptr || result_out == nullptr) return napi_invalid_arg;
+  *result_out = bridge_state->active_guest_buffer_bindings.empty() ? 0 : 1;
   return napi_ok;
 }
 

@@ -644,6 +644,10 @@ unsafe extern "C" {
         env: SnapiEnv,
         data_addr: u64,
         byte_length: u32,
+        guest_env_id: u32,
+        finalize_cb: u32,
+        data_val: u64,
+        finalize_hint_val: u64,
         backing_store_token_out: *mut u64,
         out_id: *mut u32,
     ) -> i32;
@@ -651,6 +655,10 @@ unsafe extern "C" {
         env: SnapiEnv,
         data_addr: u64,
         byte_length: u32,
+        guest_env_id: u32,
+        finalize_cb: u32,
+        data_val: u64,
+        finalize_hint_val: u64,
         backing_store_token_out: *mut u64,
         out_id: *mut u32,
     ) -> i32;
@@ -689,6 +697,7 @@ unsafe extern "C" {
         id: u32,
         type_out: *mut i32,
         length_out: *mut u32,
+        byte_length_out: *mut u32,
         data_out: *mut u64,
         arraybuffer_out: *mut u32,
         byte_offset_out: *mut u32,
@@ -868,6 +877,14 @@ unsafe extern "C" {
         reg_id: u32,
         out_id: *mut u32,
     ) -> i32;
+    pub fn snapi_bridge_take_pending_guest_finalizer(
+        env: SnapiEnv,
+        guest_env_out: *mut u32,
+        finalize_cb_out: *mut u32,
+        data_out: *mut u64,
+        hint_out: *mut u64,
+    ) -> i32;
+    pub fn snapi_bridge_has_live_guest_buffers(env: SnapiEnv, result_out: *mut i32) -> i32;
     pub fn snapi_bridge_swap_active_callback_ctx(
         env: SnapiEnv,
         callback_ctx: *mut c_void,
