@@ -45,7 +45,9 @@ impl SignatureRegistry {
 
         let sig_hash = VMSignatureHash::new(sig.signature_hash());
         if inner.hash_to_signature.contains_key(&sig_hash) {
-            // We are checking type signature checking at the ModuleInfo level, thus the can't reach this point.
+            // In theory, two WebAssembly modules (for example, shared libraries) could define different function types
+            // that end up with the same hash. We could propagate this information via `Result`, but that would be
+            // a breaking change for APIs such as `new_with_env`.
             unreachable!("type signature collision");
         }
 
