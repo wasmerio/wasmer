@@ -3131,22 +3131,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 }
 
                 // Load things from the anyfunc data structure.
-                let func_ptr_ptr = self
-                    .builder
-                    .build_struct_gep(
-                        self.intrinsics.anyfunc_ty,
-                        anyfunc_struct_ptr,
-                        0,
-                        "func_ptr_ptr",
-                    )
-                    .unwrap();
                 let sig_hash_ptr = self
                     .builder
                     .build_struct_gep(
                         self.intrinsics.anyfunc_ty,
                         anyfunc_struct_ptr,
-                        1,
+                        0,
                         "sig_hash_ptr",
+                    )
+                    .unwrap();
+                let func_ptr_ptr = self
+                    .builder
+                    .build_struct_gep(
+                        self.intrinsics.anyfunc_ty,
+                        anyfunc_struct_ptr,
+                        1,
+                        "func_ptr_ptr",
                     )
                     .unwrap();
                 let ctx_ptr_ptr = self

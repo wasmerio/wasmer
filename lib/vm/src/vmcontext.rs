@@ -584,10 +584,10 @@ impl VMSignatureHash {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
-    /// Function body.
-    pub func_ptr: *const VMFunctionBody,
     /// Function signature id.
     pub type_signature_hash: VMSignatureHash,
+    /// Function body.
+    pub func_ptr: *const VMFunctionBody,
     /// Function `VMContext` or host env.
     pub vmctx: VMFunctionContext,
     /// Address of the function call trampoline to invoke this function using
@@ -638,7 +638,7 @@ mod test_vmcaller_checked_anyfunc {
         );
         assert_eq!(
             offset_of!(VMCallerCheckedAnyfunc, type_signature_hash),
-            usize::from(offsets.vmcaller_checked_anyfunc_type_index())
+            usize::from(offsets.vmcaller_checked_anyfunc_signature_hash())
         );
         assert_eq!(
             offset_of!(VMCallerCheckedAnyfunc, vmctx),

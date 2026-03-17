@@ -2358,7 +2358,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(sigidx),
                     Location::Memory(
                         table_count,
-                        (self.vmoffsets.vmcaller_checked_anyfunc_type_index() as usize) as i32,
+                        (self.vmoffsets.vmcaller_checked_anyfunc_signature_hash() as usize) as i32,
                     ),
                     self.special_labels.bad_signature,
                 )?;

@@ -1639,7 +1639,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                     sig_hash_type,
                     mem_flags,
                     anyfunc_ptr,
-                    i32::from(self.offsets.vmcaller_checked_anyfunc_type_index()),
+                    i32::from(self.offsets.vmcaller_checked_anyfunc_signature_hash()),
                 );
 
                 // Check that they match.

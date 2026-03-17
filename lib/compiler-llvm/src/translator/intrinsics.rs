@@ -387,8 +387,8 @@ impl<'ctx> Intrinsics<'ctx> {
 
         let anyfunc_ty = context.struct_type(
             &[
-                i8_ptr_ty_basic,
                 i64_ty.as_basic_type_enum(),
+                i8_ptr_ty_basic,
                 ctx_ptr_ty_basic,
             ],
             false,
