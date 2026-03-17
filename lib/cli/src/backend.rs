@@ -213,6 +213,10 @@ pub struct RuntimeOptions {
     #[clap(long, alias = "llvm-num-threads")]
     compiler_threads: Option<NonZero<usize>>,
 
+    /// Replaces any NaN with the canonical QNaN, otherwise leaves the value alone.
+    #[clap(long = "enable-nan-canonicalization")]
+    enable_nan_canonicalization: bool,
+
     #[clap(flatten)]
     features: WasmFeatures,
 }
@@ -459,6 +463,9 @@ impl RuntimeOptions {
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
+                }
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -480,6 +487,9 @@ impl RuntimeOptions {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
                 if self.enable_verifier {
                     config.enable_verifier();
+                }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
                 if let Some(p) = &self.profiler {
                     match p {
@@ -515,6 +525,9 @@ impl RuntimeOptions {
                 }
                 if self.enable_verifier {
                     config.enable_verifier();
+                }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
                 if let Some(p) = &self.profiler {
                     match p {
@@ -594,6 +607,9 @@ impl BackendType {
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
                 }
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
+                }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -621,6 +637,9 @@ impl BackendType {
                 let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
+                }
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
@@ -659,6 +678,9 @@ impl BackendType {
                 }
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
+                }
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
 
                 if let Some(num_threads) = runtime_opts.compiler_threads {
