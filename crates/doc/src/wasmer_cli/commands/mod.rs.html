@@ -569,7 +569,13 @@
 <a href=#569 id=569 data-nosnippet>569</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
 <a href=#570 id=570 data-nosnippet>570</a>        runtimes.push(<span class="string">"v8"</span>);
 <a href=#571 id=571 data-nosnippet>571</a>    }
-<a href=#572 id=572 data-nosnippet>572</a>
-<a href=#573 id=573 data-nosnippet>573</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
-<a href=#574 id=574 data-nosnippet>574</a>    <span class="prelude-val">Ok</span>(())
-<a href=#575 id=575 data-nosnippet>575</a>}</code></pre></div></section></main></body></html>
+<a href=#572 id=572 data-nosnippet>572</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
+<a href=#573 id=573 data-nosnippet>573</a>
+<a href=#574 id=574 data-nosnippet>574</a>    <span class="kw">let </span><span class="kw-2">mut </span>features = <span class="macro">vec!</span>[<span class="string">"WASIX"</span>];
+<a href=#575 id=575 data-nosnippet>575</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"napi-v8"</span>) {
+<a href=#576 id=576 data-nosnippet>576</a>        features.push(<span class="string">"NAPI"</span>);
+<a href=#577 id=577 data-nosnippet>577</a>    }
+<a href=#578 id=578 data-nosnippet>578</a>    <span class="macro">println!</span>(<span class="string">"features: {}"</span>, features.join(<span class="string">", "</span>));
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>    <span class="prelude-val">Ok</span>(())
+<a href=#581 id=581 data-nosnippet>581</a>}</code></pre></div></section></main></body></html>
