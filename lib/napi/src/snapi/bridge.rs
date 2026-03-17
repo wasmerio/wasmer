@@ -11,11 +11,13 @@ use libc::free;
 use parking_lot::{ReentrantMutex, const_mutex, const_reentrant_mutex};
 use rusty_v8 as v8;
 use rusty_v8::{ValueDeserializerHelper, ValueSerializerHelper};
+use wasmer::{FunctionEnv, FunctionEnvMut, Value as WasmValue};
 
 use super::{
     SnapiEnv, SnapiUnofficialHeapCodeStatistics, SnapiUnofficialHeapSpaceStatistics,
     SnapiUnofficialHeapStatistics,
 };
+use crate::RuntimeEnv;
 
 const NAPI_OK: i32 = 0;
 const NAPI_INVALID_ARG: i32 = 1;
@@ -49,7 +51,6 @@ const WRAP_PRIVATE_KEY: &str = "snapi.wrap";
 const FINALIZER_PRIVATE_KEY: &str = "snapi.finalizer";
 const BUFFER_PRIVATE_KEY: &str = "snapi.buffer";
 const HELPER_OBJECT_NAME: &str = "__snapi";
-const LIVE_STATE_SLOT: usize = 0;
 
 static V8_INIT: OnceLock<()> = OnceLock::new();
 static BRIDGE_LOCK: ReentrantMutex<()> = const_reentrant_mutex(());
@@ -76,6 +77,15 @@ unsafe extern "C" {
         deleter: v8::BackingStoreDeleterCallback,
         deleter_data: *mut c_void,
     ) -> *mut v8::BackingStore;
+    fn snapi_v8_set_fatal_error_handler(
+        isolate: *mut v8::Isolate,
+        callback: Option<extern "C" fn(*const i8, *const i8)>,
+    );
+    fn snapi_v8_set_oom_error_handler(
+        isolate: *mut v8::Isolate,
+        callback: Option<extern "C" fn(*const i8, bool)>,
+    );
+    fn snapi_v8_try_get_current_isolate() -> *mut v8::Isolate;
 }
 
 unsafe extern "C" fn noop_backing_store_deleter(
@@ -164,9 +174,6 @@ struct CallbackBinding {
     kind: CallbackKind,
 }
 
-#[derive(Clone, Copy)]
-struct LiveStateSlot(*mut SnapiEnvState);
-
 #[derive(Clone)]
 struct ModuleImportAttributeRecord {
     key: String,
@@ -211,6 +218,9 @@ pub struct SnapiEnvState {
     runtime: Option<SnapiRuntime>,
     owner_thread: ThreadId,
     isolate_handle: v8::IsolateHandle,
+    guest_env_id: u32,
+    guest_func_env: Option<FunctionEnv<RuntimeEnv>>,
+    guest_store_raw: *mut c_void,
     values: HashMap<u32, v8::Global<v8::Value>>,
     next_value_id: u32,
     refs: HashMap<u32, RefEntry>,
@@ -238,6 +248,8 @@ pub struct SnapiEnvState {
     enqueue_foreground_task_callback: Option<u32>,
     fatal_error_callback: Option<u32>,
     oom_error_callback: Option<u32>,
+    near_heap_limit_callback: Option<u32>,
+    near_heap_limit_data: u32,
     next_cpu_profile_id: u32,
     active_cpu_profiles: Vec<u32>,
     heap_profile_started: bool,
@@ -256,6 +268,9 @@ impl SnapiEnvState {
             runtime: Some(runtime),
             owner_thread: thread::current().id(),
             isolate_handle,
+            guest_env_id: 0,
+            guest_func_env: None,
+            guest_store_raw: ptr::null_mut(),
             values: HashMap::new(),
             next_value_id: 1,
             refs: HashMap::new(),
@@ -283,6 +298,8 @@ impl SnapiEnvState {
             enqueue_foreground_task_callback: None,
             fatal_error_callback: None,
             oom_error_callback: None,
+            near_heap_limit_callback: None,
+            near_heap_limit_data: 0,
             next_cpu_profile_id: 1,
             active_cpu_profiles: Vec::new(),
             heap_profile_started: false,
@@ -328,13 +345,171 @@ fn state_from_isolate_ptr<'a>(isolate: *mut v8::Isolate) -> Option<&'a mut Snapi
     if isolate.is_null() {
         return None;
     }
-    let isolate = unsafe { &mut *isolate };
-    let slot = isolate.get_slot::<LiveStateSlot>()?;
-    if slot.0.is_null() {
-        None
-    } else {
-        Some(unsafe { &mut *slot.0 })
+    let target = isolate as *const v8::Isolate;
+    let env = LIVE_ENVS.lock().iter().copied().find_map(|entry| {
+        let env = entry as SnapiEnv;
+        let state = unsafe { env.as_ref() }?;
+        let runtime = state.runtime.as_ref()?;
+        let isolate = std::ptr::from_ref(&*runtime.isolate);
+        (isolate == target).then_some(env)
+    })?;
+    state_mut(env)
+}
+
+pub fn snapi_bridge_attach_guest_runtime(
+    env: SnapiEnv,
+    guest_env_id: u32,
+    guest_func_env: FunctionEnv<RuntimeEnv>,
+    guest_store_raw: *mut c_void,
+) {
+    bridge_lock!();
+    let Some(state) = state_mut(env) else {
+        return;
+    };
+    state.guest_env_id = guest_env_id;
+    state.guest_func_env = Some(guest_func_env);
+    state.guest_store_raw = guest_store_raw;
+}
+
+fn with_guest_env_mut<R>(
+    state: &mut SnapiEnvState,
+    f: impl FnOnce(&mut FunctionEnvMut<'_, RuntimeEnv>, u32) -> Option<R>,
+) -> Option<R> {
+    let guest_env_id = state.guest_env_id;
+    let guest_func_env = state.guest_func_env.clone()?;
+    if guest_env_id == 0 || state.guest_store_raw.is_null() {
+        return None;
     }
+    let mut store = unsafe { wasmer::StoreMut::from_raw(state.guest_store_raw) };
+    let mut env = guest_func_env.into_mut(&mut store);
+    f(&mut env, guest_env_id)
+}
+
+fn allocate_guest_c_string(
+    env: &mut FunctionEnvMut<'_, RuntimeEnv>,
+    value: Option<&CStr>,
+) -> Option<i32> {
+    let bytes = value?.to_bytes();
+    let mut data = Vec::with_capacity(bytes.len() + 1);
+    data.extend_from_slice(bytes);
+    data.push(0);
+    crate::guest::util::allocate_guest_bytes(env, &data).map(|ptr| ptr as i32)
+}
+
+fn invoke_guest_fatal_error_callback(
+    state: &mut SnapiEnvState,
+    callback_id: u32,
+    location: Option<&CStr>,
+    message: Option<&CStr>,
+) {
+    let _ = with_guest_env_mut(state, |env, guest_env_id| {
+        let location_ptr = allocate_guest_c_string(env, location).unwrap_or(0);
+        let message_ptr = allocate_guest_c_string(env, message).unwrap_or(0);
+        crate::guest::callback::call_guest_raw_function(
+            env,
+            callback_id,
+            &[
+                WasmValue::I32(guest_env_id as i32),
+                WasmValue::I32(location_ptr),
+                WasmValue::I32(message_ptr),
+            ],
+        )
+        .map(|_| ())
+    });
+}
+
+fn invoke_guest_oom_error_callback(
+    state: &mut SnapiEnvState,
+    callback_id: u32,
+    location: Option<&CStr>,
+    is_heap_oom: bool,
+) {
+    let _ = with_guest_env_mut(state, |env, guest_env_id| {
+        let location_ptr = allocate_guest_c_string(env, location).unwrap_or(0);
+        crate::guest::callback::call_guest_raw_function(
+            env,
+            callback_id,
+            &[
+                WasmValue::I32(guest_env_id as i32),
+                WasmValue::I32(location_ptr),
+                WasmValue::I32(if is_heap_oom { 1 } else { 0 }),
+                WasmValue::I32(0),
+            ],
+        )
+        .map(|_| ())
+    });
+}
+
+fn invoke_guest_near_heap_limit_callback(
+    state: &mut SnapiEnvState,
+    callback_id: u32,
+    data: u32,
+    current_heap_limit: usize,
+    initial_heap_limit: usize,
+) -> Option<usize> {
+    with_guest_env_mut(state, |env, guest_env_id| {
+        let result = crate::guest::callback::call_guest_raw_function(
+            env,
+            callback_id,
+            &[
+                WasmValue::I32(guest_env_id as i32),
+                WasmValue::I32(data as i32),
+                WasmValue::I32(current_heap_limit as i32),
+                WasmValue::I32(initial_heap_limit as i32),
+            ],
+        )?;
+        match result.first() {
+            Some(WasmValue::I32(value)) if *value > 0 => Some(*value as usize),
+            Some(WasmValue::I64(value)) if *value > 0 => Some(*value as usize),
+            _ => None,
+        }
+    })
+}
+
+extern "C" fn snapi_fatal_error_callback(location: *const i8, message: *const i8) {
+    let isolate = unsafe { snapi_v8_try_get_current_isolate() };
+    let Some(state) = state_from_isolate_ptr(isolate) else {
+        return;
+    };
+    let Some(callback_id) = state.fatal_error_callback else {
+        return;
+    };
+    let location = (!location.is_null()).then(|| unsafe { CStr::from_ptr(location) });
+    let message = (!message.is_null()).then(|| unsafe { CStr::from_ptr(message) });
+    invoke_guest_fatal_error_callback(state, callback_id, location, message);
+}
+
+extern "C" fn snapi_oom_error_callback(location: *const i8, is_heap_oom: bool) {
+    let isolate = unsafe { snapi_v8_try_get_current_isolate() };
+    let Some(state) = state_from_isolate_ptr(isolate) else {
+        return;
+    };
+    let Some(callback_id) = state.oom_error_callback else {
+        return;
+    };
+    let location = (!location.is_null()).then(|| unsafe { CStr::from_ptr(location) });
+    invoke_guest_oom_error_callback(state, callback_id, location, is_heap_oom);
+}
+
+extern "C" fn snapi_near_heap_limit_callback(
+    data: *mut c_void,
+    current_heap_limit: usize,
+    initial_heap_limit: usize,
+) -> usize {
+    let Some(state) = state_mut(data as SnapiEnv) else {
+        return current_heap_limit;
+    };
+    let Some(callback_id) = state.near_heap_limit_callback else {
+        return current_heap_limit;
+    };
+    invoke_guest_near_heap_limit_callback(
+        state,
+        callback_id,
+        state.near_heap_limit_data,
+        current_heap_limit,
+        initial_heap_limit,
+    )
+    .unwrap_or(current_heap_limit)
 }
 
 fn init_v8() {
@@ -2024,6 +2199,12 @@ fn generic_callback<'s, 'a>(
         invocation_id,
     );
     state.callback_invocations.remove(&invocation_id);
+    if let Some(exception) = state.pending_exception.take() {
+        let exception = v8::Local::new(scope, &exception);
+        eprintln!("[snapi] generic_callback throw pending exception");
+        scope.throw_exception(exception);
+        return;
+    }
     if ret_id == 0 {
         eprintln!("[snapi] generic_callback return 0");
         return;
@@ -2070,10 +2251,6 @@ pub unsafe fn snapi_bridge_unofficial_create_env(
     let isolate_handle = runtime.isolate.thread_safe_handle();
     let mut state = Box::new(SnapiEnvState::new(runtime, isolate_handle));
     let env_ptr: SnapiEnv = &mut *state;
-    if let Some(runtime) = state.runtime.as_mut() {
-        runtime.isolate.remove_slot::<LiveStateSlot>();
-        let _ = runtime.isolate.set_slot(LiveStateSlot(env_ptr));
-    }
     register_live_env(env_ptr);
     *env_out = Box::into_raw(state);
     NAPI_OK
@@ -2098,10 +2275,6 @@ pub unsafe fn snapi_bridge_unofficial_create_env_with_options(
     let isolate_handle = runtime.isolate.thread_safe_handle();
     let mut state = Box::new(SnapiEnvState::new(runtime, isolate_handle));
     let env_ptr: SnapiEnv = &mut *state;
-    if let Some(runtime) = state.runtime.as_mut() {
-        runtime.isolate.remove_slot::<LiveStateSlot>();
-        let _ = runtime.isolate.set_slot(LiveStateSlot(env_ptr));
-    }
     register_live_env(env_ptr);
     *env_out = Box::into_raw(state);
     let _ = module_api_version;
@@ -2117,7 +2290,16 @@ pub unsafe fn snapi_bridge_unofficial_release_env(env: SnapiEnv) -> i32 {
     if let Some(state) = state_mut(env)
         && let Some(mut runtime) = state.runtime.take()
     {
-        runtime.isolate.remove_slot::<LiveStateSlot>();
+        if state.near_heap_limit_callback.take().is_some() {
+            runtime
+                .isolate
+                .remove_near_heap_limit_callback(snapi_near_heap_limit_callback, 0);
+        }
+        state.near_heap_limit_data = 0;
+        unsafe {
+            snapi_v8_set_fatal_error_handler(ptr::from_mut(&mut *runtime.isolate), None);
+            snapi_v8_set_oom_error_handler(ptr::from_mut(&mut *runtime.isolate), None);
+        }
         {
             let scope = &mut v8::HandleScope::new(&mut runtime.isolate);
             let context = v8::Local::new(scope, &runtime.context);
@@ -7337,6 +7519,51 @@ pub unsafe fn snapi_bridge_unofficial_set_enqueue_foreground_task_callback(env: 
     NAPI_OK
 }
 
+pub unsafe fn snapi_bridge_unofficial_set_near_heap_limit_callback(
+    env: SnapiEnv,
+    callback_id: u32,
+    data: u32,
+) -> i32 {
+    let Some(state) = state_mut(env) else {
+        return NAPI_INVALID_ARG;
+    };
+    let Some(runtime) = state.runtime.as_mut() else {
+        return NAPI_INVALID_ARG;
+    };
+    if state.near_heap_limit_callback.is_some() {
+        runtime
+            .isolate
+            .remove_near_heap_limit_callback(snapi_near_heap_limit_callback, 0);
+    }
+    state.near_heap_limit_callback = (callback_id != 0).then_some(callback_id);
+    state.near_heap_limit_data = data;
+    if state.near_heap_limit_callback.is_some() {
+        runtime
+            .isolate
+            .add_near_heap_limit_callback(snapi_near_heap_limit_callback, env as *mut c_void);
+    }
+    NAPI_OK
+}
+
+pub unsafe fn snapi_bridge_unofficial_remove_near_heap_limit_callback(
+    env: SnapiEnv,
+    heap_limit: u32,
+) -> i32 {
+    let Some(state) = state_mut(env) else {
+        return NAPI_INVALID_ARG;
+    };
+    let Some(runtime) = state.runtime.as_mut() else {
+        return NAPI_INVALID_ARG;
+    };
+    if state.near_heap_limit_callback.take().is_some() {
+        runtime
+            .isolate
+            .remove_near_heap_limit_callback(snapi_near_heap_limit_callback, heap_limit as usize);
+    }
+    state.near_heap_limit_data = 0;
+    NAPI_OK
+}
+
 pub unsafe fn snapi_bridge_unofficial_set_fatal_error_callbacks(
     env: SnapiEnv,
     fatal_callback_id: u32,
@@ -7345,19 +7572,22 @@ pub unsafe fn snapi_bridge_unofficial_set_fatal_error_callbacks(
     let Some(state) = state_mut(env) else {
         return NAPI_INVALID_ARG;
     };
-    with_scope(state, |scope, state| {
-        for callback_id in [fatal_callback_id, oom_callback_id] {
-            if callback_id != 0 {
-                let callback = try_status!(object_value_data(state, scope, callback_id));
-                if !callback.is_function() {
-                    return NAPI_FUNCTION_EXPECTED;
-                }
-            }
-        }
-        state.fatal_error_callback = (fatal_callback_id != 0).then_some(fatal_callback_id);
-        state.oom_error_callback = (oom_callback_id != 0).then_some(oom_callback_id);
-        NAPI_OK
-    })
+    state.fatal_error_callback = (fatal_callback_id != 0).then_some(fatal_callback_id);
+    state.oom_error_callback = (oom_callback_id != 0).then_some(oom_callback_id);
+    let Some(runtime) = state.runtime.as_mut() else {
+        return NAPI_INVALID_ARG;
+    };
+    unsafe {
+        snapi_v8_set_fatal_error_handler(
+            ptr::from_mut(&mut *runtime.isolate),
+            state.fatal_error_callback.map(|_| snapi_fatal_error_callback as extern "C" fn(*const i8, *const i8)),
+        );
+        snapi_v8_set_oom_error_handler(
+            ptr::from_mut(&mut *runtime.isolate),
+            state.oom_error_callback.map(|_| snapi_oom_error_callback as extern "C" fn(*const i8, bool)),
+        );
+    }
+    NAPI_OK
 }
 
 pub unsafe fn snapi_bridge_unofficial_notify_datetime_configuration_change(env: SnapiEnv) -> i32 {

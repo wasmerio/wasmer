@@ -229,6 +229,8 @@ fn guest_unofficial_napi_create_env(
     env_out_ptr: i32,
     scope_out_ptr: i32,
 ) -> i32 {
+    let guest_func_env = env.as_ref();
+    let guest_store_raw = env.as_store_mut().as_raw();
     let mut snapi_env_state: SnapiEnv = std::ptr::null_mut();
     let status =
         unsafe { snapi_bridge_unofficial_create_env(module_api_version, &mut snapi_env_state) };
@@ -236,6 +238,12 @@ fn guest_unofficial_napi_create_env(
         return status;
     }
     let (env_id, scope_id) = env.data_mut().register_napi_env(snapi_env_state);
+    crate::snapi::snapi_bridge_attach_guest_runtime(
+        snapi_env_state,
+        env_id,
+        guest_func_env,
+        guest_store_raw,
+    );
     if env_out_ptr > 0 {
         write_guest_u32(&mut env, env_out_ptr as u32, env_id);
     }
@@ -252,6 +260,8 @@ fn guest_unofficial_napi_create_env_with_options(
     env_out_ptr: i32,
     scope_out_ptr: i32,
 ) -> i32 {
+    let guest_func_env = env.as_ref();
+    let guest_store_raw = env.as_store_mut().as_raw();
     let (
         max_young_generation_size_in_bytes,
         max_old_generation_size_in_bytes,
@@ -286,6 +296,12 @@ fn guest_unofficial_napi_create_env_with_options(
         return status;
     }
     let (env_id, scope_id) = env.data_mut().register_napi_env(snapi_env_state);
+    crate::snapi::snapi_bridge_attach_guest_runtime(
+        snapi_env_state,
+        env_id,
+        guest_func_env,
+        guest_store_raw,
+    );
     if env_out_ptr > 0 {
         write_guest_u32(&mut env, env_out_ptr as u32, env_id);
     }
@@ -1039,20 +1055,25 @@ fn guest_unofficial_napi_set_stack_limit(
 }
 
 fn guest_unofficial_napi_set_near_heap_limit_callback(
-    _env: FunctionEnvMut<RuntimeEnv>,
-    _napi_env: i32,
-    _callback: i32,
-    _data: i32,
+    env: FunctionEnvMut<RuntimeEnv>,
+    napi_env: i32,
+    callback: i32,
+    data: i32,
 ) -> i32 {
-    0
+    let env_handle = snapi_env(&env, napi_env);
+    let callback_id = if callback > 0 { callback as u32 } else { 0 };
+    let data = if data > 0 { data as u32 } else { 0 };
+    unsafe { snapi_bridge_unofficial_set_near_heap_limit_callback(env_handle, callback_id, data) }
 }
 
 fn guest_unofficial_napi_remove_near_heap_limit_callback(
-    _env: FunctionEnvMut<RuntimeEnv>,
-    _napi_env: i32,
-    _heap_limit: i32,
+    env: FunctionEnvMut<RuntimeEnv>,
+    napi_env: i32,
+    heap_limit: i32,
 ) -> i32 {
-    0
+    let env_handle = snapi_env(&env, napi_env);
+    let heap_limit = if heap_limit > 0 { heap_limit as u32 } else { 0 };
+    unsafe { snapi_bridge_unofficial_remove_near_heap_limit_callback(env_handle, heap_limit) }
 }
 
 fn guest_unofficial_napi_free_buffer(_env: FunctionEnvMut<RuntimeEnv>, _data: i32) {}

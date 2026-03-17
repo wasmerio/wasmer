@@ -58,15 +58,29 @@ impl StoreMut<'_> {
         StoreObjects::same(&a.inner.objects, &b.inner.objects)
     }
 
+    /// Exposes the underlying store pointer for advanced embedding
+    /// integrations that need to temporarily rehydrate a [`StoreMut`].
+    ///
+    /// This is not a stable interoperability boundary and should be used with
+    /// extreme care.
     #[allow(unused)]
-    pub(crate) fn as_raw(&self) -> *mut StoreInner {
+    pub fn as_raw(&self) -> *mut std::ffi::c_void {
         self.inner as *const StoreInner as *mut StoreInner
+            as *mut std::ffi::c_void
     }
 
+    /// Rehydrates a [`StoreMut`] from a pointer previously returned by
+    /// [`StoreMut::as_raw`].
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the pointer was produced by [`StoreMut::as_raw`]
+    /// for a still-live store, and that the resulting mutable borrow does not
+    /// alias any other active store borrow.
     #[allow(unused)]
-    pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
+    pub unsafe fn from_raw(raw: *mut std::ffi::c_void) -> Self {
         Self {
-            inner: unsafe { &mut *raw },
+            inner: unsafe { &mut *(raw as *mut StoreInner) },
         }
     }
 

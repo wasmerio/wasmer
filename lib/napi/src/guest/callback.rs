@@ -44,6 +44,27 @@ fn call_guest_callback(
     }
 }
 
+pub fn call_guest_raw_function(
+    env: &mut FunctionEnvMut<RuntimeEnv>,
+    wasm_fn_ptr: u32,
+    params: &[Value],
+) -> Option<Box<[Value]>> {
+    let table = env.data().table.clone()?;
+    let elem = table.get(env, wasm_fn_ptr)?;
+    let func = match elem {
+        Value::FuncRef(Some(func)) => func,
+        Value::FuncRef(None) => return None,
+        _ => return None,
+    };
+    match func.call(env, params) {
+        Ok(ret_vals) => Some(ret_vals),
+        Err(err) => {
+            eprintln!("[callback trampoline] error calling raw guest function: {err}");
+            None
+        }
+    }
+}
+
 fn flush_host_buffer_copies(
     env: &mut FunctionEnvMut<RuntimeEnv>,
     snapi_env: SnapiEnv,
