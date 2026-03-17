@@ -10,6 +10,9 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+libc.workspace = true
+parking_lot.workspace = true
+rusty_v8 = "0.32.1"
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

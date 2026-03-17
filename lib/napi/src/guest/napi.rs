@@ -329,9 +329,11 @@ fn guest_unofficial_napi_process_microtasks(
     napi_env: i32,
 ) -> i32 {
     let env_handle = snapi_env(&env, napi_env);
-    with_cb_context(&mut env, napi_env, || unsafe {
+    let status = with_cb_context(&mut env, napi_env, || unsafe {
         snapi_bridge_unofficial_process_microtasks(env_handle)
-    })
+    });
+    eprintln!("[guest napi] process_microtasks status={status}");
+    status
 }
 
 fn guest_unofficial_napi_request_gc_for_testing(
@@ -1408,6 +1410,7 @@ fn guest_unofficial_napi_contextify_compile_function(
             &mut result_id,
         )
     };
+    eprintln!("[guest napi] contextify_compile_function status={status} result_id={result_id}");
     if status == 0 && result_ptr > 0 {
         write_guest_u32(&mut env, result_ptr as u32, result_id);
     }
@@ -2625,9 +2628,11 @@ fn guest_napi_set_named_property(
     };
     let cn = CString::new(nb).unwrap_or_default();
     let snapi = snapi_env(&env, e);
-    with_cb_context(&mut env, e, || unsafe {
+    let status = with_cb_context(&mut env, e, || unsafe {
         snapi_bridge_set_named_property(snapi, o as u32, cn.as_ptr(), v as u32)
-    })
+    });
+    eprintln!("[guest napi] set_named_property status={status}");
+    status
 }
 
 fn guest_napi_get_named_property(
@@ -3464,7 +3469,10 @@ fn guest_napi_get_reference_value(
 
 // --- Handle scopes ---
 
-fn guest_napi_open_handle_scope(_env: FunctionEnvMut<RuntimeEnv>, _e: i32, _rp: i32) -> i32 {
+fn guest_napi_open_handle_scope(mut env: FunctionEnvMut<RuntimeEnv>, _e: i32, rp: i32) -> i32 {
+    if rp > 0 {
+        write_guest_u32(&mut env, rp as u32, 1);
+    }
     0
 }
 fn guest_napi_close_handle_scope(_env: FunctionEnvMut<RuntimeEnv>, _e: i32, _scope: i32) -> i32 {
@@ -4712,9 +4720,32 @@ fn guest_napi_add_finalizer(
     s
 }
 
-// --- Misc stubs ---
+// --- Misc ---
 
-fn guest_napi_get_last_error_info(_env: FunctionEnvMut<RuntimeEnv>, _e: i32, _rp: i32) -> i32 {
+fn guest_napi_get_last_error_info(mut env: FunctionEnvMut<RuntimeEnv>, _e: i32, rp: i32) -> i32 {
+    if rp <= 0 {
+        return 0;
+    }
+    let malloc_fn = env.data().malloc_fn.clone();
+    if let Some(malloc_fn) = malloc_fn {
+        let guest_ptr: i32 = {
+            let (_, mut store_ref) = env.data_and_store_mut();
+            match malloc_fn.call(&mut store_ref, 16) {
+                Ok(ptr) if ptr > 0 => ptr,
+                _ => {
+                    write_guest_u32(&mut env, rp as u32, 0);
+                    return 0;
+                }
+            }
+        };
+        write_guest_u32(&mut env, guest_ptr as u32, 0);
+        write_guest_u32(&mut env, (guest_ptr + 4) as u32, 0);
+        write_guest_u32(&mut env, (guest_ptr + 8) as u32, 0);
+        write_guest_u32(&mut env, (guest_ptr + 12) as u32, 0);
+        write_guest_u32(&mut env, rp as u32, guest_ptr as u32);
+    } else {
+        write_guest_u32(&mut env, rp as u32, 0);
+    }
     0
 }
 
