@@ -530,16 +530,12 @@ impl WasiEnv {
             }
         }
 
-        let imported_memory = if let Some(existing_memory) = import_object
+        let imported_memory = import_object
             .get_export("env", "memory")
             .and_then(|ext| match ext {
                 wasmer::Extern::Memory(memory) => Some(memory),
                 _ => None,
-            }) {
-            Some(existing_memory)
-        } else {
-            None
-        };
+            });
 
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {
