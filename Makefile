@@ -162,10 +162,10 @@ else ifneq (, $(shell which llvm-config-22 2>/dev/null))
 	export LLVM_SYS_221_PREFIX = $(shell llvm-config-22 --prefix)
 else ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
-	ifneq (, $(findstring 21,$(LLVM_VERSION)))
+	ifneq (, $(findstring 22,$(LLVM_VERSION)))
 		compilers += llvm
 		export LLVM_SYS_221_PREFIX = $(shell llvm-config --prefix)
-	else ifneq (, $(findstring 21,$(LLVM_VERSION)))
+	else ifneq (, $(findstring 22,$(LLVM_VERSION)))
 		compilers += llvm
 		export LLVM_SYS_221_PREFIX = $(shell llvm-config --prefix)
 	endif
