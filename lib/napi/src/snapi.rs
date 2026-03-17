@@ -640,20 +640,6 @@ unsafe extern "C" {
         byte_length: u32,
         out_id: *mut u32,
     ) -> i32;
-    pub fn snapi_bridge_create_external_arraybuffer(
-        env: SnapiEnv,
-        data_addr: u64,
-        byte_length: u32,
-        backing_store_token_out: *mut u64,
-        out_id: *mut u32,
-    ) -> i32;
-    pub fn snapi_bridge_create_external_buffer(
-        env: SnapiEnv,
-        data_addr: u64,
-        byte_length: u32,
-        backing_store_token_out: *mut u64,
-        out_id: *mut u32,
-    ) -> i32;
     pub fn snapi_bridge_get_arraybuffer_info(
         env: SnapiEnv,
         id: u32,

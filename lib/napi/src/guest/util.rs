@@ -4,7 +4,7 @@
 
 use wasmer::FunctionEnvMut;
 
-use crate::{GuestBackingStoreMapping, HostBufferCopy, RuntimeEnv};
+use crate::{GuestBackingStoreMapping, RuntimeEnv};
 
 pub fn write_guest_bytes(
     env: &mut FunctionEnvMut<RuntimeEnv>,
@@ -75,18 +75,6 @@ pub fn allocate_guest_bytes(env: &mut FunctionEnvMut<RuntimeEnv>, data: &[u8]) -
     Some(guest_ptr as u32)
 }
 
-pub fn host_ptr_to_guest_ptr(env: &mut FunctionEnvMut<RuntimeEnv>, host_addr: u64) -> Option<u32> {
-    let memory = env.data().memory.clone()?;
-    let (_, store_ref) = env.data_and_store_mut();
-    let view = memory.view(&store_ref);
-    let host_base = view.data_ptr() as u64;
-    let memory_len = view.data_size() as u64;
-    if host_addr < host_base || host_addr >= host_base + memory_len {
-        return None;
-    }
-    u32::try_from(host_addr - host_base).ok()
-}
-
 pub fn resolve_guest_backing_store_mapping(
     mapping: &GuestBackingStoreMapping,
     host_addr: u64,
@@ -99,60 +87,6 @@ pub fn resolve_guest_backing_store_mapping(
     }
     let guest_delta = u32::try_from(delta).ok()?;
     mapping.guest_ptr.checked_add(guest_delta)
-}
-
-pub fn resolve_or_copy_host_data_to_guest(
-    env: &mut FunctionEnvMut<RuntimeEnv>,
-    handle_id: u32,
-    backing_store_token: u64,
-    host_addr: u64,
-    byte_len: usize,
-) -> Option<u32> {
-    if backing_store_token != 0
-        && let Some(mapping) = env
-            .data()
-            .guest_data_backing_stores
-            .get(&backing_store_token)
-        && let Some(guest_data_ptr) =
-            resolve_guest_backing_store_mapping(mapping, host_addr, byte_len)
-    {
-        env.data_mut()
-            .guest_data_ptrs
-            .insert(handle_id, guest_data_ptr);
-        return Some(guest_data_ptr);
-    }
-    if let Some(&guest_data_ptr) = env.data().guest_data_ptrs.get(&handle_id) {
-        return Some(guest_data_ptr);
-    }
-    if host_addr == 0 {
-        return Some(0);
-    }
-    if let Some(guest_ptr) = host_ptr_to_guest_ptr(env, host_addr) {
-        return Some(guest_ptr);
-    }
-    if byte_len == 0 {
-        return Some(0);
-    }
-    let host_slice = unsafe { std::slice::from_raw_parts(host_addr as *const u8, byte_len) };
-    let guest_ptr = allocate_guest_bytes(env, host_slice)?;
-    if backing_store_token != 0 {
-        env.data_mut().guest_data_backing_stores.insert(
-            backing_store_token,
-            GuestBackingStoreMapping {
-                host_addr,
-                guest_ptr,
-                byte_len,
-            },
-        );
-    }
-    env.data_mut().guest_data_ptrs.insert(handle_id, guest_ptr);
-    env.data_mut().host_buffer_copies.push(HostBufferCopy {
-        handle_id,
-        backing_store_token,
-        guest_ptr,
-        byte_len,
-    });
-    Some(guest_ptr)
 }
 
 pub fn read_guest_u32_array(

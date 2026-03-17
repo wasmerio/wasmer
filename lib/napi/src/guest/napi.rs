@@ -12,7 +12,7 @@ use crate::{
     RuntimeEnv,
     guest::{
         MAX_GUEST_CSTRING_SCAN,
-        callback::{flush_host_buffer_copies_since, with_callback_state},
+        callback::{flush_staged_host_buffer_views_to_host, with_callback_state},
     },
     snapi::*,
 };
@@ -50,6 +50,16 @@ fn with_cb_context<R>(
 
 fn snapi_env(env: &FunctionEnvMut<RuntimeEnv>, guest_env: i32) -> SnapiEnv {
     env.data().resolve_napi_env(guest_env)
+}
+
+fn sync_staged_host_buffers_to_host(env: &mut FunctionEnvMut<RuntimeEnv>, guest_env: i32) {
+    let snapi_env = env.data().resolve_napi_env(guest_env);
+    flush_staged_host_buffer_views_to_host(env, snapi_env);
+}
+
+fn host_buffer_view_key(handle_id: u32, backing_store_token: u64) -> crate::HostBufferViewKey {
+    let _ = backing_store_token;
+    crate::HostBufferViewKey::Handle(handle_id)
 }
 
 fn write_guest_pod<T>(env: &mut FunctionEnvMut<RuntimeEnv>, guest_ptr: i32, value: &T) -> bool {
@@ -95,7 +105,7 @@ fn copy_host_buffer_to_guest(
     0
 }
 
-fn remember_guest_backing_store(
+fn remember_host_buffer_view(
     env: &mut FunctionEnvMut<RuntimeEnv>,
     handle_id: u32,
     backing_store_token: u64,
@@ -115,51 +125,61 @@ fn remember_guest_backing_store(
             },
         );
     }
-}
-
-// TODO: Route Buffer/ArrayBuffer allocation through guest memory from the start
-// so host-owned buffers do not need snapshot-and-flush fallback synchronization.
-fn remember_host_buffer_copy(
-    env: &mut FunctionEnvMut<RuntimeEnv>,
-    handle_id: u32,
-    backing_store_token: u64,
-    host_addr: u64,
-    guest_ptr: u32,
-    byte_len: usize,
-) {
-    {
-        let state = env.data_mut();
-        state.guest_data_ptrs.insert(handle_id, guest_ptr);
-        if backing_store_token != 0 {
-            state.guest_data_backing_stores.insert(
-                backing_store_token,
-                crate::GuestBackingStoreMapping {
-                    host_addr,
-                    guest_ptr,
-                    byte_len,
-                },
-            );
-        }
-        state.host_buffer_copies.push(crate::HostBufferCopy {
+    state.host_buffer_views.insert(
+        host_buffer_view_key(handle_id, backing_store_token),
+        crate::HostBufferView {
             handle_id,
-            backing_store_token,
             guest_ptr,
             byte_len,
-        });
-    }
+            guest_dirty: true,
+        },
+    );
 }
 
-fn begin_host_buffer_method_frame(env: &mut FunctionEnvMut<RuntimeEnv>) {
-    let start = env.data().host_buffer_copies.len();
-    env.data_mut().host_buffer_method_frames.push(start);
-}
-
-fn flush_host_buffer_method_frame(env: &mut FunctionEnvMut<RuntimeEnv>, guest_env: i32) {
-    let Some(start) = env.data_mut().host_buffer_method_frames.pop() else {
-        return;
+fn refresh_host_buffer_view_from_host(
+    env: &mut FunctionEnvMut<RuntimeEnv>,
+    guest_env: i32,
+    handle_id: u32,
+    guest_ptr: u32,
+    byte_len: usize,
+) -> bool {
+    let mut snapshot_ptr = 0u64;
+    let mut snapshot_len = 0u32;
+    let status = unsafe {
+        snapi_bridge_snapshot_value_bytes(
+            snapi_env(env, guest_env),
+            handle_id,
+            &mut snapshot_ptr,
+            &mut snapshot_len,
+        )
     };
-    let snapi = env.data().resolve_napi_env(guest_env);
-    flush_host_buffer_copies_since(env, snapi, start);
+    if status != 0 {
+        return false;
+    }
+
+    let copy_len = usize::min(snapshot_len as usize, byte_len);
+    if copy_len > 0 {
+        let snapshot = unsafe { std::slice::from_raw_parts(snapshot_ptr as *const u8, copy_len) };
+        if !write_guest_bytes(env, guest_ptr, snapshot) {
+            if snapshot_ptr != 0 {
+                unsafe { snapi_bridge_unofficial_free_buffer(snapshot_ptr as *mut c_void) };
+            }
+            return false;
+        }
+    }
+    if copy_len < byte_len {
+        let zeros = vec![0u8; byte_len - copy_len];
+        if !write_guest_bytes(env, guest_ptr + copy_len as u32, &zeros) {
+            if snapshot_ptr != 0 {
+                unsafe { snapi_bridge_unofficial_free_buffer(snapshot_ptr as *mut c_void) };
+            }
+            return false;
+        }
+    }
+    if snapshot_ptr != 0 {
+        unsafe { snapi_bridge_unofficial_free_buffer(snapshot_ptr as *mut c_void) };
+    }
+    true
 }
 
 fn resolve_current_host_data_to_guest(
@@ -178,12 +198,52 @@ fn resolve_current_host_data_to_guest(
         && let Some(guest_data_ptr) =
             resolve_guest_backing_store_mapping(mapping, host_addr, byte_len)
     {
+        let key = host_buffer_view_key(handle_id, backing_store_token);
+        let mut needs_refresh = true;
+        if let Some(view) = env.data_mut().host_buffer_views.get_mut(&key) {
+            view.handle_id = handle_id;
+            needs_refresh = !view.guest_dirty;
+        } else {
+            env.data_mut().host_buffer_views.insert(
+                key,
+                crate::HostBufferView {
+                    handle_id,
+                    guest_ptr: guest_data_ptr,
+                    byte_len,
+                    guest_dirty: false,
+                },
+            );
+        }
+        if needs_refresh
+            && !refresh_host_buffer_view_from_host(env, guest_env, handle_id, guest_data_ptr, byte_len)
+        {
+            return None;
+        }
         env.data_mut()
             .guest_data_ptrs
             .insert(handle_id, guest_data_ptr);
+        if let Some(view) = env.data_mut().host_buffer_views.get_mut(&key) {
+            view.guest_ptr = guest_data_ptr;
+            view.byte_len = byte_len;
+            view.guest_dirty = true;
+        }
         return Some(guest_data_ptr);
     }
     if let Some(&guest_data_ptr) = env.data().guest_data_ptrs.get(&handle_id) {
+        let key = host_buffer_view_key(handle_id, backing_store_token);
+        let mut needs_refresh = false;
+        if let Some(view) = env.data_mut().host_buffer_views.get_mut(&key) {
+            view.handle_id = handle_id;
+            needs_refresh = !view.guest_dirty;
+        }
+        if needs_refresh
+            && !refresh_host_buffer_view_from_host(env, guest_env, handle_id, guest_data_ptr, byte_len)
+        {
+            return None;
+        }
+        if let Some(view) = env.data_mut().host_buffer_views.get_mut(&key) {
+            view.guest_dirty = true;
+        }
         return Some(guest_data_ptr);
     }
     if host_addr == 0 {
@@ -207,7 +267,7 @@ fn resolve_current_host_data_to_guest(
         let snapshot = unsafe { std::slice::from_raw_parts(snapshot_ptr as *const u8, byte_len) };
         let guest_ptr = allocate_guest_bytes(env, snapshot)?;
         unsafe { snapi_bridge_unofficial_free_buffer(snapshot_ptr as *mut c_void) };
-        remember_host_buffer_copy(
+        remember_host_buffer_view(
             env,
             handle_id,
             backing_store_token,
@@ -215,13 +275,43 @@ fn resolve_current_host_data_to_guest(
             guest_ptr,
             byte_len,
         );
+        if let Some(view) = env
+            .data_mut()
+            .host_buffer_views
+            .get_mut(&host_buffer_view_key(handle_id, backing_store_token))
+        {
+            view.guest_dirty = false;
+        }
         return Some(guest_ptr);
     }
     if snapshot_ptr != 0 {
         unsafe { snapi_bridge_unofficial_free_buffer(snapshot_ptr as *mut c_void) };
     }
 
-    resolve_or_copy_host_data_to_guest(env, handle_id, backing_store_token, host_addr, byte_len)
+    None
+}
+
+fn stage_new_host_buffer_view(
+    env: &mut FunctionEnvMut<RuntimeEnv>,
+    handle_id: u32,
+    backing_store_token: u64,
+    host_addr: u64,
+    data: &[u8],
+) -> Option<u32> {
+    let guest_ptr = if data.is_empty() {
+        0
+    } else {
+        allocate_guest_bytes(env, data)?
+    };
+    remember_host_buffer_view(
+        env,
+        handle_id,
+        backing_store_token,
+        host_addr,
+        guest_ptr,
+        data.len(),
+    );
+    Some(guest_ptr)
 }
 
 fn guest_unofficial_napi_create_env(
@@ -2057,7 +2147,6 @@ fn guest_napi_create_int32(
     let s = unsafe { snapi_bridge_create_int32(snapi_env(&env, e), value, &mut out) };
     if s == 0 {
         write_guest_u32(&mut env, rp as u32, out);
-        flush_host_buffer_method_frame(&mut env, e);
     }
     s
 }
@@ -2966,72 +3055,42 @@ fn guest_napi_create_arraybuffer(
     data_ptr: i32,
     rp: i32,
 ) -> i32 {
-    // Try to create a guest-memory-backed ArrayBuffer (for WASIX)
-    let malloc_fn = env.data().malloc_fn.clone();
-    let memory = env.data().memory.clone();
+    let mut out: u32 = 0;
+    let s = unsafe { snapi_bridge_create_arraybuffer(snapi_env(&env, e), byte_length as u32, &mut out) };
+    if s != 0 {
+        return s;
+    }
 
-    if let (Some(malloc_fn), Some(memory)) = (malloc_fn, memory) {
-        // Allocate memory in the guest's linear memory
-        let guest_ptr: i32 = {
-            let (_, mut store_ref) = env.data_and_store_mut();
-            match malloc_fn.call(&mut store_ref, byte_length) {
-                Ok(ptr) if ptr > 0 => ptr,
-                _ => return 1, // allocation failed
-            }
-        };
-
-        // Get host pointer corresponding to the guest allocation
-        let host_addr: u64 = {
-            let (_, store_ref) = env.data_and_store_mut();
-            let view = memory.view(&store_ref);
-            let host_base = view.data_ptr() as u64;
-            host_base + guest_ptr as u64
-        };
-
-        // Zero-initialize the guest memory region
-        {
-            let zeros = vec![0u8; byte_length as usize];
-            write_guest_bytes(&mut env, guest_ptr as u32, &zeros);
-        }
-
-        // Create external arraybuffer backed by guest memory
-        let mut out: u32 = 0;
+    write_guest_u32(&mut env, rp as u32, out);
+    if data_ptr > 0 {
+        let mut host_data_addr: u64 = 0;
+        let mut actual_len: u32 = 0;
         let mut backing_store_token: u64 = 0;
-        let s = unsafe {
-            snapi_bridge_create_external_arraybuffer(
+        let info_status = unsafe {
+            snapi_bridge_get_arraybuffer_info(
                 snapi_env(&env, e),
-                host_addr,
-                byte_length as u32,
+                out,
+                &mut host_data_addr,
+                &mut actual_len,
                 &mut backing_store_token,
-                &mut out,
             )
         };
-        if s == 0 {
-            remember_guest_backing_store(
-                &mut env,
-                out,
-                backing_store_token,
-                host_addr,
-                guest_ptr as u32,
-                byte_length as usize,
-            );
-            write_guest_u32(&mut env, rp as u32, out);
-            if data_ptr > 0 {
-                write_guest_u32(&mut env, data_ptr as u32, guest_ptr as u32);
-            }
+        if info_status != 0 {
+            return info_status;
         }
-        s
-    } else {
-        // Fallback: host-memory-backed arraybuffer (non-WASIX path)
-        let mut out: u32 = 0;
-        let s = unsafe {
-            snapi_bridge_create_arraybuffer(snapi_env(&env, e), byte_length as u32, &mut out)
+        let zeros = vec![0u8; actual_len as usize];
+        let Some(guest_ptr) = stage_new_host_buffer_view(
+            &mut env,
+            out,
+            backing_store_token,
+            host_data_addr,
+            &zeros,
+        ) else {
+            return 1;
         };
-        if s == 0 {
-            write_guest_u32(&mut env, rp as u32, out);
-        }
-        s
+        write_guest_u32(&mut env, data_ptr as u32, guest_ptr);
     }
+    0
 }
 
 fn guest_napi_create_external_arraybuffer(
@@ -3043,41 +3102,54 @@ fn guest_napi_create_external_arraybuffer(
     _finalize_hint: i32,
     rp: i32,
 ) -> i32 {
-    let memory = env.data().memory.clone();
-    let Some(memory) = memory else {
+    let Some(source_bytes) = read_guest_bytes(&mut env, external_data, byte_length as usize) else {
         return 1;
     };
 
-    let host_addr: u64 = {
-        let (_, store_ref) = env.data_and_store_mut();
-        let view = memory.view(&store_ref);
-        let host_base = view.data_ptr() as u64;
-        host_base + external_data as u64
-    };
-
     let mut out: u32 = 0;
+    let s = unsafe { snapi_bridge_create_arraybuffer(snapi_env(&env, e), byte_length as u32, &mut out) };
+    if s != 0 {
+        return s;
+    }
+
+    let mut host_addr: u64 = 0;
+    let mut actual_len: u32 = 0;
     let mut backing_store_token: u64 = 0;
-    let s = unsafe {
-        snapi_bridge_create_external_arraybuffer(
+    let info_status = unsafe {
+        snapi_bridge_get_arraybuffer_info(
             snapi_env(&env, e),
-            host_addr,
-            byte_length as u32,
+            out,
+            &mut host_addr,
+            &mut actual_len,
             &mut backing_store_token,
-            &mut out,
         )
     };
-    if s == 0 {
-        remember_guest_backing_store(
-            &mut env,
-            out,
-            backing_store_token,
-            host_addr,
-            external_data as u32,
-            byte_length as usize,
-        );
-        write_guest_u32(&mut env, rp as u32, out);
+    if info_status != 0 {
+        return info_status;
     }
-    s
+
+    let overwrite_status = unsafe {
+        snapi_bridge_overwrite_value_bytes(
+            snapi_env(&env, e),
+            out,
+            source_bytes.as_ptr().cast(),
+            byte_length as u32,
+        )
+    };
+    if overwrite_status != 0 {
+        return overwrite_status;
+    }
+
+    remember_host_buffer_view(
+        &mut env,
+        out,
+        backing_store_token,
+        host_addr,
+        external_data as u32,
+        actual_len as usize,
+    );
+    write_guest_u32(&mut env, rp as u32, out);
+    0
 }
 
 fn guest_napi_create_external_buffer(
@@ -3089,41 +3161,50 @@ fn guest_napi_create_external_buffer(
     _finalize_hint: i32,
     rp: i32,
 ) -> i32 {
-    let memory = env.data().memory.clone();
-    let Some(memory) = memory else {
+    let Some(source_bytes) = read_guest_bytes(&mut env, external_data, byte_length as usize) else {
         return 1;
     };
 
-    let host_addr: u64 = {
-        let (_, store_ref) = env.data_and_store_mut();
-        let view = memory.view(&store_ref);
-        let host_base = view.data_ptr() as u64;
-        host_base + external_data as u64
-    };
-
+    let mut host_addr: u64 = 0;
     let mut out: u32 = 0;
-    let mut backing_store_token: u64 = 0;
     let s = unsafe {
-        snapi_bridge_create_external_buffer(
+        snapi_bridge_create_buffer_copy(
             snapi_env(&env, e),
-            host_addr,
             byte_length as u32,
-            &mut backing_store_token,
+            source_bytes.as_ptr(),
+            &mut host_addr,
             &mut out,
         )
     };
-    if s == 0 {
-        remember_guest_backing_store(
-            &mut env,
-            out,
-            backing_store_token,
-            host_addr,
-            external_data as u32,
-            byte_length as usize,
-        );
-        write_guest_u32(&mut env, rp as u32, out);
+    if s != 0 {
+        return s;
     }
-    s
+
+    let mut actual_len: u32 = 0;
+    let mut backing_store_token: u64 = 0;
+    let info_status = unsafe {
+        snapi_bridge_get_buffer_info(
+            snapi_env(&env, e),
+            out,
+            &mut host_addr,
+            &mut actual_len,
+            &mut backing_store_token,
+        )
+    };
+    if info_status != 0 {
+        return info_status;
+    }
+
+    remember_host_buffer_view(
+        &mut env,
+        out,
+        backing_store_token,
+        host_addr,
+        external_data as u32,
+        actual_len as usize,
+    );
+    write_guest_u32(&mut env, rp as u32, out);
+    0
 }
 
 fn guest_napi_get_arraybuffer_info(
@@ -3133,6 +3214,7 @@ fn guest_napi_get_arraybuffer_info(
     data_ptr: i32,
     len_ptr: i32,
 ) -> i32 {
+    sync_staged_host_buffers_to_host(&mut env, e);
     let mut host_data_addr: u64 = 0;
     let mut bl: u32 = 0;
     let mut backing_store_token: u64 = 0;
@@ -3222,10 +3304,15 @@ fn guest_node_api_create_sharedarraybuffer(
     }
 
     if data_ptr > 0 {
-        write_guest_u32(&mut env, data_ptr as u32, host_data_addr as u32);
+        let zeros = vec![0u8; byte_length as usize];
+        let Some(guest_ptr) = stage_new_host_buffer_view(&mut env, out, 0, host_data_addr, &zeros)
+        else {
+            return 1;
+        };
+        write_guest_u32(&mut env, data_ptr as u32, guest_ptr);
     }
     write_guest_u32(&mut env, rp as u32, out);
-    s
+    0
 }
 
 fn guest_node_api_set_prototype(
@@ -3252,6 +3339,7 @@ fn guest_napi_create_typedarray(
     offset: i32,
     rp: i32,
 ) -> i32 {
+    sync_staged_host_buffers_to_host(&mut env, e);
     let mut out: u32 = 0;
     let s = unsafe {
         snapi_bridge_create_typedarray(
@@ -3279,6 +3367,7 @@ fn guest_napi_get_typedarray_info(
     abp: i32,
     bop: i32,
 ) -> i32 {
+    sync_staged_host_buffers_to_host(&mut env, e);
     let mut typ: i32 = 0;
     let mut len: u32 = 0;
     let mut host_data_addr: u64 = 0;
@@ -3344,6 +3433,7 @@ fn guest_napi_create_dataview(
     bo: i32,
     rp: i32,
 ) -> i32 {
+    sync_staged_host_buffers_to_host(&mut env, e);
     let mut out: u32 = 0;
     let s = unsafe {
         snapi_bridge_create_dataview(
@@ -3369,6 +3459,7 @@ fn guest_napi_get_dataview_info(
     abp: i32,
     bop: i32,
 ) -> i32 {
+    sync_staged_host_buffers_to_host(&mut env, e);
     let mut bl: u32 = 0;
     let mut host_data_addr: u64 = 0;
     let mut ab: u32 = 0;
@@ -3649,7 +3740,6 @@ fn guest_napi_get_cb_info(
     this_ptr: i32,
     data_ptr: i32,
 ) -> i32 {
-    begin_host_buffer_method_frame(&mut env);
     // Read the caller's requested argc (size of their argv array)
     let wanted: u32 = if argc_ptr > 0 {
         let Some(bytes) = read_guest_bytes(&mut env, argc_ptr, 4) else {
@@ -4383,76 +4473,40 @@ fn guest_napi_create_buffer(
     data_ptr: i32,
     rp: i32,
 ) -> i32 {
-    // Buffers must be backed by guest linear memory (same pattern as create_arraybuffer)
-    let malloc_fn = env.data().malloc_fn.clone();
-    let memory = env.data().memory.clone();
-
-    if let (Some(malloc_fn), Some(memory)) = (malloc_fn, memory) {
-        // Allocate memory in the guest's linear memory
-        let guest_ptr: i32 = {
-            let (_, mut store_ref) = env.data_and_store_mut();
-            match malloc_fn.call(&mut store_ref, length) {
-                Ok(ptr) if ptr > 0 => ptr,
-                _ => return 1,
-            }
-        };
-
-        // Get host pointer corresponding to the guest allocation
-        let host_addr: u64 = {
-            let (_, store_ref) = env.data_and_store_mut();
-            let view = memory.view(&store_ref);
-            let host_base = view.data_ptr() as u64;
-            host_base + guest_ptr as u64
-        };
-
-        // Zero-initialize the guest memory region
-        if length > 0 {
-            let zeros = vec![0u8; length as usize];
-            write_guest_bytes(&mut env, guest_ptr as u32, &zeros);
-        }
-
-        let mut buf_id: u32 = 0;
-        let mut backing_store_token: u64 = 0;
-        let s = unsafe {
-            snapi_bridge_create_external_buffer(
-                snapi_env(&env, e),
-                host_addr,
-                length as u32,
-                &mut backing_store_token,
-                &mut buf_id,
-            )
-        };
-        if s != 0 {
-            return s;
-        }
-
-        remember_guest_backing_store(
-            &mut env,
-            buf_id,
-            backing_store_token,
-            host_addr,
-            guest_ptr as u32,
-            length as usize,
-        );
-
-        write_guest_u32(&mut env, rp as u32, buf_id);
-        if data_ptr > 0 {
-            write_guest_u32(&mut env, data_ptr as u32, guest_ptr as u32);
-        }
-        0
-    } else {
-        // Fallback for non-WASIX: use bridge directly
-        let mut host_data: u64 = 0;
-        let mut out: u32 = 0;
-        let s = unsafe {
-            snapi_bridge_create_buffer(snapi_env(&env, e), length as u32, &mut host_data, &mut out)
-        };
-        if s != 0 {
-            return s;
-        }
-        write_guest_u32(&mut env, rp as u32, out);
-        0
+    let mut host_data: u64 = 0;
+    let mut out: u32 = 0;
+    let s =
+        unsafe { snapi_bridge_create_buffer(snapi_env(&env, e), length as u32, &mut host_data, &mut out) };
+    if s != 0 {
+        return s;
     }
+
+    let mut actual_len: u32 = 0;
+    let mut backing_store_token: u64 = 0;
+    let info_status = unsafe {
+        snapi_bridge_get_buffer_info(
+            snapi_env(&env, e),
+            out,
+            &mut host_data,
+            &mut actual_len,
+            &mut backing_store_token,
+        )
+    };
+    if info_status != 0 {
+        return info_status;
+    }
+
+    write_guest_u32(&mut env, rp as u32, out);
+    if data_ptr > 0 {
+        let zeros = vec![0u8; actual_len as usize];
+        let Some(guest_ptr) =
+            stage_new_host_buffer_view(&mut env, out, backing_store_token, host_data, &zeros)
+        else {
+            return 1;
+        };
+        write_guest_u32(&mut env, data_ptr as u32, guest_ptr);
+    }
+    0
 }
 
 fn guest_napi_create_buffer_copy(
@@ -4463,82 +4517,54 @@ fn guest_napi_create_buffer_copy(
     result_data_ptr: i32,
     rp: i32,
 ) -> i32 {
-    // Read source data from guest memory first
     let Some(src_data) = read_guest_bytes(&mut env, data_ptr, length as usize) else {
         return 1;
     };
 
-    let malloc_fn = env.data().malloc_fn.clone();
-    let memory = env.data().memory.clone();
-
-    if let (Some(malloc_fn), Some(memory)) = (malloc_fn, memory) {
-        // Allocate memory in the guest's linear memory
-        let guest_ptr: i32 = {
-            let (_, mut store_ref) = env.data_and_store_mut();
-            match malloc_fn.call(&mut store_ref, length) {
-                Ok(ptr) if ptr > 0 => ptr,
-                _ => return 1,
-            }
-        };
-
-        // Copy source data to guest memory
-        write_guest_bytes(&mut env, guest_ptr as u32, &src_data);
-
-        // Get host pointer corresponding to the guest allocation
-        let host_addr: u64 = {
-            let (_, store_ref) = env.data_and_store_mut();
-            let view = memory.view(&store_ref);
-            let host_base = view.data_ptr() as u64;
-            host_base + guest_ptr as u64
-        };
-
-        let mut buf_id: u32 = 0;
-        let mut backing_store_token: u64 = 0;
-        let s = unsafe {
-            snapi_bridge_create_external_buffer(
-                snapi_env(&env, e),
-                host_addr,
-                length as u32,
-                &mut backing_store_token,
-                &mut buf_id,
-            )
-        };
-        if s != 0 {
-            return s;
-        }
-
-        remember_guest_backing_store(
-            &mut env,
-            buf_id,
-            backing_store_token,
-            host_addr,
-            guest_ptr as u32,
-            length as usize,
-        );
-
-        write_guest_u32(&mut env, rp as u32, buf_id);
-        if result_data_ptr > 0 {
-            write_guest_u32(&mut env, result_data_ptr as u32, guest_ptr as u32);
-        }
-        0
-    } else {
-        // Fallback for non-WASIX
-        let mut result_host_data: u64 = 0;
-        let mut out: u32 = 0;
-        let s = unsafe {
-            snapi_bridge_create_buffer_copy(
-                snapi_env(&env, e),
-                length as u32,
-                src_data.as_ptr(),
-                &mut result_host_data,
-                &mut out,
-            )
-        };
-        if s == 0 {
-            write_guest_u32(&mut env, rp as u32, out);
-        }
-        s
+    let mut result_host_data: u64 = 0;
+    let mut out: u32 = 0;
+    let s = unsafe {
+        snapi_bridge_create_buffer_copy(
+            snapi_env(&env, e),
+            length as u32,
+            src_data.as_ptr(),
+            &mut result_host_data,
+            &mut out,
+        )
+    };
+    if s != 0 {
+        return s;
     }
+
+    let mut actual_len: u32 = 0;
+    let mut backing_store_token: u64 = 0;
+    let info_status = unsafe {
+        snapi_bridge_get_buffer_info(
+            snapi_env(&env, e),
+            out,
+            &mut result_host_data,
+            &mut actual_len,
+            &mut backing_store_token,
+        )
+    };
+    if info_status != 0 {
+        return info_status;
+    }
+
+    write_guest_u32(&mut env, rp as u32, out);
+    if result_data_ptr > 0 {
+        let Some(guest_ptr) = stage_new_host_buffer_view(
+            &mut env,
+            out,
+            backing_store_token,
+            result_host_data,
+            &src_data,
+        ) else {
+            return 1;
+        };
+        write_guest_u32(&mut env, result_data_ptr as u32, guest_ptr);
+    }
+    0
 }
 
 guest_is_check!(guest_napi_is_buffer, snapi_bridge_is_buffer);
@@ -4550,6 +4576,7 @@ fn guest_napi_get_buffer_info(
     data_ptr: i32,
     len_ptr: i32,
 ) -> i32 {
+    sync_staged_host_buffers_to_host(&mut env, e);
     let mut host_data: u64 = 0;
     let mut bl: u32 = 0;
     let mut backing_store_token: u64 = 0;

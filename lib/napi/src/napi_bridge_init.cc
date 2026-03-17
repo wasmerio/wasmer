@@ -86,6 +86,13 @@ struct CallbackBinding {
   uint32_t reg_id = 0;
 };
 
+struct ForegroundTaskDispatch {
+  napi_env env = nullptr;
+  unofficial_napi_foreground_task_callback callback = nullptr;
+  unofficial_napi_foreground_task_cleanup cleanup = nullptr;
+  void* data = nullptr;
+};
+
 std::unordered_set<SnapiEnvState*> g_envs;
 
 CallbackBinding* RegisterCallbackBinding(SnapiEnvState* state, uint32_t reg_id) {
@@ -400,6 +407,50 @@ napi_status DisposeBridgeStateLocked(SnapiEnvState* state) {
   g_envs.erase(state);
   delete state;
   return napi_ok;
+}
+
+void RunForegroundTaskDispatch(napi_env env, void* raw) {
+  auto* dispatch = static_cast<ForegroundTaskDispatch*>(raw);
+  if (dispatch == nullptr) return;
+  if (dispatch->callback != nullptr) {
+    dispatch->callback(env, dispatch->data);
+  }
+  if (dispatch->cleanup != nullptr) {
+    dispatch->cleanup(env, dispatch->data);
+  }
+  delete dispatch;
+}
+
+napi_status ScheduleForegroundTaskDispatch(ForegroundTaskDispatch* dispatch) {
+  if (dispatch == nullptr || dispatch->env == nullptr || dispatch->callback == nullptr) {
+    return napi_invalid_arg;
+  }
+  napi_status status =
+      unofficial_napi_request_interrupt(dispatch->env, RunForegroundTaskDispatch, dispatch);
+  if (status != napi_ok) {
+    if (dispatch->cleanup != nullptr) {
+      dispatch->cleanup(dispatch->env, dispatch->data);
+    }
+    delete dispatch;
+  }
+  return status;
+}
+
+napi_status EnqueueForegroundTaskFromEngine(
+    void* target,
+    unofficial_napi_foreground_task_callback callback,
+    void* data,
+    unofficial_napi_foreground_task_cleanup cleanup,
+    uint64_t delay_millis) {
+  napi_env env = static_cast<napi_env>(target);
+  if (env == nullptr || callback == nullptr) return napi_invalid_arg;
+  // Keep delayed engine work on V8's fallback runner until we have a
+  // bridge-owned timer queue with env lifetime tracking.
+  if (delay_millis != 0) return napi_generic_failure;
+  auto* dispatch =
+      new (std::nothrow) ForegroundTaskDispatch{env, callback, cleanup, data};
+  if (dispatch == nullptr) return napi_generic_failure;
+  return ScheduleForegroundTaskDispatch(dispatch);
 }
 
 }  // namespace
@@ -2732,9 +2783,8 @@ extern "C" int snapi_bridge_unofficial_set_enqueue_foreground_task_callback(
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
   std::lock_guard<std::recursive_mutex> lock(g_mu);
-  // Keep parity with the previous bridge behavior (no custom foreground task hook).
-  // The runtime still drives microtasks via unofficial_napi_process_microtasks.
-  return napi_ok;
+  return unofficial_napi_set_enqueue_foreground_task_callback(
+      env, EnqueueForegroundTaskFromEngine, env);
 }
 
 extern "C" int snapi_bridge_unofficial_set_fatal_error_callbacks(

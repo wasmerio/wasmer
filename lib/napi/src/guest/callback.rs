@@ -4,7 +4,7 @@ use wasmer::{FunctionEnvMut, Table, Value};
 
 use crate::{RuntimeEnv, snapi::SnapiEnv};
 
-use super::util::read_guest_bytes;
+use super::util::{write_guest_bytes, read_guest_bytes};
 
 type RawFunctionEnvMut = FunctionEnvMut<'static, RuntimeEnv>;
 
@@ -44,84 +44,88 @@ fn call_guest_callback(
     }
 }
 
-fn flush_host_buffer_copies(
+pub fn flush_staged_host_buffer_views_to_host(
     env: &mut FunctionEnvMut<RuntimeEnv>,
     snapi_env: SnapiEnv,
-    frame_start: usize,
 ) {
-    flush_host_buffer_copies_since(env, snapi_env, frame_start);
-    env.data_mut().host_buffer_copy_frames.pop();
-}
-
-pub fn flush_pending_host_buffer_copies(env: &mut FunctionEnvMut<RuntimeEnv>, snapi_env: SnapiEnv) {
-    if snapi_env.is_null() || env.data().host_buffer_copies.is_empty() {
+    if snapi_env.is_null() || env.data().host_buffer_views.is_empty() {
         return;
     }
 
-    let drained = {
-        let state = env.data_mut();
-        state
-            .host_buffer_copy_frames
-            .iter_mut()
-            .for_each(|start| *start = 0);
-        std::mem::take(&mut state.host_buffer_copies)
-    };
+    let staged_views = env
+        .data()
+        .host_buffer_views
+        .iter()
+        .map(|(key, view)| (*key, *view))
+        .collect::<Vec<_>>();
 
-    for mapping in drained {
-        if mapping.byte_len > 0
-            && let Some(bytes) = read_guest_bytes(env, mapping.guest_ptr as i32, mapping.byte_len)
+    for (key, view) in staged_views {
+        if view.byte_len > 0
+            && let Some(bytes) = read_guest_bytes(env, view.guest_ptr as i32, view.byte_len)
         {
             unsafe {
                 crate::snapi::snapi_bridge_overwrite_value_bytes(
                     snapi_env,
-                    mapping.handle_id,
+                    view.handle_id,
                     bytes.as_ptr().cast(),
-                    mapping.byte_len as u32,
+                    view.byte_len as u32,
                 );
             }
         }
-
-        let state = env.data_mut();
-        state.guest_data_ptrs.remove(&mapping.handle_id);
-        if mapping.backing_store_token != 0 {
-            state
-                .guest_data_backing_stores
-                .remove(&mapping.backing_store_token);
+        if let Some(current) = env.data_mut().host_buffer_views.get_mut(&key) {
+            current.guest_dirty = false;
+            current.handle_id = view.handle_id;
         }
     }
 }
 
-pub fn flush_host_buffer_copies_since(
+pub fn refresh_staged_host_buffer_views_from_host(
     env: &mut FunctionEnvMut<RuntimeEnv>,
     snapi_env: SnapiEnv,
-    frame_start: usize,
 ) {
-    let start = frame_start.min(env.data().host_buffer_copies.len());
-    let drained = {
-        let state = env.data_mut();
-        state.host_buffer_copies.split_off(start)
-    };
+    if snapi_env.is_null() || env.data().host_buffer_views.is_empty() {
+        return;
+    }
 
-    for mapping in drained {
-        if mapping.byte_len > 0
-            && let Some(bytes) = read_guest_bytes(env, mapping.guest_ptr as i32, mapping.byte_len)
-        {
-            unsafe {
-                crate::snapi::snapi_bridge_overwrite_value_bytes(
-                    snapi_env,
-                    mapping.handle_id,
-                    bytes.as_ptr().cast(),
-                    mapping.byte_len as u32,
-                );
-            }
+    let staged_views = env
+        .data()
+        .host_buffer_views
+        .iter()
+        .map(|(key, view)| (*key, *view))
+        .collect::<Vec<_>>();
+
+    for (key, view) in staged_views {
+        let mut snapshot_ptr = 0u64;
+        let mut snapshot_len = 0u32;
+        let status = unsafe {
+            crate::snapi::snapi_bridge_snapshot_value_bytes(
+                snapi_env,
+                view.handle_id,
+                &mut snapshot_ptr,
+                &mut snapshot_len,
+            )
+        };
+        if status != 0 {
+            continue;
         }
 
-        let state = env.data_mut();
-        state.guest_data_ptrs.remove(&mapping.handle_id);
-        if mapping.backing_store_token != 0 {
-            state
-                .guest_data_backing_stores
-                .remove(&mapping.backing_store_token);
+        let copy_len = usize::min(snapshot_len as usize, view.byte_len);
+        if copy_len > 0 {
+            let snapshot = unsafe { std::slice::from_raw_parts(snapshot_ptr as *const u8, copy_len) };
+            let _ = write_guest_bytes(env, view.guest_ptr, snapshot);
+        }
+        if copy_len < view.byte_len {
+            let zeros = vec![0u8; view.byte_len - copy_len];
+            let _ = write_guest_bytes(env, view.guest_ptr + copy_len as u32, &zeros);
+        }
+        if snapshot_ptr != 0 {
+            unsafe {
+                crate::snapi::snapi_bridge_unofficial_free_buffer(snapshot_ptr as *mut c_void);
+            }
+        }
+        if let Some(current) = env.data_mut().host_buffer_views.get_mut(&key) {
+            current.guest_dirty = false;
+            current.handle_id = view.handle_id;
         }
     }
 }
@@ -135,12 +139,10 @@ pub fn with_callback_state<R>(
         return f();
     }
 
+    flush_staged_host_buffer_views_to_host(env, snapi_env);
     let mut ctx = CallbackInvocationCtx {
         env: (env as *mut FunctionEnvMut<'_, RuntimeEnv>).cast::<RawFunctionEnvMut>(),
     };
-    let frame_start = env.data().host_buffer_copies.len();
-    let method_frame_depth = env.data().host_buffer_method_frames.len();
-    env.data_mut().host_buffer_copy_frames.push(frame_start);
     let prev = unsafe {
         crate::snapi::snapi_bridge_swap_active_callback_ctx(
             snapi_env,
@@ -151,20 +153,12 @@ pub fn with_callback_state<R>(
         snapi_env: SnapiEnv,
         prev: *mut c_void,
         env: *mut RawFunctionEnvMut,
-        frame_start: usize,
-        method_frame_depth: usize,
     }
     impl Drop for CallbackStateGuard {
         fn drop(&mut self) {
             if !self.env.is_null() {
                 let env = unsafe { &mut *self.env.cast::<FunctionEnvMut<'_, RuntimeEnv>>() };
-                flush_host_buffer_copies(env, self.snapi_env, self.frame_start);
-                env.data_mut()
-                    .host_buffer_method_frames
-                    .truncate(self.method_frame_depth);
-                if self.frame_start > 0 {
-                    flush_pending_host_buffer_copies(env, self.snapi_env);
-                }
+                refresh_staged_host_buffer_views_from_host(env, self.snapi_env);
             }
             unsafe {
                 crate::snapi::snapi_bridge_swap_active_callback_ctx(self.snapi_env, self.prev);
@@ -175,8 +169,6 @@ pub fn with_callback_state<R>(
         snapi_env,
         prev,
         env: ctx.env,
-        frame_start,
-        method_frame_depth,
     };
     f()
 }
@@ -203,5 +195,9 @@ pub extern "C" fn snapi_host_invoke_wasm_callback(
     let Some(table) = env.data().table.clone() else {
         return 0;
     };
-    call_guest_callback(env, &table, guest_env as i32, wasm_fn_ptr, callback_arg)
+    let snapi_env = env.data().resolve_napi_env(guest_env as i32);
+    refresh_staged_host_buffer_views_from_host(env, snapi_env);
+    let result = call_guest_callback(env, &table, guest_env as i32, wasm_fn_ptr, callback_arg);
+    flush_staged_host_buffer_views_to_host(env, snapi_env);
+    result
 }
