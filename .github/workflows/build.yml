@@ -179,7 +179,7 @@ jobs:
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          echo LLLVM_SYS_221_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          echo LLVM_SYS_221_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm

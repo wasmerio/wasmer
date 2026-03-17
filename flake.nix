@@ -84,7 +84,7 @@
           ];
 
           shellHook = ''
-            export LLLVM_SYS_221_PREFIX="${pkgs.llvmPackages_22.llvm.dev}"
+            export LLVM_SYS_221_PREFIX="${pkgs.llvmPackages_22.llvm.dev}"
             export LIBCLANG_PATH="${pkgs.llvmPackages_22.libclang.lib}/lib"
             export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
             export LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"

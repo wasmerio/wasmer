@@ -74,7 +74,7 @@ jobs:
           mkdir -p /opt/llvm-22
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-22
           echo '/opt/llvm-22/bin' >> $GITHUB_PATH
-          echo 'LLLVM_SYS_221_PREFIX=/opt/llvm-22' >> $GITHUB_ENV
+          echo 'LLVM_SYS_221_PREFIX=/opt/llvm-22' >> $GITHUB_ENV
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
@@ -175,7 +175,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Cache
@@ -247,7 +247,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Cache
@@ -432,7 +432,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: make test-build-docs-rs-ci
@@ -703,7 +703,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Add `brew` libs to `RUSTFLAGS`
@@ -1003,7 +1003,7 @@ jobs:
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
