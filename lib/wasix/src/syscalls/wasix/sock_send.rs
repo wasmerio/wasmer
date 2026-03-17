@@ -36,17 +36,12 @@ pub fn sock_send<M: MemorySize>(
     drop(guard);
 
     let bytes_written = if use_write {
-        let offset = {
-            let state = env.state.clone();
-            let inodes = state.inodes.clone();
-
-            let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-            fd_entry.inner.offset.load(Ordering::Acquire) as usize
-        };
+        let offset = { fd_entry.inner.offset.load(Ordering::Acquire) as usize };
 
         wasi_try_ok!(fd_write_internal::<M>(
             &mut ctx,
             fd,
+            fd_entry,
             FdWriteSource::Iovs {
                 iovs: si_data,
                 iovs_len: si_data_len

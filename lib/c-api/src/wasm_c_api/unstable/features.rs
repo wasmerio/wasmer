@@ -72,7 +72,7 @@ pub extern "C" fn wasmer_features_delete(_features: Option<Box<wasmer_features_t
 ///
 /// The [WebAssembly threads proposal][threads] is not currently fully
 /// standardized and is undergoing development. Support for this feature can
-/// be disabled through this method for appropriate WebAssembly modules.
+/// be enabled through this method for appropriate WebAssembly modules.
 ///
 /// This feature gates items such as shared memories and atomic
 /// instructions.
@@ -109,7 +109,7 @@ pub extern "C" fn wasmer_features_threads(
 /// being in a module. Note that enabling the reference types feature will
 /// also enable the bulk memory feature.
 ///
-/// This is `false` by default.
+/// This is `true` by default.
 ///
 /// [proposal]: https://github.com/webassembly/reference-types
 ///
@@ -142,7 +142,7 @@ pub extern "C" fn wasmer_features_reference_types(
 /// This feature gates items such as the `v128` type and all of its
 /// operators being in a module.
 ///
-/// This is `false` by default.
+/// This is `true` by default.
 ///
 /// [proposal]: https://github.com/webassembly/simd
 ///
@@ -353,6 +353,122 @@ pub extern "C" fn wasmer_features_memory64(
     };
 
     features.inner.memory64(enable);
+
+    true
+}
+
+/// Configures whether the WebAssembly exception-handling proposal will be enabled.
+///
+/// The [WebAssembly exception-handling proposal][eh] is now
+/// fully standardized.
+/// Support for this feature can be enabled through this method
+/// for appropriate WebAssembly modules.
+///
+/// This is `false` by default.
+///
+/// [eh]: https://github.com/webassembly/exception-handling
+///
+/// # Example
+///
+/// See the module's documentation.
+#[unsafe(no_mangle)]
+pub extern "C" fn wasmer_features_exceptions(
+    features: Option<&mut wasmer_features_t>,
+    enable: bool,
+) -> bool {
+    let features = match features {
+        Some(features) => features,
+        _ => return false,
+    };
+
+    features.inner.exceptions(enable);
+
+    true
+}
+
+/// Configures whether the WebAssembly Relaxed SIMD proposal will be
+/// enabled.
+///
+/// The [WebAssembly Relaxed SIMD proposal][proposal] is now
+/// fully standardized.
+/// Support for this feature can be enabled through this method
+/// for appropriate WebAssembly modules.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/WebAssembly/relaxed-simd
+///
+/// # Example
+///
+/// See the module's documentation.
+#[unsafe(no_mangle)]
+pub extern "C" fn wasmer_features_relaxed_simd(
+    features: Option<&mut wasmer_features_t>,
+    enable: bool,
+) -> bool {
+    let features = match features {
+        Some(features) => features,
+        _ => return false,
+    };
+
+    features.inner.relaxed_simd(enable);
+
+    true
+}
+
+/// Configures whether the WebAssembly Extended Constant Expressions proposal will be enabled.
+///
+/// The [WebAssembly Extended Constant Expressions][extended-const] proposal is
+/// now fully standardized.
+/// Support for this feature can be enabled through this method
+/// for appropriate WebAssembly modules.
+///
+/// This is `true` by default.
+///
+/// [extended-const]: https://github.com/WebAssembly/extended-const
+///
+/// # Example
+///
+/// See the module's documentation.
+#[unsafe(no_mangle)]
+pub extern "C" fn wasmer_features_extended_const(
+    features: Option<&mut wasmer_features_t>,
+    enable: bool,
+) -> bool {
+    let features = match features {
+        Some(features) => features,
+        _ => return false,
+    };
+
+    features.inner.extended_const(enable);
+
+    true
+}
+
+/// Configures whether the WebAssembly wide arithmetic proposal will be enabled.
+///
+/// The [Wide Arithmetic][wa] is not currently fully
+/// standardized and is undergoing development. Support for this feature can
+/// be enabled through this method for appropriate WebAssembly modules.
+///
+/// This is `false` by default.
+///
+/// [wa]: https://github.com/WebAssembly/wide-arithmetic
+///
+/// # Example
+///
+/// See the module's documentation.
+#[unsafe(no_mangle)]
+pub extern "C" fn wasmer_features_wide_arithmetic(
+    features: Option<&mut wasmer_features_t>,
+    enable: bool,
+) -> bool {
+    let features = match features {
+        Some(features) => features,
+        _ => return false,
+    };
+
+    features.inner.wide_arithmetic(enable);
 
     true
 }
