@@ -52,7 +52,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, Type, target::CpuFeature,
+    ModuleInfo, SignatureHash, SignatureIndex, TableIndex, Type, target::CpuFeature,
 };
 use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
@@ -121,7 +121,7 @@ impl FuncTranslator {
         &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
-        signature_hashes: &PrimaryMap<SignatureIndex, u64>,
+        signature_hashes: &PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
@@ -427,7 +427,7 @@ impl FuncTranslator {
         &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
-        signature_hashes: &PrimaryMap<SignatureIndex, u64>,
+        signature_hashes: &PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
@@ -1824,7 +1824,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
-    signature_hashes: &'a PrimaryMap<SignatureIndex, u64>,
+    signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
@@ -3020,7 +3020,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let expected_signature_hash = self
                     .intrinsics
                     .i64_ty
-                    .const_int(self.signature_hashes[sigindex], false);
+                    .const_int(self.signature_hashes[sigindex].as_u64(), false);
                 let (table_base, table_bound) = self.ctx.table(
                     TableIndex::from_u32(table_index),
                     self.intrinsics,

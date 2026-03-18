@@ -25,7 +25,7 @@ use std::{
     cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, marker::PhantomData,
     pin::Pin, sync::Arc,
 };
-use wasmer_types::{NativeWasmType, RawValue, StoreId};
+use wasmer_types::{NativeWasmType, RawValue, SignatureHash, StoreId};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
     VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext,
@@ -107,7 +107,7 @@ impl Function {
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type);
+            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -222,7 +222,7 @@ impl Function {
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type);
+            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -265,7 +265,7 @@ impl Function {
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type);
+            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -418,7 +418,7 @@ impl Function {
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type);
+            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };

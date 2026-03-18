@@ -39,8 +39,8 @@ use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
-    MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
-    VMBuiltinFunctionIndex, VMOffsets,
+    MemoryIndex, MemoryStyle, ModuleInfo, SignatureHash, SignatureIndex, TableIndex, TableStyle,
+    TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
     entity::{EntityRef, PrimaryMap},
 };
 
@@ -63,7 +63,7 @@ pub struct FuncGen<'a, M: Machine> {
     memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
 
     /// Cached stable hashes for module signatures.
-    signature_hashes: &'a PrimaryMap<SignatureIndex, u64>,
+    signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
 
     /// Function signature.
     signature: FunctionType,
@@ -916,7 +916,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         vmoffsets: &'a VMOffsets,
         memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
-        signature_hashes: &'a PrimaryMap<SignatureIndex, u64>,
+        signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
         machine: M,
@@ -2344,7 +2344,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::Imm32(0),
                     self.special_labels.indirect_call_null,
                 )?;
-                let expected_signature_hash = self.signature_hashes[index];
+                let expected_signature_hash = self.signature_hashes[index].as_u64();
                 self.machine.move_location(
                     Size::S64,
                     Location::Imm64(expected_signature_hash),

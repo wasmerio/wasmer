@@ -28,7 +28,8 @@ use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
-    ModuleInfo, SignatureIndex, TableIndex, TableStyle, TagIndex, Type as WasmerType,
+    ModuleInfo, SignatureHash, SignatureIndex, TableIndex, TableStyle, TagIndex,
+    Type as WasmerType,
     VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
     entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
@@ -73,7 +74,7 @@ pub struct FuncEnvironment<'module_environment> {
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
 
     /// Cached stable hashes for module signatures.
-    signature_hashes: &'module_environment PrimaryMap<SignatureIndex, u64>,
+    signature_hashes: &'module_environment PrimaryMap<SignatureIndex, SignatureHash>,
 
     /// Heaps implementing WebAssembly linear memories.
     heaps: PrimaryMap<Heap, HeapData>,
@@ -169,7 +170,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         target_config: TargetFrontendConfig,
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
-        signature_hashes: &'module_environment PrimaryMap<SignatureIndex, u64>,
+        signature_hashes: &'module_environment PrimaryMap<SignatureIndex, SignatureHash>,
         memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
@@ -1631,7 +1632,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 let sig_hash_type = ir::types::I64;
                 let expected_sig_hash = builder
                     .ins()
-                    .iconst(sig_hash_type, self.signature_hashes[sig_index] as i64);
+                    .iconst(sig_hash_type, self.signature_hashes[sig_index].as_u64() as i64);
 
                 // Load the callee ID.
                 let mem_flags = ir::MemFlags::trusted();

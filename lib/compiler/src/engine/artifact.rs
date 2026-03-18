@@ -410,7 +410,8 @@ impl Artifact {
             module_info
                 .signatures
                 .values()
-                .map(|sig| signature_registry.register(sig))
+                .zip(module_info.signature_hashes.values())
+                .map(|(sig, sig_hash)| signature_registry.register(sig, *sig_hash))
                 .collect::<PrimaryMap<_, _>>()
         };
 

@@ -7,7 +7,7 @@
 use crate::vmcontext::VMSignatureHash;
 use std::collections::HashMap;
 use std::sync::RwLock;
-use wasmer_types::FunctionType;
+use wasmer_types::{FunctionType, SignatureHash};
 
 /// WebAssembly requires that the caller and callee signatures in an indirect
 /// call must match. To implement this efficiently, keep a registry of all
@@ -36,14 +36,14 @@ impl SignatureRegistry {
     }
 
     /// Register a signature and return its unique hash.
-    pub fn register(&self, sig: &FunctionType) -> VMSignatureHash {
+    pub fn register(&self, sig: &FunctionType, hash: SignatureHash) -> VMSignatureHash {
         let mut inner = self.inner.write().unwrap();
 
         if let Some(sig_hash) = inner.signature_to_hash.get(sig) {
             return *sig_hash;
         }
 
-        let sig_hash = VMSignatureHash::new(sig.signature_hash());
+        let sig_hash = VMSignatureHash::new(hash.0);
         if inner.hash_to_signature.contains_key(&sig_hash) {
             // In theory, two WebAssembly modules (for example, shared libraries) could define different function types
             // that end up with the same hash. We could propagate this information via `Result`, but that would be
