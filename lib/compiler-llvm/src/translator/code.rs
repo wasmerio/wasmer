@@ -1641,7 +1641,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 .context
                 .append_basic_block(self.function, "unreachable_indirect_call_branch");
 
-            let cont = (!is_return_call).then(|| self.context.append_basic_block(self.function, "cont"));
+            let cont =
+                (!is_return_call).then(|| self.context.append_basic_block(self.function, "cont"));
 
             err!(
                 self.builder.build_switch(
@@ -1686,9 +1687,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     local_call_site,
                     func_type,
                 )?;
-                err!(self
-                    .builder
-                    .build_unconditional_branch(cont.expect("non-return call requires cont")));
+                err!(
+                    self.builder
+                        .build_unconditional_branch(cont.expect("non-return call requires cont"))
+                );
                 rets
             };
 
@@ -1712,9 +1714,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     foreign_call_site,
                     func_type,
                 )?;
-                err!(self
-                    .builder
-                    .build_unconditional_branch(cont.expect("non-return call requires cont")));
+                err!(
+                    self.builder
+                        .build_unconditional_branch(cont.expect("non-return call requires cont"))
+                );
                 rets
             };
 

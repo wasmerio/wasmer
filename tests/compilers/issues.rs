@@ -842,9 +842,7 @@ fn issue_return_call_import(mut config: crate::Config) -> Result<()> {
 
 #[cfg(feature = "llvm")]
 #[compiler_test(issues)]
-fn issue_return_call_indirect_mixed_local_import(
-    mut config: crate::Config,
-) -> Result<()> {
+fn issue_return_call_indirect_mixed_local_import(mut config: crate::Config) -> Result<()> {
     if config.compiler != crate::Compiler::LLVM {
         return Ok(());
     }
