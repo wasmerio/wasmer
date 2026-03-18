@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageHash};
 
-/// Push a package to the registry.
+/// Push a package to the registry from a `wasmer.toml` project or a raw `.webc` file.
 ///
 /// The result of this operation is that the hash of the package can be used to reference the
 /// pushed package.
@@ -49,7 +49,10 @@ pub struct PackagePush {
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 
-    /// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
+    /// Path to a package source:
+    /// - a directory containing `wasmer.toml`
+    /// - a custom `*.toml` manifest file
+    /// - a pre-built raw `*.webc` file
     ///
     /// Defaults to current working directory.
     #[clap(name = "path", default_value = ".")]
@@ -190,6 +193,7 @@ impl PackagePush {
             let hash = PackageHash::from_sha256_bytes(hash_bytes);
 
             // Validate the webc file by parsing it (from_bytes consumes the data)
+            // TODO: avoid reading the whole file into memory.
             let package_bytes = bytes::Bytes::from(package_data);
             wasmer_package::utils::from_bytes(package_bytes.clone()).with_context(|| {
                 format!("Failed to parse webc file '{}'", manifest_path.display())
@@ -207,6 +211,7 @@ impl PackagePush {
 
             spinner_ok!(pb, "Correctly built package locally");
 
+            // TODO: avoid keeping the whole package in memory for large packages.
             let package_bytes = package.serialize()?;
 
             (hash, package_bytes)
