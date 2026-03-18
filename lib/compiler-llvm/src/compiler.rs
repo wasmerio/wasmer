@@ -1,4 +1,5 @@
 use crate::config::LLVM;
+use crate::config::OptimizationStyle;
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use inkwell::DLLStorageClass;
@@ -191,13 +192,17 @@ impl LLVMCompiler {
 
         let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
-                let target_machine = self.config().target_machine(target);
-                let target_machine_no_opt = self.config().target_machine_with_opt(target, false);
+                let target_machine = self
+                    .config()
+                    .target_machine_with_opt(target, OptimizationStyle::ForSpeed);
+                let target_machine_for_size = self
+                    .config()
+                    .target_machine_with_opt(target, OptimizationStyle::ForSize);
                 let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
                     target.triple().clone(),
                     target_machine,
-                    Some(target_machine_no_opt),
+                    Some(target_machine_for_size),
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),
@@ -216,6 +221,7 @@ impl LLVMCompiler {
                     &compile_info.table_styles,
                     symbol_registry,
                     target.triple(),
+                    OptimizationStyle::ForSpeed,
                 )?;
 
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
@@ -435,14 +441,17 @@ impl Compiler for LLVMCompiler {
             &pool,
             || {
                 let compiler = &self;
-                let target_machine = compiler.config().target_machine_with_opt(target, true);
-                let target_machine_no_opt =
-                    compiler.config().target_machine_with_opt(target, false);
+                let target_machine = compiler
+                    .config()
+                    .target_machine_with_opt(target, OptimizationStyle::ForSpeed);
+                let target_machine_for_size = compiler
+                    .config()
+                    .target_machine_with_opt(target, OptimizationStyle::ForSize);
                 let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
                     target.triple().clone(),
                     target_machine,
-                    Some(target_machine_no_opt),
+                    Some(target_machine_for_size),
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),

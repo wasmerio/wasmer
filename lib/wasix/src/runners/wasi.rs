@@ -2,6 +2,9 @@
 
 use std::{path::PathBuf, sync::Arc};
 
+#[cfg(feature = "napi-v8")]
+use std::borrow::Cow;
+
 use anyhow::{Context, Error};
 use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
@@ -19,6 +22,9 @@ use crate::{
 };
 
 use super::wasi_common::{MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand};
+
+#[cfg(feature = "napi-v8")]
+use wasmer_napi::NapiCtx;
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -174,6 +180,24 @@ impl WasiRunner {
         self
     }
 
+    #[cfg(feature = "napi-v8")]
+    pub fn with_napi_ctx(
+        &mut self,
+        runtime: &mut crate::PluggableRuntime,
+        napi: &NapiCtx,
+    ) -> &mut Self {
+        let hooks = napi.runtime_hooks();
+        runtime.with_additional_imports({
+            let hooks = hooks.clone();
+            move |module, store| hooks.additional_imports(module, store)
+        });
+        runtime.with_instance_setup(move |module, store, instance, imported_memory| {
+            hooks.configure_instance(module, store, instance, imported_memory)
+        });
+
+        self
+    }
+
     #[cfg(feature = "journal")]
     pub fn with_snapshot_trigger(&mut self, on: SnapshotTrigger) -> &mut Self {
         self.wasi.snapshot_on.push(on);
@@ -266,6 +290,34 @@ impl WasiRunner {
         }
     }
 
+    #[cfg(feature = "napi-v8")]
+    fn maybe_disable_async_threading_for_module(&mut self, module: &Module) {
+        if crate::module_needs_napi(module) {
+            self.wasi
+                .capabilities
+                .threading
+                .enable_asynchronous_threading = false;
+        }
+    }
+
+    #[cfg(feature = "napi-v8")]
+    fn maybe_disable_async_threading_for_command(
+        &mut self,
+        cmd: &crate::bin_factory::BinaryPackageCommand,
+        runtime_or_engine: &RuntimeOrEngine,
+    ) -> Result<(), anyhow::Error> {
+        let module = match runtime_or_engine {
+            RuntimeOrEngine::Runtime(runtime) => runtime.resolve_module_sync(
+                crate::runtime::ModuleInput::Command(Cow::Borrowed(cmd)),
+                None,
+                None,
+            )?,
+            RuntimeOrEngine::Engine(engine) => Module::new(engine, cmd.atom_ref())?,
+        };
+        self.maybe_disable_async_threading_for_module(&module);
+        Ok(())
+    }
+
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn prepare_webc_env(
         &self,
@@ -339,9 +391,16 @@ impl WasiRunner {
         let tokio_runtime = Self::ensure_tokio_runtime();
         let _guard = tokio_runtime.as_ref().map(|rt| rt.enter());
 
+        #[cfg(feature = "napi-v8")]
+        let mut runner = self.clone();
+        #[cfg(not(feature = "napi-v8"))]
+        let runner = self.clone();
+        #[cfg(feature = "napi-v8")]
+        runner.maybe_disable_async_threading_for_module(&module);
+
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
 
-        let mut builder = self.prepare_webc_env(
+        let mut builder = runner.prepare_webc_env(
             program_name,
             &wasi,
             PackageOrHash::Hash(module_hash),
@@ -356,25 +415,25 @@ impl WasiRunner {
 
         #[cfg(feature = "journal")]
         {
-            for journal in self.wasi.read_only_journals.iter().cloned() {
+            for journal in runner.wasi.read_only_journals.iter().cloned() {
                 builder.add_read_only_journal(journal);
             }
-            for journal in self.wasi.writable_journals.iter().cloned() {
+            for journal in runner.wasi.writable_journals.iter().cloned() {
                 builder.add_writable_journal(journal);
             }
 
-            if !self.wasi.snapshot_on.is_empty() {
-                for trigger in self.wasi.snapshot_on.iter().cloned() {
+            if !runner.wasi.snapshot_on.is_empty() {
+                for trigger in runner.wasi.snapshot_on.iter().cloned() {
                     builder.add_snapshot_trigger(trigger);
                 }
-            } else if !self.wasi.writable_journals.is_empty() {
+            } else if !runner.wasi.writable_journals.is_empty() {
                 for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
 
-            if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.writable_journals.is_empty() {
+            if let Some(period) = runner.wasi.snapshot_interval {
+                if runner.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
                         "If you specify a snapshot interval then you must also specify a writable journal file"
                     ));
@@ -382,8 +441,8 @@ impl WasiRunner {
                 builder.with_snapshot_interval(period);
             }
 
-            builder.with_stop_running_after_snapshot(self.wasi.stop_running_after_snapshot);
-            builder.with_skip_stdio_during_bootstrap(self.wasi.skip_stdio_during_bootstrap);
+            builder.with_stop_running_after_snapshot(runner.wasi.stop_running_after_snapshot);
+            builder.with_skip_stdio_during_bootstrap(runner.wasi.skip_stdio_during_bootstrap);
         }
 
         let env = builder.build()?;
@@ -433,6 +492,10 @@ impl WasiRunner {
         let cmd = pkg
             .get_command(command_name)
             .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
+
+        #[cfg(feature = "napi-v8")]
+        self.maybe_disable_async_threading_for_command(cmd, &runtime_or_engine)?;
+
         let wasi = cmd
             .metadata()
             .annotation("wasi")?

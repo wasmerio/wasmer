@@ -7,7 +7,7 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
-use crate::compiler::ModuleBasedSymbolRegistry;
+use crate::{compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
 use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
@@ -72,7 +72,7 @@ pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
     target_machine: TargetMachine,
-    target_machine_no_opt: Option<TargetMachine>,
+    target_machine_for_size: Option<TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
@@ -87,7 +87,7 @@ impl FuncTranslator {
     pub fn new(
         target_triple: Triple,
         target_machine: TargetMachine,
-        target_machine_no_opt: Option<TargetMachine>,
+        target_machine_for_size: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
@@ -98,7 +98,7 @@ impl FuncTranslator {
             ctx: Context::create(),
             target_triple,
             target_machine,
-            target_machine_no_opt,
+            target_machine_for_size,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -128,6 +128,7 @@ impl FuncTranslator {
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &dyn SymbolRegistry,
         target: &Triple,
+        opt_style: OptimizationStyle,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let func_index = wasm_module.func_index(*local_func_index);
@@ -365,41 +366,48 @@ impl FuncTranslator {
         }
 
         let mut passes = vec![];
-
         if config.enable_verifier {
             passes.push("verify");
         }
 
-        passes.push("sccp");
-        passes.push("early-cse");
-        //passes.push("deadargelim");
-        passes.push("adce");
-        passes.push("sroa");
-        passes.push("aggressive-instcombine");
-        passes.push("jump-threading");
-        //passes.push("ipsccp");
-        passes.push("simplifycfg");
-        passes.push("reassociate");
-        passes.push("loop-rotate");
-        passes.push("indvars");
-        //passes.push("lcssa");
-        //passes.push("licm");
-        //passes.push("instcombine");
-        passes.push("sccp");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("gvn");
-        passes.push("memcpyopt");
-        passes.push("dse");
-        passes.push("dce");
-        //passes.push("instcombine");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("mem2reg");
+        match opt_style {
+            OptimizationStyle::ForSize => {
+                // Apparently, the default<Os> could be much slower compared to -O1.
+                passes.push("default<O1>");
+            }
+            OptimizationStyle::ForSpeed => {
+                passes.push("sccp");
+                passes.push("early-cse");
+                //passes.push("deadargelim");
+                passes.push("adce");
+                passes.push("sroa");
+                passes.push("aggressive-instcombine");
+                passes.push("jump-threading");
+                //passes.push("ipsccp");
+                passes.push("simplifycfg");
+                passes.push("reassociate");
+                passes.push("loop-rotate");
+                passes.push("indvars");
+                //passes.push("lcssa");
+                //passes.push("licm");
+                //passes.push("instcombine");
+                passes.push("sccp");
+                passes.push("reassociate");
+                passes.push("simplifycfg");
+                passes.push("gvn");
+                passes.push("memcpyopt");
+                passes.push("dse");
+                passes.push("dce");
+                //passes.push("instcombine");
+                passes.push("reassociate");
+                passes.push("simplifycfg");
+                passes.push("mem2reg");
+            }
+        }
 
         module
             .run_passes(
-                passes.join(",").as_str(),
+                &passes.join(","),
                 target_machine,
                 PassBuilderOptions::create(),
             )
@@ -425,6 +433,11 @@ impl FuncTranslator {
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
+        let opt_style = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
+            OptimizationStyle::ForSize
+        } else {
+            OptimizationStyle::ForSpeed
+        };
         let module = self.translate_to_module(
             wasm_module,
             module_translation,
@@ -435,19 +448,21 @@ impl FuncTranslator {
             table_styles,
             symbol_registry,
             target,
+            opt_style,
         )?;
         let function = CompiledKind::Local(
             *local_func_index,
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
 
-        let target_machine = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
-            self.target_machine_no_opt
+        let target_machine = match opt_style {
+            OptimizationStyle::ForSize => self
+                .target_machine_for_size
                 .as_ref()
-                .unwrap_or(&self.target_machine)
-        } else {
-            &self.target_machine
+                .unwrap_or(&self.target_machine),
+            OptimizationStyle::ForSpeed => &self.target_machine,
         };
+
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();

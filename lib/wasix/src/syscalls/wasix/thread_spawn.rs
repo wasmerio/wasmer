@@ -189,7 +189,7 @@ fn call_module_internal<M: MemorySize>(
     ctx: &WasiFunctionEnv,
     mut store: Store,
     start_ptr_offset: M::Offset,
-) -> (Store, Result<(), DeepSleepWork>) {
+) -> (Store, Result<Option<ExitCode>, DeepSleepWork>) {
     // Note: we ensure both unwraps can happen before getting to this point
     let spawn = ctx
         .data(&store)
@@ -221,9 +221,7 @@ fn call_module_internal<M: MemorySize>(
         Err(deep_sleep) => return (store, Err(deep_sleep)),
     };
 
-    // Clean up the environment on exit
-    ctx.on_exit(&mut store, exit_code);
-    (store, Ok(()))
+    (store, Ok(exit_code))
 }
 
 fn handle_thread_result(
@@ -335,6 +333,14 @@ fn call_module<M: MemorySize>(
         };
         return;
     };
-    // I don't think we need to do this explicitly, but it was done before refactoring so we keep it for now.
+
+    let exit_code = ret.unwrap_or_else(|_| unreachable!());
+    if let Some(exit_code) = exit_code {
+        ctx.data(&store).blocking_on_exit(Some(exit_code));
+        thread_handle.set_status_finished(Ok(exit_code));
+    } else {
+        thread_handle.set_status_finished(Ok(Errno::Success.into()));
+    }
+
     drop(thread_handle);
 }

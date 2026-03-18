@@ -3,7 +3,7 @@
 // optimizer by exposing operations to the optimizer, but it requires that the
 // frontend know exactly what IR to produce in order to get the right ABI.
 
-#![deny(dead_code, missing_docs)]
+#![deny(missing_docs)]
 
 use crate::error::err;
 use crate::translator::intrinsics::{Intrinsics, type_to_llvm};

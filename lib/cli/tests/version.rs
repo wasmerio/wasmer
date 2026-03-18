@@ -37,6 +37,7 @@ fn long_version_string() {
         git_version = format!("commit-hash: {git_version}");
     }
     let build_date = format!("commit-date: {}", env!("WASMER_BUILD_DATE"));
+    let expected_features_line = "features: WASIX".to_string();
 
     cargo_bin_cmd!("wasmer")
         .arg("--version")
@@ -46,6 +47,7 @@ fn long_version_string() {
         .stdout(predicates::str::contains(&long_version_number))
         .stdout(predicates::str::contains(&git_version))
         .stdout(predicates::str::contains(&build_date))
+        .stdout(predicates::str::contains(&expected_features_line))
         .stdout(predicates::str::contains("binary:"));
 
     cargo_bin_cmd!("wasmer")
@@ -55,6 +57,7 @@ fn long_version_string() {
         .stdout(predicates::str::contains(&long_version_number))
         .stdout(predicates::str::contains(&git_version))
         .stdout(predicates::str::contains(&build_date))
+        .stdout(predicates::str::contains(&expected_features_line))
         .stdout(predicates::str::contains("binary:"));
 }
 
