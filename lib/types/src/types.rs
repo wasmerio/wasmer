@@ -1,7 +1,6 @@
 use crate::indexes::{FunctionIndex, GlobalIndex};
 use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::boxed::Box;
-use crate::lib::std::convert::TryInto;
 use crate::lib::std::fmt;
 use crate::lib::std::format;
 use crate::lib::std::string::{String, ToString};
@@ -11,7 +10,6 @@ use crate::units::Pages;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 // Type Representations
 
@@ -291,20 +289,14 @@ impl FunctionType {
 
     /// Returns a stable 64-bit signature hash derived from the Wasm value types.
     pub fn signature_hash(&self) -> u64 {
-        fn update_types(hasher: &mut Sha256, types: &[Type]) {
-            // Be sure the length part does not share values with the types!
-            hasher.update((types.len() as u64 + 16).to_le_bytes());
-            for ty in types {
-                hasher.update([*ty as u8]);
-            }
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(&self.results.len().to_le_bytes());
+        hasher.update(&self.params.len().to_le_bytes());
+        for ty in self.results.iter().chain(self.params.iter()) {
+            hasher.update(&[*ty as u8]);
         }
-
-        let mut hasher = Sha256::new();
-        update_types(&mut hasher, &self.params);
-        update_types(&mut hasher, &self.results);
-
         let digest = hasher.finalize();
-        u64::from_le_bytes(digest[..8].try_into().unwrap())
+        u64::from(digest)
     }
 }
 
