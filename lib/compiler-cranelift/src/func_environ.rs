@@ -29,8 +29,7 @@ use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
     ModuleInfo, SignatureHash, SignatureIndex, TableIndex, TableStyle, TagIndex,
-    Type as WasmerType,
-    VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
+    Type as WasmerType, VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
     entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
 
@@ -1630,9 +1629,10 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
                 let sig_hash_type = ir::types::I64;
-                let expected_sig_hash = builder
-                    .ins()
-                    .iconst(sig_hash_type, self.signature_hashes[sig_index].as_u64() as i64);
+                let expected_sig_hash = builder.ins().iconst(
+                    sig_hash_type,
+                    self.signature_hashes[sig_index].as_u64() as i64,
+                );
 
                 // Load the callee ID.
                 let mem_flags = ir::MemFlags::trusted();
