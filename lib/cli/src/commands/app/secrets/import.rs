@@ -152,7 +152,11 @@ impl CmdAppSecretsImport {
             anyhow::bail!("Secret import failed!")
         } else {
             if !self.quiet {
-                let action = if self.update_existing { "imported/updated" } else { "imported" };
+                let action = if self.update_existing {
+                    "imported/updated"
+                } else {
+                    "imported"
+                };
                 eprintln!("Successfully {action} secret(s):");
                 for secret in &secrets {
                     eprintln!("{}", secret.name.bold());

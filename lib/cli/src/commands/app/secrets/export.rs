@@ -57,6 +57,10 @@ impl AsyncCliCommand for CmdAppSecretsExport {
         )
         .await?;
 
+        if !self.quiet {
+            eprintln!("Exporting secrets for app {app_id}...");
+        }
+
         let secrets: Vec<utils::Secret> = utils::reveal_secrets(&client, &app_id).await?;
 
         let output = match self.format {
@@ -71,12 +75,8 @@ impl AsyncCliCommand for CmdAppSecretsExport {
                 }
                 lines.join("\n")
             }
-            SecretExportFormat::Json => {
-                serde_json::to_string_pretty(&secrets)?
-            }
-            SecretExportFormat::Yaml => {
-                serde_yaml::to_string(&secrets)?
-            }
+            SecretExportFormat::Json => serde_json::to_string_pretty(&secrets)?,
+            SecretExportFormat::Yaml => serde_yaml::to_string(&secrets)?,
         };
 
         if let Some(path) = &self.output {
@@ -85,7 +85,7 @@ impl AsyncCliCommand for CmdAppSecretsExport {
                 eprintln!("Secrets exported to {}", path.display());
             }
         } else {
-            println!("{}", output);
+            println!("{output}");
         }
 
         Ok(())
