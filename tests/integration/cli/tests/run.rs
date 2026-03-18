@@ -189,6 +189,8 @@ fn run_wasi_works() {
     assert.stdout("27\n");
 }
 
+// The test would be very slow on Windows and macOS
+#[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
 fn test_wasmer_run_pirita_works() {
     let temp_dir = tempfile::TempDir::new().unwrap();
@@ -259,8 +261,11 @@ fn test_wasmer_run_works_with_dir() {
 }
 
 // FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
+// #[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
+
 #[test]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
+// The test would be very slow on Windows and macOS
+#[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
         .arg(PYTHON_PACKAGE_WITH_VERSION)
@@ -555,7 +560,9 @@ fn wasi_runner_on_disk() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
-/// See <https://github.com/wasmerio/wasmer/issues/4010> for more.
+// See <https://github.com/wasmerio/wasmer/issues/4010> for more.
+// The test would be very slow on Windows and macOS
+#[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
 fn wasi_runner_on_disk_mount_using_relative_directory_on_the_host() {
     let temp = TempDir::new_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
@@ -592,6 +599,8 @@ fn wasi_runner_on_disk_with_mounted_directories() {
 }
 
 #[test]
+// The test would be very slow on Windows and macOS
+#[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 fn wasi_runner_on_disk_with_mounted_directories_and_webc_volumes() {
     let temp = TempDir::new().unwrap();
     std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -651,6 +660,8 @@ fn webc_files_on_disk_with_multiple_commands_require_an_entrypoint_flag() {
     assert.failure().stderr(contains(msg));
 }
 
+// The test would be very slow on Windows and macOS
+#[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
 fn wasi_runner_on_disk_with_env_vars() {
     let assert = Command::new(get_wasmer_path())
@@ -882,8 +893,11 @@ fn run_a_package_that_uses_an_atom_from_a_dependency() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
+//#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
+
+// The test would be very slow on Windows and macOS
+#[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn local_package_has_write_access_to_its_volumes() {
     let temp = tempfile::tempdir().unwrap();
 
