@@ -318,7 +318,6 @@ impl FuncTranslator {
             alloca_builder,
             intrinsics: &intrinsics,
             state,
-            wasm_fn_type,
             function: func,
             locals: params_locals,
             ctx: CtxType::new(
@@ -1566,13 +1565,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     fn emit_return_call(
         &mut self,
         call_site: CallSiteValue<'ctx>,
-        callee_wasm_fn_type: &FunctionType,
+        callee_llvm_func_type: inkwell::types::FunctionType<'ctx>,
     ) -> Result<(), CompileError> {
         // This is an unintuitive spec corner case: a tail call must bypass all enclosing
         // try_table blocks in the function. See https://github.com/WebAssembly/exception-handling/issues/249.
         //
         // The LLVM MustTail is more restrictive than the one defined in the WebAssembly spec.
-        let tail_call_kind = if self.wasm_fn_type == callee_wasm_fn_type {
+        // WebAssembly types alone are not enough here: the lowered ABI can add hidden arguments
+        // like `m0` and `sret`, so we must compare the actual LLVM function types instead.
+        let tail_call_kind = if self.function.get_type() == callee_llvm_func_type {
             LLVMTailCallKind::LLVMTailCallKindMustTail
         } else {
             LLVMTailCallKind::LLVMTailCallKindTail
@@ -1678,7 +1679,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             //let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(local_idx_block);
-            let local_call_site = self.build_indirect_call_with_params(
+            let (local_call_site, local_llvm_func_type) = self.build_indirect_call_with_params(
                 ctx_ptr,
                 func_type,
                 func_ptr,
@@ -1688,7 +1689,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             )?;
 
             let local_rets = if is_return_call {
-                self.emit_return_call(local_call_site, func_type)?;
+                self.emit_return_call(local_call_site, local_llvm_func_type)?;
                 Vec::new()
             } else {
                 let rets = self.abi.rets_from_call(
@@ -1705,7 +1706,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             };
 
             self.builder.position_at_end(foreign_idx_block);
-            let foreign_call_site = self.build_indirect_call_with_params(
+            let (foreign_call_site, foreign_llvm_func_type) = self.build_indirect_call_with_params(
                 ctx_ptr,
                 func_type,
                 func_ptr,
@@ -1715,7 +1716,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             )?;
 
             let foreign_rets = if is_return_call {
-                self.emit_return_call(foreign_call_site, func_type)?;
+                self.emit_return_call(foreign_call_site, foreign_llvm_func_type)?;
                 Vec::new()
             } else {
                 let rets = self.abi.rets_from_call(
@@ -1747,7 +1748,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {
-            let call_site = self.build_indirect_call_with_params(
+            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
                 ctx_ptr,
                 func_type,
                 func_ptr,
@@ -1757,7 +1758,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             )?;
 
             if is_return_call {
-                self.emit_return_call(call_site, func_type)?;
+                self.emit_return_call(call_site, llvm_func_type)?;
             } else {
                 self.abi
                     .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
@@ -1765,7 +1766,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .for_each(|ret| self.state.push1(*ret));
             }
         } else {
-            let call_site = self.build_indirect_call_with_params(
+            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
                 ctx_ptr,
                 func_type,
                 func_ptr,
@@ -1774,7 +1775,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 &params,
             )?;
             if is_return_call {
-                self.emit_return_call(call_site, func_type)?;
+                self.emit_return_call(call_site, llvm_func_type)?;
             } else {
                 self.abi
                     .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
@@ -1793,7 +1794,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         m0_param: Option<PointerValue<'ctx>>,
         is_return_call: bool,
-    ) -> Result<CallSiteValue<'ctx>, CompileError> {
+    ) -> Result<(CallSiteValue<'ctx>, inkwell::types::FunctionType<'ctx>), CompileError> {
         let params = self.state.popn_save_extra(func_type.params().len())?;
         self.build_indirect_call_with_params(
             ctx_ptr,
@@ -1813,7 +1814,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         m0_param: Option<PointerValue<'ctx>>,
         is_return_call: bool,
         params: &[(BasicValueEnum<'ctx>, ExtraInfo)],
-    ) -> Result<CallSiteValue<'ctx>, CompileError> {
+    ) -> Result<(CallSiteValue<'ctx>, inkwell::types::FunctionType<'ctx>), CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
             self.context,
             self.intrinsics,
@@ -1872,7 +1873,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             call_site_local.add_attribute(attr_loc, attr);
         }
 
-        Ok(call_site_local)
+        Ok((call_site_local, llvm_func_type))
     }
 
     fn build_indirect_call_or_invoke(
@@ -1926,7 +1927,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     alloca_builder: Builder<'ctx>,
     intrinsics: &'a Intrinsics<'ctx>,
     state: State<'ctx>,
-    wasm_fn_type: &'a FunctionType,
     function: FunctionValue<'ctx>,
     locals: Vec<(BasicTypeEnum<'ctx>, PointerValue<'ctx>)>, // Contains params and locals
     ctx: CtxType<'ctx, 'a>,
@@ -3131,7 +3131,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     }
 
                     if is_return_call {
-                        self.emit_return_call(call_site, func_type)?;
+                        self.emit_return_call(call_site, llvm_func_type)?;
                         self.state.reachable = false;
                     } else {
                         self.abi
@@ -3380,7 +3380,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         is_return_call,
                     )?;
                 } else {
-                    let call_site = self.build_indirect_call(
+                    let (call_site, llvm_func_type) = self.build_indirect_call(
                         ctx_ptr.into_pointer_value(),
                         func_type,
                         func_ptr,
@@ -3389,7 +3389,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     )?;
 
                     if is_return_call {
-                        self.emit_return_call(call_site, func_type)?;
+                        self.emit_return_call(call_site, llvm_func_type)?;
                     } else {
                         self.abi
                             .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
