@@ -898,3 +898,41 @@ fn issue_return_call_indirect_mixed_local_import(
 
     Ok(())
 }
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn issue_return_call_sret_multivalue(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+            (type $t0 (func (result i64 i64 i64)))
+            (func $values (type $t0) (result i64 i64 i64)
+                i64.const 11
+                i64.const 22
+                i64.const 33
+            )
+            (func (export "run") (type $t0) (result i64 i64 i64)
+                return_call $values
+            )
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let run: TypedFunction<(), (i64, i64, i64)> =
+        instance.exports.get_typed_function(&store, "run")?;
+
+    assert_eq!(run.call(&mut store)?, (11, 22, 33));
+
+    Ok(())
+}
