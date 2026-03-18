@@ -1442,6 +1442,7 @@ fn guest_unofficial_napi_contextify_compile_function_for_cjs_loader(
     status
 }
 
+#[allow(clippy::too_many_arguments)]
 fn guest_unofficial_napi_contextify_create_cached_data(
     mut env: FunctionEnvMut<RuntimeEnv>,
     napi_env: i32,
@@ -1517,6 +1518,7 @@ fn guest_unofficial_napi_module_wrap_create_source_text(
     status
 }
 
+#[allow(clippy::too_many_arguments)]
 fn guest_unofficial_napi_module_wrap_create_synthetic(
     mut env: FunctionEnvMut<RuntimeEnv>,
     napi_env: i32,
@@ -3269,6 +3271,7 @@ fn guest_napi_create_typedarray(
     s
 }
 
+#[allow(clippy::too_many_arguments)]
 fn guest_napi_get_typedarray_info(
     mut env: FunctionEnvMut<RuntimeEnv>,
     e: i32,
@@ -3306,7 +3309,7 @@ fn guest_napi_get_typedarray_info(
         }
         if dp > 0 {
             let elem_size = match typ {
-                0 | 1 | 2 => 1usize,
+                0..=2 => 1usize,
                 3 | 4 | 13 | 14 => 2usize,
                 5 | 6 | 15 | 16 => 4usize,
                 7 | 8 | 9 | 10 | 11 | 12 | 17 | 18 => 8usize,
@@ -3389,17 +3392,17 @@ fn guest_napi_get_dataview_info(
         if blp > 0 {
             write_guest_u32(&mut env, blp as u32, bl);
         }
-        if dp > 0 {
-            if let Some(guest_data_ptr) = resolve_current_host_data_to_guest(
+        if dp > 0
+            && let Some(guest_data_ptr) = resolve_current_host_data_to_guest(
                 &mut env,
                 e,
                 vh as u32,
                 backing_store_token,
                 host_data_addr,
                 bl as usize,
-            ) {
-                write_guest_u32(&mut env, dp as u32, guest_data_ptr);
-            }
+            )
+        {
+            write_guest_u32(&mut env, dp as u32, guest_data_ptr);
         }
         if abp > 0 {
             write_guest_u32(&mut env, abp as u32, ab);
@@ -3745,6 +3748,7 @@ fn guest_napi_get_new_target(
 //   offset 28: void* data               (4 bytes, guest pointer)
 const PROP_DESC_SIZE: usize = 32;
 
+#[allow(clippy::too_many_arguments)]
 fn guest_napi_define_class(
     mut env: FunctionEnvMut<RuntimeEnv>,
     e: i32,
