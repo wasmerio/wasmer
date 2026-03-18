@@ -891,18 +891,9 @@ jobs:
           - is_pull_request: true
             metadata:
               build: macos-x64
-          # - is_pull_request: true
-          #   metadata:
-          #     build: macos-arm
-          # the CI macOS runner tends to be really slow (huge number of timeouts).
-          - stage:
-              make: test-integration-cli-ci
+          - is_pull_request: true
             metadata:
-              build: macos-x64
-          # - stage:
-          #     make: test-integration-cli-ci
-          #   metadata:
-          #     build: macos-arm
+              build: macos-arm
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
