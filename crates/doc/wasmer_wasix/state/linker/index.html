@@ -92,7 +92,7 @@ which is why the linker state alone (which only stores modules) is not enough.</
 and a/the instance group state, they’re separated into three sets:
 * Operations that deal with metadata exist as impls on <a href="struct.LinkerState.html" title="struct wasmer_wasix::state::linker::LinkerState"><code>LinkerState</code></a>. These take
 a (read-only) instance group state for export resolution, as well as a
-<a href="wasmer::StoreRef"><code>StoreRef</code></a>. They’re guaranteed not to alter the store or the
+<a href="../../../wasmer/entities/store/store_ref/struct.StoreRef.html" title="struct wasmer::entities::store::store_ref::StoreRef"><code>StoreRef</code></a>. They’re guaranteed not to alter the store or the
 instance group state.
 * Operations that deal with the actual instances (instantiating, putting symbols in the
 function table, etc.) and are started by the instigating group exist as impls on
