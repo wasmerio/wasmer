@@ -1608,6 +1608,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             ));
         };
 
+        let params = self.state.popn_save_extra(func_type.params().len())?;
+
         let mut local_func_indices = vec![];
         let mut foreign_func_indices = vec![];
 
@@ -1639,7 +1641,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 .context
                 .append_basic_block(self.function, "unreachable_indirect_call_branch");
 
-            let cont = self.context.append_basic_block(self.function, "cont");
+            let cont = (!is_return_call).then(|| self.context.append_basic_block(self.function, "cont"));
 
             err!(
                 self.builder.build_switch(
@@ -1665,8 +1667,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             //let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(local_idx_block);
-            let local_call_site =
-                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0), is_return_call)?;
+            let local_call_site = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                Some(m0),
+                is_return_call,
+                &params,
+            )?;
 
             let local_rets = if is_return_call {
                 self.emit_return_call(local_call_site, func_type)?;
@@ -1678,13 +1686,21 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     local_call_site,
                     func_type,
                 )?;
-                err!(self.builder.build_unconditional_branch(cont));
+                err!(self
+                    .builder
+                    .build_unconditional_branch(cont.expect("non-return call requires cont")));
                 rets
             };
 
             self.builder.position_at_end(foreign_idx_block);
-            let foreign_call_site =
-                self.build_indirect_call(ctx_ptr, func_type, func_ptr, None, is_return_call)?;
+            let foreign_call_site = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                None,
+                is_return_call,
+                &params,
+            )?;
 
             let foreign_rets = if is_return_call {
                 self.emit_return_call(foreign_call_site, func_type)?;
@@ -1696,7 +1712,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     foreign_call_site,
                     func_type,
                 )?;
-                err!(self.builder.build_unconditional_branch(cont));
+                err!(self
+                    .builder
+                    .build_unconditional_branch(cont.expect("non-return call requires cont")));
                 rets
             };
 
@@ -1704,7 +1722,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 return Ok(());
             }
 
-            self.builder.position_at_end(cont);
+            self.builder
+                .position_at_end(cont.expect("non-return call requires cont"));
 
             for i in 0..foreign_rets.len() {
                 let f_i = foreign_rets[i];
@@ -1715,8 +1734,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {
-            let call_site =
-                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0), is_return_call)?;
+            let call_site = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                Some(m0),
+                is_return_call,
+                &params,
+            )?;
 
             if is_return_call {
                 self.emit_return_call(call_site, func_type)?;
@@ -1727,8 +1752,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .for_each(|ret| self.state.push1(*ret));
             }
         } else {
-            let call_site =
-                self.build_indirect_call(ctx_ptr, func_type, func_ptr, None, is_return_call)?;
+            let call_site = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                None,
+                is_return_call,
+                &params,
+            )?;
             if is_return_call {
                 self.emit_return_call(call_site, func_type)?;
             } else {
@@ -1750,6 +1781,26 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         m0_param: Option<PointerValue<'ctx>>,
         is_return_call: bool,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
+        let params = self.state.popn_save_extra(func_type.params().len())?;
+        self.build_indirect_call_with_params(
+            ctx_ptr,
+            func_type,
+            func_ptr,
+            m0_param,
+            is_return_call,
+            &params,
+        )
+    }
+
+    fn build_indirect_call_with_params(
+        &mut self,
+        ctx_ptr: PointerValue<'ctx>,
+        func_type: &FunctionType,
+        func_ptr: PointerValue<'ctx>,
+        m0_param: Option<PointerValue<'ctx>>,
+        is_return_call: bool,
+        params: &[(BasicValueEnum<'ctx>, ExtraInfo)],
+    ) -> Result<CallSiteValue<'ctx>, CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
             self.context,
             self.intrinsics,
@@ -1757,8 +1808,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             func_type,
             m0_param.is_some(),
         )?;
-
-        let params = self.state.popn_save_extra(func_type.params().len())?;
 
         // Apply pending canonicalizations.
         let params = params
