@@ -31,8 +31,8 @@
 <a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">let </span>env = ctx.data();
 <a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(env.state.fs.get_fd(sock));
 <a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>guard = fd_entry.inode.read();
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="comment">// We need this hack because we use a pipe to back socket pairs
-<a href=#35 id=35 data-nosnippet>35</a>    </span><span class="kw">let </span>use_read = <span class="macro">matches!</span>(guard.deref(), Kind::DuplexPipe { .. });
+<a href=#34 id=34 data-nosnippet>34</a>    <span class="comment">// Some guests route socket-like wakeups through pipe-backed fds.
+<a href=#35 id=35 data-nosnippet>35</a>    </span><span class="kw">let </span>use_read = <span class="macro">matches!</span>(guard.deref(), Kind::DuplexPipe { .. } | Kind::PipeRx { .. });
 <a href=#36 id=36 data-nosnippet>36</a>    drop(guard);
 <a href=#37 id=37 data-nosnippet>37</a>    <span class="kw">if </span>use_read {
 <a href=#38 id=38 data-nosnippet>38</a>        fd_read(ctx, sock, ri_data, ri_data_len, ro_data_len)
