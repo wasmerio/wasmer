@@ -1220,12 +1220,12 @@ impl Artifact {
 
             // We register all the signatures
             let signatures = {
-                metadata
-                    .compile_info
-                    .module
+                let module = &metadata.compile_info.module;
+                module
                     .signatures
                     .values()
-                    .map(|sig| signature_registry.register(sig))
+                    .zip(module.signature_hashes.values())
+                    .map(|(sig, sig_hash)| signature_registry.register(sig, *sig_hash))
                     .collect::<PrimaryMap<_, _>>()
             };
 
