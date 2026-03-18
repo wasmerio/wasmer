@@ -5,6 +5,7 @@
 //! `wasmer::Module`.
 
 use crate::entity::{EntityRef, PrimaryMap};
+use crate::indexes::SignatureHash;
 use crate::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
@@ -155,6 +156,9 @@ pub struct ModuleInfo {
     /// WebAssembly function signatures.
     pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
 
+    /// WebAssembly function signature hashes.
+    pub signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
+
     /// WebAssembly functions (imported and local).
     pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
 
@@ -207,6 +211,7 @@ pub struct ArchivableModuleInfo {
     global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
     function_names: BTreeMap<FunctionIndex, String>,
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
+    signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
     functions: PrimaryMap<FunctionIndex, SignatureIndex>,
     tables: PrimaryMap<TableIndex, TableType>,
     memories: PrimaryMap<MemoryIndex, MemoryType>,
@@ -235,6 +240,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
+            signature_hashes: it.signature_hashes,
             functions: it.functions,
             tables: it.tables,
             memories: it.memories,
@@ -266,6 +272,7 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
+            signature_hashes: it.signature_hashes,
             functions: it.functions,
             tables: it.tables,
             memories: it.memories,
@@ -330,6 +337,7 @@ impl PartialEq for ModuleInfo {
             && self.global_initializers == other.global_initializers
             && self.function_names == other.function_names
             && self.signatures == other.signatures
+            && self.signature_hashes == other.signature_hashes
             && self.functions == other.functions
             && self.tables == other.tables
             && self.memories == other.memories
@@ -365,6 +373,7 @@ impl ModuleInfo {
 
     /// Validates invariants for the precomputed signature hashes.
     pub fn validate_signature_hashes(&self) -> WasmResult<()> {
+        // TODO: the signatures are not distinct, thus we cannot just validate signature_hashes.
         if self
             .signatures
             .iter()

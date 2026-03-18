@@ -222,6 +222,32 @@ entity_impl!(MemoryIndex);
 pub struct SignatureIndex(u32);
 entity_impl!(SignatureIndex);
 
+/// A function signature hash based on the signature.
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
+pub struct SignatureHash(u64);
+
+impl SignatureHash {
+    /// Create a new `SignatureHash`.
+    pub fn new(value: u64) -> Self {
+        Self(value)
+    }
+}
+
 /// Index type of a passive data segment inside the WebAssembly module.
 #[derive(
     Copy,

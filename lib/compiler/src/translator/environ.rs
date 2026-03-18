@@ -13,8 +13,8 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex, InitExpr,
-    LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
-    TableInitializer, TableType,
+    LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureHash, SignatureIndex,
+    TableIndex, TableInitializer, TableType,
 };
 use wasmer_types::{TagIndex, WasmResult};
 
@@ -127,7 +127,9 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
         // TODO: Deduplicate signatures.
+        let signature_hash = SignatureHash::new(sig.signature_hash());
         self.module.signatures.push(sig);
+        self.module.signature_hashes.push(signature_hash);
         Ok(())
     }
 

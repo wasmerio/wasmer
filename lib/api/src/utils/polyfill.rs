@@ -9,7 +9,8 @@ use std::vec::Vec;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{
     ExportIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalType, ImportIndex, MemoryIndex,
-    MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex, TableType, TagIndex, TagType, Type,
+    MemoryType, ModuleInfo, Pages, SignatureHash, SignatureIndex, TableIndex, TableType, TagIndex,
+    TagType, Type,
 };
 
 use wasmparser::{
@@ -57,7 +58,9 @@ impl ModuleInfoPolyfill {
     }
 
     pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
+        let signature_hash = SignatureHash::new(sig.signature_hash());
         self.info.signatures.push(sig);
+        self.info.signature_hashes.push(signature_hash);
         Ok(())
     }
 
