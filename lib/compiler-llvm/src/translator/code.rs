@@ -1721,14 +1721,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             };
 
             self.builder.position_at_end(foreign_idx_block);
-            let (foreign_call_site, foreign_llvm_func_type) = self.build_indirect_call_with_params(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                None,
-                is_return_call,
-                &params,
-            )?;
+            let (foreign_call_site, foreign_llvm_func_type) = self
+                .build_indirect_call_with_params(
+                    ctx_ptr,
+                    func_type,
+                    func_ptr,
+                    None,
+                    is_return_call,
+                    &params,
+                )?;
 
             let foreign_rets = if is_return_call {
                 self.emit_return_call(foreign_call_site, foreign_llvm_func_type)?;
