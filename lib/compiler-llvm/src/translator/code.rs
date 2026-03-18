@@ -3056,15 +3056,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                     if is_return_call {
                         self.emit_return_call(call_site, func_type)?;
+                        self.state.reachable = false;
                     } else {
                         self.abi
                             .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
                             .iter()
                             .for_each(|ret| self.state.push1(*ret));
                     }
-                }
-                if is_return_call {
-                    self.state.reachable = false;
                 }
             }
             Operator::CallIndirect {
