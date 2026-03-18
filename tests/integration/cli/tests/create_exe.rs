@@ -315,7 +315,8 @@ fn create_exe_works() -> anyhow::Result<()> {
 /// Tests that "-c" and "-- -c" are treated differently
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[test]
 // FIXME: Fix an re-enable test
 // See https://github.com/wasmerio/wasmer/issues/3615

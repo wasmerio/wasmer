@@ -1061,7 +1061,8 @@ fn test_snapshot_bash_ls() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[ignore = "#6173"]
 #[test]
 fn test_snapshot_bash_cd_ls() {
