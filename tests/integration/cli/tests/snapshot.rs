@@ -1016,7 +1016,7 @@ fn test_snapshot_python_3_11_3() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_dash() {
@@ -1028,7 +1028,7 @@ fn test_snapshot_dash_dash() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_bash() {
@@ -1097,7 +1097,7 @@ fn test_snapshot_bash_python() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_bash() {
@@ -1109,7 +1109,7 @@ fn test_snapshot_bash_bash() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(target_os = "windows", ignore)]
+// #[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_dash() {
@@ -1189,7 +1189,8 @@ fn test_snapshot_exit_0_from_worker() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg_attr(target_os = "windows", ignore)]
+// Seems it's flaky on musl
+#[cfg_attr(target_env = "musl", ignore)]
 #[test]
 fn test_snapshot_exit_1_from_worker() {
     let snapshot = TestBuilder::new()

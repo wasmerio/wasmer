@@ -273,10 +273,10 @@ fn test_create_exe_with_precompiled_works_1() {
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 // Also ignored on macOS because it's flaky
-#[cfg_attr(
-    any(target_os = "windows", target_os = "macos"),
-    ignore = "See https://github.com/wasmerio/wasmer/issues/4285"
-)]
+// #[cfg_attr(
+//     any(target_os = "windows", target_os = "macos"),
+//     ignore = "See https://github.com/wasmerio/wasmer/issues/4285"
+// )]
 #[ignore = "create_exe is obsolete right now"]
 #[test]
 fn create_exe_works() -> anyhow::Result<()> {
@@ -386,7 +386,6 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
 /// Tests that create-exe works with underscores and dashes in command names
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
@@ -453,7 +452,8 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
 
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_multi_command() -> anyhow::Result<()> {
@@ -511,7 +511,8 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
 
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_with_file() -> anyhow::Result<()> {
@@ -691,7 +692,8 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
 
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
@@ -700,7 +702,8 @@ fn create_exe_with_object_input_default() -> anyhow::Result<()> {
 
 /// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+//#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn test_wasmer_create_exe_pirita_works() {
