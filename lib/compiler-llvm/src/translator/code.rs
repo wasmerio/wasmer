@@ -1593,6 +1593,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(())
     }
 
+    // Return sret pointer if the functions needs the hidden argument for multiple return values.
+    fn current_sret_ptr(&self, func_type: &FunctionType) -> Option<PointerValue<'ctx>> {
+        self.abi.is_sret(func_type).ok().map(|_| {
+            self.function
+                .get_first_param()
+                .unwrap()
+                .into_pointer_value()
+        })
+    }
+
     fn build_m0_indirect_call(
         &mut self,
         table_index: u32,
@@ -1840,6 +1850,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             params.as_slice(),
             self.intrinsics,
             m0_param,
+            is_return_call
+                .then(|| self.current_sret_ptr(func_type))
+                .flatten(),
         )?;
 
         let typed_func_ptr = err!(self.builder.build_pointer_cast(
@@ -3005,6 +3018,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         Some(m0_param),
+                        is_return_call
+                            .then(|| self.current_sret_ptr(func_type))
+                            .flatten(),
                     )?;
                     let params_no_m0 = self.abi.args_to_call(
                         &self.alloca_builder,
@@ -3014,6 +3030,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         None,
+                        is_return_call
+                            .then(|| self.current_sret_ptr(func_type))
+                            .flatten(),
                     )?;
 
                     let include_m0_call_block = self
@@ -3093,6 +3112,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         self.m0_param,
+                        if is_return_call {
+                            self.current_sret_ptr(func_type)
+                        } else {
+                            None
+                        },
                     )?;
 
                     let call_site = self.build_indirect_call_or_invoke(
