@@ -27,6 +27,8 @@ sha2.workspace = true
 hex.workspace = true
 loupe = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
+itertools.workspace = true
+crc32fast.workspace = true
 
 # `rand` uses `getrandom` transitively, and to be able to
 # compile the project for `js`, we need to enable this feature

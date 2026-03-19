@@ -25,7 +25,7 @@ use std::{
     cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, marker::PhantomData,
     pin::Pin, sync::Arc,
 };
-use wasmer_types::{NativeWasmType, RawValue, StoreId};
+use wasmer_types::{NativeWasmType, RawValue, SignatureHash, StoreId};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
     VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext,
@@ -103,18 +103,18 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let func_ptr = std::ptr::null() as VMFunctionCallback;
-        let type_index = store
+        let type_signature_hash = store
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type);
+            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline = host_data.ctx.call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_index,
+            type_signature_hash,
             vmctx,
             call_trampoline,
         };
@@ -218,18 +218,18 @@ impl Function {
         host_data.address = host_data.ctx.func_body_ptr();
 
         let func_ptr = std::ptr::null() as VMFunctionCallback;
-        let type_index = store
+        let type_signature_hash = store
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type);
+            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline = host_data.ctx.call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_index,
+            type_signature_hash,
             vmctx,
             call_trampoline,
         };
@@ -261,11 +261,11 @@ impl Function {
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let type_index = store
+        let type_signature_hash = store
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type);
+            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -273,7 +273,7 @@ impl Function {
             <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address().into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_index,
+            type_signature_hash,
             vmctx,
             call_trampoline,
         };
@@ -414,11 +414,11 @@ impl Function {
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let type_index = store
+        let type_signature_hash = store
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type);
+            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -426,7 +426,7 @@ impl Function {
             <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address().into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
-            type_index,
+            type_signature_hash,
             vmctx,
             call_trampoline,
         };
@@ -645,7 +645,7 @@ impl Function {
                 .as_store_mut()
                 .engine()
                 .as_sys()
-                .lookup_signature(anyfunc.type_index)
+                .lookup_signature(anyfunc.type_signature_hash)
                 .expect("Signature not found in store")
         };
         let vm_function = VMFunction {

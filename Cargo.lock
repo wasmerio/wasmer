@@ -7454,11 +7454,13 @@ name = "wasmer-types"
 version = "7.1.0-rc.2"
 dependencies = [
  "bytecheck",
+ "crc32fast",
  "enum-iterator",
  "enumset",
  "getrandom 0.4.2",
  "hex",
  "indexmap",
+ "itertools 0.14.0",
  "loupe",
  "memoffset 0.9.1",
  "more-asserts",

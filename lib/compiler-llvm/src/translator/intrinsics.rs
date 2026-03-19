@@ -28,7 +28,7 @@ use target_lexicon::{Architecture, Triple};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex, TableIndex, Type,
+    MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
@@ -385,12 +385,8 @@ impl<'ctx> Intrinsics<'ctx> {
         let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
         let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
-        let sigindex_ty = i32_ty;
-
-        let anyfunc_ty = context.struct_type(
-            &[i8_ptr_ty_basic, sigindex_ty.into(), ctx_ptr_ty_basic],
-            false,
-        );
+        let anyfunc_ty =
+            context.struct_type(&[i8_ptr_ty_basic, i32_ty.into(), ctx_ptr_ty_basic], false);
         let funcref_ty = ptr_ty;
         let anyref_ty = ptr_ty;
         let anyref_ty_basic_md: BasicMetadataTypeEnum = anyref_ty.into();
@@ -1445,7 +1441,6 @@ pub struct CtxType<'ctx, 'a> {
 
     cached_memories: HashMap<MemoryIndex, MemoryCache<'ctx>>,
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
-    cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
     cached_functions: HashMap<FunctionIndex, FunctionCache<'ctx>>,
     cached_memory_op: HashMap<(MemoryIndex, MemoryOp), PointerValue<'ctx>>,
@@ -1472,7 +1467,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
             cached_memories: HashMap::new(),
             cached_tables: HashMap::new(),
-            cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
             cached_functions: HashMap::new(),
             cached_memory_op: HashMap::new(),
@@ -1758,55 +1752,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             bounds.as_instruction_value().unwrap(),
         );
         Ok((base_ptr, bounds))
-    }
-
-    pub fn dynamic_sigindex(
-        &mut self,
-        index: SignatureIndex,
-        intrinsics: &Intrinsics<'ctx>,
-        module: &Module<'ctx>,
-    ) -> Result<IntValue<'ctx>, CompileError> {
-        let (cached_sigindices, ctx_ptr_value, cache_builder, offsets) = (
-            &mut self.cached_sigindices,
-            self.ctx_ptr_value,
-            &self.cache_builder,
-            &self.offsets,
-        );
-
-        match cached_sigindices.entry(index) {
-            Entry::Occupied(entry) => Ok(*entry.get()),
-            Entry::Vacant(entry) => {
-                let byte_offset = intrinsics
-                    .i64_ty
-                    .const_int(offsets.vmctx_vmshared_signature_id(index).into(), false);
-
-                let sigindex_ptr = unsafe {
-                    err!(cache_builder.build_gep(
-                        intrinsics.i8_ty,
-                        ctx_ptr_value,
-                        &[byte_offset],
-                        "dynamic_sigindex",
-                    ))
-                };
-
-                let sigindex_ptr =
-                    err!(cache_builder.build_bit_cast(sigindex_ptr, intrinsics.ptr_ty, ""))
-                        .into_pointer_value();
-
-                let sigindex =
-                    err!(cache_builder.build_load(intrinsics.i32_ty, sigindex_ptr, "sigindex"))
-                        .into_int_value();
-                tbaa_label(
-                    module,
-                    intrinsics,
-                    format!("sigindex {}", index.as_u32()),
-                    sigindex.as_instruction_value().unwrap(),
-                );
-
-                entry.insert(sigindex);
-                Ok(sigindex)
-            }
-        }
     }
 
     pub fn global(
