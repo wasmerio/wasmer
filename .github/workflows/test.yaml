@@ -887,13 +887,13 @@ jobs:
               container: "alpine:edge",
             },
           ]
-        exclude:
-          - is_pull_request: true
-            metadata:
-              build: macos-x64
-          - is_pull_request: true
-            metadata:
-              build: macos-arm
+        # exclude:
+        #   - is_pull_request: true
+        #     metadata:
+        #       build: macos-x64
+        #   - is_pull_request: true
+        #     metadata:
+        #       build: macos-arm
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
