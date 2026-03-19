@@ -733,15 +733,19 @@ impl WasiProcess {
     }
 
     /// Signals one of the threads every interval
-    pub fn signal_interval(&self, signal: Signal, interval: Option<Duration>, repeat: bool) {
+    pub fn signal_interval(
+        &self,
+        signal: Signal,
+        value: Option<Duration>,
+        interval: Option<Duration>,
+    ) -> Option<WasiSignalInterval> {
         let mut inner = self.inner.0.lock().unwrap();
 
-        let interval = match interval {
+        let current_value = match value {
             None => {
-                inner.signal_intervals.remove(&signal);
-                return;
+                return inner.signal_intervals.remove(&signal);
             }
-            Some(a) => a,
+            Some(value) => value,
         };
 
         let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
@@ -749,11 +753,11 @@ impl WasiProcess {
             signal,
             WasiSignalInterval {
                 signal,
+                current_value,
                 interval,
                 last_signal: now,
-                repeat,
             },
-        );
+        )
     }
 
     /// Returns the number of active threads for this process
