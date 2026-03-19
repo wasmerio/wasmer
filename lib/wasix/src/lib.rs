@@ -98,6 +98,7 @@ pub use crate::{
     fs::{Fd, VIRTUAL_ROOT_FD, WasiFs, WasiInodes, default_fs_backing},
     os::{
         WasiTtyState,
+        command::{BuiltinCommand, VirtualCommand},
         task::{
             control_plane::WasiControlPlane,
             process::{WasiProcess, WasiProcessId},
