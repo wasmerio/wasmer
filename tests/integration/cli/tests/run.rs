@@ -59,9 +59,14 @@ fn list_cwd() {
 
     let expected = ".
 ..
-main.c
-main.wasm
-wasmer.toml
+.app
+.private
+bin
+data
+dev
+etc
+tmp
+usr
 "
     .to_owned();
 
@@ -687,7 +692,10 @@ fn issue_3794_unable_to_mount_relative_paths() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
         .arg("wasmer/bash")
+        .arg("--entrypoint=bash")
         .arg(format!("--volume={}:./some-dir/", temp.path().display()))
+        .arg("--")
+        .arg("-c")
         .arg("cat ./some-dir/message.txt")
         .assert();
 
