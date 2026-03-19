@@ -569,11 +569,11 @@ impl VMSharedTagIndex {
 #[repr(C)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
-pub struct VMSignatureHash(u64);
+pub struct VMSignatureHash(u32);
 
 impl VMSignatureHash {
     /// Create a new `VMSignatureHash`.
-    pub fn new(value: u64) -> Self {
+    pub fn new(value: u32) -> Self {
         Self(value)
     }
 }
@@ -584,10 +584,10 @@ impl VMSignatureHash {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
-    /// Function signature id.
-    pub type_signature_hash: VMSignatureHash,
     /// Function body.
     pub func_ptr: *const VMFunctionBody,
+    /// Function signature id.
+    pub type_signature_hash: VMSignatureHash,
     /// Function `VMContext` or host env.
     pub vmctx: VMFunctionContext,
     /// Address of the function call trampoline to invoke this function using

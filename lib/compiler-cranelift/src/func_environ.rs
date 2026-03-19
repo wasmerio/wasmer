@@ -1628,10 +1628,10 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         // If necessary, check the signature.
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
-                let sig_hash_type = ir::types::I64;
+                let sig_hash_type = ir::types::I32;
                 let expected_sig_hash = builder.ins().iconst(
                     sig_hash_type,
-                    self.signature_hashes[sig_index].as_u64() as i64,
+                    i64::from(self.signature_hashes[sig_index].as_u32()),
                 );
 
                 // Load the callee ID.

@@ -239,16 +239,16 @@ entity_impl!(SignatureIndex);
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
-pub struct SignatureHash(pub u64);
+pub struct SignatureHash(pub u32);
 
 impl SignatureHash {
     /// Create a new `SignatureHash`.
-    pub fn new(value: u64) -> Self {
+    pub fn new(value: u32) -> Self {
         Self(value)
     }
 
     /// Get the inner hash value.
-    pub fn as_u64(self) -> u64 {
+    pub fn as_u32(self) -> u32 {
         self.0
     }
 }

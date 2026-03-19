@@ -583,31 +583,31 @@ impl VMOffsets {
 
 /// Offsets for `VMCallerCheckedAnyfunc`.
 impl VMOffsets {
-    /// The offset of the `VMSignatureHash` field.
-    #[allow(clippy::identity_op)]
-    pub const fn vmcaller_checked_anyfunc_signature_hash(&self) -> u8 {
-        0
-    }
-
     /// The offset of the `func_ptr` field.
     #[allow(clippy::erasing_op)]
     pub const fn vmcaller_checked_anyfunc_func_ptr(&self) -> u8 {
-        8
+        0 * self.pointer_size
+    }
+
+    /// The offset of the `VMSignatureHash` field.
+    #[allow(clippy::identity_op)]
+    pub const fn vmcaller_checked_anyfunc_signature_hash(&self) -> u8 {
+        1 * self.pointer_size
     }
 
     /// The offset of the `vmctx` field.
     pub const fn vmcaller_checked_anyfunc_vmctx(&self) -> u8 {
-        8 + self.pointer_size
+        2 * self.pointer_size
     }
 
     /// The offset of the `call_trampoline` field.
     pub const fn vmcaller_checked_anyfunc_call_trampoline(&self) -> u8 {
-        8 + 2 * self.pointer_size
+        3 * self.pointer_size
     }
 
     /// Return the size of `VMCallerCheckedAnyfunc`.
     pub const fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
-        32
+        4 * self.pointer_size
     }
 }
 

@@ -385,14 +385,8 @@ impl<'ctx> Intrinsics<'ctx> {
         let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
         let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
-        let anyfunc_ty = context.struct_type(
-            &[
-                i64_ty.as_basic_type_enum(),
-                i8_ptr_ty_basic,
-                ctx_ptr_ty_basic,
-            ],
-            false,
-        );
+        let anyfunc_ty =
+            context.struct_type(&[i8_ptr_ty_basic, i32_ty.into(), ctx_ptr_ty_basic], false);
         let funcref_ty = ptr_ty;
         let anyref_ty = ptr_ty;
         let anyref_ty_basic_md: BasicMetadataTypeEnum = anyref_ty.into();

@@ -3019,8 +3019,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let func_type = &self.wasm_module.signatures[sigindex];
                 let expected_signature_hash = self
                     .intrinsics
-                    .i64_ty
-                    .const_int(self.signature_hashes[sigindex].as_u64(), false);
+                    .i32_ty
+                    .const_int(u64::from(self.signature_hashes[sigindex].as_u32()), false);
                 let (table_base, table_bound) = self.ctx.table(
                     TableIndex::from_u32(table_index),
                     self.intrinsics,
@@ -3136,7 +3136,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .build_struct_gep(
                         self.intrinsics.anyfunc_ty,
                         anyfunc_struct_ptr,
-                        0,
+                        1,
                         "sig_hash_ptr",
                     )
                     .unwrap();
@@ -3145,7 +3145,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .build_struct_gep(
                         self.intrinsics.anyfunc_ty,
                         anyfunc_struct_ptr,
-                        1,
+                        0,
                         "func_ptr_ptr",
                     )
                     .unwrap();
@@ -3166,7 +3166,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .into_pointer_value(),
                     err!(
                         self.builder
-                            .build_load(self.intrinsics.i64_ty, sig_hash_ptr, "sig_hash")
+                            .build_load(self.intrinsics.i32_ty, sig_hash_ptr, "sig_hash")
                     )
                     .into_int_value(),
                     err!(

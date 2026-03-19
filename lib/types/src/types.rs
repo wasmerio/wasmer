@@ -287,16 +287,15 @@ impl FunctionType {
         &self.results
     }
 
-    /// Returns a stable 64-bit signature hash derived from the Wasm value types.
-    pub fn signature_hash(&self) -> u64 {
+    /// Returns a stable 32-bit signature hash derived from the Wasm value types.
+    pub fn signature_hash(&self) -> u32 {
         let mut hasher = crc32fast::Hasher::new();
         hasher.update(&self.results.len().to_le_bytes());
         hasher.update(&self.params.len().to_le_bytes());
         for ty in self.results.iter().chain(self.params.iter()) {
             hasher.update(&[*ty as u8]);
         }
-        let digest = hasher.finalize();
-        u64::from(digest)
+        hasher.finalize()
     }
 }
 
