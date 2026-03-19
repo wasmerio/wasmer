@@ -44,8 +44,7 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
 });
 
 #[test]
-//#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
-#[ignore = "#6173"]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn list_cwd() {
     let package = packages().join("list-cwd");
 
@@ -60,9 +59,14 @@ fn list_cwd() {
 
     let expected = ".
 ..
-main.c
-main.wasm
-wasmer.toml
+.app
+.private
+bin
+data
+dev
+etc
+tmp
+usr
 "
     .to_owned();
 
@@ -680,8 +684,7 @@ fn wasi_runner_on_disk_with_env_vars() {
 
 /// See https://github.com/wasmerio/wasmer/issues/3794
 #[test]
-//#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
-#[ignore = "#6173"]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn issue_3794_unable_to_mount_relative_paths() {
     let temp = TempDir::new().unwrap();
     std::fs::write(temp.path().join("message.txt"), b"Hello, World!").unwrap();
@@ -689,7 +692,10 @@ fn issue_3794_unable_to_mount_relative_paths() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
         .arg("wasmer/bash")
+        .arg("--entrypoint=bash")
         .arg(format!("--volume={}:./some-dir/", temp.path().display()))
+        .arg("--")
+        .arg("-c")
         .arg("cat ./some-dir/message.txt")
         .assert();
 
