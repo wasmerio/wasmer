@@ -154,7 +154,7 @@ pub struct RuntimeOptions {
     ]))]
     v8: bool,
 
-    /// Use WAMR.
+    /// Use the WAMR runtime.
     #[cfg(feature = "wamr")]
     #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "cranelift")]
@@ -170,7 +170,7 @@ pub struct RuntimeOptions {
     ]))]
     wamr: bool,
 
-    /// Use the wasmi runtime.
+    /// Use the Wasmi runtime.
     #[cfg(feature = "wasmi")]
     #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "cranelift")]
@@ -188,25 +188,25 @@ pub struct RuntimeOptions {
 
     /// Enable compiler internal verification.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long)]
     enable_verifier: bool,
 
     /// Debug directory, where IR and object files will be written to.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long, alias = "llvm-debug-dir")]
     pub(crate) compiler_debug_dir: Option<PathBuf>,
 
     /// Enable a profiler.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long, value_enum)]
     profiler: Option<Profiler>,
 
     /// Deprecated option as m0 optimization always play role if we use a static memory
     #[cfg(feature = "llvm")]
-    #[clap(long)]
+    #[clap(long, hide = true)]
     _enable_pass_params_opt: bool,
 
     /// Sets the number of threads used to compile the input module(s).

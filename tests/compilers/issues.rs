@@ -796,3 +796,194 @@ fn issue_4169_funcref_externref_import(mut config: crate::Config) -> Result<()> 
 
     Ok(())
 }
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn issue_return_call_import(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+            (type $t0 (func (param i32) (result i32)))
+            (import "env" "add_one" (func $add_one (type $t0)))
+            (memory 1 1)
+            (func (export "run") (param i32) (result i32)
+                local.get 0
+                return_call $add_one
+            )
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let imports: Imports = imports! {
+        "env" => {
+            "add_one" => Function::new_typed(&mut store, |value: i32| value + 1),
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let result = instance
+        .exports
+        .get_function("run")?
+        .call(&mut store, &[Value::I32(41)])?;
+
+    assert_eq!(&*result, &[Value::I32(42)]);
+
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn issue_return_call_indirect_mixed_local_import(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+            (type $t0 (func (param i32) (result i32)))
+            (import "env" "add_one" (func $add_one (type $t0)))
+            (memory 1 1)
+            (table 2 funcref)
+            (elem (i32.const 0) func $add_one $add_ten)
+            (func $add_ten (type $t0) (param i32) (result i32)
+                local.get 0
+                i32.const 10
+                i32.add
+            )
+            (func $dispatch (param i32 i32) (result i32)
+                local.get 0
+                local.get 1
+                return_call_indirect (type $t0)
+            )
+            (func (export "run") (param i32 i32) (result i32)
+                local.get 0
+                local.get 1
+                call $dispatch
+            )
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let imports: Imports = imports! {
+        "env" => {
+            "add_one" => Function::new_typed(&mut store, |value: i32| value + 1),
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let run = instance.exports.get_function("run")?;
+
+    let imported = run.call(&mut store, &[Value::I32(41), Value::I32(0)])?;
+    assert_eq!(&*imported, &[Value::I32(42)]);
+
+    let local = run.call(&mut store, &[Value::I32(32), Value::I32(1)])?;
+    assert_eq!(&*local, &[Value::I32(42)]);
+
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn issue_return_call_sret_multivalue(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+            (type $t0 (func (result i64 i64 i64)))
+            (func $values (type $t0) (result i64 i64 i64)
+                i64.const 11
+                i64.const 22
+                i64.const 33
+            )
+            (func (export "run") (type $t0) (result i64 i64 i64)
+                return_call $values
+            )
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let run: TypedFunction<(), (i64, i64, i64)> =
+        instance.exports.get_typed_function(&store, "run")?;
+
+    assert_eq!(run.call(&mut store)?, (11, 22, 33));
+
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn issue_return_call_indirect_import(mut config: crate::Config) -> Result<()> {
+    // Reproducer for LLVM `musttail` selection based only on wasm signatures:
+    // the caller has static memory and therefore an `m0` parameter, but the
+    // imported target does not.
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+            (type $t0 (func (param i32) (result i32)))
+            (import "env" "add_one" (func $add_one (type $t0)))
+            (memory 1 1)
+            (table 1 funcref)
+            (elem (i32.const 0) func $add_one)
+            (func $dispatch (param i32) (result i32)
+                local.get 0
+                i32.const 0
+                return_call_indirect (type $t0)
+            )
+            (func (export "run") (param i32) (result i32)
+                local.get 0
+                call $dispatch
+            )
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let imports: Imports = imports! {
+        "env" => {
+            "add_one" => Function::new_typed(&mut store, |value: i32| value + 1),
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let result = instance
+        .exports
+        .get_function("run")?
+        .call(&mut store, &[Value::I32(41)])?;
+
+    assert_eq!(&*result, &[Value::I32(42)]);
+
+    Ok(())
+}
