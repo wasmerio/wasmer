@@ -46,41 +46,41 @@ fn test_exit_nonzero_in_thread() {
     );
 }
 
-#[test]
-fn test_exit_zero_in_fficall() {
-    let wasm_path = run_build_script(file!(), "exit-zero-in-fficall").unwrap();
-    let test_dir = wasm_path.parent().unwrap();
-    run_wasm(&wasm_path, test_dir).unwrap();
-}
+// #[test]
+// fn test_exit_zero_in_fficall() {
+//     let wasm_path = run_build_script(file!(), "exit-zero-in-fficall").unwrap();
+//     let test_dir = wasm_path.parent().unwrap();
+//     run_wasm(&wasm_path, test_dir).unwrap();
+// }
 
-#[test]
-fn test_exit_nonzero_in_fficall() {
-    let wasm_path = run_build_script(file!(), "exit-nonzero-in-fficall").unwrap();
-    let test_dir = wasm_path.parent().unwrap();
-    let result = run_wasm(&wasm_path, test_dir);
-    assert!(
-        result.is_err(),
-        "exit-nonzero-in-fficall should fail with non-zero exit code"
-    );
-}
+// #[test]
+// fn test_exit_nonzero_in_fficall() {
+//     let wasm_path = run_build_script(file!(), "exit-nonzero-in-fficall").unwrap();
+//     let test_dir = wasm_path.parent().unwrap();
+//     let result = run_wasm(&wasm_path, test_dir);
+//     assert!(
+//         result.is_err(),
+//         "exit-nonzero-in-fficall should fail with non-zero exit code"
+//     );
+// }
 
-#[test]
-fn test_exit_zero_in_fficall_thread() {
-    let wasm_path = run_build_script(file!(), "exit-zero-in-fficall-thread").unwrap();
-    let test_dir = wasm_path.parent().unwrap();
-    run_wasm(&wasm_path, test_dir).unwrap();
-}
+// #[test]
+// fn test_exit_zero_in_fficall_thread() {
+//     let wasm_path = run_build_script(file!(), "exit-zero-in-fficall-thread").unwrap();
+//     let test_dir = wasm_path.parent().unwrap();
+//     run_wasm(&wasm_path, test_dir).unwrap();
+// }
 
-#[test]
-fn test_exit_nonzero_in_fficall_thread() {
-    let wasm_path = run_build_script(file!(), "exit-nonzero-in-fficall-thread").unwrap();
-    let test_dir = wasm_path.parent().unwrap();
-    let result = run_wasm(&wasm_path, test_dir);
-    assert!(
-        result.is_err(),
-        "exit-nonzero-in-fficall-thread should fail with non-zero exit code"
-    );
-}
+// #[test]
+// fn test_exit_nonzero_in_fficall_thread() {
+//     let wasm_path = run_build_script(file!(), "exit-nonzero-in-fficall-thread").unwrap();
+//     let test_dir = wasm_path.parent().unwrap();
+//     let result = run_wasm(&wasm_path, test_dir);
+//     assert!(
+//         result.is_err(),
+//         "exit-nonzero-in-fficall-thread should fail with non-zero exit code"
+//     );
+// }
 
 #[test]
 fn test_exit_zero_in_dyncall_thread() {

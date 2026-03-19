@@ -308,18 +308,18 @@ impl CompactUnwindManager {
             return;
         }
 
-        let non_unique: Vec<CompactUnwindEntry> = self.compact_unwind_entries.drain(1..).collect();
-        for next in non_unique.into_iter() {
-            let last = self.compact_unwind_entries.last().unwrap();
-            if next.is_dwarf()
-                || (next.compact_encoding != last.compact_encoding)
-                || next.cannot_be_merged()
-                || next.lsda_addr != 0
-                || last.lsda_addr != 0
-            {
-                self.compact_unwind_entries.push(next);
-            }
-        }
+        // let non_unique: Vec<CompactUnwindEntry> = self.compact_unwind_entries.drain(1..).collect();
+        // for next in non_unique.into_iter() {
+        //     let last = self.compact_unwind_entries.last().unwrap();
+        //     if next.is_dwarf()
+        //         || (next.compact_encoding != last.compact_encoding)
+        //         || next.cannot_be_merged()
+        //         || next.lsda_addr != 0
+        //         || last.lsda_addr != 0
+        //     {
+        //         self.compact_unwind_entries.push(next);
+        //     }
+        // }
 
         self.num_second_level_pages = self
             .compact_unwind_entries
@@ -393,7 +393,7 @@ impl CompactUnwindManager {
         // The offset from the base pointer at which the `indexSection` can be found. It is right after the
         // header.
         self.write(index_section_offset)?;
-        self.write(index_count + 1)?;
+        self.write(index_count)?;
 
         Ok(())
     }
