@@ -31,7 +31,7 @@ phf = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, features = ["log"] }
 enumset.workspace = true
 inkwell = { workspace = true, features = [
-	"llvm21-1-prefer-static",
+	"llvm22-1-prefer-static",
 	"target-x86",
 	"target-aarch64",
 	"target-riscv",
