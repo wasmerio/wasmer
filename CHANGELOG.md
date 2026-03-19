@@ -6,6 +6,23 @@
 
 ## **Unreleased**
 
+## 7.1.0-rc.2 - 17/03/2026
+
+## Added
+
+  - [#6308](https://github.com/wasmerio/wasmer/pull/6308) build(napi): add missing info for `cargo publish` + exclude large blobs from `wasmer-c-api` crate
+
+## Changed
+
+  - [#6312](https://github.com/wasmerio/wasmer/pull/6312) feat: include enabled features in --version -v
+
+## Fixed
+
+  - [#6311](https://github.com/wasmerio/wasmer/pull/6311) NAPI + WASIX fixes
+  - [#6306](https://github.com/wasmerio/wasmer/pull/6306) fix(macOS): Try to fix MacOS build by excluding CPATH env variable
+
+
+
 ## 7.1.0-rc.1 - 16/03/2026
 
 ## Added
