@@ -552,22 +552,22 @@
 <a href=#552 id=552 data-nosnippet>552</a>
 <a href=#553 id=553 data-nosnippet>553</a>    <span class="kw">let </span><span class="kw-2">mut </span>runtimes = Vec::new();
 <a href=#554 id=554 data-nosnippet>554</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"singlepass"</span>) {
-<a href=#555 id=555 data-nosnippet>555</a>        runtimes.push(<span class="string">"singlepass"</span>);
+<a href=#555 id=555 data-nosnippet>555</a>        runtimes.push(<span class="string">"Singlepass"</span>);
 <a href=#556 id=556 data-nosnippet>556</a>    }
 <a href=#557 id=557 data-nosnippet>557</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"cranelift"</span>) {
-<a href=#558 id=558 data-nosnippet>558</a>        runtimes.push(<span class="string">"cranelift"</span>);
+<a href=#558 id=558 data-nosnippet>558</a>        runtimes.push(<span class="string">"Cranelift"</span>);
 <a href=#559 id=559 data-nosnippet>559</a>    }
 <a href=#560 id=560 data-nosnippet>560</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"llvm"</span>) {
-<a href=#561 id=561 data-nosnippet>561</a>        runtimes.push(<span class="string">"llvm"</span>);
+<a href=#561 id=561 data-nosnippet>561</a>        runtimes.push(<span class="string">"LLVM"</span>);
 <a href=#562 id=562 data-nosnippet>562</a>    }
 <a href=#563 id=563 data-nosnippet>563</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wamr"</span>) {
-<a href=#564 id=564 data-nosnippet>564</a>        runtimes.push(<span class="string">"wamr"</span>);
+<a href=#564 id=564 data-nosnippet>564</a>        runtimes.push(<span class="string">"WAMR"</span>);
 <a href=#565 id=565 data-nosnippet>565</a>    }
 <a href=#566 id=566 data-nosnippet>566</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wasmi"</span>) {
-<a href=#567 id=567 data-nosnippet>567</a>        runtimes.push(<span class="string">"wasmi"</span>);
+<a href=#567 id=567 data-nosnippet>567</a>        runtimes.push(<span class="string">"Wasmi"</span>);
 <a href=#568 id=568 data-nosnippet>568</a>    }
 <a href=#569 id=569 data-nosnippet>569</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
-<a href=#570 id=570 data-nosnippet>570</a>        runtimes.push(<span class="string">"v8"</span>);
+<a href=#570 id=570 data-nosnippet>570</a>        runtimes.push(<span class="string">"V8"</span>);
 <a href=#571 id=571 data-nosnippet>571</a>    }
 <a href=#572 id=572 data-nosnippet>572</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
 <a href=#573 id=573 data-nosnippet>573</a>

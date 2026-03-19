@@ -154,7 +154,7 @@
 <a href=#154 id=154 data-nosnippet>154</a>    </span>]))]
 <a href=#155 id=155 data-nosnippet>155</a>    v8: bool,
 <a href=#156 id=156 data-nosnippet>156</a>
-<a href=#157 id=157 data-nosnippet>157</a>    <span class="doccomment">/// Use WAMR.
+<a href=#157 id=157 data-nosnippet>157</a>    <span class="doccomment">/// Use the WAMR runtime.
 <a href=#158 id=158 data-nosnippet>158</a>    </span><span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
 <a href=#159 id=159 data-nosnippet>159</a>    #[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>Vec::&lt;<span class="kw-2">&amp;</span>str&gt;::from_iter([
 <a href=#160 id=160 data-nosnippet>160</a>        <span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]
@@ -170,7 +170,7 @@
 <a href=#170 id=170 data-nosnippet>170</a>    </span>]))]
 <a href=#171 id=171 data-nosnippet>171</a>    wamr: bool,
 <a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// Use the wasmi runtime.
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// Use the Wasmi runtime.
 <a href=#174 id=174 data-nosnippet>174</a>    </span><span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
 <a href=#175 id=175 data-nosnippet>175</a>    #[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>Vec::&lt;<span class="kw-2">&amp;</span>str&gt;::from_iter([
 <a href=#176 id=176 data-nosnippet>176</a>        <span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]
@@ -188,25 +188,25 @@
 <a href=#188 id=188 data-nosnippet>188</a>
 <a href=#189 id=189 data-nosnippet>189</a>    <span class="doccomment">/// Enable compiler internal verification.
 <a href=#190 id=190 data-nosnippet>190</a>    ///
-<a href=#191 id=191 data-nosnippet>191</a>    /// Available for cranelift, LLVM and singlepass.
+<a href=#191 id=191 data-nosnippet>191</a>    /// Available for Cranelift, LLVM and Singlepass.
 <a href=#192 id=192 data-nosnippet>192</a>    </span><span class="attr">#[clap(long)]
 <a href=#193 id=193 data-nosnippet>193</a>    </span>enable_verifier: bool,
 <a href=#194 id=194 data-nosnippet>194</a>
 <a href=#195 id=195 data-nosnippet>195</a>    <span class="doccomment">/// Debug directory, where IR and object files will be written to.
 <a href=#196 id=196 data-nosnippet>196</a>    ///
-<a href=#197 id=197 data-nosnippet>197</a>    /// Available for cranelift, LLVM and singlepass.
+<a href=#197 id=197 data-nosnippet>197</a>    /// Available for Cranelift, LLVM and Singlepass.
 <a href=#198 id=198 data-nosnippet>198</a>    </span><span class="attr">#[clap(long, alias = <span class="string">"llvm-debug-dir"</span>)]
 <a href=#199 id=199 data-nosnippet>199</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) compiler_debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 <a href=#200 id=200 data-nosnippet>200</a>
 <a href=#201 id=201 data-nosnippet>201</a>    <span class="doccomment">/// Enable a profiler.
 <a href=#202 id=202 data-nosnippet>202</a>    ///
-<a href=#203 id=203 data-nosnippet>203</a>    /// Available for cranelift, LLVM and singlepass.
+<a href=#203 id=203 data-nosnippet>203</a>    /// Available for Cranelift, LLVM and Singlepass.
 <a href=#204 id=204 data-nosnippet>204</a>    </span><span class="attr">#[clap(long, value_enum)]
 <a href=#205 id=205 data-nosnippet>205</a>    </span>profiler: <span class="prelude-ty">Option</span>&lt;Profiler&gt;,
 <a href=#206 id=206 data-nosnippet>206</a>
 <a href=#207 id=207 data-nosnippet>207</a>    <span class="doccomment">/// Deprecated option as m0 optimization always play role if we use a static memory
 <a href=#208 id=208 data-nosnippet>208</a>    </span><span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)]
-<a href=#209 id=209 data-nosnippet>209</a>    #[clap(long)]
+<a href=#209 id=209 data-nosnippet>209</a>    #[clap(long, hide = <span class="bool-val">true</span>)]
 <a href=#210 id=210 data-nosnippet>210</a>    </span>_enable_pass_params_opt: bool,
 <a href=#211 id=211 data-nosnippet>211</a>
 <a href=#212 id=212 data-nosnippet>212</a>    <span class="doccomment">/// Sets the number of threads used to compile the input module(s).
