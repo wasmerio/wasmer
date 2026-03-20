@@ -260,11 +260,13 @@ pub enum BackendAsyncFunctionEnvMut<T> {
     #[cfg(feature = "sys")]
     /// The function environment for the `sys` runtime.
     Sys(crate::backend::sys::function::env::AsyncFunctionEnvMut<T>),
+    #[cfg(feature = "js")]
+    /// The function environment for the `sys` runtime.
+    Js(crate::backend::js::function::env::AsyncFunctionEnvMut<T>),
     #[cfg(any(
         feature = "wamr",
         feature = "wasmi",
         feature = "v8",
-        feature = "js",
         feature = "jsc"
     ))]
     /// Placeholder for unsupported backends.
