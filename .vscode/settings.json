@@ -4,7 +4,6 @@
         "cranelift",
         "singlepass",
         "wasmer-artifact-create",
-        "wasmer-artifact-load",
-        "napi-v8"
+        "wasmer-artifact-load"
     ]
 }
