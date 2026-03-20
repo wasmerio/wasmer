@@ -6,7 +6,7 @@
 
 use std::ffi::{CString, c_void};
 
-use wasmer::{AsStoreMut, Function, FunctionEnv, FunctionEnvMut, Imports};
+use wasmer::{AsStoreMut, Function, FunctionEnv, FunctionEnvMut, Imports, namespace};
 
 use crate::{
     RuntimeEnv,
@@ -4814,560 +4814,248 @@ pub fn register_napi_imports(
     fe: &FunctionEnv<RuntimeEnv>,
     io: &mut Imports,
 ) {
-    macro_rules! reg {
-        ($name:expr, $func:expr) => {
-            io.define(
-                "napi",
-                $name,
-                Function::new_typed_with_env(store, fe, $func),
-            );
-        };
-    }
+    let namespace = namespace! {
+        // Init
+        "napi_wasm_init_env" => Function::new_typed_with_env(store, fe, guest_napi_wasm_init_env),
+        "unofficial_napi_set_flags_from_string" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_flags_from_string),
+        "unofficial_napi_create_env" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_create_env),
+        "unofficial_napi_create_env_with_options" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_create_env_with_options),
+        "unofficial_napi_release_env" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_release_env),
+        "unofficial_napi_release_env_with_loop" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_release_env_with_loop),
+        "unofficial_napi_low_memory_notification" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_low_memory_notification),
+        "unofficial_napi_process_microtasks" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_process_microtasks),
+        "unofficial_napi_request_gc_for_testing" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_request_gc_for_testing),
+        "unofficial_napi_set_prepare_stack_trace_callback" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_prepare_stack_trace_callback),
+        "unofficial_napi_get_promise_details" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_promise_details),
+        "unofficial_napi_get_proxy_details" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_proxy_details),
+        "unofficial_napi_preview_entries" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_preview_entries),
+        "unofficial_napi_get_call_sites" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_call_sites),
+        "unofficial_napi_get_current_stack_trace" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_current_stack_trace),
+        "unofficial_napi_get_caller_location" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_caller_location),
+        "unofficial_napi_arraybuffer_view_has_buffer" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_arraybuffer_view_has_buffer),
+        "unofficial_napi_get_constructor_name" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_constructor_name),
+        "unofficial_napi_create_private_symbol" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_create_private_symbol),
+        "unofficial_napi_get_continuation_preserved_embedder_data" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_continuation_preserved_embedder_data),
+        "unofficial_napi_set_continuation_preserved_embedder_data" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_continuation_preserved_embedder_data),
+        "unofficial_napi_notify_datetime_configuration_change" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_notify_datetime_configuration_change),
+        "unofficial_napi_set_enqueue_foreground_task_callback" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_enqueue_foreground_task_callback),
+        "unofficial_napi_set_fatal_error_callbacks" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_fatal_error_callbacks),
+        "unofficial_napi_terminate_execution" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_terminate_execution),
+        "unofficial_napi_cancel_terminate_execution" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_cancel_terminate_execution),
+        "unofficial_napi_request_interrupt" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_request_interrupt),
+        "unofficial_napi_structured_clone" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_structured_clone),
+        "unofficial_napi_structured_clone_with_transfer" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_structured_clone_with_transfer),
+        "unofficial_napi_serialize_value" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_serialize_value),
+        "unofficial_napi_deserialize_value" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_deserialize_value),
+        "unofficial_napi_release_serialized_value" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_release_serialized_value),
+        "unofficial_napi_enqueue_microtask" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_enqueue_microtask),
+        "unofficial_napi_set_promise_reject_callback" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_promise_reject_callback),
+        "unofficial_napi_set_promise_hooks" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_promise_hooks),
+        "unofficial_napi_get_own_non_index_properties" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_own_non_index_properties),
+        "unofficial_napi_get_process_memory_info" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_process_memory_info),
+        "unofficial_napi_get_hash_seed" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_hash_seed),
+        "unofficial_napi_get_error_source_positions" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_error_source_positions),
+        "unofficial_napi_preserve_error_source_message" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_preserve_error_source_message),
+        "unofficial_napi_mark_promise_as_handled" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_mark_promise_as_handled),
+        "unofficial_napi_get_heap_statistics" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_heap_statistics),
+        "unofficial_napi_get_heap_space_count" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_heap_space_count),
+        "unofficial_napi_get_heap_space_statistics" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_heap_space_statistics),
+        "unofficial_napi_get_heap_code_statistics" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_get_heap_code_statistics),
+        "unofficial_napi_set_stack_limit" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_stack_limit),
+        "unofficial_napi_set_near_heap_limit_callback" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_set_near_heap_limit_callback),
+        "unofficial_napi_remove_near_heap_limit_callback" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_remove_near_heap_limit_callback),
+        "unofficial_napi_free_buffer" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_free_buffer),
+        "unofficial_napi_start_cpu_profile" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_start_cpu_profile),
+        "unofficial_napi_stop_cpu_profile" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_stop_cpu_profile),
+        "unofficial_napi_start_heap_profile" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_start_heap_profile),
+        "unofficial_napi_stop_heap_profile" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_stop_heap_profile),
+        "unofficial_napi_take_heap_snapshot" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_take_heap_snapshot),
+        "unofficial_napi_create_serdes_binding" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_create_serdes_binding),
+        "unofficial_napi_contextify_contains_module_syntax" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_contextify_contains_module_syntax),
+        "unofficial_napi_contextify_make_context" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_contextify_make_context),
+        "unofficial_napi_contextify_run_script" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_contextify_run_script),
+        "unofficial_napi_contextify_dispose_context" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_contextify_dispose_context),
+        "unofficial_napi_contextify_compile_function" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_contextify_compile_function),
+        "unofficial_napi_contextify_compile_function_for_cjs_loader" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_contextify_compile_function_for_cjs_loader),
+        "unofficial_napi_contextify_create_cached_data" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_contextify_create_cached_data),
+        "unofficial_napi_module_wrap_create_source_text" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_create_source_text),
+        "unofficial_napi_module_wrap_create_synthetic" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_create_synthetic),
+        "unofficial_napi_module_wrap_destroy" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_destroy),
+        "unofficial_napi_module_wrap_get_module_requests" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_get_module_requests),
+        "unofficial_napi_module_wrap_link" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_link),
+        "unofficial_napi_module_wrap_instantiate" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_instantiate),
+        "unofficial_napi_module_wrap_evaluate" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_evaluate),
+        "unofficial_napi_module_wrap_evaluate_sync" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_evaluate_sync),
+        "unofficial_napi_module_wrap_get_namespace" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_get_namespace),
+        "unofficial_napi_module_wrap_get_status" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_get_status),
+        "unofficial_napi_module_wrap_get_error" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_get_error),
+        "unofficial_napi_module_wrap_has_top_level_await" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_has_top_level_await),
+        "unofficial_napi_module_wrap_has_async_graph" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_has_async_graph),
+        "unofficial_napi_module_wrap_check_unsettled_top_level_await" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_check_unsettled_top_level_await),
+        "unofficial_napi_module_wrap_set_export" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_set_export),
+        "unofficial_napi_module_wrap_set_module_source_object" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_set_module_source_object),
+        "unofficial_napi_module_wrap_get_module_source_object" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_get_module_source_object),
+        "unofficial_napi_module_wrap_create_cached_data" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_create_cached_data),
+        "unofficial_napi_module_wrap_set_import_module_dynamically_callback" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_set_import_module_dynamically_callback),
+        "unofficial_napi_module_wrap_set_initialize_import_meta_object_callback" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_set_initialize_import_meta_object_callback),
+        "unofficial_napi_module_wrap_import_module_dynamically" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_import_module_dynamically),
+        "unofficial_napi_module_wrap_create_required_module_facade" => Function::new_typed_with_env(store, fe, guest_unofficial_napi_module_wrap_create_required_module_facade),
+        // Singleton getters
+        "napi_get_undefined" => Function::new_typed_with_env(store, fe, guest_napi_get_undefined),
+        "napi_get_null" => Function::new_typed_with_env(store, fe, guest_napi_get_null),
+        "napi_get_boolean" => Function::new_typed_with_env(store, fe, guest_napi_get_boolean),
+        "napi_get_global" => Function::new_typed_with_env(store, fe, guest_napi_get_global),
+        // Value creation
+        "napi_create_string_utf8" => Function::new_typed_with_env(store, fe, guest_napi_create_string_utf8),
+        "napi_create_string_latin1" => Function::new_typed_with_env(store, fe, guest_napi_create_string_latin1),
+        "napi_create_int32" => Function::new_typed_with_env(store, fe, guest_napi_create_int32),
+        "napi_create_uint32" => Function::new_typed_with_env(store, fe, guest_napi_create_uint32),
+        "napi_create_double" => Function::new_typed_with_env(store, fe, guest_napi_create_double),
+        "napi_create_int64" => Function::new_typed_with_env(store, fe, guest_napi_create_int64),
+        "napi_create_object" => Function::new_typed_with_env(store, fe, guest_napi_create_object),
+        "napi_create_array" => Function::new_typed_with_env(store, fe, guest_napi_create_array),
+        "napi_create_array_with_length" => Function::new_typed_with_env(store, fe, guest_napi_create_array_with_length),
+        "napi_create_symbol" => Function::new_typed_with_env(store, fe, guest_napi_create_symbol),
+        "napi_create_error" => Function::new_typed_with_env(store, fe, guest_napi_create_error),
+        "napi_create_type_error" => Function::new_typed_with_env(store, fe, guest_napi_create_type_error),
+        "napi_create_range_error" => Function::new_typed_with_env(store, fe, guest_napi_create_range_error),
+        "napi_create_bigint_int64" => Function::new_typed_with_env(store, fe, guest_napi_create_bigint_int64),
+        "napi_create_bigint_uint64" => Function::new_typed_with_env(store, fe, guest_napi_create_bigint_uint64),
+        "napi_create_date" => Function::new_typed_with_env(store, fe, guest_napi_create_date),
+        "napi_create_external" => Function::new_typed_with_env(store, fe, guest_napi_create_external),
+        "napi_create_arraybuffer" => Function::new_typed_with_env(store, fe, guest_napi_create_arraybuffer),
+        "napi_create_external_arraybuffer" => Function::new_typed_with_env(store, fe, guest_napi_create_external_arraybuffer),
+        "napi_create_external_buffer" => Function::new_typed_with_env(store, fe, guest_napi_create_external_buffer),
+        "napi_create_typedarray" => Function::new_typed_with_env(store, fe, guest_napi_create_typedarray),
+        "napi_create_dataview" => Function::new_typed_with_env(store, fe, guest_napi_create_dataview),
+        "napi_create_promise" => Function::new_typed_with_env(store, fe, guest_napi_create_promise),
+        // Value reading
+        "napi_get_value_string_utf8" => Function::new_typed_with_env(store, fe, guest_napi_get_value_string_utf8),
+        "napi_get_value_string_latin1" => Function::new_typed_with_env(store, fe, guest_napi_get_value_string_latin1),
+        "napi_get_value_int32" => Function::new_typed_with_env(store, fe, guest_napi_get_value_int32),
+        "napi_get_value_uint32" => Function::new_typed_with_env(store, fe, guest_napi_get_value_uint32),
+        "napi_get_value_double" => Function::new_typed_with_env(store, fe, guest_napi_get_value_double),
+        "napi_get_value_int64" => Function::new_typed_with_env(store, fe, guest_napi_get_value_int64),
+        "napi_get_value_bool" => Function::new_typed_with_env(store, fe, guest_napi_get_value_bool),
+        "napi_get_value_bigint_int64" => Function::new_typed_with_env(store, fe, guest_napi_get_value_bigint_int64),
+        "napi_get_value_bigint_uint64" => Function::new_typed_with_env(store, fe, guest_napi_get_value_bigint_uint64),
+        "napi_get_date_value" => Function::new_typed_with_env(store, fe, guest_napi_get_date_value),
+        "napi_get_value_external" => Function::new_typed_with_env(store, fe, guest_napi_get_value_external),
+        // Type checking
+        "napi_typeof" => Function::new_typed_with_env(store, fe, guest_napi_typeof),
+        "napi_is_array" => Function::new_typed_with_env(store, fe, guest_napi_is_array),
+        "napi_is_error" => Function::new_typed_with_env(store, fe, guest_napi_is_error),
+        "napi_is_arraybuffer" => Function::new_typed_with_env(store, fe, guest_napi_is_arraybuffer),
+        "napi_is_typedarray" => Function::new_typed_with_env(store, fe, guest_napi_is_typedarray),
+        "napi_is_dataview" => Function::new_typed_with_env(store, fe, guest_napi_is_dataview),
+        "napi_is_date" => Function::new_typed_with_env(store, fe, guest_napi_is_date),
+        "napi_is_promise" => Function::new_typed_with_env(store, fe, guest_napi_is_promise),
+        "napi_instanceof" => Function::new_typed_with_env(store, fe, guest_napi_instanceof),
+        // Coercion
+        "napi_coerce_to_bool" => Function::new_typed_with_env(store, fe, guest_napi_coerce_to_bool),
+        "napi_coerce_to_number" => Function::new_typed_with_env(store, fe, guest_napi_coerce_to_number),
+        "napi_coerce_to_string" => Function::new_typed_with_env(store, fe, guest_napi_coerce_to_string),
+        "napi_coerce_to_object" => Function::new_typed_with_env(store, fe, guest_napi_coerce_to_object),
+        // Object operations
+        "napi_set_property" => Function::new_typed_with_env(store, fe, guest_napi_set_property),
+        "napi_get_property" => Function::new_typed_with_env(store, fe, guest_napi_get_property),
+        "napi_has_property" => Function::new_typed_with_env(store, fe, guest_napi_has_property),
+        "napi_has_own_property" => Function::new_typed_with_env(store, fe, guest_napi_has_own_property),
+        "napi_delete_property" => Function::new_typed_with_env(store, fe, guest_napi_delete_property),
+        "napi_set_named_property" => Function::new_typed_with_env(store, fe, guest_napi_set_named_property),
+        "napi_get_named_property" => Function::new_typed_with_env(store, fe, guest_napi_get_named_property),
+        "napi_has_named_property" => Function::new_typed_with_env(store, fe, guest_napi_has_named_property),
+        "napi_set_element" => Function::new_typed_with_env(store, fe, guest_napi_set_element),
+        "napi_get_element" => Function::new_typed_with_env(store, fe, guest_napi_get_element),
+        "napi_has_element" => Function::new_typed_with_env(store, fe, guest_napi_has_element),
+        "napi_delete_element" => Function::new_typed_with_env(store, fe, guest_napi_delete_element),
+        "napi_get_array_length" => Function::new_typed_with_env(store, fe, guest_napi_get_array_length),
+        "napi_get_property_names" => Function::new_typed_with_env(store, fe, guest_napi_get_property_names),
+        "napi_get_all_property_names" => Function::new_typed_with_env(store, fe, guest_napi_get_all_property_names),
+        "napi_get_prototype" => Function::new_typed_with_env(store, fe, guest_napi_get_prototype),
+        "napi_object_freeze" => Function::new_typed_with_env(store, fe, guest_napi_object_freeze),
+        "napi_object_seal" => Function::new_typed_with_env(store, fe, guest_napi_object_seal),
+        // Comparison
+        "napi_strict_equals" => Function::new_typed_with_env(store, fe, guest_napi_strict_equals),
+        // Error handling
+        "napi_throw" => Function::new_typed_with_env(store, fe, guest_napi_throw),
+        "napi_throw_error" => Function::new_typed_with_env(store, fe, guest_napi_throw_error),
+        "napi_throw_type_error" => Function::new_typed_with_env(store, fe, guest_napi_throw_type_error),
+        "napi_throw_range_error" => Function::new_typed_with_env(store, fe, guest_napi_throw_range_error),
+        "napi_is_exception_pending" => Function::new_typed_with_env(store, fe, guest_napi_is_exception_pending),
+        "napi_get_and_clear_last_exception" => Function::new_typed_with_env(store, fe, guest_napi_get_and_clear_last_exception),
+        // Promise
+        "napi_resolve_deferred" => Function::new_typed_with_env(store, fe, guest_napi_resolve_deferred),
+        "napi_reject_deferred" => Function::new_typed_with_env(store, fe, guest_napi_reject_deferred),
+        // ArrayBuffer
+        "napi_get_arraybuffer_info" => Function::new_typed_with_env(store, fe, guest_napi_get_arraybuffer_info),
+        "napi_detach_arraybuffer" => Function::new_typed_with_env(store, fe, guest_napi_detach_arraybuffer),
+        "napi_is_detached_arraybuffer" => Function::new_typed_with_env(store, fe, guest_napi_is_detached_arraybuffer),
+        "node_api_is_sharedarraybuffer" => Function::new_typed_with_env(store, fe, guest_node_api_is_sharedarraybuffer),
+        "node_api_create_sharedarraybuffer" => Function::new_typed_with_env(store, fe, guest_node_api_create_sharedarraybuffer),
+        "node_api_set_prototype" => Function::new_typed_with_env(store, fe, guest_node_api_set_prototype),
+        // TypedArray
+        "napi_get_typedarray_info" => Function::new_typed_with_env(store, fe, guest_napi_get_typedarray_info),
+        // DataView
+        "napi_get_dataview_info" => Function::new_typed_with_env(store, fe, guest_napi_get_dataview_info),
+        // References
+        "napi_create_reference" => Function::new_typed_with_env(store, fe, guest_napi_create_reference),
+        "napi_delete_reference" => Function::new_typed_with_env(store, fe, guest_napi_delete_reference),
+        "napi_reference_ref" => Function::new_typed_with_env(store, fe, guest_napi_reference_ref),
+        "napi_reference_unref" => Function::new_typed_with_env(store, fe, guest_napi_reference_unref),
+        "napi_get_reference_value" => Function::new_typed_with_env(store, fe, guest_napi_get_reference_value),
+        // Handle scopes
+        "napi_open_handle_scope" => Function::new_typed_with_env(store, fe, guest_napi_open_handle_scope),
+        "napi_close_handle_scope" => Function::new_typed_with_env(store, fe, guest_napi_close_handle_scope),
+        "napi_open_escapable_handle_scope" => Function::new_typed_with_env(store, fe, guest_napi_open_escapable_handle_scope),
+        "napi_close_escapable_handle_scope" => Function::new_typed_with_env(store, fe, guest_napi_close_escapable_handle_scope),
+        "napi_escape_handle" => Function::new_typed_with_env(store, fe, guest_napi_escape_handle),
+        // Type tagging
+        "napi_type_tag_object" => Function::new_typed_with_env(store, fe, guest_napi_type_tag_object),
+        "napi_check_object_type_tag" => Function::new_typed_with_env(store, fe, guest_napi_check_object_type_tag),
+        // Function calling
+        "napi_call_function" => Function::new_typed_with_env(store, fe, guest_napi_call_function),
+        "napi_create_function" => Function::new_typed_with_env(store, fe, guest_napi_create_function),
+        "napi_get_cb_info" => Function::new_typed_with_env(store, fe, guest_napi_get_cb_info),
+        "napi_get_new_target" => Function::new_typed_with_env(store, fe, guest_napi_get_new_target),
+        // Script execution
+        "napi_run_script" => Function::new_typed_with_env(store, fe, guest_napi_run_script),
+        // UTF-16 strings
+        "napi_create_string_utf16" => Function::new_typed_with_env(store, fe, guest_napi_create_string_utf16),
+        "napi_get_value_string_utf16" => Function::new_typed_with_env(store, fe, guest_napi_get_value_string_utf16),
+        // BigInt words
+        "napi_create_bigint_words" => Function::new_typed_with_env(store, fe, guest_napi_create_bigint_words),
+        "napi_get_value_bigint_words" => Function::new_typed_with_env(store, fe, guest_napi_get_value_bigint_words),
+        // Instance data
+        "napi_set_instance_data" => Function::new_typed_with_env(store, fe, guest_napi_set_instance_data),
+        "napi_get_instance_data" => Function::new_typed_with_env(store, fe, guest_napi_get_instance_data),
+        "napi_adjust_external_memory" => Function::new_typed_with_env(store, fe, guest_napi_adjust_external_memory),
+        // Node Buffers
+        "napi_create_buffer" => Function::new_typed_with_env(store, fe, guest_napi_create_buffer),
+        "napi_create_buffer_copy" => Function::new_typed_with_env(store, fe, guest_napi_create_buffer_copy),
+        "napi_is_buffer" => Function::new_typed_with_env(store, fe, guest_napi_is_buffer),
+        "napi_get_buffer_info" => Function::new_typed_with_env(store, fe, guest_napi_get_buffer_info),
+        // Node version
+        "napi_get_node_version" => Function::new_typed_with_env(store, fe, guest_napi_get_node_version),
+        // Object wrapping
+        "napi_wrap" => Function::new_typed_with_env(store, fe, guest_napi_wrap),
+        "napi_unwrap" => Function::new_typed_with_env(store, fe, guest_napi_unwrap),
+        "napi_remove_wrap" => Function::new_typed_with_env(store, fe, guest_napi_remove_wrap),
+        "napi_add_finalizer" => Function::new_typed_with_env(store, fe, guest_napi_add_finalizer),
+        // Constructor / Class
+        "napi_new_instance" => Function::new_typed_with_env(store, fe, guest_napi_new_instance),
+        "napi_define_properties" => Function::new_typed_with_env(store, fe, guest_napi_define_properties),
+        "napi_define_class" => Function::new_typed_with_env(store, fe, guest_napi_define_class),
+        // Fatal error
+        "napi_fatal_error" => Function::new_typed_with_env(store, fe, guest_napi_fatal_error),
+        // Misc
+        "napi_get_last_error_info" => Function::new_typed_with_env(store, fe, guest_napi_get_last_error_info),
+        "napi_get_version" => Function::new_typed_with_env(store, fe, guest_napi_get_version),
+        "napi_add_env_cleanup_hook" => Function::new_typed_with_env(store, fe, guest_napi_add_env_cleanup_hook),
+        "napi_remove_env_cleanup_hook" => Function::new_typed_with_env(store, fe, guest_napi_remove_env_cleanup_hook),
+    };
 
-    // Init
-    reg!("napi_wasm_init_env", guest_napi_wasm_init_env);
-    reg!(
-        "unofficial_napi_set_flags_from_string",
-        guest_unofficial_napi_set_flags_from_string
-    );
-    reg!(
-        "unofficial_napi_create_env",
-        guest_unofficial_napi_create_env
-    );
-    reg!(
-        "unofficial_napi_create_env_with_options",
-        guest_unofficial_napi_create_env_with_options
-    );
-    reg!(
-        "unofficial_napi_release_env",
-        guest_unofficial_napi_release_env
-    );
-    reg!(
-        "unofficial_napi_release_env_with_loop",
-        guest_unofficial_napi_release_env_with_loop
-    );
-    reg!(
-        "unofficial_napi_low_memory_notification",
-        guest_unofficial_napi_low_memory_notification
-    );
-    reg!(
-        "unofficial_napi_process_microtasks",
-        guest_unofficial_napi_process_microtasks
-    );
-    reg!(
-        "unofficial_napi_request_gc_for_testing",
-        guest_unofficial_napi_request_gc_for_testing
-    );
-    reg!(
-        "unofficial_napi_set_prepare_stack_trace_callback",
-        guest_unofficial_napi_set_prepare_stack_trace_callback
-    );
-    reg!(
-        "unofficial_napi_get_promise_details",
-        guest_unofficial_napi_get_promise_details
-    );
-    reg!(
-        "unofficial_napi_get_proxy_details",
-        guest_unofficial_napi_get_proxy_details
-    );
-    reg!(
-        "unofficial_napi_preview_entries",
-        guest_unofficial_napi_preview_entries
-    );
-    reg!(
-        "unofficial_napi_get_call_sites",
-        guest_unofficial_napi_get_call_sites
-    );
-    reg!(
-        "unofficial_napi_get_current_stack_trace",
-        guest_unofficial_napi_get_current_stack_trace
-    );
-    reg!(
-        "unofficial_napi_get_caller_location",
-        guest_unofficial_napi_get_caller_location
-    );
-    reg!(
-        "unofficial_napi_arraybuffer_view_has_buffer",
-        guest_unofficial_napi_arraybuffer_view_has_buffer
-    );
-    reg!(
-        "unofficial_napi_get_constructor_name",
-        guest_unofficial_napi_get_constructor_name
-    );
-    reg!(
-        "unofficial_napi_create_private_symbol",
-        guest_unofficial_napi_create_private_symbol
-    );
-    reg!(
-        "unofficial_napi_get_continuation_preserved_embedder_data",
-        guest_unofficial_napi_get_continuation_preserved_embedder_data
-    );
-    reg!(
-        "unofficial_napi_set_continuation_preserved_embedder_data",
-        guest_unofficial_napi_set_continuation_preserved_embedder_data
-    );
-    reg!(
-        "unofficial_napi_notify_datetime_configuration_change",
-        guest_unofficial_napi_notify_datetime_configuration_change
-    );
-    reg!(
-        "unofficial_napi_set_enqueue_foreground_task_callback",
-        guest_unofficial_napi_set_enqueue_foreground_task_callback
-    );
-    reg!(
-        "unofficial_napi_set_fatal_error_callbacks",
-        guest_unofficial_napi_set_fatal_error_callbacks
-    );
-    reg!(
-        "unofficial_napi_terminate_execution",
-        guest_unofficial_napi_terminate_execution
-    );
-    reg!(
-        "unofficial_napi_cancel_terminate_execution",
-        guest_unofficial_napi_cancel_terminate_execution
-    );
-    reg!(
-        "unofficial_napi_request_interrupt",
-        guest_unofficial_napi_request_interrupt
-    );
-    reg!(
-        "unofficial_napi_structured_clone",
-        guest_unofficial_napi_structured_clone
-    );
-    reg!(
-        "unofficial_napi_structured_clone_with_transfer",
-        guest_unofficial_napi_structured_clone_with_transfer
-    );
-    reg!(
-        "unofficial_napi_serialize_value",
-        guest_unofficial_napi_serialize_value
-    );
-    reg!(
-        "unofficial_napi_deserialize_value",
-        guest_unofficial_napi_deserialize_value
-    );
-    reg!(
-        "unofficial_napi_release_serialized_value",
-        guest_unofficial_napi_release_serialized_value
-    );
-    reg!(
-        "unofficial_napi_enqueue_microtask",
-        guest_unofficial_napi_enqueue_microtask
-    );
-    reg!(
-        "unofficial_napi_set_promise_reject_callback",
-        guest_unofficial_napi_set_promise_reject_callback
-    );
-    reg!(
-        "unofficial_napi_set_promise_hooks",
-        guest_unofficial_napi_set_promise_hooks
-    );
-    reg!(
-        "unofficial_napi_get_own_non_index_properties",
-        guest_unofficial_napi_get_own_non_index_properties
-    );
-    reg!(
-        "unofficial_napi_get_process_memory_info",
-        guest_unofficial_napi_get_process_memory_info
-    );
-    reg!(
-        "unofficial_napi_get_hash_seed",
-        guest_unofficial_napi_get_hash_seed
-    );
-    reg!(
-        "unofficial_napi_get_error_source_positions",
-        guest_unofficial_napi_get_error_source_positions
-    );
-    reg!(
-        "unofficial_napi_preserve_error_source_message",
-        guest_unofficial_napi_preserve_error_source_message
-    );
-    reg!(
-        "unofficial_napi_mark_promise_as_handled",
-        guest_unofficial_napi_mark_promise_as_handled
-    );
-    reg!(
-        "unofficial_napi_get_heap_statistics",
-        guest_unofficial_napi_get_heap_statistics
-    );
-    reg!(
-        "unofficial_napi_get_heap_space_count",
-        guest_unofficial_napi_get_heap_space_count
-    );
-    reg!(
-        "unofficial_napi_get_heap_space_statistics",
-        guest_unofficial_napi_get_heap_space_statistics
-    );
-    reg!(
-        "unofficial_napi_get_heap_code_statistics",
-        guest_unofficial_napi_get_heap_code_statistics
-    );
-    reg!(
-        "unofficial_napi_set_stack_limit",
-        guest_unofficial_napi_set_stack_limit
-    );
-    reg!(
-        "unofficial_napi_set_near_heap_limit_callback",
-        guest_unofficial_napi_set_near_heap_limit_callback
-    );
-    reg!(
-        "unofficial_napi_remove_near_heap_limit_callback",
-        guest_unofficial_napi_remove_near_heap_limit_callback
-    );
-    reg!(
-        "unofficial_napi_free_buffer",
-        guest_unofficial_napi_free_buffer
-    );
-    reg!(
-        "unofficial_napi_start_cpu_profile",
-        guest_unofficial_napi_start_cpu_profile
-    );
-    reg!(
-        "unofficial_napi_stop_cpu_profile",
-        guest_unofficial_napi_stop_cpu_profile
-    );
-    reg!(
-        "unofficial_napi_start_heap_profile",
-        guest_unofficial_napi_start_heap_profile
-    );
-    reg!(
-        "unofficial_napi_stop_heap_profile",
-        guest_unofficial_napi_stop_heap_profile
-    );
-    reg!(
-        "unofficial_napi_take_heap_snapshot",
-        guest_unofficial_napi_take_heap_snapshot
-    );
-    reg!(
-        "unofficial_napi_create_serdes_binding",
-        guest_unofficial_napi_create_serdes_binding
-    );
-    reg!(
-        "unofficial_napi_contextify_contains_module_syntax",
-        guest_unofficial_napi_contextify_contains_module_syntax
-    );
-    reg!(
-        "unofficial_napi_contextify_make_context",
-        guest_unofficial_napi_contextify_make_context
-    );
-    reg!(
-        "unofficial_napi_contextify_run_script",
-        guest_unofficial_napi_contextify_run_script
-    );
-    reg!(
-        "unofficial_napi_contextify_dispose_context",
-        guest_unofficial_napi_contextify_dispose_context
-    );
-    reg!(
-        "unofficial_napi_contextify_compile_function",
-        guest_unofficial_napi_contextify_compile_function
-    );
-    reg!(
-        "unofficial_napi_contextify_compile_function_for_cjs_loader",
-        guest_unofficial_napi_contextify_compile_function_for_cjs_loader
-    );
-    reg!(
-        "unofficial_napi_contextify_create_cached_data",
-        guest_unofficial_napi_contextify_create_cached_data
-    );
-    reg!(
-        "unofficial_napi_module_wrap_create_source_text",
-        guest_unofficial_napi_module_wrap_create_source_text
-    );
-    reg!(
-        "unofficial_napi_module_wrap_create_synthetic",
-        guest_unofficial_napi_module_wrap_create_synthetic
-    );
-    reg!(
-        "unofficial_napi_module_wrap_destroy",
-        guest_unofficial_napi_module_wrap_destroy
-    );
-    reg!(
-        "unofficial_napi_module_wrap_get_module_requests",
-        guest_unofficial_napi_module_wrap_get_module_requests
-    );
-    reg!(
-        "unofficial_napi_module_wrap_link",
-        guest_unofficial_napi_module_wrap_link
-    );
-    reg!(
-        "unofficial_napi_module_wrap_instantiate",
-        guest_unofficial_napi_module_wrap_instantiate
-    );
-    reg!(
-        "unofficial_napi_module_wrap_evaluate",
-        guest_unofficial_napi_module_wrap_evaluate
-    );
-    reg!(
-        "unofficial_napi_module_wrap_evaluate_sync",
-        guest_unofficial_napi_module_wrap_evaluate_sync
-    );
-    reg!(
-        "unofficial_napi_module_wrap_get_namespace",
-        guest_unofficial_napi_module_wrap_get_namespace
-    );
-    reg!(
-        "unofficial_napi_module_wrap_get_status",
-        guest_unofficial_napi_module_wrap_get_status
-    );
-    reg!(
-        "unofficial_napi_module_wrap_get_error",
-        guest_unofficial_napi_module_wrap_get_error
-    );
-    reg!(
-        "unofficial_napi_module_wrap_has_top_level_await",
-        guest_unofficial_napi_module_wrap_has_top_level_await
-    );
-    reg!(
-        "unofficial_napi_module_wrap_has_async_graph",
-        guest_unofficial_napi_module_wrap_has_async_graph
-    );
-    reg!(
-        "unofficial_napi_module_wrap_check_unsettled_top_level_await",
-        guest_unofficial_napi_module_wrap_check_unsettled_top_level_await
-    );
-    reg!(
-        "unofficial_napi_module_wrap_set_export",
-        guest_unofficial_napi_module_wrap_set_export
-    );
-    reg!(
-        "unofficial_napi_module_wrap_set_module_source_object",
-        guest_unofficial_napi_module_wrap_set_module_source_object
-    );
-    reg!(
-        "unofficial_napi_module_wrap_get_module_source_object",
-        guest_unofficial_napi_module_wrap_get_module_source_object
-    );
-    reg!(
-        "unofficial_napi_module_wrap_create_cached_data",
-        guest_unofficial_napi_module_wrap_create_cached_data
-    );
-    reg!(
-        "unofficial_napi_module_wrap_set_import_module_dynamically_callback",
-        guest_unofficial_napi_module_wrap_set_import_module_dynamically_callback
-    );
-    reg!(
-        "unofficial_napi_module_wrap_set_initialize_import_meta_object_callback",
-        guest_unofficial_napi_module_wrap_set_initialize_import_meta_object_callback
-    );
-    reg!(
-        "unofficial_napi_module_wrap_import_module_dynamically",
-        guest_unofficial_napi_module_wrap_import_module_dynamically
-    );
-    reg!(
-        "unofficial_napi_module_wrap_create_required_module_facade",
-        guest_unofficial_napi_module_wrap_create_required_module_facade
-    );
-    // Singleton getters
-    reg!("napi_get_undefined", guest_napi_get_undefined);
-    reg!("napi_get_null", guest_napi_get_null);
-    reg!("napi_get_boolean", guest_napi_get_boolean);
-    reg!("napi_get_global", guest_napi_get_global);
-    // Value creation
-    reg!("napi_create_string_utf8", guest_napi_create_string_utf8);
-    reg!("napi_create_string_latin1", guest_napi_create_string_latin1);
-    reg!("napi_create_int32", guest_napi_create_int32);
-    reg!("napi_create_uint32", guest_napi_create_uint32);
-    reg!("napi_create_double", guest_napi_create_double);
-    reg!("napi_create_int64", guest_napi_create_int64);
-    reg!("napi_create_object", guest_napi_create_object);
-    reg!("napi_create_array", guest_napi_create_array);
-    reg!(
-        "napi_create_array_with_length",
-        guest_napi_create_array_with_length
-    );
-    reg!("napi_create_symbol", guest_napi_create_symbol);
-    reg!("napi_create_error", guest_napi_create_error);
-    reg!("napi_create_type_error", guest_napi_create_type_error);
-    reg!("napi_create_range_error", guest_napi_create_range_error);
-    reg!("napi_create_bigint_int64", guest_napi_create_bigint_int64);
-    reg!("napi_create_bigint_uint64", guest_napi_create_bigint_uint64);
-    reg!("napi_create_date", guest_napi_create_date);
-    reg!("napi_create_external", guest_napi_create_external);
-    reg!("napi_create_arraybuffer", guest_napi_create_arraybuffer);
-    reg!(
-        "napi_create_external_arraybuffer",
-        guest_napi_create_external_arraybuffer
-    );
-    reg!(
-        "napi_create_external_buffer",
-        guest_napi_create_external_buffer
-    );
-    reg!("napi_create_typedarray", guest_napi_create_typedarray);
-    reg!("napi_create_dataview", guest_napi_create_dataview);
-    reg!("napi_create_promise", guest_napi_create_promise);
-    // Value reading
-    reg!(
-        "napi_get_value_string_utf8",
-        guest_napi_get_value_string_utf8
-    );
-    reg!(
-        "napi_get_value_string_latin1",
-        guest_napi_get_value_string_latin1
-    );
-    reg!("napi_get_value_int32", guest_napi_get_value_int32);
-    reg!("napi_get_value_uint32", guest_napi_get_value_uint32);
-    reg!("napi_get_value_double", guest_napi_get_value_double);
-    reg!("napi_get_value_int64", guest_napi_get_value_int64);
-    reg!("napi_get_value_bool", guest_napi_get_value_bool);
-    reg!(
-        "napi_get_value_bigint_int64",
-        guest_napi_get_value_bigint_int64
-    );
-    reg!(
-        "napi_get_value_bigint_uint64",
-        guest_napi_get_value_bigint_uint64
-    );
-    reg!("napi_get_date_value", guest_napi_get_date_value);
-    reg!("napi_get_value_external", guest_napi_get_value_external);
-    // Type checking
-    reg!("napi_typeof", guest_napi_typeof);
-    reg!("napi_is_array", guest_napi_is_array);
-    reg!("napi_is_error", guest_napi_is_error);
-    reg!("napi_is_arraybuffer", guest_napi_is_arraybuffer);
-    reg!("napi_is_typedarray", guest_napi_is_typedarray);
-    reg!("napi_is_dataview", guest_napi_is_dataview);
-    reg!("napi_is_date", guest_napi_is_date);
-    reg!("napi_is_promise", guest_napi_is_promise);
-    reg!("napi_instanceof", guest_napi_instanceof);
-    // Coercion
-    reg!("napi_coerce_to_bool", guest_napi_coerce_to_bool);
-    reg!("napi_coerce_to_number", guest_napi_coerce_to_number);
-    reg!("napi_coerce_to_string", guest_napi_coerce_to_string);
-    reg!("napi_coerce_to_object", guest_napi_coerce_to_object);
-    // Object operations
-    reg!("napi_set_property", guest_napi_set_property);
-    reg!("napi_get_property", guest_napi_get_property);
-    reg!("napi_has_property", guest_napi_has_property);
-    reg!("napi_has_own_property", guest_napi_has_own_property);
-    reg!("napi_delete_property", guest_napi_delete_property);
-    reg!("napi_set_named_property", guest_napi_set_named_property);
-    reg!("napi_get_named_property", guest_napi_get_named_property);
-    reg!("napi_has_named_property", guest_napi_has_named_property);
-    reg!("napi_set_element", guest_napi_set_element);
-    reg!("napi_get_element", guest_napi_get_element);
-    reg!("napi_has_element", guest_napi_has_element);
-    reg!("napi_delete_element", guest_napi_delete_element);
-    reg!("napi_get_array_length", guest_napi_get_array_length);
-    reg!("napi_get_property_names", guest_napi_get_property_names);
-    reg!(
-        "napi_get_all_property_names",
-        guest_napi_get_all_property_names
-    );
-    reg!("napi_get_prototype", guest_napi_get_prototype);
-    reg!("napi_object_freeze", guest_napi_object_freeze);
-    reg!("napi_object_seal", guest_napi_object_seal);
-    // Comparison
-    reg!("napi_strict_equals", guest_napi_strict_equals);
-    // Error handling
-    reg!("napi_throw", guest_napi_throw);
-    reg!("napi_throw_error", guest_napi_throw_error);
-    reg!("napi_throw_type_error", guest_napi_throw_type_error);
-    reg!("napi_throw_range_error", guest_napi_throw_range_error);
-    reg!("napi_is_exception_pending", guest_napi_is_exception_pending);
-    reg!(
-        "napi_get_and_clear_last_exception",
-        guest_napi_get_and_clear_last_exception
-    );
-    // Promise
-    reg!("napi_resolve_deferred", guest_napi_resolve_deferred);
-    reg!("napi_reject_deferred", guest_napi_reject_deferred);
-    // ArrayBuffer
-    reg!("napi_get_arraybuffer_info", guest_napi_get_arraybuffer_info);
-    reg!("napi_detach_arraybuffer", guest_napi_detach_arraybuffer);
-    reg!(
-        "napi_is_detached_arraybuffer",
-        guest_napi_is_detached_arraybuffer
-    );
-    reg!(
-        "node_api_is_sharedarraybuffer",
-        guest_node_api_is_sharedarraybuffer
-    );
-    reg!(
-        "node_api_create_sharedarraybuffer",
-        guest_node_api_create_sharedarraybuffer
-    );
-    reg!("node_api_set_prototype", guest_node_api_set_prototype);
-    // TypedArray
-    reg!("napi_get_typedarray_info", guest_napi_get_typedarray_info);
-    // DataView
-    reg!("napi_get_dataview_info", guest_napi_get_dataview_info);
-    // References
-    reg!("napi_create_reference", guest_napi_create_reference);
-    reg!("napi_delete_reference", guest_napi_delete_reference);
-    reg!("napi_reference_ref", guest_napi_reference_ref);
-    reg!("napi_reference_unref", guest_napi_reference_unref);
-    reg!("napi_get_reference_value", guest_napi_get_reference_value);
-    // Handle scopes
-    reg!("napi_open_handle_scope", guest_napi_open_handle_scope);
-    reg!("napi_close_handle_scope", guest_napi_close_handle_scope);
-    reg!(
-        "napi_open_escapable_handle_scope",
-        guest_napi_open_escapable_handle_scope
-    );
-    reg!(
-        "napi_close_escapable_handle_scope",
-        guest_napi_close_escapable_handle_scope
-    );
-    reg!("napi_escape_handle", guest_napi_escape_handle);
-    // Type tagging
-    reg!("napi_type_tag_object", guest_napi_type_tag_object);
-    reg!(
-        "napi_check_object_type_tag",
-        guest_napi_check_object_type_tag
-    );
-    // Function calling
-    reg!("napi_call_function", guest_napi_call_function);
-    reg!("napi_create_function", guest_napi_create_function);
-    reg!("napi_get_cb_info", guest_napi_get_cb_info);
-    reg!("napi_get_new_target", guest_napi_get_new_target);
-    // Script execution
-    reg!("napi_run_script", guest_napi_run_script);
-    // UTF-16 strings
-    reg!("napi_create_string_utf16", guest_napi_create_string_utf16);
-    reg!(
-        "napi_get_value_string_utf16",
-        guest_napi_get_value_string_utf16
-    );
-    // BigInt words
-    reg!("napi_create_bigint_words", guest_napi_create_bigint_words);
-    reg!(
-        "napi_get_value_bigint_words",
-        guest_napi_get_value_bigint_words
-    );
-    // Instance data
-    reg!("napi_set_instance_data", guest_napi_set_instance_data);
-    reg!("napi_get_instance_data", guest_napi_get_instance_data);
-    reg!(
-        "napi_adjust_external_memory",
-        guest_napi_adjust_external_memory
-    );
-    // Node Buffers
-    reg!("napi_create_buffer", guest_napi_create_buffer);
-    reg!("napi_create_buffer_copy", guest_napi_create_buffer_copy);
-    reg!("napi_is_buffer", guest_napi_is_buffer);
-    reg!("napi_get_buffer_info", guest_napi_get_buffer_info);
-    // Node version
-    reg!("napi_get_node_version", guest_napi_get_node_version);
-    // Object wrapping
-    reg!("napi_wrap", guest_napi_wrap);
-    reg!("napi_unwrap", guest_napi_unwrap);
-    reg!("napi_remove_wrap", guest_napi_remove_wrap);
-    reg!("napi_add_finalizer", guest_napi_add_finalizer);
-    // Constructor / Class
-    reg!("napi_new_instance", guest_napi_new_instance);
-    reg!("napi_define_properties", guest_napi_define_properties);
-    reg!("napi_define_class", guest_napi_define_class);
-    // Fatal error
-    reg!("napi_fatal_error", guest_napi_fatal_error);
-    // Misc
-    reg!("napi_get_last_error_info", guest_napi_get_last_error_info);
-    reg!("napi_get_version", guest_napi_get_version);
-    reg!("napi_add_env_cleanup_hook", guest_napi_add_env_cleanup_hook);
-    reg!(
-        "napi_remove_env_cleanup_hook",
-        guest_napi_remove_env_cleanup_hook
-    );
+    io.register_namespace("napi", namespace);
 }
 
 fn guest_env_uv_cpu_info(_cpu_infos_out: i32, _count_out: i32) -> i32 {
