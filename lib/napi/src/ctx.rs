@@ -123,7 +123,9 @@ impl NapiCtx {
     }
 
     pub fn module_needs_napi(module: &Module) -> bool {
-        module.imports().any(|import| import.module() == "napi")
+        module
+            .imports()
+            .any(|import| import.module().starts_with("napi_"))
     }
 
     pub fn runtime_hooks(&self) -> NapiRuntimeHooks {
