@@ -29,10 +29,11 @@ use crate::{
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-gen_rt_ty!(Function
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub(crate) BackendFunction(entities::function::Function);
+}
 
 impl BackendFunction {
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -565,42 +566,42 @@ impl BackendFunction {
             crate::BackendStore::Sys(s) => Self::Sys(unsafe {
                 crate::backend::sys::entities::function::Function::from_vm_funcref(
                     store,
-                    funcref.into_sys(),
+                    funcref.unwrap_sys(),
                 )
             }),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(s) => Self::Wamr(unsafe {
                 crate::backend::wamr::entities::function::Function::from_vm_funcref(
                     store,
-                    funcref.into_wamr(),
+                    funcref.unwrap_wamr(),
                 )
             }),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(s) => Self::Wasmi(unsafe {
                 crate::backend::wasmi::entities::function::Function::from_vm_funcref(
                     store,
-                    funcref.into_wasmi(),
+                    funcref.unwrap_wasmi(),
                 )
             }),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(s) => Self::V8(unsafe {
                 crate::backend::v8::entities::function::Function::from_vm_funcref(
                     store,
-                    funcref.into_v8(),
+                    funcref.unwrap_v_8(),
                 )
             }),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(s) => Self::Js(unsafe {
                 crate::backend::js::entities::function::Function::from_vm_funcref(
                     store,
-                    funcref.into_js(),
+                    funcref.unwrap_js(),
                 )
             }),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(s) => Self::Jsc(unsafe {
                 crate::backend::jsc::entities::function::Function::from_vm_funcref(
                     store,
-                    funcref.into_jsc(),
+                    funcref.unwrap_jsc(),
                 )
             }),
         }

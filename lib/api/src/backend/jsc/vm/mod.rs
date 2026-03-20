@@ -14,6 +14,7 @@ pub use table::*;
 /// The type of instances in the `js` VM.
 pub type VMInstance = rusty_jsc::JSObject;
 
+#[derive(Debug)]
 pub struct VMTrampoline;
 
 /// The type of extern tables in the `js` VM.

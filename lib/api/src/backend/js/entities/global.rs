@@ -136,9 +136,9 @@ impl Global {
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
         use crate::js::store::StoreObject;
-        VMGlobal::list_mut(store.objects_mut().as_js_mut()).push(vm_global.as_js().clone());
+        VMGlobal::list_mut(store.objects_mut().as_js_mut()).push(vm_global.unwrap_js_ref().clone());
         Self {
-            handle: vm_global.into_js(),
+            handle: vm_global.unwrap_js(),
         }
     }
 
