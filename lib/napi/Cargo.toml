@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-napi"
-version = "0.701.0-rc.2"
+version = "0.701.0"
 description = "NAPI library for Wasmer WebAssembly runtime"
 authors.workspace = true
 edition.workspace = true
@@ -17,7 +17,7 @@ tokio.workspace = true
 tracing-subscriber.workspace = true
 
 # Published crates variant:
-wasmer = { path = "../api", version = "=7.1.0-rc.2" }
+wasmer = { path = "../api", version = "=7.1.0" }
 
 [build-dependencies]
 cmake.workspace = true
