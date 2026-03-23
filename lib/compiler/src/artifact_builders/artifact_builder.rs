@@ -18,9 +18,7 @@ use crate::{
     },
 };
 #[cfg(feature = "compiler")]
-use crate::{
-    EngineInner, ModuleEnvironment, ModuleMiddlewareChain, serialize::SerializableCompilation,
-};
+use crate::{EngineInner, ModuleEnvironment, serialize::SerializableCompilation};
 #[cfg(feature = "compiler")]
 use wasmer_types::target::Target;
 
@@ -65,19 +63,12 @@ impl ArtifactBuild {
         table_styles: PrimaryMap<TableIndex, TableStyle>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
-        let environ = ModuleEnvironment::new();
+        let compiler = inner_engine.compiler()?;
+        let environ = ModuleEnvironment::new_with_middlewares(compiler.get_middlewares().to_vec());
         let features = inner_engine.features().clone();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-
-        let compiler = inner_engine.compiler()?;
-
-        // We try to apply the middleware first
         let mut module = translation.module;
-        let middlewares = compiler.get_middlewares();
-        middlewares
-            .apply_on_module_info(&mut module)
-            .map_err(|err| CompileError::MiddlewareError(err.to_string()))?;
         module.hash = Some(ModuleHash::new(data));
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),

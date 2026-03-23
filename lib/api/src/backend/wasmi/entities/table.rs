@@ -73,6 +73,7 @@ impl Table {
                     Some((*table_limits).max)
                 }
             },
+            readonly: false,
         }
     }
 

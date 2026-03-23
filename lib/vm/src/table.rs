@@ -84,6 +84,10 @@ pub struct VMTable {
 }
 
 impl VMTable {
+    fn assert_mutable(&self) {
+        assert!(!self.table.readonly, "attempted to modify a readonly table");
+    }
+
     /// Create a new linear table instance with specified minimum and maximum number of elements.
     ///
     /// This creates a `Table` with metadata owned by a VM, pointed to by
@@ -207,6 +211,7 @@ impl VMTable {
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
     pub fn grow(&mut self, delta: u32, init_value: TableElement) -> Option<u32> {
+        self.assert_mutable();
         let size = self.size();
         let new_len = size.checked_add(delta)?;
         if self.maximum.is_some_and(|max| new_len > max) {
@@ -248,6 +253,7 @@ impl VMTable {
     ///
     /// Returns an error if the index is out of bounds.
     pub fn set(&mut self, index: u32, reference: TableElement) -> Result<(), Trap> {
+        self.assert_mutable();
         match self.vec.get_mut(index as usize) {
             Some(slot) => {
                 match (self.table.ty, reference) {
@@ -288,6 +294,7 @@ impl VMTable {
         src_index: u32,
         len: u32,
     ) -> Result<(), Trap> {
+        self.assert_mutable();
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-copy
 
         if src_index
@@ -336,6 +343,7 @@ impl VMTable {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy_within(&mut self, dst_index: u32, src_index: u32, len: u32) -> Result<(), Trap> {
+        self.assert_mutable();
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-copy
 
         if src_index.checked_add(len).is_none_or(|n| n > self.size()) {
@@ -364,5 +372,20 @@ impl VMTable {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TableElement, VMTable};
+    use wasmer_types::{TableStyle, TableType, Type};
+
+    #[test]
+    #[should_panic(expected = "attempted to modify a readonly table")]
+    fn readonly_table_rejects_grow() {
+        let mut ty = TableType::new(Type::FuncRef, 0, Some(0));
+        ty.readonly = true;
+        let mut table = VMTable::new(&ty, &TableStyle::CallerChecksSignature).unwrap();
+        let _ = table.grow(0, TableElement::FuncRef(None));
     }
 }

@@ -2,12 +2,8 @@ use crate::config::LLVM;
 use crate::config::OptimizationStyle;
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
-use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
-use std::time::Instant;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -17,10 +13,8 @@ use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
-use wasmer_compiler::wasmparser::Operator;
 use wasmer_compiler::{
-    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState,
+    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
     types::{
         relocation::RelocationTarget,
         section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
@@ -35,7 +29,7 @@ use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
-    SignatureIndex, TableIndex,
+    SignatureIndex,
 };
 use wasmer_vm::LibCall;
 
@@ -172,116 +166,6 @@ impl SymbolRegistry for ModuleBasedSymbolRegistry {
     }
 }
 
-fn analyze_function_readonly_table(
-    middlewares: &[Arc<dyn ModuleMiddleware>],
-    local_func_index: LocalFunctionIndex,
-    function_body: &FunctionBodyData<'_>,
-    table_index: TableIndex,
-    readonly: &AtomicBool,
-) -> Result<(), CompileError> {
-    if !readonly.load(Ordering::Relaxed) {
-        return Ok(());
-    }
-
-    let mut reader =
-        MiddlewareBinaryReader::new_with_offset(function_body.data, function_body.module_offset);
-    reader.set_middleware_chain(middlewares.generate_function_middleware_chain(local_func_index));
-
-    let local_count = reader.read_local_count().map_err(|error| {
-        CompileError::Codegen(format!(
-            "failed to read locals while analyzing table ops in function {}: {error}",
-            local_func_index.as_u32()
-        ))
-    })?;
-    for _ in 0..local_count {
-        reader.read_local_decl().map_err(|error| {
-            CompileError::Codegen(format!(
-                "failed to read local declaration while analyzing table ops in function {}: {error}",
-                local_func_index.as_u32()
-            ))
-        })?;
-    }
-
-    while !reader.eof() {
-        let operator = reader.read_operator().map_err(|error| {
-            CompileError::Codegen(format!(
-                "failed to read operator while analyzing table ops in function {}: {error}",
-                local_func_index.as_u32()
-            ))
-        })?;
-
-        match operator {
-            Operator::TableCopy { dst_table, .. } => {
-                if TableIndex::from_u32(dst_table) == table_index {
-                    readonly.store(false, Ordering::Relaxed);
-                    break;
-                }
-            }
-            Operator::TableInit { table, .. } => {
-                if TableIndex::from_u32(table) == table_index {
-                    readonly.store(false, Ordering::Relaxed);
-                    break;
-                }
-            }
-            Operator::ElemDrop { .. } => {
-                readonly.store(false, Ordering::Relaxed);
-                break;
-            }
-            Operator::TableGrow { table } => {
-                if TableIndex::from_u32(table) == table_index {
-                    readonly.store(false, Ordering::Relaxed);
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    Ok(())
-}
-
-fn analyze_readonly_table(
-    pool: &rayon::ThreadPool,
-    module: &ModuleInfo,
-    function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
-    middlewares: &[Arc<dyn ModuleMiddleware>],
-) -> Result<Option<TableIndex>, CompileError> {
-    let Ok(table_index) = module
-        .tables
-        .iter()
-        .filter_map(|(index, table)| {
-            if table.is_fixed_funcref_table() {
-                Some(index)
-            } else {
-                None
-            }
-        })
-        .exactly_one()
-    else {
-        return Ok(None);
-    };
-
-    let readonly = AtomicBool::new(true);
-    pool.install(|| {
-        function_body_inputs
-            .iter()
-            .collect_vec()
-            .par_iter()
-            .map(|(local_func_index, function_body)| {
-                analyze_function_readonly_table(
-                    middlewares,
-                    *local_func_index,
-                    function_body,
-                    table_index,
-                    &readonly,
-                )
-            })
-            .collect::<Result<Vec<_>, CompileError>>()
-    })?;
-
-    Ok(readonly.load(Ordering::Relaxed).then_some(table_index))
-}
-
 impl Compiler for LLVMCompiler {
     fn name(&self) -> &str {
         "llvm"
@@ -364,16 +248,6 @@ impl Compiler for LLVMCompiler {
             .num_threads(self.config.num_threads.get())
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
-
-        let now = Instant::now();
-        let readonly_table =
-            analyze_readonly_table(&pool, module, &function_body_inputs, self.get_middlewares())?;
-        dbg!(Instant::now() - now);
-        dbg!(readonly_table);
-        tracing::debug!(
-            readonly_table = readonly_table.map(|table_index| table_index.as_u32()),
-            "identified readonly __indirect_function_table"
-        );
 
         let buckets =
             build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);

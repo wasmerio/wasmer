@@ -127,7 +127,8 @@ impl Artifact {
         progress_callback: Option<CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
         let mut inner_engine = engine.inner_mut();
-        let environ = ModuleEnvironment::new();
+        let compiler = inner_engine.compiler()?;
+        let environ = ModuleEnvironment::new_with_middlewares(compiler.get_middlewares().to_vec());
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
@@ -954,16 +955,9 @@ impl Artifact {
         ),
         CompileError,
     > {
-        let environ = ModuleEnvironment::new();
+        let environ = ModuleEnvironment::new_with_middlewares(compiler.get_middlewares().to_vec());
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-
-        // We try to apply the middleware first
-        use crate::translator::ModuleMiddlewareChain;
         let mut module = translation.module;
-        let middlewares = compiler.get_middlewares();
-        middlewares
-            .apply_on_module_info(&mut module)
-            .map_err(|e| CompileError::MiddlewareError(e.to_string()))?;
 
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
             .memories

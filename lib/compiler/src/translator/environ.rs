@@ -1,5 +1,6 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
+use super::ModuleMiddleware;
 use super::state::ModuleTranslationState;
 use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
@@ -8,6 +9,7 @@ use crate::wasmparser::{Operator, ValType};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
+use std::sync::Arc;
 use wasmer_types::FunctionType;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -63,6 +65,9 @@ pub struct ModuleEnvironment<'data> {
     /// ModuleInfo information.
     pub module: ModuleInfo,
 
+    /// Middlewares that should be applied during translation.
+    pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+
     /// References to the function bodies.
     pub function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
 
@@ -78,6 +83,18 @@ impl<'data> ModuleEnvironment<'data> {
     pub fn new() -> Self {
         Self {
             module: ModuleInfo::new(),
+            middlewares: Vec::new(),
+            function_body_inputs: PrimaryMap::new(),
+            data_initializers: Vec::new(),
+            module_translation_state: None,
+        }
+    }
+
+    /// Allocates the environment data structures with a middleware chain.
+    pub fn new_with_middlewares(middlewares: Vec<Arc<dyn ModuleMiddleware>>) -> Self {
+        Self {
+            module: ModuleInfo::new(),
+            middlewares,
             function_body_inputs: PrimaryMap::new(),
             data_initializers: Vec::new(),
             module_translation_state: None,
