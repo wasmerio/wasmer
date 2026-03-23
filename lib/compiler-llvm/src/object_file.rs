@@ -432,6 +432,13 @@ where
                 (
                     object::Architecture::Aarch64,
                     object::RelocationFlags::Elf {
+                        r_type: object::elf::R_AARCH64_JUMP26,
+                    },
+                    0,
+                ) => RelocationKind::Arm64Call,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationFlags::Elf {
                         r_type: object::elf::R_AARCH64_MOVW_UABS_G0_NC,
                     },
                     0,

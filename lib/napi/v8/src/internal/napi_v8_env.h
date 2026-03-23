@@ -48,6 +48,11 @@ struct napi_env__ {
     napi_type_tag tag{};
   };
 
+  struct BackingStoreTokenEntry {
+    uint64_t token = 0;
+    std::weak_ptr<v8::BackingStore> backing_store;
+  };
+
   explicit napi_env__(v8::Local<v8::Context> context, int32_t module_api_version);
   ~napi_env__();
 
@@ -73,6 +78,8 @@ struct napi_env__ {
   std::vector<void*> buffer_records;
   std::vector<void*> wrap_finalizers;
   std::vector<TypeTagEntry> type_tag_entries;
+  std::vector<BackingStoreTokenEntry> backing_store_tokens;
+  uint64_t next_backing_store_token = 1;
   bool async_cleanup_hook_registered = false;
   void (*node_api_cleanup_runner)(napi_env) = nullptr;
   unofficial_napi_env_cleanup_callback env_cleanup_callback = nullptr;
@@ -95,5 +102,7 @@ napi_status napi_v8_clear_last_error(napi_env env);
 napi_value napi_v8_wrap_value(napi_env env, v8::Local<v8::Value> value);
 v8::Local<v8::Value> napi_v8_unwrap_value(napi_value value);
 void napi_v8_finalize_buffer_records(napi_env env);
+uint64_t napi_v8_get_arraybuffer_backing_store_token(napi_env env, napi_value value);
+uint64_t napi_v8_get_arraybuffer_view_backing_store_token(napi_env env, napi_value value);
 
 #endif  // NAPI_V8_ENV_H_

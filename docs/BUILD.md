@@ -43,6 +43,10 @@ Windows is fully supported by Wasmer. WASI(x) is also fully supported.
 
 Wasmer is built with [Cargo](https://crates.io/), the Rust package manager.
 
+For reproducible builds, set `WASMER_REPRODUCIBLE_BUILD=1` in the build
+environment. This removes the build timestamp from `wasmer --version -v`
+by omitting the verbose `commit-date:` line.
+
 First, let's clone Wasmer:
 
 ```text

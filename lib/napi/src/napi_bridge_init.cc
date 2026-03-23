@@ -6,9 +6,12 @@
 // instead of opaque pointers, so the Rust host can translate between
 // WASM guest memory and native N-API calls.
 
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -21,22 +24,21 @@
 
 #include "node_api.h"
 #include "unofficial_napi.h"
+#include "internal/napi_v8_env.h"
 
 namespace {
 
 std::recursive_mutex g_mu;
-struct CbContext {
-  uint32_t this_id;
-  uint32_t argc;
-  uint32_t argv_ids[64];
-  uint64_t data_val;
-  napi_callback_info original_info;
-};
 
 struct CbRegistration {
+  uint32_t guest_env;
   uint32_t wasm_fn_ptr;
   uint32_t wasm_setter_fn_ptr;
   uint64_t data_val;
+};
+
+struct CallbackInvocation {
+  napi_callback_info info = nullptr;
 };
 
 struct CallbackBinding;
@@ -69,7 +71,11 @@ struct SnapiEnvState {
   std::unordered_map<uint32_t, void*> module_wrap_handles;
   uint32_t next_module_wrap_handle_id = 1;
 
-  std::vector<CbContext> cb_stack;
+  // Current guest invocation driving this env. This is only valid while the
+  // driving host import remains on the stack.
+  std::atomic<void*> active_callback_ctx{nullptr};
+  std::unordered_map<uint32_t, CallbackInvocation> callback_invocations;
+  uint32_t next_callback_invocation_id = 1;
   std::unordered_map<uint32_t, CbRegistration> cb_registry;
   uint32_t next_cb_reg_id = 1;
   std::vector<std::unique_ptr<CallbackBinding>> callback_bindings;
@@ -94,6 +100,14 @@ SnapiEnvState* LookupEnvState(SnapiEnvState* env_state) {
   return env_state;
 }
 
+uint32_t RegisterCallbackInvocation(SnapiEnvState* state, napi_callback_info info) {
+  if (state == nullptr || info == nullptr) return 0;
+  uint32_t id = state->next_callback_invocation_id++;
+  if (id == 0) id = state->next_callback_invocation_id++;
+  state->callback_invocations[id] = CallbackInvocation{info};
+  return id;
+}
+
 uint32_t StoreValue(SnapiEnvState& state, napi_value val) {
   if (val == nullptr) return 0;
   if (state.env == nullptr) return 0;
@@ -116,6 +130,163 @@ napi_value LoadValue(SnapiEnvState& state, uint32_t id) {
     return nullptr;
   }
   return value;
+}
+
+size_t TypedArrayElementSize(napi_typedarray_type type) {
+  switch (type) {
+    case napi_int8_array:
+    case napi_uint8_array:
+    case napi_uint8_clamped_array:
+      return 1;
+    case napi_int16_array:
+    case napi_uint16_array:
+      return 2;
+    case napi_int32_array:
+    case napi_uint32_array:
+    case napi_float32_array:
+      return 4;
+    case napi_float64_array:
+    case napi_bigint64_array:
+    case napi_biguint64_array:
+      return 8;
+  }
+  return 0;
+}
+
+bool GetValueByteSpan(napi_env env, napi_value value, uint8_t** data_out, size_t* length_out) {
+  if (env == nullptr || value == nullptr || data_out == nullptr || length_out == nullptr) {
+    return false;
+  }
+
+  *data_out = nullptr;
+  *length_out = 0;
+
+  bool is_buffer = false;
+  if (napi_is_buffer(env, value, &is_buffer) != napi_ok) {
+    return false;
+  }
+  if (is_buffer) {
+    void* data = nullptr;
+    size_t length = 0;
+    if (napi_get_buffer_info(env, value, &data, &length) != napi_ok) {
+      return false;
+    }
+    if (length > 0 && data == nullptr) {
+      return false;
+    }
+    *data_out = static_cast<uint8_t*>(data);
+    *length_out = length;
+    return true;
+  }
+
+  bool is_arraybuffer = false;
+  if (napi_is_arraybuffer(env, value, &is_arraybuffer) != napi_ok) {
+    return false;
+  }
+  if (is_arraybuffer) {
+    void* data = nullptr;
+    size_t length = 0;
+    if (napi_get_arraybuffer_info(env, value, &data, &length) != napi_ok) {
+      return false;
+    }
+    if (length > 0 && data == nullptr) {
+      return false;
+    }
+    *data_out = static_cast<uint8_t*>(data);
+    *length_out = length;
+    return true;
+  }
+
+  bool is_typedarray = false;
+  if (napi_is_typedarray(env, value, &is_typedarray) != napi_ok) {
+    return false;
+  }
+  if (is_typedarray) {
+    napi_typedarray_type type;
+    size_t length = 0;
+    void* data = nullptr;
+    if (napi_get_typedarray_info(env, value, &type, &length, &data, nullptr, nullptr) != napi_ok) {
+      return false;
+    }
+
+    size_t elem_size = TypedArrayElementSize(type);
+    if (elem_size == 0 ||
+        length > (std::numeric_limits<size_t>::max)() / elem_size) {
+      return false;
+    }
+
+    size_t byte_length = length * elem_size;
+    if (byte_length > 0 && data == nullptr) {
+      return false;
+    }
+    *data_out = static_cast<uint8_t*>(data);
+    *length_out = byte_length;
+    return true;
+  }
+
+  bool is_dataview = false;
+  if (napi_is_dataview(env, value, &is_dataview) != napi_ok) {
+    return false;
+  }
+  if (is_dataview) {
+    size_t byte_length = 0;
+    void* data = nullptr;
+    if (napi_get_dataview_info(env, value, &byte_length, &data, nullptr, nullptr) != napi_ok) {
+      return false;
+    }
+    if (byte_length > 0 && data == nullptr) {
+      return false;
+    }
+    *data_out = static_cast<uint8_t*>(data);
+    *length_out = byte_length;
+    return true;
+  }
+
+  return false;
+}
+
+bool SnapshotValueBytes(napi_env env, napi_value value, void** data_out, size_t* length_out) {
+  if (env == nullptr || value == nullptr || data_out == nullptr || length_out == nullptr) {
+    return false;
+  }
+
+  uint8_t* data = nullptr;
+  size_t byte_length = 0;
+  if (!GetValueByteSpan(env, value, &data, &byte_length)) {
+    return false;
+  }
+
+  void* copy = nullptr;
+  if (byte_length > 0) {
+    copy = std::malloc(byte_length);
+    if (copy == nullptr) return false;
+    std::memcpy(copy, data, byte_length);
+  }
+
+  *data_out = copy;
+  *length_out = byte_length;
+  return true;
+}
+
+bool OverwriteValueBytes(napi_env env, napi_value value, const uint8_t* data, size_t byte_length) {
+  if (env == nullptr || value == nullptr) return false;
+
+  uint8_t* target = nullptr;
+  size_t target_length = 0;
+  if (!GetValueByteSpan(env, value, &target, &target_length)) {
+    return false;
+  }
+
+  if (byte_length > target_length) {
+    return false;
+  }
+  if (byte_length > 0) {
+    if (data == nullptr || target == nullptr) {
+      return false;
+    }
+    std::memcpy(target, data, byte_length);
+  }
+  return true;
 }
 
 uint32_t StoreRef(SnapiEnvState& state, napi_ref ref) {
@@ -211,7 +382,9 @@ napi_status DisposeBridgeStateLocked(SnapiEnvState* state) {
   state->next_esc_scope_id = 1;
   state->module_wrap_handles.clear();
   state->next_module_wrap_handle_id = 1;
-  state->cb_stack.clear();
+  state->active_callback_ctx.store(nullptr, std::memory_order_release);
+  state->callback_invocations.clear();
+  state->next_callback_invocation_id = 1;
   state->cb_registry.clear();
   state->next_cb_reg_id = 1;
   state->callback_bindings.clear();
@@ -1184,6 +1357,7 @@ extern "C" int snapi_bridge_create_arraybuffer(SnapiEnvState* env_state, uint32_
 
 extern "C" int snapi_bridge_create_external_arraybuffer(SnapiEnvState* env_state, uint64_t data_addr,
                                                         uint32_t byte_length,
+                                                        uint64_t* backing_store_token_out,
                                                         uint32_t* out_id) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
@@ -1193,12 +1367,16 @@ extern "C" int snapi_bridge_create_external_arraybuffer(SnapiEnvState* env_state
   napi_status s = napi_create_external_arraybuffer(
       env, data, (size_t)byte_length, nullptr, nullptr, &result);
   if (s != napi_ok) return s;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_backing_store_token(env, result);
+  }
   *out_id = StoreValue(*bridge_state, result);
   return napi_ok;
 }
 
 extern "C" int snapi_bridge_create_external_buffer(SnapiEnvState* env_state, uint64_t data_addr,
                                                    uint32_t byte_length,
+                                                   uint64_t* backing_store_token_out,
                                                    uint32_t* out_id) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
@@ -1208,6 +1386,9 @@ extern "C" int snapi_bridge_create_external_buffer(SnapiEnvState* env_state, uin
   napi_status s = napi_create_external_buffer(
       env, (size_t)byte_length, data, nullptr, nullptr, &result);
   if (s != napi_ok) return s;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, result);
+  }
   *out_id = StoreValue(*bridge_state, result);
   return napi_ok;
 }
@@ -1254,7 +1435,8 @@ extern "C" int snapi_bridge_node_api_set_prototype(SnapiEnvState* env_state, uin
 
 extern "C" int snapi_bridge_get_arraybuffer_info(SnapiEnvState* env_state, uint32_t id,
                                                  uint64_t* data_out,
-                                                 uint32_t* byte_length) {
+                                                 uint32_t* byte_length,
+                                                 uint64_t* backing_store_token_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
@@ -1266,6 +1448,9 @@ extern "C" int snapi_bridge_get_arraybuffer_info(SnapiEnvState* env_state, uint3
   if (s != napi_ok) return s;
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   *byte_length = (uint32_t)len;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_backing_store_token(env, val);
+  }
   return napi_ok;
 }
 
@@ -1317,7 +1502,8 @@ extern "C" int snapi_bridge_get_typedarray_info(SnapiEnvState* env_state, uint32
                                                 uint32_t* length_out,
                                                 uint64_t* data_out,
                                                 uint32_t* arraybuffer_out,
-                                                uint32_t* byte_offset_out) {
+                                                uint32_t* byte_offset_out,
+                                                uint64_t* backing_store_token_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
@@ -1336,6 +1522,9 @@ extern "C" int snapi_bridge_get_typedarray_info(SnapiEnvState* env_state, uint32
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   if (arraybuffer_out) *arraybuffer_out = StoreValue(*bridge_state, arraybuffer);
   if (byte_offset_out) *byte_offset_out = (uint32_t)byte_offset;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, val);
+  }
   return napi_ok;
 }
 
@@ -1364,7 +1553,8 @@ extern "C" int snapi_bridge_get_dataview_info(SnapiEnvState* env_state, uint32_t
                                               uint32_t* byte_length_out,
                                               uint64_t* data_out,
                                               uint32_t* arraybuffer_out,
-                                              uint32_t* byte_offset_out) {
+                                              uint32_t* byte_offset_out,
+                                              uint64_t* backing_store_token_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
@@ -1381,7 +1571,46 @@ extern "C" int snapi_bridge_get_dataview_info(SnapiEnvState* env_state, uint32_t
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
   if (arraybuffer_out) *arraybuffer_out = StoreValue(*bridge_state, arraybuffer);
   if (byte_offset_out) *byte_offset_out = (uint32_t)byte_offset;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, val);
+  }
   return napi_ok;
+}
+
+extern "C" int snapi_bridge_snapshot_value_bytes(SnapiEnvState* env_state, uint32_t id,
+                                                 uint64_t* data_out,
+                                                 uint32_t* byte_length_out) {
+  auto* bridge_state = RequireEnvState(env_state);
+  if (bridge_state == nullptr) return napi_invalid_arg;
+  napi_value val = LoadValue(*bridge_state, id);
+  if (!val || data_out == nullptr || byte_length_out == nullptr) return napi_invalid_arg;
+
+  void* snapshot = nullptr;
+  size_t byte_length = 0;
+  if (!SnapshotValueBytes(bridge_state->env, val, &snapshot, &byte_length)) {
+    return napi_invalid_arg;
+  }
+
+  *data_out = (uint64_t)(uintptr_t)snapshot;
+  *byte_length_out = (uint32_t)byte_length;
+  return napi_ok;
+}
+
+extern "C" int snapi_bridge_overwrite_value_bytes(SnapiEnvState* env_state, uint32_t id,
+                                                  const void* data,
+                                                  uint32_t byte_length) {
+  auto* bridge_state = RequireEnvState(env_state);
+  if (bridge_state == nullptr || (data == nullptr && byte_length != 0)) return napi_invalid_arg;
+  napi_value val = LoadValue(*bridge_state, id);
+  if (!val) return napi_invalid_arg;
+
+  return OverwriteValueBytes(
+             bridge_state->env,
+             val,
+             static_cast<const uint8_t*>(data),
+             static_cast<size_t>(byte_length))
+             ? napi_ok
+             : napi_invalid_arg;
 }
 
 // ============================================================
@@ -1748,7 +1977,8 @@ extern "C" int snapi_bridge_is_buffer(SnapiEnvState* env_state, uint32_t id, int
 
 extern "C" int snapi_bridge_get_buffer_info(SnapiEnvState* env_state, uint32_t id,
                                             uint64_t* data_out,
-                                            uint32_t* length_out) {
+                                            uint32_t* length_out,
+                                            uint64_t* backing_store_token_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
@@ -1760,6 +1990,9 @@ extern "C" int snapi_bridge_get_buffer_info(SnapiEnvState* env_state, uint32_t i
   if (s != napi_ok) return s;
   if (length_out) *length_out = (uint32_t)length;
   if (data_out) *data_out = (uint64_t)(uintptr_t)data;
+  if (backing_store_token_out) {
+    *backing_store_token_out = napi_v8_get_arraybuffer_view_backing_store_token(env, val);
+  }
   return napi_ok;
 }
 
@@ -2002,80 +2235,99 @@ extern "C" int snapi_bridge_define_class(SnapiEnvState* env_state,
 // Callback system (napi_create_function + napi_get_cb_info)
 // ============================================================
 
-extern "C" void snapi_bridge_set_cb_context(uint32_t this_id, uint32_t argc,
-                                            const uint32_t* argv_ids,
-                                            uint64_t data_val) {
-  CbContext ctx;
-  ctx.this_id = this_id;
-  ctx.argc = argc;
-  for (uint32_t i = 0; i < argc && i < 64; i++) ctx.argv_ids[i] = argv_ids[i];
-  ctx.data_val = data_val;
-  ctx.original_info = nullptr;
+extern "C" void* snapi_bridge_swap_active_callback_ctx(SnapiEnvState* env_state, void* callback_ctx) {
+  auto* bridge_state = LookupEnvState(env_state);
+  if (bridge_state == nullptr) return nullptr;
+  return bridge_state->active_callback_ctx.exchange(callback_ctx, std::memory_order_acq_rel);
 }
 
-extern "C" void snapi_bridge_clear_cb_context() {
-}
-
-extern "C" int snapi_bridge_get_cb_info(SnapiEnvState* env_state, uint32_t* argc_ptr, uint32_t* argv_out,
+extern "C" int snapi_bridge_get_cb_info(SnapiEnvState* env_state, uint32_t cbinfo_id,
+                                        uint32_t* argc_ptr, uint32_t* argv_out,
                                         uint32_t max_argv,
                                         uint32_t* this_out, uint64_t* data_out) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
-  if (bridge_state->cb_stack.empty()) return napi_generic_failure;
-  const CbContext& ctx = bridge_state->cb_stack.back();
-  uint32_t actual = ctx.argc;
-  uint32_t wanted = *argc_ptr;
-  *argc_ptr = actual;
-  if (this_out) *this_out = ctx.this_id;
-  if (data_out) *data_out = ctx.data_val;
-  uint32_t to_copy = (wanted < actual) ? wanted : actual;
-  if (argv_out) {
-    for (uint32_t i = 0; i < to_copy; i++) argv_out[i] = ctx.argv_ids[i];
+  auto it = bridge_state->callback_invocations.find(cbinfo_id);
+  if (it == bridge_state->callback_invocations.end()) return napi_generic_failure;
+
+  size_t wanted = argc_ptr != nullptr ? static_cast<size_t>(*argc_ptr) : 0;
+  size_t actual = wanted;
+  std::vector<napi_value> argv(wanted);
+  napi_value this_arg = nullptr;
+  void* raw_data = nullptr;
+  napi_status s =
+      napi_get_cb_info(env, it->second.info, &actual, wanted > 0 ? argv.data() : nullptr,
+                       &this_arg, &raw_data);
+  if (s != napi_ok) return s;
+
+  if (argc_ptr) *argc_ptr = static_cast<uint32_t>(actual);
+  if (this_out) *this_out = this_arg != nullptr ? StoreValue(*bridge_state, this_arg) : 0;
+
+  auto* binding = static_cast<CallbackBinding*>(raw_data);
+  uint64_t data_val = 0;
+  if (binding != nullptr) {
+    auto reg_it = bridge_state->cb_registry.find(binding->reg_id);
+    if (reg_it != bridge_state->cb_registry.end()) {
+      data_val = reg_it->second.data_val;
+    }
+  }
+  if (data_out) *data_out = data_val;
+
+  const uint32_t to_copy = static_cast<uint32_t>(std::min<size_t>(wanted, actual));
+  if (argv_out != nullptr) {
+    for (uint32_t i = 0; i < to_copy; i++) {
+      argv_out[i] = StoreValue(*bridge_state, argv[i]);
+    }
   }
   return napi_ok;
 }
 
 // napi_get_new_target — only valid inside a constructor callback
-extern "C" int snapi_bridge_get_new_target(SnapiEnvState* env_state, uint32_t* out_id) {
+extern "C" int snapi_bridge_get_new_target(SnapiEnvState* env_state, uint32_t cbinfo_id,
+                                           uint32_t* out_id) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
-  if (bridge_state->cb_stack.empty()) return napi_generic_failure;
-  const CbContext& ctx = bridge_state->cb_stack.back();
-  if (!ctx.original_info) {
-    // Not inside a V8-triggered callback (shouldn't happen with trampoline)
-    *out_id = 0;
-    return napi_ok;
-  }
+  auto it = bridge_state->callback_invocations.find(cbinfo_id);
+  if (it == bridge_state->callback_invocations.end()) return napi_generic_failure;
   napi_value result;
-  napi_status s = napi_get_new_target(env, ctx.original_info, &result);
+  napi_status s = napi_get_new_target(env, it->second.info, &result);
   if (s != napi_ok) return s;
   *out_id = result ? StoreValue(*bridge_state, result) : 0;
   return napi_ok;
 }
 
 // Forward-declare the Rust trampoline (defined in lib.rs via #[no_mangle] extern "C")
-extern "C" uint32_t snapi_host_invoke_wasm_callback(SnapiEnvState* env_state,
+extern "C" uint32_t snapi_host_invoke_wasm_callback(void* callback_ctx,
+                                                    uint32_t guest_env,
                                                     uint32_t wasm_fn_ptr,
-                                                    uint64_t data_val);
+                                                    uint32_t callback_arg);
 
 struct WasmInterruptRequest {
   SnapiEnvState* state;
+  uint32_t guest_env;
   uint32_t wasm_fn_ptr;
-  uint32_t data_val;
+  uint32_t callback_arg;
 };
 
 void WasmInterruptCallback(napi_env /*env*/, void* raw) {
   auto* request = static_cast<WasmInterruptRequest*>(raw);
   if (request == nullptr) return;
-  snapi_host_invoke_wasm_callback(request->state, request->wasm_fn_ptr, request->data_val);
+  void* callback_ctx =
+      request->state != nullptr
+          ? request->state->active_callback_ctx.load(std::memory_order_acquire)
+          : nullptr;
+  if (callback_ctx != nullptr) {
+    snapi_host_invoke_wasm_callback(
+        callback_ctx, request->guest_env, request->wasm_fn_ptr, request->callback_arg);
+  }
   delete request;
 }
 
 // Generic C++ callback invoked by V8 for all napi_create_function functions.
-// Stores the V8 call args in the context stack, then calls the Rust trampoline
-// which dispatches to the WASM callback.
+// Passes the real callback frame explicitly to the Rust trampoline via a
+// short-lived callback-info token.
 static napi_value generic_wasm_callback(napi_env env, napi_callback_info info) {
   void* raw_data;
   size_t argc = 64;
@@ -2095,23 +2347,25 @@ static napi_value generic_wasm_callback(napi_env env, napi_callback_info info) {
     napi_get_undefined(env, &undef);
     return undef;
   }
+  void* callback_ctx =
+      bridge_state->active_callback_ctx.load(std::memory_order_acquire);
+  if (callback_ctx == nullptr) {
+    napi_value undef;
+    napi_get_undefined(env, &undef);
+    return undef;
+  }
   auto it = bridge_state->cb_registry.find(binding->reg_id);
   if (it == bridge_state->cb_registry.end()) {
     napi_value undef;
     napi_get_undefined(env, &undef);
     return undef;
   }
-
-  // Push context onto stack
-  CbContext ctx;
-  ctx.this_id = StoreValue(*bridge_state, this_arg);
-  ctx.argc = (uint32_t)argc;
-  for (uint32_t i = 0; i < argc && i < 64; i++) {
-    ctx.argv_ids[i] = StoreValue(*bridge_state, argv[i]);
+  const uint32_t cbinfo_id = RegisterCallbackInvocation(bridge_state, info);
+  if (cbinfo_id == 0) {
+    napi_value undef;
+    napi_get_undefined(env, &undef);
+    return undef;
   }
-  ctx.data_val = it->second.data_val;
-  ctx.original_info = info;  // Store for napi_get_new_target
-  bridge_state->cb_stack.push_back(ctx);
 
   // Call Rust trampoline → WASM callback
   const uint32_t wasm_fn_ptr =
@@ -2120,9 +2374,9 @@ static napi_value generic_wasm_callback(napi_env env, napi_callback_info info) {
           : it->second.wasm_fn_ptr;
 
   uint32_t result_id =
-      snapi_host_invoke_wasm_callback(bridge_state, wasm_fn_ptr, it->second.data_val);
-
-  bridge_state->cb_stack.pop_back();
+      snapi_host_invoke_wasm_callback(
+          callback_ctx, it->second.guest_env, wasm_fn_ptr, cbinfo_id);
+  bridge_state->callback_invocations.erase(cbinfo_id);
 
   napi_value result = LoadValue(*bridge_state, result_id);
   if (!result) {
@@ -2140,19 +2394,21 @@ extern "C" uint32_t snapi_bridge_alloc_cb_reg_id(SnapiEnvState* env_state) {
 // Register callback data for a registration ID
 extern "C" void snapi_bridge_register_callback(SnapiEnvState* env_state,
                                                uint32_t reg_id,
+                                               uint32_t guest_env,
                                                uint32_t wasm_fn_ptr,
                                                uint64_t data_val) {
   if (env_state == nullptr || reg_id == 0) return;
-  env_state->cb_registry[reg_id] = { wasm_fn_ptr, 0, data_val };
+  env_state->cb_registry[reg_id] = { guest_env, wasm_fn_ptr, 0, data_val };
 }
 
 extern "C" void snapi_bridge_register_callback_pair(SnapiEnvState* env_state,
                                                     uint32_t reg_id,
+                                                    uint32_t guest_env,
                                                     uint32_t wasm_getter_fn_ptr,
                                                     uint32_t wasm_setter_fn_ptr,
                                                     uint64_t data_val) {
   if (env_state == nullptr || reg_id == 0) return;
-  env_state->cb_registry[reg_id] = { wasm_getter_fn_ptr, wasm_setter_fn_ptr, data_val };
+  env_state->cb_registry[reg_id] = { guest_env, wasm_getter_fn_ptr, wasm_setter_fn_ptr, data_val };
 }
 
 // Create a JS function with generic_wasm_callback as its native callback.
@@ -2510,14 +2766,16 @@ extern "C" int snapi_bridge_unofficial_cancel_terminate_execution(
 }
 
 extern "C" int snapi_bridge_unofficial_request_interrupt(SnapiEnvState* env_state,
-                                                         uint32_t callback_id,
+                                                         uint32_t guest_env,
+                                                         uint32_t wasm_fn_ptr,
                                                          uint32_t data) {
   auto* bridge_state = RequireEnvState(env_state);
   if (bridge_state == nullptr) return napi_invalid_arg;
   napi_env env = bridge_state->env;
   std::lock_guard<std::recursive_mutex> lock(g_mu);
-  if (callback_id == 0) return napi_invalid_arg;
-  auto* request = new (std::nothrow) WasmInterruptRequest{bridge_state, callback_id, data};
+  if (wasm_fn_ptr == 0) return napi_invalid_arg;
+  auto* request =
+      new (std::nothrow) WasmInterruptRequest{bridge_state, guest_env, wasm_fn_ptr, data};
   if (request == nullptr) return napi_generic_failure;
   napi_status s =
       unofficial_napi_request_interrupt(env, WasmInterruptCallback, request);

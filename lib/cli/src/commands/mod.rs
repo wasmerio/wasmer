@@ -552,24 +552,30 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
 
     let mut runtimes = Vec::new();
     if cfg!(feature = "singlepass") {
-        runtimes.push("singlepass");
+        runtimes.push("Singlepass");
     }
     if cfg!(feature = "cranelift") {
-        runtimes.push("cranelift");
+        runtimes.push("Cranelift");
     }
     if cfg!(feature = "llvm") {
-        runtimes.push("llvm");
+        runtimes.push("LLVM");
     }
     if cfg!(feature = "wamr") {
-        runtimes.push("wamr");
+        runtimes.push("WAMR");
     }
     if cfg!(feature = "wasmi") {
-        runtimes.push("wasmi");
+        runtimes.push("Wasmi");
     }
     if cfg!(feature = "v8") {
-        runtimes.push("v8");
+        runtimes.push("V8");
     }
-
     println!("runtimes: {}", runtimes.join(", "));
+
+    let mut features = vec!["WASIX"];
+    if cfg!(feature = "napi-v8") {
+        features.push("NAPI");
+    }
+    println!("features: {}", features.join(", "));
+
     Ok(())
 }

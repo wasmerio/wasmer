@@ -11,10 +11,7 @@ use wasmer_wasix::{PluggableRuntime, runners::wasi::WasiRunner};
 
 use crate::{
     RuntimeEnv,
-    guest::{
-        callback::{clear_top_level_callback_state, set_top_level_callback_state},
-        napi::{register_env_imports, register_napi_imports},
-    },
+    guest::napi::{register_env_imports, register_napi_imports},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -67,7 +64,6 @@ impl std::fmt::Debug for NapiSession {
 
 impl Drop for NapiSessionInner {
     fn drop(&mut self) {
-        clear_top_level_callback_state();
         self.ctx.active_sessions.fetch_sub(1, Ordering::AcqRel);
     }
 }
@@ -236,6 +232,7 @@ impl NapiRuntimeHooks {
         module: &Module,
         store: &mut StoreMut<'_>,
         instance: &Instance,
+        imported_memory: Option<&wasmer::Memory>,
     ) -> Result<()> {
         if !NapiCtx::module_needs_napi(module) {
             return Ok(());
@@ -259,7 +256,7 @@ impl NapiRuntimeHooks {
             session
         };
 
-        session.configure_instance(store, instance)
+        session.configure_instance(store, instance, imported_memory)
     }
 
     #[cfg(feature = "wasix")]
@@ -269,8 +266,8 @@ impl NapiRuntimeHooks {
             .with_additional_imports(move |module, store| hooks.additional_imports(module, store));
 
         let hooks = self.clone();
-        runtime.with_instance_setup(move |module, store, instance| {
-            hooks.configure_instance(module, store, instance)
+        runtime.with_instance_setup(move |module, store, instance, imported_memory| {
+            hooks.configure_instance(module, store, instance, imported_memory)
         });
     }
 }
@@ -306,7 +303,12 @@ impl NapiSession {
         Ok(import_object)
     }
 
-    pub fn configure_instance(&self, store: &mut StoreMut<'_>, instance: &Instance) -> Result<()> {
+    pub fn configure_instance(
+        &self,
+        store: &mut StoreMut<'_>,
+        instance: &Instance,
+        imported_memory: Option<&wasmer::Memory>,
+    ) -> Result<()> {
         let func_env = {
             let guard = self
                 .inner
@@ -317,6 +319,10 @@ impl NapiSession {
                 .clone()
                 .context("missing runtime function env during instance setup")?
         };
+
+        if let Some(memory) = imported_memory {
+            func_env.as_mut(&mut *store).memory = Some(memory.clone());
+        }
 
         for export_name in ["unofficial_napi_guest_malloc", "ubi_guest_malloc", "malloc"] {
             if let Ok(malloc) = instance
@@ -331,9 +337,6 @@ impl NapiSession {
         if let Ok(table) = instance.exports.get_table("__indirect_function_table") {
             func_env.as_mut(&mut *store).table = Some(table.clone());
         }
-        let table = func_env.as_ref(&store).table.clone();
-        let guest_envs = func_env.as_ref(&store).napi_state_to_guest_env.clone();
-        set_top_level_callback_state(store, table, guest_envs);
         Ok(())
     }
 
@@ -343,8 +346,8 @@ impl NapiSession {
         runtime.with_additional_imports(move |_module, store| session.create_imports(store));
 
         let session = self.clone();
-        runtime.with_instance_setup(move |_module, store, instance| {
-            session.configure_instance(store, instance)
+        runtime.with_instance_setup(move |_module, store, instance, imported_memory| {
+            session.configure_instance(store, instance, imported_memory)
         });
     }
 }

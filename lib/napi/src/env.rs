@@ -4,6 +4,19 @@ use wasmer::{Memory, Table, TypedFunction};
 
 use crate::snapi::SnapiEnv;
 
+pub(crate) struct HostBufferCopy {
+    pub(crate) handle_id: u32,
+    pub(crate) backing_store_token: u64,
+    pub(crate) guest_ptr: u32,
+    pub(crate) byte_len: usize,
+}
+
+pub(crate) struct GuestBackingStoreMapping {
+    pub(crate) host_addr: u64,
+    pub(crate) guest_ptr: u32,
+    pub(crate) byte_len: usize,
+}
+
 #[derive(Default)]
 pub(crate) struct RuntimeEnv {
     pub(crate) memory: Option<Memory>,
@@ -12,6 +25,18 @@ pub(crate) struct RuntimeEnv {
     /// Maps value handle IDs to their guest-memory data pointers.
     /// Used for buffers/arraybuffers backed by guest linear memory.
     pub(crate) guest_data_ptrs: HashMap<u32, u32>,
+    /// Maps stable host backing-store tokens to guest-memory data pointers.
+    /// This keeps external Buffer/ArrayBuffer aliases stable even when V8/N-API
+    /// surfaces the same backing store through a different value handle.
+    pub(crate) guest_data_backing_stores: HashMap<u64, GuestBackingStoreMapping>,
+    /// Host-owned buffer/arraybuffer mappings copied into guest memory for the
+    /// duration of an active callback. These are written back on callback exit.
+    pub(crate) host_buffer_copies: Vec<HostBufferCopy>,
+    pub(crate) host_buffer_copy_frames: Vec<usize>,
+    /// Host-owned buffer copies created while servicing a single guest-side
+    /// native binding invocation (typically bracketed by napi_get_cb_info and a
+    /// return-value creation call).
+    pub(crate) host_buffer_method_frames: Vec<usize>,
     pub(crate) next_napi_env_id: u32,
     pub(crate) next_napi_scope_id: u32,
     pub(crate) napi_envs: HashMap<u32, usize>,
@@ -50,12 +75,5 @@ impl RuntimeEnv {
             .get(&env_id)
             .map(|env| *env as SnapiEnv)
             .unwrap_or(std::ptr::null_mut())
-    }
-
-    pub(crate) fn guest_napi_env(&self, env: SnapiEnv) -> Option<u32> {
-        if env.is_null() {
-            return None;
-        };
-        self.napi_state_to_guest_env.get(&(env as usize)).copied()
     }
 }
