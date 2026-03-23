@@ -106,7 +106,7 @@ axum = { version = "=0.6.9", default-features = false }
 backtrace = "0.3"
 base64 = "0.22.1"
 bincode = "2.0.1"
-bindgen = { version = "0.72.1", default-features = false }
+bindgen = "0.72.1"
 bitflags = "2.11.0"
 blake3 = "1.0"
 build-deps = "0.1.4"
