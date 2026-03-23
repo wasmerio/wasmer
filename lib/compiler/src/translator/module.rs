@@ -13,7 +13,9 @@ use super::sections::{
 };
 use super::state::ModuleTranslationState;
 use itertools::Itertools;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{LocalFunctionIndex, ModuleInfo, TableIndex, WasmError, WasmResult};
@@ -82,17 +84,34 @@ fn analyze_readonly_funcref_table(
     };
 
     let start = Instant::now();
-    for (local_func_index, function_body) in function_body_inputs.iter() {
-        if !analyze_function_readonly_table(
-            middlewares,
-            local_func_index,
-            function_body,
-            table_index,
-        )? {
-            return Ok(None);
-        }
-    }
+
+    let readonly = AtomicBool::new(true);
+    function_body_inputs
+        .iter()
+        .collect_vec()
+        .par_iter()
+        .map(|(local_func_index, function_body)| {
+            if !readonly.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+
+            if !analyze_function_readonly_table(
+                middlewares,
+                *local_func_index,
+                function_body,
+                table_index,
+            )? {
+                readonly.store(false, Ordering::Relaxed);
+            }
+
+            Ok(())
+        })
+        .collect::<WasmResult<Vec<_>>>()?;
     dbg!(Instant::now() - start);
+
+    if !readonly.load(Ordering::Relaxed) {
+        return Ok(None);
+    }
 
     Ok(Some(table_index))
 }

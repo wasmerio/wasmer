@@ -957,7 +957,7 @@ impl Artifact {
     > {
         let environ = ModuleEnvironment::new_with_middlewares(compiler.get_middlewares().to_vec());
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-        let mut module = translation.module;
+        let module = translation.module;
 
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
             .memories
