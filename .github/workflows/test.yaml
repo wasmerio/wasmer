@@ -52,7 +52,7 @@ jobs:
   lint:
     name: Code lint
     runs-on: ubuntu-22.04
-    container: ubuntu-devel
+    container: ubuntu:devel
     steps:
       - uses: actions/checkout@v6
         with:
