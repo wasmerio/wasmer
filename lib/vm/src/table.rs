@@ -191,6 +191,11 @@ impl VMTable {
         &self.table
     }
 
+    /// Returns the type for this Table as mutable.
+    pub fn ty_as_mut(&mut self) -> &mut TableType {
+        &mut self.table
+    }
+
     /// Returns the style for this Table.
     pub fn style(&self) -> &TableStyle {
         &self.style
