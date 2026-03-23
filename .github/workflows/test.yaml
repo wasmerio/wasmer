@@ -1,5 +1,4 @@
 name: test-sys
-
 on:
   push:
     branches:
@@ -12,12 +11,10 @@ on:
     inputs:
       release:
         description: "Make release"
-
 # Automatically cancel previous workflow runs when a new commit is pushed.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 env:
   RUST_BACKTRACE: 1
   # Sparse will be enabled by dtolnay/rust-toolchain when installing nightly
@@ -29,7 +26,6 @@ env:
   WASI_SDK_VERSION: "22"
   S3_CACHE_VERSION: "3"
   DEV_BACKEND_CIUSER_TOKEN: ${{ secrets.DEV_BACKEND_CIUSER_TOKEN }}
-
 jobs:
   setup:
     name: Set up
@@ -48,7 +44,6 @@ jobs:
           echo "DOING_RELEASE=${DOING_RELEASE}" >> $GITHUB_OUTPUT
           echo $VERSION
           echo $DOING_RELEASE
-
   lint:
     name: Code lint
     runs-on: ubuntu-22.04
@@ -102,7 +97,6 @@ jobs:
         run: |
           git status
           ! [[ $(git status -s) ]]
-
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-22.04
@@ -113,7 +107,6 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           log-level: error
-
   test_nodejs:
     name: NodeJS
     runs-on: ubuntu-22.04
@@ -152,7 +145,6 @@ jobs:
       - name: make test-js
         run: |
           make test-js
-
   test_wasi_fyi:
     name: Wasi-fyi
     runs-on: ubuntu-22.04
@@ -198,12 +190,10 @@ jobs:
       - name: make test-wasi-fyi
         run: |
           make test-wasi-fyi
-
-      # The no_std functionality doesn't work at the moment - no point in testing it.
-      # - name: make test-js-core
-      #   run: |
-      #     make test-js-core
-
+        # The no_std functionality doesn't work at the moment - no point in testing it.
+        # - name: make test-js-core
+        #   run: |
+        #     make test-js-core
   test_wasix:
     name: WASIX
     runs-on: ubuntu-22.04
@@ -227,14 +217,12 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
           version: v0.4.2
-
       - name: Install build-scripts sysroot
         uses: wasix-org/build-scripts@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           packages: wasix-libc,libcxx,compiler-rt,libffi
           output: '$HOME/.build-scripts/pkgs'
-
       - name: Tool versions
         run: |
           echo "wasixcc version: $(wasixcc --version)"
@@ -270,7 +258,6 @@ jobs:
       - name: make test-wasix
         run: |
           WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
-
   test_build_jsc:
     name: JSC
     runs-on: ubuntu-22.04
@@ -311,7 +298,6 @@ jobs:
         run: make lint-jsc
       - name: make build-wasmer-jsc
         run: make build-wasmer-jsc
-
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
@@ -347,11 +333,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
-
       - name: Setup MSVC (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: matrix.metadata.build == 'windows-x64'
-
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -359,16 +343,13 @@ jobs:
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           components: clippy
-
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
-
       - name: Install `ninja`, clang`, `binutils` and `mold` on Ubuntu
         if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
         run: |
           sudo apt-get update -y && sudo apt-get install ninja-build clang mold binutils -y
-
       - name: Install `ninja` and (brew's) `llvm` on macOS
         if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash
@@ -376,37 +357,29 @@ jobs:
           brew install ninja llvm@21
           echo "/opt/homebrew/opt/llvm@21/bin" >> $GITHUB_PATH
           ls -laR /opt/homebrew/opt/llvm@21/bin/
-
       - name: Install `ninja` on Windows
         if: startsWith(matrix.metadata.build, 'windows-')
         shell: bash
         run: |
           choco install ninja
-
       - name: Delete unwanted link to stop it from interfering (Windows)
         shell: bash
         run: rm /usr/bin/link.exe
         if: startsWith(matrix.metadata.build, 'windows-')
-
       - name: Lint ${{ matrix.build-what.key }}
         run: ${{ matrix.build-what.lint-cmd }}
-
       - name: Test WAMR API
         if: ${{ matrix.build-what.key == 'wamr' }}
         run: echo $GITHUB_PATH && ${{ matrix.build-what.build-cmd }}
-
       - name: Test wasmi API
         if: ${{ matrix.build-what.key == 'wasmi' }}
         run: ${{ matrix.build-what.build-cmd }}
-
       - name: Test v8 API (Linux + clang)
         if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
         run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld" CARGO_TERM_VERBOSE=true ${{ matrix.build-what.build-cmd }}
-
       - name: Test v8 API
         if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
         run: ${{ matrix.build-what.build-cmd }}
-
   test_build_docs_rs:
     name: Build docs.rs
     runs-on: ubuntu-22.04
@@ -419,12 +392,10 @@ jobs:
           toolchain: "nightly-2025-09-27"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli --locked # toml-cli is required to run `make test-build-docs-rs`
-
       - name: Install `ninja` on Ubuntu
         shell: bash
         run: |
           sudo apt-get install ninja-build -y
-
       - name: Install LLVM 21
         run: |
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
@@ -439,7 +410,6 @@ jobs:
           LLVM_DIR: .llvm
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
-
   build_linux_riscv64:
     name: ${{ matrix.build-what.name }} - linux-riscv64
     runs-on: ubuntu-22.04
@@ -499,7 +469,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   build:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
@@ -727,7 +696,6 @@ jobs:
         shell: bash
         if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' && matrix.metadata.build != 'macos-x64' }}
         run: ${{ matrix.build-what.build-cmd }}
-
       - name: Lint C-API
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
@@ -736,7 +704,6 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
-
       - name: Test C-API
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
@@ -745,7 +712,6 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
-
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
@@ -769,7 +735,6 @@ jobs:
           path: build-capi.tar.gz
           if-no-files-found: ignore
           retention-days: 2
-
   test:
     name: ${{ matrix.stage.description }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
@@ -836,7 +801,6 @@ jobs:
       image: ${{ matrix.metadata.container }}
       volumes:
         - /usr/local:/host/usr/local
-
     steps:
       - name: Set up git on musl
         if: matrix.metadata.build == 'linux-musl'
@@ -883,7 +847,6 @@ jobs:
         shell: bash
         run: rm /usr/bin/link.exe
         if: ${{ matrix.metadata.build == 'windows-x64' }}
-
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -905,7 +868,6 @@ jobs:
         run: |
           brew install llvm
           echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
-
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
         uses: wasix-org/wasixcc@v0.4.2
@@ -913,7 +875,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
           version: v0.4.2
-
       - name: Install build-scripts sysroot
         if: matrix.metadata.build != 'windows-x64'
         uses: wasix-org/build-scripts@main
@@ -921,7 +882,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           packages: wasix-libc,libcxx,compiler-rt,libffi
           output: '$HOME/.build-scripts/pkgs'
-
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url

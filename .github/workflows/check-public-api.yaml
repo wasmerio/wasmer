@@ -1,5 +1,4 @@
 name: Check public API
-
 env:
   RUST_BACKTRACE: 1
 on:
@@ -16,20 +15,17 @@ jobs:
       VERSION: ${{ steps.setup.outputs.VERSION }}
       SHOULD_CHECK_API: ${{ steps.setup.outputs.SHOULD_CHECK_API }}
     steps:
-      
       - name: Checkout
         uses: actions/checkout@v6
         with:
           submodules: true
           fetch-depth: 0
-
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
-            toolchain: nightly
-            profile: minimal
-            override: true
-
+          toolchain: nightly
+          profile: minimal
+          override: true
       - name: Generate API change report
         shell: bash
         run: |
@@ -37,12 +33,9 @@ jobs:
           CARGO_LATEST_VERSION = git tag --list | tail -n 1
           LATEST_VERSION=${INPUT_COMPAREMASTERWITHVERSION:=$CARGO_LATEST_VERSION}
           cargo public-api --manifest-path=lib/api/Cargo.toml --diff-git-checkouts $LATEST_VERSION main > diff.txt
-      
       - name: Archive change report
         uses: actions/upload-artifact@v4
         with:
           name: api-diff-report
           path: |
             diff.txt
-
-
