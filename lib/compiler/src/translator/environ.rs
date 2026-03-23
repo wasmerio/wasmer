@@ -68,6 +68,9 @@ pub struct ModuleEnvironment<'data> {
     /// Middlewares that should be applied during translation.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 
+    /// Whether translation-time readonly funcref table analysis is enabled.
+    pub(crate) enable_readonly_funcref_table: bool,
+
     /// References to the function bodies.
     pub function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
 
@@ -84,6 +87,7 @@ impl<'data> ModuleEnvironment<'data> {
         Self {
             module: ModuleInfo::new(),
             middlewares: Vec::new(),
+            enable_readonly_funcref_table: false,
             function_body_inputs: PrimaryMap::new(),
             data_initializers: Vec::new(),
             module_translation_state: None,
@@ -91,10 +95,14 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     /// Allocates the environment data structures with a middleware chain.
-    pub fn new_with_middlewares(middlewares: Vec<Arc<dyn ModuleMiddleware>>) -> Self {
+    pub fn new_with_middlewares(
+        middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+        enable_readonly_funcref_table: bool,
+    ) -> Self {
         Self {
             module: ModuleInfo::new(),
             middlewares,
+            enable_readonly_funcref_table,
             function_body_inputs: PrimaryMap::new(),
             data_initializers: Vec::new(),
             module_translation_state: None,

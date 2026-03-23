@@ -128,7 +128,10 @@ impl Artifact {
     ) -> Result<Self, CompileError> {
         let mut inner_engine = engine.inner_mut();
         let compiler = inner_engine.compiler()?;
-        let environ = ModuleEnvironment::new_with_middlewares(compiler.get_middlewares().to_vec());
+        let environ = ModuleEnvironment::new_with_middlewares(
+            compiler.get_middlewares().to_vec(),
+            compiler.enable_readonly_funcref_table(),
+        );
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
@@ -955,7 +958,10 @@ impl Artifact {
         ),
         CompileError,
     > {
-        let environ = ModuleEnvironment::new_with_middlewares(compiler.get_middlewares().to_vec());
+        let environ = ModuleEnvironment::new_with_middlewares(
+            compiler.get_middlewares().to_vec(),
+            compiler.enable_readonly_funcref_table(),
+        );
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
 

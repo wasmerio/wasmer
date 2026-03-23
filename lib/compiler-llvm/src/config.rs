@@ -174,10 +174,7 @@ impl LLVM {
 
     /// Enables treating eligible funcref tables as read-only so the backend can
     /// place them in read-only data.
-    pub fn enable_readonly_funcref_table(
-        &mut self,
-        enable_readonly_funcref_table: bool,
-    ) -> &mut Self {
+    pub fn readonly_funcref_table(&mut self, enable_readonly_funcref_table: bool) -> &mut Self {
         self.enable_readonly_funcref_table = enable_readonly_funcref_table;
         self
     }

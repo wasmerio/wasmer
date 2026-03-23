@@ -235,12 +235,14 @@ pub fn translate_module<'data>(
         .apply_on_module_info(&mut environ.module)
         .map_err(WasmError::from)?;
 
-    if let Some(table_index) = analyze_readonly_funcref_table(
-        &environ.module,
-        &environ.function_body_inputs,
-        &environ.middlewares,
-    )? {
-        environ.module.tables[table_index].readonly = true;
+    if environ.enable_readonly_funcref_table {
+        if let Some(table_index) = analyze_readonly_funcref_table(
+            &environ.module,
+            &environ.function_body_inputs,
+            &environ.middlewares,
+        )? {
+            environ.module.tables[table_index].readonly = true;
+        }
     }
 
     Ok(module_translation_state)

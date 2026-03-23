@@ -64,7 +64,10 @@ impl ArtifactBuild {
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
         let compiler = inner_engine.compiler()?;
-        let environ = ModuleEnvironment::new_with_middlewares(compiler.get_middlewares().to_vec());
+        let environ = ModuleEnvironment::new_with_middlewares(
+            compiler.get_middlewares().to_vec(),
+            compiler.enable_readonly_funcref_table(),
+        );
         let features = inner_engine.features().clone();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;

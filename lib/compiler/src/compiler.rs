@@ -167,6 +167,11 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
 
+    /// Get whether translation-time readonly funcref table analysis should run.
+    fn enable_readonly_funcref_table(&self) -> bool {
+        false
+    }
+
     /// Get the CpuFeatues used by the compiler
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
         *cpu_features
