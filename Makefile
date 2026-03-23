@@ -1023,7 +1023,7 @@ lint-formatting:
 	cargo fmt --all -- --check
 	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
-lint: lint-formatting lint-packages
+lint: lint-formatting lint-packages lint-clang-format
 
 lint-all: lint-formatting lint-packages lint-wasmi lint-wamr lint-v8 lint-jsc lint-capi-ci lint-package-crate
 
