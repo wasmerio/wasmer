@@ -3283,8 +3283,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ))
                     .into_pointer_value();
 
-                    // trap if we're trying to call a null funcref
-                    {
+                    if !table.readonly {
                         let funcref_not_null = err!(
                             self.builder
                                 .build_is_not_null(anyfunc_struct_ptr, "null_funcref_check")
@@ -3334,16 +3333,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "sigindex_ptr",
                     )
                     .unwrap();
-                let ctx_ptr_ptr = self
-                    .builder
-                    .build_struct_gep(
-                        self.intrinsics.anyfunc_ty,
-                        anyfunc_struct_ptr,
-                        2,
-                        "ctx_ptr_ptr",
-                    )
-                    .unwrap();
-                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
+                let (func_ptr, found_dynamic_sigindex) = (
                     err!(
                         self.builder
                             .build_load(self.intrinsics.ptr_ty, func_ptr_ptr, "func_ptr")
@@ -3354,10 +3344,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             .build_load(self.intrinsics.i32_ty, sigindex_ptr, "sigindex")
                     )
                     .into_int_value(),
-                    err!(
-                        self.builder
-                            .build_load(self.intrinsics.ptr_ty, ctx_ptr_ptr, "ctx_ptr")
-                    ),
                 );
 
                 // Next, check if the table element is initialized.
@@ -3421,10 +3407,29 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(continue_block);
 
+                let callee_vmctx = if table.readonly {
+                    *vmctx
+                } else {
+                    let ctx_ptr_ptr = self
+                        .builder
+                        .build_struct_gep(
+                            self.intrinsics.anyfunc_ty,
+                            anyfunc_struct_ptr,
+                            2,
+                            "ctx_ptr_ptr",
+                        )
+                        .unwrap();
+                    err!(
+                        self.builder
+                            .build_load(self.intrinsics.ptr_ty, ctx_ptr_ptr, "ctx_ptr")
+                    )
+                    .into_pointer_value()
+                };
+
                 if self.m0_param.is_some() {
                     self.build_m0_indirect_call(
                         table_index.as_u32(),
-                        ctx_ptr.into_pointer_value(),
+                        callee_vmctx,
                         func_type,
                         func_ptr,
                         func_index,
@@ -3432,7 +3437,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     )?;
                 } else {
                     let (call_site, llvm_func_type) = self.build_indirect_call(
-                        ctx_ptr.into_pointer_value(),
+                        callee_vmctx,
                         func_type,
                         func_ptr,
                         None,
