@@ -1001,6 +1001,8 @@ lint-packages:
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --all --examples --exclude wasmer-cli --exclude wasmer-swift --locked -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml --locked $(compiler_features) -- -D clippy::all
+lint-clang-format:
+	fd '\.(cpp|c)$$' --exec-batch clang-format --dry-run --color -Werror --style=Google
 
 lint-wasmi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="wasmi-default" --locked -- -D clippy::all
