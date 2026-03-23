@@ -259,7 +259,7 @@
 <a href=#259 id=259 data-nosnippet>259</a>        }
 <a href=#260 id=260 data-nosnippet>260</a>
 <a href=#261 id=261 data-nosnippet>261</a>        <span class="comment">// The custom readonly files have to be added after the uses packages
-<a href=#262 id=262 data-nosnippet>262</a>        // otherwise they will be overriden by their attached file systems
+<a href=#262 id=262 data-nosnippet>262</a>        // otherwise they will be overridden by their attached file systems
 <a href=#263 id=263 data-nosnippet>263</a>        </span><span class="kw">for </span>(path, data) <span class="kw">in </span><span class="self">self</span>.ro_files.clone() {
 <a href=#264 id=264 data-nosnippet>264</a>            <span class="kw">let </span>path = PathBuf::from(path);
 <a href=#265 id=265 data-nosnippet>265</a>            env.fs_root().remove_file(<span class="kw-2">&amp;</span>path).ok();
