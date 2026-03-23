@@ -18,7 +18,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{LocalFunctionIndex, ModuleInfo, TableIndex, WasmError, WasmResult};
+use wasmer_types::{
+    InitExpr, InitExprOp, LocalFunctionIndex, ModuleInfo, TableIndex, WasmError, WasmResult,
+};
 use wasmparser::{BinaryReader, NameSectionReader, Parser, Payload};
 
 use crate::translator::FunctionBinaryReader;
@@ -82,6 +84,23 @@ fn analyze_readonly_funcref_table(
     else {
         return Ok(None);
     };
+
+    let table = module.tables[table_index];
+    let Ok(table_initializer) = module
+        .table_initializers
+        .iter()
+        .filter(|initializer| initializer.table_index == table_index)
+        .exactly_one()
+    else {
+        return Ok(None);
+    };
+
+    // We're expecting all table elements are initialized except the first one (null pointer).
+    if table_initializer.offset_expr != InitExpr::new([InitExprOp::I32Const(1)])
+        || table_initializer.elements.len() as u32 != table.minimum.saturating_sub(1)
+    {
+        return Ok(None);
+    }
 
     let start = Instant::now();
 
