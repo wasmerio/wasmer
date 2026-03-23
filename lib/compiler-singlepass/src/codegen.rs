@@ -3500,19 +3500,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Br { relative_depth } => {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.return_types.is_empty() {
-                    if matches!(frame.state, ControlState::Loop) {
-                        // Store into the PHI params of the loop, not to the return values.
-                        self.emit_loop_params_store(
-                            frame.value_stack_depth_after(),
-                            frame.param_types.len(),
-                        )?;
-                    } else {
-                        self.emit_return_values(
-                            frame.value_stack_depth_after(),
-                            frame.return_types.len(),
-                        )?;
-                    }
+                if matches!(frame.state, ControlState::Loop) {
+                    // Store into the PHI params of the loop, not to the return values.
+                    self.emit_loop_params_store(
+                        frame.value_stack_depth_after(),
+                        frame.param_types.len(),
+                    )?;
+                } else if !frame.return_types.is_empty() {
+                    self.emit_return_values(
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
+                    )?;
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
@@ -3536,19 +3534,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.return_types.is_empty() {
-                    if matches!(frame.state, ControlState::Loop) {
-                        // Store into the PHI params of the loop, not to the return values.
-                        self.emit_loop_params_store(
-                            frame.value_stack_depth_after(),
-                            frame.param_types.len(),
-                        )?;
-                    } else {
-                        self.emit_return_values(
-                            frame.value_stack_depth_after(),
-                            frame.return_types.len(),
-                        )?;
-                    }
+                if matches!(frame.state, ControlState::Loop) {
+                    // Store into the PHI params of the loop, not to the return values.
+                    self.emit_loop_params_store(
+                        frame.value_stack_depth_after(),
+                        frame.param_types.len(),
+                    )?;
+                } else if !frame.return_types.is_empty() {
+                    self.emit_return_values(
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
+                    )?;
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
@@ -3585,19 +3581,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     table.push(label);
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    if !frame.return_types.is_empty() {
-                        if matches!(frame.state, ControlState::Loop) {
-                            // Store into the PHI params of the loop, not to the return values.
-                            self.emit_loop_params_store(
-                                frame.value_stack_depth_after(),
-                                frame.param_types.len(),
-                            )?;
-                        } else {
-                            self.emit_return_values(
-                                frame.value_stack_depth_after(),
-                                frame.return_types.len(),
-                            )?;
-                        }
+                    if matches!(frame.state, ControlState::Loop) {
+                        // Store into the PHI params of the loop, not to the return values.
+                        self.emit_loop_params_store(
+                            frame.value_stack_depth_after(),
+                            frame.param_types.len(),
+                        )?;
+                    } else if !frame.return_types.is_empty() {
+                        self.emit_return_values(
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
+                        )?;
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
@@ -3611,19 +3605,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 {
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    if !frame.return_types.is_empty() {
-                        if matches!(frame.state, ControlState::Loop) {
-                            // Store into the PHI params of the loop, not to the return values.
-                            self.emit_loop_params_store(
-                                frame.value_stack_depth_after(),
-                                frame.param_types.len(),
-                            )?;
-                        } else {
-                            self.emit_return_values(
-                                frame.value_stack_depth_after(),
-                                frame.return_types.len(),
-                            )?;
-                        }
+                    if matches!(frame.state, ControlState::Loop) {
+                        // Store into the PHI params of the loop, not to the return values.
+                        self.emit_loop_params_store(
+                            frame.value_stack_depth_after(),
+                            frame.param_types.len(),
+                        )?;
+                    } else if !frame.return_types.is_empty() {
+                        self.emit_return_values(
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
+                        )?;
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
