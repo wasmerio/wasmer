@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt install -y fd-find libtinfo6 clang clang-format git curl xz-utils make
+          apt install -y libtinfo6 clang clang-format git curl xz-utils make
       - uses: actions/checkout@v6
         with:
           submodules: true
