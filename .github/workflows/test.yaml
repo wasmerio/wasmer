@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt install -y fd libtinfo5 clang-format git
+          apt install -y fd-find libtinfo clang-format git
       - uses: actions/checkout@v6
         with:
           submodules: true
