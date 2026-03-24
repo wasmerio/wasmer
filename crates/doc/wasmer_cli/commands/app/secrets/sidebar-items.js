@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CmdAppSecrets"],"mod":["create","delete","list","reveal","update","utils"]};
+window.SIDEBAR_ITEMS = {"enum":["CmdAppSecrets"],"mod":["create","delete","export","import","list","reveal","update","utils"]};
