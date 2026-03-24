@@ -316,8 +316,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         build-what:
           - key: wamr
             lint-cmd: "make lint-wamr"
@@ -337,7 +337,7 @@ jobs:
           - build: macos-arm
             os: depot-macos-14
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
@@ -513,8 +513,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         build-what:
           [
             {
@@ -603,10 +603,10 @@ jobs:
             },
           ]
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-x64
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
@@ -810,8 +810,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         stage:
           [
             {
@@ -888,10 +888,10 @@ jobs:
             },
           ]
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-x64
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-arm
     container:

@@ -269,7 +269,7 @@ pub enum Errno {
     Shutdown,
     #[doc = " Memory access violation."]
     Memviolation,
-    #[doc = " An unknown error has occured"]
+    #[doc = " An unknown error has occurred"]
     Unknown,
 }
 impl Errno {
@@ -438,7 +438,7 @@ impl Errno {
             Errno::Notcapable => "Extension: Capabilities insufficient.",
             Errno::Shutdown => "Cannot send after socket shutdown.",
             Errno::Memviolation => "Memory access violation.",
-            Errno::Unknown => "An unknown error has occured",
+            Errno::Unknown => "An unknown error has occurred",
         }
     }
 }

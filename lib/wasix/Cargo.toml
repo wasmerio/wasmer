@@ -184,6 +184,7 @@ wasmer = { path = "../api", version = "=7.1.0-rc.2", default-features = false, f
 	"wat",
 	"js-serializable-module",
 	"cranelift",
+	"llvm",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom03]
