@@ -1163,7 +1163,7 @@ where
     {
         asyncify_start_unwind.call(&mut ctx, asyncify_data);
     } else {
-        warn!("failed to unwind the stack because the asyncify_start_rewind export is missing");
+        warn!("failed to unwind the stack because the asyncify_start_unwind export is missing");
         return Err(WasiError::Exit(Errno::Noexec.into()));
     }
 
@@ -1229,7 +1229,7 @@ where
         {
             asyncify_stop_unwind.call(&mut ctx);
         } else {
-            warn!("failed to unwind the stack because the asyncify_start_rewind export is missing");
+            warn!("failed to unwind the stack because the asyncify_stop_unwind export is missing");
             return Ok(OnCalledAction::Finish);
         }
 
@@ -1444,12 +1444,12 @@ where
         if let Some(asyncify_stop_rewind) = env
             .inner()
             .static_module_instance_handles()
-            .and_then(|handles| handles.asyncify_stop_unwind.clone())
+            .and_then(|handles| handles.asyncify_stop_rewind.clone())
         {
             asyncify_stop_rewind.call(ctx);
         } else {
             warn!(
-                "failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible"
+                "failed to handle rewind because the asyncify_stop_rewind export is missing or inaccessible"
             );
             return Some(None);
         }

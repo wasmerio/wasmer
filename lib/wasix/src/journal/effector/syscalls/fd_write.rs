@@ -51,9 +51,13 @@ impl JournalEffector {
         offset: u64,
         data: Cow<'_, [u8]>,
     ) -> anyhow::Result<()> {
+        let fd_entry = ctx.data().state.fs.get_fd(fd).map_err(|err| {
+            anyhow::format_err!("journal restore error: invalid descriptor (fd={fd}) - {err}")
+        })?;
         fd_write_internal(
             ctx,
             fd,
+            fd_entry,
             FdWriteSource::<'_, M>::Buffer(data),
             offset,
             true,

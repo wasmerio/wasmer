@@ -138,9 +138,17 @@ pub struct Wasi {
     #[clap(long = "no-tty")]
     pub no_tty: bool,
 
-    /// Enables asynchronous threading
-    #[clap(long = "enable-async-threads")]
-    pub enable_async_threads: bool,
+    /// Enables or disables asynchronous threading.
+    ///
+    /// If omitted, the runtime default is used.
+    #[clap(
+        long = "enable-async-threads",
+        require_equals = true,
+        default_missing_value = "true",
+        num_args = 0..=1,
+        action = clap::ArgAction::Set
+    )]
+    pub enable_async_threads: Option<bool>,
 
     /// Enables an exponential backoff (measured in milli-seconds) of
     /// the process CPU usage when there are no active run tokens (when set
@@ -534,7 +542,9 @@ impl Wasi {
             caps.http_client = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
         }
 
-        caps.threading.enable_asynchronous_threading = self.enable_async_threads;
+        if let Some(enable_async_threads) = self.enable_async_threads {
+            caps.threading.enable_asynchronous_threading = enable_async_threads;
+        }
         caps.threading.enable_exponential_cpu_backoff =
             self.enable_cpu_backoff.map(Duration::from_millis);
 

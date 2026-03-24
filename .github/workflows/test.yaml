@@ -54,6 +54,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -104,6 +106,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           log-level: error
@@ -113,6 +117,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -150,6 +156,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -199,6 +207,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -210,11 +220,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git make lld curl
       - name: Install wasixcc
-        uses: wasix-org/wasixcc@v0.4.1
+        uses: wasix-org/wasixcc@v0.4.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
-          version: v0.4.1
+          version: v0.4.2
+
+      - name: Install build-scripts sysroot
+        uses: wasix-org/build-scripts@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          packages: wasix-libc,libcxx,compiler-rt,libffi
+          output: '$HOME/.build-scripts/pkgs'
 
       - name: Tool versions
         run: |
@@ -257,6 +274,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -297,8 +316,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         build-what:
           - key: wamr
             lint-cmd: "make lint-wamr"
@@ -318,12 +337,14 @@ jobs:
           - build: macos-arm
             os: depot-macos-14
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
 
       - name: Setup MSVC (Windows)
         uses: ilammy/msvc-dev-cmd@v1
@@ -389,6 +410,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "nightly-2025-09-27"
@@ -435,12 +458,14 @@ jobs:
             },
             {
               key: wasmer,
-              build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
+              build-cmd: "make build-wasmer && make package-wasmer",
               name: "Wasmer-cli binary",
             },
           ]
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       #- uses: ./.github/actions/load_toolchain
       #  id: load_toolchain
       #- uses: dtolnay/rust-toolchain@stable
@@ -488,13 +513,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         build-what:
           [
             {
               key: capi,
-              build-cmd: "make build-capi && make build-capi-headless && make package-capi && make tar-capi",
+              build-cmd: "make build-capi && make build-capi-headless && make package-capi",
               name: "C-API",
             },
             {
@@ -504,7 +529,7 @@ jobs:
             },
             {
               key: wasmer,
-              build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
+              build-cmd: "make build-wasmer && make package-wasmer",
               name: "Wasmer-cli binary",
             },
             {
@@ -578,15 +603,22 @@ jobs:
             },
           ]
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-x64
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
+      - name: Set up git on musl
+        if: matrix.metadata.build == 'linux-musl'
+        run: |
+          apk update
+          apk add git
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Set up Depot CLI
         uses: depot/setup-action@v1
       - name: Set up libstdc++ on Linux
@@ -778,8 +810,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         stage:
           [
             {
@@ -856,19 +888,10 @@ jobs:
             },
           ]
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-x64
-          - is_pull_request: true
-            metadata:
-              build: macos-arm
-          # the CI macOS runner tends to be really slow (huge number of timeouts).
-          - stage:
-              make: test-integration-cli-ci
-            metadata:
-              build: macos-x64
-          - stage:
-              make: test-integration-cli-ci
+          - skip_macos: true
             metadata:
               build: macos-arm
     container:
@@ -877,7 +900,14 @@ jobs:
         - /usr/local:/host/usr/local
 
     steps:
+      - name: Set up git on musl
+        if: matrix.metadata.build == 'linux-musl'
+        run: |
+          apk update
+          apk add git
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')
         run: df -h
@@ -940,11 +970,19 @@ jobs:
 
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
-        uses: wasix-org/wasixcc@v0.4.1
+        uses: wasix-org/wasixcc@v0.4.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
-          version: v0.4.1
+          version: v0.4.2
+
+      - name: Install build-scripts sysroot
+        if: matrix.metadata.build != 'windows-x64'
+        uses: wasix-org/build-scripts@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          packages: wasix-libc,libcxx,compiler-rt,libffi
+          output: '$HOME/.build-scripts/pkgs'
 
       - name: Install LLVM
         shell: bash

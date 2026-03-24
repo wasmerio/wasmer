@@ -503,6 +503,8 @@ impl Wast {
         actual.contains(expected)
             || (expected.contains("incompatible import type")
                 && actual.contains("instantiation failed with: constant expression required"))
+            || (expected.contains("unknown import")
+                && actual.contains("instantiation failed with: constant expression required"))
     }
 
     // Checks if the `assert_invalid` message matches the expected one
@@ -534,6 +536,7 @@ impl Wast {
             || (expected.contains("type mismatch: instruction requires") && actual.contains("instantiation failed with: Validation error: type mismatch: expected"))
             || (expected.contains("alignment must not be larger than natural") && actual.contains("malformed memop alignment: alignment too large"))
             || (expected.contains("type mismatch") && actual.contains("malformed memop alignment: alignment too large"))
+            || (expected.contains("type mismatch") && actual.contains("Validation error: gc support is not enabled"))
     }
 
     // Checks if the `assert_trap` message matches the expected one

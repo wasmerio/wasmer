@@ -7,7 +7,7 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
-use crate::compiler::ModuleBasedSymbolRegistry;
+use crate::{compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
 use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
@@ -20,8 +20,8 @@ use inkwell::{
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
-        FunctionValue, InstructionOpcode, InstructionValue, IntValue, PhiValue, PointerValue,
-        VectorValue,
+        FunctionValue, InstructionOpcode, InstructionValue, IntValue, LLVMTailCallKind, PhiValue,
+        PointerValue, VectorValue,
     },
 };
 use itertools::Itertools;
@@ -72,7 +72,7 @@ pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
     target_machine: TargetMachine,
-    target_machine_no_opt: Option<TargetMachine>,
+    target_machine_for_size: Option<TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
@@ -87,7 +87,7 @@ impl FuncTranslator {
     pub fn new(
         target_triple: Triple,
         target_machine: TargetMachine,
-        target_machine_no_opt: Option<TargetMachine>,
+        target_machine_for_size: Option<TargetMachine>,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
@@ -98,7 +98,7 @@ impl FuncTranslator {
             ctx: Context::create(),
             target_triple,
             target_machine,
-            target_machine_no_opt,
+            target_machine_for_size,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -128,6 +128,7 @@ impl FuncTranslator {
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &dyn SymbolRegistry,
         target: &Triple,
+        opt_style: OptimizationStyle,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let func_index = wasm_module.func_index(*local_func_index);
@@ -365,41 +366,48 @@ impl FuncTranslator {
         }
 
         let mut passes = vec![];
-
         if config.enable_verifier {
             passes.push("verify");
         }
 
-        passes.push("sccp");
-        passes.push("early-cse");
-        //passes.push("deadargelim");
-        passes.push("adce");
-        passes.push("sroa");
-        passes.push("aggressive-instcombine");
-        passes.push("jump-threading");
-        //passes.push("ipsccp");
-        passes.push("simplifycfg");
-        passes.push("reassociate");
-        passes.push("loop-rotate");
-        passes.push("indvars");
-        //passes.push("lcssa");
-        //passes.push("licm");
-        //passes.push("instcombine");
-        passes.push("sccp");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("gvn");
-        passes.push("memcpyopt");
-        passes.push("dse");
-        passes.push("dce");
-        //passes.push("instcombine");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("mem2reg");
+        match opt_style {
+            OptimizationStyle::ForSize => {
+                // Apparently, the default<Os> could be much slower compared to -O1.
+                passes.push("default<O1>");
+            }
+            OptimizationStyle::ForSpeed => {
+                passes.push("sccp");
+                passes.push("early-cse");
+                //passes.push("deadargelim");
+                passes.push("adce");
+                passes.push("sroa");
+                passes.push("aggressive-instcombine");
+                passes.push("jump-threading");
+                //passes.push("ipsccp");
+                passes.push("simplifycfg");
+                passes.push("reassociate");
+                passes.push("loop-rotate");
+                passes.push("indvars");
+                //passes.push("lcssa");
+                //passes.push("licm");
+                //passes.push("instcombine");
+                passes.push("sccp");
+                passes.push("reassociate");
+                passes.push("simplifycfg");
+                passes.push("gvn");
+                passes.push("memcpyopt");
+                passes.push("dse");
+                passes.push("dce");
+                //passes.push("instcombine");
+                passes.push("reassociate");
+                passes.push("simplifycfg");
+                passes.push("mem2reg");
+            }
+        }
 
         module
             .run_passes(
-                passes.join(",").as_str(),
+                &passes.join(","),
                 target_machine,
                 PassBuilderOptions::create(),
             )
@@ -425,6 +433,11 @@ impl FuncTranslator {
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
+        let opt_style = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
+            OptimizationStyle::ForSize
+        } else {
+            OptimizationStyle::ForSpeed
+        };
         let module = self.translate_to_module(
             wasm_module,
             module_translation,
@@ -435,19 +448,21 @@ impl FuncTranslator {
             table_styles,
             symbol_registry,
             target,
+            opt_style,
         )?;
         let function = CompiledKind::Local(
             *local_func_index,
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
 
-        let target_machine = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
-            self.target_machine_no_opt
+        let target_machine = match opt_style {
+            OptimizationStyle::ForSize => self
+                .target_machine_for_size
                 .as_ref()
-                .unwrap_or(&self.target_machine)
-        } else {
-            &self.target_machine
+                .unwrap_or(&self.target_machine),
+            OptimizationStyle::ForSpeed => &self.target_machine,
         };
+
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
@@ -470,14 +485,11 @@ impl FuncTranslator {
             |name: &str| {
                 Ok({
                     let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
-                        if name.starts_with("_") {
-                            name.replacen("_", "", 1)
-                        } else {
-                            name.to_string()
-                        }
+                        name.strip_prefix("_").unwrap_or(name)
                     } else {
-                        name.to_string()
-                    };
+                        name
+                    }
+                    .to_string();
                     if let Some(Symbol::LocalFunction(local_func_index)) =
                         symbol_registry.name_to_symbol(&name)
                     {
@@ -1562,6 +1574,48 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
+    fn emit_return_call(
+        &mut self,
+        call_site: CallSiteValue<'ctx>,
+        callee_llvm_func_type: inkwell::types::FunctionType<'ctx>,
+    ) -> Result<(), CompileError> {
+        // This is an unintuitive spec corner case: a tail call must bypass all enclosing
+        // try_table blocks in the function. See https://github.com/WebAssembly/exception-handling/issues/249.
+        //
+        // The LLVM MustTail is more restrictive than the one defined in the WebAssembly spec.
+        // WebAssembly types alone are not enough here: the lowered ABI can add hidden arguments
+        // like `m0` and `sret`, so we must compare the actual LLVM function types instead.
+        let tail_call_kind = if self.function.get_type() == callee_llvm_func_type {
+            LLVMTailCallKind::LLVMTailCallKindMustTail
+        } else {
+            LLVMTailCallKind::LLVMTailCallKindTail
+        };
+        call_site.set_tail_call_kind(tail_call_kind);
+
+        if self.function.get_type().get_return_type().is_none() {
+            err!(self.builder.build_return(None));
+        } else {
+            let ret = call_site.try_as_basic_value();
+            if ret.is_instruction() {
+                return Err(CompileError::Codegen(
+                    "return_call expected a non-void call result".to_string(),
+                ));
+            }
+            err!(self.builder.build_return(Some(&ret.unwrap_basic())));
+        }
+        Ok(())
+    }
+
+    // Return sret pointer if the functions needs the hidden argument for multiple return values.
+    fn current_sret_ptr(&self, func_type: &FunctionType) -> Option<PointerValue<'ctx>> {
+        self.abi.is_sret(func_type).ok().map(|_| {
+            self.function
+                .get_first_param()
+                .unwrap()
+                .into_pointer_value()
+        })
+    }
+
     fn build_m0_indirect_call(
         &mut self,
         table_index: u32,
@@ -1569,12 +1623,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
         func_index: IntValue<'ctx>,
+        is_return_call: bool,
     ) -> Result<(), CompileError> {
         let Some(m0) = self.m0_param else {
             return Err(CompileError::Codegen(
                 "Call to build_m0_indirect_call without m0 parameter!".to_string(),
             ));
         };
+
+        let params = self.state.popn_save_extra(func_type.params().len())?;
 
         let mut local_func_indices = vec![];
         let mut foreign_func_indices = vec![];
@@ -1607,7 +1664,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 .context
                 .append_basic_block(self.function, "unreachable_indirect_call_branch");
 
-            let cont = self.context.append_basic_block(self.function, "cont");
+            let cont =
+                (!is_return_call).then(|| self.context.append_basic_block(self.function, "cont"));
 
             err!(
                 self.builder.build_switch(
@@ -1633,31 +1691,66 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             //let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(local_idx_block);
-            let local_call_site =
-                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
-
-            let local_rets = self.abi.rets_from_call(
-                &self.builder,
-                self.intrinsics,
-                local_call_site,
+            let (local_call_site, local_llvm_func_type) = self.build_indirect_call_with_params(
+                ctx_ptr,
                 func_type,
+                func_ptr,
+                Some(m0),
+                is_return_call,
+                &params,
             )?;
 
-            err!(self.builder.build_unconditional_branch(cont));
+            let local_rets = if is_return_call {
+                self.emit_return_call(local_call_site, local_llvm_func_type)?;
+                Vec::new()
+            } else {
+                let rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    local_call_site,
+                    func_type,
+                )?;
+                err!(
+                    self.builder
+                        .build_unconditional_branch(cont.expect("non-return call requires cont"))
+                );
+                rets
+            };
 
             self.builder.position_at_end(foreign_idx_block);
-            let foreign_call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
+            let (foreign_call_site, foreign_llvm_func_type) = self
+                .build_indirect_call_with_params(
+                    ctx_ptr,
+                    func_type,
+                    func_ptr,
+                    None,
+                    is_return_call,
+                    &params,
+                )?;
 
-            let foreign_rets = self.abi.rets_from_call(
-                &self.builder,
-                self.intrinsics,
-                foreign_call_site,
-                func_type,
-            )?;
+            let foreign_rets = if is_return_call {
+                self.emit_return_call(foreign_call_site, foreign_llvm_func_type)?;
+                Vec::new()
+            } else {
+                let rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    foreign_call_site,
+                    func_type,
+                )?;
+                err!(
+                    self.builder
+                        .build_unconditional_branch(cont.expect("non-return call requires cont"))
+                );
+                rets
+            };
 
-            err!(self.builder.build_unconditional_branch(cont));
+            if is_return_call {
+                return Ok(());
+            }
 
-            self.builder.position_at_end(cont);
+            self.builder
+                .position_at_end(cont.expect("non-return call requires cont"));
 
             for i in 0..foreign_rets.len() {
                 let f_i = foreign_rets[i];
@@ -1668,18 +1761,40 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {
-            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
+            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                Some(m0),
+                is_return_call,
+                &params,
+            )?;
 
-            self.abi
-                .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                .iter()
-                .for_each(|ret| self.state.push1(*ret));
+            if is_return_call {
+                self.emit_return_call(call_site, llvm_func_type)?;
+            } else {
+                self.abi
+                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
+            }
         } else {
-            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
-            self.abi
-                .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                .iter()
-                .for_each(|ret| self.state.push1(*ret));
+            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                None,
+                is_return_call,
+                &params,
+            )?;
+            if is_return_call {
+                self.emit_return_call(call_site, llvm_func_type)?;
+            } else {
+                self.abi
+                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
+            }
         }
 
         Ok(())
@@ -1691,7 +1806,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
         m0_param: Option<PointerValue<'ctx>>,
-    ) -> Result<CallSiteValue<'ctx>, CompileError> {
+        is_return_call: bool,
+    ) -> Result<(CallSiteValue<'ctx>, inkwell::types::FunctionType<'ctx>), CompileError> {
+        let params = self.state.popn_save_extra(func_type.params().len())?;
+        self.build_indirect_call_with_params(
+            ctx_ptr,
+            func_type,
+            func_ptr,
+            m0_param,
+            is_return_call,
+            &params,
+        )
+    }
+
+    fn build_indirect_call_with_params(
+        &mut self,
+        ctx_ptr: PointerValue<'ctx>,
+        func_type: &FunctionType,
+        func_ptr: PointerValue<'ctx>,
+        m0_param: Option<PointerValue<'ctx>>,
+        is_return_call: bool,
+        params: &[(BasicValueEnum<'ctx>, ExtraInfo)],
+    ) -> Result<(CallSiteValue<'ctx>, inkwell::types::FunctionType<'ctx>), CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
             self.context,
             self.intrinsics,
@@ -1699,8 +1835,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             func_type,
             m0_param.is_some(),
         )?;
-
-        let params = self.state.popn_save_extra(func_type.params().len())?;
 
         // Apply pending canonicalizations.
         let params = params
@@ -1730,6 +1864,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             params.as_slice(),
             self.intrinsics,
             m0_param,
+            is_return_call
+                .then(|| self.current_sret_ptr(func_type))
+                .flatten(),
         )?;
 
         let typed_func_ptr = err!(self.builder.build_pointer_cast(
@@ -1738,37 +1875,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             "typed_func_ptr",
         ));
 
-        /*
-        if self.track_state {
-            if let Some(offset) = opcode_offset {
-                let mut stackmaps = self.stackmaps.borrow_mut();
-                emit_stack_map(
-                    &info,
-                    self.intrinsics,
-                    self.builder,
-                    self.index,
-                    &mut *stackmaps,
-                    StackmapEntryKind::Call,
-                    &self.locals,
-                    state,
-                    ctx,
-                    offset,
-                )
-            }
-        }
-        */
-
         let call_site_local = self.build_indirect_call_or_invoke(
             llvm_func_type,
             typed_func_ptr,
             params.as_slice(),
             "then_block",
+            is_return_call,
         )?;
         for (attr, attr_loc) in llvm_func_attrs {
             call_site_local.add_attribute(attr_loc, attr);
         }
 
-        Ok(call_site_local)
+        Ok((call_site_local, llvm_func_type))
     }
 
     fn build_indirect_call_or_invoke(
@@ -1777,8 +1895,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         params: &[BasicValueEnum<'ctx>],
         then_block_name: &str,
+        is_return_call: bool,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
-        if let Some(lpad) = self.state.get_innermost_landingpad() {
+        // This is an unintuitive spec corner case: a tail call must bypass all enclosing
+        // try_table blocks in the function. See https://github.com/WebAssembly/exception-handling/issues/249.
+        if let Some(lpad) = self.state.get_innermost_landingpad()
+            && !is_return_call
+        {
             let then_block = self
                 .context
                 .append_basic_block(self.function, then_block_name);
@@ -1810,91 +1933,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     }
 }
 
-/*
-fn emit_stack_map<'ctx>(
-    intrinsics: &Intrinsics<'ctx>,
-    builder: &Builder<'ctx>,
-    local_function_id: usize,
-    target: &mut StackmapRegistry,
-    kind: StackmapEntryKind,
-    locals: &[PointerValue],
-    state: &State<'ctx>,
-    _ctx: &mut CtxType<'ctx>,
-    opcode_offset: usize,
-) {
-    let stackmap_id = target.entries.len();
-
-    let mut params = Vec::with_capacity(2 + locals.len() + state.stack.len());
-
-    params.push(
-        intrinsics
-            .i64_ty
-            .const_int(stackmap_id as u64, false)
-            .as_basic_value_enum(),
-    );
-    params.push(intrinsics.i32_ty.const_zero().as_basic_value_enum());
-
-    let locals: Vec<_> = locals.iter().map(|x| x.as_basic_value_enum()).collect();
-    let mut value_semantics: Vec<ValueSemantic> =
-        Vec::with_capacity(locals.len() + state.stack.len());
-
-    params.extend_from_slice(&locals);
-    value_semantics.extend((0..locals.len()).map(ValueSemantic::WasmLocal));
-
-    params.extend(state.stack.iter().map(|x| x.0));
-    value_semantics.extend((0..state.stack.len()).map(ValueSemantic::WasmStack));
-
-    // FIXME: Information needed for Abstract -> Runtime state transform is not fully preserved
-    // to accelerate compilation and reduce memory usage. Check this again when we try to support
-    // "full" LLVM OSR.
-
-    assert_eq!(params.len(), value_semantics.len() + 2);
-
-    builder.build_call(intrinsics.experimental_stackmap, &params, "");
-
-    target.entries.push(StackmapEntry {
-        kind,
-        local_function_id,
-        local_count: locals.len(),
-        stack_count: state.stack.len(),
-        opcode_offset,
-        value_semantics,
-        is_start: true,
-    });
-}
-
-fn finalize_opcode_stack_map<'ctx>(
-    intrinsics: &Intrinsics<'ctx>,
-    builder: &Builder<'ctx>,
-    local_function_id: usize,
-    target: &mut StackmapRegistry,
-    kind: StackmapEntryKind,
-    opcode_offset: usize,
-) {
-    let stackmap_id = target.entries.len();
-    builder.build_call(
-        intrinsics.experimental_stackmap,
-        &[
-            intrinsics
-                .i64_ty
-                .const_int(stackmap_id as u64, false)
-                .as_basic_value_enum(),
-            intrinsics.i32_ty.const_zero().as_basic_value_enum(),
-        ],
-        "opcode_stack_map_end",
-    );
-    target.entries.push(StackmapEntry {
-        kind,
-        local_function_id,
-        local_count: 0,
-        stack_count: 0,
-        opcode_offset,
-        value_semantics: vec![],
-        is_start: false,
-    });
-}
- */
-
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     m0_param: Option<PointerValue<'ctx>>,
     context: &'ctx Context,
@@ -1908,14 +1946,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     unreachable_depth: usize,
     memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
-
-    // This is support for stackmaps:
-    /*
-    stackmaps: Rc<RefCell<StackmapRegistry>>,
-    index: usize,
-    opcode_offset: usize,
-    track_state: bool,
-    */
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
@@ -2307,7 +2337,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 // For each result of the block we're branching to,
                 // pop a value off the value stack and load it into
                 // the corresponding phi.
-                for (phi, value) in phis.iter().zip(values.into_iter()) {
+                for (phi, value) in phis.iter().zip(values) {
                     phi.add_incoming(&[(&value, current_block)]);
                 }
 
@@ -2916,7 +2946,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 };
                 self.state.push1_extra(res, info);
             }
-            Operator::Call { function_index } => {
+            Operator::Call { function_index } | Operator::ReturnCall { function_index } => {
+                let is_return_call = matches!(op, Operator::ReturnCall { .. });
                 let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
@@ -2983,7 +3014,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 {
                     /* For imported functions, we must be careful about when to include `g0_param`:
                     imports from another Wasm module expect it, while host-function imports do not.
-                    */
+                    We intentionally not leverage tail-calls for such function calls. */
                     let (llvm_func_type_no_m0, llvm_func_attrs_no_m0) =
                         self.abi.func_type_to_llvm(
                             self.context,
@@ -3000,6 +3031,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         Some(m0_param),
+                        is_return_call
+                            .then(|| self.current_sret_ptr(func_type))
+                            .flatten(),
                     )?;
                     let params_no_m0 = self.abi.args_to_call(
                         &self.alloca_builder,
@@ -3009,6 +3043,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         None,
+                        is_return_call
+                            .then(|| self.current_sret_ptr(func_type))
+                            .flatten(),
                     )?;
 
                     let include_m0_call_block = self
@@ -3029,6 +3066,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params_with_m0.as_slice(),
                         "then_block_with_m0",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in &attrs {
                         call_site_with_m0.add_attribute(*attr_loc, *attr);
@@ -3052,6 +3090,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params_no_m0.as_slice(),
                         "then_block",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in &llvm_func_attrs_no_m0 {
                         call_site_no_m0.add_attribute(*attr_loc, *attr);
@@ -3086,62 +3125,44 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         self.m0_param,
+                        if is_return_call {
+                            self.current_sret_ptr(func_type)
+                        } else {
+                            None
+                        },
                     )?;
 
-                    /*
-                    if self.track_state {
-                        if let Some(offset) = opcode_offset {
-                            let mut stackmaps = self.stackmaps.borrow_mut();
-                            emit_stack_map(
-                                &info,
-                                self.intrinsics,
-                                self.builder,
-                                self.index,
-                                &mut *stackmaps,
-                                StackmapEntryKind::Call,
-                                &self.locals,
-                                state,
-                                ctx,
-                                offset,
-                            )
-                        }
-                    }
-                    */
                     let call_site = self.build_indirect_call_or_invoke(
                         llvm_func_type,
                         func,
                         params.as_slice(),
                         "then_block",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in attrs {
                         call_site.add_attribute(attr_loc, attr);
                     }
-                    /*
-                    if self.track_state {
-                        if let Some(offset) = opcode_offset {
-                            let mut stackmaps = self.stackmaps.borrow_mut();
-                            finalize_opcode_stack_map(
-                                self.intrinsics,
-                                self.builder,
-                                self.index,
-                                &mut *stackmaps,
-                                StackmapEntryKind::Call,
-                                offset,
-                            )
-                        }
-                    }
-                    */
 
-                    self.abi
-                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                        .iter()
-                        .for_each(|ret| self.state.push1(*ret));
+                    if is_return_call {
+                        self.emit_return_call(call_site, llvm_func_type)?;
+                        self.state.reachable = false;
+                    } else {
+                        self.abi
+                            .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                            .iter()
+                            .for_each(|ret| self.state.push1(*ret));
+                    }
                 }
             }
             Operator::CallIndirect {
                 type_index,
                 table_index,
+            }
+            | Operator::ReturnCallIndirect {
+                type_index,
+                table_index,
             } => {
+                let is_return_call = matches!(op, Operator::ReturnCallIndirect { .. });
                 let sigindex = SignatureIndex::from_u32(type_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
                 let expected_dynamic_sigindex =
@@ -3369,19 +3390,29 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func_type,
                         func_ptr,
                         func_index,
+                        is_return_call,
                     )?;
                 } else {
-                    let call_site = self.build_indirect_call(
+                    let (call_site, llvm_func_type) = self.build_indirect_call(
                         ctx_ptr.into_pointer_value(),
                         func_type,
                         func_ptr,
                         None,
+                        is_return_call,
                     )?;
 
-                    self.abi
-                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                        .iter()
-                        .for_each(|ret| self.state.push1(*ret));
+                    if is_return_call {
+                        self.emit_return_call(call_site, llvm_func_type)?;
+                    } else {
+                        self.abi
+                            .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                            .iter()
+                            .for_each(|ret| self.state.push1(*ret));
+                    }
+                }
+
+                if is_return_call {
+                    self.state.reachable = false;
                 }
             }
 
@@ -13789,6 +13820,110 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 }
 
                 self.state.reachable = false;
+            }
+            Operator::I64Add128 | Operator::I64Sub128 => {
+                let (rhs_hi, rhs_hi_info) = self.state.pop1_extra()?;
+                let (rhs_lo, rhs_lo_info) = self.state.pop1_extra()?;
+                let (lhs_hi, lhs_hi_info) = self.state.pop1_extra()?;
+                let (lhs_lo, lhs_lo_info) = self.state.pop1_extra()?;
+
+                let lhs_lo = self
+                    .apply_pending_canonicalization(lhs_lo, lhs_lo_info)?
+                    .into_int_value();
+                let lhs_hi = self
+                    .apply_pending_canonicalization(lhs_hi, lhs_hi_info)?
+                    .into_int_value();
+                let rhs_lo = self
+                    .apply_pending_canonicalization(rhs_lo, rhs_lo_info)?
+                    .into_int_value();
+                let rhs_hi = self
+                    .apply_pending_canonicalization(rhs_hi, rhs_hi_info)?
+                    .into_int_value();
+
+                let idx0 = self.intrinsics.i32_ty.const_zero();
+                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
+
+                let lhs = self.intrinsics.i64x2_ty.get_undef();
+                let lhs = err!(self.builder.build_insert_element(lhs, lhs_lo, idx0, ""));
+                let lhs = err!(self.builder.build_insert_element(lhs, lhs_hi, idx1, ""));
+                let lhs = err!(
+                    self.builder
+                        .build_bit_cast(lhs, self.intrinsics.i128_ty, "a")
+                )
+                .into_int_value();
+
+                let rhs = self.intrinsics.i64x2_ty.get_undef();
+                let rhs = err!(self.builder.build_insert_element(rhs, rhs_lo, idx0, ""));
+                let rhs = err!(self.builder.build_insert_element(rhs, rhs_hi, idx1, ""));
+                let rhs = err!(
+                    self.builder
+                        .build_bit_cast(rhs, self.intrinsics.i128_ty, "b")
+                )
+                .into_int_value();
+
+                let result = err!(match op {
+                    Operator::I64Add128 => self.builder.build_int_add(lhs, rhs, ""),
+                    Operator::I64Sub128 => self.builder.build_int_sub(lhs, rhs, ""),
+                    _ => unreachable!(),
+                });
+                let result = err!(self.builder.build_bit_cast(
+                    result,
+                    self.intrinsics.i64x2_ty,
+                    ""
+                ))
+                .into_vector_value();
+                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
+                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
+
+                self.state.push1(result_lo);
+                self.state.push1(result_hi);
+            }
+            Operator::I64MulWideS | Operator::I64MulWideU => {
+                let ((lhs, lhs_info), (rhs, rhs_info)) = self.state.pop2_extra()?;
+                let lhs = self
+                    .apply_pending_canonicalization(lhs, lhs_info)?
+                    .into_int_value();
+                let rhs = self
+                    .apply_pending_canonicalization(rhs, rhs_info)?
+                    .into_int_value();
+
+                let lhs = err!(match op {
+                    Operator::I64MulWideS => {
+                        self.builder
+                            .build_int_s_extend(lhs, self.intrinsics.i128_ty, "a")
+                    }
+                    Operator::I64MulWideU => {
+                        self.builder
+                            .build_int_z_extend(lhs, self.intrinsics.i128_ty, "a")
+                    }
+                    _ => unreachable!(),
+                });
+                let rhs = err!(match op {
+                    Operator::I64MulWideS => {
+                        self.builder
+                            .build_int_s_extend(rhs, self.intrinsics.i128_ty, "b")
+                    }
+                    Operator::I64MulWideU => {
+                        self.builder
+                            .build_int_z_extend(rhs, self.intrinsics.i128_ty, "b")
+                    }
+                    _ => unreachable!(),
+                });
+
+                let result = err!(self.builder.build_int_mul(lhs, rhs, ""));
+                let result = err!(self.builder.build_bit_cast(
+                    result,
+                    self.intrinsics.i64x2_ty,
+                    ""
+                ))
+                .into_vector_value();
+                let idx0 = self.intrinsics.i32_ty.const_zero();
+                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
+                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
+                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
+
+                self.state.push1(result_lo);
+                self.state.push1(result_hi);
             }
             _ => {
                 return Err(CompileError::Codegen(format!(

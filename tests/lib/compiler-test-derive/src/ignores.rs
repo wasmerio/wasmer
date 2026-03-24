@@ -96,25 +96,22 @@ impl Ignores {
         for (i, line) in reader.lines().enumerate() {
             let line = line.unwrap();
             // If the line has a `#` we discard all the content that comes after
-            let line = if line.contains('#') {
-                let l: Vec<&str> = line.splitn(2, '#').collect();
-                l[0].to_string()
-            } else {
-                line
-            };
-
-            let line = line.trim().to_string();
+            let line = line
+                .split_once("#")
+                .map(|(line, _comment)| line)
+                .unwrap_or_else(|| &line)
+                .trim()
+                .to_string();
 
             // If the lines contains ` ` it means the test should be ignored
             // on the features exposed
-            if line.contains(' ') {
-                let l: Vec<&str> = line.splitn(2, ' ').collect();
+            if let Some((platform_specifier, pattern_to_ignore)) = line.split_once(" ") {
                 let mut os: Option<String> = None;
                 let mut arch: Option<String> = None;
                 let mut target_env: Option<String> = None;
                 let mut engine: Option<String> = None;
                 let mut compiler: Option<String> = None;
-                for alias in l[0].trim().split('+') {
+                for alias in platform_specifier.trim().split('+') {
                     match alias {
                         // Operating Systems
                         "windows" | "macos" | "linux" => {
@@ -145,7 +142,7 @@ impl Ignores {
                         }
                     }
                 }
-                let pattern_to_ignore = l[1].trim().to_string();
+                let pattern_to_ignore = pattern_to_ignore.trim().to_string();
                 patterns.push(IgnorePattern {
                     os,
                     arch,

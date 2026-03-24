@@ -15,7 +15,7 @@ version.workspace = true
 [dependencies]
 memoffset.workspace = true
 dashmap.workspace = true
-wasmer-types = { path = "../types", version = "=7.1.0-alpha.1" }
+wasmer-types = { path = "../types", version = "=7.1.0-rc.2" }
 libc.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
@@ -35,6 +35,7 @@ crossbeam-queue.workspace = true
 loupe = { workspace = true, optional = true }
 gimli.workspace = true
 bytesize.workspace = true
+itertools.workspace = true
 
 [target.'cfg(any(target_family = "unix", all(target_family = "windows", target_env = "gnu")))'.dependencies]
 libunwind.workspace = true

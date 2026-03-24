@@ -22,6 +22,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Set up libstdc++ on Linux
         run: |
           sudo apt-get update -y
@@ -77,11 +79,11 @@ jobs:
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz
 
       - name: Install wasixcc
-        uses: wasix-org/wasixcc@v0.4.1
+        uses: wasix-org/wasixcc@v0.4.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
-          version: v0.4.1
+          version: v0.4.2
 
       - name: Install wasm-tools
         run: |
