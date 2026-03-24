@@ -1305,7 +1305,9 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let trap_code = pos
             .ins()
             .iconst(I32, wasmer_types::TrapCode::UnreachableCodeReached as i64);
-        pos.ins().call_indirect(func_sig, func_addr, &[trap_code]);
+        builder
+            .ins()
+            .call_indirect(func_sig, func_addr, &[trap_code]);
         // Emit the terminator through `FunctionBuilder` so its block state is
         // updated before later control-flow translation switches blocks.
         builder.ins().trap(crate::TRAP_UNREACHABLE);
