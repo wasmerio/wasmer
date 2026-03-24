@@ -178,7 +178,7 @@ impl CmdAppSecretsUpdate {
                 if !self.quiet {
                     eprintln!("{} Deployment complete", "𖥔".yellow().bold());
                 }
-            } else {
+            } else if !self.quiet {
                 eprintln!(
                     "{}: In order for secrets to appear in your app, re-deploy it.",
                     "Info".bold()
