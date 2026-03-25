@@ -77,6 +77,9 @@ impl SinglepassCallbacks {
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
 
+    /// Forces strict memory boundary checks for every memory access.
+    pub(crate) strict_memory_boundary_checks: bool,
+
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 
@@ -92,12 +95,26 @@ impl Singlepass {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: true,
+            strict_memory_boundary_checks: false,
             middlewares: vec![],
             callbacks: None,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
     }
 
+    /// Configure whether Singlepass should always emit strict memory boundary
+    /// checks for memory accesses.
+    ///
+    /// When enabled, Singlepass always requests explicit memory bounds checks
+    /// from `op_memory`, even for static memories that would normally rely
+    /// on the access violation signal.
+    pub fn strict_memory_boundary_checks(&mut self, enable: bool) -> &mut Self {
+        self.strict_memory_boundary_checks = enable;
+        self
+    }
+
+    /// Configure whether Singlepass should canonicalize NaNs during code
+    /// generation.
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
         self

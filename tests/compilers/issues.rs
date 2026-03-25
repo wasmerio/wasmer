@@ -987,3 +987,50 @@ fn issue_return_call_indirect_import(mut config: crate::Config) -> Result<()> {
 
     Ok(())
 }
+
+//#[cfg(feature = "singlepass")]
+#[compiler_test(issues)]
+fn singlepass_memory_trap(mut config: crate::Config) -> Result<()> {
+    use tempfile::TempDir;
+    use wasmer_compiler::EngineBuilder;
+
+    let mut compiler_config = wasmer_compiler_singlepass::Singlepass::default();
+    compiler_config.strict_memory_boundary_checks(true);
+    let mut store = Store::new(EngineBuilder::new(compiler_config));
+
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+  (memory (export "memory") 1)
+  (data (i32.const 65528) "\01\02\03\04\05\06\07\08")
+  (func (export "run")
+    i32.const 65529
+    i32.const 0
+    i32.const 1
+    select
+    i64.const 0
+    i64.store)
+)
+"#
+        .as_bytes(),
+    )
+    .expect("wat2wasm must succeed");
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let memory = instance.exports.get_memory("memory")?;
+    let run = instance.exports.get_function("run")?;
+
+    let mut before = [0_u8; 8];
+    memory.view(&store).read(65528, &mut before)?;
+    assert_eq!(before, [1, 2, 3, 4, 5, 6, 7, 8]);
+
+    let trap = run.call(&mut store, &[]);
+    assert!(trap.is_err(), "expected out-of-bounds store to trap");
+
+    let mut after = [0_u8; 8];
+    memory.view(&store).read(65528, &mut after)?;
+    assert_eq!(after, before);
+
+    Ok(())
+}

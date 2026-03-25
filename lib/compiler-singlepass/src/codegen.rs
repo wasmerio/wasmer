@@ -837,10 +837,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         cb: F,
     ) -> Result<(), CompileError> {
-        let need_check = match self.memory_styles[MemoryIndex::new(0)] {
-            MemoryStyle::Static { .. } => false,
-            MemoryStyle::Dynamic { .. } => true,
-        };
+        let need_check = self.config.strict_memory_boundary_checks
+            || match self.memory_styles[MemoryIndex::new(0)] {
+                MemoryStyle::Static { .. } => false,
+                MemoryStyle::Dynamic { .. } => true,
+            };
 
         let offset = if self.module.num_imported_memories != 0 {
             self.vmoffsets
