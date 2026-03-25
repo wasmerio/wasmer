@@ -93,12 +93,10 @@ impl FuncTranslator {
         non_volatile_memory_ops: bool,
         wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
     ) -> Result<Self, CompileError> {
-        let abi = get_abi(
-            target_machines
-                .values()
-                .next()
-                .expect("target_machines must exist for all OptimizationStyles"),
-        );
+        let abi_source_tm = target_machines
+            .get(&OptimizationStyle::ForSpeed)
+            .expect("target_machines must contain OptimizationStyle::ForSpeed");
+        let abi = get_abi(abi_source_tm);
         Ok(Self {
             ctx: Context::create(),
             target_triple,
