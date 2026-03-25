@@ -3045,7 +3045,9 @@ fn translate_load<FE: FuncEnvironment + ?Sized>(
         builder.append_block_param(block_merge, result_ty);
 
         let alignment_check = builder.ins().band_imm(base, (mem_op_size - 1) as i64);
-        builder.ins().brif(alignment_check, block_unaligned, &[], block_aligned, &[]);
+        builder
+            .ins()
+            .brif(alignment_check, block_unaligned, &[], block_aligned, &[]);
 
         builder.seal_block(block_aligned);
         builder.seal_block(block_unaligned);
