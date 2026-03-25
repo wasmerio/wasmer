@@ -994,12 +994,10 @@ fn singlepass_memory_trap(mut config: crate::Config) -> Result<()> {
     if config.compiler != crate::Compiler::Singlepass {
         return Ok(());
     }
-    use tempfile::TempDir;
-    use wasmer_compiler::EngineBuilder;
 
     let mut compiler_config = wasmer_compiler_singlepass::Singlepass::default();
     compiler_config.strict_memory_boundary_checks(true);
-    let mut store = Store::new(EngineBuilder::new(compiler_config));
+    let mut store = Store::new(wasmer_compiler::EngineBuilder::new(compiler_config));
 
     let wasm_bytes = wat2wasm(
         r#"
