@@ -31,16 +31,18 @@ use wasmer_types::{LocalFunctionIndex, WasmResult};
 pub struct FuncTranslator {
     func_ctx: FunctionBuilderContext,
     state: FuncTranslationState,
+    allow_nonaligned_memory_accesses: bool,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 
 impl FuncTranslator {
     /// Create a new translator.
-    pub fn new() -> Self {
+    pub fn new(allow_nonaligned_memory_accesses: bool) -> Self {
         Self {
             func_ctx: FunctionBuilderContext::new(),
             state: FuncTranslationState::new(),
+            allow_nonaligned_memory_accesses,
         }
     }
 
@@ -119,6 +121,7 @@ impl FuncTranslator {
             &mut builder,
             &mut self.state,
             environ,
+            self.allow_nonaligned_memory_accesses,
         )?;
 
         builder.finalize();
@@ -239,6 +242,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FE,
+    allow_nonaligned_memory_accesses: bool,
 ) -> WasmResult<()> {
     // The control stack is initialized with a single block representing the whole function.
     debug_assert_eq!(state.control_stack.len(), 1, "State not initialized");
@@ -248,7 +252,14 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
         builder.set_srcloc(cur_srcloc(reader));
         let op = reader.read_operator()?;
         environ.before_translate_operator(&op, builder, state)?;
-        translate_operator(module_translation_state, &op, builder, state, environ)?;
+        translate_operator(
+            module_translation_state,
+            &op,
+            builder,
+            state,
+            environ,
+            allow_nonaligned_memory_accesses,
+        )?;
         environ.after_translate_operator(&op, builder, state)?;
     }
 
