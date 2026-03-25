@@ -90,8 +90,6 @@ pub use virtual_net::{
     host::{LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket},
     io_err_into_net_error,
 };
-#[cfg(feature = "napi-v8")]
-pub use wasmer_napi::{NapiCtx, NapiCtxBuilder, NapiLimits, NapiRuntimeHooks, module_needs_napi};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 pub use crate::{

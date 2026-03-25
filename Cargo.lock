@@ -3542,6 +3542,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "napi-wasmer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cc",
+ "serde",
+ "serde_json",
+ "tar",
+ "tokio",
+ "ureq 2.12.1",
+ "virtual-fs",
+ "wasmer",
+ "wasmer-cache",
+ "wasmer-compiler-llvm",
+ "wasmer-types",
+ "wasmer-wasix",
+ "xz",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6302,6 +6322,22 @@ checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
 
 [[package]]
 name = "ureq"
+version = "2.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
+dependencies = [
+ "base64 0.22.1",
+ "flate2",
+ "log",
+ "once_cell",
+ "rustls",
+ "rustls-pki-types",
+ "url",
+ "webpki-roots 0.26.11",
+]
+
+[[package]]
+name = "ureq"
 version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dea7109cdcd5864d4eeb1b58a1648dc9bf520360d7af16ec26d0a9354bafcfc0"
@@ -6885,7 +6921,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
- "ureq",
+ "ureq 3.3.0",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer-compiler",
@@ -7083,6 +7119,7 @@ dependencies = [
  "lzma-rs",
  "mac_address",
  "mio",
+ "napi-wasmer",
  "normpath",
  "object 0.38.1",
  "once_cell",
@@ -7372,25 +7409,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-napi"
-version = "0.701.0-rc.2"
-dependencies = [
- "anyhow",
- "cc",
- "cmake",
- "serde",
- "serde_json",
- "tar",
- "tokio",
- "tracing-subscriber",
- "ureq",
- "wasmer",
- "which",
- "xz",
- "zip",
-]
-
-[[package]]
 name = "wasmer-package"
 version = "0.701.0-rc.2"
 dependencies = [
@@ -7414,7 +7432,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "toml 1.0.7+spec-1.1.0",
- "ureq",
+ "ureq 3.3.0",
  "url",
  "wasmer-config",
  "wasmer-types",
@@ -7614,7 +7632,6 @@ dependencies = [
  "wasmer",
  "wasmer-config",
  "wasmer-journal",
- "wasmer-napi",
  "wasmer-package",
  "wasmer-types",
  "wasmer-wasix-types",
@@ -7695,7 +7712,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "ureq",
+ "ureq 3.3.0",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",

@@ -98,7 +98,7 @@ disable-all-logging = [
 headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
-napi-v8 = ["wasmer-wasix/napi-v8"]
+napi = ["dep:napi-wasmer"]
 
 # Optional
 enable-serde = [
@@ -113,6 +113,7 @@ tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
 [dependencies]
 # Repo-local dependencies.
 
+napi-wasmer = { version = "0.1.0", path = "../napi", optional = true }
 wasmer = { version = "=7.1.0-rc.2", path = "../api", default-features = false, features = ["headless"] }
 wasmer-compiler = { version = "=7.1.0-rc.2", path = "../compiler", features = [
 	"compiler"

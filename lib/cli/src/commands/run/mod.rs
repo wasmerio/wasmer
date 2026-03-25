@@ -112,17 +112,17 @@ pub struct Run {
 }
 
 impl Run {
-    #[cfg(feature = "napi-v8")]
+    #[cfg(feature = "napi")]
     fn maybe_wrap_runtime_with_napi(
         &self,
         module: &Module,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Arc<dyn Runtime + Send + Sync> {
-        if !wasmer_wasix::module_needs_napi(module) {
+        if !napi_wasmer::module_needs_napi(module) {
             return runtime;
         }
 
-        let hooks = wasmer_wasix::NapiCtx::default().runtime_hooks();
+        let hooks = napi_wasmer::NapiCtx::default().runtime_hooks();
         Arc::new(
             OverriddenRuntime::new(runtime)
                 .with_additional_imports({
@@ -135,7 +135,7 @@ impl Run {
         )
     }
 
-    #[cfg(not(feature = "napi-v8"))]
+    #[cfg(not(feature = "napi"))]
     fn maybe_wrap_runtime_with_napi(
         &self,
         _module: &Module,
@@ -451,7 +451,7 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        #[cfg(feature = "napi-v8")]
+        #[cfg(feature = "napi")]
         let runtime = {
             let cmd = pkg.get_command(command_name).with_context(|| {
                 format!("Unable to get metadata for the \"{command_name}\" command")
