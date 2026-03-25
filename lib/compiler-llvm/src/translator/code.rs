@@ -71,14 +71,14 @@ const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
-    target_machine: TargetMachine,
-    target_machine_for_size: Option<TargetMachine>,
+    target_machines: HashMap<OptimizationStyle, TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
+    wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -86,19 +86,23 @@ impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 impl FuncTranslator {
     pub fn new(
         target_triple: Triple,
-        target_machine: TargetMachine,
-        target_machine_for_size: Option<TargetMachine>,
+        target_machines: HashMap<OptimizationStyle, TargetMachine>,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
         non_volatile_memory_ops: bool,
+        wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
     ) -> Result<Self, CompileError> {
-        let abi = get_abi(&target_machine);
+        let abi = get_abi(
+            target_machines
+                .values()
+                .next()
+                .expect("target_machines must exist for all OptimizationStyles"),
+        );
         Ok(Self {
             ctx: Context::create(),
             target_triple,
-            target_machine,
-            target_machine_for_size,
+            target_machines,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -113,6 +117,7 @@ impl FuncTranslator {
             pointer_width,
             cpu_features,
             non_volatile_memory_ops,
+            wasm_apply_data_relocs_fn_index,
         })
     }
 
@@ -149,7 +154,7 @@ impl FuncTranslator {
         };
         let module = self.ctx.create_module(module_name.as_str());
 
-        let target_machine = &self.target_machine;
+        let target_machine = &self.target_machines.values().next().unwrap();
         let target_triple = target_machine.get_triple();
         let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
@@ -371,6 +376,9 @@ impl FuncTranslator {
         }
 
         match opt_style {
+            OptimizationStyle::Disabled => {
+                passes.push("default<O0>");
+            }
             OptimizationStyle::ForSize => {
                 // Apparently, the default<Os> could be much slower compared to -O1.
                 passes.push("default<O1>");
@@ -433,7 +441,13 @@ impl FuncTranslator {
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
-        let opt_style = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
+        let func_index = wasm_module.func_index(*local_func_index);
+        let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
+            // `__wasm_apply_data_relocs` can become a very large function made up
+            // mostly of loads and stores, and even `-O1` can spend significant
+            // time optimizing it.
+            OptimizationStyle::Disabled
+        } else if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
             OptimizationStyle::ForSize
         } else {
             OptimizationStyle::ForSpeed
@@ -450,19 +464,10 @@ impl FuncTranslator {
             target,
             opt_style,
         )?;
-        let function = CompiledKind::Local(
-            *local_func_index,
-            wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
-        );
+        let function =
+            CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
 
-        let target_machine = match opt_style {
-            OptimizationStyle::ForSize => self
-                .target_machine_for_size
-                .as_ref()
-                .unwrap_or(&self.target_machine),
-            OptimizationStyle::ForSpeed => &self.target_machine,
-        };
-
+        let target_machine = self.target_machines.get(&opt_style).unwrap();
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
