@@ -988,9 +988,12 @@ fn issue_return_call_indirect_import(mut config: crate::Config) -> Result<()> {
     Ok(())
 }
 
-//#[cfg(feature = "singlepass")]
+#[cfg(feature = "singlepass")]
 #[compiler_test(issues)]
 fn singlepass_memory_trap(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::Singlepass {
+        return Ok(());
+    }
     use tempfile::TempDir;
     use wasmer_compiler::EngineBuilder;
 
