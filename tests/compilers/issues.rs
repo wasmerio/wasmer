@@ -987,3 +987,165 @@ fn issue_return_call_indirect_import(mut config: crate::Config) -> Result<()> {
 
     Ok(())
 }
+
+#[compiler_test(issues)]
+fn issue_6334_foldable_comparison_expressions(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::Singlepass {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+            (func (export "i32_ge_u_false") (result i32)
+                i32.const 1
+                i32.const 2
+                i32.ge_u
+            )
+            (func (export "i32_ge_u_true") (result i32)
+                i32.const 2
+                i32.const 1
+                i32.ge_u
+            )
+            (func (export "i32_gt_u_false") (result i32)
+                i32.const 1
+                i32.const 2
+                i32.gt_u
+            )
+            (func (export "i32_gt_u_true") (result i32)
+                i32.const 2
+                i32.const 1
+                i32.gt_u
+            )
+            (func (export "i32_eq_false") (result i32)
+                i32.const 1
+                i32.const 2
+                i32.eq
+            )
+            (func (export "i32_eq_true") (result i32)
+                i32.const 2
+                i32.const 2
+                i32.eq
+            )
+            (func (export "i32_ne_false") (result i32)
+                i32.const 2
+                i32.const 2
+                i32.ne
+            )
+            (func (export "i32_ne_true") (result i32)
+                i32.const 1
+                i32.const 2
+                i32.ne
+            )
+            (func (export "i64_ge_u_false") (result i32)
+                i64.const 1
+                i64.const 2
+                i64.ge_u
+            )
+            (func (export "i64_ge_u_true") (result i32)
+                i64.const 2
+                i64.const 1
+                i64.ge_u
+            )
+            (func (export "i64_gt_u_false") (result i32)
+                i64.const 1
+                i64.const 2
+                i64.gt_u
+            )
+            (func (export "i64_gt_u_true") (result i32)
+                i64.const 2
+                i64.const 1
+                i64.gt_u
+            )
+            (func (export "i64_eq_false") (result i32)
+                i64.const 1
+                i64.const 2
+                i64.eq
+            )
+            (func (export "i64_eq_true") (result i32)
+                i64.const 2
+                i64.const 2
+                i64.eq
+            )
+            (func (export "i64_ne_false") (result i32)
+                i64.const 2
+                i64.const 2
+                i64.ne
+            )
+            (func (export "i64_ne_true") (result i32)
+                i64.const 1
+                i64.const 2
+                i64.ne
+            )
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+
+    let i32_ge_u_false: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i32_ge_u_false")?;
+    let i32_ge_u_true: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i32_ge_u_true")?;
+    let i32_gt_u_false: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i32_gt_u_false")?;
+    let i32_gt_u_true: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i32_gt_u_true")?;
+    let i32_eq_false: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i32_eq_false")?;
+    let i32_eq_true: TypedFunction<(), i32> =
+        instance.exports.get_typed_function(&store, "i32_eq_true")?;
+    let i32_ne_false: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i32_ne_false")?;
+    let i32_ne_true: TypedFunction<(), i32> =
+        instance.exports.get_typed_function(&store, "i32_ne_true")?;
+    let i64_ge_u_false: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i64_ge_u_false")?;
+    let i64_ge_u_true: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i64_ge_u_true")?;
+    let i64_gt_u_false: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i64_gt_u_false")?;
+    let i64_gt_u_true: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i64_gt_u_true")?;
+    let i64_eq_false: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i64_eq_false")?;
+    let i64_eq_true: TypedFunction<(), i32> =
+        instance.exports.get_typed_function(&store, "i64_eq_true")?;
+    let i64_ne_false: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "i64_ne_false")?;
+    let i64_ne_true: TypedFunction<(), i32> =
+        instance.exports.get_typed_function(&store, "i64_ne_true")?;
+
+    assert_eq!(i32_ge_u_false.call(&mut store)?, 0);
+    assert_eq!(i32_ge_u_true.call(&mut store)?, 1);
+    assert_eq!(i32_gt_u_false.call(&mut store)?, 0);
+    assert_eq!(i32_gt_u_true.call(&mut store)?, 1);
+    assert_eq!(i32_eq_false.call(&mut store)?, 0);
+    assert_eq!(i32_eq_true.call(&mut store)?, 1);
+    assert_eq!(i32_ne_false.call(&mut store)?, 0);
+    assert_eq!(i32_ne_true.call(&mut store)?, 1);
+    assert_eq!(i64_ge_u_false.call(&mut store)?, 0);
+    assert_eq!(i64_ge_u_true.call(&mut store)?, 1);
+    assert_eq!(i64_gt_u_false.call(&mut store)?, 0);
+    assert_eq!(i64_gt_u_true.call(&mut store)?, 1);
+    assert_eq!(i64_eq_false.call(&mut store)?, 0);
+    assert_eq!(i64_eq_true.call(&mut store)?, 1);
+    assert_eq!(i64_ne_false.call(&mut store)?, 0);
+    assert_eq!(i64_ne_true.call(&mut store)?, 1);
+
+    Ok(())
+}
