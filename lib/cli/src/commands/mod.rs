@@ -571,6 +571,7 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
     println!("runtimes: {}", runtimes.join(", "));
 
+    #[allow(clippy::useless_vec)]
     #[allow(unused_mut)]
     let mut features = vec!["wasix".to_string()];
     #[cfg(feature = "napi-v8")]
