@@ -1,4 +1,5 @@
 use crate::compiler::LLVMCompiler;
+use enum_iterator::Sequence;
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
@@ -116,10 +117,11 @@ pub struct LLVM {
     pub(crate) verbose_asm: bool,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Sequence)]
 pub(crate) enum OptimizationStyle {
     ForSpeed,
     ForSize,
+    Disabled,
 }
 
 impl LLVM {
@@ -335,6 +337,7 @@ impl LLVM {
             .set_level(match opt_style {
                 OptimizationStyle::ForSpeed => self.opt_level,
                 OptimizationStyle::ForSize => LLVMOptLevel::Less,
+                OptimizationStyle::Disabled => LLVMOptLevel::None,
             })
             .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
             .set_code_model(match triple.architecture {
