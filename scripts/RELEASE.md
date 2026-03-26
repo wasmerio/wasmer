@@ -11,6 +11,8 @@ git pull
 
 ## 2. Generate the Release PR
 
+First, prepare a PR (or push) version bump for all submodules!
+
 Run the release script (adjust the version as needed):
 
 ```bash

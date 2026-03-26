@@ -13,6 +13,7 @@ RELEASE_VERSION = ""
 DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "Arshia001"
 TAG = "main"
+RELEASE_SUBMODULES = ("lib/napi",)
 
 if len(sys.argv) > 1:
     RELEASE_VERSION = sys.argv[1]
@@ -59,12 +60,28 @@ def replace(file, pattern, subst):
     write_file_string(file, file_string)
 
 
+def sync_submodule(repo_dir, path):
+    submodule_dir = os.path.join(repo_dir, path)
+    subprocess.run(["git", "-C", submodule_dir, "checkout", "main"], check=True)
+    subprocess.run(["git", "-C", submodule_dir, "pull"], check=True)
+    subprocess.run(["git", "-C", submodule_dir, "rev-parse", "HEAD"], check=True)
+
+
+def verify_submodule(repo_dir, path):
+    submodule_dir = os.path.join(repo_dir, path)
+    status = subprocess.check_output(
+        ["git", "-C", submodule_dir, "status", "--short"], encoding="utf-8"
+    ).strip()
+    if status:
+        raise Exception(f"submodule {path} has unexpected local changes:\n{status}")
+
+
 def make_release(version):
     gh_logged_in = os.system("gh auth status") == 0
     if not (gh_logged_in):
         raise Exception("please log in")
 
-    temp_dir = tempfile.TemporaryDirectory(prefix="wasmer-git-")
+    temp_dir = tempfile.TemporaryDirectory(prefix="wasmer-git-", delete=False)
     print(temp_dir.name)
     if (
         os.system(
@@ -76,6 +93,7 @@ def make_release(version):
         != 0
     ):
         raise Exception("could not clone github repo")
+    subprocess.check_output(["git", "submodule", "update", "--init"])
 
     # As of now, GH CLI cannot list more items!
     GH_LISTING_LIMIT = 1000
@@ -276,12 +294,18 @@ def make_release(version):
         write_file_string(
             temp_dir.name + "/scripts/update-version.py", update_version_py
         )
+        for path in RELEASE_SUBMODULES:
+            sync_submodule(temp_dir.name, path)
+            print(f"synchronized submodule {path}")
         proc = subprocess.Popen(
             ["python3", temp_dir.name + "/scripts/update-version.py"],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
         proc.wait()
+        for path, _branch in RELEASE_SUBMODULES:
+            verify_submodule(temp_dir.name, path)
+            print(f"verified submodule {path}")
 
         proc = subprocess.Popen(
             ["git", "commit", "-am", "Release " + RELEASE_VERSION],
