@@ -104,6 +104,9 @@ pub struct Run {
     /// Generate a coredump at this path if a WebAssembly trap occurs
     #[clap(name = "COREDUMP_PATH", long)]
     coredump_on_trap: Option<PathBuf>,
+    /// Enable experimental N-API imports for modules that require them
+    #[clap(long = "experimental-napi")]
+    experimental_napi: bool,
     /// The file, URL, or package to run.
     #[clap(value_parser = CliPackageSource::infer)]
     input: CliPackageSource,
@@ -123,13 +126,19 @@ impl Run {
         &self,
         module: &Module,
         runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Arc<dyn Runtime + Send + Sync> {
+    ) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
+        use anyhow::ensure;
+
         if !Self::module_needs_napi(module) {
-            return runtime;
+            return Ok(runtime);
         }
+        ensure!(
+            self.experimental_napi,
+            "This module imports N-API. Re-run with '--experimental-napi' to enable the experimental N-API runtime."
+        );
 
         let hooks = wasmer_napi::NapiCtx::default().runtime_hooks();
-        Arc::new(
+        Ok(Arc::new(
             OverriddenRuntime::new(runtime)
                 .with_additional_imports({
                     let hooks = hooks.clone();
@@ -138,7 +147,7 @@ impl Run {
                 .with_instance_setup(move |module, store, instance, imported_memory| {
                     hooks.configure_instance(module, store, instance, imported_memory)
                 }),
-        )
+        ))
     }
 
     #[cfg(feature = "napi-v8")]
@@ -156,8 +165,8 @@ impl Run {
         &self,
         _module: &Module,
         runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Arc<dyn Runtime + Send + Sync> {
-        runtime
+    ) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
+        Ok(runtime)
     }
 
     #[cfg(not(feature = "napi-v8"))]
@@ -480,7 +489,7 @@ impl Run {
                 None,
                 None,
             )?;
-            let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime);
+            let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime)?;
             (module, runtime)
         };
 
@@ -689,7 +698,7 @@ impl Run {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
-        let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime);
+        let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime)?;
 
         let mut runner =
             self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
