@@ -64,9 +64,7 @@ pub unsafe extern "C" fn wasm_global_get(
     let wasm_global = global.extern_.global();
     let mut store_mut = unsafe { global.extern_.store.store_mut() };
     let value = wasm_global.get(&mut store_mut);
-    if let Ok(val) = value.try_into() {
-        *out = val;
-    }
+    *out = c_try!(value.try_into(); otherwise ());
 }
 
 /// Note: This function returns nothing by design but it can raise an
@@ -78,9 +76,7 @@ pub unsafe extern "C" fn wasm_global_set(
 ) {
     let Some(global) = global else { return };
     let Some(val) = val else { return };
-    let Ok(value): Result<Value, _> = val.try_into() else {
-        return;
-    };
+    let value: Value = c_try!(val.try_into(); otherwise ());
     let wasm_global = global.extern_.global();
     let mut store_mut = unsafe { global.extern_.store.store_mut() };
     c_try!(wasm_global.set(&mut store_mut, value); otherwise ());
