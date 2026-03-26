@@ -24,7 +24,6 @@ use std::pin::Pin;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use wasmer::{sys::EngineBuilder, sys::Target};
 use wasmer_wasix::VirtualFile as VirtualFileTrait;
 use wasmer_wasix::runners::MappedDirectory;
 use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
