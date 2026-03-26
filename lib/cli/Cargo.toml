@@ -98,7 +98,7 @@ disable-all-logging = [
 headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
-napi-v8 = ["wasmer-wasix/napi-v8"]
+napi-v8 = ["dep:wasmer-napi"]
 
 # Optional
 enable-serde = [
@@ -121,7 +121,6 @@ wasmer-compiler-cranelift = { version = "=7.1.0-rc.2", path = "../compiler-crane
 wasmer-compiler-singlepass = { version = "=7.1.0-rc.2", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=7.1.0-rc.2", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
-
 wasmer-vm = { version = "=7.1.0-rc.2", path = "../vm", optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.701.0-rc.2", features = [
 	"logging",
@@ -137,6 +136,7 @@ wasmer-types = { version = "=7.1.0-rc.2", path = "../types", features = [
 	"enable-serde",
 	"detect-wasm-features",
 ] }
+wasmer-napi = { version = "0.701.0-rc.2", path = "../napi", optional = true }
 virtual-fs = { version = "0.701.0-rc.2", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
@@ -213,6 +213,7 @@ base64.workspace = true
 comfy-table.workspace = true
 git-version.workspace = true
 itertools.workspace = true
+enum-iterator.workspace = true
 
 # Used by tuntap and connect
 futures-util.workspace = true
