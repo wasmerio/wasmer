@@ -571,11 +571,19 @@
 <a href=#571 id=571 data-nosnippet>571</a>    }
 <a href=#572 id=572 data-nosnippet>572</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
 <a href=#573 id=573 data-nosnippet>573</a>
-<a href=#574 id=574 data-nosnippet>574</a>    <span class="kw">let </span><span class="kw-2">mut </span>features = <span class="macro">vec!</span>[<span class="string">"WASIX"</span>];
-<a href=#575 id=575 data-nosnippet>575</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"napi-v8"</span>) {
-<a href=#576 id=576 data-nosnippet>576</a>        features.push(<span class="string">"NAPI"</span>);
-<a href=#577 id=577 data-nosnippet>577</a>    }
-<a href=#578 id=578 data-nosnippet>578</a>    <span class="macro">println!</span>(<span class="string">"features: {}"</span>, features.join(<span class="string">", "</span>));
-<a href=#579 id=579 data-nosnippet>579</a>
-<a href=#580 id=580 data-nosnippet>580</a>    <span class="prelude-val">Ok</span>(())
-<a href=#581 id=581 data-nosnippet>581</a>}</code></pre></div></section></main></body></html>
+<a href=#574 id=574 data-nosnippet>574</a>    <span class="attr">#[allow(clippy::useless_vec)]
+<a href=#575 id=575 data-nosnippet>575</a>    #[allow(unused_mut)]
+<a href=#576 id=576 data-nosnippet>576</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>features = <span class="macro">vec!</span>[<span class="string">"wasix"</span>.to_string()];
+<a href=#577 id=577 data-nosnippet>577</a>    <span class="attr">#[cfg(feature = <span class="string">"napi-v8"</span>)]
+<a href=#578 id=578 data-nosnippet>578</a>    </span>{
+<a href=#579 id=579 data-nosnippet>579</a>        <span class="kw">for </span>napi_version <span class="kw">in </span>enum_iterator::all::&lt;wasmer_napi::NapiVersion&gt;() {
+<a href=#580 id=580 data-nosnippet>580</a>            <span class="kw">if </span>!<span class="macro">matches!</span>(napi_version, wasmer_napi::NapiVersion::Unknown) {
+<a href=#581 id=581 data-nosnippet>581</a>                features.push(napi_version.to_string());
+<a href=#582 id=582 data-nosnippet>582</a>            }
+<a href=#583 id=583 data-nosnippet>583</a>        }
+<a href=#584 id=584 data-nosnippet>584</a>        features.push(wasmer_napi::NAPI_EXTENSION_WASMER_MODULE_NAME.to_string());
+<a href=#585 id=585 data-nosnippet>585</a>    }
+<a href=#586 id=586 data-nosnippet>586</a>    <span class="macro">println!</span>(<span class="string">"features: {}"</span>, features.join(<span class="string">", "</span>));
+<a href=#587 id=587 data-nosnippet>587</a>
+<a href=#588 id=588 data-nosnippet>588</a>    <span class="prelude-val">Ok</span>(())
+<a href=#589 id=589 data-nosnippet>589</a>}</code></pre></div></section></main></body></html>
