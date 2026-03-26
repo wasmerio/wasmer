@@ -374,7 +374,7 @@ BUILD_WASMER_TARGET := $(if $(CARGO_TARGET),$(CARGO_TARGET),$(HOST_TARGET))
 
 build_wasmer_extra_features :=
 ifneq (, $(filter x86_64-unknown-linux-gnu aarch64-apple-darwin,$(BUILD_WASMER_TARGET)))
-	build_wasmer_extra_features += napi
+	build_wasmer_extra_features += napi-v8
 endif
 
 workspace_doc_excludes := --exclude wasmer-c-api --exclude wasmer-swift --exclude wasmer-napi

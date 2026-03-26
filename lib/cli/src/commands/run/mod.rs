@@ -112,13 +112,13 @@ pub struct Run {
 }
 
 impl Run {
-    #[cfg(feature = "napi")]
+    #[cfg(feature = "napi-v8")]
     fn module_needs_napi(module: &Module) -> bool {
         let (napi_version, napi_extension_version) = napi_wasmer::module_needs_napi(module);
         napi_version.is_some() || napi_extension_version.is_some()
     }
 
-    #[cfg(feature = "napi")]
+    #[cfg(feature = "napi-v8")]
     fn maybe_wrap_runtime_with_napi(
         &self,
         module: &Module,
@@ -141,7 +141,7 @@ impl Run {
         )
     }
 
-    #[cfg(feature = "napi")]
+    #[cfg(feature = "napi-v8")]
     fn configure_wasi_runner_for_napi(&self, module: &Module, runner: &mut WasiRunner) {
         if Self::module_needs_napi(module) {
             runner
@@ -151,7 +151,7 @@ impl Run {
         }
     }
 
-    #[cfg(not(feature = "napi"))]
+    #[cfg(not(feature = "napi-v8"))]
     fn maybe_wrap_runtime_with_napi(
         &self,
         _module: &Module,
@@ -160,7 +160,7 @@ impl Run {
         runtime
     }
 
-    #[cfg(not(feature = "napi"))]
+    #[cfg(not(feature = "napi-v8"))]
     fn configure_wasi_runner_for_napi(&self, _module: &Module, _runner: &mut WasiRunner) {}
 
     pub fn execute(self, output: Output) -> ! {
@@ -470,7 +470,7 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        #[cfg(feature = "napi")]
+        #[cfg(feature = "napi-v8")]
         let (module, runtime) = {
             let cmd = pkg.get_command(command_name).with_context(|| {
                 format!("Unable to get metadata for the \"{command_name}\" command")
@@ -486,7 +486,7 @@ impl Run {
 
         // Assume webcs are always WASIX
         let mut runner = self.build_wasi_runner(&runtime, true)?;
-        #[cfg(feature = "napi")]
+        #[cfg(feature = "napi-v8")]
         self.configure_wasi_runner_for_napi(&module, &mut runner);
         Runner::run_command(&mut runner, command_name, pkg, runtime)
     }
