@@ -136,7 +136,7 @@ wasmer-types = { version = "=7.1.0-rc.2", path = "../types", features = [
 	"enable-serde",
 	"detect-wasm-features",
 ] }
-wasmer-napi = { version = "0.1.0", path = "../napi", optional = true }
+wasmer-napi = { version = "0.701.0-rc.2", path = "../napi", optional = true }
 virtual-fs = { version = "0.701.0-rc.2", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
