@@ -113,12 +113,18 @@ pub struct Run {
 
 impl Run {
     #[cfg(feature = "napi")]
+    fn module_needs_napi(module: &Module) -> bool {
+        let (napi_version, napi_extension_version) = napi_wasmer::module_needs_napi(module);
+        napi_version.is_some() || napi_extension_version.is_some()
+    }
+
+    #[cfg(feature = "napi")]
     fn maybe_wrap_runtime_with_napi(
         &self,
         module: &Module,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Arc<dyn Runtime + Send + Sync> {
-        if !napi_wasmer::module_needs_napi(module) {
+        if !Self::module_needs_napi(module) {
             return runtime;
         }
 
@@ -135,6 +141,13 @@ impl Run {
         )
     }
 
+    #[cfg(feature = "napi")]
+    fn configure_wasi_runner_for_napi(&self, module: &Module, runner: &mut WasiRunner) {
+        if Self::module_needs_napi(module) {
+            runner.capabilities_mut().threading.enable_asynchronous_threading = false;
+        }
+    }
+
     #[cfg(not(feature = "napi"))]
     fn maybe_wrap_runtime_with_napi(
         &self,
@@ -143,6 +156,9 @@ impl Run {
     ) -> Arc<dyn Runtime + Send + Sync> {
         runtime
     }
+
+    #[cfg(not(feature = "napi"))]
+    fn configure_wasi_runner_for_napi(&self, _module: &Module, _runner: &mut WasiRunner) {}
 
     pub fn execute(self, output: Output) -> ! {
         let result = self.execute_inner(output);
@@ -452,7 +468,7 @@ impl Run {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         #[cfg(feature = "napi")]
-        let runtime = {
+        let (module, runtime) = {
             let cmd = pkg.get_command(command_name).with_context(|| {
                 format!("Unable to get metadata for the \"{command_name}\" command")
             })?;
@@ -461,11 +477,14 @@ impl Run {
                 None,
                 None,
             )?;
-            self.maybe_wrap_runtime_with_napi(&module, runtime)
+            let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime);
+            (module, runtime)
         };
 
         // Assume webcs are always WASIX
         let mut runner = self.build_wasi_runner(&runtime, true)?;
+        #[cfg(feature = "napi")]
+        self.configure_wasi_runner_for_napi(&module, &mut runner);
         Runner::run_command(&mut runner, command_name, pkg, runtime)
     }
 
@@ -669,7 +688,8 @@ impl Run {
         let program_name = wasm_path.display().to_string();
         let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime);
 
-        let runner = self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
+        let mut runner = self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
+        self.configure_wasi_runner_for_napi(&module, &mut runner);
         runner.run_wasm(
             RuntimeOrEngine::Runtime(runtime),
             &program_name,
