@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["builtins"],"struct":["Commands"],"trait":["VirtualCommand"]};
+window.SIDEBAR_ITEMS = {"mod":["builtins"],"struct":["BuiltinCommand","Commands"],"trait":["VirtualCommand"],"type":["BuiltinCommandHandler"]};
