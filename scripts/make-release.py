@@ -32,13 +32,8 @@ if not (RELEASE_VERSION.startswith("v")):
 else:
     RELEASE_VERSION = RELEASE_VERSION[1:]
 
-if os.system("git --version") != 0:
-    print("git not installed")
-    sys.exit(1)
-
-if os.system("gh --version") != 0:
-    print("gh not installed")
-    sys.exit(1)
+subprocess.check_output(["git", "--version"])
+subprocess.check_output(["gh", "--version"])
 
 
 def get_file_string(file):
@@ -77,23 +72,22 @@ def verify_submodule(repo_dir, path):
 
 
 def make_release(version):
-    gh_logged_in = os.system("gh auth status") == 0
-    if not (gh_logged_in):
-        raise Exception("please log in")
+    subprocess.check_output(["gh", "auth", "status"])
 
-    temp_dir = tempfile.TemporaryDirectory(prefix="wasmer-git-", delete=False)
-    print(temp_dir.name)
-    if (
-        os.system(
-            "git clone git@github.com:wasmerio/wasmer.git --branch "
-            + TAG
-            + " --depth 1 "
-            + temp_dir.name
-        )
-        != 0
-    ):
-        raise Exception("could not clone github repo")
-    subprocess.check_output(["git", "submodule", "update", "--init"])
+    temp_dir = tempfile.TemporaryDirectory(prefix="wasmer-git-")
+    subprocess.check_output(
+        [
+            "git",
+            "clone",
+            "git@github.com:wasmerio/wasmer.git",
+            "--recurse-submodules",
+            "--branch",
+            TAG,
+            "--depth",
+            "1",
+            temp_dir.name,
+        ]
+    )
 
     # As of now, GH CLI cannot list more items!
     GH_LISTING_LIMIT = 1000
@@ -272,6 +266,11 @@ def make_release(version):
                 print(line.rstrip())
             raise Exception("could not commit CHANGELOG " + RELEASE_VERSION_WITH_V)
 
+        # Sync submodules to main (must contain version bump)
+        for path in RELEASE_SUBMODULES:
+            sync_submodule(temp_dir.name, path)
+            print(f"synchronized submodule {path}")
+
         # Update version numbers
         update_version_py = get_file_string(
             temp_dir.name + "/scripts/update-version.py"
@@ -294,16 +293,13 @@ def make_release(version):
         write_file_string(
             temp_dir.name + "/scripts/update-version.py", update_version_py
         )
-        for path in RELEASE_SUBMODULES:
-            sync_submodule(temp_dir.name, path)
-            print(f"synchronized submodule {path}")
         proc = subprocess.Popen(
             ["python3", temp_dir.name + "/scripts/update-version.py"],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
         proc.wait()
-        for path, _branch in RELEASE_SUBMODULES:
+        for path in RELEASE_SUBMODULES:
             verify_submodule(temp_dir.name, path)
             print(f"verified submodule {path}")
 
