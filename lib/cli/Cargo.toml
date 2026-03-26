@@ -98,7 +98,7 @@ disable-all-logging = [
 headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
-napi-v8 = ["dep:napi-wasmer"]
+napi-v8 = ["dep:wasmer-napi"]
 
 # Optional
 enable-serde = [
@@ -113,7 +113,6 @@ tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
 [dependencies]
 # Repo-local dependencies.
 
-napi-wasmer = { version = "0.1.0", path = "../napi", optional = true }
 wasmer = { version = "=7.1.0-rc.2", path = "../api", default-features = false, features = ["headless"] }
 wasmer-compiler = { version = "=7.1.0-rc.2", path = "../compiler", features = [
 	"compiler"
@@ -122,7 +121,6 @@ wasmer-compiler-cranelift = { version = "=7.1.0-rc.2", path = "../compiler-crane
 wasmer-compiler-singlepass = { version = "=7.1.0-rc.2", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=7.1.0-rc.2", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
-
 wasmer-vm = { version = "=7.1.0-rc.2", path = "../vm", optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.701.0-rc.2", features = [
 	"logging",
@@ -138,6 +136,7 @@ wasmer-types = { version = "=7.1.0-rc.2", path = "../types", features = [
 	"enable-serde",
 	"detect-wasm-features",
 ] }
+wasmer-napi = { version = "0.1.0", path = "../napi", optional = true }
 virtual-fs = { version = "0.701.0-rc.2", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }

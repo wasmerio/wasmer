@@ -114,7 +114,7 @@ pub struct Run {
 impl Run {
     #[cfg(feature = "napi-v8")]
     fn module_needs_napi(module: &Module) -> bool {
-        let (napi_version, napi_extension_version) = napi_wasmer::module_needs_napi(module);
+        let (napi_version, napi_extension_version) = wasmer_napi::module_needs_napi(module);
         napi_version.is_some() || napi_extension_version.is_some()
     }
 
@@ -128,7 +128,7 @@ impl Run {
             return runtime;
         }
 
-        let hooks = napi_wasmer::NapiCtx::default().runtime_hooks();
+        let hooks = wasmer_napi::NapiCtx::default().runtime_hooks();
         Arc::new(
             OverriddenRuntime::new(runtime)
                 .with_additional_imports({
