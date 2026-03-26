@@ -7080,6 +7080,7 @@ dependencies = [
  "dialoguer",
  "dirs",
  "dotenvy",
+ "enum-iterator",
  "flate2",
  "futures",
  "futures-util",
@@ -7394,6 +7395,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cc",
+ "enum-iterator",
  "serde",
  "serde_json",
  "tar",
