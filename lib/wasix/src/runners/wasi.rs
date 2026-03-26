@@ -266,11 +266,14 @@ impl WasiRunner {
         }
     }
 
-    pub fn with_asynchronous_threading(&mut self, enable_asynchronous_threading: bool) -> &mut Self {
+    pub fn with_asynchronous_threading(
+        &mut self,
+        enable_asynchronous_threading: bool,
+    ) -> &mut Self {
         self.wasi
-                .capabilities
-                .threading
-                .enable_asynchronous_threading = enable_asynchronous_threading;
+            .capabilities
+            .threading
+            .enable_asynchronous_threading = enable_asynchronous_threading;
         self
     }
 

@@ -144,7 +144,10 @@ impl Run {
     #[cfg(feature = "napi")]
     fn configure_wasi_runner_for_napi(&self, module: &Module, runner: &mut WasiRunner) {
         if Self::module_needs_napi(module) {
-            runner.capabilities_mut().threading.enable_asynchronous_threading = false;
+            runner
+                .capabilities_mut()
+                .threading
+                .enable_asynchronous_threading = false;
         }
     }
 
@@ -688,7 +691,8 @@ impl Run {
         let program_name = wasm_path.display().to_string();
         let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime);
 
-        let mut runner = self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
+        let mut runner =
+            self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
         self.configure_wasi_runner_for_napi(&module, &mut runner);
         runner.run_wasm(
             RuntimeOrEngine::Runtime(runtime),
