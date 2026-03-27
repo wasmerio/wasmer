@@ -24,7 +24,6 @@ use std::pin::Pin;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use wasmer::{sys::EngineBuilder, sys::Target};
 use wasmer_wasix::VirtualFile as VirtualFileTrait;
 use wasmer_wasix::runners::MappedDirectory;
 use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
@@ -299,6 +298,8 @@ fn get_cache_dir() -> PathBuf {
 fn create_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
     #[cfg(target_os = "macos")]
     {
+        use wasmer::{sys::EngineBuilder, sys::Target};
+
         // On macOS, the default Cranelift backend has limited support for the features
         // required by these tests, especially exception handling. Use the slower LLVM
         // backend instead so the WASIX test suite can run reliably on macOS.

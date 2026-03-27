@@ -3,9 +3,8 @@ on:
   push:
     branches:
       - main
+      - edge
       - "with-ci-.*"
-      - "v3.0.x"
-      - "v3.1.x"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -46,14 +45,8 @@ jobs:
           echo $DOING_RELEASE
   lint:
     name: Code lint
-    runs-on: ubuntu-22.04
-    container: ubuntu:devel
+    runs-on: ubuntu-24.04
     steps:
-      - name: Install packages
-        shell: bash
-        run: |
-          apt-get update
-          apt install -y libtinfo6 clang clang-format git curl xz-utils make
       - uses: actions/checkout@v6
         with:
           submodules: true
@@ -65,6 +58,10 @@ jobs:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
+      - name: Install libtinfo
+        shell: bash
+        run: |
+          sudo apt install -y libtinfo6
       - name: Install LLVM (Linux)
         run: |
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz

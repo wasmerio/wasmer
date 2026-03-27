@@ -37,7 +37,7 @@ fn long_version_string() {
         git_version = format!("commit-hash: {git_version}");
     }
     let build_date = format!("commit-date: {}", env!("WASMER_BUILD_DATE"));
-    let expected_features_line = "features: WASIX".to_string();
+    let expected_features_line = "features: wasix".to_string();
 
     cargo_bin_cmd!("wasmer")
         .arg("--version")
