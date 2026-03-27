@@ -50,7 +50,7 @@ jobs:
 
   lint:
     name: Code lint
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
@@ -66,7 +66,7 @@ jobs:
       - name: Install libtinfo
         shell: bash
         run: |
-          sudo apt install -y libtinfo5
+          sudo apt install -y libtinfo6
       - name: Install LLVM (Linux)
         run: |
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz

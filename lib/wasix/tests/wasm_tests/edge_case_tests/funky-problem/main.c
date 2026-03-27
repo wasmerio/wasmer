@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef int (* side_type)();
+typedef int (*side_type)();
 
 int main() {
-  void *handle = dlopen("libside.so", RTLD_NOW);
+  void* handle = dlopen("libside.so", RTLD_NOW);
   if (!handle) {
     printf("dlopen failed: %s\n", dlerror());
     return 1;

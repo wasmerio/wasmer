@@ -1,3 +1,1 @@
-char module_name() {
-    return 'B';
-}
+char module_name() { return 'B'; }

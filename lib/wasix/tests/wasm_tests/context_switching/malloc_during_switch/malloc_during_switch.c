@@ -8,7 +8,7 @@
 #include <wasix/context.h>
 
 wasix_context_id_t ctx1, ctx2, ctx3;
-void *allocations[100];
+void* allocations[100];
 int alloc_count = 0;
 
 void allocate_and_switch(void);
@@ -44,7 +44,7 @@ void context3_fn(void) {
 
   // More allocations
   for (int i = 0; i < 15; i++) {
-    void *ptr = calloc(1, 512);
+    void* ptr = calloc(1, 512);
     assert(ptr != NULL);
     if (alloc_count < 100) {
       allocations[alloc_count++] = ptr;
@@ -57,7 +57,7 @@ void context3_fn(void) {
 void allocate_and_switch(void) {
   // Allocate memory
   for (int i = 0; i < 10; i++) {
-    void *ptr = malloc(1024 + i * 100);
+    void* ptr = malloc(1024 + i * 100);
     assert(ptr != NULL);
     memset(ptr, i, 1024 + i * 100);
 

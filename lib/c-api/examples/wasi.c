@@ -1,8 +1,8 @@
 #include <errno.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasmer.h"
 
@@ -10,19 +10,18 @@
 #define own
 
 // Use the last_error API to retrieve error messages
-void print_wasmer_error()
-{
-    int error_len = wasmer_last_error_length();
-    if (error_len > 0) {
-      printf("Error len: `%d`\n", error_len);
-      char *error_str = malloc(error_len);
-      wasmer_last_error_message(error_str, error_len);
-      printf("Error str: `%s`\n", error_str);
-    }
+void print_wasmer_error() {
+  int error_len = wasmer_last_error_length();
+  if (error_len > 0) {
+    printf("Error len: `%d`\n", error_len);
+    char* error_str = malloc(error_len);
+    wasmer_last_error_message(error_str, error_len);
+    printf("Error str: `%s`\n", error_str);
+  }
 }
 
 int main(int argc, const char* argv[]) {
-  #ifdef WASMER_WASI_ENABLED // If WASI is enabled
+#ifdef WASMER_WASI_ENABLED  // If WASI is enabled
 
   // Initialize.
   printf("Initializing...\n");
@@ -32,7 +31,9 @@ int main(int argc, const char* argv[]) {
   printf("Setting up WASI...\n");
   wasi_config_t* config = wasi_config_new("example_program");
   // TODO: error checking
-  const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
+  const char* js_string =
+      "function greet(name) { return JSON.stringify('Hello, ' + name); }; "
+      "print(greet('World'));";
   wasi_config_arg(config, "--eval");
   wasi_config_arg(config, js_string);
   wasi_config_capture_stdout(config);
@@ -76,7 +77,7 @@ int main(int argc, const char* argv[]) {
   // Instantiate.
   printf("Instantiating module...\n");
   wasm_extern_vec_t imports;
-  bool get_imports_result = wasi_get_imports(store, wasi_env,module,&imports);
+  bool get_imports_result = wasi_get_imports(store, wasi_env, module, &imports);
 
   if (!get_imports_result) {
     printf("> Error getting WASI imports!\n");
@@ -85,7 +86,7 @@ int main(int argc, const char* argv[]) {
   }
 
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, &imports, NULL);
+      wasm_instance_new(store, module, &imports, NULL);
 
   if (!instance) {
     printf("> Error instantiating module!\n");
@@ -98,7 +99,6 @@ int main(int argc, const char* argv[]) {
     print_wasmer_error();
     return 1;
   }
-
 
   // Extract export.
   printf("Extracting export...\n");
@@ -130,19 +130,18 @@ int main(int argc, const char* argv[]) {
   }
   printf("Call completed\n");
 
-  if(true) {
-
+  if (true) {
     // NOTE: previously, this used open_memstream,
     // which is not cross-platform
-    FILE *memory_stream = NULL;
-    memory_stream = tmpfile(); // stdio.h
+    FILE* memory_stream = NULL;
+    memory_stream = tmpfile();  // stdio.h
 
     if (NULL == memory_stream) {
       printf("> Error creating a memory stream.\n");
       return 1;
     }
 
-    char buffer[BUF_SIZE] = { 0 };
+    char buffer[BUF_SIZE] = {0};
     size_t data_read_size = BUF_SIZE;
 
     do {
@@ -170,7 +169,6 @@ int main(int argc, const char* argv[]) {
     fclose(memory_stream);
   }
 
-
   wasm_extern_vec_delete(&exports);
   wasm_extern_vec_delete(&imports);
 
@@ -186,7 +184,7 @@ int main(int argc, const char* argv[]) {
   // All done.
   printf("Done.\n");
 
-  #endif // WASMER_WASI_ENABLED
+#endif  // WASMER_WASI_ENABLED
 
   return 0;
 }
