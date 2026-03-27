@@ -954,7 +954,10 @@ install-wasmer:
 	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer
 
 install-capi-headers:
-	for header in lib/c-api/*.h; do install -Dm644 "$$header" $(DESTDIR)/include/$$(basename $$header); done
+	install -Dm644 lib/c-api/wasmer.h $(DESTDIR)/include/wasmer.h
+	install -Dm644 lib/c-api/wasmer_wasm.h $(DESTDIR)/include/wasmer_wasm.h
+	install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.h $(DESTDIR)/include/wasm.h
+	install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.h $(DESTDIR)/include/wasm.h
 	install -Dm644 lib/c-api/README.md $(DESTDIR)/include/wasmer-README.md
 
 # Currently implemented for linux only. TODO
