@@ -1277,7 +1277,7 @@ mod test {
                 .enable_all()
                 .build()
                 .unwrap();
-            return Some(runtime);
+            Some(runtime)
         }
 
         #[cfg(target_arch = "wasm32")]
