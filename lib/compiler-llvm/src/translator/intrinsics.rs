@@ -28,8 +28,7 @@ use target_lexicon::{Architecture, Triple};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
-    LocalTableIndex, MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, TableIndex,
-    Type,
+    LocalTableIndex, MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
@@ -390,7 +389,12 @@ impl<'ctx> Intrinsics<'ctx> {
         // layout. `call_indirect` only reads the first three fields, but GEP indexing over
         // fixed funcref tables still depends on the full element stride.
         let anyfunc_ty = context.struct_type(
-            &[i8_ptr_ty_basic, i32_ty.into(), ctx_ptr_ty_basic, ptr_ty.into()],
+            &[
+                i8_ptr_ty_basic,
+                i32_ty.into(),
+                ctx_ptr_ty_basic,
+                ptr_ty.into(),
+            ],
             false,
         );
         let funcref_ty = ptr_ty;
