@@ -107,7 +107,7 @@ impl Function {
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
+            .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -222,7 +222,7 @@ impl Function {
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
+            .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -265,7 +265,7 @@ impl Function {
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
+            .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -418,7 +418,7 @@ impl Function {
             .as_store_ref()
             .engine()
             .as_sys()
-            .register_signature(&function_type, SignatureHash::new(function_type.signature_hash()));
+            .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };

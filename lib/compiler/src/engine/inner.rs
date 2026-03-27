@@ -22,8 +22,7 @@ use wasmer_types::ModuleInfo;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
     DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, SignatureHash,
-    SignatureIndex,
-    entity::PrimaryMap,
+    SignatureIndex, entity::PrimaryMap,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -158,13 +157,11 @@ impl Engine {
 
     /// Register a signature
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn register_signature(
-        &self,
-        func_type: &FunctionType,
-        hash: SignatureHash,
-    ) -> VMSignatureHash {
+    pub fn register_signature(&self, func_type: &FunctionType) -> VMSignatureHash {
         let compiler = self.inner();
-        compiler.signatures().register(func_type, hash)
+        compiler
+            .signatures()
+            .register(func_type, SignatureHash(func_type.signature_hash()))
     }
 
     /// Look up a registered signature by its hash.
