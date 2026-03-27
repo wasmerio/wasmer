@@ -6,6 +6,20 @@
 
 ## **Unreleased**
 
+## 7.1.0 - 27/03/2026
+
+## Added
+
+
+## Changed
+
+  - [#6357](https://github.com/wasmerio/wasmer/pull/6357) build: adapt `make-release.py` for the napi crate as a submodule
+
+## Fixed
+
+
+
+
 ## 7.1.0-rc.3 - 26/03/2026
 
 ## Added
