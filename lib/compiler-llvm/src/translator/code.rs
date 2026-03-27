@@ -3167,29 +3167,46 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             } => {
                 let is_return_call = matches!(op, Operator::ReturnCallIndirect { .. });
                 let sigindex = SignatureIndex::from_u32(type_index);
+                let table_index = TableIndex::from_u32(table_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
+                let table = self.wasm_module.tables.get(table_index).unwrap();
+                let local_fixed_funcref_table = self
+                    .wasm_module
+                    .local_table_index(table_index)
+                    .filter(|_| table.is_fixed_funcref_table());
                 let expected_dynamic_sigindex =
                     self.ctx
                         .dynamic_sigindex(sigindex, self.intrinsics, self.module)?;
-                let (table_base, table_bound) = self.ctx.table(
-                    TableIndex::from_u32(table_index),
-                    self.intrinsics,
-                    self.module,
-                    &self.builder,
-                )?;
                 let func_index = self.state.pop1()?.into_int_value();
+                let generic_table = if local_fixed_funcref_table.is_none() {
+                    Some(self.ctx.table(
+                        table_index,
+                        self.intrinsics,
+                        self.module,
+                        &self.builder,
+                    )?)
+                } else {
+                    None
+                };
 
-                let truncated_table_bounds = err!(self.builder.build_int_truncate(
-                    table_bound,
-                    self.intrinsics.i32_ty,
-                    "truncated_table_bounds",
-                ));
+                let table_bound = if local_fixed_funcref_table.is_some() {
+                    self.intrinsics
+                        .i32_ty
+                        .const_int(table.minimum.into(), false)
+                } else {
+                    let (_, table_bound) = *generic_table.as_ref().unwrap();
+                    err!(self.builder.build_int_truncate(
+                        table_bound,
+                        self.intrinsics.i32_ty,
+                        "truncated_table_bounds",
+                    ))
+                };
 
                 // First, check if the index is outside of the table bounds.
                 let index_in_bounds = err!(self.builder.build_int_compare(
                     IntPredicate::ULT,
                     func_index,
-                    truncated_table_bounds,
+                    table_bound,
                     "index_in_bounds",
                 ));
 
@@ -3226,59 +3243,80 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(in_bounds_continue_block);
 
-                // We assume the table has the `funcref` (pointer to `anyfunc`)
-                // element type.
-                let casted_table_base = err!(self.builder.build_pointer_cast(
-                    table_base,
-                    self.context.ptr_type(AddressSpace::default()),
-                    "casted_table_base",
-                ));
-
-                let funcref_ptr = unsafe {
-                    err!(self.builder.build_in_bounds_gep(
-                        self.intrinsics.ptr_ty,
-                        casted_table_base,
-                        &[func_index],
-                        "funcref_ptr",
-                    ))
-                };
-
-                // a funcref (pointer to `anyfunc`)
-                let anyfunc_struct_ptr = err!(self.builder.build_load(
-                    self.intrinsics.ptr_ty,
-                    funcref_ptr,
-                    "anyfunc_struct_ptr",
-                ))
-                .into_pointer_value();
-
-                // trap if we're trying to call a null funcref
+                let anyfunc_struct_ptr = if let Some(local_table_index) = local_fixed_funcref_table
                 {
-                    let funcref_not_null = err!(
-                        self.builder
-                            .build_is_not_null(anyfunc_struct_ptr, "null_funcref_check")
-                    );
-
-                    let funcref_continue_deref_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_continue_deref_block");
-
-                    let funcref_is_null_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_is_null_block");
-                    err!(self.builder.build_conditional_branch(
-                        funcref_not_null,
-                        funcref_continue_deref_block,
-                        funcref_is_null_block,
-                    ));
-                    self.builder.position_at_end(funcref_is_null_block);
-                    self.build_call_with_param_attributes(
-                        self.intrinsics.throw_trap,
-                        &[self.intrinsics.trap_call_indirect_null.into()],
-                        "throw",
+                    let anyfuncs = self.ctx.fixed_funcref_table_anyfuncs(
+                        local_table_index,
+                        self.intrinsics,
+                        &self.builder,
                     )?;
-                    err!(self.builder.build_unreachable());
-                    self.builder.position_at_end(funcref_continue_deref_block);
-                }
+                    unsafe {
+                        err!(self.builder.build_in_bounds_gep(
+                            self.intrinsics.anyfunc_ty,
+                            anyfuncs,
+                            &[func_index],
+                            "anyfunc_struct_ptr",
+                        ))
+                    }
+                } else {
+                    let (table_base, _) = *generic_table.as_ref().unwrap();
+
+                    // We assume the table has the `funcref` (pointer to `anyfunc`)
+                    // element type.
+                    let casted_table_base = err!(self.builder.build_pointer_cast(
+                        table_base,
+                        self.context.ptr_type(AddressSpace::default()),
+                        "casted_table_base",
+                    ));
+
+                    let funcref_ptr = unsafe {
+                        err!(self.builder.build_in_bounds_gep(
+                            self.intrinsics.ptr_ty,
+                            casted_table_base,
+                            &[func_index],
+                            "funcref_ptr",
+                        ))
+                    };
+
+                    // a funcref (pointer to `anyfunc`)
+                    let anyfunc_struct_ptr = err!(self.builder.build_load(
+                        self.intrinsics.ptr_ty,
+                        funcref_ptr,
+                        "anyfunc_struct_ptr",
+                    ))
+                    .into_pointer_value();
+
+                    // trap if we're trying to call a null funcref
+                    {
+                        let funcref_not_null = err!(
+                            self.builder
+                                .build_is_not_null(anyfunc_struct_ptr, "null_funcref_check")
+                        );
+
+                        let funcref_continue_deref_block = self
+                            .context
+                            .append_basic_block(self.function, "funcref_continue_deref_block");
+
+                        let funcref_is_null_block = self
+                            .context
+                            .append_basic_block(self.function, "funcref_is_null_block");
+                        err!(self.builder.build_conditional_branch(
+                            funcref_not_null,
+                            funcref_continue_deref_block,
+                            funcref_is_null_block,
+                        ));
+                        self.builder.position_at_end(funcref_is_null_block);
+                        self.build_call_with_param_attributes(
+                            self.intrinsics.throw_trap,
+                            &[self.intrinsics.trap_call_indirect_null.into()],
+                            "throw",
+                        )?;
+                        err!(self.builder.build_unreachable());
+                        self.builder.position_at_end(funcref_continue_deref_block);
+                    }
+
+                    anyfunc_struct_ptr
+                };
 
                 // Load things from the anyfunc data structure.
                 let func_ptr_ptr = self
@@ -3388,7 +3426,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 if self.m0_param.is_some() {
                     self.build_m0_indirect_call(
-                        table_index,
+                        table_index.as_u32(),
                         ctx_ptr.into_pointer_value(),
                         func_type,
                         func_ptr,
