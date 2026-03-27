@@ -40,6 +40,9 @@ static MAGIC: u8 = 0xc0;
 
 static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
 
+/// Maximum allowed stack size (100 MB).
+pub const MAX_STACK_SIZE: usize = 100 * 1024 * 1024;
+
 // Current definition of `ucontext_t` in the `libc` crate is incorrect
 // on aarch64-apple-drawin so it's defined here with a more accurate definition.
 #[repr(C)]
@@ -57,9 +60,25 @@ struct ucontext_t {
 #[cfg(all(unix, not(all(target_arch = "aarch64", target_os = "macos"))))]
 use libc::ucontext_t;
 
-/// Default stack size is 1MB.
+/// Sets the process-wide default stack size for new Wasmer coroutines.
+/// The value is clamped to [8 KB, MAX_STACK_SIZE].
 pub fn set_stack_size(size: usize) {
-    DEFAULT_STACK_SIZE.store(size.clamp(8 * 1024, 100 * 1024 * 1024), Ordering::Relaxed);
+    DEFAULT_STACK_SIZE.store(size.clamp(8 * 1024, MAX_STACK_SIZE), Ordering::Relaxed);
+}
+
+/// Returns the process-wide default stack size in bytes.
+pub fn get_stack_size() -> usize {
+    DEFAULT_STACK_SIZE.load(Ordering::Relaxed)
+}
+
+/// Pool of pre-allocated coroutine stacks to avoid repeated mmap syscalls.
+static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
+    LazyLock::new(crossbeam_queue::SegQueue::new);
+
+/// Drains the coroutine stack pool. Must be called before retrying with a
+/// larger stack size, otherwise the pool serves cached undersized stacks.
+pub fn drain_stack_pool() {
+    while STACK_POOL.pop().is_some() {}
 }
 
 cfg_if::cfg_if! {
@@ -971,13 +990,11 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
-    // Allocating a new stack is pretty expensive since it involves several
-    // system calls. We therefore keep a cache of pre-allocated stacks which
-    // allows them to be reused multiple times.
-    // FIXME(Amanieu): We should refactor this to avoid the lock.
-    static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
-        LazyLock::new(crossbeam_queue::SegQueue::new);
-
+    // Reuse a cached stack when available, otherwise allocate a new one.
+    // Note: the pool does not track stack sizes — a pooled stack may be
+    // smaller than `stack_size` if the default was raised between calls.
+    // Callers that need a guaranteed size must drain the pool first via
+    // `drain_stack_pool()` before changing `DEFAULT_STACK_SIZE`.
     let stack = STACK_POOL
         .pop()
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
