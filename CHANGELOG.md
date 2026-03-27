@@ -6,6 +6,35 @@
 
 ## **Unreleased**
 
+## 7.1.0 - 27/03/2026
+
+This release includes:
+- A new N-API interface supporting [Edge.js](https://edgejs.org/).
+- Better CPU scaling for the Cranelift and LLVM compilers on larger modules such as PHP and Python workloads.
+- A substantial overhaul of WASIX TTY support.
+- A complete rewrite of WASIX epoll.
+- [Tail Call](https://github.com/WebAssembly/tail-call) support in the LLVM compiler.
+- [Extended Constant Expression](https://github.com/WebAssembly/extended-const) support across all compilers.
+- [Relaxed SIMD](https://github.com/WebAssembly/relaxed-simd) support in the LLVM and Cranelift compilers.
+- [Wide Arithmetic](https://github.com/WebAssembly/wide-arithmetic) support in LLVM and Cranelift.
+- A redesigned `--enable-pass-params-opt` optimization for LLVM, now enabled by default.
+- A new [perf annotate](https://github.com/wasmerio/wasmer/blob/main/scripts/wasmer-perf-record.py)-style script for improved profiling.
+- Easier reproducible distribution builds through the `WASMER_REPRODUCIBLE_BUILD=1` environment variable.
+- A new `secret export` and `secret import` subcommands were introduced for easier manipulation with secrets.
+- Added `run --enable-nan-canonicalization`.
+
+## Added
+
+
+## Changed
+
+  - [#6357](https://github.com/wasmerio/wasmer/pull/6357) build: adapt `make-release.py` for the napi crate as a submodule
+
+## Fixed
+
+
+
+
 ## 7.1.0-rc.3 - 26/03/2026
 
 ## Added

@@ -675,9 +675,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.57"
+version = "1.2.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a0dd1ca384932ff3641c8718a02769f1698e7563dc6974ffd03346116310423"
+checksum = "e1e928d4b69e3077709075a938a05ffbedfa53a84c8f766efbf8220bb1ff60e1"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -937,18 +937,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "console"
-version = "0.15.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "054ccb5b10f9f2cbf51eb355ca1d05c2d279ce1804688d0db74b4733a5aeafd8"
-dependencies = [
- "encode_unicode",
- "libc",
- "once_cell",
- "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1639,7 +1627,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25f104b501bf2364e78d0d3974cbc774f738f5865306ed128e1e0d7499c0ad96"
 dependencies = [
- "console 0.16.3",
+ "console",
  "shell-words",
  "tempfile",
  "zeroize",
@@ -2864,7 +2852,7 @@ version = "0.18.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25470f23803092da7d239834776d653104d551bc4d7eacaf31e6837854b8e9eb"
 dependencies = [
- "console 0.16.3",
+ "console",
  "portable-atomic",
  "unicode-width",
  "unit-prefix",
@@ -2925,11 +2913,11 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.46.3"
+version = "1.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e82db8c87c7f1ccecb34ce0c24399b8a73081427f3c7c50a5d597925356115e4"
+checksum = "6f40e41efb5f592d3a0764f818e2f08e5e21c4f368126f74f37c81bd4af7a0c6"
 dependencies = [
- "console 0.15.11",
+ "console",
  "once_cell",
  "regex",
  "serde",
@@ -3366,7 +3354,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5225,9 +5213,9 @@ dependencies = [
 
 [[package]]
 name = "simd-adler32"
-version = "0.3.8"
+version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
+checksum = "703d5c7ef118737c72f1af64ad2f6f8c5e1921f818cdcb97b8fe6fc69bf66214"
 
 [[package]]
 name = "simdutf8"
@@ -6390,9 +6378,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.22.0"
+version = "1.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a68d3c8f01c0cfa54a75291d83601161799e4a89a39e0929f4b0354d88757a37"
+checksum = "5ac8b6f42ead25368cf5b098aeb3dc8a1a2c05a3eee8a9a1a68c640edbfc79d9"
 dependencies = [
  "getrandom 0.4.2",
  "js-sys",
@@ -6419,7 +6407,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6453,7 +6441,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6468,7 +6456,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6573,7 +6561,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6652,7 +6640,7 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasi-test-generator"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "glob",
  "gumdrop",
@@ -6873,7 +6861,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -6922,7 +6910,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-argus"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6947,7 +6935,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-backend-api"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -6992,7 +6980,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "cbindgen",
  "cfg-if",
@@ -7021,7 +7009,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "cc",
  "regex",
@@ -7031,7 +7019,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "blake3",
  "clap",
@@ -7049,7 +7037,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "cc",
  "regex",
@@ -7059,7 +7047,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.0",
@@ -7075,7 +7063,7 @@ dependencies = [
  "clap_mangen",
  "colored",
  "comfy-table",
- "console 0.16.3",
+ "console",
  "console-subscriber",
  "dialoguer",
  "dirs",
@@ -7156,7 +7144,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "backtrace",
  "bytes",
@@ -7194,7 +7182,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -7215,7 +7203,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -7241,7 +7229,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -7261,7 +7249,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7284,7 +7272,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error2",
@@ -7324,7 +7312,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.0",
@@ -7351,11 +7339,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7383,7 +7371,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -7392,7 +7380,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-napi"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "cc",
@@ -7414,7 +7402,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7445,7 +7433,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sdk"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7473,7 +7461,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "thiserror 2.0.18",
  "tokio",
@@ -7487,7 +7475,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "libc",
  "region",
@@ -7501,7 +7489,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -7523,7 +7511,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "backtrace",
  "bytesize",
@@ -7556,7 +7544,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "assert-panic",
@@ -7652,7 +7640,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.701.0-rc.3"
+version = "0.701.0"
 dependencies = [
  "anyhow",
  "bitflags 2.11.0",
@@ -7675,7 +7663,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "anyhow",
  "fs_extra",
@@ -7693,7 +7681,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "7.1.0-rc.3"
+version = "7.1.0"
 dependencies = [
  "anyhow",
  "build-deps",
