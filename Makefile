@@ -336,10 +336,8 @@ compilers_engines := $(strip $(compilers_engines))
 #####
 
 build_wasmer_extra_features :=
-ifneq ($(ENABLE_NAPI_V8), 0)
-       ifeq ($(ENABLE_NAPI_V8), 1)
-               build_wasmer_extra_features += napi-v8
-       endif
+ifneq (,$(filter 1 true,$(ENABLE_NAPI_V8)))
+       build_wasmer_extra_features += napi-v8
 endif
 
 # Small trick to define a space and a comma.
