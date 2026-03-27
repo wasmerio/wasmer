@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["EvaluatedInitExpr"],"fn":["build_funcrefs","eval_init_expr","get_global","get_memory_slice","initialize_globals","initialize_memories","initialize_passive_elements","initialize_tables"],"mod":["allocator"],"struct":["Instance","VMInstance"]};
+window.SIDEBAR_ITEMS = {"enum":["EvaluatedInitExpr"],"fn":["anyfunc_from_funcref","build_funcrefs","eval_init_expr","get_global","get_memory_slice","initialize_globals","initialize_memories","initialize_passive_elements","initialize_tables"],"mod":["allocator"],"struct":["Instance","VMInstance"]};
