@@ -718,7 +718,10 @@ impl VirtualIoSource for LocalTcpStream {
         }
 
         #[cfg(not(target_os = "windows"))]
-        match libc_poll(stream.as_raw_fd(), libc::POLLOUT | libc::POLLHUP | libc::POLLERR) {
+        match libc_poll(
+            stream.as_raw_fd(),
+            libc::POLLOUT | libc::POLLHUP | libc::POLLERR,
+        ) {
             Some(val) if (val & libc::POLLERR) != 0 => {
                 // Get the actual socket error using SO_ERROR
                 let mut error: libc::c_int = 0;
