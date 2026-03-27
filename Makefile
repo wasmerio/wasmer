@@ -335,6 +335,13 @@ compilers_engines := $(strip $(compilers_engines))
 #
 #####
 
+build_wasmer_extra_features :=
+ifneq ($(ENABLE_NAPI_V8), 0)
+       ifeq ($(ENABLE_NAPI_V8), 1)
+               build_wasmer_extra_features += napi-v8
+       endif
+endif
+
 # Small trick to define a space and a comma.
 space := $() $()
 comma := ,
@@ -371,11 +378,6 @@ endif
 
 HOST_TARGET=$(shell rustc -Vv | grep 'host: ' | cut -d':' -f2 | tr -d ' ')
 BUILD_WASMER_TARGET := $(if $(CARGO_TARGET),$(CARGO_TARGET),$(HOST_TARGET))
-
-build_wasmer_extra_features :=
-ifneq (, $(filter x86_64-unknown-linux-gnu aarch64-apple-darwin,$(BUILD_WASMER_TARGET)))
-	build_wasmer_extra_features += napi-v8
-endif
 
 workspace_doc_excludes := --exclude wasmer-c-api --exclude wasmer-swift --exclude wasmer-napi
 
