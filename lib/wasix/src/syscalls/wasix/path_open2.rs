@@ -1,4 +1,5 @@
 use super::*;
+use crate::VIRTUAL_ROOT_FD;
 use crate::syscalls::*;
 
 /// ### `path_open()`
@@ -126,16 +127,20 @@ pub(crate) fn path_open_internal(
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     let state = env.state.deref();
     let inodes = &state.inodes;
-
-    let path_arg = std::path::PathBuf::from(&path);
-    let maybe_inode = state.fs.get_inode_at_path(
-        inodes,
-        dirfd,
-        path,
-        dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
-    );
-
-    let working_dir = wasi_try_ok_ok!(state.fs.get_fd(dirfd));
+    let follow_symlinks = dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0;
+    let effective_dirfd = if path.starts_with('/') {
+        VIRTUAL_ROOT_FD
+    } else {
+        dirfd
+    };
+    let path_arg = std::path::PathBuf::from(path);
+    let working_dir = match state.fs.get_fd(effective_dirfd) {
+        Ok(fd) => fd,
+        Err(err) => return Ok(Err(err)),
+    };
+    let maybe_inode = state
+        .fs
+        .get_inode_at_path(inodes, effective_dirfd, path, follow_symlinks);
     let working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
 
     // ASSUMPTION: open rights apply recursively
@@ -246,11 +251,19 @@ pub(crate) fn path_open_internal(
                 if minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
-                // TODO: I strongly suspect that assigning the handle unconditionally
-                // breaks opening the same file multiple times.
-                *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
-                    open_options.open(&path).map_err(fs_error_into_wasi_err)
-                ))));
+                // Keep a stable shared handle per inode whenever possible, but reopen it
+                // when this open requires stronger rights than the existing handle may have.
+                let requires_stronger_handle =
+                    minimum_rights.write || minimum_rights.truncate || minimum_rights.create;
+                if handle.is_none() {
+                    *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
+                        open_options.open(&path).map_err(fs_error_into_wasi_err)
+                    ))));
+                } else if requires_stronger_handle {
+                    let mut file = handle.as_ref().unwrap().write().unwrap();
+                    *file =
+                        wasi_try_ok_ok!(open_options.open(&path).map_err(fs_error_into_wasi_err));
+                }
 
                 if let Some(handle) = handle {
                     let handle = handle.read().unwrap();
@@ -290,9 +303,28 @@ pub(crate) fn path_open_internal(
                 path_to_symlink,
                 relative_path,
             } => {
-                // I think this should return an error (because symlinks should be resolved away by the path traversal)
-                // TODO: investigate this
-                unimplemented!("SYMLINKS IN PATH_OPEN");
+                // Resolve the symlink via the existing path traversal logic and restart
+                // path_open with lookup-follow semantics for this resolved path.
+                let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
+                    (VIRTUAL_ROOT_FD, relative_path.clone())
+                } else {
+                    let mut resolved_path = path_to_symlink.clone();
+                    resolved_path.pop();
+                    resolved_path.push(relative_path);
+                    (*base_po_dir, resolved_path)
+                };
+                return path_open_internal(
+                    env,
+                    resolved_base_fd,
+                    __WASI_LOOKUP_SYMLINK_FOLLOW,
+                    &resolved_path.to_string_lossy(),
+                    o_flags,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                    fd_flags,
+                    with_fd,
+                );
             }
         }
         inode
@@ -313,9 +345,9 @@ pub(crate) fn path_open_internal(
             let (parent_inode, new_entity_name) =
                 wasi_try_ok_ok!(state.fs.get_parent_inode_at_path(
                     inodes,
-                    dirfd,
+                    effective_dirfd,
                     &path_arg,
-                    dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
+                    follow_symlinks
                 ));
             let new_file_host_path = {
                 let guard = parent_inode.read();

@@ -308,8 +308,8 @@ impl Module {
                 };
 
                 let ty = IntoWasmerExternType::into_wextt(wasm_importtype_type(i as *const _));
-                if ty.is_err() {
-                    panic!("{}", ty.unwrap_err());
+                if let Err(err) = ty {
+                    panic!("{err}");
                 }
 
                 let ty = ty.unwrap();
@@ -350,8 +350,8 @@ impl Module {
                 let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
                 let name_str = String::from_utf8_lossy(name).to_string();
                 let ty = IntoWasmerExternType::into_wextt(wasm_exporttype_type(e as *const _));
-                if ty.is_err() {
-                    panic!("{}", ty.unwrap_err());
+                if let Err(err) = ty {
+                    panic!("{err}");
                 }
 
                 let ty = ty.unwrap();

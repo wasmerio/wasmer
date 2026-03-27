@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from itertools import takewhile
 import os
 import time
 import sys
@@ -12,6 +13,7 @@ RELEASE_VERSION = ""
 DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "Arshia001"
 TAG = "main"
+RELEASE_SUBMODULES = ("lib/napi",)
 
 if len(sys.argv) > 1:
     RELEASE_VERSION = sys.argv[1]
@@ -30,13 +32,8 @@ if not (RELEASE_VERSION.startswith("v")):
 else:
     RELEASE_VERSION = RELEASE_VERSION[1:]
 
-if os.system("git --version") != 0:
-    print("git not installed")
-    sys.exit(1)
-
-if os.system("gh --version") != 0:
-    print("gh not installed")
-    sys.exit(1)
+subprocess.check_output(["git", "--version"])
+subprocess.check_output(["gh", "--version"])
 
 
 def get_file_string(file):
@@ -58,26 +55,45 @@ def replace(file, pattern, subst):
     write_file_string(file, file_string)
 
 
-def make_release(version):
-    gh_logged_in = os.system("gh auth status") == 0
-    if not (gh_logged_in):
-        raise Exception("please log in")
+def sync_submodule(repo_dir, path):
+    submodule_dir = os.path.join(repo_dir, path)
+    subprocess.run(["git", "-C", submodule_dir, "checkout", "main"], check=True)
+    subprocess.run(["git", "-C", submodule_dir, "pull"], check=True)
+    subprocess.run(["git", "-C", submodule_dir, "rev-parse", "HEAD"], check=True)
 
-    temp_dir = tempfile.TemporaryDirectory()
-    print(temp_dir.name)
-    if (
-        os.system(
-            "git clone https://github.com/wasmerio/wasmer --branch "
-            + TAG
-            + " --depth 1 "
-            + temp_dir.name
-        )
-        != 0
-    ):
-        raise Exception("could not clone github repo")
+
+def verify_submodule(repo_dir, path):
+    submodule_dir = os.path.join(repo_dir, path)
+    status = subprocess.check_output(
+        ["git", "-C", submodule_dir, "status", "--short"], encoding="utf-8"
+    ).strip()
+    if status:
+        raise Exception(f"submodule {path} has unexpected local changes:\n{status}")
+
+
+def make_release(version):
+    subprocess.check_output(["gh", "auth", "status"])
+
+    temp_dir = tempfile.TemporaryDirectory(prefix="wasmer-git-")
+    subprocess.check_output(
+        [
+            "git",
+            "clone",
+            "git@github.com:wasmerio/wasmer.git",
+            "--recurse-submodules",
+            "--branch",
+            TAG,
+            "--depth",
+            "1",
+            temp_dir.name,
+        ]
+    )
+
+    # As of now, GH CLI cannot list more items!
+    GH_LISTING_LIMIT = 1000
 
     # generate changelog
-    proc = subprocess.Popen(
+    listed_prs = subprocess.check_output(
         [
             "gh",
             "search",
@@ -86,31 +102,26 @@ def make_release(version):
             "wasmerio/wasmer",
             "--merged",
             "--limit",
-            "100",
+            str(GH_LISTING_LIMIT),
             "--sort",
             "updated",
         ],
-        stdout=subprocess.PIPE,
+        encoding="utf-8",
         cwd=temp_dir.name,
-    )
-    proc.wait()
-    if proc.returncode != 0:
-        print(proc.stdout)
-        raise Exception("could not run gh search prs")
+    ).splitlines()
 
-    lines = []
-    for line in proc.stdout:
-        line = line.decode("utf-8").rstrip()
-        if "Release" in line:
-            break
-        lines.append(line)
+    listed_prs = list(takewhile(lambda line: "Release " not in line, listed_prs))
+    print(f"Listed {len(listed_prs)} merged PRs since the latest release")
+
+    # Make sure we listed all the merged PRs since the last release!
+    assert len(listed_prs) < GH_LISTING_LIMIT
 
     changed = []
     added = []
     fixed = []
     release_notes_changed = []
 
-    for line in lines:
+    for line in listed_prs:
         fields = line.split("\t")
         pr_number = fields[1]
         pr_text = fields[3]
@@ -255,23 +266,28 @@ def make_release(version):
                 print(line.rstrip())
             raise Exception("could not commit CHANGELOG " + RELEASE_VERSION_WITH_V)
 
+        # Sync submodules to main (must contain version bump)
+        for path in RELEASE_SUBMODULES:
+            sync_submodule(temp_dir.name, path)
+            print(f"synchronized submodule {path}")
+
         # Update version numbers
         update_version_py = get_file_string(
             temp_dir.name + "/scripts/update-version.py"
         )
-        previous_version = re.search("NEXT_VERSION='(.*)'", update_version_py).groups(
+        previous_version = re.search('NEXT_VERSION = "(.*)"', update_version_py).groups(
             1
         )[0]
         next_version = RELEASE_VERSION
         print("updating version " + previous_version + " -> " + next_version)
         update_version_py = re.sub(
-            "PREVIOUS_VERSION='.*'",
-            "PREVIOUS_VERSION='" + previous_version + "'",
+            'PREVIOUS_VERSION = ".*"',
+            f'PREVIOUS_VERSION = "{previous_version}"',
             update_version_py,
         )
         update_version_py = re.sub(
-            "NEXT_VERSION='.*'",
-            "NEXT_VERSION='" + next_version + "'",
+            'NEXT_VERSION = ".*"',
+            f'NEXT_VERSION = "{next_version}"',
             update_version_py,
         )
         write_file_string(
@@ -283,6 +299,9 @@ def make_release(version):
             cwd=temp_dir.name,
         )
         proc.wait()
+        for path in RELEASE_SUBMODULES:
+            verify_submodule(temp_dir.name, path)
+            print(f"verified submodule {path}")
 
         proc = subprocess.Popen(
             ["git", "commit", "-am", "Release " + RELEASE_VERSION],
@@ -630,13 +649,7 @@ def make_release(version):
     )
     proc.wait()
 
-    raise Exception("script done and merged")
+    print("Script done and merged 🎉🎉🎉")
 
 
-try:
-    make_release(RELEASE_VERSION)
-except Exception as err:
-    while True:
-        print(str(err))
-        if os.system("say " + str(err)) != 0:
-            sys.exit()
+make_release(RELEASE_VERSION)

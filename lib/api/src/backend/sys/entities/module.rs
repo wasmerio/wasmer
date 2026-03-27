@@ -5,8 +5,8 @@ use std::sync::Arc;
 use bytes::Bytes;
 use wasmer_compiler::{Artifact, ArtifactCreate, Engine};
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
-    ModuleInfo, SerializeError,
+    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
+    ImportType, ImportsIterator, ModuleInfo, SerializeError,
 };
 
 use crate::{
@@ -14,6 +14,7 @@ use crate::{
     backend::sys::entities::engine::NativeEngineExt, engine::AsEngineRef,
     error::InstantiationError, vm::VMInstance,
 };
+use wasmer_vm::StoreHandle;
 
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -45,12 +46,26 @@ impl Module {
         unsafe { Self::from_binary_unchecked(engine, binary) }
     }
 
+    pub(crate) fn from_binary_with_progress(
+        engine: &impl AsEngineRef,
+        binary: &[u8],
+        callback: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        Self::validate(engine, binary)?;
+
+        let artifact = engine
+            .as_engine_ref()
+            .engine()
+            .as_sys()
+            .compile_with_progress(binary, Some(callback))?;
+        Ok(Self::from_artifact(artifact))
+    }
+
     pub(crate) unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let module = Self::compile(engine, binary)?;
-        Ok(module)
+        Self::compile(engine, binary)
     }
 
     #[cfg(feature = "compiler")]
@@ -188,8 +203,15 @@ impl Module {
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.artifact
-                .finish_instantiation(config, signal_handler, &mut instance_handle)?;
+            if let Err(err) =
+                self.artifact
+                    .finish_instantiation(config, signal_handler, &mut instance_handle)
+            {
+                // Keep the partially initialized instance alive: its funcrefs may already
+                // have been written into imported tables.
+                let _ = StoreHandle::new(objects.as_sys_mut(), instance_handle);
+                return Err(err.into());
+            }
 
             drop(store_install_guard);
 

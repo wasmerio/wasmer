@@ -7,7 +7,7 @@ use crate::{
         thread::{RewindResultType, WasiThreadRunGuard},
     },
     runtime::{
-        TaintReason,
+        ModuleInput, TaintReason,
         module_cache::HashedModuleData,
         task_manager::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
@@ -17,7 +17,7 @@ use crate::{
     syscalls::rewind_ext,
 };
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use tracing::*;
 use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
@@ -33,7 +33,8 @@ pub async fn spawn_exec(
     spawn_union_fs(&env, &binary).await?;
 
     let cmd = package_command_by_name(&binary, name)?;
-    let module = runtime.load_command_module(cmd).await?;
+    let input = ModuleInput::Command(Cow::Borrowed(cmd));
+    let module = runtime.resolve_module(input, None, None).await?;
 
     // Free the space used by the binary, since we don't need it
     // any longer

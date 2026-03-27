@@ -34,7 +34,7 @@ default = [
 	"wast",
 	"journal",
 	"wasmer-artifact-create",
-	"static-artifact-create",
+	"static-artifact-create"
 ]
 
 # # Tun-tap client for connecting to Wasmer Edge VPNs
@@ -98,6 +98,7 @@ disable-all-logging = [
 headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
+napi-v8 = ["dep:wasmer-napi"]
 
 # Optional
 enable-serde = [
@@ -112,17 +113,16 @@ tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=7.0.0-alpha.2", path = "../api", default-features = false }
-wasmer-compiler = { version = "=7.0.0-alpha.2", path = "../compiler", features = [
-	"compiler",
+wasmer = { version = "=7.1.0-rc.3", path = "../api", default-features = false, features = ["headless"] }
+wasmer-compiler = { version = "=7.1.0-rc.3", path = "../compiler", features = [
+	"compiler"
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=7.0.0-alpha.2", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=7.0.0-alpha.2", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=7.0.0-alpha.2", path = "../compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=7.1.0-rc.3", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=7.1.0-rc.3", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=7.1.0-rc.3", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
-
-wasmer-vm = { version = "=7.0.0-alpha.2", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.700.0-alpha.2", features = [
+wasmer-vm = { version = "=7.1.0-rc.3", path = "../vm", optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.701.0-rc.3", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -131,23 +131,24 @@ wasmer-wasix = { path = "../wasix", version = "=0.700.0-alpha.2", features = [
 	"ctrlc",
 	"sys",
 ], default-features = false }
-wasmer-wast = { version = "=7.0.0-alpha.2", path = "../../tests/lib/wast", optional = true }
-wasmer-types = { version = "=7.0.0-alpha.2", path = "../types", features = [
+wasmer-wast = { version = "=7.1.0-rc.3", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=7.1.0-rc.3", path = "../types", features = [
 	"enable-serde",
 	"detect-wasm-features",
 ] }
-virtual-fs = { version = "0.700.0-alpha.2", path = "../virtual-fs", default-features = false, features = [
+wasmer-napi = { version = "0.701.0-rc.3", path = "../napi", optional = true }
+virtual-fs = { version = "0.701.0-rc.3", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
-virtual-net = { version = "0.700.0-alpha.2", path = "../virtual-net" }
-virtual-mio = { version = "0.700.0-alpha.2", path = "../virtual-io" }
+virtual-net = { version = "0.701.0-rc.3", path = "../virtual-net" }
+virtual-mio = { version = "0.701.0-rc.3", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
 
 webc.workspace = true
-wasmer-backend-api = { version = "=0.700.0-alpha.2", path = "../backend-api" }
-wasmer-sdk = { version = "=7.0.0-alpha.2", path = "../sdk" }
-wasmer-config = { version = "0.700.0-alpha.2", path = "../config" }
+wasmer-backend-api = { version = "=0.701.0-rc.3", path = "../backend-api" }
+wasmer-sdk = { version = "=7.1.0-rc.3", path = "../sdk" }
+wasmer-config = { version = "0.701.0-rc.3", path = "../config" }
 
 shared-buffer = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }
@@ -211,6 +212,8 @@ serde_yaml.workspace = true
 base64.workspace = true
 comfy-table.workspace = true
 git-version.workspace = true
+itertools.workspace = true
+enum-iterator.workspace = true
 
 # Used by tuntap and connect
 futures-util.workspace = true
@@ -248,10 +251,11 @@ clap = { workspace = true, default-features = false, features = [
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies]
 reqwest = { workspace = true, default-features = false, features = [
-	"rustls-tls",
+	"rustls",
 	"json",
 	"multipart",
 	"gzip",
+	"zstd",
 ] }
 
 [target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies]
@@ -259,6 +263,7 @@ reqwest = { workspace = true, default-features = false, features = [
 	"native-tls",
 	"json",
 	"multipart",
+	"zstd",
 ] }
 
 

@@ -8,8 +8,8 @@ use thiserror::Error;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
-    ModuleInfo, SerializeError,
+    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
+    ImportType, ImportsIterator, ModuleInfo, SerializeError,
 };
 
 use crate::{
@@ -41,6 +41,30 @@ impl BackendModule {
             )))
         })?;
         Self::from_binary(engine, bytes.as_ref())
+    }
+
+    #[inline]
+    pub fn new_with_progress(
+        engine: &impl AsEngineRef,
+        bytes: impl AsRef<[u8]>,
+        callback: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        #[cfg(feature = "wat")]
+        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+            CompileError::Wasm(WasmError::Generic(format!(
+                "Error when converting wat: {e}",
+            )))
+        })?;
+
+        #[cfg(feature = "sys")]
+        return crate::backend::sys::entities::module::Module::from_binary_with_progress(
+            engine,
+            bytes.as_ref(),
+            callback,
+        )
+        .map(Self::Sys);
+        #[cfg(not(feature = "sys"))]
+        return Self::from_binary(engine, bytes.as_ref());
     }
 
     /// Creates a new WebAssembly module from a file path.

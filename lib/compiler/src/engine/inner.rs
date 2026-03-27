@@ -9,7 +9,7 @@ use crate::{Compiler, CompilerConfig};
 
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
-use wasmer_types::{CompileError, HashAlgorithm, target::Target};
+use wasmer_types::{CompilationProgressCallback, CompileError, target::Target};
 
 #[cfg(not(target_arch = "wasm32"))]
 use shared_buffer::OwnedBuffer;
@@ -50,7 +50,6 @@ pub struct Engine {
     #[cfg(not(target_arch = "wasm32"))]
     tunables: Arc<dyn Tunables + Send + Sync>,
     name: String,
-    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Engine {
@@ -79,23 +78,12 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name,
-            hash_algorithm: None,
         }
     }
 
     /// Returns the name of this engine
     pub fn name(&self) -> &str {
         self.name.as_str()
-    }
-
-    /// Sets the hash algorithm
-    pub fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>) {
-        self.hash_algorithm = hash_algorithm;
-    }
-
-    /// Returns the hash algorithm
-    pub fn hash_algorithm(&self) -> Option<HashAlgorithm> {
-        self.hash_algorithm
     }
 
     /// Returns the deterministic id of this engine
@@ -149,7 +137,6 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name: "engine-headless".to_string(),
-            hash_algorithm: None,
         }
     }
 
@@ -196,7 +183,22 @@ impl Engine {
             self,
             binary,
             self.tunables.as_ref(),
-            self.hash_algorithm,
+            None,
+        )?))
+    }
+
+    /// Compile a WebAssembly binary with a progress callback.
+    #[cfg(feature = "compiler")]
+    pub fn compile_with_progress(
+        &self,
+        binary: &[u8],
+        progress_callback: Option<CompilationProgressCallback>,
+    ) -> Result<Arc<Artifact>, CompileError> {
+        Ok(Arc::new(Artifact::new(
+            self,
+            binary,
+            self.tunables.as_ref(),
+            progress_callback,
         )?))
     }
 
@@ -498,31 +500,31 @@ impl EngineInner {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     /// Register DWARF-type exception handling information associated with the code.
     pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()
             .unwind_registry_mut()
-            .publish(eh_frame)
+            .publish_eh_frame(eh_frame)
             .map_err(|e| {
                 CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
             })?;
         Ok(())
     }
-
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     /// Register macos-specific exception handling information associated with the code.
-    pub(crate) fn register_compact_unwind(
+    pub(crate) fn publish_compact_unwind(
         &mut self,
-        compact_unwind: Option<&[u8]>,
+        compact_unwind: &[u8],
         eh_personality_addr_in_got: Option<usize>,
     ) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()
             .unwind_registry_mut()
-            .register_compact_unwind(compact_unwind, eh_personality_addr_in_got)
+            .publish_compact_unwind(compact_unwind, eh_personality_addr_in_got)
             .map_err(|e| {
                 CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
             })?;
@@ -555,26 +557,33 @@ impl EngineInner {
             .as_ref()
             .is_some_and(|v| v.get_perfmap_enabled())
         {
+            use std::fs::OpenOptions;
+
             let filename = format!("/tmp/perf-{}.map", std::process::id());
-            let mut file = std::io::BufWriter::new(std::fs::File::create(filename).unwrap());
+            // We might be loading shared libraries and so we must append to the file.
+            let file = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&filename)
+                .map_err(|e| {
+                    CompileError::Codegen(format!("failed to open perf map file {filename}: {e}"))
+                })?;
+            let mut file = std::io::BufWriter::new(file);
 
             for (func_index, code) in finished_functions.iter() {
                 let func_index = module_info.func_index(func_index);
-                let name = if let Some(func_name) = module_info.function_names.get(&func_index) {
-                    func_name.clone()
-                } else {
-                    format!("{:p}", code.ptr.0)
-                };
-
-                let sanitized_name = name.replace(['\n', '\r'], "_");
-                let line = format!(
-                    "{:p} {:x} {}\n",
-                    code.ptr.0 as *const _, code.length, sanitized_name
-                );
-                write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
-                file.flush()
-                    .map_err(|e| CompileError::Codegen(e.to_string()))?;
+                if let Some(func_name) = module_info.function_names.get(&func_index) {
+                    let sanitized_name = func_name.replace(['\n', '\r'], "_");
+                    let line = format!(
+                        "{:p} {:x} {sanitized_name}\n",
+                        code.ptr.0 as *const _, code.length
+                    );
+                    write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
+                }
             }
+
+            file.flush()
+                .map_err(|e| CompileError::Codegen(e.to_string()))?;
         }
 
         Ok(())

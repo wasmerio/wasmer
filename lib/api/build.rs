@@ -6,7 +6,11 @@ fn build_wamr() {
     const ZIP_NAME: &str = "wasm-micro-runtime-WAMR-2.2.0";
 
     use cmake::Config;
-    use std::{env, path::PathBuf};
+    use std::{
+        env,
+        path::PathBuf,
+        sync::{LazyLock, Mutex},
+    };
 
     let crate_root = env::var("OUT_DIR").unwrap();
 
@@ -133,7 +137,8 @@ fn build_wamr() {
     // That contains output from cmake
 
     // Rename the symbols created from wamr.
-    static mut WAMR_RENAMED: Vec<(String, String)> = vec![];
+    static WAMR_RENAMED: LazyLock<Mutex<Vec<(String, String)>>> =
+        LazyLock::new(|| Mutex::new(Vec::new()));
 
     #[derive(Debug)]
     struct WamrRenamer {}
@@ -146,14 +151,11 @@ fn build_wamr() {
         ) -> Option<String> {
             if item_info.name.starts_with("wasm") {
                 let new_name = format!("wamr_{}", item_info.name);
-                // TODO: refactor to not use static mut
-                #[allow(
-                    static_mut_refs,
-                    reason = "existing behaviour that was disallowed by edition 2024"
-                )]
-                unsafe {
-                    WAMR_RENAMED.push((item_info.name.to_string(), new_name.clone()));
-                }
+                WAMR_RENAMED
+                    .lock()
+                    .expect("cannot lock WAMR_RENAMED")
+                    .push((item_info.name.to_string(), new_name.clone()));
+
                 Some(new_name)
             } else {
                 None
@@ -198,13 +200,7 @@ fn build_wamr() {
 
     let objcopy = objcopy.unwrap();
 
-    unsafe {
-        // TODO: refactor to not use static mut
-        #[allow(
-            static_mut_refs,
-            reason = "existing behaviour that was disallowed by edition 2024"
-        )]
-        let syms: Vec<String> = WAMR_RENAMED
+    let syms: Vec<String> = WAMR_RENAMED.lock().expect("cannot lock WAMR_RENAMED")
             .iter()
             .map(|(old, new)|
                 // A bit hacky: we need a way to figure out if we're going to target a Mach-O
@@ -217,20 +213,19 @@ fn build_wamr() {
                 }
             })
             .collect();
-        let output = std::process::Command::new(objcopy)
-            .args(syms)
-            .arg(dst.join("build").join("libvmlib.a").display().to_string())
-            .arg(dst.join("build").join("libwamr.a").display().to_string())
-            .output()
-            .unwrap();
+    let output = std::process::Command::new(objcopy)
+        .args(syms)
+        .arg(dst.join("build").join("libvmlib.a").display().to_string())
+        .arg(dst.join("build").join("libwamr.a").display().to_string())
+        .output()
+        .unwrap();
 
-        if !output.status.success() {
-            panic!(
-                "{objcopy} failed with error code {}: {}",
-                output.status,
-                String::from_utf8(output.stderr).unwrap()
-            );
-        }
+    if !output.status.success() {
+        panic!(
+            "{objcopy} failed with error code {}: {}",
+            output.status,
+            String::from_utf8(output.stderr).unwrap()
+        );
     }
 
     println!(
@@ -243,7 +238,11 @@ fn build_wamr() {
 #[cfg(feature = "v8")]
 fn build_v8() {
     use bindgen::callbacks::ParseCallbacks;
-    use std::{env, path::PathBuf};
+    use std::{
+        env,
+        path::PathBuf,
+        sync::{LazyLock, Mutex},
+    };
 
     let url = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
@@ -309,7 +308,8 @@ fn build_v8() {
     }
 
     // Rename the symbols created from wee8.
-    static mut WEE8_RENAMED: Vec<(String, String)> = vec![];
+    static WEE8_RENAMED: LazyLock<Mutex<Vec<(String, String)>>> =
+        LazyLock::new(|| Mutex::new(Vec::new()));
 
     #[derive(Debug)]
     struct Wee8Renamer {}
@@ -322,14 +322,10 @@ fn build_v8() {
         ) -> Option<String> {
             if item_info.name.starts_with("wasm") {
                 let new_name = format!("wee8_{}", item_info.name);
-                // TODO: refactor to not use static mut
-                #[allow(
-                    static_mut_refs,
-                    reason = "existing behaviour that was disallowed by edition 2024"
-                )]
-                unsafe {
-                    WEE8_RENAMED.push((item_info.name.to_string(), new_name.clone()));
-                }
+                WEE8_RENAMED
+                    .lock()
+                    .expect("cannot lock WEE8_RENAMED")
+                    .push((item_info.name.to_string(), new_name.clone()));
                 Some(new_name)
             } else {
                 None
@@ -380,13 +376,8 @@ fn build_v8() {
 
     let objcopy = objcopy.unwrap();
 
-    // TODO: refactor to not use static mut
-    #[allow(
-        static_mut_refs,
-        reason = "existing behaviour that was disallowed by edition 2024"
-    )]
-    unsafe {
-        let syms: Vec<String> = WEE8_RENAMED
+    let syms: Vec<String> = WEE8_RENAMED.lock()
+                        .expect("cannot lock WEE8_RENAMED")
             .iter()
             .map(|(old, new)|
                 // A bit hacky: we need a way to figure out if we're going to target a Mach-O
@@ -399,22 +390,21 @@ fn build_v8() {
                 }
             })
             .collect();
-        let output = dbg!(
-            std::process::Command::new(objcopy)
-                .args(syms)
-                .arg(out_path.join("obj").join("libwee8.a").display().to_string())
-                .arg(out_path.join("libwee8prefixed.a").display().to_string())
-        )
-        .output()
-        .unwrap();
+    let output = dbg!(
+        std::process::Command::new(objcopy)
+            .args(syms)
+            .arg(out_path.join("obj").join("libwee8.a").display().to_string())
+            .arg(out_path.join("libwee8prefixed.a").display().to_string())
+    )
+    .output()
+    .unwrap();
 
-        if !output.status.success() {
-            panic!(
-                "{objcopy} failed with error code {}: {}",
-                output.status,
-                String::from_utf8(output.stderr).unwrap()
-            );
-        }
+    if !output.status.success() {
+        panic!(
+            "{objcopy} failed with error code {}: {}",
+            output.status,
+            String::from_utf8(output.stderr).unwrap()
+        );
     }
 
     println!("cargo:rustc-link-lib=static=wee8prefixed");

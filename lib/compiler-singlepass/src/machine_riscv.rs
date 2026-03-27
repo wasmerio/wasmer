@@ -5,6 +5,7 @@ use dynasmrt::{DynasmError, VecAssembler, riscv::RiscvRelocation};
 use gimli::{RiscV, write::CallFrameInstruction};
 
 use wasmer_compiler::{
+    CANONICAL_NAN_F32, CANONICAL_NAN_F64,
     types::{
         address_map::InstructionAddressMap,
         function::FunctionBody,
@@ -85,8 +86,6 @@ pub struct MachineRiscv {
 }
 
 const SCRATCH_REG: GPR = GPR::X28;
-const CANONICAL_NAN_F64: u64 = 0x7ff8000000000000;
-const CANONICAL_NAN_F32: u32 = 0x7fc00000;
 
 impl MachineRiscv {
     /// Creates a new RISC-V machine for code generation.
@@ -6321,8 +6320,7 @@ impl Machine for MachineRiscv {
                     ));
                     instructions.push((
                         instruction_offset,
-                        // TODO: use RiscV::FP: https://github.com/gimli-rs/gimli/pull/802
-                        CallFrameInstruction::Offset(RiscV::X8, -(up_to_sp as i32)),
+                        CallFrameInstruction::Offset(RiscV::FP, -(up_to_sp as i32)),
                     ));
                 }
                 UnwindOps::DefineNewFrame => {

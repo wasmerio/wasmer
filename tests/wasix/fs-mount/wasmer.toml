@@ -1,0 +1,16 @@
+[package]
+name = "fs-mount-test"
+version = "0.1.0"
+entrypoint = "main"
+
+[fs]
+"/mount" = "."
+
+[[module]]
+name = "main"
+source = "./main.wasm"
+abi = "wasi"
+
+[[command]]
+name = "main"
+module = "main"

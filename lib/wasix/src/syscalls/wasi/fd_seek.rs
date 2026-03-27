@@ -38,7 +38,6 @@ pub fn fd_seek<M: MemorySize>(
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let new_offset_ref = newoffset.deref(&memory);
-    let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
     wasi_try_mem_ok!(new_offset_ref.write(new_offset));
 
     trace!(
@@ -66,25 +65,23 @@ pub(crate) fn fd_seek_internal(
     // TODO: handle case if fd is a dir?
     let new_offset = match whence {
         Whence::Cur => {
-            let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
+            let fd_offset = &fd_entry.inner.offset;
 
             #[allow(clippy::comparison_chain)]
             if offset > 0 {
                 let offset = offset as u64;
-                fd_entry.offset.fetch_add(offset, Ordering::AcqRel) + offset
+                fd_offset.fetch_add(offset, Ordering::AcqRel) + offset
             } else if offset < 0 {
                 let offset = offset.unsigned_abs();
 
                 wasi_try_ok_ok!(
-                    fd_entry
-                        .offset
+                    fd_offset
                         .fetch_sub(offset, Ordering::AcqRel)
                         .checked_sub(offset)
                         .ok_or(Errno::Inval)
                 )
             } else {
-                fd_entry.offset.load(Ordering::Acquire)
+                fd_offset.load(Ordering::Acquire)
             }
         }
         Whence::End => {
@@ -97,6 +94,7 @@ pub(crate) fn fd_seek_internal(
                     #[allow(clippy::await_holding_lock)]
                     if let Some(handle) = handle {
                         let handle = handle.clone();
+                        let fd_offset = fd_entry.inner.offset.clone();
                         drop(guard);
 
                         wasi_try_ok_ok!(__asyncify(ctx, None, async move {
@@ -106,11 +104,9 @@ pub(crate) fn fd_seek_internal(
                                 .await
                                 .map_err(map_io_err)?;
 
-                            // TODO: handle case if fd_entry.offset uses 64 bits of a u64
-                            drop(handle);
-                            let mut fd_map = state.fs.fd_map.write().unwrap();
-                            let fd_entry = fd_map.get_mut(fd).ok_or(Errno::Badf)?;
-                            fd_entry.offset.store(end, Ordering::Release);
+                            // Keep updating the original file description offset even if this
+                            // numeric FD was concurrently closed or reused.
+                            fd_offset.store(end, Ordering::Release);
                             Ok(())
                         })?);
                     } else {
@@ -140,11 +136,9 @@ pub(crate) fn fd_seek_internal(
             fd_entry.inner.offset.load(Ordering::Acquire)
         }
         Whence::Set => {
-            let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
             let offset: u64 = wasi_try_ok_ok!(u64::try_from(offset).map_err(|_| Errno::Inval));
 
-            fd_entry.offset.store(offset, Ordering::Release);
+            fd_entry.inner.offset.store(offset, Ordering::Release);
             offset
         }
         _ => return Ok(Err(Errno::Inval)),

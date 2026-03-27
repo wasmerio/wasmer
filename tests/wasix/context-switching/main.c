@@ -12,42 +12,44 @@
 wasix_context_id_t ctx1;
 int was_in_two = 0;
 
-void context2_fn(void) {
-  was_in_two++;
-  wasix_context_switch(ctx1);
-  assert(0 && "Should not return to context 2");
+void context2_fn(void)
+{
+    was_in_two++;
+    wasix_context_switch(ctx1);
+    assert(0 && "Should not return to context 2");
 }
 
-void context1_fn(void) {
-  wasix_context_id_t ctx2;
-  int ret = wasix_context_create(&ctx2, context2_fn);
-  assert(ret == 0 && "Failed to create context 2");
-  wasix_context_switch(ctx2);
-  wasix_context_destroy(ctx2);
-  wasix_context_switch(wasix_context_main);
+void context1_fn(void)
+{
+    wasix_context_id_t ctx2;
+    int ret = wasix_context_create(&ctx2, context2_fn);
+    assert(ret == 0 && "Failed to create context 2");
+    wasix_context_switch(ctx2);
+    wasix_context_destroy(ctx2);
+    wasix_context_switch(wasix_context_main);
 }
 
 int was_in_context_fn_switch_to_main = 0;
-void context_fn_switch_to_main(void) {
-  was_in_context_fn_switch_to_main = 1;
-  wasix_context_switch(wasix_context_main);
-  assert(0);
+void context_fn_switch_to_main(void)
+{
+    was_in_context_fn_switch_to_main = 1;
+    wasix_context_switch(wasix_context_main);
+    assert(0);
 }
 
 // Test a simple context switching scenario
-int test_basic_switching() {
-  // Create three contexts
-  int ret = wasix_context_create(&ctx1, context1_fn);
-  assert(ret == 0 && "Failed to create context 1");
+int test_basic_switching()
+{
+    // Create three contexts
+    int ret = wasix_context_create(&ctx1, context1_fn);
+    assert(ret == 0 && "Failed to create context 1");
 
-  wasix_context_switch(ctx1);
+    wasix_context_switch(ctx1);
 
-  assert(was_in_two == 1 && "Context 2 was not executed exactly once");
+    assert(was_in_two == 1 && "Context 2 was not executed exactly once");
 
-  return 0;
+    return 0;
 }
-
-
 
 int vfork_exec()
 {
@@ -117,7 +119,7 @@ int vfork_after_switching2()
     was_in_context_fn_switch_to_main = 0;
     wasix_context_switch(ctx_a);
     assert(was_in_context_fn_switch_to_main == 1 && "Context function was not executed");
-    
+
     int pid = vfork();
 
     if (pid == 0)
@@ -125,11 +127,13 @@ int vfork_after_switching2()
         // The process created by vfork should not have a context switching environment
         // so we get a ENOSYS here
         int ret = wasix_context_switch(ctx_b);
-        if (ret != -1) {
-          exit(11);
+        if (ret != -1)
+        {
+            exit(11);
         }
-        if (errno != ENOTSUP) {
-          exit(12);
+        if (errno != ENOTSUP)
+        {
+            exit(12);
         }
 
         execl("./main.wasm", "main.wasm", "subprocess_with_switching", NULL);
@@ -169,7 +173,7 @@ int fork_after_switching()
     was_in_context_fn_switch_to_main = 0;
     wasix_context_switch(ctx_a);
     assert(was_in_context_fn_switch_to_main == 1 && "Context function was not executed");
-    
+
     int pid = fork();
 
     if (pid == 0)
@@ -177,11 +181,13 @@ int fork_after_switching()
         // The process created by fork should have a new context switching environment
         // so we get a EINVAL here because the context does not exist in this new environment
         int ret = wasix_context_switch(ctx_b);
-        if (ret != -1) {
-          exit(11);
+        if (ret != -1)
+        {
+            exit(11);
         }
-        if (errno != EINVAL) {
-          exit(12);
+        if (errno != EINVAL)
+        {
+            exit(12);
         }
         // Recreate the context in the child process
         ret = wasix_context_create(&ctx_b, context_fn_switch_to_main);
@@ -246,14 +252,14 @@ void context_fn_posix_spawn_a_forking_subprocess_from_a_context()
     int exit_code;
 
     // Test a subprocess that does context switching
-    char *argV[] = {"./main.wasm", "subprocess_with_switching",(char *) 0};
+    char *argV[] = {"./main.wasm", "subprocess_with_switching", (char *)0};
     posix_spawn(&pid, "./main.wasm", NULL, NULL, argV, environ);
     waitpid(pid, &status, 0);
     exit_code = WEXITSTATUS(status);
     assert(exit_code == 20 && "Expected exit code 20 from subprocess");
 
     // Test a subprocess that does fork and vfork
-    char *argV2[] = {"./main.wasm", "subprocess_with_fork_and_vfork",(char *) 0};
+    char *argV2[] = {"./main.wasm", "subprocess_with_fork_and_vfork", (char *)0};
     posix_spawn(&pid, "./main.wasm", NULL, NULL, argV2, environ);
     waitpid(pid, &status, 0);
     exit_code = WEXITSTATUS(status);
@@ -279,19 +285,21 @@ int subprocess()
 }
 
 // Test a simple context switching scenario
-int subprocess_with_switching() {
-  test_basic_switching();
+int subprocess_with_switching()
+{
+    test_basic_switching();
 
-  return 20;
+    return 20;
 }
 
 // Test a simple context switching scenario
-int subprocess_with_fork_and_vfork() {
-  vfork_after_switching2();
+int subprocess_with_fork_and_vfork()
+{
+    vfork_after_switching2();
 
-  fork_after_switching();
+    fork_after_switching();
 
-  return 20;
+    return 20;
 }
 
 int main(int argc, char **argv)
@@ -301,7 +309,6 @@ int main(int argc, char **argv)
         return -1;
     }
 
-
     if (!strcmp(argv[1], "subprocess"))
     {
         return subprocess();
@@ -310,11 +317,11 @@ int main(int argc, char **argv)
     {
         return subprocess_with_switching();
     }
-        else if (!strcmp(argv[1], "subprocess_with_fork_and_vfork"))
+    else if (!strcmp(argv[1], "subprocess_with_fork_and_vfork"))
     {
         return subprocess_with_fork_and_vfork();
     }
-    else     if (!strcmp(argv[1], "basic_switching"))
+    else if (!strcmp(argv[1], "basic_switching"))
     {
         return test_basic_switching();
     }
@@ -326,7 +333,7 @@ int main(int argc, char **argv)
     {
         return vfork_after_switching2();
     }
-        else if (!strcmp(argv[1], "fork_after_switching"))
+    else if (!strcmp(argv[1], "fork_after_switching"))
     {
         return fork_after_switching();
     }
@@ -334,15 +341,15 @@ int main(int argc, char **argv)
     {
         return fork_and_vfork_only_work_in_main_context();
     }
-        else if (!strcmp(argv[1], "posix_spawning_a_forking_subprocess_from_a_context"))
+    else if (!strcmp(argv[1], "posix_spawning_a_forking_subprocess_from_a_context"))
     {
         return posix_spawning_a_forking_subprocess_from_a_context();
     }
-        else if (!strcmp(argv[1], "fork_and_vfork_only_work_in_main_context2"))
+    else if (!strcmp(argv[1], "fork_and_vfork_only_work_in_main_context2"))
     {
         return fork_and_vfork_only_work_in_main_context();
     }
-        else if (!strcmp(argv[1], "fork_and_vfork_only_work_in_main_context2"))
+    else if (!strcmp(argv[1], "fork_and_vfork_only_work_in_main_context2"))
     {
         return fork_and_vfork_only_work_in_main_context();
     }

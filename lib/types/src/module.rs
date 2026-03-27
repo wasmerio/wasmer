@@ -356,6 +356,11 @@ impl ModuleInfo {
         self.hash
     }
 
+    /// Returns the module hash as String if available
+    pub fn hash_string(&self) -> Option<String> {
+        self.hash.map(|m| m.to_string())
+    }
+
     /// Get the given passive element, if it exists.
     pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FunctionIndex]> {
         self.passive_elements.get(&index).map(|es| &**es)
@@ -542,6 +547,11 @@ impl ModuleInfo {
         index.index() < self.num_imported_globals
     }
 
+    /// Get the type of a global by its index.
+    pub fn global_type(&self, global_index: GlobalIndex) -> Option<GlobalType> {
+        self.globals.get(global_index).copied()
+    }
+
     /// Convert a `LocalTagIndex` into a `TagIndex`.
     pub fn tag_index(&self, local_tag: LocalTagIndex) -> TagIndex {
         TagIndex::new(self.num_imported_tags + local_tag.index())
@@ -644,6 +654,13 @@ impl<I: Iterator<Item = ExportType> + Sized> ExportsIterator<I> {
             _ => None,
         })
     }
+    /// Get only the tags
+    pub fn tags(self) -> impl Iterator<Item = ExportType<TagType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Tag(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
 }
 
 impl<I: Iterator<Item = ExportType> + Sized> Iterator for ExportsIterator<I> {
@@ -704,6 +721,17 @@ impl<I: Iterator<Item = ImportType> + Sized> ImportsIterator<I> {
     pub fn globals(self) -> impl Iterator<Item = ImportType<GlobalType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
             ExternType::Global(ty) => Some(ImportType::new(extern_.module(), extern_.name(), *ty)),
+            _ => None,
+        })
+    }
+    /// Get only the tags
+    pub fn tags(self) -> impl Iterator<Item = ImportType<TagType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Tag(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
             _ => None,
         })
     }

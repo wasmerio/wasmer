@@ -1,6 +1,6 @@
 # Testing
 
-Thanks to [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests) we can ensure 100% compatibility with the WebAssembly spec test suite.
+Thanks to [WebAssembly spec tests](https://github.com/WebAssembly/testsuite) we can ensure 100% compatibility with the WebAssembly spec test suite.
 
 You can run all the tests with:
 
@@ -8,7 +8,7 @@ You can run all the tests with:
 make test
 ```
 
-> [!INFO]
+> [!NOTE]
 > `make test` will automatically detect the compilers available on your system.
 > 
 > Please follow the [Building from Source](./BUILD.md) guide see how you can[ prepare your system with the requirements needed for each of the backends](./#all-backends-default).

@@ -178,6 +178,7 @@ exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
 exclude_tests += --exclude wasmer-swift
+exclude_tests += --exclude wasmer-napi
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -337,10 +338,11 @@ compilers_engines := $(strip $(compilers_engines))
 # Small trick to define a space and a comma.
 space := $() $()
 comma := ,
+build_wasmer_extra_features_csv = $(subst $(space),$(comma),$(build_wasmer_extra_features))
 
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
-build_compiler_features := --features $(subst $(space),$(comma),$(build_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+build_compiler_features = --features $(subst $(space),$(comma),$(build_compilers))$(if $(build_wasmer_extra_features_csv),$(comma)$(build_wasmer_extra_features_csv)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 capi_compilers_engines_exclude :=
 
 # Define the compiler Cargo features for the C API. It always excludes
@@ -368,6 +370,14 @@ ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 endif
 
 HOST_TARGET=$(shell rustc -Vv | grep 'host: ' | cut -d':' -f2 | tr -d ' ')
+BUILD_WASMER_TARGET := $(if $(CARGO_TARGET),$(CARGO_TARGET),$(HOST_TARGET))
+
+build_wasmer_extra_features :=
+ifneq (, $(filter x86_64-unknown-linux-gnu aarch64-apple-darwin,$(BUILD_WASMER_TARGET)))
+	build_wasmer_extra_features += napi-v8
+endif
+
+workspace_doc_excludes := --exclude wasmer-c-api --exclude wasmer-swift --exclude wasmer-napi
 
 TARGET_DIR ?= target/release
 
@@ -498,7 +508,7 @@ else
 endif
 
 build-docs:
-	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --features wasmer/experimental-async --document-private-items --no-deps --workspace --exclude wasmer-c-api --exclude wasmer-swift --locked
+	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --features wasmer/experimental-async --document-private-items --no-deps --workspace $(workspace_doc_excludes) --locked
 
 # The tokio crate was excluded from the docs build because the code (which is not under our control)
 # does not currently compile its docs successfully
@@ -625,9 +635,9 @@ build-capi-headless-ios:
 #
 #####
 
-# test compilers
+# test compilers (intentionally not using nextest as it runs tests in separate processes)
 test-stage-0-wast:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
 
 # test packages
 test-stage-1-test-all:
@@ -723,12 +733,7 @@ lint-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),lint-capi-crat
 # This test requires building the capi with all the available
 # compilers first
 test-capi: build-capi package-capi test-capi-ci
-
-test-capi-v8: build-capi-v8 package-capi test-capi-integration-v8 
-test-capi-wasmi: build-capi-wasmi package-capi test-capi-integration-wasmi
-test-capi-wamr: build-capi-wamr package-capi test-capi-integration-wamr 
-
-test-capi-jsc: build-capi-jsc package-capi test-capi-integration-jsc
+test-capi-v8: build-capi-v8 package-capi test-capi-integration-v8
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
@@ -739,7 +744,6 @@ lint-capi-crate-%:
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked -- -D clippy::all
 
 test-capi-integration-%:
-	# note: you need to do make build-capi and make package-capi first!
 	# Test the Wasmer C API tests for C
 	cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
 	# Test the Wasmer C API examples
@@ -759,13 +763,8 @@ test-wasix: build-wasmer
 	cd tests/wasix; \
 	./test.sh
 
-test-integration-cli: build-wasmer build-capi package-capi-headless package distribution
-	cp ./dist/wasmer.tar.gz ./link.tar.gz
-	rustup target add wasm32-wasip1
-	WASMER_DIR=`pwd`/package $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli --locked
-
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
-test-integration-cli-ci: require-nextest
+test-integration-cli-ci: require-nextest build-wasmer
 	rustup target add wasm32-wasip1
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
 
@@ -804,7 +803,6 @@ endif
 
 package-wasmer:
 	mkdir -p "package/bin"
-	ls -R target
 ifeq ($(IS_WINDOWS), 1)
 	if [ -f "$(TARGET_DIR)/wasmer.exe" ]; then \
 		cp "$(TARGET_DIR)/wasmer.exe" package/bin ;\
@@ -823,10 +821,7 @@ ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wasmer || true
 endif
 endif
-
-package-capi-headless: build-capi-headless package-capi
-
-package-capi-jsc: build-capi-jsc package-capi
+	ls -l package/bin
 
 package-capi:
 	mkdir -p "package/include"
@@ -836,149 +831,93 @@ package-capi:
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
+
 	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
 		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer.dll ;\
 	fi
+	if [ -f "target/$(HOST_TARGET)/release/wasmer.dll" ]; then \
+		cp "target/$(HOST_TARGET)/release/wasmer.dll" package/lib/wasmer.dll ;\
+	fi
+	if [ -f $(TARGET_DIR)/wasmer.dll.lib ]; then \
+		cp $(TARGET_DIR)/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/wasmer.dll.lib" ]; then \
+		cp "target/$(HOST_TARGET)/release/wasmer.dll.lib" package/lib/wasmer.dll.lib ;\
+	fi
+	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
+		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer.lib ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/wasmer.lib" ]; then \
+		cp "target/$(HOST_TARGET)/release/wasmer.lib" package/lib/wasmer.lib ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
+		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer.dylib ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/libwasmer.dylib" ]; then \
+		cp "target/$(HOST_TARGET)/release/libwasmer.dylib" package/lib/libwasmer.dylib ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
+		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer.so ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/libwasmer.so" ]; then \
+		cp "target/$(HOST_TARGET)/release/libwasmer.so" package/lib/libwasmer.so ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
+		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/libwasmer.a" ]; then \
+		cp "target/$(HOST_TARGET)/release/libwasmer.a" package/lib/libwasmer.a ;\
+	fi
+	ls -l package/lib
+
+package-capi-headless:
+	mkdir -p "package/include"
+	mkdir -p "package/lib"
+	mkdir -p "package/winsdk"
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.dll ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll package/lib/wasmer-headless.dll ;\
 	fi
-
 	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.dll ]; then \
 		cp target/headless/$(HOST_TARGET)/release/wasmer.dll package/lib/wasmer-headless.dll ;\
 	fi
-
-	if [ -f $(TARGET_DIR)/wasmer.dll.lib ]; then \
-		cp $(TARGET_DIR)/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
-	fi
-
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib package/lib/wasmer-headless.dll.lib ;\
 	fi
-
 	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.dll.lib ]; then \
 		cp target/headless/$(HOST_TARGET)/release/wasmer.dll.lib package/lib/wasmer-headless.dll.lib ;\
 	fi
-
-	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
-		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer.lib ;\
-	fi
-
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.lib ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.lib package/lib/wasmer-headless.lib ;\
 	fi
-
 	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.lib ]; then \
 		cp target/headless/$(HOST_TARGET)/release/wasmer.lib package/lib/wasmer-headless.lib ;\
 	fi
-
-	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
-		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer.dylib ;\
-	fi
-
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.dylib ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
 	fi
-
 	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.dylib ]; then \
 		cp target/headless/$(HOST_TARGET)/release/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
 	fi
-
-	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
-		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer.so ;\
-	fi
-
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.so ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.so package/lib/libwasmer-headless.so ;\
 	fi
-
 	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.so ]; then \
 		cp target/headless/$(HOST_TARGET)/release/libwasmer.so package/lib/libwasmer-headless.so ;\
 	fi
-
-	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
-		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
-	fi
-
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.a ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.a package/lib/libwasmer-headless.a ;\
 	fi
-
 	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.a ]; then \
 		cp target/headless/$(HOST_TARGET)/release/libwasmer.a package/lib/libwasmer-headless.a ;\
 	fi
-
-	if [ -f target/$(HOST_TARGET)/release/wasmer.dll ]; then \
-		cp target/$(HOST_TARGET)/release/wasmer.dll package/lib/wasmer.dll ;\
-	fi
-
-	if [ -f target/$(HOST_TARGET)/release/wasmer.dll.lib ]; then \
-		cp target/$(HOST_TARGET)/release/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
-	fi
-	if [ -f target/$(HOST_TARGET)/release/wasmer.lib ]; then \
-		cp target/$(HOST_TARGET)/release/wasmer.lib package/lib/wasmer.lib ;\
-	fi
-
-	if [ -f target/$(HOST_TARGET)/release/libwasmer.dylib ]; then \
-		cp target/$(HOST_TARGET)/release/libwasmer.dylib package/lib/libwasmer.dylib ;\
-	fi
-
-	if [ -f target/$(HOST_TARGET)/release/libwasmer.so ]; then \
-		cp target/$(HOST_TARGET)/release/libwasmer.so package/lib/libwasmer.so ;\
-	fi
-	if [ -f target/$(HOST_TARGET)/release/libwasmer.a ]; then \
-		cp target/$(HOST_TARGET)/release/libwasmer.a package/lib/libwasmer.a ;\
-	fi
+	ls -l package/lib
 
 package-docs: build-docs build-docs-capi
 	mkdir -p "package/docs/crates"
 	cp -R target/doc/ package/docs/crates
 	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
-
-package: package-wasmer package-minimal-headless-wasmer package-capi
-
-tar-capi:
-	ls -R package
-	tar -C package -zcvf build-capi.tar.gz lib include winsdk
-
-untar-capi:
-	mkdir -p package
-	mkdir -p target/release
-	mkdir -p target/$(HOST_TARGET)/release
-	tar -C package -xf ./build-capi.tar.gz
-	cp package/lib/* target/release
-	cp package/lib/* target/$(HOST_TARGET)/release
-	mkdir -p target/debug
-	mkdir -p target/$(HOST_TARGET)/debug
-	tar -C package -xf ./build-capi.tar.gz
-	cp package/lib/* target/debug
-	cp package/lib/* target/$(HOST_TARGET)/debug
-	echo "untar capi"
-	ls -R target
-	echo "package"
-	ls -R package
-
-tar-wasmer:
-	ls -R package
-	tar -C package -zcvf build-wasmer.tar.gz bin
-
-untar-wasmer:
-	mkdir -p package
-	mkdir -p target/release
-	mkdir -p target/$(HOST_TARGET)/release
-	tar -C package -xf ./build-wasmer.tar.gz
-	cp package/bin/* target/release
-	cp package/bin/* target/$(HOST_TARGET)/release
-	mkdir -p target/debug
-	mkdir -p target/$(HOST_TARGET)/debug
-	tar -C package -xf ./build-wasmer.tar.gz
-	cp package/bin/* target/debug
-	cp package/bin/* target/$(HOST_TARGET)/debug
-	echo "untar wasmer"
-	ls -R target
-	echo "package"
-	ls -R package
 
 distribution-gnu: package-capi
 	cp LICENSE package/LICENSE
@@ -987,7 +926,8 @@ distribution-gnu: package-capi
 	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
-distribution: package
+# The C API builds are directly packaged in the same CI jobs (otherwise we'll overwrite it).
+distribution: package-wasmer package-minimal-headless-wasmer
 	cp LICENSE package/LICENSE
 	cp docs/ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist

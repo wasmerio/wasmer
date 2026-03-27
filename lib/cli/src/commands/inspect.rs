@@ -69,6 +69,10 @@ impl Inspect {
         for f in module.imports().globals() {
             println!("    \"{}\".\"{}\": {}", f.module(), f.name(), f.ty());
         }
+        println!("  Tags:");
+        for f in module.imports().tags() {
+            println!("    \"{}\".\"{}\": {}", f.module(), f.name(), f.ty());
+        }
         println!("Exports:");
         println!("  Functions:");
         for f in module.exports().functions() {
@@ -84,6 +88,10 @@ impl Inspect {
         }
         println!("  Globals:");
         for f in module.exports().globals() {
+            println!("    \"{}\": {}", f.name(), f.ty());
+        }
+        println!("  Tags:");
+        for f in module.exports().tags() {
             println!("    \"{}\": {}", f.name(), f.ty());
         }
         Ok(())

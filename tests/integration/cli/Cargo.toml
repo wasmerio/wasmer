@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-integration-tests-cli"
-version = "7.0.0-alpha.2"
+version = "7.1.0-rc.3"
 description = "CLI integration tests"
 authors.workspace = true
 repository.workspace = true
@@ -10,13 +10,13 @@ publish = false
 [dev-dependencies]
 rand.workspace = true
 target-lexicon.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["derive"] }
 insta = { workspace = true, features = ["json"] }
 md5.workspace = true
 hex.workspace = true
 pretty_assertions.workspace = true
 object.workspace = true
-reqwest = { workspace = true, default-features = false, features = ["json", "blocking", "rustls-tls"] }
+reqwest = { workspace = true, default-features = false, features = ["json", "blocking", "rustls"] }
 tokio = { workspace = true, features = [ "rt", "rt-multi-thread", "macros", "process" ] }
 assert_cmd.workspace = true
 predicates.workspace = true

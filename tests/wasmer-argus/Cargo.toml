@@ -12,7 +12,7 @@ version.workspace = true
 wasmer_lib = ["dep:wasmer"]
 
 [dependencies]
-wasmer = { version = "7.0.0-alpha.2", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
+wasmer = { version = "7.1.0-rc.3", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
 indicatif.workspace = true
 anyhow.workspace = true
 log.workspace = true
@@ -34,7 +34,7 @@ shared-buffer.workspace = true
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
 reqwest = { workspace = true, default-features = false, features = [
-  "rustls-tls",
+  "rustls",
   "json",
   "multipart",
   "gzip",

@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
 #include <sys/wait.h>
 
@@ -170,6 +169,51 @@ int exec_subprocess()
     return 0;
 }
 
+// =============================================================================
+// pipe2 O_CLOEXEC test
+// =============================================================================
+// BUG: pipe2(O_CLOEXEC) does not set FD_CLOEXEC on the created fds.
+// This causes popen() to hang because the write end of the pipe stays open
+// in child processes after exec, preventing EOF from being received.
+//
+// Workaround: use pipe() + fcntl(fd, F_SETFD, FD_CLOEXEC) instead.
+
+// Test that pipe2(O_CLOEXEC) properly sets FD_CLOEXEC on both pipe fds.
+// This test does NOT require fork/exec - it simply checks the flag.
+int pipe2_cloexec_test()
+{
+    int pipefd[2];
+    if (pipe2(pipefd, O_CLOEXEC) != 0)
+    {
+        perror("pipe2");
+        return 1;
+    }
+    
+    // Check that FD_CLOEXEC is set on the read end
+    if (expect_cloexec_flag(pipefd[0], FD_CLOEXEC) != 0)
+    {
+        fprintf(stderr, "pipe2_cloexec_test: FD_CLOEXEC not set on read end\n");
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return 2;
+    }
+    
+    // Check that FD_CLOEXEC is set on the write end
+    if (expect_cloexec_flag(pipefd[1], FD_CLOEXEC) != 0)
+    {
+        fprintf(stderr, "pipe2_cloexec_test: FD_CLOEXEC not set on write end\n");
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return 3;
+    }
+    
+    close(pipefd[0]);
+    close(pipefd[1]);
+    
+    printf("pipe2_cloexec_test: PASSED\n");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2)
@@ -188,6 +232,10 @@ int main(int argc, char **argv)
     else if (!strcmp(argv[1], "exec_subprocess"))
     {
         return exec_subprocess();
+    }
+    else if (!strcmp(argv[1], "pipe2_cloexec_test"))
+    {
+        return pipe2_cloexec_test();
     }
     else
     {

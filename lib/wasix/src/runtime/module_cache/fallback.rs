@@ -191,7 +191,7 @@ mod tests {
     async fn load_from_primary() {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::xxhash_from_bytes([0; 8]);
+        let key = ModuleHash::from_bytes([0; _]);
         let primary = SharedCache::default();
         let fallback = SharedCache::default();
         primary.save(key, &engine, &module).await.unwrap();
@@ -216,7 +216,7 @@ mod tests {
     async fn loading_from_fallback_also_populates_primary() {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::xxhash_from_bytes([0; 8]);
+        let key = ModuleHash::from_bytes([0; _]);
         let primary = SharedCache::default();
         let fallback = SharedCache::default();
         fallback.save(key, &engine, &module).await.unwrap();
@@ -242,7 +242,7 @@ mod tests {
     async fn saving_will_update_both() {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::xxhash_from_bytes([0; 8]);
+        let key = ModuleHash::from_bytes([0; _]);
         let primary = SharedCache::default();
         let fallback = SharedCache::default();
         let cache = FallbackCache::new(&primary, &fallback);

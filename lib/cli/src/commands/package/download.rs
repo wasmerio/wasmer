@@ -204,7 +204,10 @@ impl PackageDownload {
 
         let b = client
             .get(download_url)
-            .header(http::header::ACCEPT, "application/webc");
+            .header(http::header::ACCEPT, "application/webc")
+            // NOTE: reqwest handles gzip/zstd decoding the response body
+            // automatically when the relevant features are enabled.
+            .header(http::header::ACCEPT_ENCODING, "zstd;q=1.0, gzip;q=0.8");
 
         pb.println(format!(
             "{} {DOWNLOADING_PACKAGE_EMOJI}Downloading package {ident} ...",
@@ -227,11 +230,11 @@ impl PackageDownload {
             .unwrap_or_default();
 
         if webc_total_size == 0 {
-            bail!("Package is empty");
+            // This can happen with Transfer-Encoding: Chunked!
+        } else {
+            // Set the length of the progress bar
+            pb.set_length(webc_total_size);
         }
-
-        // Set the length of the progress bar
-        pb.set_length(webc_total_size);
 
         let mut tmpfile = NamedTempFile::new_in(&out_dir)?;
         let accepted_contenttypes = vec![

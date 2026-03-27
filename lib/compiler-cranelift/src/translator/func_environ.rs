@@ -15,7 +15,7 @@ use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use smallvec::SmallVec;
-use wasmer_compiler::wasmparser::{HeapType, Operator};
+use wasmer_compiler::wasmparser::{AbstractHeapType, HeapType, Operator};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
@@ -423,8 +423,14 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// override this method, then you should also override
     /// `translate_ref_is_null` as well.
     fn translate_ref_null(&mut self, mut pos: FuncCursor, ty: HeapType) -> WasmResult<ir::Value> {
-        let _ = ty;
-        Ok(pos.ins().iconst(self.reference_type(), 0))
+        let ty = match ty {
+            HeapType::Abstract {
+                ty: AbstractHeapType::Exn,
+                ..
+            } => ir::types::I32,
+            _ => self.reference_type(),
+        };
+        Ok(pos.ins().iconst(ty, 0))
     }
 
     /// Translate a `ref.is_null` WebAssembly instruction.

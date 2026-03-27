@@ -163,8 +163,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
 
             instance
                 .memory_grow(memory_index, delta)
-                .map(|pages| pages.0)
-                .unwrap_or(u32::MAX)
+                .map_or(u32::MAX, |pages| pages.0)
         })
     }
 }
@@ -187,8 +186,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
 
             instance
                 .imported_memory_grow(memory_index, delta)
-                .map(|pages| pages.0)
-                .unwrap_or(u32::MAX)
+                .map_or(u32::MAX, |pages| pages.0)
         })
     }
 }

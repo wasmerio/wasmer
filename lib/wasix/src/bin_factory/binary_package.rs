@@ -4,9 +4,7 @@ use anyhow::Context;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
 use virtual_fs::UnionFileSystem;
-use wasmer_config::package::{
-    PackageHash, PackageId, PackageSource, SuggestedCompilerOptimizations,
-};
+use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use wasmer_package::package::Package;
 use webc::Container;
 use webc::compat::SharedBytes;
@@ -26,7 +24,17 @@ pub struct BinaryPackageCommand {
     pub(crate) atom: SharedBytes,
     hash: ModuleHash,
     features: Option<wasmer_types::Features>,
-    pub suggested_compiler_optimizations: SuggestedCompilerOptimizations,
+    /// Package that declares this command in the resolved manifest graph.
+    ///
+    /// This identifies "who owns the command name" (the package that exposes
+    /// the command entry), even if execution uses an atom from another package.
+    package: PackageId,
+    /// Package that provides the module this command actually executes.
+    ///
+    /// Usually this matches `package`. It differs when the command's atom
+    /// annotation points at a dependency, so the command is declared by one
+    /// package but runs code from another package.
+    origin_package: PackageId,
 }
 
 impl BinaryPackageCommand {
@@ -36,7 +44,8 @@ impl BinaryPackageCommand {
         atom: SharedBytes,
         hash: ModuleHash,
         features: Option<wasmer_types::Features>,
-        suggested_compiler_optimizations: SuggestedCompilerOptimizations,
+        package: PackageId,
+        origin_package: PackageId,
     ) -> Self {
         Self {
             name,
@@ -44,7 +53,8 @@ impl BinaryPackageCommand {
             atom,
             hash,
             features,
-            suggested_compiler_optimizations,
+            package,
+            origin_package,
         }
     }
 
@@ -62,8 +72,22 @@ impl BinaryPackageCommand {
         self.atom.clone()
     }
 
+    /// Get a reference to this [`BinaryPackageCommand`]'s atom as a cheap
+    /// clone of the internal OwnedBuffer.
+    pub fn atom_ref(&self) -> &SharedBytes {
+        &self.atom
+    }
+
     pub fn hash(&self) -> &ModuleHash {
         &self.hash
+    }
+
+    pub fn package(&self) -> &PackageId {
+        &self.package
+    }
+
+    pub fn origin_package(&self) -> &PackageId {
+        &self.origin_package
     }
 
     /// Get the WebAssembly features required by this command's module
@@ -215,6 +239,11 @@ impl BinaryPackage {
         self.commands.iter().find(|cmd| cmd.name() == name)
     }
 
+    pub fn get_command_origin_package(&self, name: &str) -> Option<&PackageId> {
+        self.get_command(name)
+            .map(BinaryPackageCommand::origin_package)
+    }
+
     /// Resolve the entrypoint command name to a [`BinaryPackageCommand`].
     pub fn get_entrypoint_command(&self) -> Option<&BinaryPackageCommand> {
         self.entrypoint_cmd
@@ -239,7 +268,7 @@ impl BinaryPackage {
             if let Some(cmd) = self.get_entrypoint_command() {
                 cmd.hash
             } else {
-                ModuleHash::xxhash(self.id.to_string())
+                ModuleHash::new(self.id.to_string())
             }
         })
     }
@@ -383,8 +412,11 @@ mod tests {
 
         assert_eq!(pkg.commands.len(), 1);
         let command = pkg.get_command("cmd").unwrap();
-        let atom_sha256_hash: [u8; 32] = sha2::Sha256::digest(webc.get_atom("foo").unwrap()).into();
-        let module_hash = ModuleHash::sha256_from_bytes(atom_sha256_hash);
+        let atom_sha256_hash = sha2::Sha256::digest(webc.get_atom("foo").unwrap()).into();
+        let module_hash = ModuleHash::from_bytes(atom_sha256_hash);
         assert_eq!(command.hash(), &module_hash);
+        assert_eq!(command.package(), &pkg.id);
+        assert_eq!(pkg.get_command_origin_package("cmd"), Some(&pkg.id));
+        assert_eq!(command.origin_package(), &pkg.id);
     }
 }
