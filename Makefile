@@ -1004,7 +1004,7 @@ lint-packages:
 lint-clang-format:
 	find . -type f \( -name '*.c' -o -name '*.cpp' \) -exec clang-format --dry-run --color -Werror {} +
 lint-yamlfmt:
-	yamlfmt -lint -dstar .github/**/*.{yaml,yml}
+	yamlfmt -lint .github
 
 lint-wasmi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="wasmi-default" --locked -- -D clippy::all
