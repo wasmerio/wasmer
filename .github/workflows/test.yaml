@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - main
+      - edge
       - "with-ci-.*"
-      - "v3.0.x"
-      - "v3.1.x"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -51,7 +50,7 @@ jobs:
 
   lint:
     name: Code lint
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
@@ -67,7 +66,7 @@ jobs:
       - name: Install libtinfo
         shell: bash
         run: |
-          sudo apt install -y libtinfo5
+          sudo apt install -y libtinfo6
       - name: Install LLVM (Linux)
         run: |
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz
@@ -316,8 +315,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         build-what:
           - key: wamr
             lint-cmd: "make lint-wamr"
@@ -337,7 +336,7 @@ jobs:
           - build: macos-arm
             os: depot-macos-14
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
@@ -513,8 +512,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         build-what:
           [
             {
@@ -603,10 +602,10 @@ jobs:
             },
           ]
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-x64
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
@@ -810,8 +809,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        is_pull_request:
-          - ${{ github.event_name == 'pull_request' }}
+        skip_macos:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         stage:
           [
             {
@@ -888,10 +887,10 @@ jobs:
             },
           ]
         exclude:
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-x64
-          - is_pull_request: true
+          - skip_macos: true
             metadata:
               build: macos-arm
     container:

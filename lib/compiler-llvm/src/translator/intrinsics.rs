@@ -28,7 +28,8 @@ use target_lexicon::{Architecture, Triple};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, TableIndex, Type,
+    LocalTableIndex, MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, TableIndex,
+    Type,
 };
 use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
@@ -385,8 +386,13 @@ impl<'ctx> Intrinsics<'ctx> {
         let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
         let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
-        let anyfunc_ty =
-            context.struct_type(&[i8_ptr_ty_basic, i32_ty.into(), ctx_ptr_ty_basic], false);
+        // Keep the LLVM view of `VMCallerCheckedAnyfunc` ABI-compatible with the runtime
+        // layout. `call_indirect` only reads the first three fields, but GEP indexing over
+        // fixed funcref tables still depends on the full element stride.
+        let anyfunc_ty = context.struct_type(
+            &[i8_ptr_ty_basic, i32_ty.into(), ctx_ptr_ty_basic, ptr_ty.into()],
+            false,
+        );
         let funcref_ty = ptr_ty;
         let anyref_ty = ptr_ty;
         let anyref_ty_basic_md: BasicMetadataTypeEnum = anyref_ty.into();
@@ -1754,6 +1760,25 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         Ok((base_ptr, bounds))
     }
 
+    // Return a pointer to the beginning of a local funcref Table (a pointer related to vmctx).
+    pub fn fixed_funcref_table_anyfuncs(
+        &self,
+        index: LocalTableIndex,
+        intrinsics: &Intrinsics<'ctx>,
+        builder: &Builder<'ctx>,
+    ) -> Result<PointerValue<'ctx>, CompileError> {
+        let offset = intrinsics.i64_ty.const_int(
+            self.offsets
+                .vmctx_fixed_funcref_table_anyfuncs(index)
+                .expect("fixed funcref table must have inline VMContext storage")
+                .into(),
+            false,
+        );
+        let ptr =
+            unsafe { err!(builder.build_gep(intrinsics.i8_ty, self.ctx_ptr_value, &[offset], "")) };
+        Ok(err!(builder.build_bit_cast(ptr, intrinsics.ptr_ty, "")).into_pointer_value())
+    }
+
     pub fn global(
         &mut self,
         index: GlobalIndex,
@@ -1774,14 +1799,22 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let global_value_type = global_type.ty;
 
                 let global_mutability = global_type.mutability;
-                let offset = if let Some(local_global_index) = wasm_module.local_global_index(index)
+                let global_ptr = if let Some(local_global_index) =
+                    wasm_module.local_global_index(index)
                 {
-                    offsets.vmctx_vmglobal_definition(local_global_index)
+                    let offset = offsets.vmctx_vmglobal_definition(local_global_index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    unsafe {
+                        err!(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            ctx_ptr_value,
+                            &[offset],
+                            ""
+                        ))
+                    }
                 } else {
-                    offsets.vmctx_vmglobal_import(index)
-                };
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                let global_ptr = {
+                    let offset = offsets.vmctx_vmglobal_import(index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
                     let global_ptr_ptr = unsafe {
                         err!(cache_builder.build_gep(
                             intrinsics.i8_ty,
@@ -1793,16 +1826,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     let global_ptr_ptr =
                         err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
                             .into_pointer_value();
-                    let global_ptr =
-                        err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
-                            .into_pointer_value();
-                    tbaa_label(
-                        module,
-                        intrinsics,
-                        format!("global_ptr {}", index.as_u32()),
-                        global_ptr.as_instruction_value().unwrap(),
-                    );
-                    global_ptr
+                    err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
+                        .into_pointer_value()
                 };
                 let global_ptr =
                     err!(cache_builder.build_bit_cast(global_ptr, intrinsics.ptr_ty, "",))

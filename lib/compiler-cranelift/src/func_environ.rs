@@ -222,71 +222,96 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         }
 
         let pointer_type = self.pointer_type();
-
-        let (ptr, base_offset, current_elements_offset) = {
-            let vmctx = self.vmctx(func);
-            if let Some(def_index) = self.module.local_table_index(index) {
-                let base_offset =
-                    i32::try_from(self.offsets.vmctx_vmtable_definition_base(def_index)).unwrap();
-                let current_elements_offset = i32::try_from(
-                    self.offsets
-                        .vmctx_vmtable_definition_current_elements(def_index),
-                )
-                .unwrap();
-                (vmctx, base_offset, current_elements_offset)
-            } else {
-                let from_offset = self.offsets.vmctx_vmtable_import(index);
-                let table = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: Offset32::new(i32::try_from(from_offset).unwrap()),
-                    global_type: pointer_type,
-                    flags: MemFlags::trusted().with_readonly(),
-                });
-                let base_offset = i32::from(self.offsets.vmtable_definition_base());
-                let current_elements_offset =
-                    i32::from(self.offsets.vmtable_definition_current_elements());
-                (table, base_offset, current_elements_offset)
-            }
-        };
-
         let table = &self.module.tables[index];
-        let element_size = self.reference_type().bytes();
 
-        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: ptr,
-            offset: Offset32::new(base_offset),
-            global_type: pointer_type,
-            flags: if Some(table.minimum) == table.maximum {
-                // A fixed-size table can't be resized so its base address won't
-                // change.
-                MemFlags::trusted().with_readonly()
-            } else {
-                MemFlags::trusted()
-            },
-        });
-
-        let bound = if Some(table.minimum) == table.maximum {
-            TableSize::Static {
-                bound: table.minimum,
-            }
-        } else {
-            TableSize::Dynamic {
-                bound_gv: func.create_global_value(ir::GlobalValueData::Load {
-                    base: ptr,
-                    offset: Offset32::new(current_elements_offset),
-                    global_type: ir::Type::int(
-                        u16::from(self.offsets.size_of_vmtable_definition_current_elements()) * 8,
+        let (base_gv, table_base_offset, bound, element_size, inline_anyfunc) =
+            if let Some(def_index) = self.module.local_table_index(index)
+                && table.is_fixed_funcref_table()
+            {
+                (
+                    self.vmctx(func),
+                    i32::try_from(
+                        self.offsets
+                            .vmctx_fixed_funcref_table_anyfuncs(def_index)
+                            .expect("fixed funcref table must have inline VMContext storage"),
                     )
                     .unwrap(),
-                    flags: MemFlags::trusted(),
-                }),
-            }
-        };
+                    TableSize::Static {
+                        bound: table.minimum,
+                    },
+                    u32::from(self.offsets.size_of_vmcaller_checked_anyfunc()),
+                    true,
+                )
+            } else {
+                let (ptr, base_offset, current_elements_offset) = {
+                    let vmctx = self.vmctx(func);
+                    if let Some(def_index) = self.module.local_table_index(index) {
+                        let base_offset =
+                            i32::try_from(self.offsets.vmctx_vmtable_definition_base(def_index))
+                                .unwrap();
+                        let current_elements_offset = i32::try_from(
+                            self.offsets
+                                .vmctx_vmtable_definition_current_elements(def_index),
+                        )
+                        .unwrap();
+                        (vmctx, base_offset, current_elements_offset)
+                    } else {
+                        let from_offset = self.offsets.vmctx_vmtable_import(index);
+                        let table = func.create_global_value(ir::GlobalValueData::Load {
+                            base: vmctx,
+                            offset: Offset32::new(i32::try_from(from_offset).unwrap()),
+                            global_type: pointer_type,
+                            flags: MemFlags::trusted().with_readonly(),
+                        });
+                        let base_offset = i32::from(self.offsets.vmtable_definition_base());
+                        let current_elements_offset =
+                            i32::from(self.offsets.vmtable_definition_current_elements());
+                        (table, base_offset, current_elements_offset)
+                    }
+                };
+
+                let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+                    base: ptr,
+                    offset: Offset32::new(base_offset),
+                    global_type: pointer_type,
+                    flags: if Some(table.minimum) == table.maximum {
+                        // A fixed-size table can't be resized so its base address won't
+                        // change.
+                        MemFlags::trusted().with_readonly()
+                    } else {
+                        MemFlags::trusted()
+                    },
+                });
+
+                let bound = if Some(table.minimum) == table.maximum {
+                    TableSize::Static {
+                        bound: table.minimum,
+                    }
+                } else {
+                    TableSize::Dynamic {
+                        bound_gv: func.create_global_value(ir::GlobalValueData::Load {
+                            base: ptr,
+                            offset: Offset32::new(current_elements_offset),
+                            global_type: ir::Type::int(
+                                u16::from(
+                                    self.offsets.size_of_vmtable_definition_current_elements(),
+                                ) * 8,
+                            )
+                            .unwrap(),
+                            flags: MemFlags::trusted(),
+                        }),
+                    }
+                };
+
+                (base_gv, 0, bound, self.reference_type().bytes(), false)
+            };
 
         self.tables[index] = Some(TableData {
             base_gv,
+            base_offset: table_base_offset,
             bound,
             element_size,
+            inline_anyfunc,
         });
     }
 
@@ -1263,18 +1288,21 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
         index: ir::Value,
-    ) -> ir::Value {
+    ) -> (ir::Value, bool) {
         let pointer_type = self.pointer_type();
         self.ensure_table_exists(builder.func, table_index);
         let table_data = self.tables[table_index].as_ref().unwrap();
 
-        // To support lazy initialization of table
-        // contents, we check for a null entry here, and
-        // if null, we take a slow-path that invokes a
-        // libcall.
         let (table_entry_addr, flags) =
             table_data.prepare_table_addr(builder, index, pointer_type, false);
-        builder.ins().load(pointer_type, flags, table_entry_addr, 0)
+        if table_data.inline_anyfunc {
+            (table_entry_addr, true)
+        } else {
+            (
+                builder.ins().load(pointer_type, flags, table_entry_addr, 0),
+                false,
+            )
+        }
     }
 }
 
@@ -1538,20 +1566,20 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let (ptr, offset) = {
             let vmctx = self.vmctx(func);
 
-            let from_offset = if let Some(def_index) = self.module.local_global_index(index) {
-                self.offsets.vmctx_vmglobal_definition(def_index)
+            if let Some(def_index) = self.module.local_global_index(index) {
+                let from_offset = self.offsets.vmctx_vmglobal_definition(def_index);
+                let global = func.create_global_value(ir::GlobalValueData::VMContext);
+                (global, i32::try_from(from_offset).unwrap())
             } else {
-                self.offsets.vmctx_vmglobal_import_definition(index)
-            };
-
-            let global = func.create_global_value(ir::GlobalValueData::Load {
-                base: vmctx,
-                offset: Offset32::new(i32::try_from(from_offset).unwrap()),
-                global_type: pointer_type,
-                flags: MemFlags::trusted(),
-            });
-
-            (global, 0)
+                let from_offset = self.offsets.vmctx_vmglobal_import_definition(index);
+                let global = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: Offset32::new(i32::try_from(from_offset).unwrap()),
+                    global_type: pointer_type,
+                    flags: MemFlags::trusted(),
+                });
+                (global, 0)
+            }
         };
 
         Ok(GlobalVariable::Memory {
@@ -1608,15 +1636,18 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let pointer_type = self.pointer_type();
 
         // Get the anyfunc pointer (the funcref) from the table.
-        let anyfunc_ptr = self.get_or_init_funcref_table_elem(builder, table_index, callee);
+        let (anyfunc_ptr, inline_anyfunc) =
+            self.get_or_init_funcref_table_elem(builder, table_index, callee);
 
         // Dereference table_entry_addr to get the function address.
         let mem_flags = ir::MemFlags::trusted();
 
         // check if the funcref is null
-        builder
-            .ins()
-            .trapz(anyfunc_ptr, crate::TRAP_INDIRECT_CALL_TO_NULL);
+        if !inline_anyfunc {
+            builder
+                .ins()
+                .trapz(anyfunc_ptr, crate::TRAP_INDIRECT_CALL_TO_NULL);
+        }
 
         let func_addr = builder.ins().load(
             pointer_type,
@@ -1624,6 +1655,12 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             anyfunc_ptr,
             i32::from(self.offsets.vmcaller_checked_anyfunc_func_ptr()),
         );
+
+        if inline_anyfunc {
+            builder
+                .ins()
+                .trapz(func_addr, crate::TRAP_INDIRECT_CALL_TO_NULL);
+        }
 
         // If necessary, check the signature.
         match self.table_styles[table_index] {

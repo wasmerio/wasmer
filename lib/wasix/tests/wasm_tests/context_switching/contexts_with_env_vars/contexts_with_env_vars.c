@@ -13,7 +13,7 @@ void context1_fn(void) {
   int ret = setenv("CTX_TEST_VAR", "from_context_1", 1);
   assert(ret == 0 && "Failed to set env var in context 1");
 
-  const char *val = getenv("CTX_TEST_VAR");
+  const char* val = getenv("CTX_TEST_VAR");
   assert(val != NULL && "Env var should exist");
   assert(strcmp(val, "from_context_1") == 0 && "Env var should match");
 
@@ -34,7 +34,7 @@ void context1_fn(void) {
 
 void context2_fn(void) {
   // Check that we can see the env var set by context 1
-  const char *val = getenv("CTX_TEST_VAR");
+  const char* val = getenv("CTX_TEST_VAR");
   assert(val != NULL && "Env var should be visible in context 2");
   assert(strcmp(val, "from_context_1") == 0 &&
          "Env var should have context 1's value");
@@ -60,7 +60,7 @@ int main() {
   wasix_context_switch(ctx1);
 
   // Verify env var was cleaned up
-  const char *val = getenv("CTX_TEST_VAR");
+  const char* val = getenv("CTX_TEST_VAR");
   assert(val == NULL && "Env var should be cleaned up");
 
   // Cleanup
