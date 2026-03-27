@@ -249,10 +249,7 @@ impl RuntimeError {
             writeln!(f)?;
             write!(f, "    at ")?;
             match frame.function_name() {
-                Some(name) => match rustc_demangle::try_demangle(name) {
-                    Ok(name) => write!(f, "{name}")?,
-                    Err(_) => write!(f, "{name}")?,
-                },
+                Some(name) => write!(f, "{}", symbolic_demangle::demangle(name))?,
                 None => write!(f, "<unnamed>")?,
             }
             write!(
