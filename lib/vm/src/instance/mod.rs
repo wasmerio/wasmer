@@ -1602,6 +1602,9 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
             return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
+        // Disable read-only check as we're initializing the table.
+        let is_readonly = table.ty().readonly;
+        table.ty_as_mut().readonly = false;
         if let wasmer_types::Type::FuncRef = table.ty().ty {
             for (i, func_idx) in init.elements.iter().enumerate() {
                 let anyfunc = instance.func_ref(*func_idx);
@@ -1622,6 +1625,7 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
                     .unwrap();
             }
         }
+        table.ty_as_mut().readonly = is_readonly;
 
         instance.sync_fixed_funcref_table_by_index(init.table_index);
     }
