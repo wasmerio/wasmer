@@ -20,7 +20,12 @@ struct StoreInterruptState {
     /// The pthread of the thread the store is running on, used to
     /// send the interrupt signal. Note that multiple stores may
     /// be executing WASM code within the same OS thread.
-    pthread: libc::pthread_t,
+    ///
+    /// We store this as a plain integer because `libc::pthread_t` is a raw
+    /// pointer on some Unix targets, which would make the global `DashMap`
+    /// fail its `Send` bounds even though we only treat the value as an opaque
+    /// thread identifier.
+    pthread: usize,
     /// Whether this store was interrupted.
     interrupted: bool,
     /// See comments in [`ThreadInterruptState`].
@@ -89,7 +94,7 @@ pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError>
         // TODO: isn't there a way to get this without reaching for libc APIs?
         // Since stores can't be sent across threads once they start executing code,
         // we don't need to update this value for recursive calls.
-        let pthread = unsafe { libc::pthread_self() };
+        let pthread = unsafe { libc::pthread_self() as usize };
 
         StoreInterruptState {
             pthread,
@@ -179,7 +184,7 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
     store_state.interrupted = true;
 
     unsafe {
-        if libc::pthread_kill(store_state.pthread, libc::SIGUSR1) != 0 {
+        if libc::pthread_kill(store_state.pthread as libc::pthread_t, libc::SIGUSR1) != 0 {
             let errno = *libc::__errno_location();
             let error_str = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
             return Err(InterruptError::FailedToSendSignal(error_str));
