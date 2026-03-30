@@ -257,7 +257,7 @@
 <a href=#257 id=257 data-nosnippet>257</a>            <span class="comment">// We do nothing
 <a href=#258 id=258 data-nosnippet>258</a>        </span>}
 <a href=#259 id=259 data-nosnippet>259</a>        Operator::Unreachable =&gt; {
-<a href=#260 id=260 data-nosnippet>260</a>            builder.ins().trap(<span class="kw">crate</span>::TRAP_UNREACHABLE);
+<a href=#260 id=260 data-nosnippet>260</a>            environ.translate_unreachable(builder)<span class="question-mark">?</span>;
 <a href=#261 id=261 data-nosnippet>261</a>            state.reachable = <span class="bool-val">false</span>;
 <a href=#262 id=262 data-nosnippet>262</a>        }
 <a href=#263 id=263 data-nosnippet>263</a>        <span class="comment">/***************************** Control flow blocks **********************************
