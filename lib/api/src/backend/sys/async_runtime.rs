@@ -42,7 +42,7 @@ type AsyncCallFutureId = u64;
 static NEXT_ASYNC_CALL_FUTURE_ID: AtomicU64 = AtomicU64::new(0);
 
 static ASYNC_CALL_FUTURE_WAKERS: LazyLock<DashMap<StoreId, HashMap<AsyncCallFutureId, Waker>>> =
-    LazyLock::new(|| DashMap::new());
+    LazyLock::new(DashMap::new);
 
 #[allow(clippy::type_complexity)]
 pub(crate) struct AsyncCallFuture {
@@ -189,9 +189,7 @@ impl Future for AsyncCallFuture {
             }
 
             {
-                let mut wakers_entry = ASYNC_CALL_FUTURE_WAKERS
-                    .entry(store_id)
-                    .or_insert_with(Default::default);
+                let mut wakers_entry = ASYNC_CALL_FUTURE_WAKERS.entry(store_id).or_default();
                 wakers_entry.insert(self.id, cx.waker().clone());
             }
 
