@@ -3,7 +3,6 @@
 use std::{
     cell::UnsafeCell,
     ffi::CStr,
-    os::unix::thread::RawPthread,
     sync::{
         Arc, LazyLock,
         atomic::{AtomicUsize, Ordering},
@@ -21,7 +20,7 @@ struct StoreInterruptState {
     /// The pthread of the thread the store is running on, used to
     /// send the interrupt signal. Note that multiple stores may
     /// be executing WASM code within the same OS thread.
-    pthread: RawPthread,
+    pthread: libc::pthread_t,
     /// Whether this store was interrupted.
     interrupted: bool,
     /// See comments in [`ThreadInterruptState`].
