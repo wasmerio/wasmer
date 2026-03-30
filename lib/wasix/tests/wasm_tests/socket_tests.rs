@@ -17,7 +17,7 @@ fn test_pipe_send_recv_compat() {
 
 #[test]
 // https://github.com/wasmerio/wasmer/issues/6366
-#[ignore = "flaky test"]
+#[ignore = "flaky test (#6366)"]
 fn test_socket_pair() {
     let wasm = run_build_script(file!(), "socket-pair").unwrap();
     run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
