@@ -192,7 +192,7 @@ impl VMTable {
     }
 
     /// Returns the type for this Table as mutable.
-    pub fn ty_as_mut(&mut self) -> &mut TableType {
+    pub(crate) fn ty_as_mut(&mut self) -> &mut TableType {
         &mut self.table
     }
 
