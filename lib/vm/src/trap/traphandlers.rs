@@ -9,6 +9,7 @@
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
+use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
@@ -38,11 +39,11 @@ pub struct VMConfig {
 // On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 static MAGIC: u8 = 0xc0;
 
-static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
+static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(ByteSize::mib(1).as_u64() as usize);
 
-/// Maximum allowed default stack size (100 MB) for the process-wide
+/// Maximum allowed default stack size (100 MiB) for the process-wide
 /// configuration set via `set_stack_size`.
-pub const MAX_STACK_SIZE: usize = 100 * 1024 * 1024;
+pub const MAX_STACK_SIZE: usize = ByteSize::mib(100).as_u64() as usize;
 
 // Current definition of `ucontext_t` in the `libc` crate is incorrect
 // on aarch64-apple-drawin so it's defined here with a more accurate definition.
@@ -64,7 +65,10 @@ use libc::ucontext_t;
 /// Sets the process-wide default stack size for new Wasmer coroutines.
 /// The value is clamped to [8 KB, MAX_STACK_SIZE].
 pub fn set_stack_size(size: usize) {
-    DEFAULT_STACK_SIZE.store(size.clamp(8 * 1024, MAX_STACK_SIZE), Ordering::Relaxed);
+    DEFAULT_STACK_SIZE.store(
+        size.clamp(ByteSize::kib(8).as_u64() as usize, MAX_STACK_SIZE),
+        Ordering::Relaxed,
+    );
 }
 
 /// Returns the process-wide default stack size in bytes.
@@ -1113,7 +1117,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
 
     /// The size of the sigaltstack (not including the guard, which will be
     /// added). Make this large enough to run our signal handlers.
-    const MIN_STACK_SIZE: usize = 16 * 4096;
+    const MIN_STACK_SIZE: usize = ByteSize::kib(64).as_u64() as usize;
 
     enum Tls {
         OutOfMemory,
@@ -1215,43 +1219,48 @@ mod tests {
     // they don't step on each other.
     static GLOBAL_STATE: Mutex<()> = Mutex::new(());
 
+    /// Saves the current stack size and restores it on drop (even on panic).
+    struct RestoreStackSize(usize);
+    impl Drop for RestoreStackSize {
+        fn drop(&mut self) {
+            set_stack_size(self.0);
+        }
+    }
+
     #[test]
     fn max_stack_size_is_100mb() {
-        assert_eq!(MAX_STACK_SIZE, 100 * 1024 * 1024);
+        assert_eq!(MAX_STACK_SIZE, ByteSize::mib(100).as_u64() as usize);
     }
 
     #[test]
     fn get_set_stack_size_roundtrip() {
         let _lock = GLOBAL_STATE.lock().unwrap();
-        let original = get_stack_size();
-        let new_size = 4 * 1024 * 1024; // 4 MB
+        let _restore = RestoreStackSize(get_stack_size());
+        let new_size = ByteSize::mib(4).as_u64() as usize;
         set_stack_size(new_size);
         assert_eq!(get_stack_size(), new_size);
-        set_stack_size(original);
     }
 
     #[test]
     fn set_stack_size_clamps_to_min() {
         let _lock = GLOBAL_STATE.lock().unwrap();
-        let original = get_stack_size();
+        let _restore = RestoreStackSize(get_stack_size());
         set_stack_size(1); // way below 8 KB minimum
-        assert_eq!(get_stack_size(), 8 * 1024);
-        set_stack_size(original);
+        assert_eq!(get_stack_size(), ByteSize::kib(8).as_u64() as usize);
     }
 
     #[test]
     fn set_stack_size_clamps_to_max() {
         let _lock = GLOBAL_STATE.lock().unwrap();
-        let original = get_stack_size();
+        let _restore = RestoreStackSize(get_stack_size());
         set_stack_size(usize::MAX);
         assert_eq!(get_stack_size(), MAX_STACK_SIZE);
-        set_stack_size(original);
     }
 
     #[test]
     fn drain_stack_pool_empties_pool() {
         let _lock = GLOBAL_STATE.lock().unwrap();
-        let stack = DefaultStack::new(1024 * 1024).unwrap();
+        let stack = DefaultStack::new(ByteSize::mib(1).as_u64() as usize).unwrap();
         STACK_POOL.push(stack);
         assert!(!STACK_POOL.is_empty());
         drain_stack_pool();
@@ -1278,16 +1287,16 @@ mod tests {
     #[test]
     fn pool_returns_stale_stack_without_drain() {
         let _lock = GLOBAL_STATE.lock().unwrap();
-        let original = get_stack_size();
+        let _restore = RestoreStackSize(get_stack_size());
         drain_stack_pool();
 
         // --- Phase 1: simulate normal execution that returns a 500 KB stack ---
-        let small_size = 500 * 1024;
+        let small_size = ByteSize::kib(500).as_u64() as usize;
         let small_stack = DefaultStack::new(small_size).unwrap();
         STACK_POOL.push(small_stack);
 
         // --- Phase 2: "overflow detected" — caller doubles the default ---
-        let big_size = small_size * 2; // 1 MB
+        let big_size = ByteSize::mib(1).as_u64() as usize;
         set_stack_size(big_size);
         assert_eq!(get_stack_size(), big_size);
 
@@ -1307,7 +1316,5 @@ mod tests {
             STACK_POOL.pop().is_none(),
             "after drain, pool must be empty so a fresh stack is allocated at the new size"
         );
-
-        set_stack_size(original);
     }
 }
