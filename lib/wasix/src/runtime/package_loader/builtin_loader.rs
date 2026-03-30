@@ -876,6 +876,18 @@ mod tests {
         cache_misses_will_trigger_a_download_internal().await
     }
 
+    #[tokio::test]
+    async fn evict_cached_removes_in_memory_container() {
+        let loader = BuiltinPackageLoader::new();
+        let container = from_bytes(PYTHON).unwrap();
+        let hash: WebcHash = [0xaa; 32].into();
+        loader.insert_cached(hash, &container);
+        let evicted = loader.evict_cached(&hash);
+        assert!(evicted.is_some());
+        assert!(!loader.in_memory.0.read().unwrap().contains_key(&hash));
+        assert!(loader.evict_cached(&hash).is_none());
+    }
+
     /// Small helper to construct headers with a given content-encoding.
     fn headers_with_encoding(content_encoding: Option<&str>) -> HeaderMap {
         let mut headers = HeaderMap::new();
