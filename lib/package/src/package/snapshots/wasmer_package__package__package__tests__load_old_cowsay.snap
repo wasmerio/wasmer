@@ -15,11 +15,12 @@ atoms:
     annotations:
       wasm:
         features:
+          - threads
+          - reference-types
           - simd
           - bulk-memory
-          - reference-types
           - multi-value
-          - threads
+          - extended-const
 commands:
   cowsay:
     runner: "https://webc.org/runner/wasi"

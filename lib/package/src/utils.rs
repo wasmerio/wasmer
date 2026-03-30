@@ -129,35 +129,45 @@ fn parse_v3_mmap(f: File) -> Result<Container, ContainerError> {
 pub fn features_to_wasm_annotations(features: &Features) -> Vec<String> {
     let mut feature_strings = Vec::new();
 
+    if features.threads {
+        feature_strings.push("threads".to_string());
+    }
+    if features.reference_types {
+        feature_strings.push("reference-types".to_string());
+    }
     if features.simd {
         feature_strings.push("simd".to_string());
     }
     if features.bulk_memory {
         feature_strings.push("bulk-memory".to_string());
     }
-    if features.reference_types {
-        feature_strings.push("reference-types".to_string());
-    }
     if features.multi_value {
         feature_strings.push("multi-value".to_string());
-    }
-    if features.threads {
-        feature_strings.push("threads".to_string());
-    }
-    if features.exceptions {
-        feature_strings.push("exception-handling".to_string());
-    }
-    if features.memory64 {
-        feature_strings.push("memory64".to_string());
-    }
-    if features.wide_arithmetic {
-        feature_strings.push("wide-arithmetic".to_string());
     }
     if features.tail_call {
         feature_strings.push("tail-call".to_string());
     }
-    // Note: We don't currently include module_linking, multi_memory,
-    // or extended_const in the feature strings
+    if features.module_linking {
+        feature_strings.push("module-linking".to_string());
+    }
+    if features.multi_memory {
+        feature_strings.push("multi-memory".to_string());
+    }
+    if features.memory64 {
+        feature_strings.push("memory64".to_string());
+    }
+    if features.exceptions {
+        feature_strings.push("exception-handling".to_string());
+    }
+    if features.relaxed_simd {
+        feature_strings.push("relaxed-simd".to_string());
+    }
+    if features.extended_const {
+        feature_strings.push("extended-const".to_string());
+    }
+    if features.wide_arithmetic {
+        feature_strings.push("wide-arithmetic".to_string());
+    }
 
     feature_strings
 }
@@ -167,53 +177,50 @@ pub fn features_to_wasm_annotations(features: &Features) -> Vec<String> {
 /// This is the inverse of `features_to_wasm_annotations`, mapping string identifiers
 /// back to Features settings.
 pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
-    let mut features = Features::default();
-
-    // Initialize with default values
-    features
-        .simd(false)
-        .bulk_memory(false)
-        .reference_types(false)
-        .multi_value(false)
-        .threads(false)
-        .exceptions(false)
-        .memory64(false);
+    // Initialize with false values
+    let mut features = Features::none();
 
     // Set features based on the string values
     for feature in feature_strings {
         match feature.as_str() {
+            "threads" => {
+                features.threads(true);
+            }
+            "reference-types" => {
+                features.reference_types(true);
+            }
             "simd" => {
                 features.simd(true);
             }
             "bulk-memory" => {
                 features.bulk_memory(true);
             }
-            "reference-types" => {
-                features.reference_types(true);
-            }
             "multi-value" => {
                 features.multi_value(true);
             }
-            "threads" => {
-                features.threads(true);
+            "tail-call" => {
+                features.tail_call(true);
             }
-            "exception-handling" => {
-                features.exceptions(true);
+            "module-linking" => {
+                features.module_linking(true);
+            }
+            "multi-memory" => {
+                features.multi_memory(true);
             }
             "memory64" => {
                 features.memory64(true);
             }
+            "exception-handling" => {
+                features.exceptions(true);
+            }
             "relaxed-simd" => {
                 features.relaxed_simd(true);
-            }
-            "wide-arithmetic" => {
-                features.wide_arithmetic(true);
             }
             "extended-const" => {
                 features.extended_const(true);
             }
-            "tail-call" => {
-                features.tail_call(true);
+            "wide-arithmetic" => {
+                features.wide_arithmetic(true);
             }
             // Ignore unrecognized features
             _ => {}
@@ -221,4 +228,42 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
     }
 
     features
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{features_to_wasm_annotations, wasm_annotations_to_features};
+    use wasmer_types::Features;
+
+    #[test]
+    fn features_to_wasm_annotations_includes_all_supported_feature_names() {
+        let features = Features::all();
+
+        assert_eq!(
+            features_to_wasm_annotations(&features),
+            vec![
+                "threads",
+                "reference-types",
+                "simd",
+                "bulk-memory",
+                "multi-value",
+                "tail-call",
+                "module-linking",
+                "multi-memory",
+                "memory64",
+                "exception-handling",
+                "relaxed-simd",
+                "extended-const",
+                "wide-arithmetic",
+            ]
+        );
+    }
+
+    #[test]
+    fn wasm_annotations_to_features_round_trips_all_supported_annotations() {
+        let annotations = features_to_wasm_annotations(&Features::all());
+        let parsed = wasm_annotations_to_features(&annotations);
+
+        assert_eq!(parsed, Features::all());
+    }
 }

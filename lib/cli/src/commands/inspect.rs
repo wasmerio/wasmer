@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use bytesize::ByteSize;
 use clap::Parser;
 use wasmer::*;
+use wasmer_package::utils::features_to_wasm_annotations;
 use wasmer_types::target::Target;
 
 #[derive(Debug, Parser)]
@@ -44,7 +45,7 @@ impl Inspect {
             .get_engine_for_module(&module_contents, &Target::default())?;
 
         let module_len = module_contents.len();
-        let module = Module::new(&engine, module_contents)?;
+        let module = Module::new(&engine, &module_contents)?;
         println!(
             "Backend used to parse the module: {}",
             engine.deterministic_id()
@@ -52,6 +53,12 @@ impl Inspect {
 
         println!("Type: {}", if !iswasm { "wat" } else { "wasm" });
         println!("Size: {}", ByteSize(module_len as _));
+        println!("Detected WASM features:");
+        for feature in features_to_wasm_annotations(&wasmer_types::Features::detect_from_wasm(
+            &module_contents,
+        )?) {
+            println!("  {feature}");
+        }
         println!("Imports:");
         println!("  Functions:");
         for f in module.imports().functions() {
