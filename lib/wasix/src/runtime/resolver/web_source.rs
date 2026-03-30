@@ -390,12 +390,10 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../../wasmer-test-files/examples/python-0.1.0.wasmer"
     ));
-    const COREUTILS: &[u8] = include_bytes!(
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
-        )
-    );
+    const COREUTILS: &[u8] = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+    ));
     const DUMMY_URL: &str = "http://my-registry.io/some/package";
     const DUMMY_URL_HASH: &str = "4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D";
 
