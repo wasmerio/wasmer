@@ -393,11 +393,10 @@ mod tests {
     use wasmer_types::{TableStyle, TableType, Type};
 
     #[test]
-    #[should_panic(expected = "attempted to modify a readonly table")]
     fn readonly_table_rejects_grow() {
         let mut ty = TableType::new(Type::FuncRef, 0, Some(0));
         ty.readonly = true;
         let mut table = VMTable::new(&ty, &TableStyle::CallerChecksSignature).unwrap();
-        let _ = table.grow(0, TableElement::FuncRef(None));
+        assert_eq!(table.grow(0, TableElement::FuncRef(None)), None);
     }
 }
