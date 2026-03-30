@@ -63,7 +63,7 @@ struct ucontext_t {
 use libc::ucontext_t;
 
 /// Sets the process-wide default stack size for new Wasmer coroutines.
-/// The value is clamped to [8 KB, MAX_STACK_SIZE].
+/// The value is clamped to [8 KiB, MAX_STACK_SIZE].
 pub fn set_stack_size(size: usize) {
     DEFAULT_STACK_SIZE.store(
         size.clamp(ByteSize::kib(8).as_u64() as usize, MAX_STACK_SIZE),
@@ -1245,7 +1245,7 @@ mod tests {
     fn set_stack_size_clamps_to_min() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
-        set_stack_size(1); // way below 8 KB minimum
+        set_stack_size(1); // way below 8 KiB minimum
         assert_eq!(get_stack_size(), ByteSize::kib(8).as_u64() as usize);
     }
 
@@ -1278,9 +1278,9 @@ mod tests {
     /// The stack pool is not size-aware, so after a stack size increase it keeps
     /// serving cached undersized stacks. `drain_stack_pool()` breaks the cycle.
     ///
-    /// 1. A call fills the pool with 500 KB stacks (simulating normal execution).
-    /// 2. The caller doubles the default to 1 MB (simulating overflow retry).
-    /// 3. WITHOUT draining, the pool still hands back a 500 KB stack — the
+    /// 1. A call fills the pool with 500 KiB stacks (simulating normal execution).
+    /// 2. The caller doubles the default to 1 MiB (simulating overflow retry).
+    /// 3. WITHOUT draining, the pool still hands back a 500 KiB stack — the
     ///    retry would overflow again, creating an infinite loop.
     /// 4. After `drain_stack_pool()`, the pool is empty and the next allocation
     ///    must use the new, larger size.
@@ -1290,7 +1290,7 @@ mod tests {
         let _restore = RestoreStackSize(get_stack_size());
         drain_stack_pool();
 
-        // --- Phase 1: simulate normal execution that returns a 500 KB stack ---
+        // --- Phase 1: simulate normal execution that returns a 500 KiB stack ---
         let small_size = ByteSize::kib(500).as_u64() as usize;
         let small_stack = DefaultStack::new(small_size).unwrap();
         STACK_POOL.push(small_stack);
