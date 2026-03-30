@@ -4,3 +4,6 @@
 [submodule "lib/napi"]
 	path = lib/napi
 	url = https://github.com/wasmerio/napi
+[submodule "wasmer-test-files"]
+	path = wasmer-test-files
+	url = git@github.com:wasmerio/wasmer-test-files.git
