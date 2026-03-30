@@ -7,7 +7,7 @@ expression: snapshot
     "name": null,
     "wasm_hash": "1ed22ea4a1af6d569d6deadc3ba93364",
     "use_packages": [
-      "sharrattj/coreutils"
+      "wasmer/coreutils"
     ],
     "cli_args": [],
     "debug_output": false,

@@ -3,17 +3,14 @@ use crate::{
     config::WasmerEnv,
     utils::load_package_manifest,
 };
+use bytes::Bytes;
 use colored::Colorize;
 use dialoguer::Confirm;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Body;
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-};
-use wasmer_backend_api::WasmerClient;
+use std::path::{Path, PathBuf};
+use wasmer_backend_api::{WasmerClient, query::UploadMethod};
 use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash};
-use wasmer_package::package::Package;
 
 pub mod macros;
 pub mod wait;
@@ -42,7 +39,7 @@ pub(super) async fn upload(
     client: &WasmerClient,
     hash: &PackageHash,
     timeout: humantime::Duration,
-    package: &Package,
+    bytes: Bytes,
     pb: ProgressBar,
     proxy: Option<reqwest::Proxy>,
 ) -> anyhow::Result<String> {
@@ -57,6 +54,7 @@ pub(super) async fn upload(
             Some(hash_str),
             None,
             None,
+            Some(UploadMethod::R2),
         );
 
         match q.await? {
@@ -82,48 +80,6 @@ pub(super) async fn upload(
 
         builder.build().unwrap()
     };
-
-    let res = client
-        .post(&session_uri)
-        .header(reqwest::header::CONTENT_LENGTH, "0")
-        .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
-        .header("x-goog-resumable", "start");
-
-    let result = res.send().await?;
-
-    if result.status() != reqwest::StatusCode::from_u16(201).unwrap() {
-        return Err(anyhow::anyhow!(
-            "Uploading package failed: got HTTP {:?} when uploading",
-            result.status()
-        ));
-    }
-
-    let headers = result
-        .headers()
-        .into_iter()
-        .filter_map(|(k, v)| {
-            let k = k.to_string();
-            let v = v.to_str().ok()?.to_string();
-            Some((k.to_lowercase(), v))
-        })
-        .collect::<BTreeMap<_, _>>();
-
-    let session_uri = headers
-        .get("location")
-        .ok_or_else(|| {
-            anyhow::anyhow!("The upload server did not provide the upload URL correctly")
-        })?
-        .clone();
-
-    tracing::info!("session uri is: {session_uri}");
-    /* XXX: If the package is large this line may result in
-     * a surge in memory use.
-     *
-     * In the future, we might want a way to stream bytes
-     * from the webc instead of a complete in-memory
-     * representation.
-     */
-    let bytes = package.serialize()?;
 
     let total_bytes = bytes.len();
     pb.set_length(total_bytes.try_into().unwrap());
@@ -178,9 +134,63 @@ pub(super) async fn upload(
 // The difference with the `load_package_manifest` is that
 // this function returns an error if no manifest is found.
 pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
+    // Check if the path is a .webc file
+    if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("webc") {
+        return Ok((path.to_path_buf(), get_manifest_from_webc(path)?));
+    }
+
     load_package_manifest(path).and_then(|j| {
         j.ok_or_else(|| anyhow::anyhow!("No valid manifest found in path '{}'", path.display()))
     })
+}
+
+/// Load a manifest from a .webc file
+fn get_manifest_from_webc(path: &Path) -> anyhow::Result<Manifest> {
+    use wasmer_package::utils::from_disk;
+
+    let container = from_disk(path)
+        .map_err(|e| anyhow::anyhow!("Failed to load webc file '{}': {}", path.display(), e))?;
+
+    let webc_manifest = container.manifest();
+
+    // Extract package information from the webc manifest
+    let mut manifest = Manifest::new_empty();
+
+    // Get the wapm annotation which contains package metadata
+    let wapm_annotation = webc_manifest
+        .wapm()
+        .map_err(|e| anyhow::anyhow!("Failed to read package annotation from webc: {e}"))?;
+
+    if let Some(wapm) = wapm_annotation {
+        let mut package = wasmer_config::package::Package::new_empty();
+        package.name = wapm.name;
+        package.version = if let Some(v) = wapm.version {
+            Some(v.parse()?)
+        } else {
+            None
+        };
+        package.description = wapm.description;
+        package.license = wapm.license;
+        package.homepage = wapm.homepage;
+        package.repository = wapm.repository;
+        package.private = wapm.private;
+        package.entrypoint = webc_manifest.entrypoint.clone();
+
+        // Only set the package if at least one field is populated
+        // (Package::from_manifest strips name/version/description from WAPM annotation,
+        // so these might be None even for valid packages)
+        manifest.package = Some(package);
+    } else {
+        // No WAPM annotation found - create an empty package
+        manifest.package = Some(wasmer_config::package::Package::new_empty());
+    }
+
+    // Note: We don't need to extract all the details (modules, commands, fs, etc.)
+    // because those are already in the webc and we won't be rebuilding it.
+    // We only need the package metadata for namespace/name/version extraction.
+    // If these are not present in the webc, users can provide them via CLI flags.
+
+    Ok(manifest)
 }
 
 pub(super) async fn login_user(
@@ -244,4 +254,112 @@ pub(super) fn make_package_url(client: &WasmerClient, pkg: &NamedPackageIdent) -
         pkg.full_name(),
         pkg.version_or_default().to_string().replace('=', "")
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Context;
+    use humantime::Duration as HumanDuration;
+    use indicatif::ProgressBar;
+    use sha2::{Digest, Sha256};
+    use url::Url;
+    use wasmer_package::package::Package;
+
+    #[tokio::test]
+    #[ignore = "Requires WASMER_REGISTRY_URL/WASMER_TOKEN"]
+    async fn test_upload_package_r2() -> anyhow::Result<()> {
+        let registry = std::env::var("WASMER_REGISTRY_URL")
+            .context("set WASMER_REGISTRY_URL to point at the registry GraphQL endpoint")?;
+        let token = std::env::var("WASMER_TOKEN")
+            .context("set WASMER_TOKEN for the registry under test")?;
+        let client = WasmerClient::new(Url::parse(&registry)?, "wasmer-cli-upload-test")?
+            .with_auth_token(token);
+        let pkg_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/old-tar-gz/cowsay-0.3.0.tar.gz");
+        let package = Package::from_tarball_file(&pkg_path)?;
+        let bytes = package.serialize()?;
+        let hash_bytes: [u8; 32] = Sha256::digest(&bytes).into();
+        let hash = PackageHash::from_sha256_bytes(hash_bytes);
+        let pb = ProgressBar::hidden();
+
+        // Upload should succeed
+        let upload_url = upload(
+            &client,
+            &hash,
+            HumanDuration::from(std::time::Duration::from_secs(300)),
+            package.serialize().unwrap(),
+            pb,
+            None,
+        )
+        .await?;
+        assert!(
+            upload_url.starts_with("http"),
+            "upload returned non-url: {upload_url}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_manifest_from_webc() -> anyhow::Result<()> {
+        use tempfile::TempDir;
+        use wasmer_package::package::Package;
+
+        // Create a temporary directory with a test package
+        let temp_dir = TempDir::new()?;
+        let pkg_dir = temp_dir.path();
+
+        // Create wasmer.toml
+        std::fs::write(
+            pkg_dir.join("wasmer.toml"),
+            r#"
+[package]
+name = "test/mypackage"
+version = "0.1.0"
+description = "Test package for webc manifest extraction"
+
+[fs]
+data = "data"
+"#,
+        )?;
+
+        // Create data directory
+        std::fs::create_dir(pkg_dir.join("data"))?;
+        std::fs::write(pkg_dir.join("data/test.txt"), "Hello World")?;
+
+        // Build the package
+        let pkg = Package::from_manifest(pkg_dir.join("wasmer.toml"))?;
+        let webc_bytes = pkg.serialize()?;
+
+        // Write the webc file
+        let webc_path = pkg_dir.join("test.webc");
+        std::fs::write(&webc_path, &webc_bytes)?;
+
+        // Test that we can extract the manifest from the webc file
+        let (path, manifest) = get_manifest(&webc_path)?;
+
+        assert_eq!(path, webc_path);
+        assert!(
+            manifest.package.is_some(),
+            "manifest.package should be present"
+        );
+
+        let package = manifest.package.unwrap();
+
+        // These should be None because Package strips them
+        assert_eq!(
+            package.name, None,
+            "Package name should be None in webc (stripped by Package::from_manifest)"
+        );
+        assert_eq!(
+            package.version, None,
+            "Package version should be None in webc (stripped by Package::from_manifest)"
+        );
+        assert_eq!(
+            package.description, None,
+            "Package description should be None in webc (stripped by Package::from_manifest)"
+        );
+
+        Ok(())
+    }
 }

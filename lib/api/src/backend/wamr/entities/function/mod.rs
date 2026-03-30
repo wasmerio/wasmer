@@ -204,7 +204,7 @@ impl Function {
         let inner = store.inner.store.as_wamr().inner;
 
         let callback: CCallback = unsafe {
-            std::mem::transmute(func.function_callback(crate::BackendKind::Wamr).into_wamr())
+            std::mem::transmute(func.function_callback(crate::BackendKind::Wamr).unwrap_wamr())
         };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
@@ -287,7 +287,7 @@ impl Function {
         let inner = store.inner.store.as_wamr().inner;
 
         let callback: CCallback = unsafe {
-            std::mem::transmute(func.function_callback(crate::BackendKind::Wamr).into_wamr())
+            std::mem::transmute(func.function_callback(crate::BackendKind::Wamr).unwrap_wamr())
         };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
@@ -418,7 +418,7 @@ impl Function {
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
         Self {
-            handle: internal.into_wamr(),
+            handle: internal.unwrap_wamr(),
         }
     }
 

@@ -12,6 +12,7 @@ use futures_util::StreamExt;
 use reqwest::header::CONTENT_TYPE;
 use wasmer_backend_api::{
     WasmerClient,
+    query::UploadMethod,
     types::{AutoBuildDeployAppLogKind, AutobuildLog, DeployAppVersion, Id},
 };
 use wasmer_config::app::AppConfigV1;
@@ -154,6 +155,7 @@ where
         app_name.as_deref(),
         None,
         Some(300),
+        Some(UploadMethod::R2),
     )
     .await
     .map_err(DeployRemoteError::Api)?;

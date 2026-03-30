@@ -13,6 +13,7 @@ mod issues;
 mod metering;
 mod middlewares;
 mod multi_value_imports;
+mod progress;
 mod serialize;
 mod traps;
 mod typed_functions;

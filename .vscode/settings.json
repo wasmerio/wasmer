@@ -1,0 +1,10 @@
+{
+    "rust-analyzer.check.features": [
+        "llvm",
+        "cranelift",
+        "singlepass",
+        "wasmer-artifact-create",
+        "wasmer-artifact-load",
+        "napi-v8"
+    ]
+}

@@ -1,0 +1,16 @@
+name: Load Rust Toolchain
+description: Load Rust toolchain from rust-toolchain file
+outputs:
+  rust_toolchain:
+    description: The loaded Rust toolchain
+    value: ${{ steps.load_toolchain.outputs.rust_toolchain }}
+runs:
+  using: composite
+  steps:
+    - name: Load toolchain
+      id: load_toolchain
+      shell: sh
+      run: |
+        # TODO: Actually parse this from Cargo.toml
+        rust_toolchain=$(grep channel rust-toolchain.toml | cut -f2 -d'"')
+        echo "rust_toolchain=$rust_toolchain" >> $GITHUB_OUTPUT

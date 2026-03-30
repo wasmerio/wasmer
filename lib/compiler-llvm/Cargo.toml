@@ -14,12 +14,12 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0", features = [
+wasmer-compiler = { path = "../compiler", version = "=7.1.0", features = [
 	"translator",
 	"compiler",
 ] }
-wasmer-vm = { path = "../vm", version = "=6.1.0" }
-wasmer-types = { path = "../types", version = "=6.1.0" }
+wasmer-vm = { path = "../vm", version = "=7.1.0" }
+wasmer-types = { path = "../types", version = "=7.1.0" }
 target-lexicon.workspace = true
 smallvec.workspace = true
 object = { workspace = true, features = ["read"] }
@@ -29,6 +29,7 @@ itertools.workspace = true
 rayon.workspace = true
 phf = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, features = ["log"] }
+enumset.workspace = true
 inkwell = { workspace = true, features = [
 	"llvm21-1-prefer-static",
 	"target-x86",
@@ -36,6 +37,8 @@ inkwell = { workspace = true, features = [
 	"target-riscv",
 	"target-loongarch",
 ] }
+crossbeam-channel.workspace = true
+enum-iterator.workspace = true
 
 [build-dependencies]
 cc.workspace = true

@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 use toml;
 
-use wasmer_backend_api::WasmerClient;
+use wasmer_backend_api::{WasmerClient, query::UploadMethod};
 use wasmer_config::package::{Manifest, NamedPackageId, PackageHash, PackageIdent};
 use wasmer_package::package::{Package, WalkBuilderFactory};
 
@@ -201,6 +201,7 @@ where
             Some(hash_string.trim_start_matches("sha256:")),
             None,
             None,
+            Some(UploadMethod::R2),
         )
         .await
         .map_err(PackagePublishError::Api)?

@@ -1,4 +1,5 @@
 use crate::compiler::LLVMCompiler;
+use enum_iterator::Sequence;
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
@@ -37,22 +38,47 @@ impl LLVMCallbacks {
         Ok(Self { debug_dir })
     }
 
-    pub fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
+    fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
+        if let Some(hash) = module_hash {
+            path.push(hash);
+        }
+        std::fs::create_dir_all(&path)
+            .unwrap_or_else(|_| panic!("cannot create debug directory: {}", path.display()));
+        path
+    }
+
+    pub fn preopt_ir(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        module: &InkwellModule,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".preopt.ll"));
         module
             .print_to_file(&path)
             .expect("Error while dumping pre optimized LLVM IR");
     }
-    pub fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
-        let mut path = self.debug_dir.clone();
+    pub fn postopt_ir(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        module: &InkwellModule,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".postopt.ll"));
         module
             .print_to_file(&path)
             .expect("Error while dumping post optimized LLVM IR");
     }
-    pub fn obj_memory_buffer(&self, kind: &CompiledKind, memory_buffer: &InkwellMemoryBuffer) {
-        let mut path = self.debug_dir.clone();
+    pub fn obj_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        memory_buffer: &InkwellMemoryBuffer,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".o"));
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file =
@@ -60,8 +86,13 @@ impl LLVMCallbacks {
         file.write_all(mem_buf_slice).unwrap();
     }
 
-    pub fn asm_memory_buffer(&self, kind: &CompiledKind, asm_memory_buffer: &InkwellMemoryBuffer) {
-        let mut path = self.debug_dir.clone();
+    pub fn asm_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        module_hash: &Option<String>,
+        asm_memory_buffer: &InkwellMemoryBuffer,
+    ) {
+        let mut path = self.base_path(module_hash);
         path.push(function_kind_to_filename(kind, ".s"));
         let mem_buf_slice = asm_memory_buffer.as_slice();
         let mut file =
@@ -73,7 +104,7 @@ impl LLVMCallbacks {
 #[derive(Debug, Clone)]
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
-    pub(crate) enable_g0m0_opt: bool,
+    pub(crate) enable_non_volatile_memops: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) opt_level: LLVMOptLevel,
@@ -83,6 +114,14 @@ pub struct LLVM {
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     /// Number of threads to use when compiling a module.
     pub(crate) num_threads: NonZero<usize>,
+    pub(crate) verbose_asm: bool,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Sequence)]
+pub(crate) enum OptimizationStyle {
+    ForSpeed,
+    ForSize,
+    Disabled,
 }
 
 impl LLVM {
@@ -91,13 +130,14 @@ impl LLVM {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: false,
+            enable_non_volatile_memops: false,
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
             callbacks: None,
             middlewares: vec![],
-            enable_g0m0_opt: false,
+            verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
     }
@@ -108,16 +148,13 @@ impl LLVM {
         self
     }
 
-    /// (warning: experimental) Pass the value of the first (#0) global and the base pointer of the
-    /// first (#0) memory as parameter between guest functions.
-    pub fn enable_pass_params_opt(&mut self) -> &mut Self {
-        // internally, the "pass_params" opt is known as g0m0 opt.
-        self.enable_g0m0_opt = true;
+    pub fn num_threads(&mut self, num_threads: NonZero<usize>) -> &mut Self {
+        self.num_threads = num_threads;
         self
     }
 
-    pub fn num_threads(&mut self, num_threads: NonZero<usize>) -> &mut Self {
-        self.num_threads = num_threads;
+    pub fn verbose_asm(&mut self, verbose_asm: bool) -> &mut Self {
+        self.verbose_asm = verbose_asm;
         self
     }
 
@@ -125,6 +162,13 @@ impl LLVM {
     /// phases in LLVM.
     pub fn callbacks(&mut self, callbacks: Option<LLVMCallbacks>) -> &mut Self {
         self.callbacks = callbacks;
+        self
+    }
+
+    /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
+    /// (but are not 100% SPEC compliant).
+    pub fn non_volatile_memops(&mut self, enable_non_volatile_memops: bool) -> &mut Self {
+        self.enable_non_volatile_memops = enable_non_volatile_memops;
         self
     }
 
@@ -214,13 +258,13 @@ impl LLVM {
 
     /// Generates the target machine for the current target
     pub fn target_machine(&self, target: &Target) -> TargetMachine {
-        self.target_machine_with_opt(target, true)
+        self.target_machine_with_opt(target, OptimizationStyle::ForSpeed)
     }
 
     pub(crate) fn target_machine_with_opt(
         &self,
         target: &Target,
-        enable_optimization: bool,
+        opt_style: OptimizationStyle,
     ) -> TargetMachine {
         let triple = target.triple();
         let cpu_features = &target.cpu_features();
@@ -244,14 +288,16 @@ impl LLVM {
                 info: true,
                 machine_code: true,
             }),
-            Architecture::Riscv64(_) => InkwellTarget::initialize_riscv(&InitializationConfig {
-                asm_parser: true,
-                asm_printer: true,
-                base: true,
-                disassembler: true,
-                info: true,
-                machine_code: true,
-            }),
+            Architecture::Riscv64(_) | Architecture::Riscv32(_) => {
+                InkwellTarget::initialize_riscv(&InitializationConfig {
+                    asm_parser: true,
+                    asm_printer: true,
+                    base: true,
+                    disassembler: true,
+                    info: true,
+                    machine_code: true,
+                })
+            }
             Architecture::LoongArch64 => {
                 InkwellTarget::initialize_loongarch(&InitializationConfig {
                     asm_parser: true,
@@ -262,14 +308,6 @@ impl LLVM {
                     machine_code: true,
                 })
             }
-            // Architecture::Arm(_) => InkwellTarget::initialize_arm(&InitializationConfig {
-            //     asm_parser: true,
-            //     asm_printer: true,
-            //     base: true,
-            //     disassembler: true,
-            //     info: true,
-            //     machine_code: true,
-            // }),
             _ => unimplemented!("target {} not yet supported in Wasmer", triple),
         }
 
@@ -286,30 +324,36 @@ impl LLVM {
         let mut llvm_target_machine_options = TargetMachineOptions::new()
             .set_cpu(match triple.architecture {
                 Architecture::Riscv64(_) => "generic-rv64",
+                Architecture::Riscv32(_) => "generic-rv32",
                 Architecture::LoongArch64 => "generic-la64",
                 _ => "generic",
             })
             .set_features(match triple.architecture {
                 Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
+                Architecture::Riscv32(_) => "+m,+a,+c,+d,+f",
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
-            .set_level(if enable_optimization {
-                self.opt_level
-            } else {
-                LLVMOptLevel::None
+            .set_level(match opt_style {
+                OptimizationStyle::ForSpeed => self.opt_level,
+                OptimizationStyle::ForSize => LLVMOptLevel::Less,
+                OptimizationStyle::Disabled => LLVMOptLevel::None,
             })
             .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
             .set_code_model(match triple.architecture {
-                Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
+                Architecture::LoongArch64 | Architecture::Riscv64(_) | Architecture::Riscv32(_) => {
+                    CodeModel::Medium
+                }
                 _ => self.code_model(self.target_binary_format(target)),
             });
         if let Architecture::Riscv64(_) = triple.architecture {
             llvm_target_machine_options = llvm_target_machine_options.set_abi("lp64d");
         }
-        llvm_target
+        let target_machine = llvm_target
             .create_target_machine_from_options(&target_triple, llvm_target_machine_options)
-            .unwrap()
+            .unwrap();
+        target_machine.set_asm_verbosity(self.verbose_asm);
+        target_machine
     }
 }
 
@@ -330,6 +374,12 @@ impl CompilerConfig for LLVM {
         self.enable_verifier = true;
     }
 
+    /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
+    /// (but are not 100% SPEC compliant).
+    fn enable_non_volatile_memops(&mut self) {
+        self.enable_non_volatile_memops = true;
+    }
+
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
     }
@@ -347,6 +397,9 @@ impl CompilerConfig for LLVM {
     fn supported_features_for_target(&self, _target: &Target) -> wasmer_types::Features {
         let mut feats = Features::default();
         feats.exceptions(true);
+        feats.relaxed_simd(true);
+        feats.wide_arithmetic(true);
+        feats.tail_call(true);
         feats
     }
 }

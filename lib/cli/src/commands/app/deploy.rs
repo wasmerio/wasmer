@@ -12,14 +12,18 @@ use crate::{
 use anyhow::Context;
 use bytesize::ByteSize;
 use colored::Colorize;
+use comfy_table::{ContentArrangement, Table, presets::UTF8_FULL};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use indexmap::IndexMap;
 use std::io::IsTerminal as _;
 use std::io::Write;
 use std::{path::Path, path::PathBuf, str::FromStr, time::Duration};
+use time::{Duration as TimeDuration, OffsetDateTime, format_description};
 use wasmer_backend_api::{
     WasmerClient,
-    types::{AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion},
+    types::{
+        AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion, DeployDeployAppPerishReasonChoices,
+    },
 };
 use wasmer_config::{
     app::AppConfigV1,
@@ -1008,18 +1012,6 @@ pub struct DeployAppOpts<'a> {
     pub wait: WaitMode,
 }
 
-fn format_autobuild_kind(kind: AutoBuildDeployAppLogKind) -> &'static str {
-    match kind {
-        AutoBuildDeployAppLogKind::Log => "log",
-        AutoBuildDeployAppLogKind::PreparingToDeployStatus => "prepare",
-        AutoBuildDeployAppLogKind::FetchingPlanStatus => "plan",
-        AutoBuildDeployAppLogKind::BuildStatus => "build",
-        AutoBuildDeployAppLogKind::DeployStatus => "deploy",
-        AutoBuildDeployAppLogKind::Complete => "complete",
-        AutoBuildDeployAppLogKind::Failed => "failed",
-    }
-}
-
 fn remote_progress_handler(quiet: bool) -> impl FnMut(DeployRemoteEvent) {
     move |event| {
         if quiet {
@@ -1062,20 +1054,21 @@ fn remote_progress_handler(quiet: bool) -> impl FnMut(DeployRemoteEvent) {
                 eprintln!("Requesting remote build...");
             }
             DeployRemoteEvent::StreamingAutobuildLogs { build_id } => {
-                eprintln!("Streaming autobuild logs (build id {build_id})");
+                eprintln!("Streaming build logs (build id: {build_id})");
             }
             DeployRemoteEvent::AutobuildLog { log } => {
                 let kind = log.kind;
+                let datetime = format_autobuild_datetime(&log.datetime);
                 let message = log.message;
 
                 if let Some(msg) = message {
-                    eprintln!("[{}] {}", format_autobuild_kind(kind), msg);
+                    eprintln!("{}  {}", datetime.dimmed(), msg);
                 } else if matches!(kind, AutoBuildDeployAppLogKind::Complete) {
-                    eprintln!("[{}] complete", format_autobuild_kind(kind));
+                    eprintln!("Streaming build logs complete");
                 }
             }
             DeployRemoteEvent::Finished => {
-                eprintln!("Remote autobuild finished successfully.\n");
+                eprintln!("Remote build finished successfully.\n");
             }
             _ => {
                 eprintln!("Unknown event: {event:?}");
@@ -1148,14 +1141,22 @@ pub async fn wait_app(
 
     if !quiet {
         eprintln!(
-            "App {} ({}) was successfully deployed 🚀",
-            app.name.bold(),
-            app.owner.global_name.bold()
+            "{}",
+            format!(
+                "{} App {} ({}) deployed successfully.",
+                "✔".green(),
+                app.name,
+                app.owner.global_name,
+            )
+            .bold()
         );
-        eprintln!("{}", app.url.blue().bold().underline());
         eprintln!();
-        eprintln!("→ Unique URL: {}", version.url);
-        eprintln!("→ Dashboard:  {}", app.admin_url);
+        eprintln!("Live:    {}", app.url.blue().bold().underline());
+        eprintln!("Manage:  {}", app.admin_url);
+
+        if let Some(banner) = build_perish_banner(&app) {
+            eprintln!("\n{}", banner.yellow().bold());
+        }
     }
 
     match wait {
@@ -1265,6 +1266,83 @@ pub async fn wait_app(
     Ok((app, version))
 }
 
+fn build_perish_banner(app: &DeployApp) -> Option<String> {
+    let perish_reason = app.perish_reason?;
+    let will_perish_at = app.will_perish_at.as_ref()?;
+    let time_left = format_time_left(will_perish_at)?;
+    let mut banner = format!("⚠️ Your site will be live for {time_left}.");
+
+    if let Some(link) = perish_reason_link(perish_reason, app.id.inner()) {
+        banner.push('\n');
+        banner.push_str(&link);
+    }
+
+    let mut table = Table::new();
+    table.load_preset(UTF8_FULL);
+    table.set_content_arrangement(ContentArrangement::Dynamic);
+    table.add_row(vec![banner]);
+
+    Some(table.to_string())
+}
+
+fn format_time_left(will_perish_at: &wasmer_backend_api::types::DateTime) -> Option<String> {
+    let will_perish_at = OffsetDateTime::try_from(will_perish_at.clone()).ok()?;
+    let now = OffsetDateTime::now_utc();
+    let remaining = will_perish_at - now;
+    let remaining = if remaining.is_negative() {
+        TimeDuration::ZERO
+    } else {
+        remaining
+    };
+
+    Some(format_duration_words(remaining))
+}
+
+fn format_autobuild_datetime(datetime: &wasmer_backend_api::types::DateTime) -> String {
+    let format = format_description::parse(
+        "[month repr:short] [day padding:none] [hour]:[minute]:[second].[subsecond digits:3]",
+    );
+    let Ok(format) = format else {
+        return datetime.0.clone();
+    };
+
+    OffsetDateTime::try_from(datetime.clone())
+        .ok()
+        .and_then(|value| value.format(&format).ok())
+        .unwrap_or_else(|| datetime.0.clone())
+}
+
+fn format_duration_words(duration: TimeDuration) -> String {
+    if duration >= TimeDuration::DAY {
+        let days = duration.whole_days();
+        format!("{days} day{}", if days == 1 { "" } else { "s" })
+    } else if duration >= TimeDuration::HOUR {
+        let hours = duration.whole_hours();
+        format!("{hours} hour{}", if hours == 1 { "" } else { "s" })
+    } else if duration >= TimeDuration::MINUTE {
+        let minutes = duration.whole_minutes();
+        format!("{minutes} minute{}", if minutes == 1 { "" } else { "s" })
+    } else {
+        let seconds = duration.whole_seconds();
+        format!("{seconds} second{}", if seconds == 1 { "" } else { "s" })
+    }
+}
+
+fn perish_reason_link(
+    perish_reason: DeployDeployAppPerishReasonChoices,
+    app_id: &str,
+) -> Option<String> {
+    match perish_reason {
+        DeployDeployAppPerishReasonChoices::AppUnclaimed => Some(format!(
+            "Claim it to keep it online: https://wasmer.io/apps/claim/{app_id}"
+        )),
+        DeployDeployAppPerishReasonChoices::UserPendingVerification => {
+            Some("Verify now to keep it online: https://wasmer.io/verify".to_string())
+        }
+        DeployDeployAppPerishReasonChoices::UserRequested => None,
+    }
+}
+
 pub fn app_config_from_api(version: &DeployAppVersion) -> Result<AppConfigV1, anyhow::Error> {
     let app_id = version
         .app
@@ -1280,4 +1358,45 @@ pub fn app_config_from_api(version: &DeployAppVersion) -> Result<AppConfigV1, an
 
     cfg.app_id = Some(app_id);
     Ok(cfg)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_duration_words;
+    use time::Duration as TimeDuration;
+
+    #[test]
+    fn format_duration_words_seconds() {
+        assert_eq!(format_duration_words(TimeDuration::ZERO), "0 seconds");
+        assert_eq!(format_duration_words(TimeDuration::seconds(1)), "1 second");
+        assert_eq!(
+            format_duration_words(TimeDuration::seconds(59)),
+            "59 seconds"
+        );
+    }
+
+    #[test]
+    fn format_duration_words_minutes() {
+        assert_eq!(format_duration_words(TimeDuration::seconds(60)), "1 minute");
+        assert_eq!(format_duration_words(TimeDuration::seconds(61)), "1 minute");
+        assert_eq!(format_duration_words(TimeDuration::minutes(2)), "2 minutes");
+    }
+
+    #[test]
+    fn format_duration_words_hours() {
+        assert_eq!(format_duration_words(TimeDuration::minutes(60)), "1 hour");
+        assert_eq!(format_duration_words(TimeDuration::minutes(119)), "1 hour");
+        assert_eq!(format_duration_words(TimeDuration::hours(5)), "5 hours");
+    }
+
+    #[test]
+    fn format_duration_words_days() {
+        assert_eq!(format_duration_words(TimeDuration::hours(24)), "1 day");
+        assert_eq!(format_duration_words(TimeDuration::hours(47)), "1 day");
+        assert_eq!(format_duration_words(TimeDuration::days(3)), "3 days");
+        assert_eq!(
+            format_duration_words(TimeDuration::days(4) - TimeDuration::SECOND),
+            "3 days"
+        );
+    }
 }

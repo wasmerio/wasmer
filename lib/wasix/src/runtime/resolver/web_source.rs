@@ -1,5 +1,4 @@
 use std::{
-    fmt::Write as _,
     io::Write,
     path::{Path, PathBuf},
     sync::Arc,
@@ -276,12 +275,7 @@ fn sha256(bytes: &[u8]) -> String {
     let mut hasher = Sha256::default();
     hasher.update(bytes);
     let hash = hasher.finalize();
-    let mut buffer = String::with_capacity(hash.len() * 2);
-    for byte in hash {
-        write!(buffer, "{byte:02X}").expect("Unreachable");
-    }
-
-    buffer
+    hex::encode_upper(hash)
 }
 
 #[derive(Debug, Clone, PartialEq)]

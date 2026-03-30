@@ -1,7 +1,7 @@
 //! Common module with common used structures across different
 //! commands.
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 
 #[derive(Debug, Parser, Clone, Default)]
 /// The WebAssembly features that can be passed through the
@@ -38,23 +38,4 @@ pub struct WasmFeatures {
 
 pub(crate) fn normalize_path(s: &str) -> String {
     s.strip_prefix(r"\\?\").unwrap_or(s).to_string()
-}
-
-/// Hashing algorithm to be used for the module info
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum, Default)]
-pub enum HashAlgorithm {
-    /// Sha256
-    #[default]
-    Sha256,
-    /// XXHash
-    XXHash,
-}
-
-impl From<HashAlgorithm> for wasmer_types::HashAlgorithm {
-    fn from(value: HashAlgorithm) -> Self {
-        match value {
-            HashAlgorithm::Sha256 => wasmer_types::HashAlgorithm::Sha256,
-            HashAlgorithm::XXHash => wasmer_types::HashAlgorithm::XXHash,
-        }
-    }
 }

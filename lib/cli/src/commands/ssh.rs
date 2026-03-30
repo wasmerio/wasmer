@@ -116,7 +116,7 @@ impl AsyncCliCommand for CmdSsh {
         if self.print {
             print!("ssh");
             for arg in cmd.get_args() {
-                print!(" {}", arg.to_string_lossy().as_ref());
+                print!(" {}", arg.to_string_lossy());
             }
             println!();
             return Ok(());

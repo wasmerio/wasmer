@@ -18,7 +18,6 @@ import itertools
 import os
 import re
 import subprocess
-import time
 import sys
 import typing
 from pprint import pprint
@@ -121,37 +120,46 @@ class Publisher:
             version = data["workspace"]["package"]["version"]
         self.version: str = version
 
-        if self.verbose and not self.dry_run:
-            print(f"Publishing version {self.version}")
-        elif self.verbose and self.dry_run:
-            print(f"Publishing version {self.version} dry run!")
+        if self.verbose:
+            if self.dry_run:
+                print(f"Publishing version {self.version} dry run!")
+            else:
+                print(f"Publishing version {self.version}")
 
-        print(data["dependencies"])
-        print("wasmer-package" in data["workspace"]["dependencies"])
+            print("Dependencies:")
+            print(data["dependencies"])
 
-        check_local_workspace_dep = lambda t: \
-            (t[0] in data["dependencies"] and \
-             isinstance(data["dependencies"][t[0]], dict) and \
-             "path" in data["dependencies"][t[0]]) or \
-            (t[0] in data["workspace"]["dependencies"] and \
-             isinstance(data["workspace"]["dependencies"][t[0]], dict) and \
-             "path" in data["workspace"]["dependencies"][t[0]])
+        def check_local_workspace_dep(t):
+            return (
+                t[0] in data["dependencies"]
+                and isinstance(data["dependencies"][t[0]], dict)
+                and "path" in data["dependencies"][t[0]]
+            ) or (
+                t[0] in data["workspace"]["dependencies"]
+                and isinstance(data["workspace"]["dependencies"][t[0]], dict)
+                and "path" in data["workspace"]["dependencies"][t[0]]
+            )
 
         # define helper function
-        check_local_dep_fn = lambda t: \
-            isinstance(t[1], dict) and \
-            ("path" in t[1] or \
-             "workspace" in t[1] and t[1]["workspace"] is True and \
-             check_local_workspace_dep(t))
-                
+        def check_local_dep_fn(t):
+            return isinstance(t[1], dict) and (
+                "path" in t[1]
+                or "workspace" in t[1]
+                and t[1]["workspace"] is True
+                and check_local_workspace_dep(t)
+            )
+
         members = set(
             map(
                 lambda p: p + "/Cargo.toml",
                 filter(
                     lambda path: (
-                        path.startswith("lib/") and os.path.exists(path + "/Cargo.toml")
-                    )
-                    or path in SETTINGS["non-lib-workspace-members"],
+                        (
+                            path.startswith("lib/")
+                            and os.path.exists(path + "/Cargo.toml")
+                        )
+                        or path in SETTINGS["non-lib-workspace-members"]
+                    ),
                     itertools.chain(
                         data["workspace"]["members"],
                         map(
@@ -176,9 +184,11 @@ class Publisher:
                         acc.update(
                             list(
                                 map(
-                                    lambda dep: dep[1]["package"]
-                                    if "package" in dep[1]
-                                    else dep[0],
+                                    lambda dep: (
+                                        dep[1]["package"]
+                                        if "package" in dep[1]
+                                        else dep[0]
+                                    ),
                                     filter(
                                         check_local_dep_fn, toml["dependencies"].items()
                                     ),
@@ -189,11 +199,14 @@ class Publisher:
                         acc.update(
                             list(
                                 map(
-                                    lambda dep: dep[1]["package"]
-                                    if "package" in dep[1]
-                                    else dep[0],
+                                    lambda dep: (
+                                        dep[1]["package"]
+                                        if "package" in dep[1]
+                                        else dep[0]
+                                    ),
                                     filter(
-                                        check_local_dep_fn, toml["dev-dependencies"].items()
+                                        check_local_dep_fn,
+                                        toml["dev-dependencies"].items(),
                                     ),
                                 )
                             )
@@ -234,7 +247,7 @@ class Publisher:
 
         if self.version == found_string:
             return True
-        
+
         crate = self.crate_index[crate_name]
         with open(crate.path + "/Cargo.toml", "rb") as file:
             data = tomllib.load(file)
@@ -292,8 +305,8 @@ class Publisher:
         status = {}
         failures = 0
 
-        for crate_name in self.publish_order:
-            print(f"Publishing `{crate_name}`...")
+        for i, crate_name in enumerate(self.publish_order):
+            print(f"Publishing `{crate_name}` ({i + 1}/{len(self.publish_order)}) ...")
             if not self.is_crate_already_published(crate_name):
                 status[crate_name] = self.publish_crate(crate_name)
                 if status[crate_name]:

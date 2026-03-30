@@ -1,6 +1,6 @@
 #!/bin/bash
 
-$WASMER_RUN main.wasm --mapdir=/tmp:. > output
+$WASMER_RUN main.wasm --volume=.:/tmp > output
 
 printf "0" | diff -u output - 1>/dev/null && \
 rmdir my_test_dir 2>/dev/null

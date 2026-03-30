@@ -163,8 +163,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
 
             instance
                 .memory_grow(memory_index, delta)
-                .map(|pages| pages.0)
-                .unwrap_or(u32::MAX)
+                .map_or(u32::MAX, |pages| pages.0)
         })
     }
 }
@@ -187,8 +186,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
 
             instance
                 .imported_memory_grow(memory_index, delta)
-                .map(|pages| pages.0)
-                .unwrap_or(u32::MAX)
+                .map_or(u32::MAX, |pages| pages.0)
         })
     }
 }
@@ -244,14 +242,9 @@ pub unsafe extern "C" fn wasmer_vm_table_copy(
         let result = {
             let dst_table_index = TableIndex::from_u32(dst_table_index);
             let src_table_index = TableIndex::from_u32(src_table_index);
-            if dst_table_index == src_table_index {
-                let table = (*vmctx).instance_mut().get_table(dst_table_index);
-                table.copy_within(dst, src, len)
-            } else {
-                let dst_table = (*vmctx).instance_mut().get_table(dst_table_index);
-                let src_table = (*vmctx).instance_mut().get_table(src_table_index);
-                dst_table.copy(src_table, dst, src, len)
-            }
+            (*vmctx)
+                .instance_mut()
+                .table_copy(dst_table_index, src_table_index, dst, src, len)
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);

@@ -13,7 +13,7 @@ version.workspace = true
 proc-macro = true
 
 [dependencies]
-syn = { workspace = true, features = ["full", "extra-traits", "derive", "parsing", "proc-macro"] }
+syn = { workspace = true, features = ["full", "extra-traits", "derive", "parsing", "proc-macro", "printing"] }
 quote.workspace = true
 proc-macro2.workspace = true
 proc-macro-error2.workspace = true

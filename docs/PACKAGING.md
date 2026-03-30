@@ -31,6 +31,11 @@
     result in a headless Wasmer binary that can not compile Wasm files
     directly.
 
+* For reproducible builds, set `WASMER_REPRODUCIBLE_BUILD=1` in the
+  build environment. This strips the build timestamp from
+  `wasmer --version -v` by omitting the verbose `commit-date:` line,
+  which is useful for distribution packaging.
+
 * If you split the package into several subpackages, beware that the
   `create-exe` command of the `wasmer` CLI requires `libwasmer.a` to
   be installed at `$WASMER_INSTALL_PREFIX/lib/libwasmer.a`. Suggestions for splitting:

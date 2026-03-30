@@ -198,9 +198,7 @@ pub unsafe extern "C" fn wasi_filesystem_init_static_memory(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasi_filesystem_delete(ptr: *mut wasi_filesystem_t) {
-    let _ = unsafe { Box::from_raw(ptr) };
-}
+pub unsafe extern "C" fn wasi_filesystem_delete(_ptr: Option<Box<wasi_filesystem_t>>) {}
 
 /// Initializes the `imports` with an import object that links to
 /// the custom file system
@@ -232,6 +230,7 @@ unsafe fn wasi_env_with_filesystem_inner(
     let package = package_str.to_str().unwrap_or("");
     let module = &module.as_ref()?.inner;
     let imports = imports?;
+    #[allow(clippy::unnecessary_cast)]
     let fs_bytes = unsafe { &*(fs.ptr as *const u8) };
 
     let (wasi_env, import_object) = {
@@ -292,7 +291,6 @@ fn prepare_webc_env(
                 .top_level
                 .iter()
                 .filter(|entry| entry.fs_type == FsEntryType::Dir)
-                .cloned()
                 .map(|e| e.text.to_string())
                 .collect::<Vec<_>>()
                 .into_iter()

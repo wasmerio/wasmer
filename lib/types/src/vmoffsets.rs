@@ -8,11 +8,10 @@
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex,
+    ModuleInfo, SignatureIndex, TableIndex, entity::EntityRef,
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
-use std::mem::size_of;
 
 /// An index type for builtin functions.
 #[derive(Copy, Clone, Debug)]
@@ -227,6 +226,11 @@ pub struct VMOffsets {
     num_local_memories: u32,
     /// The number of defined globals in the module.
     num_local_globals: u32,
+    /// Relative offsets of inline `VMCallerCheckedAnyfunc` arrays for local fixed `funcref`
+    /// tables. Non-fixed tables do not have inline storage.
+    local_fixed_funcref_table_offsets: Vec<Option<u32>>,
+    /// Total size in bytes of all inline fixed `funcref` table storage in `VMContext`.
+    size_of_local_fixed_funcref_tables: u32,
 
     vmctx_signature_ids_begin: u32,
     vmctx_imported_functions_begin: u32,
@@ -235,6 +239,7 @@ pub struct VMOffsets {
     vmctx_tag_ids_begin: u32,
     vmctx_imported_globals_begin: u32,
     vmctx_tables_begin: u32,
+    vmctx_fixed_funcref_tables_begin: u32,
     vmctx_memories_begin: u32,
     vmctx_globals_begin: u32,
     vmctx_builtin_functions_begin: u32,
@@ -248,6 +253,29 @@ pub struct VMOffsets {
 impl VMOffsets {
     /// Return a new `VMOffsets` instance, for a given pointer size.
     pub fn new(pointer_size: u8, module: &ModuleInfo) -> Self {
+        let mut local_fixed_funcref_table_offsets =
+            vec![None; module.tables.len() - module.num_imported_tables];
+        let mut size_of_local_fixed_funcref_tables: u32 = 0;
+        // TODO: ensure it matches size_of::<VMCallerCheckedAnyfunc>
+        let size_of_vmcaller_checked_anyfunc = 4 * u32::from(pointer_size);
+
+        for (table_index, table) in module.tables.iter() {
+            if let Some(local_table_index) = module.local_table_index(table_index)
+                && table.is_fixed_funcref_table()
+            {
+                local_fixed_funcref_table_offsets[local_table_index.index()] =
+                    Some(size_of_local_fixed_funcref_tables);
+                size_of_local_fixed_funcref_tables = size_of_local_fixed_funcref_tables
+                    .checked_add(
+                        table
+                            .minimum
+                            .checked_mul(size_of_vmcaller_checked_anyfunc)
+                            .unwrap(),
+                    )
+                    .unwrap();
+            }
+        }
+
         let mut ret = Self {
             pointer_size,
             num_signature_ids: cast_to_u32(module.signatures.len()),
@@ -259,6 +287,8 @@ impl VMOffsets {
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
             num_local_globals: cast_to_u32(module.globals.len()),
+            local_fixed_funcref_table_offsets,
+            size_of_local_fixed_funcref_tables,
             vmctx_signature_ids_begin: 0,
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
@@ -266,6 +296,7 @@ impl VMOffsets {
             vmctx_tag_ids_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
+            vmctx_fixed_funcref_tables_begin: 0,
             vmctx_memories_begin: 0,
             vmctx_globals_begin: 0,
             vmctx_builtin_functions_begin: 0,
@@ -295,6 +326,8 @@ impl VMOffsets {
             num_local_tables: 0,
             num_local_memories: 0,
             num_local_globals: 0,
+            local_fixed_funcref_table_offsets: Vec::new(),
+            size_of_local_fixed_funcref_tables: 0,
             vmctx_signature_ids_begin: 0,
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
@@ -302,6 +335,7 @@ impl VMOffsets {
             vmctx_tag_ids_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
+            vmctx_fixed_funcref_tables_begin: 0,
             vmctx_memories_begin: 0,
             vmctx_globals_begin: 0,
             vmctx_builtin_functions_begin: 0,
@@ -323,22 +357,28 @@ impl VMOffsets {
         self.num_local_memories
     }
 
+    /// Number of local globals defined in the module
+    pub fn num_local_globals(&self) -> u32 {
+        self.num_local_globals
+    }
+
     fn precompute(&mut self) {
         /// Offset base by num_items items of size item_size, panicking on overflow
         fn offset_by(base: u32, num_items: u32, item_size: u32) -> u32 {
             base.checked_add(num_items.checked_mul(item_size).unwrap())
                 .unwrap()
         }
-        /// Offset base by num_items items of size item_size, panicking on overflow
-        /// Also, will align the value on pointer size boundary,
-        /// to avoid misalignement issue
-        fn offset_by_aligned(base: u32, num_items: u32, item_size: u32) -> u32 {
+        // Offset base by num_items items of size item_size, panicking on overflow
+        // Also, will align the value on pointer size boundary,
+        // to avoid misalignement issue
+        let pointer_size = self.pointer_size as u32;
+        let offset_by_aligned = |base: u32, num_items: u32, item_size: u32| -> u32 {
             align(
                 base.checked_add(num_items.checked_mul(item_size).unwrap())
                     .unwrap(),
-                size_of::<&u32>() as u32,
+                pointer_size,
             )
-        }
+        };
 
         self.vmctx_signature_ids_begin = 0;
         self.vmctx_imported_functions_begin = offset_by_aligned(
@@ -374,10 +414,16 @@ impl VMOffsets {
             self.num_imported_globals,
             u32::from(self.size_of_vmglobal_import()),
         );
-        self.vmctx_memories_begin = offset_by_aligned(
+        self.vmctx_fixed_funcref_tables_begin = offset_by_aligned(
             self.vmctx_tables_begin,
             self.num_local_tables,
             u32::from(self.size_of_vmtable_definition()),
+        );
+        self.vmctx_memories_begin = align(
+            self.vmctx_fixed_funcref_tables_begin
+                .checked_add(self.size_of_local_fixed_funcref_tables)
+                .unwrap(),
+            pointer_size,
         );
         self.vmctx_globals_begin = align(
             offset_by(
@@ -431,9 +477,14 @@ impl VMOffsets {
         2 * self.pointer_size
     }
 
+    /// The offset of the `include_m0_param` field.
+    pub const fn vmfunction_import_include_m0_param(&self) -> u8 {
+        3 * self.pointer_size
+    }
+
     /// Return the size of `VMFunctionImport`.
     pub const fn size_of_vmfunction_import(&self) -> u8 {
-        3 * self.pointer_size
+        4 * self.pointer_size
     }
 }
 
@@ -577,14 +628,14 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for a non-null pointer to a `VMGlobalDefinition` used as a local global.
+/// Offsets for a `VMGlobalDefinition` used as a local global.
 impl VMOffsets {
-    /// Return the size of a pointer to a `VMGlobalDefinition`;
+    /// Return the size of a `VMGlobalDefinition`.
     ///
-    /// The underlying global itself is the size of the largest value type (i.e. a V128),
-    /// however the size of this type is just the size of a pointer.
+    /// Local globals are stored inline in the `VMContext`, and the definition
+    /// is a 16-byte `RawValue` aligned to 16.
     pub const fn size_of_vmglobal_local(&self) -> u8 {
-        self.pointer_size
+        16
     }
 }
 
@@ -688,6 +739,11 @@ impl VMOffsets {
         self.vmctx_tables_begin
     }
 
+    /// The offset of the inline fixed `funcref` table storage.
+    pub fn vmctx_fixed_funcref_tables_begin(&self) -> u32 {
+        self.vmctx_fixed_funcref_tables_begin
+    }
+
     /// The offset of the `memories` array.
     pub fn vmctx_memories_begin(&self) -> u32 {
         self.vmctx_memories_begin
@@ -788,6 +844,14 @@ impl VMOffsets {
     /// Remember updating precompute upon changes
     pub fn vmctx_vmtable_definition_current_elements(&self, index: LocalTableIndex) -> u32 {
         self.vmctx_vmtable_definition(index) + u32::from(self.vmtable_definition_current_elements())
+    }
+
+    /// Return the offset to the inline `VMCallerCheckedAnyfunc` array for a local fixed
+    /// `funcref` table.
+    pub fn vmctx_fixed_funcref_table_anyfuncs(&self, index: LocalTableIndex) -> Option<u32> {
+        assert_lt!(index.as_u32(), self.num_local_tables);
+        self.local_fixed_funcref_table_offsets[index.index()]
+            .map(|offset| self.vmctx_fixed_funcref_tables_begin + offset)
     }
 
     /// Return the offset to the `from` field in `VMMemoryImport` index `index`.

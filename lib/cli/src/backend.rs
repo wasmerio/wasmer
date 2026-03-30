@@ -78,6 +78,10 @@ pub struct WasmFeatures {
     #[clap(long = "enable-extended-const")]
     pub extended_const: bool,
 
+    /// Enable support for the wide arithmetic proposal.
+    #[clap(long = "wide-arithmetic")]
+    pub wide_arithmetic: bool,
+
     /// Enable support for all pre-standard proposals.
     #[clap(long = "enable-all")]
     pub all: bool,
@@ -150,7 +154,7 @@ pub struct RuntimeOptions {
     ]))]
     v8: bool,
 
-    /// Use WAMR.
+    /// Use the WAMR runtime.
     #[cfg(feature = "wamr")]
     #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "cranelift")]
@@ -166,7 +170,7 @@ pub struct RuntimeOptions {
     ]))]
     wamr: bool,
 
-    /// Use the wasmi runtime.
+    /// Use the Wasmi runtime.
     #[cfg(feature = "wasmi")]
     #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
         #[cfg(feature = "cranelift")]
@@ -184,33 +188,35 @@ pub struct RuntimeOptions {
 
     /// Enable compiler internal verification.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long)]
     enable_verifier: bool,
 
     /// Debug directory, where IR and object files will be written to.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long, alias = "llvm-debug-dir")]
-    compiler_debug_dir: Option<PathBuf>,
+    pub(crate) compiler_debug_dir: Option<PathBuf>,
 
     /// Enable a profiler.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long, value_enum)]
     profiler: Option<Profiler>,
 
-    /// Only available for the LLVM compiler. Enable the "pass-params" optimization, where the first (#0)
-    /// global and the first (#0) memory passed between guest functions as explicit parameters.
+    /// Deprecated option as m0 optimization always play role if we use a static memory
     #[cfg(feature = "llvm")]
-    #[clap(long)]
-    enable_pass_params_opt: bool,
+    #[clap(long, hide = true)]
+    _enable_pass_params_opt: bool,
 
-    /// Only available for the LLVM compiler. Sets the number of threads used to compile the
-    /// input module(s).
-    #[cfg(feature = "llvm")]
-    #[clap(long)]
-    llvm_num_threads: Option<NonZero<usize>>,
+    /// Sets the number of threads used to compile the input module(s).
+    #[clap(long, alias = "llvm-num-threads")]
+    compiler_threads: Option<NonZero<usize>>,
+
+    /// Enable NaN canonicalization during compilation to produce deterministic
+    /// canonical quiet NaNs (QNaNs) across architectures.
+    #[clap(long = "enable-nan-canonicalization")]
+    enable_nan_canonicalization: bool,
 
     #[clap(flatten)]
     features: WasmFeatures,
@@ -301,9 +307,7 @@ impl RuntimeOptions {
     pub fn get_engine(&self, target: &Target) -> Result<Engine> {
         let backends = self.get_available_backends()?;
         let backend = backends.first().context("no compiler backend enabled")?;
-        let backend_kind = wasmer::BackendKind::from(backend);
-        let required_features = wasmer::Engine::default_features_for_backend(&backend_kind, target);
-        backend.get_engine(target, &required_features, self)
+        backend.get_engine(target, self)
     }
 
     pub fn get_engine_for_module(&self, module_contents: &[u8], target: &Target) -> Result<Engine> {
@@ -345,10 +349,7 @@ impl RuntimeOptions {
                 );
             }
         }
-        filtered_backends
-            .first()
-            .unwrap()
-            .get_engine(target, required_features, self)
+        filtered_backends.first().unwrap().get_engine(target, self)
     }
 
     #[cfg(feature = "compiler")]
@@ -463,6 +464,9 @@ impl RuntimeOptions {
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
+                }
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -474,7 +478,9 @@ impl RuntimeOptions {
                     debug_dir.push("singlepass");
                     config.callbacks(Some(SinglepassCallbacks::new(debug_dir)?));
                 }
-
+                if let Some(num_threads) = self.compiler_threads {
+                    config.num_threads(num_threads);
+                }
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
@@ -482,6 +488,9 @@ impl RuntimeOptions {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
                 if self.enable_verifier {
                     config.enable_verifier();
+                }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
                 if let Some(p) = &self.profiler {
                     match p {
@@ -494,6 +503,9 @@ impl RuntimeOptions {
                     debug_dir.push("cranelift");
                     config.callbacks(Some(CraneliftCallbacks::new(debug_dir)?));
                 }
+                if let Some(num_threads) = self.compiler_threads {
+                    config.num_threads(num_threads);
+                }
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -501,21 +513,22 @@ impl RuntimeOptions {
                 use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
+                config.enable_non_volatile_memops();
 
-                if self.enable_pass_params_opt {
-                    config.enable_pass_params_opt();
-                }
-
-                if let Some(num_threads) = self.llvm_num_threads {
+                if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
                 }
 
                 if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
+                    config.verbose_asm(true);
                 }
                 if self.enable_verifier {
                     config.enable_verifier();
+                }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
                 if let Some(p) = &self.profiler {
                     match p {
@@ -583,19 +596,20 @@ impl BackendType {
         ]
     }
 
-    /// Get an engine for this backend type
-    pub fn get_engine(
-        &self,
-        target: &Target,
-        features: &Features,
-        runtime_opts: &RuntimeOptions,
-    ) -> Result<Engine> {
+    /// Returns an engine for this backend type.
+    /// We enable every feature the engine supports, since the same engine may later be used
+    /// with a module that requires more features than the one used during engine detection.
+    pub fn get_engine(&self, target: &Target, runtime_opts: &RuntimeOptions) -> Result<Engine> {
         match self {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
+                let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
+                }
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
@@ -608,8 +622,11 @@ impl BackendType {
                     debug_dir.push("singlepass");
                     config.callbacks(Some(SinglepassCallbacks::new(debug_dir)?));
                 }
+                if let Some(num_threads) = runtime_opts.compiler_threads {
+                    config.num_threads(num_threads);
+                }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
-                    .set_features(Some(features.clone()))
+                    .set_features(Some(supported_features))
                     .set_target(Some(target.clone()))
                     .engine()
                     .into();
@@ -618,8 +635,12 @@ impl BackendType {
             #[cfg(feature = "cranelift")]
             Self::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
+                }
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
@@ -632,8 +653,11 @@ impl BackendType {
                     debug_dir.push("cranelift");
                     config.callbacks(Some(CraneliftCallbacks::new(debug_dir)?));
                 }
+                if let Some(num_threads) = runtime_opts.compiler_threads {
+                    config.num_threads(num_threads);
+                }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
-                    .set_features(Some(features.clone()))
+                    .set_features(Some(supported_features))
                     .set_target(Some(target.clone()))
                     .engine()
                     .into();
@@ -645,20 +669,22 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
+                config.enable_non_volatile_memops();
 
+                let supported_features = config.supported_features_for_target(target);
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
+                    config.verbose_asm(true);
                 }
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
                 }
-
-                if runtime_opts.enable_pass_params_opt {
-                    config.enable_pass_params_opt();
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
 
-                if let Some(num_threads) = runtime_opts.llvm_num_threads {
+                if let Some(num_threads) = runtime_opts.compiler_threads {
                     config.num_threads(num_threads);
                 }
 
@@ -669,7 +695,7 @@ impl BackendType {
                 }
 
                 let engine = wasmer_compiler::EngineBuilder::new(config)
-                    .set_features(Some(features.clone()))
+                    .set_features(Some(supported_features))
                     .set_target(Some(target.clone()))
                     .engine()
                     .into();

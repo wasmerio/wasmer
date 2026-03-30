@@ -222,7 +222,7 @@ impl Console {
         }
 
         let builder = crate::runners::wasi::WasiRunner::new()
-            .with_envs(self.env.clone().into_iter())
+            .with_envs(self.env.clone())
             .with_args(args)
             .with_capabilities(self.capabilities.clone())
             .with_stdin(Box::new(self.stdin.clone()))
@@ -259,7 +259,7 @@ impl Console {
         }
 
         // The custom readonly files have to be added after the uses packages
-        // otherwise they will be overriden by their attached file systems
+        // otherwise they will be overridden by their attached file systems
         for (path, data) in self.ro_files.clone() {
             let path = PathBuf::from(path);
             env.fs_root().remove_file(&path).ok();

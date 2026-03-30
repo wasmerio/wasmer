@@ -145,7 +145,7 @@ mod wcgi {
     use std::{future::Future, sync::Arc};
 
     use futures::{SinkExt, StreamExt, channel::mpsc::Sender, future::AbortHandle};
-    use rand::Rng;
+    use rand::RngExt;
     use tokio::runtime::Handle;
     use wasmer_package::utils::from_bytes;
     use wasmer_wasix::{
@@ -170,7 +170,7 @@ mod wcgi {
         let (rt, tasks) = runtime();
         let container = from_bytes(webc).unwrap();
         let mut runner = WcgiRunner::new(NoOpWcgiCallbacks);
-        let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
+        let port = rand::rng().random_range(10000_u16..65535_u16);
         let (cb, started) = callbacks(Handle::current());
         runner
             .config()

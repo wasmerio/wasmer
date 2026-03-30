@@ -1131,8 +1131,43 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::mem_fs::FileSystem as MemFS;
+    use crate::{TmpFileSystem, mem_fs::FileSystem as MemFS};
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+
+    #[test]
+    fn overlay_read_dir_rebases_mounted_entries() {
+        let primary = TmpFileSystem::new();
+        ops::create_dir_all(&primary, "/app").unwrap();
+
+        let volume = MemFS::default();
+        ops::create_dir_all(&volume, "/themes/twentytwentyfour").unwrap();
+
+        let container = MemFS::default();
+        ops::create_dir_all(&container, "/app/wp-content/themes/twentytwentyfour").unwrap();
+
+        let volume: Arc<dyn FileSystem + Send + Sync> = Arc::new(volume);
+        primary
+            .mount(
+                PathBuf::from("/app/wp-content"),
+                &volume,
+                PathBuf::from("/"),
+            )
+            .unwrap();
+
+        let overlay = OverlayFileSystem::new(primary, [container]);
+
+        let mut entries: Vec<_> = overlay
+            .read_dir(Path::new("/app/wp-content/themes"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path)
+            .collect();
+        entries.sort();
+
+        assert_eq!(
+            entries,
+            vec![PathBuf::from("/app/wp-content/themes/twentytwentyfour")],
+        );
+    }
 
     #[tokio::test]
     async fn remove_directory() {

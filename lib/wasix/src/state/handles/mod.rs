@@ -8,10 +8,12 @@ pub(crate) use thread_local::*;
 
 use tracing::{error, trace};
 use wasmer::{
-    AsStoreMut, AsStoreRef, Function, Global, Instance, Memory, MemoryView, Module, Table,
-    TypedFunction, Value,
+    AsStoreMut, AsStoreRef, Function, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
+    Table, TypedFunction, Value,
 };
 use wasmer_wasix_types::wasi::Errno;
+
+use crate::{WasiEnv, state::LinkError};
 
 use super::Linker;
 
@@ -91,7 +93,7 @@ pub struct WasiModuleInstanceHandles {
     pub(crate) asyncify_stop_unwind: Option<TypedFunction<(), ()>>,
 
     /// asyncify_start_rewind(data : i32): call this to start rewinding the
-    /// stack vack up to the location stored in the provided data. This prepares
+    /// stack back up to the location stored in the provided data. This prepares
     /// for the rewind; to start it, you must call the first function in the
     /// call stack to be unwound.
     // TODO: review allow...
@@ -361,10 +363,19 @@ impl WasiModuleTreeHandles {
     /// Check if an indirect_function_table entry is reserved for closures.
     ///
     /// Returns false if the entry is not reserved for closures.
-    pub fn is_closure(&self, function_id: u32) -> bool {
-        match self {
-            WasiModuleTreeHandles::Static(_) => false,
-            WasiModuleTreeHandles::Dynamic { linker, .. } => linker.is_closure(function_id),
+    pub fn is_closure(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        function_id: u32,
+    ) -> Result<bool, LinkError> {
+        // We need a manual deref here for the thread_local case.
+        // See: impl Deref for WasiInstanceGuard<'_> in thread_local.rs.
+        // Then, we need to allow the lint for the normal case.
+        #[allow(clippy::borrow_deref_ref)]
+        match &*ctx.data().inner() {
+            WasiModuleTreeHandles::Static(_) => Ok(false),
+            WasiModuleTreeHandles::Dynamic { linker, .. } => {
+                linker.clone().is_closure(function_id, ctx)
+            }
         }
     }
 }

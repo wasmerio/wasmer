@@ -51,6 +51,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object<'static>, ObjectE
         Architecture::X86_64 => object::Architecture::X86_64,
         Architecture::Aarch64(_) => object::Architecture::Aarch64,
         Architecture::Riscv64(_) => object::Architecture::Riscv64,
+        Architecture::Riscv32(_) => object::Architecture::Riscv32,
         Architecture::LoongArch64 => object::Architecture::LoongArch64,
         architecture => {
             return Err(ObjectError::UnsupportedArchitecture(format!(
@@ -241,11 +242,12 @@ pub fn emit_compilation(
                 section: SymbolSection::Section(section_id),
                 flags: SymbolFlags::None,
             });
-            obj.add_symbol_data(symbol_id, section_id, &function.body, default_align);
-            (section_id, symbol_id)
+            let symbol_offset =
+                obj.add_symbol_data(symbol_id, section_id, &function.body, default_align);
+            (section_id, symbol_id, symbol_offset)
         })
         .collect::<PrimaryMap<LocalFunctionIndex, _>>();
-    for (i, (_, symbol_id)) in function_symbol_ids.iter() {
+    for (i, (_, symbol_id, _)) in function_symbol_ids.iter() {
         relocs_builder.setup_function_pointer(obj, i.index(), *symbol_id)?;
     }
 
@@ -296,7 +298,7 @@ pub fn emit_compilation(
     let mut all_relocations = Vec::new();
 
     for (function_local_index, relocations) in function_relocations.into_iter() {
-        let (section_id, symbol_id) = function_symbol_ids.get(function_local_index).unwrap();
+        let (section_id, symbol_id, _) = function_symbol_ids.get(function_local_index).unwrap();
         all_relocations.push((*section_id, *symbol_id, relocations))
     }
 
@@ -415,6 +417,17 @@ pub fn emit_compilation(
                     r_pcrel: false,
                     r_length: 32,
                 },
+                // For RISC-V relocations, please refer to:
+                // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/2484f950a551c653f1823f1bd11926bf5a57fae3/riscv-elf.adoc#relocations
+                Reloc::RiscvPCRelHi20 => RelocationFlags::Elf {
+                    r_type: elf::R_RISCV_PCREL_HI20,
+                },
+                Reloc::RiscvPCRelLo12I => RelocationFlags::Elf {
+                    r_type: elf::R_RISCV_PCREL_LO12_I,
+                },
+                Reloc::RiscvCall => RelocationFlags::Elf {
+                    r_type: elf::R_RISCV_CALL_PLT,
+                },
                 other => {
                     return Err(ObjectError::UnsupportedArchitecture(format!(
                         "{} (relocation: {other:?})",
@@ -425,17 +438,50 @@ pub fn emit_compilation(
 
             match r.reloc_target {
                 RelocationTarget::LocalFunc(index) => {
-                    let (_, target_symbol) = function_symbol_ids.get(index).unwrap();
-                    obj.add_relocation(
-                        section_id,
-                        Relocation {
-                            offset: relocation_address,
-                            flags: relocation_flags,
-                            symbol: *target_symbol,
-                            addend: r.addend,
-                        },
-                    )
-                    .map_err(ObjectError::Write)?;
+                    let (target_section, target_symbol, target_symbol_offset) =
+                        function_symbol_ids.get(index).unwrap();
+                    if r.kind == Reloc::RiscvPCRelLo12I && r.addend != 0 {
+                        // R_RISCV_PCREL_LO12_I requires addend must be zero, lld would ignore
+                        // non-zero addend values, resulting in linking failures. We must create
+                        // new symbols for R_RISCV_PCREL_LO12_I targets(R_RISCV_PCREL_HI20 addresses).
+                        let function_name =
+                            symbol_registry.symbol_to_name(Symbol::LocalFunction(index));
+                        let hi_symbol_name = format!("{}_offset_{}", function_name, r.addend);
+                        let hi_symbol =
+                            obj.symbol_id(hi_symbol_name.as_bytes()).unwrap_or_else(|| {
+                                obj.add_symbol(ObjSymbol {
+                                    name: hi_symbol_name.as_bytes().to_vec(),
+                                    value: *target_symbol_offset + r.addend as u64,
+                                    size: 0,
+                                    kind: SymbolKind::Label,
+                                    scope: SymbolScope::Compilation,
+                                    weak: false,
+                                    section: SymbolSection::Section(*target_section),
+                                    flags: SymbolFlags::None,
+                                })
+                            });
+                        obj.add_relocation(
+                            section_id,
+                            Relocation {
+                                offset: relocation_address,
+                                flags: relocation_flags,
+                                symbol: hi_symbol,
+                                addend: 0,
+                            },
+                        )
+                        .map_err(ObjectError::Write)?;
+                    } else {
+                        obj.add_relocation(
+                            section_id,
+                            Relocation {
+                                offset: relocation_address,
+                                flags: relocation_flags,
+                                symbol: *target_symbol,
+                                addend: r.addend,
+                            },
+                        )
+                        .map_err(ObjectError::Write)?;
+                    }
                 }
                 RelocationTarget::DynamicTrampoline(_) => todo!("Not supported yet"),
                 RelocationTarget::LibCall(libcall) => {

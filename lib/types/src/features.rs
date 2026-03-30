@@ -38,6 +38,8 @@ pub struct Features {
     pub relaxed_simd: bool,
     /// Extended constant expressions proposal should be enabled
     pub extended_const: bool,
+    /// Wide Arithmetic proposal should be enabled
+    pub wide_arithmetic: bool,
 }
 
 impl Features {
@@ -59,7 +61,9 @@ impl Features {
             memory64: false,
             exceptions: false,
             relaxed_simd: false,
-            extended_const: false,
+            wide_arithmetic: false,
+            // Extended Constant Expressions should be on by default
+            extended_const: true,
         }
     }
 
@@ -78,6 +82,7 @@ impl Features {
             exceptions: true,
             relaxed_simd: true,
             extended_const: true,
+            wide_arithmetic: true,
         }
     }
 
@@ -96,6 +101,7 @@ impl Features {
             exceptions: false,
             relaxed_simd: false,
             extended_const: false,
+            wide_arithmetic: false,
         }
     }
 
@@ -108,7 +114,7 @@ impl Features {
     /// This feature gates items such as shared memories and atomic
     /// instructions.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [threads]: https://github.com/webassembly/threads
     pub fn threads(&mut self, enable: bool) -> &mut Self {
@@ -141,15 +147,15 @@ impl Features {
     /// Configures whether the WebAssembly SIMD proposal will be
     /// enabled.
     ///
-    /// The [WebAssembly SIMD proposal][proposal] is not currently
-    /// fully standardized and is undergoing development. Support for this
-    /// feature can be enabled through this method for appropriate WebAssembly
-    /// modules.
+    /// The [WebAssembly SIMD proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This feature gates items such as the `v128` type and all of its
     /// operators being in a module.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/webassembly/simd
     pub fn simd(&mut self, enable: bool) -> &mut Self {
@@ -160,10 +166,10 @@ impl Features {
     /// Configures whether the WebAssembly Relaxed SIMD proposal will be
     /// enabled.
     ///
-    /// The [WebAssembly Relaxed SIMD proposal][proposal] is not currently
-    /// fully standardized and is undergoing development. Support for this
-    /// feature can be enabled through this method for appropriate WebAssembly
-    /// modules.
+    /// The [WebAssembly Relaxed SIMD proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This is `false` by default.
     ///
@@ -199,8 +205,7 @@ impl Features {
     /// be enabled.
     ///
     /// The [WebAssembly multi-value proposal][proposal] is now fully
-    /// standardized and enabled by default, except with the singlepass
-    /// compiler which does not support it.
+    /// standardized and enabled by default.
     ///
     /// This feature gates functions and blocks returning multiple values in a
     /// module, for example.
@@ -216,10 +221,10 @@ impl Features {
     /// Configures whether the WebAssembly tail-call proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly tail-call proposal][proposal] is not
-    /// currently fully standardized and is undergoing development.
-    /// Support for this feature can be enabled through this method for
-    /// appropriate WebAssembly modules.
+    /// The [WebAssembly tail-call proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This feature gates tail-call functions in WebAssembly.
     ///
@@ -253,10 +258,10 @@ impl Features {
     /// Configures whether the WebAssembly multi-memory proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly multi-memory proposal][proposal] is not
-    /// currently fully standardized and is undergoing development.
-    /// Support for this feature can be enabled through this method for
-    /// appropriate WebAssembly modules.
+    /// The [WebAssembly multi-memory proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This feature adds the ability to use multiple memories within a
     /// single Wasm module.
@@ -272,10 +277,10 @@ impl Features {
     /// Configures whether the WebAssembly 64-bit memory proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly 64-bit memory proposal][proposal] is not
-    /// currently fully standardized and is undergoing development.
-    /// Support for this feature can be enabled through this method for
-    /// appropriate WebAssembly modules.
+    /// The [WebAssembly 64-bit memory proposal][proposal] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This feature gates support for linear memory of sizes larger than
     /// 2^32 bits.
@@ -290,15 +295,45 @@ impl Features {
 
     /// Configures whether the WebAssembly exception-handling proposal will be enabled.
     ///
-    /// The [WebAssembly exception-handling proposal][eh] is not currently fully
-    /// standardized and is undergoing development. Support for this feature can
-    /// be enabled through this method for appropriate WebAssembly modules.
+    /// The [WebAssembly exception-handling proposal][eh] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
     ///
     /// This is `false` by default.
     ///
     /// [eh]: https://github.com/webassembly/exception-handling
     pub fn exceptions(&mut self, enable: bool) -> &mut Self {
         self.exceptions = enable;
+        self
+    }
+
+    /// Configures whether the WebAssembly wide arithmetic proposal will be enabled.
+    ///
+    /// The [Wide Arithmetic][wa] is not currently fully
+    /// standardized and is undergoing development. Support for this feature can
+    /// be enabled through this method for appropriate WebAssembly modules.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [wa]: https://github.com/WebAssembly/wide-arithmetic
+    pub fn wide_arithmetic(&mut self, enable: bool) -> &mut Self {
+        self.wide_arithmetic = enable;
+        self
+    }
+
+    /// Configures whether the WebAssembly Extended Constant Expressions proposal will be enabled.
+    ///
+    /// The [WebAssembly Extended Constant Expressions][extended-const] is now
+    /// fully standardized.
+    /// Support for this feature can be enabled through this method
+    /// for appropriate WebAssembly modules.
+    ///
+    /// This is `true` by default.
+    ///
+    /// [extended-const]: https://github.com/WebAssembly/extended-const
+    pub fn extended_const(&mut self, enable: bool) -> &mut Self {
+        self.extended_const = enable;
         self
     }
 
@@ -317,6 +352,7 @@ impl Features {
             && (!required.memory64 || self.memory64)
             && (!required.relaxed_simd || self.relaxed_simd)
             && (!required.extended_const || self.extended_const)
+            && (!required.wide_arithmetic || self.wide_arithmetic)
     }
 
     #[cfg(feature = "detect-wasm-features")]
@@ -371,6 +407,7 @@ impl Features {
         wasm_features.set(WasmFeatures::TAIL_CALL, true);
         wasm_features.set(WasmFeatures::MULTI_MEMORY, true);
         wasm_features.set(WasmFeatures::MEMORY64, true);
+        wasm_features.set(WasmFeatures::RELAXED_SIMD, false);
 
         let mut validator = Validator::new_with_features(wasm_features);
         match validator.validate_all(wasm_bytes) {
@@ -390,7 +427,9 @@ impl Features {
                     features.reference_types(true);
                 }
 
-                if err_msg.contains("simd") {
+                if err_msg.contains("relaxed simd") {
+                    features.relaxed_simd(true);
+                } else if err_msg.contains("simd") {
                     features.simd(true);
                 }
 
@@ -416,6 +455,12 @@ impl Features {
 
                 if err_msg.contains("memory64") {
                     features.memory64(true);
+                }
+                if err_msg.contains("wide arithmetic") {
+                    features.wide_arithmetic(true);
+                }
+                if err_msg.contains("constant expression") {
+                    features.extended_const(true);
                 }
             }
             Ok(_) => {
@@ -459,6 +504,7 @@ impl Features {
             exceptions,
             relaxed_simd,
             extended_const,
+            wide_arithmetic,
         } = other.clone();
 
         *self = Self {
@@ -474,6 +520,7 @@ impl Features {
             exceptions: self.exceptions || exceptions,
             relaxed_simd: self.relaxed_simd || relaxed_simd,
             extended_const: self.extended_const || extended_const,
+            wide_arithmetic: self.wide_arithmetic || wide_arithmetic,
         };
     }
 }
@@ -504,7 +551,8 @@ mod test_features {
                 memory64: false,
                 exceptions: false,
                 relaxed_simd: false,
-                extended_const: false,
+                extended_const: true,
+                wide_arithmetic: false
             }
         );
     }

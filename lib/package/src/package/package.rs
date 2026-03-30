@@ -469,21 +469,8 @@ impl Package {
 
         let volumes = new_volumes;
 
-        let mut annotated_atoms = BTreeMap::new();
-
-        for (atom_name, (a, b)) in atoms {
-            let annotations =
-                if let Some(module) = manifest.modules.iter().find(|v| v.name == atom_name) {
-                    module.annotations.as_ref()
-                } else {
-                    None
-                };
-
-            annotated_atoms.insert(atom_name, (a, b, annotations));
-        }
-
         let (mut manifest, atoms) =
-            super::manifest::in_memory_wasmer_manifest_to_webc(&manifest, &annotated_atoms)?;
+            super::manifest::in_memory_wasmer_manifest_to_webc(&manifest, &atoms)?;
 
         if let Some(entry) = manifest.package.get_mut(Wapm::KEY) {
             let mut wapm: Wapm = entry.deserialized()?;

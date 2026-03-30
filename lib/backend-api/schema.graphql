@@ -82,6 +82,7 @@ type User implements Node & PackageOwner & Owner {
   notifications(offset: Int, before: String, after: String, first: Int, last: Int): UserNotificationConnection!
   dashboardActivity(offset: Int, before: String, after: String, first: Int, last: Int): ActivityEventConnection!
   loginMethods: [LoginMethod!]!
+  pendingVerifications: [PendingVerification!]!
   githubUser: SocialAuth
   githubScopes: [String]! @deprecated(reason: "Please use github installations instead.")
   githubRepositories: [GithubInstallationRepository]! @deprecated(reason: "Please use github installations instead.")
@@ -1004,6 +1005,7 @@ type DeployApp implements Node & Owner {
   activeVersion: DeployAppVersion
   managed: Boolean!
   willPerishAt: DateTime
+  perishReason: DeployDeployAppPerishReasonChoices
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
@@ -1040,6 +1042,18 @@ type DeployApp implements Node & Owner {
   mails: [AppMail]
   kind: Kind
   githubRepoConnection: GithubRepoConnection
+}
+
+"""An enumeration."""
+enum DeployDeployAppPerishReasonChoices {
+  """User Pending Verification"""
+  USER_PENDING_VERIFICATION
+
+  """User Requested"""
+  USER_REQUESTED
+
+  """App Unclaimed"""
+  APP_UNCLAIMED
 }
 
 """An enumeration."""
@@ -1365,12 +1379,10 @@ enum StatusEnum {
 }
 
 type BuildConfiguration implements Node {
-  setupDb: Boolean!
+  kind: BuildKind
   startCmd: String
   buildCmd: String
   installCmd: String
-  completionTimeInSeconds: Int!
-  kind: BuildKind
 
   """The ID of the object"""
   id: ID!
@@ -1378,17 +1390,21 @@ type BuildConfiguration implements Node {
   repo: String @deprecated(reason: "This field is deprecated and return null always.")
   repoName: String @deprecated(reason: "This field is deprecated and return null always.")
   repoNamespace: String @deprecated(reason: "This field is deprecated and return null always.")
+  completionTimeInSeconds: Int! @deprecated(reason: "This field is deprecated and return null always.")
+  setupDb: Boolean! @deprecated(reason: "This field is deprecated and return null always.")
 }
 
 type BuildKind implements Node {
-  setupDb: Boolean!
-  startCmd: String
-  buildCmd: String
-  installCmd: String
   name: String!
+  provider: String!
+  config: JSONString!
 
   """The ID of the object"""
   id: ID!
+  setupDb: Boolean @deprecated(reason: "This field is deprecated and return null always.")
+  buildCmd: String @deprecated(reason: "This field is deprecated and return null always.")
+  installCmd: String @deprecated(reason: "This field is deprecated and return null always.")
+  startCmd: String @deprecated(reason: "This field is deprecated and return null always.")
 }
 
 type RolloutConnection {
@@ -1414,8 +1430,10 @@ type Rollout implements Node {
   createdAt: DateTime!
   updatedAt: DateTime!
   deployappVersion: DeployAppVersion
-  buildCommand: String!
-  installCommand: String!
+  startCommand: String
+  afterDeployCommand: String
+  buildCommand: String
+  installCommand: String
   buildId: String
   status: StatusEnum!
   logUrl: String
@@ -1557,6 +1575,7 @@ union Kind = WordpressAppKind | MCPServerAppKind
 type WordpressAppKind {
   adminUrl: String!
   liveConfig(forceFetch: Boolean): WordpressLiveConfig
+  wordpressCronjobEnabled: Boolean!
 }
 
 type WordpressLiveConfig {
@@ -2611,6 +2630,12 @@ enum LoginMethod {
   PASSWORD
 }
 
+"""An enumeration."""
+enum PendingVerification {
+  VALIDATE_EMAIL
+  FINGERPRINT
+}
+
 type SocialAuth implements Node {
   """The ID of the object"""
   id: ID!
@@ -3036,8 +3061,8 @@ type Query {
   getCommand(name: String!): Command
   getCommands(names: [String!]!): [Command]
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
-  getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
-  getSignedUrl(filename: String, expiresAfterSeconds: Int = 60): SignedUrl
+  getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60, method: String): SignedUrl
+  getSignedUrl(filename: String, expiresAfterSeconds: Int = 60, method: String): SignedUrl
   getPackageHash(name: String, hash: String!): PackageWebc
   getPackageRelease(hash: String): PackageWebc
   getPackageInstanceByVersionOrHash(name: String!, version: String, hash: String): PackageInstance
@@ -3677,6 +3702,9 @@ type SchemaInfo {
 }
 
 type Mutation {
+  """Sync all blog posts from Notion to the database."""
+  syncNotionBlogPosts(input: SyncNotionBlogPostsInput!): SyncNotionBlogPostsPayload
+
   """Viewer accepts the latest ToS."""
   acceptTOS(input: AcceptTOSInput!): AcceptTOSPayload
 
@@ -3837,6 +3865,7 @@ type Mutation {
   registerUser(input: RegisterUserInput!): RegisterUserPayload
   socialAuth(input: SocialAuthJWTInput!): SocialAuthJWTPayload
   validateUserEmail(input: ValidateUserEmailInput!): ValidateUserEmailPayload
+  validateUserFingerprint(input: ValidateUserFingerprintInput!): ValidateUserFingerprintPayload
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload
   requestValidationEmail(input: RequestValidationEmailInput!): RequestValidationEmailPayload
   changeUserPassword(input: ChangeUserPasswordInput!): ChangeUserPasswordPayload
@@ -3898,6 +3927,19 @@ type Mutation {
   generateBindingsForAllPackages(input: GenerateBindingsForAllPackagesInput!): GenerateBindingsForAllPackagesPayload
   makePackagePublic(input: MakePackagePublicInput!): MakePackagePublicPayload
   generateUploadUrl(input: GenerateUploadUrlInput!): GenerateUploadUrlPayload
+}
+
+"""Sync all blog posts from Notion to the database."""
+type SyncNotionBlogPostsPayload {
+  syncedCount: Int!
+  createdCount: Int!
+  updatedCount: Int!
+  errors: [String]
+  clientMutationId: String
+}
+
+input SyncNotionBlogPostsInput {
+  clientMutationId: String
 }
 
 """Viewer accepts the latest ToS."""
@@ -4544,6 +4586,7 @@ input UpdateBuildConfigInput {
   startCmd: String
   buildCmd: String
   installCmd: String
+  afterDeployCmd: String
   clientMutationId: String
 }
 
@@ -4562,6 +4605,7 @@ type BuildConfig {
   startCmd: String
   buildCmd: String
   installCmd: String
+  afterDeployCmd: String
   setupDb: Boolean!
   presetName: String!
   appName: String!
@@ -4576,6 +4620,9 @@ input AutobuildConfigForRepoInput {
 
   """The path to build from"""
   basePath: String @deprecated(reason: "Please use root_dir instead")
+
+  """The preset to use"""
+  presetName: String
 
   """The root directory to build from"""
   rootDir: String
@@ -4598,6 +4645,9 @@ type AutobuildConfigForZipUploadPayload {
 input AutobuildConfigForZipUploadInput {
   """The Zip upload URL"""
   uploadUrl: String!
+
+  """The preset to use"""
+  presetName: String
   clientMutationId: String
 }
 
@@ -4643,11 +4693,20 @@ input UpdateAutobuildConfigForAppInput {
   """The ID of the App"""
   appId: ID!
 
+  """Preset name of the build kind"""
+  presetName: String
+
   """Build command for the app"""
   buildCmd: String
 
   """Install command for the app"""
   installCmd: String
+
+  """Start command for the app"""
+  startCmd: String
+
+  """After deploy command for the app"""
+  afterDeployCmd: String
   clientMutationId: String
 }
 
@@ -4815,9 +4874,11 @@ input DeployViaAutobuildInput {
   appName: String
   appId: ID
   owner: String
+  presetName: String
   buildCmd: String
   installCmd: String
   startCmd: String
+  afterDeployCmd: String
   enableDatabase: Boolean
   secrets: [SecretInput]
   extraData: AutobuildDeploymentExtraData
@@ -4852,6 +4913,9 @@ input DeployViaAutobuildInput {
 
   """Domains for this app"""
   domains: [String]
+
+  """When the app should be perished"""
+  perishAt: String
   clientMutationId: String
 }
 
@@ -5051,6 +5115,16 @@ input ValidateUserEmailInput {
   """The user id"""
   userId: ID
   challenge: String!
+  clientMutationId: String
+}
+
+type ValidateUserFingerprintPayload {
+  user: User
+  clientMutationId: String
+}
+
+input ValidateUserFingerprintInput {
+  fingerprintVisitorId: String!
   clientMutationId: String
 }
 
@@ -5876,6 +5950,7 @@ input MakePackagePublicInput {
 
 type GenerateUploadUrlPayload {
   signedUrl: SignedUrl!
+  method: String!
   clientMutationId: String
 }
 
@@ -5884,6 +5959,7 @@ input GenerateUploadUrlInput {
   version: String = "latest"
   filename: String
   expiresAfterSeconds: Int = 60
+  method: String
   clientMutationId: String
 }
 

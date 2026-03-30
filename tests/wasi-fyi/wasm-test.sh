@@ -40,7 +40,7 @@ fi
 
 status=0
 
-"../../target/release/wasmer" --mapdir /hamlet:./test_fs/hamlet --mapdir /fyi:./test_fs/fyi "$input_base.wasm" $dir $env -- $arg \
+"../../target/release/wasmer" --volume ./test_fs/hamlet:/hamlet --volume ./test_fs/fyi:/fyi "$input_base.wasm" $dir $env -- $arg \
     < "$stdin" \
     > "$stdout_actual" \
     2> "$stderr_actual" \

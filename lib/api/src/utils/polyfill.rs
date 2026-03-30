@@ -14,9 +14,9 @@ use wasmer_types::{
 
 use wasmparser::{
     self, BinaryReaderError, Export, ExportSectionReader, ExternalKind, FunctionSectionReader,
-    GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, MemorySectionReader,
-    MemoryType as WPMemoryType, NameSectionReader, Parser, Payload, TableSectionReader,
-    TagType as WPTagType, TypeRef, TypeSectionReader,
+    GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, Imports,
+    MemorySectionReader, MemoryType as WPMemoryType, NameSectionReader, Parser, Payload,
+    TableSectionReader, TagType as WPTagType, TypeRef, TypeSectionReader,
 };
 
 pub type WasmResult<T> = Result<T, String>;
@@ -428,6 +428,10 @@ pub fn parse_import_section(
 
     for entry in imports {
         let import = entry.map_err(transform_err)?;
+        let Imports::Single(_index, import) = import else {
+            return Err("non-Single section Imports not implemented yet".to_string());
+        };
+
         let module_name = import.module;
         let field_name = import.name;
 

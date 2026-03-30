@@ -1991,7 +1991,7 @@ impl Machine for MachineX86_64 {
 
     fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
-        static REGS: &[GPR] = &[RSI, RDI, R8, R9, R10, R11];
+        static REGS: &[GPR] = &[R8, R9, R10, R11];
         for r in REGS {
             if !self.used_gprs_contains(r) {
                 return Some(*r);
@@ -2003,7 +2003,7 @@ impl Machine for MachineX86_64 {
     // Picks an unused general purpose register for internal temporary use.
     fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
-        static REGS: &[GPR] = &[RAX, RCX, RDX];
+        static REGS: &[GPR] = &[RAX, RCX, RDX, RDI, RSI];
         for r in REGS {
             if !self.used_gprs_contains(r) {
                 return Some(*r);
@@ -8163,7 +8163,7 @@ impl Machine for MachineX86_64 {
                     instruction_offset,
                     CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
-                UnwindOps::Push2Regs { .. } => unimplemented!(),
+                UnwindOps::Push2Regs { .. } | UnwindOps::SubtractFP { .. } => unimplemented!(),
             }
         }
         Some(UnwindInstructions {

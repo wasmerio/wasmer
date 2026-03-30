@@ -113,7 +113,8 @@ pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
             wasmparser::ValType::Ref(ty) => {
                 if ty.is_extern_ref() || ty.is_func_ref() {
                     builder.append_block_param(block, environ.reference_type());
-                } else if ty == &RefType::EXNREF {
+                } else if ty == &RefType::EXNREF || ty == &RefType::EXN {
+                    // no `.is_exnref` yet
                     builder.append_block_param(block, EXN_REF_TYPE);
                 } else {
                     return Err(WasmError::Unsupported(format!(

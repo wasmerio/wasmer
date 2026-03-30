@@ -13,4 +13,4 @@ wasixcc main.c libmain-needed.so -o main.wasm -Wl,-pie -Wl,-rpath,\$ORIGIN
 wasixcc side-needed.c -o libside-needed.so -Wl,-shared
 wasixcc side.c libside-needed.so -o libside.so -Wl,-shared -Wl,-rpath,\$ORIGIN
 
-$WASMER_RUN main.wasm --dir=.
+$WASMER_RUN main.wasm --volume .

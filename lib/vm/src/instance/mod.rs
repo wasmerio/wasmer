@@ -23,6 +23,7 @@ use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_ca
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
 pub use allocator::InstanceAllocator;
+use itertools::Itertools;
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::Layout;
@@ -37,8 +38,8 @@ use std::sync::Arc;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap, packed_option::ReservedValue};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
-    MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, TagIndex,
+    InitExpr, InitExprOp, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+    MemoryError, MemoryIndex, ModuleInfo, Pages, RawValue, SignatureIndex, TableIndex, TagIndex,
     VMOffsets,
 };
 
@@ -226,6 +227,49 @@ impl Instance {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_tables_begin()) }
     }
 
+    fn fixed_funcref_table_ptr(
+        &self,
+        index: LocalTableIndex,
+    ) -> Option<NonNull<VMCallerCheckedAnyfunc>> {
+        let offset = self.offsets.vmctx_fixed_funcref_table_anyfuncs(index)?;
+        Some(NonNull::new(unsafe { self.vmctx_plus_offset(offset) }).unwrap())
+    }
+
+    fn sync_fixed_funcref_table_element(
+        &self,
+        table_index: LocalTableIndex,
+        index: u32,
+        funcref: Option<VMFuncRef>,
+    ) {
+        let Some(base) = self.fixed_funcref_table_ptr(table_index) else {
+            return;
+        };
+        unsafe {
+            *base.as_ptr().add(index as usize) = anyfunc_from_funcref(funcref);
+        }
+    }
+
+    fn sync_fixed_funcref_table(&self, table_index: LocalTableIndex) {
+        let Some(base) = self.fixed_funcref_table_ptr(table_index) else {
+            return;
+        };
+        let table = self.tables[table_index].get(self.context());
+        for index in 0..table.size() {
+            let TableElement::FuncRef(funcref) = table.get(index).unwrap() else {
+                unreachable!("fixed funcref tables cannot contain externrefs");
+            };
+            unsafe {
+                *base.as_ptr().add(index as usize) = anyfunc_from_funcref(funcref);
+            }
+        }
+    }
+
+    fn sync_fixed_funcref_table_by_index(&self, table_index: TableIndex) {
+        if let Some(local_table_index) = self.module.local_table_index(table_index) {
+            self.sync_fixed_funcref_table(local_table_index);
+        }
+    }
+
     #[allow(dead_code)]
     /// Get a locally defined or imported memory.
     fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
@@ -317,12 +361,11 @@ impl Instance {
     /// Return the indexed `VMGlobalDefinition`.
     fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
-        // TODO:
-        NonNull::new(unsafe { *self.globals_ptr().add(index) }).unwrap()
+        NonNull::new(unsafe { self.globals_ptr().add(index) }).unwrap()
     }
 
     /// Return a pointer to the `VMGlobalDefinition`s.
-    fn globals_ptr(&self) -> *mut *mut VMGlobalDefinition {
+    fn globals_ptr(&self) -> *mut VMGlobalDefinition {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_globals_begin()) }
     }
 
@@ -571,7 +614,15 @@ impl Instance {
             .tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()));
-        table.get_mut(self.context_mut()).set(index, val)
+        let funcref = match &val {
+            TableElement::FuncRef(funcref) => Some(*funcref),
+            TableElement::ExternRef(_) => None,
+        };
+        table.get_mut(self.context_mut()).set(index, val)?;
+        if let Some(funcref) = funcref {
+            self.sync_fixed_funcref_table_element(table_index, index, funcref);
+        }
+        Ok(())
     }
 
     /// Set table element by index for an imported table.
@@ -638,6 +689,8 @@ impl Instance {
                 .expect("should never panic because we already did the bounds check above");
         }
 
+        self.sync_fixed_funcref_table_by_index(table_index);
+
         Ok(())
     }
 
@@ -670,6 +723,46 @@ impl Instance {
                 .set(i, item.clone())
                 .expect("should never panic because we already did the bounds check above");
         }
+
+        self.sync_fixed_funcref_table_by_index(table_index);
+
+        Ok(())
+    }
+
+    /// The `table.copy` operation.
+    pub(crate) fn table_copy(
+        &mut self,
+        dst_table_index: TableIndex,
+        src_table_index: TableIndex,
+        dst: u32,
+        src: u32,
+        len: u32,
+    ) -> Result<(), Trap> {
+        let result = if dst_table_index == src_table_index {
+            let table = self.get_table(dst_table_index);
+            table.copy_within(dst, src, len)
+        } else {
+            let dst_table = self.get_table_handle(dst_table_index);
+            let src_table = self.get_table_handle(src_table_index);
+            if dst_table == src_table {
+                unsafe {
+                    dst_table
+                        .get_mut(&mut *self.context)
+                        .copy_within(dst, src, len)
+                }
+            } else {
+                unsafe {
+                    dst_table.get_mut(&mut *self.context).copy(
+                        src_table.get(&*self.context),
+                        dst,
+                        src,
+                        len,
+                    )
+                }
+            }
+        };
+        result?;
+        self.sync_fixed_funcref_table_by_index(dst_table_index);
 
         Ok(())
     }
@@ -1067,11 +1160,6 @@ impl VMInstance {
                 .map(|m: &InternalStoreHandle<VMTag>| VMSharedTagIndex::new(m.index() as u32))
                 .collect::<PrimaryMap<TagIndex, VMSharedTagIndex>>()
                 .into_boxed_slice();
-            let vmctx_globals = finished_globals
-                .values()
-                .map(|m: &InternalStoreHandle<VMGlobal>| m.get(context).vmglobal())
-                .collect::<PrimaryMap<LocalGlobalIndex, NonNull<VMGlobalDefinition>>>()
-                .into_boxed_slice();
             let passive_data = RefCell::new(
                 module
                     .passive_data
@@ -1119,6 +1207,9 @@ impl VMInstance {
                         &instance.function_call_trampolines,
                         vmctx_ptr,
                     );
+                    for local_table_index in instance.tables.keys() {
+                        instance.sync_fixed_funcref_table(local_table_index);
+                    }
                 }
 
                 instance_handle
@@ -1158,11 +1249,6 @@ impl VMInstance {
             // these should already be set, add asserts here? for:
             // - instance.tables_ptr() as *mut VMTableDefinition
             // - instance.memories_ptr() as *mut VMMemoryDefinition
-            ptr::copy(
-                vmctx_globals.values().as_slice().as_ptr(),
-                instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,
-                vmctx_globals.len(),
-            );
             ptr::write(
                 instance.builtin_functions_ptr(),
                 VMBuiltinFunctionsArray::initialized(),
@@ -1383,24 +1469,6 @@ impl VMInstance {
     }
 }
 
-/// Compute the offset for a memory data initializer.
-fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usize {
-    let mut start = init.location.offset;
-
-    if let Some(base) = init.location.base {
-        let val = unsafe {
-            if let Some(def_index) = instance.module.local_global_index(base) {
-                instance.global(def_index).val.u32
-            } else {
-                instance.imported_global(base).definition.as_ref().val.u32
-            }
-        };
-        start += usize::try_from(val).unwrap();
-    }
-
-    start
-}
-
 #[allow(clippy::mut_from_ref)]
 #[allow(dead_code)]
 /// Return a byte-slice view of a memory's data.
@@ -1422,29 +1490,109 @@ unsafe fn get_memory_slice<'instance>(
     }
 }
 
-/// Compute the offset for a table element initializer.
-fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
-    let mut start = init.offset;
-
-    if let Some(base) = init.base {
-        let val = unsafe {
-            if let Some(def_index) = instance.module.local_global_index(base) {
-                instance.global(def_index).val.u32
-            } else {
-                instance.imported_global(base).definition.as_ref().val.u32
-            }
-        };
-        start += usize::try_from(val).unwrap();
+fn get_global(index: GlobalIndex, instance: &Instance) -> RawValue {
+    unsafe {
+        if let Some(local_global_index) = instance.module.local_global_index(index) {
+            instance.global(local_global_index).val
+        } else {
+            instance.imported_global(index).definition.as_ref().val
+        }
     }
+}
 
-    start
+enum EvaluatedInitExpr {
+    I32(i32),
+    I64(i64),
+}
+
+fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> EvaluatedInitExpr {
+    if expr
+        .ops()
+        .first()
+        .expect("missing expression")
+        .is_32bit_expression()
+    {
+        let mut stack = Vec::with_capacity(expr.ops().len());
+        for op in expr.ops() {
+            match *op {
+                InitExprOp::I32Const(value) => stack.push(value),
+                InitExprOp::GlobalGetI32(global) => {
+                    stack.push(unsafe { get_global(global, instance).i32 })
+                }
+                InitExprOp::I32Add => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.add");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.add");
+                    stack.push(lhs.wrapping_add(rhs));
+                }
+                InitExprOp::I32Sub => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.sub");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.sub");
+                    stack.push(lhs.wrapping_sub(rhs));
+                }
+                InitExprOp::I32Mul => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.mul");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.mul");
+                    stack.push(lhs.wrapping_mul(rhs));
+                }
+                _ => {
+                    panic!("unexpected init expr statement: {op:?}");
+                }
+            }
+        }
+        EvaluatedInitExpr::I32(
+            stack
+                .into_iter()
+                .exactly_one()
+                .expect("invalid init expr stack shape"),
+        )
+    } else {
+        let mut stack = Vec::with_capacity(expr.ops().len());
+        for op in expr.ops() {
+            match *op {
+                InitExprOp::I64Const(value) => stack.push(value),
+                InitExprOp::GlobalGetI64(global) => {
+                    stack.push(unsafe { get_global(global, instance).i64 })
+                }
+                InitExprOp::I64Add => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.add");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.add");
+                    stack.push(lhs.wrapping_add(rhs));
+                }
+                InitExprOp::I64Sub => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.sub");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.sub");
+                    stack.push(lhs.wrapping_sub(rhs));
+                }
+                InitExprOp::I64Mul => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.mul");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.mul");
+                    stack.push(lhs.wrapping_mul(rhs));
+                }
+                _ => {
+                    panic!("unexpected init expr statement: {op:?}");
+                }
+            }
+        }
+        EvaluatedInitExpr::I64(
+            stack
+                .into_iter()
+                .exactly_one()
+                .expect("invalid init expr stack shape"),
+        )
+    }
 }
 
 /// Initialize the table memory from the provided initializers.
 fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
     for init in &module.table_initializers {
-        let start = get_table_init_start(init, instance);
+        let EvaluatedInitExpr::I32(start) = eval_init_expr(&init.offset_expr, instance) else {
+            panic!("unexpected expression type, expected i32");
+        };
+        if start < 0 {
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        }
+        let start = start as usize;
         let table = instance.get_table_handle(init.table_index);
         let table = unsafe { table.get_mut(&mut *instance.context) };
 
@@ -1475,6 +1623,8 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
                     .unwrap();
             }
         }
+
+        instance.sync_fixed_funcref_table_by_index(init.table_index);
     }
 
     Ok(())
@@ -1515,7 +1665,14 @@ fn initialize_memories(
     for init in data_initializers {
         let memory = instance.get_vmmemory(init.location.memory_index);
 
-        let start = get_memory_init_start(init, instance);
+        let EvaluatedInitExpr::I32(start) = eval_init_expr(&init.location.offset_expr, instance)
+        else {
+            panic!("unexpected expression type, expected i32");
+        };
+        if start < 0 {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        }
+        let start = start as usize;
         unsafe {
             let current_length = memory.vmmemory().as_ref().current_length;
             if start
@@ -1556,8 +1713,19 @@ fn initialize_globals(instance: &Instance) {
                     let funcref = instance.func_ref(*func_idx).unwrap();
                     (*to).val = funcref.into_raw();
                 }
+                GlobalInit::Expr(expr) => match eval_init_expr(expr, instance) {
+                    EvaluatedInitExpr::I32(value) => (*to).val.i32 = value,
+                    EvaluatedInitExpr::I64(value) => (*to).val.i64 = value,
+                },
             }
         }
+    }
+}
+
+fn anyfunc_from_funcref(funcref: Option<VMFuncRef>) -> VMCallerCheckedAnyfunc {
+    match funcref {
+        Some(funcref) => unsafe { *funcref.0.as_ptr() },
+        None => VMCallerCheckedAnyfunc::null(),
     }
 }
 

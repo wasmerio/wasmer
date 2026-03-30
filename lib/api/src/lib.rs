@@ -423,7 +423,8 @@ macro_rules! cfg_compiler {
                 feature = "jsc",
                 feature = "wamr",
                 feature = "v8",
-                feature = "wasmi"
+                feature = "wasmi",
+                feature = "headless"
             ))]
             $item
         )*
@@ -438,18 +439,24 @@ macro_rules! cfg_compiler {
     feature = "wasmi",
     feature = "v8",
     feature = "js",
-    feature = "jsc"
+    feature = "jsc",
+    feature = "headless",
 )))]
 compile_error!(
-    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `wamr`, `wasmi`, `v8`, `js`, or `jsc`."
+    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `wamr`, `wasmi`, `v8`, `js`, `jsc` or `headless`."
 );
 
 #[cfg(all(
     feature = "sys",
-    not(any(feature = "singlepass", feature = "cranelift", feature = "llvm"))
+    not(any(
+        feature = "singlepass",
+        feature = "cranelift",
+        feature = "llvm",
+        feature = "headless"
+    ))
 ))]
 compile_error!(
-    "the `sys` feature requires enabling at least one compiler backend: `singlepass`, `cranelift`, or `llvm`."
+    "the `sys` feature requires enabling at least one compiler backend: `singlepass`, `cranelift`, `llvm`, or `headless`."
 );
 
 cfg_compiler! {
@@ -473,16 +480,17 @@ cfg_compiler! {
     feature = "jsc",
     feature = "wamr",
     feature = "v8",
-    feature = "wasmi"
+    feature = "wasmi",
+    feature = "headless",
 ))]
 mod entities;
 
 pub use wasmer_types::{
     Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
     FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
-    MemoryType, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
-    TableStyle, TableType, TagKind, TagType, Type, ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES,
-    WASM_PAGE_SIZE, WasmError, WasmResult, is_wasm,
+    MemoryType, ModuleInfo, Mutability, OnCalledAction, Pages, ParseCpuFeatureError,
+    SerializeError, TableStyle, TableType, TagKind, TagType, Type, ValueType, WASM_MAX_PAGES,
+    WASM_MIN_PAGES, WASM_PAGE_SIZE, WasmError, WasmResult, is_wasm,
 };
 
 #[cfg(feature = "wasmparser")]

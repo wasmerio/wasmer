@@ -1,0 +1,6 @@
+[submodule "tests/wast/spec"]
+	path = tests/wast/spec
+	url = https://github.com/WebAssembly/testsuite.git
+[submodule "lib/napi"]
+	path = lib/napi
+	url = https://github.com/wasmerio/napi

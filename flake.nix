@@ -2,21 +2,24 @@
   description = "Wasmer Webassembly runtime";
 
   inputs = {
-    # nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    rust-overlay.url = "github:oxalica/rust-overlay";
     flakeutils = {
       url = "github:numtide/flake-utils";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flakeutils }:
+  outputs = { self, nixpkgs, flakeutils, rust-overlay }:
     flakeutils.lib.eachDefaultSystem (system:
       let
         NAME = "wasmer";
 
         pkgs = import nixpkgs {
           inherit system;
+          overlays = [ (import rust-overlay) ];
         };
+
+        rust-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
       in
       rec {
         packages.${NAME} = import ./scripts/nix/pkg.nix pkgs;
@@ -50,6 +53,10 @@
 
 
             # Rust tooling
+            (rust-toolchain.override {
+              targets = [ "wasm32-unknown-unknown" ];
+              extensions = [ "clippy" "rustfmt" "rust-analyzer" "rust-src" ];
+            })
 
             # Snapshot testing
             # https://github.com/mitsuhiko/insta
@@ -82,6 +89,15 @@
             export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
             export LIBRARY_PATH="${pkgs.llvmPackages_21.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
             export LD_LIBRARY_PATH="${pkgs.llvmPackages_21.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
+            if [ -z "$V8_INCLUDE_DIR" ] || [ -z "$V8_LIB_DIR" ]; then
+              for candidate in /nix/store/*-ubi-v8-prebuilt-11.9.2; do
+                if [ -d "$candidate/include" ] && [ -d "$candidate/lib" ]; then
+                  export V8_INCLUDE_DIR="$candidate/include"
+                  export V8_LIB_DIR="$candidate/lib"
+                  break
+                fi
+              done
+            fi
             export BINDGEN_EXTRA_CLANG_ARGS="$(
                   < ${pkgs.llvmPackages_21.stdenv.cc}/nix-support/libc-crt1-cflags
                 ) $(

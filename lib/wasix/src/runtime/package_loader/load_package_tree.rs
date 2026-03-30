@@ -10,7 +10,7 @@ use futures::{StreamExt, TryStreamExt, future::BoxFuture};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, UnionFileSystem, WebcVolumeFileSystem};
-use wasmer_config::package::{PackageId, SuggestedCompilerOptimizations};
+use wasmer_config::package::PackageId;
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
 use webc::{Container, Volume};
@@ -65,8 +65,7 @@ pub async fn load_package_tree(
     let fs_opt = filesystem(&containers, &resolution.package, root_is_local_dir)?;
 
     let root = &resolution.package.root_package;
-    let commands: Vec<BinaryPackageCommand> =
-        commands(&resolution.package.commands, &containers, resolution)?;
+    let commands = commands(&resolution.package.commands, &containers, resolution)?;
 
     let file_system_memory_footprint = if let Some(fs) = &fs_opt {
         count_file_system(fs, Path::new("/"))
@@ -184,7 +183,7 @@ fn load_binary_command(
 
     if atom.is_none() && cmd.annotations.is_empty() {
         tracing::info!("applying legacy atom hack");
-        return legacy_atom_hack(webc, command_name, cmd);
+        return legacy_atom_hack(webc, package_id, command_name, cmd);
     }
 
     let hash = to_module_hash(webc.manifest().atom_signature(&atom_name)?);
@@ -212,44 +211,17 @@ fn load_binary_command(
         None
     };
 
-    let suggested_compiler_optimizations =
-        if let Some(atom_metadata) = webc.manifest().atoms.get(&atom_name) {
-            extract_suggested_compiler_opts_from_atom_metadata(atom_metadata)
-        } else {
-            wasmer_config::package::SuggestedCompilerOptimizations::default()
-        };
-
     let cmd = BinaryPackageCommand::new(
         command_name.to_string(),
         cmd.clone(),
         atom,
         hash,
         features,
-        suggested_compiler_optimizations,
+        package_id.clone(),
+        resolved_package_id.clone(),
     );
 
     Ok(Some(cmd))
-}
-
-fn extract_suggested_compiler_opts_from_atom_metadata(
-    atom_metadata: &webc::metadata::Atom,
-) -> wasmer_config::package::SuggestedCompilerOptimizations {
-    let mut ret = SuggestedCompilerOptimizations::default();
-
-    if let Some(sco) = atom_metadata
-        .annotations
-        .get(SuggestedCompilerOptimizations::KEY)
-        && let Some((_, v)) = sco.as_map().and_then(|v| {
-            v.iter().find(|(k, _)| {
-                k.as_text()
-                    .is_some_and(|v| v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY)
-            })
-        })
-    {
-        ret.pass_params = v.as_bool()
-    }
-
-    ret
 }
 
 fn atom_name_for_command(
@@ -294,6 +266,7 @@ fn atom_name_for_command(
 /// for more.
 fn legacy_atom_hack(
     webc: &Container,
+    package_id: &PackageId,
     command_name: &str,
     metadata: &webc::metadata::Command,
 ) -> Result<Option<BinaryPackageCommand>, anyhow::Error> {
@@ -319,21 +292,14 @@ fn legacy_atom_hack(
         None
     };
 
-    // Get WebAssembly features from manifest atom annotations
-    let suggested_opts_from_manifest = if let Some(atom_metadata) = webc.manifest().atoms.get(&name)
-    {
-        extract_suggested_compiler_opts_from_atom_metadata(atom_metadata)
-    } else {
-        SuggestedCompilerOptimizations::default()
-    };
-
     Ok(Some(BinaryPackageCommand::new(
         command_name.to_string(),
         metadata.clone(),
         atom,
         hash,
         features,
-        suggested_opts_from_manifest,
+        package_id.clone(),
+        package_id.clone(),
     )))
 }
 
@@ -581,30 +547,21 @@ fn filesystem_v2(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let mount_path_clone = mount_path.clone();
-        // Get a filesystem which will map "$mount_dir/some-path" to
-        // "$original_path/some-path" on the original volume
+        // UnionFileSystem strips the mount point before forwarding paths to the
+        // mounted filesystem. That means paths are already relative to the
+        // mount root and shouldn't be stripped by mount_path.
         let fs = if let Some(original) = original_path {
             let original = PathBuf::from(original);
 
             MappedPathFileSystem::new(
                 WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| {
-                    let without_mount_dir = path
-                        .strip_prefix(&mount_path_clone)
-                        .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
-                    Ok(original.join(without_mount_dir))
-                }) as DynPathMapper,
+                Box::new(move |path: &Path| Ok(original.join(strip_root_prefix(path))))
+                    as DynPathMapper,
             )
         } else {
             MappedPathFileSystem::new(
                 WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| {
-                    let without_mount_dir = path
-                        .strip_prefix(&mount_path_clone)
-                        .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
-                    Ok(without_mount_dir.to_owned())
-                }) as DynPathMapper,
+                Box::new(move |path: &Path| Ok(strip_root_prefix(path))) as DynPathMapper,
             )
         };
 
@@ -612,6 +569,10 @@ fn filesystem_v2(
     }
 
     Ok(union_fs)
+}
+
+fn strip_root_prefix(path: &Path) -> PathBuf {
+    path.strip_prefix("/").unwrap_or(path).to_owned()
 }
 
 type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;
@@ -729,5 +690,98 @@ where
             .field("inner", &self.inner)
             .field("map", &std::any::type_name::<M>())
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        collections::{BTreeMap, HashMap},
+        path::{Path, PathBuf},
+    };
+
+    use ciborium::value::Value;
+    use virtual_fs::FileSystem;
+    use wasmer_config::package::PackageId;
+    use webc::{
+        Container,
+        indexmap::IndexMap,
+        metadata::{
+            Manifest,
+            annotations::{FileSystemMapping, FileSystemMappings},
+        },
+        v2::{
+            SignatureAlgorithm,
+            read::OwnedReader,
+            write::{DirEntry, Directory, FileEntry, Writer},
+        },
+    };
+
+    use super::{ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2};
+
+    #[test]
+    fn v2_filesystem_mapping_resolves_mount_paths() {
+        // Regression test: v2 fs mounts are already relative to the mount root,
+        // so stripping the mount path again breaks lookups like /public.
+        let mut manifest = Manifest::default();
+        let fs = FileSystemMappings(vec![FileSystemMapping {
+            from: None,
+            volume_name: "atom".to_string(),
+            host_path: Some("/public".to_string()),
+            mount_path: "/public".to_string(),
+        }]);
+        let mut package = IndexMap::new();
+        package.insert(
+            FileSystemMappings::KEY.to_string(),
+            Value::serialized(&fs).unwrap(),
+        );
+        manifest.package = package;
+
+        let mut public_children = BTreeMap::new();
+        public_children.insert(
+            "index.html".parse().unwrap(),
+            DirEntry::File(FileEntry::from(b"ok".as_slice())),
+        );
+        let public_dir = Directory {
+            children: public_children,
+        };
+        let mut root_children = BTreeMap::new();
+        root_children.insert("public".parse().unwrap(), DirEntry::Dir(public_dir));
+        let atom_dir = Directory {
+            children: root_children,
+        };
+
+        let writer = Writer::default().write_manifest(&manifest).unwrap();
+        let writer = writer.write_atoms(BTreeMap::new()).unwrap();
+        let writer = writer.with_volume("atom", atom_dir).unwrap();
+        let bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+
+        let reader = OwnedReader::parse(bytes).unwrap();
+        let container = Container::from(reader);
+
+        let pkg_id = PackageId::new_named("ns/pkg", "0.1.0".parse().unwrap());
+        let mut packages = HashMap::new();
+        packages.insert(pkg_id.clone(), container);
+
+        let pkg = ResolvedPackage {
+            root_package: pkg_id.clone(),
+            commands: BTreeMap::new(),
+            entrypoint: None,
+            filesystem: vec![ResolvedFileSystemMapping {
+                mount_path: PathBuf::from("/public"),
+                volume_name: "atom".to_string(),
+                original_path: Some("/public".to_string()),
+                package: pkg_id,
+            }],
+        };
+
+        let union_fs = filesystem_v2(&packages, &pkg, false).unwrap();
+        assert!(union_fs.metadata(Path::new("/public")).unwrap().is_dir());
+        assert!(
+            union_fs
+                .metadata(Path::new("/public/index.html"))
+                .unwrap()
+                .is_file()
+        );
     }
 }

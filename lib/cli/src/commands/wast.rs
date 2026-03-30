@@ -3,13 +3,10 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use wasmer::{
-    Store,
-    sys::{Target, engine::NativeEngineExt},
-};
+use wasmer::{Store, sys::Target};
 use wasmer_wast::Wast as WastSpectest;
 
-use crate::{backend::RuntimeOptions, common::HashAlgorithm};
+use crate::backend::RuntimeOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer wast` subcommand
@@ -24,10 +21,6 @@ pub struct Wast {
     #[clap(short, long)]
     /// A flag to indicate wast stop at the first error or continue.
     fail_fast: bool,
-
-    /// Hashing algorithm to be used for module hash
-    #[clap(long, value_enum)]
-    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Wast {
@@ -37,10 +30,7 @@ impl Wast {
             .context(format!("failed to test the wast `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let mut engine = self.rt.get_engine(&Target::default())?;
-
-        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
-        engine.set_hash_algorithm(Some(hash_algorithm));
+        let engine = self.rt.get_engine(&Target::default())?;
 
         let store: Store = Store::new(engine);
         let mut wast = WastSpectest::new_with_spectest(store);

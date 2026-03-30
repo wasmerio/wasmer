@@ -350,11 +350,7 @@ impl From<[u8; 32]> for WebcHash {
 
 impl Display for WebcHash {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02X}")?;
-        }
-
-        Ok(())
+        write!(f, "{}", hex::encode_upper(self.0))
     }
 }
 

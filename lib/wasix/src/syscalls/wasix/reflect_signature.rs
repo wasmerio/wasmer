@@ -1,4 +1,4 @@
-use crate::{WasiEnv, WasiError, state::FunctionLookupError};
+use crate::{WasiEnv, WasiError, WasiModuleTreeHandles, state::FunctionLookupError};
 use tracing::{instrument, trace};
 use wasmer::{FunctionEnvMut, MemorySize, Type, WasmPtr, WasmSlice};
 use wasmer_wasix_types::wasi::{Bool, Errno, ReflectionResult, WasmValueType};
@@ -49,6 +49,12 @@ pub fn reflect_signature<M: MemorySize>(
     result_types_len: u16,
     result: WasmPtr<ReflectionResult, M>,
 ) -> Result<Errno, WasiError> {
+    let is_closure = WasiModuleTreeHandles::is_closure(&mut ctx, function_id).map_err(|e| {
+        trace!("Failed to check if function is a closure: {}", e);
+        WasiError::Exit(Errno::Noexec.into())
+    })?;
+    let cacheable = if is_closure { Bool::False } else { Bool::True };
+
     let (env, mut store) = ctx.data_and_store_mut();
 
     let function_lookup_result = env
@@ -63,13 +69,7 @@ pub fn reflect_signature<M: MemorySize>(
         Ok(f) => f,
         Err(e) => {
             let cacheable = match e {
-                FunctionLookupError::Empty(_) => {
-                    if env.inner().is_closure(function_id) {
-                        Bool::False
-                    } else {
-                        Bool::True
-                    }
-                }
+                FunctionLookupError::Empty(_) => cacheable,
                 FunctionLookupError::OutOfBounds(_) => Bool::False,
                 _ => Bool::True,
             };
@@ -85,9 +85,6 @@ pub fn reflect_signature<M: MemorySize>(
             return Ok(e.into());
         }
     };
-
-    let is_closure = env.inner().is_closure(function_id);
-    let cacheable = if is_closure { Bool::False } else { Bool::True };
 
     let function_type = function.ty(&store);
     let arguments = function_type.params();

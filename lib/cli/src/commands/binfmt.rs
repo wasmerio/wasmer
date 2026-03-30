@@ -1,7 +1,11 @@
 use std::{
-    env, fs,
+    env,
+    fs::{self, Permissions},
     io::Write,
-    os::unix::{ffi::OsStrExt, fs::MetadataExt},
+    os::unix::{
+        ffi::OsStrExt,
+        fs::{MetadataExt, PermissionsExt},
+    },
     path::{Path, PathBuf},
 };
 
@@ -47,7 +51,7 @@ fn seccheck(path: &Path) -> Result<()> {
     use unix_mode::*;
     anyhow::ensure!(
         !is_allowed(Accessor::Other, Access::Write, m.mode()) || is_sticky(m.mode()),
-        "{} is world writeable and not sticky",
+        "{} is world writeable and not sticky ({m:?})",
         path.to_string_lossy()
     );
     Ok(())
@@ -65,7 +69,10 @@ impl Binfmt {
         let temp_dir;
         let specs = match self.action {
             Register | Reregister => {
-                temp_dir = tempfile::tempdir().context("Make temporary directory")?;
+                temp_dir = tempfile::Builder::new()
+                    .permissions(Permissions::from_mode(0o1755))
+                    .tempdir()
+                    .context("Make temporary directory")?;
                 seccheck(temp_dir.path())?;
                 let bin_path_orig: PathBuf = env::current_exe()
                     .and_then(|p| p.canonicalize())
@@ -78,6 +85,10 @@ impl Binfmt {
                         bin_path.to_string_lossy()
                     )
                 })?;
+                // The binfmt flags are documented here:
+                // https://docs.kernel.org/admin-guide/binfmt-misc.html
+                // We use the 'F' flag to guarantee the binary exists at registration time,
+                // not necessarily at execution time (hence the temporary folder).
                 Some([
                     [
                         b":wasm32:M::\\x00asm\\x01\\x00\\x00::".as_ref(),

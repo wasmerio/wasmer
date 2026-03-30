@@ -266,6 +266,17 @@ impl WasiRunner {
         }
     }
 
+    pub fn with_asynchronous_threading(
+        &mut self,
+        enable_asynchronous_threading: bool,
+    ) -> &mut Self {
+        self.wasi
+            .capabilities
+            .threading
+            .enable_asynchronous_threading = enable_asynchronous_threading;
+        self
+    }
+
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn prepare_webc_env(
         &self,
@@ -339,9 +350,11 @@ impl WasiRunner {
         let tokio_runtime = Self::ensure_tokio_runtime();
         let _guard = tokio_runtime.as_ref().map(|rt| rt.enter());
 
+        let runner = self.clone();
+
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
 
-        let mut builder = self.prepare_webc_env(
+        let mut builder = runner.prepare_webc_env(
             program_name,
             &wasi,
             PackageOrHash::Hash(module_hash),
@@ -356,25 +369,25 @@ impl WasiRunner {
 
         #[cfg(feature = "journal")]
         {
-            for journal in self.wasi.read_only_journals.iter().cloned() {
+            for journal in runner.wasi.read_only_journals.iter().cloned() {
                 builder.add_read_only_journal(journal);
             }
-            for journal in self.wasi.writable_journals.iter().cloned() {
+            for journal in runner.wasi.writable_journals.iter().cloned() {
                 builder.add_writable_journal(journal);
             }
 
-            if !self.wasi.snapshot_on.is_empty() {
-                for trigger in self.wasi.snapshot_on.iter().cloned() {
+            if !runner.wasi.snapshot_on.is_empty() {
+                for trigger in runner.wasi.snapshot_on.iter().cloned() {
                     builder.add_snapshot_trigger(trigger);
                 }
-            } else if !self.wasi.writable_journals.is_empty() {
+            } else if !runner.wasi.writable_journals.is_empty() {
                 for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
 
-            if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.writable_journals.is_empty() {
+            if let Some(period) = runner.wasi.snapshot_interval {
+                if runner.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
                         "If you specify a snapshot interval then you must also specify a writable journal file"
                     ));
@@ -382,8 +395,8 @@ impl WasiRunner {
                 builder.with_snapshot_interval(period);
             }
 
-            builder.with_stop_running_after_snapshot(self.wasi.stop_running_after_snapshot);
-            builder.with_skip_stdio_during_bootstrap(self.wasi.skip_stdio_during_bootstrap);
+            builder.with_stop_running_after_snapshot(runner.wasi.stop_running_after_snapshot);
+            builder.with_skip_stdio_during_bootstrap(runner.wasi.skip_stdio_during_bootstrap);
         }
 
         let env = builder.build()?;
@@ -433,6 +446,7 @@ impl WasiRunner {
         let cmd = pkg
             .get_command(command_name)
             .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
+
         let wasi = cmd
             .metadata()
             .annotation("wasi")?

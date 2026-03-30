@@ -64,7 +64,12 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
+    // An empty subscription list would otherwise block forever in the poll loop.
+    if nsubscriptions == M::ZERO {
+        return Ok(Errno::Inval);
+    }
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
@@ -179,7 +184,15 @@ pub(crate) fn poll_fd_guard(
             .map_err(fs_error_into_wasi_err)?,
         _ => {
             let fd_entry = state.fs.get_fd(fd)?;
-            if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
+            let requires_access = match s.type_ {
+                Eventtype::FdRead => Rights::FD_READ,
+                Eventtype::FdWrite => Rights::FD_WRITE,
+                _ => Rights::empty(),
+            };
+
+            if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
+                && fd_entry.inner.rights.contains(requires_access))
+            {
                 return Err(Errno::Access);
             }
             let inode = fd_entry.inode;
@@ -249,40 +262,12 @@ where
         let fd = match s.type_ {
             Eventtype::FdRead => {
                 let file_descriptor = unsafe { s.data.fd_readwrite.file_descriptor };
-                match file_descriptor {
-                    __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
-                    fd => {
-                        let fd_entry = match state.fs.get_fd(fd) {
-                            Ok(a) => a,
-                            Err(err) => return Ok(err),
-                        };
-                        if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
-                            && fd_entry.inner.rights.contains(Rights::FD_READ))
-                        {
-                            return Ok(Errno::Access);
-                        }
-                    }
-                }
                 *fd = Some(file_descriptor);
                 *peb |= (PollEvent::PollIn as PollEventSet);
                 file_descriptor
             }
             Eventtype::FdWrite => {
                 let file_descriptor = unsafe { s.data.fd_readwrite.file_descriptor };
-                match file_descriptor {
-                    __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
-                    fd => {
-                        let fd_entry = match state.fs.get_fd(fd) {
-                            Ok(a) => a,
-                            Err(err) => return Ok(err),
-                        };
-                        if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
-                            && fd_entry.inner.rights.contains(Rights::FD_WRITE))
-                        {
-                            return Ok(Errno::Access);
-                        }
-                    }
-                }
                 *fd = Some(file_descriptor);
                 *peb |= (PollEvent::PollOut as PollEventSet);
                 file_descriptor

@@ -1,7 +1,7 @@
 use std::fs;
 use std::time::Duration;
 
-use rand::Rng as _;
+use rand::RngExt;
 use semver::Version;
 use tempfile::tempdir;
 use url::Url;

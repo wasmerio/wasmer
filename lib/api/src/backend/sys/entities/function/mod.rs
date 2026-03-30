@@ -29,10 +29,7 @@ use wasmer_types::{NativeWasmType, RawValue, StoreId};
 #[cfg(feature = "experimental-host-interrupt")]
 use wasmer_vm::interrupt_registry;
 use wasmer_vm::{
-    MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
-    VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext,
-    VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap, raise_user_trap, resume_panic,
-    wasmer_call_trampoline,
+    on_host_stack, raise_lib_trap, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMExceptionRef, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -255,7 +252,7 @@ impl Function {
         Rets: WasmTypeList,
     {
         let env = FunctionEnv::new(store, ());
-        let func_ptr = func.function_callback_sys().into_sys();
+        let func_ptr = func.function_callback_sys().unwrap_sys();
         let host_data = Box::new(StaticFunction {
             store_id: store.objects_mut().id(),
             env,
@@ -272,7 +269,7 @@ impl Function {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline =
-            <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address().into_sys();
+            <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address().unwrap_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -408,7 +405,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let func_ptr = func.function_callback_sys().into_sys();
+        let func_ptr = func.function_callback_sys().unwrap_sys();
         let host_data = Box::new(StaticFunction {
             store_id: store.objects_mut().id(),
             env: env.as_sys().clone().into(),
@@ -425,7 +422,7 @@ impl Function {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline =
-            <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address().into_sys();
+            <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address().unwrap_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -677,7 +674,7 @@ impl Function {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.into_sys())
+                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.unwrap_sys())
             },
         }
     }
@@ -888,7 +885,7 @@ where
                 }
                 wasmer_vm::libcalls::throw(
                     store.objects.as_sys(),
-                    exception.vm_exceptionref().as_sys().to_u32_exnref(),
+                    exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
                 )
             },
             Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
@@ -1016,7 +1013,7 @@ macro_rules! impl_host_function {
                         }
                         wasmer_vm::libcalls::throw(
                             store.objects.as_sys(),
-                            exception.vm_exceptionref().as_sys().to_u32_exnref()
+                            exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
                         )
                     }
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
@@ -1120,7 +1117,7 @@ macro_rules! impl_host_function {
                         }
                         wasmer_vm::libcalls::throw(
                             store.objects.as_sys(),
-                            exception.vm_exceptionref().as_sys().to_u32_exnref()
+                            exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
                         )
                     }
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
