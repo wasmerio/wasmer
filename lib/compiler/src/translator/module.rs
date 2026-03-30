@@ -96,6 +96,15 @@ pub(crate) fn analyze_readonly_funcref_table(
         return Ok(None);
     }
 
+    // Imported functions carry their own host environment / callee VMContext.
+    if table_initializer
+        .elements
+        .iter()
+        .any(|func_index| module.is_imported_function(*func_index))
+    {
+        return Ok(None);
+    }
+
     let readonly = AtomicBool::new(true);
     function_body_inputs
         .iter()
