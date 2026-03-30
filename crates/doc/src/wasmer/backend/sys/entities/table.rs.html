@@ -35,10 +35,10 @@
 <a href=#35 id=35 data-nosnippet>35</a>    }
 <a href=#36 id=36 data-nosnippet>36</a>    <span class="prelude-val">Ok</span>(<span class="kw">match </span>val {
 <a href=#37 id=37 data-nosnippet>37</a>        Value::ExternRef(extern_ref) =&gt; {
-<a href=#38 id=38 data-nosnippet>38</a>            wasmer_vm::TableElement::ExternRef(extern_ref.map(|e| e.vm_externref().into_sys()))
+<a href=#38 id=38 data-nosnippet>38</a>            wasmer_vm::TableElement::ExternRef(extern_ref.map(|e| e.vm_externref().unwrap_sys()))
 <a href=#39 id=39 data-nosnippet>39</a>        }
 <a href=#40 id=40 data-nosnippet>40</a>        Value::FuncRef(func_ref) =&gt; {
-<a href=#41 id=41 data-nosnippet>41</a>            wasmer_vm::TableElement::FuncRef(func_ref.map(|f| f.vm_funcref(store).into_sys()))
+<a href=#41 id=41 data-nosnippet>41</a>            wasmer_vm::TableElement::FuncRef(func_ref.map(|f| f.vm_funcref(store).unwrap_sys()))
 <a href=#42 id=42 data-nosnippet>42</a>        }
 <a href=#43 id=43 data-nosnippet>43</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">"val is not reference"</span>)),
 <a href=#44 id=44 data-nosnippet>44</a>    })
@@ -164,7 +164,7 @@
 <a href=#164 id=164 data-nosnippet>164</a>            handle: <span class="kw">unsafe </span>{
 <a href=#165 id=165 data-nosnippet>165</a>                StoreHandle::from_internal(
 <a href=#166 id=166 data-nosnippet>166</a>                    store.as_store_ref().objects().id(),
-<a href=#167 id=167 data-nosnippet>167</a>                    vm_extern.into_sys(),
+<a href=#167 id=167 data-nosnippet>167</a>                    vm_extern.unwrap_sys(),
 <a href=#168 id=168 data-nosnippet>168</a>                )
 <a href=#169 id=169 data-nosnippet>169</a>            },
 <a href=#170 id=170 data-nosnippet>170</a>        }

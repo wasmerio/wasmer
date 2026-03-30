@@ -35,10 +35,10 @@
 <a href=#35 id=35 data-nosnippet>35</a>            .imports_for_module(module)
 <a href=#36 id=36 data-nosnippet>36</a>            .map_err(InstantiationError::Link)<span class="question-mark">?</span>;
 <a href=#37 id=37 data-nosnippet>37</a>        <span class="kw">let </span><span class="kw-2">mut </span>handle = module.as_sys().instantiate(store, <span class="kw-2">&amp;</span>externs)<span class="question-mark">?</span>;
-<a href=#38 id=38 data-nosnippet>38</a>        <span class="kw">let </span>exports = <span class="self">Self</span>::get_exports(store, module, handle.as_sys_mut());
+<a href=#38 id=38 data-nosnippet>38</a>        <span class="kw">let </span>exports = <span class="self">Self</span>::get_exports(store, module, handle.unwrap_sys_mut());
 <a href=#39 id=39 data-nosnippet>39</a>
 <a href=#40 id=40 data-nosnippet>40</a>        <span class="kw">let </span>instance = <span class="self">Self </span>{
-<a href=#41 id=41 data-nosnippet>41</a>            _handle: StoreHandle::new(store.objects_mut().as_sys_mut(), handle.into_sys()),
+<a href=#41 id=41 data-nosnippet>41</a>            _handle: StoreHandle::new(store.objects_mut().as_sys_mut(), handle.unwrap_sys()),
 <a href=#42 id=42 data-nosnippet>42</a>        };
 <a href=#43 id=43 data-nosnippet>43</a>
 <a href=#44 id=44 data-nosnippet>44</a>        <span class="prelude-val">Ok</span>((instance, exports))
@@ -52,11 +52,11 @@
 <a href=#52 id=52 data-nosnippet>52</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, Exports), InstantiationError&gt; {
 <a href=#53 id=53 data-nosnippet>53</a>        <span class="kw">let </span>externs = externs.to_vec();
 <a href=#54 id=54 data-nosnippet>54</a>        <span class="kw">let </span><span class="kw-2">mut </span>handle = module.as_sys().instantiate(store, <span class="kw-2">&amp;</span>externs)<span class="question-mark">?</span>;
-<a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">let </span>exports = <span class="self">Self</span>::get_exports(store, module, handle.as_sys_mut());
+<a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">let </span>exports = <span class="self">Self</span>::get_exports(store, module, handle.unwrap_sys_mut());
 <a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">let </span>instance = <span class="self">Self </span>{
 <a href=#57 id=57 data-nosnippet>57</a>            _handle: StoreHandle::new(
 <a href=#58 id=58 data-nosnippet>58</a>                store.as_store_mut().objects_mut().as_sys_mut(),
-<a href=#59 id=59 data-nosnippet>59</a>                handle.into_sys(),
+<a href=#59 id=59 data-nosnippet>59</a>                handle.unwrap_sys(),
 <a href=#60 id=60 data-nosnippet>60</a>            ),
 <a href=#61 id=61 data-nosnippet>61</a>        };
 <a href=#62 id=62 data-nosnippet>62</a>

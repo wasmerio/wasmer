@@ -164,7 +164,7 @@
 <a href=#164 id=164 data-nosnippet>164</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 <a href=#165 id=165 data-nosnippet>165</a>            </span><span class="kw">crate</span>::StoreObjects::Sys(<span class="kw-2">ref </span>store_objects) =&gt; {
 <a href=#166 id=166 data-nosnippet>166</a>                <span class="kw">crate</span>::backend::sys::vm::Trap::uncaught_exception(
-<a href=#167 id=167 data-nosnippet>167</a>                    exnref.as_sys().clone(),
+<a href=#167 id=167 data-nosnippet>167</a>                    exnref.unwrap_sys_ref().clone(),
 <a href=#168 id=168 data-nosnippet>168</a>                    store_objects,
 <a href=#169 id=169 data-nosnippet>169</a>                )
 <a href=#170 id=170 data-nosnippet>170</a>                .into()

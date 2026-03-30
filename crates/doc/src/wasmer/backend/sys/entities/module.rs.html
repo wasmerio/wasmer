@@ -190,7 +190,7 @@
 <a href=#190 id=190 data-nosnippet>190</a>                engine.tunables(),
 <a href=#191 id=191 data-nosnippet>191</a>                <span class="kw-2">&amp;</span>imports
 <a href=#192 id=192 data-nosnippet>192</a>                    .iter()
-<a href=#193 id=193 data-nosnippet>193</a>                    .map(|e| <span class="kw">crate</span>::Extern::to_vm_extern(e).into_sys())
+<a href=#193 id=193 data-nosnippet>193</a>                    .map(|e| <span class="kw">crate</span>::Extern::to_vm_extern(e).unwrap_sys())
 <a href=#194 id=194 data-nosnippet>194</a>                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 <a href=#195 id=195 data-nosnippet>195</a>                objects.as_sys_mut(),
 <a href=#196 id=196 data-nosnippet>196</a>            )<span class="question-mark">?</span>;

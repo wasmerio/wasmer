@@ -22,7 +22,7 @@
 <a href=#22 id=22 data-nosnippet>22</a>    EngineInner, ModuleEnvironment, ModuleMiddlewareChain, serialize::SerializableCompilation,
 <a href=#23 id=23 data-nosnippet>23</a>};
 <a href=#24 id=24 data-nosnippet>24</a><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#25 id=25 data-nosnippet>25</a></span><span class="kw">use </span>wasmer_types::target::Target;
+<a href=#25 id=25 data-nosnippet>25</a></span><span class="kw">use </span>wasmer_types::{CompilationProgressCallback, target::Target};
 <a href=#26 id=26 data-nosnippet>26</a>
 <a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>core::mem::MaybeUninit;
 <a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>enumset::EnumSet;
@@ -31,7 +31,7 @@
 <a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>shared_buffer::OwnedBuffer;
 <a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>std::sync::Arc;
 <a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>wasmer_types::{
-<a href=#34 id=34 data-nosnippet>34</a>    CompilationProgressCallback, DeserializeError,
+<a href=#34 id=34 data-nosnippet>34</a>    DeserializeError,
 <a href=#35 id=35 data-nosnippet>35</a>    entity::{ArchivedPrimaryMap, PrimaryMap},
 <a href=#36 id=36 data-nosnippet>36</a>    target::CpuFeature,
 <a href=#37 id=37 data-nosnippet>37</a>};

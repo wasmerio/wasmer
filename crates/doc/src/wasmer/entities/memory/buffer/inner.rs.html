@@ -6,10 +6,10 @@
 <a href=#6 id=6 data-nosnippet>6</a>};
 <a href=#7 id=7 data-nosnippet>7</a>
 <a href=#8 id=8 data-nosnippet>8</a><span class="doccomment">/// Underlying buffer for a memory.
-<a href=#9 id=9 data-nosnippet>9</a></span><span class="macro">gen_rt_ty!</span>(MemoryBuffer&lt;<span class="lifetime">'a</span>&gt;
-<a href=#10 id=10 data-nosnippet>10</a>    @derives Debug, Copy, Clone, derive_more::From;
-<a href=#11 id=11 data-nosnippet>11</a>    @path memory
-<a href=#12 id=12 data-nosnippet>12</a>);
+<a href=#9 id=9 data-nosnippet>9</a></span><span class="macro">gen_rt_ty!</span> {
+<a href=#10 id=10 data-nosnippet>10</a>    <span class="attr">#[derive(Debug, Copy, Clone, derive_more::From)]
+<a href=#11 id=11 data-nosnippet>11</a>    </span><span class="kw">pub </span>BackendMemoryBuffer&lt;<span class="lifetime">'a</span>&gt;(entities::memory::MemoryBuffer&lt;<span class="lifetime">'a</span>&gt;);
+<a href=#12 id=12 data-nosnippet>12</a>}
 <a href=#13 id=13 data-nosnippet>13</a>
 <a href=#14 id=14 data-nosnippet>14</a><span class="kw">impl </span>BackendMemoryBuffer&lt;<span class="lifetime">'_</span>&gt; {
 <a href=#15 id=15 data-nosnippet>15</a>    <span class="attr">#[allow(unused)]

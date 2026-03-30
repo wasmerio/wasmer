@@ -51,7 +51,7 @@
 <a href=#51 id=51 data-nosnippet>51</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, vm_extern: VMExternTag) -&gt; <span class="self">Self </span>{
 <a href=#52 id=52 data-nosnippet>52</a>        <span class="self">Self </span>{
 <a href=#53 id=53 data-nosnippet>53</a>            handle: <span class="kw">unsafe </span>{
-<a href=#54 id=54 data-nosnippet>54</a>                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.into_sys())
+<a href=#54 id=54 data-nosnippet>54</a>                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.unwrap_sys())
 <a href=#55 id=55 data-nosnippet>55</a>            },
 <a href=#56 id=56 data-nosnippet>56</a>        }
 <a href=#57 id=57 data-nosnippet>57</a>    }
