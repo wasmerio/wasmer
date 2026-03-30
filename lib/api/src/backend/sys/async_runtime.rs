@@ -161,12 +161,15 @@ impl Future for AsyncCallFuture {
         loop {
             let store_id = self.store.store_id();
 
-            if super::vm::interrupt_registry::is_interrupted(store_id) {
-                self.remove_from_wakers_list();
-                return Poll::Ready(Err(super::vm::Trap::lib(
-                    super::vm::TrapCode::HostInterrupt,
-                )
-                .into()));
+            #[cfg(feature = "experimental-host-interrupt")]
+            {
+                if super::vm::interrupt_registry::is_interrupted(store_id) {
+                    self.remove_from_wakers_list();
+                    return Poll::Ready(Err(super::vm::Trap::lib(
+                        super::vm::TrapCode::HostInterrupt,
+                    )
+                    .into()));
+                }
             }
 
             if let Some(future) = self.pending_future.as_mut() {

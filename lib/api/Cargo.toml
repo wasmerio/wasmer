@@ -66,7 +66,7 @@ wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=7.1.0"
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=7.1.0", optional = true }
 corosensei = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
-dashmap = { workspace = true, optional = true }
+dashmap.workspace = true
 
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
@@ -141,7 +141,6 @@ experimental-async = ["dep:futures", "dep:corosensei"]
 
 # Experimental host-triggered interruption support
 experimental-host-interrupt = [
-	"dep:dashmap",
 	"wasmer-vm/experimental-host-interrupt",
 ]
 
