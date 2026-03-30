@@ -84,10 +84,6 @@ pub struct VMTable {
 }
 
 impl VMTable {
-    fn assert_mutable(&self) {
-        assert!(!self.table.readonly, "attempted to modify a readonly table");
-    }
-
     /// Create a new linear table instance with specified minimum and maximum number of elements.
     ///
     /// This creates a `Table` with metadata owned by a VM, pointed to by
@@ -216,7 +212,10 @@ impl VMTable {
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
     pub fn grow(&mut self, delta: u32, init_value: TableElement) -> Option<u32> {
-        self.assert_mutable();
+        if self.table.readonly {
+            // Cannot grow a readonly fixed table.
+            return None;
+        }
         let size = self.size();
         let new_len = size.checked_add(delta)?;
         if self.maximum.is_some_and(|max| new_len > max) {
@@ -258,7 +257,9 @@ impl VMTable {
     ///
     /// Returns an error if the index is out of bounds.
     pub fn set(&mut self, index: u32, reference: TableElement) -> Result<(), Trap> {
-        self.assert_mutable();
+        if self.table.readonly {
+            return Err(Trap::lib(TrapCode::ReadonlyTableModified));
+        }
         match self.vec.get_mut(index as usize) {
             Some(slot) => {
                 match (self.table.ty, reference) {
@@ -299,7 +300,10 @@ impl VMTable {
         src_index: u32,
         len: u32,
     ) -> Result<(), Trap> {
-        self.assert_mutable();
+        if self.table.readonly {
+            return Err(Trap::lib(TrapCode::ReadonlyTableModified));
+        }
+
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-copy
 
         if src_index
@@ -348,7 +352,10 @@ impl VMTable {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy_within(&mut self, dst_index: u32, src_index: u32, len: u32) -> Result<(), Trap> {
-        self.assert_mutable();
+        if self.table.readonly {
+            return Err(Trap::lib(TrapCode::ReadonlyTableModified));
+        }
+
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-copy
 
         if src_index.checked_add(len).is_none_or(|n| n > self.size()) {
