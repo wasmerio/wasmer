@@ -180,7 +180,11 @@ fn test_stdin() {
     let _guard = handle.enter();
 
     let engine = wasmer::Engine::default();
-    let module = Module::new(&engine, include_bytes!("stdin-hello.wasm")).unwrap();
+    let module = Module::new(
+        &engine,
+        include_bytes!("../../../wasmer-test-files/wasix/stdin-hello.wasm"),
+    )
+    .unwrap();
 
     // Create the `WasiEnv`.
     let (mut pipe_tx, pipe_rx) = Pipe::channel();
