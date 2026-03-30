@@ -123,7 +123,14 @@ fn test_env() {
     let _guard = handle.enter();
 
     let engine = wasmer::Engine::default();
-    let module = Module::new(&engine, include_bytes!("envvar.wasm")).unwrap();
+    let module = Module::new(
+        &engine,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../wasmer-test-files/wasix/envvar.wasm"
+        )),
+    )
+    .unwrap();
 
     #[cfg(feature = "js")]
     tracing_wasm::set_as_global_default_with_config({
