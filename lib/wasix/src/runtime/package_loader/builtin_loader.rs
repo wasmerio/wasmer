@@ -158,6 +158,11 @@ impl BuiltinPackageLoader {
         self.in_memory.save(container, hash);
     }
 
+    /// Remove a container from the in-memory cache.
+    pub fn evict_cached(&self, hash: &WebcHash) -> Option<Container> {
+        self.in_memory.remove(hash)
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(pkg.hash=%hash))]
     async fn get_cached(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         if let Some(cached) = self.in_memory.lookup(hash) {
@@ -748,6 +753,10 @@ impl InMemoryCache {
     fn save(&self, container: &Container, hash: WebcHash) {
         let mut cache = self.0.write().unwrap();
         cache.entry(hash).or_insert_with(|| container.clone());
+    }
+
+    fn remove(&self, hash: &WebcHash) -> Option<Container> {
+        self.0.write().unwrap().remove(hash)
     }
 }
 
