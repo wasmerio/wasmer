@@ -38,7 +38,7 @@ bytes.workspace = true
 tracing = { workspace = true, default-features = true }
 # - Optional shared dependencies.
 wat = { workspace = true, optional = true }
-rustc-demangle.workspace = true
+symbolic-demangle.workspace = true
 shared-buffer.workspace = true
 
 wasmi_c_api_impl = { workspace = true, optional = true, features = [
