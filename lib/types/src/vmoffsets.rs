@@ -8,7 +8,7 @@
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, entity::EntityRef,
+    ModuleInfo, TableIndex, entity::EntityRef,
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -208,8 +208,6 @@ const fn align(offset: u32, width: u32) -> u32 {
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
     pointer_size: u8,
-    /// The number of signature declarations in the module.
-    num_signature_ids: u32,
     /// The number of imported functions in the module.
     num_imported_functions: u32,
     /// The number of imported tables in the module.
@@ -232,7 +230,6 @@ pub struct VMOffsets {
     /// Total size in bytes of all inline fixed `funcref` table storage in `VMContext`.
     size_of_local_fixed_funcref_tables: u32,
 
-    vmctx_signature_ids_begin: u32,
     vmctx_imported_functions_begin: u32,
     vmctx_imported_tables_begin: u32,
     vmctx_imported_memories_begin: u32,
@@ -278,7 +275,6 @@ impl VMOffsets {
 
         let mut ret = Self {
             pointer_size,
-            num_signature_ids: cast_to_u32(module.signatures.len()),
             num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
@@ -289,7 +285,6 @@ impl VMOffsets {
             num_local_globals: cast_to_u32(module.globals.len()),
             local_fixed_funcref_table_offsets,
             size_of_local_fixed_funcref_tables,
-            vmctx_signature_ids_begin: 0,
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
@@ -317,7 +312,6 @@ impl VMOffsets {
     pub fn new_for_trampolines(pointer_size: u8) -> Self {
         Self {
             pointer_size,
-            num_signature_ids: 0,
             num_imported_functions: 0,
             num_imported_tables: 0,
             num_imported_memories: 0,
@@ -328,7 +322,6 @@ impl VMOffsets {
             num_local_globals: 0,
             local_fixed_funcref_table_offsets: Vec::new(),
             size_of_local_fixed_funcref_tables: 0,
-            vmctx_signature_ids_begin: 0,
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
@@ -380,12 +373,7 @@ impl VMOffsets {
             )
         };
 
-        self.vmctx_signature_ids_begin = 0;
-        self.vmctx_imported_functions_begin = offset_by_aligned(
-            self.vmctx_signature_ids_begin,
-            self.num_signature_ids,
-            u32::from(self.size_of_vmshared_signature_index()),
-        );
+        self.vmctx_imported_functions_begin = 0;
         self.vmctx_imported_tables_begin = offset_by_aligned(
             self.vmctx_imported_functions_begin,
             self.num_imported_functions,
@@ -639,14 +627,6 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for `VMSharedSignatureIndex`.
-impl VMOffsets {
-    /// Return the size of `VMSharedSignatureIndex`.
-    pub const fn size_of_vmshared_signature_index(&self) -> u8 {
-        4
-    }
-}
-
 /// Offsets for `VMCallerCheckedAnyfunc`.
 impl VMOffsets {
     /// The offset of the `func_ptr` field.
@@ -655,9 +635,9 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `type_index` field.
+    /// The offset of the `VMSignatureHash` field.
     #[allow(clippy::identity_op)]
-    pub const fn vmcaller_checked_anyfunc_type_index(&self) -> u8 {
+    pub const fn vmcaller_checked_anyfunc_signature_hash(&self) -> u8 {
         1 * self.pointer_size
     }
 
@@ -702,11 +682,6 @@ impl VMOffsets {
 
 /// Offsets for `VMContext`.
 impl VMOffsets {
-    /// The offset of the `signature_ids` array.
-    pub fn vmctx_signature_ids_begin(&self) -> u32 {
-        self.vmctx_signature_ids_begin
-    }
-
     /// The offset of the `tables` array.
     #[allow(clippy::erasing_op)]
     pub fn vmctx_imported_functions_begin(&self) -> u32 {
@@ -762,13 +737,6 @@ impl VMOffsets {
     /// Return the size of the `VMContext` allocation.
     pub fn size_of_vmctx(&self) -> u32 {
         self.size_of_vmctx
-    }
-
-    /// Return the offset to `VMSharedSignatureIndex` index `index`.
-    pub fn vmctx_vmshared_signature_id(&self, index: SignatureIndex) -> u32 {
-        assert_lt!(index.as_u32(), self.num_signature_ids);
-        self.vmctx_signature_ids_begin
-            + index.as_u32() * u32::from(self.size_of_vmshared_signature_index())
     }
 
     /// Return the offset to `VMFunctionImport` index `index`.
@@ -888,22 +856,6 @@ impl VMOffsets {
     /// Remember updating precompute upon changes
     pub fn vmctx_builtin_function(&self, index: VMBuiltinFunctionIndex) -> u32 {
         self.vmctx_builtin_functions_begin + index.index() * u32::from(self.pointer_size)
-    }
-}
-
-/// Target specific type for shared signature index.
-#[derive(Debug, Copy, Clone)]
-pub struct TargetSharedSignatureIndex(u32);
-
-impl TargetSharedSignatureIndex {
-    /// Constructs `TargetSharedSignatureIndex`.
-    pub const fn new(value: u32) -> Self {
-        Self(value)
-    }
-
-    /// Returns index value.
-    pub const fn index(self) -> u32 {
-        self.0
     }
 }
 

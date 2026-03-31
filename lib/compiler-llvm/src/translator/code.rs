@@ -52,7 +52,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, Type, target::CpuFeature,
+    ModuleInfo, SignatureHash, SignatureIndex, TableIndex, Type, target::CpuFeature,
 };
 use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
@@ -124,6 +124,7 @@ impl FuncTranslator {
         &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
+        signature_hashes: &PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
@@ -337,6 +338,7 @@ impl FuncTranslator {
             _table_styles,
             module: &module,
             module_translation,
+            signature_hashes,
             wasm_module,
             symbol_registry,
             abi: &*self.abi,
@@ -431,6 +433,7 @@ impl FuncTranslator {
         &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
+        signature_hashes: &PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
@@ -453,6 +456,7 @@ impl FuncTranslator {
         let module = self.translate_to_module(
             wasm_module,
             module_translation,
+            signature_hashes,
             local_func_index,
             function_body,
             config,
@@ -1951,6 +1955,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
+    signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
@@ -3174,9 +3179,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .wasm_module
                     .local_table_index(table_index)
                     .filter(|_| table.is_fixed_funcref_table());
-                let expected_dynamic_sigindex =
-                    self.ctx
-                        .dynamic_sigindex(sigindex, self.intrinsics, self.module)?;
+                let expected_signature_hash = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(u64::from(self.signature_hashes[sigindex].as_u32()), false);
+
                 let func_index = self.state.pop1()?.into_int_value();
                 let generic_table = if local_fixed_funcref_table.is_none() {
                     Some(self.ctx.table(
@@ -3319,6 +3326,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 };
 
                 // Load things from the anyfunc data structure.
+                let sig_hash_ptr = self
+                    .builder
+                    .build_struct_gep(
+                        self.intrinsics.anyfunc_ty,
+                        anyfunc_struct_ptr,
+                        1,
+                        "sig_hash_ptr",
+                    )
+                    .unwrap();
                 let func_ptr_ptr = self
                     .builder
                     .build_struct_gep(
@@ -3328,16 +3344,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "func_ptr_ptr",
                     )
                     .unwrap();
-                let sigindex_ptr = self
-                    .builder
-                    .build_struct_gep(
-                        self.intrinsics.anyfunc_ty,
-                        anyfunc_struct_ptr,
-                        1,
-                        "sigindex_ptr",
-                    )
-                    .unwrap();
-                let (func_ptr, found_dynamic_sigindex) = (
+                let (func_ptr, found_signature_hash) = (
                     err!(
                         self.builder
                             .build_load(self.intrinsics.ptr_ty, func_ptr_ptr, "func_ptr")
@@ -3345,7 +3352,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .into_pointer_value(),
                     err!(
                         self.builder
-                            .build_load(self.intrinsics.i32_ty, sigindex_ptr, "sigindex")
+                            .build_load(self.intrinsics.i32_ty, sig_hash_ptr, "sig_hash")
                     )
                     .into_int_value(),
                 );
@@ -3357,28 +3364,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 // Next, check if the signature id is correct.
 
-                let sigindices_equal = err!(self.builder.build_int_compare(
+                let sig_hashes_equal = err!(self.builder.build_int_compare(
                     IntPredicate::EQ,
-                    expected_dynamic_sigindex,
-                    found_dynamic_sigindex,
-                    "sigindices_equal",
+                    expected_signature_hash,
+                    found_signature_hash,
+                    "sig_hashes_equal",
                 ));
 
-                let initialized_and_sigindices_match = err!(self.builder.build_and(
+                let initialized_and_sig_hashes_match = err!(self.builder.build_and(
                     elem_initialized,
-                    sigindices_equal,
+                    sig_hashes_equal,
                     ""
                 ));
 
-                // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let initialized_and_sigindices_match = self
+                // Tell llvm that the expected and found signature hashes should match.
+                let initialized_and_sig_hashes_match = self
                     .build_call_with_param_attributes(
                         self.intrinsics.expect_i1,
                         &[
-                            initialized_and_sigindices_match.into(),
+                            initialized_and_sig_hashes_match.into(),
                             self.intrinsics.i1_ty.const_int(1, false).into(),
                         ],
-                        "initialized_and_sigindices_match_expect",
+                        "initialized_and_sig_hashes_match_expect",
                     )?
                     .try_as_basic_value()
                     .unwrap_basic()
@@ -3387,16 +3394,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let continue_block = self
                     .context
                     .append_basic_block(self.function, "continue_block");
-                let sigindices_notequal_block = self
+                let sighashes_notequal_block = self
                     .context
-                    .append_basic_block(self.function, "sigindices_notequal_block");
+                    .append_basic_block(self.function, "sighashes_notequal_block");
                 err!(self.builder.build_conditional_branch(
-                    initialized_and_sigindices_match,
+                    initialized_and_sig_hashes_match,
                     continue_block,
-                    sigindices_notequal_block,
+                    sighashes_notequal_block,
                 ));
 
-                self.builder.position_at_end(sigindices_notequal_block);
+                self.builder.position_at_end(sighashes_notequal_block);
                 let trap_code = err!(self.builder.build_select(
                     elem_initialized,
                     self.intrinsics.trap_call_indirect_sig,

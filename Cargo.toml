@@ -138,6 +138,7 @@ corosensei = "0.3.0"
 cranelift-codegen = { version = "=0.130.0", default-features = false }
 cranelift-entity = { version = "=0.130.0", default-features = false }
 cranelift-frontend = { version = "=0.130.0", default-features = false }
+crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
 crossbeam-queue = "0.3.8"

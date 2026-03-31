@@ -248,6 +248,7 @@ impl Compiler for LLVMCompiler {
         let module = &compile_info.module;
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+        let signature_hashes = &module.signature_hashes;
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
@@ -295,6 +296,7 @@ impl Compiler for LLVMCompiler {
                 func_translator.translate(
                     module,
                     module_translation,
+                    signature_hashes,
                     i,
                     input,
                     self.config(),
