@@ -94,6 +94,7 @@ pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError>
         // TODO: isn't there a way to get this without reaching for libc APIs?
         // Since stores can't be sent across threads once they start executing code,
         // we don't need to update this value for recursive calls.
+        #[allow(trivial_numeric_casts)]
         let pthread = unsafe { libc::pthread_self() as usize };
 
         StoreInterruptState {
