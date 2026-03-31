@@ -185,6 +185,7 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
     store_state.interrupted = true;
 
     unsafe {
+        #[allow(trivial_numeric_casts)]
         let errno = libc::pthread_kill(store_state.pthread as libc::pthread_t, libc::SIGUSR1);
         if errno != 0 {
             let error_str = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
