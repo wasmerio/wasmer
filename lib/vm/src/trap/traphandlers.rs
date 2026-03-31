@@ -11,7 +11,7 @@ use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
 use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
-use corosensei::stack::DefaultStack;
+use corosensei::stack::{DefaultStack, Stack};
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
 use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
 use scopeguard::defer;
@@ -1005,15 +1005,15 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
-    // Reuse a cached stack from the module-level STACK_POOL when available,
-    // otherwise allocate a new one.
-    // Note: the pool does not track stack sizes — a pooled stack may be
-    // smaller than `stack_size` if the default was raised between calls.
-    // Callers that need a guaranteed size must drain the pool first via
-    // `drain_stack_pool()` after updating the default with `set_stack_size()`
-    // and before relying on the new value returned by `get_stack_size()`.
+    // Reuse a cached stack from the pool if it is large enough, otherwise
+    // allocate a fresh one. The size check prevents using undersized stacks
+    // that were returned by threads still running at the old size after
+    // `drain_stack_pool()` was called. `base() - limit()` is the full mmap
+    // region (including guard page), which is always >= the requested size
+    // for stacks allocated with that size.
     let stack = STACK_POOL
         .pop()
+        .filter(|s| s.base().get() - s.limit().get() >= stack_size)
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
@@ -1315,6 +1315,35 @@ mod tests {
         assert!(
             STACK_POOL.pop().is_none(),
             "after drain, pool must be empty so a fresh stack is allocated at the new size"
+        );
+    }
+
+    /// `on_wasm_stack` discards undersized stacks from the pool and allocates
+    /// a fresh one instead of blindly reusing whatever the pool returns.
+    #[test]
+    fn on_wasm_stack_discards_undersized_stack() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+
+        // Push an undersized stack into the pool.
+        let small_size = ByteSize::kib(500).as_u64() as usize;
+        let small_stack = DefaultStack::new(small_size).unwrap();
+        STACK_POOL.push(small_stack);
+
+        // Request a larger stack via on_wasm_stack.
+        let big_size = ByteSize::mib(1).as_u64() as usize;
+        let result = on_wasm_stack(big_size, None, || 42);
+
+        assert_eq!(result.ok().expect("on_wasm_stack should succeed"), 42);
+        // The undersized stack was discarded; the pool should now contain
+        // the correctly-sized stack that was allocated for this call.
+        let returned = STACK_POOL
+            .pop()
+            .expect("stack should have been returned to pool");
+        assert!(
+            returned.base().get() - returned.limit().get() >= big_size,
+            "returned stack must be at least as large as the requested size"
         );
     }
 }
