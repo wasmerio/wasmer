@@ -15,7 +15,7 @@ version.workspace = true
 [dependencies]
 memoffset.workspace = true
 dashmap.workspace = true
-wasmer-types = { path = "../types", version = "=7.1.0-alpha.1" }
+wasmer-types = { path = "../types", version = "=7.1.0" }
 libc.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
@@ -63,6 +63,8 @@ default = []
 enable-serde = ["serde", "indexmap/serde", "wasmer-types/enable-serde"]
 artifact-size = ["dep:loupe", "wasmer-types/artifact-size"]
 sanitizer = ["corosensei/sanitizer"]
+
+experimental-host-interrupt = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

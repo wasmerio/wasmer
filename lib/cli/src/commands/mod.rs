@@ -532,7 +532,8 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
             "--exclude=*"
         ],
         fallback = "",
-    );
+    )
+    .to_string();
     if !git_hash.is_empty() {
         println!("commit-hash: {git_hash}",);
     }
@@ -552,24 +553,38 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
 
     let mut runtimes = Vec::new();
     if cfg!(feature = "singlepass") {
-        runtimes.push("singlepass");
+        runtimes.push("Singlepass");
     }
     if cfg!(feature = "cranelift") {
-        runtimes.push("cranelift");
+        runtimes.push("Cranelift");
     }
     if cfg!(feature = "llvm") {
-        runtimes.push("llvm");
+        runtimes.push("LLVM");
     }
     if cfg!(feature = "wamr") {
-        runtimes.push("wamr");
+        runtimes.push("WAMR");
     }
     if cfg!(feature = "wasmi") {
-        runtimes.push("wasmi");
+        runtimes.push("Wasmi");
     }
     if cfg!(feature = "v8") {
-        runtimes.push("v8");
+        runtimes.push("V8");
     }
-
     println!("runtimes: {}", runtimes.join(", "));
+
+    #[allow(clippy::useless_vec)]
+    #[allow(unused_mut)]
+    let mut features = vec!["wasix".to_string()];
+    #[cfg(feature = "napi-v8")]
+    {
+        for napi_version in enum_iterator::all::<wasmer_napi::NapiVersion>() {
+            if !matches!(napi_version, wasmer_napi::NapiVersion::Unknown) {
+                features.push(napi_version.to_string());
+            }
+        }
+        features.push(wasmer_napi::NAPI_EXTENSION_WASMER_MODULE_NAME.to_string());
+    }
+    println!("features: {}", features.join(", "));
+
     Ok(())
 }

@@ -264,7 +264,7 @@ impl Function {
         internal: crate::vm::VMExternFunction,
     ) -> Self {
         Self {
-            handle: internal.into_jsc(),
+            handle: internal.unwrap_jsc(),
         }
     }
 
@@ -317,7 +317,7 @@ where
         Self {
             callback: function
                 .function_callback(crate::BackendKind::Jsc)
-                .into_jsc(),
+                .unwrap_jsc(),
             _phantom: PhantomData,
         }
     }

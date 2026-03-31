@@ -623,6 +623,8 @@ pub enum WasiThreadError {
     MemoryCreateFailed(MemoryError),
     #[error("{0}")]
     ExportError(ExportError),
+    #[error("Failed to create additional imports - {0}")]
+    AdditionalImportCreationFailed(Arc<anyhow::Error>),
     #[error("Linker error: {0}")]
     LinkError(Arc<LinkError>),
     #[error("Failed to create the instance - {0}")]
@@ -642,6 +644,7 @@ impl From<WasiThreadError> for Errno {
             WasiThreadError::MethodNotFound => Errno::Inval,
             WasiThreadError::MemoryCreateFailed(_) => Errno::Nomem,
             WasiThreadError::ExportError(_) => Errno::Noexec,
+            WasiThreadError::AdditionalImportCreationFailed(_) => Errno::Noexec,
             WasiThreadError::LinkError(_) => Errno::Noexec,
             WasiThreadError::InstanceCreateFailed(_) => Errno::Noexec,
             WasiThreadError::InitFailed(_) => Errno::Noexec,

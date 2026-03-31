@@ -548,7 +548,7 @@ pub enum TagKind {
 pub struct TagType {
     /// The kind of the tag.
     pub kind: TagKind,
-    /// The parameters of the function
+    /// The parameters of the tag
     pub params: Box<[Type]>,
 }
 
@@ -614,6 +614,11 @@ impl TableType {
             minimum,
             maximum,
         }
+    }
+
+    /// Return true if it's a function reference table with a fixed number of elements.
+    pub fn is_fixed_funcref_table(&self) -> bool {
+        matches!(self.ty, Type::FuncRef) && self.maximum == Some(self.minimum)
     }
 }
 

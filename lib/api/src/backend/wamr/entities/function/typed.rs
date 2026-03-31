@@ -50,7 +50,7 @@ macro_rules! impl_native_traits {
                 };
 
 
-                 let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().into_wamr()) };
+                 let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().unwrap_wamr()) };
 
                 let mut params = unsafe {std::mem::zeroed()};
                 unsafe {wasm_val_vec_new(&mut params, params_list.len(), params_list.as_ptr())};

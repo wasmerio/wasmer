@@ -151,7 +151,7 @@ pub enum CompileError {
     #[cfg_attr(feature = "std", error("WebAssembly translation error: {0}"))]
     Wasm(WasmError),
 
-    /// A compilation error occured.
+    /// A compilation error occurred.
     #[cfg_attr(feature = "std", error("Compilation error: {0}"))]
     Codegen(String),
 

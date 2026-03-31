@@ -257,7 +257,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             // We do nothing
         }
         Operator::Unreachable => {
-            builder.ins().trap(crate::TRAP_UNREACHABLE);
+            environ.translate_unreachable(builder)?;
             state.reachable = false;
         }
         /***************************** Control flow blocks **********************************

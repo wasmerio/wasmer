@@ -1,4 +1,5 @@
 use crate::compiler::LLVMCompiler;
+use enum_iterator::Sequence;
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
@@ -114,6 +115,13 @@ pub struct LLVM {
     /// Number of threads to use when compiling a module.
     pub(crate) num_threads: NonZero<usize>,
     pub(crate) verbose_asm: bool,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Sequence)]
+pub(crate) enum OptimizationStyle {
+    ForSpeed,
+    ForSize,
+    Disabled,
 }
 
 impl LLVM {
@@ -250,13 +258,13 @@ impl LLVM {
 
     /// Generates the target machine for the current target
     pub fn target_machine(&self, target: &Target) -> TargetMachine {
-        self.target_machine_with_opt(target, true)
+        self.target_machine_with_opt(target, OptimizationStyle::ForSpeed)
     }
 
     pub(crate) fn target_machine_with_opt(
         &self,
         target: &Target,
-        enable_optimization: bool,
+        opt_style: OptimizationStyle,
     ) -> TargetMachine {
         let triple = target.triple();
         let cpu_features = &target.cpu_features();
@@ -326,10 +334,10 @@ impl LLVM {
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
-            .set_level(if enable_optimization {
-                self.opt_level
-            } else {
-                LLVMOptLevel::None
+            .set_level(match opt_style {
+                OptimizationStyle::ForSpeed => self.opt_level,
+                OptimizationStyle::ForSize => LLVMOptLevel::Less,
+                OptimizationStyle::Disabled => LLVMOptLevel::None,
             })
             .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
             .set_code_model(match triple.architecture {
@@ -391,6 +399,7 @@ impl CompilerConfig for LLVM {
         feats.exceptions(true);
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
+        feats.tail_call(true);
         feats
     }
 }

@@ -3,7 +3,7 @@
 // optimizer by exposing operations to the optimizer, but it requires that the
 // frontend know exactly what IR to produce in order to get the right ABI.
 
-#![deny(dead_code, missing_docs)]
+#![deny(missing_docs)]
 
 use crate::error::err;
 use crate::translator::intrinsics::{Intrinsics, type_to_llvm};
@@ -14,7 +14,7 @@ use inkwell::{
     context::Context,
     targets::TargetMachine,
     types::FunctionType,
-    values::{BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
+    values::{BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
 };
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
@@ -65,32 +65,8 @@ pub trait Abi {
     }
 
     /// Given a function definition, retrieve the parameter that is the pointer to the first --
-    /// number 0 -- local global.
-    #[allow(unused)]
-    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> IntValue<'ctx> {
-        // g0 is always after the vmctx.
-        let vmctx_idx = u32::from(
-            func_value
-                .get_enum_attribute(
-                    AttributeLoc::Param(0),
-                    Attribute::get_named_enum_kind_id("sret"),
-                )
-                .is_some(),
-        );
-
-        let param = func_value.get_nth_param(vmctx_idx + 1).unwrap();
-        param.set_name("g0");
-
-        param.into_int_value()
-    }
-
-    /// Given a function definition, retrieve the parameter that is the pointer to the first --
     /// number 0 -- local memory.
-    ///
-    /// # Notes
-    /// This function assumes that g0m0 is enabled.
     fn get_m0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
-        // m0 is always after g0.
         let vmctx_idx = u32::from(
             func_value
                 .get_enum_attribute(
@@ -130,9 +106,10 @@ pub trait Abi {
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
         m0: Option<PointerValue<'ctx>>,
+        sret_ptr: Option<PointerValue<'ctx>>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
         // If it's an sret, allocate the return space.
-        let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {
+        let sret = if self.llvm_fn_uses_sret(llvm_fn_ty, func_sig) {
             let llvm_params: Vec<_> = func_sig
                 .results()
                 .iter()
@@ -141,7 +118,11 @@ pub trait Abi {
             let llvm_params = llvm_fn_ty
                 .get_context()
                 .struct_type(llvm_params.as_slice(), false);
-            Some(err!(alloca_builder.build_alloca(llvm_params, "sret")))
+            // If return_call is used, we pass existing sret pointer instead a newly created one.
+            Some(match sret_ptr {
+                Some(sret_ptr) => sret_ptr,
+                None => err!(alloca_builder.build_alloca(llvm_params, "sret")),
+            })
         } else {
             None
         };
@@ -163,6 +144,11 @@ pub trait Abi {
         };
 
         Ok(ret)
+    }
+
+    /// Whether a concrete LLVM function type uses an `sret` parameter for the given wasm signature.
+    fn llvm_fn_uses_sret<'ctx>(&self, llvm_fn_ty: &FunctionType<'ctx>, func_sig: &FuncSig) -> bool {
+        llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1
     }
 
     /// Given a CallSite, extract the returned values and return them in a Vec.

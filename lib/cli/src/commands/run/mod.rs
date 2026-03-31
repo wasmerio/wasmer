@@ -7,6 +7,7 @@ mod target;
 mod wasi;
 
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, hash_map::DefaultHasher},
     fmt::{Binary, Display},
     fs::File,
@@ -56,6 +57,7 @@ use wasmer_wasix::{
         wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
     },
     runtime::{
+        OverriddenRuntime,
         module_cache::{CacheError, HashedModuleData},
         package_loader::PackageLoader,
         resolver::QueryError,
@@ -102,6 +104,9 @@ pub struct Run {
     /// Generate a coredump at this path if a WebAssembly trap occurs
     #[clap(name = "COREDUMP_PATH", long)]
     coredump_on_trap: Option<PathBuf>,
+    /// Enable experimental N-API imports for modules that require them
+    #[clap(long = "experimental-napi")]
+    experimental_napi: bool,
     /// The file, URL, or package to run.
     #[clap(value_parser = CliPackageSource::infer)]
     input: CliPackageSource,
@@ -110,6 +115,63 @@ pub struct Run {
 }
 
 impl Run {
+    #[cfg(feature = "napi-v8")]
+    fn module_needs_napi(module: &Module) -> bool {
+        let (napi_version, napi_extension_version) = wasmer_napi::module_needs_napi(module);
+        napi_version.is_some() || napi_extension_version.is_some()
+    }
+
+    #[cfg(feature = "napi-v8")]
+    fn maybe_wrap_runtime_with_napi(
+        &self,
+        module: &Module,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
+        use anyhow::ensure;
+
+        if !Self::module_needs_napi(module) {
+            return Ok(runtime);
+        }
+        ensure!(
+            self.experimental_napi,
+            "This module imports N-API. Re-run with '--experimental-napi' to enable the experimental N-API runtime."
+        );
+
+        let hooks = wasmer_napi::NapiCtx::default().runtime_hooks();
+        Ok(Arc::new(
+            OverriddenRuntime::new(runtime)
+                .with_additional_imports({
+                    let hooks = hooks.clone();
+                    move |module, store| hooks.additional_imports(module, store)
+                })
+                .with_instance_setup(move |module, store, instance, imported_memory| {
+                    hooks.configure_instance(module, store, instance, imported_memory)
+                }),
+        ))
+    }
+
+    #[cfg(feature = "napi-v8")]
+    fn configure_wasi_runner_for_napi(&self, module: &Module, runner: &mut WasiRunner) {
+        if Self::module_needs_napi(module) {
+            runner
+                .capabilities_mut()
+                .threading
+                .enable_asynchronous_threading = false;
+        }
+    }
+
+    #[cfg(not(feature = "napi-v8"))]
+    fn maybe_wrap_runtime_with_napi(
+        &self,
+        _module: &Module,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
+        Ok(runtime)
+    }
+
+    #[cfg(not(feature = "napi-v8"))]
+    fn configure_wasi_runner_for_napi(&self, _module: &Module, _runner: &mut WasiRunner) {}
+
     pub fn execute(self, output: Output) -> ! {
         let result = self.execute_inner(output);
         exit_with_wasi_exit_code(result);
@@ -417,8 +479,24 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
+        #[cfg(feature = "napi-v8")]
+        let (module, runtime) = {
+            let cmd = pkg.get_command(command_name).with_context(|| {
+                format!("Unable to get metadata for the \"{command_name}\" command")
+            })?;
+            let module = runtime.resolve_module_sync(
+                wasmer_wasix::runtime::ModuleInput::Command(Cow::Borrowed(cmd)),
+                None,
+                None,
+            )?;
+            let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime)?;
+            (module, runtime)
+        };
+
         // Assume webcs are always WASIX
         let mut runner = self.build_wasi_runner(&runtime, true)?;
+        #[cfg(feature = "napi-v8")]
+        self.configure_wasi_runner_for_napi(&module, &mut runner);
         Runner::run_command(&mut runner, command_name, pkg, runtime)
     }
 
@@ -620,8 +698,11 @@ impl Run {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
+        let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime)?;
 
-        let runner = self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
+        let mut runner =
+            self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
+        self.configure_wasi_runner_for_napi(&module, &mut runner);
         runner.run_wasm(
             RuntimeOrEngine::Runtime(runtime),
             &program_name,

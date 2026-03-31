@@ -208,9 +208,6 @@ pub fn proc_exec3<M: MemorySize>(
                 ctx.data_mut().swap_inner(&mut vfork.env);
                 std::mem::swap(ctx.data_mut(), &mut vfork.env);
 
-                assert!(vfork.env.context_switching_environment.is_none());
-                assert!(ctx.data().context_switching_environment.is_some());
-
                 let Some(asyncify_info) = vfork.asyncify else {
                     // vfork without asyncify only forks the WasiEnv, which we have restored
                     // above. Restoring the control flow is done on the guest side.

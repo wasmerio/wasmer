@@ -158,6 +158,11 @@ impl BuiltinPackageLoader {
         self.in_memory.save(container, hash);
     }
 
+    /// Remove a container from the in-memory cache.
+    pub fn evict_cached(&self, hash: &WebcHash) -> Option<Container> {
+        self.in_memory.remove(hash)
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(pkg.hash=%hash))]
     async fn get_cached(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         if let Some(cached) = self.in_memory.lookup(hash) {
@@ -749,6 +754,10 @@ impl InMemoryCache {
         let mut cache = self.0.write().unwrap();
         cache.entry(hash).or_insert_with(|| container.clone());
     }
+
+    fn remove(&self, hash: &WebcHash) -> Option<Container> {
+        self.0.write().unwrap().remove(hash)
+    }
 }
 
 #[cfg(test)]
@@ -865,6 +874,18 @@ mod tests {
     #[tokio::test()]
     async fn cache_misses_will_trigger_a_download() {
         cache_misses_will_trigger_a_download_internal().await
+    }
+
+    #[tokio::test]
+    async fn evict_cached_removes_in_memory_container() {
+        let loader = BuiltinPackageLoader::new();
+        let container = from_bytes(PYTHON).unwrap();
+        let hash: WebcHash = [0xaa; 32].into();
+        loader.insert_cached(hash, &container);
+        let evicted = loader.evict_cached(&hash);
+        assert!(evicted.is_some());
+        assert!(!loader.in_memory.0.read().unwrap().contains_key(&hash));
+        assert!(loader.evict_cached(&hash).is_none());
     }
 
     /// Small helper to construct headers with a given content-encoding.

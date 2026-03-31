@@ -24,6 +24,17 @@ pub struct BinaryPackageCommand {
     pub(crate) atom: SharedBytes,
     hash: ModuleHash,
     features: Option<wasmer_types::Features>,
+    /// Package that declares this command in the resolved manifest graph.
+    ///
+    /// This identifies "who owns the command name" (the package that exposes
+    /// the command entry), even if execution uses an atom from another package.
+    package: PackageId,
+    /// Package that provides the module this command actually executes.
+    ///
+    /// Usually this matches `package`. It differs when the command's atom
+    /// annotation points at a dependency, so the command is declared by one
+    /// package but runs code from another package.
+    origin_package: PackageId,
 }
 
 impl BinaryPackageCommand {
@@ -33,6 +44,8 @@ impl BinaryPackageCommand {
         atom: SharedBytes,
         hash: ModuleHash,
         features: Option<wasmer_types::Features>,
+        package: PackageId,
+        origin_package: PackageId,
     ) -> Self {
         Self {
             name,
@@ -40,6 +53,8 @@ impl BinaryPackageCommand {
             atom,
             hash,
             features,
+            package,
+            origin_package,
         }
     }
 
@@ -65,6 +80,14 @@ impl BinaryPackageCommand {
 
     pub fn hash(&self) -> &ModuleHash {
         &self.hash
+    }
+
+    pub fn package(&self) -> &PackageId {
+        &self.package
+    }
+
+    pub fn origin_package(&self) -> &PackageId {
+        &self.origin_package
     }
 
     /// Get the WebAssembly features required by this command's module
@@ -214,6 +237,11 @@ impl BinaryPackage {
 
     pub fn get_command(&self, name: &str) -> Option<&BinaryPackageCommand> {
         self.commands.iter().find(|cmd| cmd.name() == name)
+    }
+
+    pub fn get_command_origin_package(&self, name: &str) -> Option<&PackageId> {
+        self.get_command(name)
+            .map(BinaryPackageCommand::origin_package)
     }
 
     /// Resolve the entrypoint command name to a [`BinaryPackageCommand`].
@@ -387,5 +415,8 @@ mod tests {
         let atom_sha256_hash = sha2::Sha256::digest(webc.get_atom("foo").unwrap()).into();
         let module_hash = ModuleHash::from_bytes(atom_sha256_hash);
         assert_eq!(command.hash(), &module_hash);
+        assert_eq!(command.package(), &pkg.id);
+        assert_eq!(pkg.get_command_origin_package("cmd"), Some(&pkg.id));
+        assert_eq!(command.origin_package(), &pkg.id);
     }
 }

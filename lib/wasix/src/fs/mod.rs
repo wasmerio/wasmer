@@ -47,10 +47,10 @@ use wasmer_wasix_types::{
     },
 };
 
-pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, FdInner, InodeVal, Kind};
+pub use self::fd::{Fd, FdInner, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
-    InodeValFileReadGuard, InodeValFileWriteGuard, POLL_GUARD_MAX_RET, WasiStateFileGuard,
+    InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
 use self::relative_path_hack::RelativeOrAbsolutePathHack;
@@ -1143,6 +1143,17 @@ impl WasiFs {
             return Err(Errno::Mlink);
         }
 
+        // Absolute root paths should resolve to the mounted "/" inode when present.
+        // This keeps "/" behavior aligned with historical path traversal semantics.
+        if path_str == "/" {
+            let guard = cur_inode.read();
+            if let Kind::Root { entries } = guard.deref()
+                && let Some(root_entry) = entries.get("/")
+            {
+                return Ok(root_entry.clone());
+            }
+        }
+
         let path: &Path = Path::new(path_str);
         let n_components = path.components().count();
 
@@ -1776,7 +1787,31 @@ impl WasiFs {
             _ => {}
         }
 
-        let st_ino = Inode::from_path(&name);
+        let inode_key: Cow<'_, str> = match &kind {
+            Kind::File { path, .. } | Kind::Dir { path, .. } => {
+                let path_str = path.to_string_lossy();
+                if path_str.is_empty() {
+                    Cow::Borrowed(name.as_ref())
+                } else {
+                    path_str
+                }
+            }
+            Kind::Symlink {
+                base_po_dir,
+                path_to_symlink,
+                ..
+            } => {
+                let path_str = path_to_symlink.to_string_lossy();
+                if path_str.is_empty() {
+                    Cow::Owned(format!("{base_po_dir}:{}", name.as_ref()))
+                } else {
+                    Cow::Owned(format!("{base_po_dir}:{path_str}"))
+                }
+            }
+            _ => Cow::Borrowed(name.as_ref()),
+        };
+
+        let st_ino = Inode::from_path(&inode_key);
         stat.st_ino = st_ino.as_u64();
 
         inodes.add_inode_val(InodeVal {

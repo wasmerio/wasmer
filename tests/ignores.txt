@@ -22,6 +22,10 @@ singlepass spec::linking
 cranelift spec::linking
 llvm spec::linking
 
+# Tail-call
+singlepass return_call
+cranelift return_call
+
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
 ## Unwinding is not properly implemented in Singlepass

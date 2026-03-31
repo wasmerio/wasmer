@@ -1,0 +1,21 @@
+#include <setjmp.h>
+#include <stdio.h>
+
+jmp_buf buffer;
+
+void other() {
+  printf("b");
+  longjmp(buffer, 1);
+  printf("This line will never be executed\n");
+}
+
+int main() {
+  if (setjmp(buffer) == 0) {
+    // Initial call to setjmp returns 0
+    printf("a");
+    other();
+  } else {
+    printf("c\n");
+  }
+  return 0;
+}

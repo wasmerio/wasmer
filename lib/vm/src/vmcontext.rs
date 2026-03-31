@@ -524,7 +524,7 @@ mod test_vmglobal_definition {
         let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
-            size_of::<*const VMGlobalDefinition>(),
+            size_of::<VMGlobalDefinition>(),
             usize::from(offsets.size_of_vmglobal_local())
         );
     }
@@ -625,6 +625,28 @@ pub struct VMCallerCheckedAnyfunc {
     /// a dynamic argument list.
     pub call_trampoline: VMTrampoline,
     // If more elements are added here, remember to add offset_of tests below!
+}
+
+unsafe extern "C" fn null_call_trampoline(
+    _vmctx: *mut VMContext,
+    _callee: *const VMFunctionBody,
+    _values: *mut RawValue,
+) {
+    unreachable!("null funcref trampoline should never be invoked");
+}
+
+impl VMCallerCheckedAnyfunc {
+    /// Construct the sentinel value for an uninitialized `funcref` table entry.
+    pub fn null() -> Self {
+        Self {
+            func_ptr: ptr::null(),
+            type_index: VMSharedSignatureIndex::default(),
+            vmctx: VMFunctionContext {
+                host_env: ptr::null_mut(),
+            },
+            call_trampoline: null_call_trampoline,
+        }
+    }
 }
 
 impl PartialEq for VMCallerCheckedAnyfunc {
