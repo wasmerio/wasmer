@@ -61,7 +61,7 @@
 <a href=#61 id=61 data-nosnippet>61</a><span class="kw">pub use </span><span class="kw">crate</span>::vmcontext::{
 <a href=#62 id=62 data-nosnippet>62</a>    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
 <a href=#63 id=63 data-nosnippet>63</a>    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-<a href=#64 id=64 data-nosnippet>64</a>    VMMemoryImport, VMSharedSignatureIndex, VMSharedTagIndex, VMTableDefinition, VMTableImport,
+<a href=#64 id=64 data-nosnippet>64</a>    VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
 <a href=#65 id=65 data-nosnippet>65</a>    VMTrampoline,
 <a href=#66 id=66 data-nosnippet>66</a>};
 <a href=#67 id=67 data-nosnippet>67</a><span class="kw">pub use </span>store::StoreObject;
@@ -70,7 +70,7 @@
 <a href=#70 id=70 data-nosnippet>70</a><span class="kw">pub use </span>wasmer_types::MemoryStyle;
 <a href=#71 id=71 data-nosnippet>71</a><span class="kw">use </span>wasmer_types::RawValue;
 <a href=#72 id=72 data-nosnippet>72</a><span class="kw">pub use </span>wasmer_types::TableStyle;
-<a href=#73 id=73 data-nosnippet>73</a><span class="kw">pub use </span>wasmer_types::{StoreId, TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
+<a href=#73 id=73 data-nosnippet>73</a><span class="kw">pub use </span>wasmer_types::{StoreId, VMBuiltinFunctionIndex, VMOffsets};
 <a href=#74 id=74 data-nosnippet>74</a>
 <a href=#75 id=75 data-nosnippet>75</a><span class="doccomment">/// Version number of this crate.
 <a href=#76 id=76 data-nosnippet>76</a></span><span class="kw">pub const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>);
