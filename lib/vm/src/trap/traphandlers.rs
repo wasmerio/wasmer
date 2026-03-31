@@ -27,6 +27,15 @@ use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
 use std::sync::{LazyLock, Once};
 use wasmer_types::TrapCode;
 
+/// Convenience extension for [`Stack`] that exposes the total mapped size.
+trait StackExt: Stack {
+    /// Returns the total size of the stack mapping (including guard page).
+    fn size(&self) -> usize {
+        self.base().get() - self.limit().get()
+    }
+}
+impl<T: Stack> StackExt for T {}
+
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub struct VMConfig {
@@ -1013,7 +1022,7 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     // for stacks allocated with that size.
     let stack = STACK_POOL
         .pop()
-        .filter(|s| s.base().get() - s.limit().get() >= stack_size)
+        .filter(|s| s.size() >= stack_size)
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
@@ -1342,7 +1351,7 @@ mod tests {
             .pop()
             .expect("stack should have been returned to pool");
         assert!(
-            returned.base().get() - returned.limit().get() >= big_size,
+            returned.size() >= big_size,
             "returned stack must be at least as large as the requested size"
         );
     }
