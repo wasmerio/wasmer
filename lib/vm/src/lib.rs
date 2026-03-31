@@ -31,6 +31,8 @@ mod threadconditions;
 mod trap;
 mod vmcontext;
 
+#[cfg(feature = "experimental-host-interrupt")]
+pub mod interrupt_registry;
 pub mod libcalls;
 
 use std::ptr::NonNull;
