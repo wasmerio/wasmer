@@ -21,8 +21,8 @@ use std::path::Path;
 use wasmer_types::ModuleInfo;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex,
-    entity::PrimaryMap,
+    DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, SignatureHash,
+    SignatureIndex, entity::PrimaryMap,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -36,7 +36,7 @@ use crate::{
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
-    FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSignatureHash,
     VMTrampoline,
 };
 
@@ -157,16 +157,18 @@ impl Engine {
 
     /// Register a signature
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
+    pub fn register_signature(&self, func_type: &FunctionType) -> VMSignatureHash {
         let compiler = self.inner();
-        compiler.signatures().register(func_type)
+        compiler
+            .signatures()
+            .register(func_type, SignatureHash(func_type.signature_hash()))
     }
 
-    /// Lookup a signature
+    /// Look up a registered signature by its hash.
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
+    pub fn lookup_signature(&self, sig_hash: VMSignatureHash) -> Option<FunctionType> {
         let compiler = self.inner();
-        compiler.signatures().lookup(sig)
+        compiler.signatures().lookup_signature(sig_hash)
     }
 
     /// Validates a WebAssembly module
