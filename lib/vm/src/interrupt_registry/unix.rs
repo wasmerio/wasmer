@@ -184,8 +184,8 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
     store_state.interrupted = true;
 
     unsafe {
-        if libc::pthread_kill(store_state.pthread as libc::pthread_t, libc::SIGUSR1) != 0 {
-            let errno = *libc::__errno_location();
+        let errno = libc::pthread_kill(store_state.pthread as libc::pthread_t, libc::SIGUSR1);
+        if errno != 0 {
             let error_str = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
             return Err(InterruptError::FailedToSendSignal(error_str));
         }
