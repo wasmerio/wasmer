@@ -2,10 +2,10 @@
 //! module.
 
 #[cfg(feature = "unwind")]
-use cranelift_codegen::isa::unwind::{UnwindInfo, systemv::UnwindInfo as DwarfFDE};
+use cranelift_codegen::isa::unwind::{systemv::UnwindInfo as DwarfFDE, UnwindInfo};
 #[cfg(feature = "unwind")]
 use cranelift_codegen::print_errors::pretty_error;
-use cranelift_codegen::{Context, isa};
+use cranelift_codegen::{isa, Context};
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_types::CompileError;
 

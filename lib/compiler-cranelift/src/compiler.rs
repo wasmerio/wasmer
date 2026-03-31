@@ -18,11 +18,13 @@ use crate::{
     translator::{
         FuncTranslator, compiled_function_unwind_info, irlibcall_to_libcall,
         irreloc_to_relocationkind, signature_to_cranelift_ir,
+        signature_to_cranelift_ir_with_call_conv,
     },
 };
 use cranelift_codegen::{
     Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
     ir::{self, ExternalName, UserFuncName},
+    isa::CallConv,
 };
 
 #[cfg(feature = "unwind")]
@@ -113,11 +115,21 @@ impl CraneliftCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
-        let signatures = module
+        let platform_signatures = module
             .signatures
             .iter()
             .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
+        // Cranelift only enables `return_call` for `CallConv::Tail`, so local Wasm functions use
+        // a native Tail-call ABI internally even though host-facing calls still use the platform ABI.
+        let native_signatures = module
+            .signatures
+            .iter()
+            .map(|(_sig_index, func_type)| {
+                signature_to_cranelift_ir_with_call_conv(func_type, frontend_config, CallConv::Tail)
+            })
+            .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
+
         let signature_hashes = &module.signature_hashes;
 
         let total_function_call_trampolines = module.signatures.len();
@@ -173,7 +185,8 @@ impl CraneliftCompiler {
             let mut func_env = FuncEnvironment::new(
                 isa.frontend_config(),
                 module,
-                &signatures,
+                &native_signatures,
+                &platform_signatures,
                 signature_hashes,
                 memory_styles,
                 table_styles,
@@ -190,7 +203,7 @@ impl CraneliftCompiler {
                 ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
                 _ => UserFuncName::default(),
             };
-            context.func.signature = signatures[module.functions[func_index]].clone();
+            context.func.signature = native_signatures[module.functions[func_index]].clone();
             // if generate_debug_info {
             //     context.func.collect_debug_info();
             // }

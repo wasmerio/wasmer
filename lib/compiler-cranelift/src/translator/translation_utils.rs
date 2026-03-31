@@ -6,7 +6,7 @@ use super::func_environ::TargetEnvironment;
 use cranelift_codegen::{
     binemit::Reloc,
     ir::{self, AbiParam},
-    isa::TargetFrontendConfig,
+    isa::{CallConv, TargetFrontendConfig},
 };
 use cranelift_frontend::FunctionBuilder;
 use wasmer_compiler::{
@@ -15,12 +15,25 @@ use wasmer_compiler::{
 };
 use wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
-/// Helper function translate a Function signature into Cranelift Ir
+/// Helper function translate a Function signature into Cranelift IR (with the platform calling conventions).
 pub fn signature_to_cranelift_ir(
     signature: &FunctionType,
     target_config: TargetFrontendConfig,
 ) -> ir::Signature {
-    let mut sig = ir::Signature::new(target_config.default_call_conv);
+    signature_to_cranelift_ir_with_call_conv(
+        signature,
+        target_config,
+        target_config.default_call_conv,
+    )
+}
+
+/// Helper function translate a Function signature into Cranelift IR with an explicit call conv.
+pub fn signature_to_cranelift_ir_with_call_conv(
+    signature: &FunctionType,
+    target_config: TargetFrontendConfig,
+    call_conv: CallConv,
+) -> ir::Signature {
+    let mut sig = ir::Signature::new(call_conv);
     sig.params.extend(signature.params().iter().map(|&ty| {
         let cret_arg: ir::Type = type_to_irtype(ty, target_config)
             .expect("only numeric types are supported in function signatures");
