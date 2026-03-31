@@ -94,140 +94,142 @@
 <a href=#94 id=94 data-nosnippet>94</a>        <span class="comment">// TODO: isn't there a way to get this without reaching for libc APIs?
 <a href=#95 id=95 data-nosnippet>95</a>        // Since stores can't be sent across threads once they start executing code,
 <a href=#96 id=96 data-nosnippet>96</a>        // we don't need to update this value for recursive calls.
-<a href=#97 id=97 data-nosnippet>97</a>        </span><span class="kw">let </span>pthread = <span class="kw">unsafe </span>{ libc::pthread_self() <span class="kw">as </span>usize };
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>        StoreInterruptState {
-<a href=#100 id=100 data-nosnippet>100</a>            pthread,
-<a href=#101 id=101 data-nosnippet>101</a>            interrupted: <span class="bool-val">false</span>,
-<a href=#102 id=102 data-nosnippet>102</a>            thread_current_signal_target_store,
-<a href=#103 id=103 data-nosnippet>103</a>        }
-<a href=#104 id=104 data-nosnippet>104</a>    });
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">if </span>store_state.interrupted {
-<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(InstallError::AlreadyInterrupted);
-<a href=#108 id=108 data-nosnippet>108</a>    }
-<a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a>    THREAD_INTERRUPT_STATE.with(|t| {
-<a href=#111 id=111 data-nosnippet>111</a>        <span class="comment">// Safety: See comments on THREAD_INTERRUPT_STATE.
-<a href=#112 id=112 data-nosnippet>112</a>        </span><span class="kw">let </span>borrow = <span class="kw">unsafe </span>{ t.get().as_mut().unwrap() };
-<a href=#113 id=113 data-nosnippet>113</a>        borrow.active_stores.push(store_id);
-<a href=#114 id=114 data-nosnippet>114</a>        borrow
-<a href=#115 id=115 data-nosnippet>115</a>            .current_active_store
-<a href=#116 id=116 data-nosnippet>116</a>            .store(store_id.as_raw().get(), Ordering::Release);
-<a href=#117 id=117 data-nosnippet>117</a>    });
-<a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a>    <span class="prelude-val">Ok</span>(InterruptInstallGuard { store_id })
-<a href=#120 id=120 data-nosnippet>120</a>}
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>uninstall(store_id: StoreId) {
-<a href=#123 id=123 data-nosnippet>123</a>    <span class="kw">let </span>Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) <span class="kw">else </span>{
-<a href=#124 id=124 data-nosnippet>124</a>        <span class="macro">panic!</span>(<span class="string">"Internal error: interrupt state not installed for store"</span>);
-<a href=#125 id=125 data-nosnippet>125</a>    };
-<a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a>    <span class="kw">let </span>has_more_installations = THREAD_INTERRUPT_STATE.with(|t| {
-<a href=#128 id=128 data-nosnippet>128</a>        <span class="comment">// Safety: See comments on THREAD_INTERRUPT_STATE.
-<a href=#129 id=129 data-nosnippet>129</a>        </span><span class="kw">let </span>borrow = <span class="kw">unsafe </span>{ t.get().as_mut().unwrap() };
-<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">match </span>borrow.active_stores.pop_if(|x| <span class="kw-2">*</span>x == store_id) {
-<a href=#131 id=131 data-nosnippet>131</a>            <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
-<a href=#132 id=132 data-nosnippet>132</a>                borrow.current_active_store.store(
-<a href=#133 id=133 data-nosnippet>133</a>                    borrow
-<a href=#134 id=134 data-nosnippet>134</a>                        .active_stores
-<a href=#135 id=135 data-nosnippet>135</a>                        .last()
-<a href=#136 id=136 data-nosnippet>136</a>                        .map(|x| x.as_raw().get())
-<a href=#137 id=137 data-nosnippet>137</a>                        .unwrap_or(<span class="number">0</span>),
-<a href=#138 id=138 data-nosnippet>138</a>                    Ordering::Release,
-<a href=#139 id=139 data-nosnippet>139</a>                );
-<a href=#140 id=140 data-nosnippet>140</a>                borrow.active_stores.contains(<span class="kw-2">&amp;</span>store_id)
-<a href=#141 id=141 data-nosnippet>141</a>            }
-<a href=#142 id=142 data-nosnippet>142</a>            <span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"InterruptInstallGuard dropped out of order"</span>),
-<a href=#143 id=143 data-nosnippet>143</a>        }
-<a href=#144 id=144 data-nosnippet>144</a>    });
-<a href=#145 id=145 data-nosnippet>145</a>
-<a href=#146 id=146 data-nosnippet>146</a>    <span class="comment">// If this store is still active at some other point within the
-<a href=#147 id=147 data-nosnippet>147</a>    // thread, we should keep its state around. Otherwise, it should
-<a href=#148 id=148 data-nosnippet>148</a>    // be deleted from the global interrupt state. Note that this will
-<a href=#149 id=149 data-nosnippet>149</a>    // also reset the `interrupted` flag, allowing the store to be used
-<a href=#150 id=150 data-nosnippet>150</a>    // for further function calls.
-<a href=#151 id=151 data-nosnippet>151</a>    </span><span class="kw">if </span>!has_more_installations {
-<a href=#152 id=152 data-nosnippet>152</a>        store_state_entry.remove();
-<a href=#153 id=153 data-nosnippet>153</a>    }
-<a href=#154 id=154 data-nosnippet>154</a>}
-<a href=#155 id=155 data-nosnippet>155</a>
-<a href=#156 id=156 data-nosnippet>156</a><span class="doccomment">/// Interrupt the store with the given ID. Best effort is made to ensure
-<a href=#157 id=157 data-nosnippet>157</a>/// interrupts are handled. However, there is no guarantee; under rare
-<a href=#158 id=158 data-nosnippet>158</a>/// circumstances, it is possible for the interrupt to be missed. One such
-<a href=#159 id=159 data-nosnippet>159</a>/// case is when the target thread is about to call WASM code but has not
-<a href=#160 id=160 data-nosnippet>160</a>/// yet made the call.
-<a href=#161 id=161 data-nosnippet>161</a>///
-<a href=#162 id=162 data-nosnippet>162</a>/// To make sure the code is interrupted, the target thread should notify
-<a href=#163 id=163 data-nosnippet>163</a>/// the signalling thread that it has finished running in some way, and
-<a href=#164 id=164 data-nosnippet>164</a>/// the signalling thread must wait for that notification and retry the
-<a href=#165 id=165 data-nosnippet>165</a>/// interrupt if the notification is not received after some time.
-<a href=#166 id=166 data-nosnippet>166</a></span><span class="kw">pub fn </span>interrupt(store_id: StoreId) -&gt; <span class="prelude-ty">Result</span>&lt;(), InterruptError&gt; {
-<a href=#167 id=167 data-nosnippet>167</a>    <span class="kw">let </span>Entry::Occupied(<span class="kw-2">mut </span>store_state) = STORE_INTERRUPT_STATE.entry(store_id) <span class="kw">else </span>{
-<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(InterruptError::StoreNotRunning);
-<a href=#169 id=169 data-nosnippet>169</a>    };
-<a href=#170 id=170 data-nosnippet>170</a>    <span class="kw">let </span>store_state = store_state.get_mut();
-<a href=#171 id=171 data-nosnippet>171</a>
-<a href=#172 id=172 data-nosnippet>172</a>    <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = store_state
-<a href=#173 id=173 data-nosnippet>173</a>        .thread_current_signal_target_store
-<a href=#174 id=174 data-nosnippet>174</a>        .compare_exchange(
-<a href=#175 id=175 data-nosnippet>175</a>            <span class="number">0</span>,
-<a href=#176 id=176 data-nosnippet>176</a>            store_id.as_raw().get(),
-<a href=#177 id=177 data-nosnippet>177</a>            Ordering::SeqCst,
+<a href=#97 id=97 data-nosnippet>97</a>        </span><span class="attr">#[allow(trivial_numeric_casts)]
+<a href=#98 id=98 data-nosnippet>98</a>        </span><span class="kw">let </span>pthread = <span class="kw">unsafe </span>{ libc::pthread_self() <span class="kw">as </span>usize };
+<a href=#99 id=99 data-nosnippet>99</a>
+<a href=#100 id=100 data-nosnippet>100</a>        StoreInterruptState {
+<a href=#101 id=101 data-nosnippet>101</a>            pthread,
+<a href=#102 id=102 data-nosnippet>102</a>            interrupted: <span class="bool-val">false</span>,
+<a href=#103 id=103 data-nosnippet>103</a>            thread_current_signal_target_store,
+<a href=#104 id=104 data-nosnippet>104</a>        }
+<a href=#105 id=105 data-nosnippet>105</a>    });
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">if </span>store_state.interrupted {
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(InstallError::AlreadyInterrupted);
+<a href=#109 id=109 data-nosnippet>109</a>    }
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>    THREAD_INTERRUPT_STATE.with(|t| {
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="comment">// Safety: See comments on THREAD_INTERRUPT_STATE.
+<a href=#113 id=113 data-nosnippet>113</a>        </span><span class="kw">let </span>borrow = <span class="kw">unsafe </span>{ t.get().as_mut().unwrap() };
+<a href=#114 id=114 data-nosnippet>114</a>        borrow.active_stores.push(store_id);
+<a href=#115 id=115 data-nosnippet>115</a>        borrow
+<a href=#116 id=116 data-nosnippet>116</a>            .current_active_store
+<a href=#117 id=117 data-nosnippet>117</a>            .store(store_id.as_raw().get(), Ordering::Release);
+<a href=#118 id=118 data-nosnippet>118</a>    });
+<a href=#119 id=119 data-nosnippet>119</a>
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="prelude-val">Ok</span>(InterruptInstallGuard { store_id })
+<a href=#121 id=121 data-nosnippet>121</a>}
+<a href=#122 id=122 data-nosnippet>122</a>
+<a href=#123 id=123 data-nosnippet>123</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>uninstall(store_id: StoreId) {
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="kw">let </span>Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) <span class="kw">else </span>{
+<a href=#125 id=125 data-nosnippet>125</a>        <span class="macro">panic!</span>(<span class="string">"Internal error: interrupt state not installed for store"</span>);
+<a href=#126 id=126 data-nosnippet>126</a>    };
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="kw">let </span>has_more_installations = THREAD_INTERRUPT_STATE.with(|t| {
+<a href=#129 id=129 data-nosnippet>129</a>        <span class="comment">// Safety: See comments on THREAD_INTERRUPT_STATE.
+<a href=#130 id=130 data-nosnippet>130</a>        </span><span class="kw">let </span>borrow = <span class="kw">unsafe </span>{ t.get().as_mut().unwrap() };
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">match </span>borrow.active_stores.pop_if(|x| <span class="kw-2">*</span>x == store_id) {
+<a href=#132 id=132 data-nosnippet>132</a>            <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
+<a href=#133 id=133 data-nosnippet>133</a>                borrow.current_active_store.store(
+<a href=#134 id=134 data-nosnippet>134</a>                    borrow
+<a href=#135 id=135 data-nosnippet>135</a>                        .active_stores
+<a href=#136 id=136 data-nosnippet>136</a>                        .last()
+<a href=#137 id=137 data-nosnippet>137</a>                        .map(|x| x.as_raw().get())
+<a href=#138 id=138 data-nosnippet>138</a>                        .unwrap_or(<span class="number">0</span>),
+<a href=#139 id=139 data-nosnippet>139</a>                    Ordering::Release,
+<a href=#140 id=140 data-nosnippet>140</a>                );
+<a href=#141 id=141 data-nosnippet>141</a>                borrow.active_stores.contains(<span class="kw-2">&amp;</span>store_id)
+<a href=#142 id=142 data-nosnippet>142</a>            }
+<a href=#143 id=143 data-nosnippet>143</a>            <span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"InterruptInstallGuard dropped out of order"</span>),
+<a href=#144 id=144 data-nosnippet>144</a>        }
+<a href=#145 id=145 data-nosnippet>145</a>    });
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="comment">// If this store is still active at some other point within the
+<a href=#148 id=148 data-nosnippet>148</a>    // thread, we should keep its state around. Otherwise, it should
+<a href=#149 id=149 data-nosnippet>149</a>    // be deleted from the global interrupt state. Note that this will
+<a href=#150 id=150 data-nosnippet>150</a>    // also reset the `interrupted` flag, allowing the store to be used
+<a href=#151 id=151 data-nosnippet>151</a>    // for further function calls.
+<a href=#152 id=152 data-nosnippet>152</a>    </span><span class="kw">if </span>!has_more_installations {
+<a href=#153 id=153 data-nosnippet>153</a>        store_state_entry.remove();
+<a href=#154 id=154 data-nosnippet>154</a>    }
+<a href=#155 id=155 data-nosnippet>155</a>}
+<a href=#156 id=156 data-nosnippet>156</a>
+<a href=#157 id=157 data-nosnippet>157</a><span class="doccomment">/// Interrupt the store with the given ID. Best effort is made to ensure
+<a href=#158 id=158 data-nosnippet>158</a>/// interrupts are handled. However, there is no guarantee; under rare
+<a href=#159 id=159 data-nosnippet>159</a>/// circumstances, it is possible for the interrupt to be missed. One such
+<a href=#160 id=160 data-nosnippet>160</a>/// case is when the target thread is about to call WASM code but has not
+<a href=#161 id=161 data-nosnippet>161</a>/// yet made the call.
+<a href=#162 id=162 data-nosnippet>162</a>///
+<a href=#163 id=163 data-nosnippet>163</a>/// To make sure the code is interrupted, the target thread should notify
+<a href=#164 id=164 data-nosnippet>164</a>/// the signalling thread that it has finished running in some way, and
+<a href=#165 id=165 data-nosnippet>165</a>/// the signalling thread must wait for that notification and retry the
+<a href=#166 id=166 data-nosnippet>166</a>/// interrupt if the notification is not received after some time.
+<a href=#167 id=167 data-nosnippet>167</a></span><span class="kw">pub fn </span>interrupt(store_id: StoreId) -&gt; <span class="prelude-ty">Result</span>&lt;(), InterruptError&gt; {
+<a href=#168 id=168 data-nosnippet>168</a>    <span class="kw">let </span>Entry::Occupied(<span class="kw-2">mut </span>store_state) = STORE_INTERRUPT_STATE.entry(store_id) <span class="kw">else </span>{
+<a href=#169 id=169 data-nosnippet>169</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(InterruptError::StoreNotRunning);
+<a href=#170 id=170 data-nosnippet>170</a>    };
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="kw">let </span>store_state = store_state.get_mut();
+<a href=#172 id=172 data-nosnippet>172</a>
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = store_state
+<a href=#174 id=174 data-nosnippet>174</a>        .thread_current_signal_target_store
+<a href=#175 id=175 data-nosnippet>175</a>        .compare_exchange(
+<a href=#176 id=176 data-nosnippet>176</a>            <span class="number">0</span>,
+<a href=#177 id=177 data-nosnippet>177</a>            store_id.as_raw().get(),
 <a href=#178 id=178 data-nosnippet>178</a>            Ordering::SeqCst,
-<a href=#179 id=179 data-nosnippet>179</a>        )
-<a href=#180 id=180 data-nosnippet>180</a>    {
-<a href=#181 id=181 data-nosnippet>181</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(InterruptError::OtherInterruptInProgress);
-<a href=#182 id=182 data-nosnippet>182</a>    }
-<a href=#183 id=183 data-nosnippet>183</a>
-<a href=#184 id=184 data-nosnippet>184</a>    store_state.interrupted = <span class="bool-val">true</span>;
-<a href=#185 id=185 data-nosnippet>185</a>
-<a href=#186 id=186 data-nosnippet>186</a>    <span class="kw">unsafe </span>{
-<a href=#187 id=187 data-nosnippet>187</a>        <span class="kw">if </span>libc::pthread_kill(store_state.pthread <span class="kw">as </span>libc::pthread_t, libc::SIGUSR1) != <span class="number">0 </span>{
-<a href=#188 id=188 data-nosnippet>188</a>            <span class="kw">let </span>errno = <span class="kw-2">*</span>libc::__errno_location();
-<a href=#189 id=189 data-nosnippet>189</a>            <span class="kw">let </span>error_str = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
-<a href=#190 id=190 data-nosnippet>190</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(InterruptError::FailedToSendSignal(error_str));
-<a href=#191 id=191 data-nosnippet>191</a>        }
-<a href=#192 id=192 data-nosnippet>192</a>    }
-<a href=#193 id=193 data-nosnippet>193</a>
-<a href=#194 id=194 data-nosnippet>194</a>    <span class="prelude-val">Ok</span>(())
-<a href=#195 id=195 data-nosnippet>195</a>}
-<a href=#196 id=196 data-nosnippet>196</a>
-<a href=#197 id=197 data-nosnippet>197</a><span class="doccomment">/// Called from within the signal handler to decide whether we should interrupt
-<a href=#198 id=198 data-nosnippet>198</a>/// the currently running WASM code. This function *MAY* return junk results in
-<a href=#199 id=199 data-nosnippet>199</a>/// case a signal comes in during an install or uninstall operation. However,
-<a href=#200 id=200 data-nosnippet>200</a>/// in such cases, there is no WASM code running, and the result will be ignored
-<a href=#201 id=201 data-nosnippet>201</a>/// by the signal handler anyway.
-<a href=#202 id=202 data-nosnippet>202</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_interrupted() -&gt; bool {
-<a href=#203 id=203 data-nosnippet>203</a>    THREAD_INTERRUPT_STATE.with(|t| {
-<a href=#204 id=204 data-nosnippet>204</a>        <span class="comment">// Safety: See comments on THREAD_INTERRUPT_STATE.
-<a href=#205 id=205 data-nosnippet>205</a>        </span><span class="kw">let </span>state = <span class="kw">unsafe </span>{ t.get().as_ref().unwrap() };
-<a href=#206 id=206 data-nosnippet>206</a>
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">let </span>current_active_store = state.current_active_store.load(Ordering::Acquire);
+<a href=#179 id=179 data-nosnippet>179</a>            Ordering::SeqCst,
+<a href=#180 id=180 data-nosnippet>180</a>        )
+<a href=#181 id=181 data-nosnippet>181</a>    {
+<a href=#182 id=182 data-nosnippet>182</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(InterruptError::OtherInterruptInProgress);
+<a href=#183 id=183 data-nosnippet>183</a>    }
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>    store_state.interrupted = <span class="bool-val">true</span>;
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a>    <span class="kw">unsafe </span>{
+<a href=#188 id=188 data-nosnippet>188</a>        <span class="attr">#[allow(trivial_numeric_casts)]
+<a href=#189 id=189 data-nosnippet>189</a>        </span><span class="kw">let </span>errno = libc::pthread_kill(store_state.pthread <span class="kw">as </span>libc::pthread_t, libc::SIGUSR1);
+<a href=#190 id=190 data-nosnippet>190</a>        <span class="kw">if </span>errno != <span class="number">0 </span>{
+<a href=#191 id=191 data-nosnippet>191</a>            <span class="kw">let </span>error_str = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
+<a href=#192 id=192 data-nosnippet>192</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(InterruptError::FailedToSendSignal(error_str));
+<a href=#193 id=193 data-nosnippet>193</a>        }
+<a href=#194 id=194 data-nosnippet>194</a>    }
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="prelude-val">Ok</span>(())
+<a href=#197 id=197 data-nosnippet>197</a>}
+<a href=#198 id=198 data-nosnippet>198</a>
+<a href=#199 id=199 data-nosnippet>199</a><span class="doccomment">/// Called from within the signal handler to decide whether we should interrupt
+<a href=#200 id=200 data-nosnippet>200</a>/// the currently running WASM code. This function *MAY* return junk results in
+<a href=#201 id=201 data-nosnippet>201</a>/// case a signal comes in during an install or uninstall operation. However,
+<a href=#202 id=202 data-nosnippet>202</a>/// in such cases, there is no WASM code running, and the result will be ignored
+<a href=#203 id=203 data-nosnippet>203</a>/// by the signal handler anyway.
+<a href=#204 id=204 data-nosnippet>204</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_interrupted() -&gt; bool {
+<a href=#205 id=205 data-nosnippet>205</a>    THREAD_INTERRUPT_STATE.with(|t| {
+<a href=#206 id=206 data-nosnippet>206</a>        <span class="comment">// Safety: See comments on THREAD_INTERRUPT_STATE.
+<a href=#207 id=207 data-nosnippet>207</a>        </span><span class="kw">let </span>state = <span class="kw">unsafe </span>{ t.get().as_ref().unwrap() };
 <a href=#208 id=208 data-nosnippet>208</a>
-<a href=#209 id=209 data-nosnippet>209</a>        <span class="kw">let </span>current_signal_target_store = state.current_signal_target_store.load(Ordering::Acquire);
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="macro">assert_ne!</span>(
-<a href=#211 id=211 data-nosnippet>211</a>            current_signal_target_store, <span class="number">0</span>,
-<a href=#212 id=212 data-nosnippet>212</a>            <span class="string">"current_signal_target_store should be set before signalling the WASM thread"
-<a href=#213 id=213 data-nosnippet>213</a>        </span>);
-<a href=#214 id=214 data-nosnippet>214</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = state.current_signal_target_store.compare_exchange(
-<a href=#215 id=215 data-nosnippet>215</a>            current_signal_target_store,
-<a href=#216 id=216 data-nosnippet>216</a>            <span class="number">0</span>,
-<a href=#217 id=217 data-nosnippet>217</a>            Ordering::SeqCst,
-<a href=#218 id=218 data-nosnippet>218</a>            Ordering::SeqCst,
-<a href=#219 id=219 data-nosnippet>219</a>        ) {
-<a href=#220 id=220 data-nosnippet>220</a>            <span class="macro">unreachable!</span>(<span class="string">"current_signal_target_store isn't changed unless it's zero"</span>);
-<a href=#221 id=221 data-nosnippet>221</a>        }
-<a href=#222 id=222 data-nosnippet>222</a>
-<a href=#223 id=223 data-nosnippet>223</a>        current_active_store == current_signal_target_store
-<a href=#224 id=224 data-nosnippet>224</a>    })
-<a href=#225 id=225 data-nosnippet>225</a>}
-<a href=#226 id=226 data-nosnippet>226</a>
-<a href=#227 id=227 data-nosnippet>227</a><span class="doccomment">/// Returns true if the store with the given ID has already been interrupted.
-<a href=#228 id=228 data-nosnippet>228</a></span><span class="kw">pub fn </span>is_interrupted(store_id: StoreId) -&gt; bool {
-<a href=#229 id=229 data-nosnippet>229</a>    <span class="kw">let </span>Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) <span class="kw">else </span>{
-<a href=#230 id=230 data-nosnippet>230</a>        <span class="kw">return </span><span class="bool-val">false</span>;
-<a href=#231 id=231 data-nosnippet>231</a>    };
-<a href=#232 id=232 data-nosnippet>232</a>    store_state_entry.get().interrupted
-<a href=#233 id=233 data-nosnippet>233</a>}</code></pre></div></section></main></body></html>
+<a href=#209 id=209 data-nosnippet>209</a>        <span class="kw">let </span>current_active_store = state.current_active_store.load(Ordering::Acquire);
+<a href=#210 id=210 data-nosnippet>210</a>
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span>current_signal_target_store = state.current_signal_target_store.load(Ordering::Acquire);
+<a href=#212 id=212 data-nosnippet>212</a>        <span class="macro">assert_ne!</span>(
+<a href=#213 id=213 data-nosnippet>213</a>            current_signal_target_store, <span class="number">0</span>,
+<a href=#214 id=214 data-nosnippet>214</a>            <span class="string">"current_signal_target_store should be set before signalling the WASM thread"
+<a href=#215 id=215 data-nosnippet>215</a>        </span>);
+<a href=#216 id=216 data-nosnippet>216</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = state.current_signal_target_store.compare_exchange(
+<a href=#217 id=217 data-nosnippet>217</a>            current_signal_target_store,
+<a href=#218 id=218 data-nosnippet>218</a>            <span class="number">0</span>,
+<a href=#219 id=219 data-nosnippet>219</a>            Ordering::SeqCst,
+<a href=#220 id=220 data-nosnippet>220</a>            Ordering::SeqCst,
+<a href=#221 id=221 data-nosnippet>221</a>        ) {
+<a href=#222 id=222 data-nosnippet>222</a>            <span class="macro">unreachable!</span>(<span class="string">"current_signal_target_store isn't changed unless it's zero"</span>);
+<a href=#223 id=223 data-nosnippet>223</a>        }
+<a href=#224 id=224 data-nosnippet>224</a>
+<a href=#225 id=225 data-nosnippet>225</a>        current_active_store == current_signal_target_store
+<a href=#226 id=226 data-nosnippet>226</a>    })
+<a href=#227 id=227 data-nosnippet>227</a>}
+<a href=#228 id=228 data-nosnippet>228</a>
+<a href=#229 id=229 data-nosnippet>229</a><span class="doccomment">/// Returns true if the store with the given ID has already been interrupted.
+<a href=#230 id=230 data-nosnippet>230</a></span><span class="kw">pub fn </span>is_interrupted(store_id: StoreId) -&gt; bool {
+<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">let </span>Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) <span class="kw">else </span>{
+<a href=#232 id=232 data-nosnippet>232</a>        <span class="kw">return </span><span class="bool-val">false</span>;
+<a href=#233 id=233 data-nosnippet>233</a>    };
+<a href=#234 id=234 data-nosnippet>234</a>    store_state_entry.get().interrupted
+<a href=#235 id=235 data-nosnippet>235</a>}</code></pre></div></section></main></body></html>
