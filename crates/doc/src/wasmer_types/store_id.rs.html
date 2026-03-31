@@ -19,23 +19,30 @@
 <a href=#19 id=19 data-nosnippet>19</a>    }
 <a href=#20 id=20 data-nosnippet>20</a>}
 <a href=#21 id=21 data-nosnippet>21</a>
-<a href=#22 id=22 data-nosnippet>22</a><span class="kw">impl </span>Default <span class="kw">for </span>StoreId {
-<a href=#23 id=23 data-nosnippet>23</a>    <span class="comment">// Allocates a unique ID for a new context.
-<a href=#24 id=24 data-nosnippet>24</a>    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#25 id=25 data-nosnippet>25</a>        <span class="comment">// No overflow checking is needed here: overflowing this would take
-<a href=#26 id=26 data-nosnippet>26</a>        // thousands of years.
-<a href=#27 id=27 data-nosnippet>27</a>        </span><span class="kw">static </span>NEXT_ID: AtomicUsize = AtomicUsize::new(<span class="number">1</span>);
-<a href=#28 id=28 data-nosnippet>28</a>        <span class="self">Self</span>(NonZeroUsize::new(NEXT_ID.fetch_add(<span class="number">1</span>, Ordering::Relaxed)).unwrap())
-<a href=#29 id=29 data-nosnippet>29</a>    }
-<a href=#30 id=30 data-nosnippet>30</a>}
-<a href=#31 id=31 data-nosnippet>31</a>
-<a href=#32 id=32 data-nosnippet>32</a><span class="kw">impl </span>Display <span class="kw">for </span>StoreId {
-<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
-<a href=#34 id=34 data-nosnippet>34</a>        <span class="kw">let </span>val: usize = <span class="self">self</span>.<span class="number">0</span>.into();
-<a href=#35 id=35 data-nosnippet>35</a>        <span class="kw">if </span>val == usize::MAX {
-<a href=#36 id=36 data-nosnippet>36</a>            <span class="macro">write!</span>(f, <span class="string">"unknown"</span>)
-<a href=#37 id=37 data-nosnippet>37</a>        } <span class="kw">else </span>{
-<a href=#38 id=38 data-nosnippet>38</a>            <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
-<a href=#39 id=39 data-nosnippet>39</a>        }
-<a href=#40 id=40 data-nosnippet>40</a>    }
-<a href=#41 id=41 data-nosnippet>41</a>}</code></pre></div></section></main></body></html>
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">impl </span>StoreId {
+<a href=#23 id=23 data-nosnippet>23</a>    <span class="doccomment">/// Returns the raw [`NonZeroUsize`] value of this [`StoreId`].
+<a href=#24 id=24 data-nosnippet>24</a>    </span><span class="kw">pub fn </span>as_raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
+<a href=#25 id=25 data-nosnippet>25</a>        <span class="self">self</span>.<span class="number">0
+<a href=#26 id=26 data-nosnippet>26</a>    </span>}
+<a href=#27 id=27 data-nosnippet>27</a>}
+<a href=#28 id=28 data-nosnippet>28</a>
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">impl </span>Default <span class="kw">for </span>StoreId {
+<a href=#30 id=30 data-nosnippet>30</a>    <span class="comment">// Allocates a unique ID for a new context.
+<a href=#31 id=31 data-nosnippet>31</a>    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#32 id=32 data-nosnippet>32</a>        <span class="comment">// No overflow checking is needed here: overflowing this would take
+<a href=#33 id=33 data-nosnippet>33</a>        // thousands of years.
+<a href=#34 id=34 data-nosnippet>34</a>        </span><span class="kw">static </span>NEXT_ID: AtomicUsize = AtomicUsize::new(<span class="number">1</span>);
+<a href=#35 id=35 data-nosnippet>35</a>        <span class="self">Self</span>(NonZeroUsize::new(NEXT_ID.fetch_add(<span class="number">1</span>, Ordering::Relaxed)).unwrap())
+<a href=#36 id=36 data-nosnippet>36</a>    }
+<a href=#37 id=37 data-nosnippet>37</a>}
+<a href=#38 id=38 data-nosnippet>38</a>
+<a href=#39 id=39 data-nosnippet>39</a><span class="kw">impl </span>Display <span class="kw">for </span>StoreId {
+<a href=#40 id=40 data-nosnippet>40</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+<a href=#41 id=41 data-nosnippet>41</a>        <span class="kw">let </span>val: usize = <span class="self">self</span>.<span class="number">0</span>.into();
+<a href=#42 id=42 data-nosnippet>42</a>        <span class="kw">if </span>val == usize::MAX {
+<a href=#43 id=43 data-nosnippet>43</a>            <span class="macro">write!</span>(f, <span class="string">"unknown"</span>)
+<a href=#44 id=44 data-nosnippet>44</a>        } <span class="kw">else </span>{
+<a href=#45 id=45 data-nosnippet>45</a>            <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
+<a href=#46 id=46 data-nosnippet>46</a>        }
+<a href=#47 id=47 data-nosnippet>47</a>    }
+<a href=#48 id=48 data-nosnippet>48</a>}</code></pre></div></section></main></body></html>

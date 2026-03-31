@@ -3,7 +3,7 @@
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span><span class="kw">crate</span>::entities::engine::{AsEngineRef, Engine, EngineRef};
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>wasmer_vm::TrapHandlerFn;
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>wasmer_vm::init_traps;
-<a href=#6 id=6 data-nosnippet>6</a><span class="kw">pub use </span>wasmer_vm::{StoreHandle, StoreObjects};
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">pub use </span>wasmer_vm::{StoreHandle, StoreId, StoreObjects};
 <a href=#7 id=7 data-nosnippet>7</a>
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">mod </span>obj;
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub use </span>obj::<span class="kw-2">*</span>;
@@ -98,4 +98,40 @@
 <a href=#98 id=98 data-nosnippet>98</a>    </span><span class="kw">pub fn </span>is_sys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 <a href=#99 id=99 data-nosnippet>99</a>        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Sys(<span class="kw">_</span>))
 <a href=#100 id=100 data-nosnippet>100</a>    }
-<a href=#101 id=101 data-nosnippet>101</a>}</code></pre></div></section></main></body></html>
+<a href=#101 id=101 data-nosnippet>101</a>}
+<a href=#102 id=102 data-nosnippet>102</a>
+<a href=#103 id=103 data-nosnippet>103</a><span class="doccomment">/// Allows embedders to interrupt a running WASM instance.
+<a href=#104 id=104 data-nosnippet>104</a></span><span class="attr">#[cfg(all(unix, feature = <span class="string">"experimental-host-interrupt"</span>))]
+<a href=#105 id=105 data-nosnippet>105</a>#[derive(Clone)]
+<a href=#106 id=106 data-nosnippet>106</a></span><span class="kw">pub struct </span>Interrupter {
+<a href=#107 id=107 data-nosnippet>107</a>    store_id: StoreId,
+<a href=#108 id=108 data-nosnippet>108</a>}
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a><span class="attr">#[cfg(all(unix, feature = <span class="string">"experimental-host-interrupt"</span>))]
+<a href=#111 id=111 data-nosnippet>111</a></span><span class="kw">impl </span>Interrupter {
+<a href=#112 id=112 data-nosnippet>112</a>    <span class="doccomment">/// Builds a new interrupter.
+<a href=#113 id=113 data-nosnippet>113</a>    </span><span class="kw">pub fn </span>new(store_id: StoreId) -&gt; <span class="self">Self </span>{
+<a href=#114 id=114 data-nosnippet>114</a>        <span class="self">Self </span>{ store_id }
+<a href=#115 id=115 data-nosnippet>115</a>    }
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="doccomment">/// Interrupts running WASM instances from the owning `Store`.
+<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="kw">pub fn </span>interrupt(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="kw">use </span>wasmer_vm::interrupt_registry;
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="comment">// Even though `interrupt` reports whether it sent the signal successfully,
+<a href=#122 id=122 data-nosnippet>122</a>        // there's nothing meaningful embedders can do with the result; a sent
+<a href=#123 id=123 data-nosnippet>123</a>        // signal may not be processed in rare cases, and none of the error cases
+<a href=#124 id=124 data-nosnippet>124</a>        // are hard errors in the sense that retrying the interrupt at a later
+<a href=#125 id=125 data-nosnippet>125</a>        // point is *guaranteed* to fail again. Hence, we don't return any
+<a href=#126 id=126 data-nosnippet>126</a>        // indication of success or failure to embedder code.
+<a href=#127 id=127 data-nosnippet>127</a>        </span><span class="kw">match </span>interrupt_registry::interrupt(<span class="self">self</span>.store_id) {
+<a href=#128 id=128 data-nosnippet>128</a>            <span class="prelude-val">Err</span>(interrupt_registry::InterruptError::StoreNotRunning) =&gt; (),
+<a href=#129 id=129 data-nosnippet>129</a>            <span class="kw">_ </span>=&gt; {
+<a href=#130 id=130 data-nosnippet>130</a>                <span class="attr">#[cfg(feature = <span class="string">"experimental-async"</span>)]
+<a href=#131 id=131 data-nosnippet>131</a>                </span><span class="kw">crate</span>::backend::sys::async_runtime::notify_pending_futures_of_interrupt(
+<a href=#132 id=132 data-nosnippet>132</a>                    <span class="self">self</span>.store_id,
+<a href=#133 id=133 data-nosnippet>133</a>                );
+<a href=#134 id=134 data-nosnippet>134</a>            }
+<a href=#135 id=135 data-nosnippet>135</a>        }
+<a href=#136 id=136 data-nosnippet>136</a>    }
+<a href=#137 id=137 data-nosnippet>137</a>}</code></pre></div></section></main></body></html>

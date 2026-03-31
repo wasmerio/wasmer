@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Store","StoreHandle","StoreObjects"],"trait":["NativeStoreExt"]};
+window.SIDEBAR_ITEMS = {"struct":["Interrupter","Store","StoreHandle","StoreId","StoreObjects"],"trait":["NativeStoreExt"]};

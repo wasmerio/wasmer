@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["obj"],"struct":["Store","StoreHandle","StoreObjects"],"trait":["NativeStoreExt"]};
+window.SIDEBAR_ITEMS = {"mod":["obj"],"struct":["Interrupter","Store","StoreHandle","StoreId","StoreObjects"],"trait":["NativeStoreExt"]};

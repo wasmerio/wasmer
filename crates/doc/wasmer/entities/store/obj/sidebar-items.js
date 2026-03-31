@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["StoreObjects"]};
+window.SIDEBAR_ITEMS = {"enum":["InterrupterInner","StoreObjects"],"struct":["Interrupter"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InstallError","InterruptError"],"fn":["install","interrupt","is_interrupted"],"struct":["InterruptInstallGuard"]};
