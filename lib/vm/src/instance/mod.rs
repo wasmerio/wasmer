@@ -16,7 +16,7 @@ use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMSharedTagIndex, VMTableDefinition, VMTableImport,
+    VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
     VMTrampoline, memory_copy, memory_fill, memory32_atomic_check32, memory32_atomic_check64,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
@@ -139,11 +139,6 @@ impl Instance {
     /// Offsets in the `vmctx` region.
     fn offsets(&self) -> &VMOffsets {
         &self.offsets
-    }
-
-    /// Return a pointer to the `VMSharedSignatureIndex`s.
-    fn signature_ids_ptr(&self) -> *mut VMSharedSignatureIndex {
-        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_signature_ids_begin()) }
     }
 
     /// Return the indexed `VMFunctionImport`.
@@ -938,6 +933,7 @@ impl Instance {
             Ok(count) => Ok(count),
             Err(_err) => {
                 // ret is None if there is more than 2^32 waiter in queue or some other error
+                // TODO: why THIS specific trap code tho? -.-
                 Err(Trap::lib(TrapCode::TableAccessOutOfBounds))
             }
         }
@@ -1151,7 +1147,7 @@ impl VMInstance {
         finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
         tags: BoxedSlice<TagIndex, InternalStoreHandle<VMTag>>,
         imports: Imports,
-        vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+        vmshared_signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, Trap> {
         unsafe {
             let vmctx_tags = tags
@@ -1219,11 +1215,6 @@ impl VMInstance {
                 vmctx_tags.values().as_slice().as_ptr(),
                 instance.shared_tags_ptr(),
                 vmctx_tags.len(),
-            );
-            ptr::copy(
-                vmshared_signatures.values().as_slice().as_ptr(),
-                instance.signature_ids_ptr(),
-                vmshared_signatures.len(),
             );
             ptr::copy(
                 imports.functions.values().as_slice().as_ptr(),
@@ -1735,7 +1726,7 @@ fn build_funcrefs(
     ctx: &StoreObjects,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSignatureHash>,
     function_call_trampolines: &BoxedSlice<SignatureIndex, VMTrampoline>,
     vmctx_ptr: *mut VMContext,
 ) -> (
@@ -1755,11 +1746,11 @@ fn build_funcrefs(
     for (local_index, func_ptr) in finished_functions.iter() {
         let index = module_info.func_index(local_index);
         let sig_index = module_info.functions[index];
-        let type_index = vmshared_signatures[sig_index];
+        let type_signature_hash = vmshared_signatures[sig_index];
         let call_trampoline = function_call_trampolines[sig_index];
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr: func_ptr.0,
-            type_index,
+            type_signature_hash,
             vmctx: VMFunctionContext { vmctx: vmctx_ptr },
             call_trampoline,
         };

@@ -62,8 +62,6 @@ pub struct FuncGen<'a, M: Machine> {
     // // Memory plans.
     memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
 
-    // // Table plans.
-    // table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     /// Function signature.
     signature: FunctionType,
 
@@ -2234,6 +2232,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(table_index as _);
                 let index = SignatureIndex::new(type_index as usize);
                 let sig = self.module.signatures.get(index).unwrap();
+                let expected_sig_hash = self.module.signature_hashes.get(index).unwrap();
                 let table = self.module.tables.get(table_index).unwrap();
                 let local_fixed_funcref_table = self
                     .module
@@ -2265,7 +2264,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let table_base = self.machine.acquire_temp_gpr().unwrap();
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
-                let sigidx = self.machine.acquire_temp_gpr().unwrap();
+                let sig_hash = self.machine.acquire_temp_gpr().unwrap();
 
                 if let Some(local_table_index) = local_fixed_funcref_table {
                     self.machine.move_location(
@@ -2393,25 +2392,22 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 self.machine.move_location(
                     Size::S32,
-                    Location::Memory(
-                        self.machine.get_vmctx_reg(),
-                        self.vmoffsets.vmctx_vmshared_signature_id(index) as i32,
-                    ),
-                    Location::GPR(sigidx),
+                    Location::Imm32(expected_sig_hash.as_u32()),
+                    Location::GPR(sig_hash),
                 )?;
 
                 // Trap if signature mismatches.
                 self.machine.jmp_on_condition(
                     UnsignedCondition::NotEqual,
                     Size::S32,
-                    Location::GPR(sigidx),
+                    Location::GPR(sig_hash),
                     Location::Memory(
                         table_count,
-                        (self.vmoffsets.vmcaller_checked_anyfunc_type_index() as usize) as i32,
+                        (self.vmoffsets.vmcaller_checked_anyfunc_signature_hash() as usize) as i32,
                     ),
                     self.special_labels.bad_signature,
                 )?;
-                self.machine.release_gpr(sigidx);
+                self.machine.release_gpr(sig_hash);
                 self.machine.release_gpr(table_count);
                 self.machine.release_gpr(table_base);
 
