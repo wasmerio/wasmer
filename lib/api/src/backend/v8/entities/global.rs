@@ -116,7 +116,7 @@ impl Global {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
         check_isolate(store);
         Self {
-            handle: vm_global.into_v8(),
+            handle: vm_global.unwrap_v_8(),
         }
     }
 

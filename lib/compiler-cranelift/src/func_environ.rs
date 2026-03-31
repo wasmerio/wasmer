@@ -143,6 +143,7 @@ pub struct FuncEnvironment<'module_environment> {
     memory32_atomic_notify_sig: Option<ir::SigRef>,
 
     /// Cached signatures for exception helper builtins.
+    raise_trap_sig: Option<ir::SigRef>,
     personality2_sig: Option<ir::SigRef>,
     throw_sig: Option<ir::SigRef>,
     alloc_exception_sig: Option<ir::SigRef>,
@@ -199,6 +200,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             memory32_atomic_wait32_sig: None,
             memory32_atomic_wait64_sig: None,
             memory32_atomic_notify_sig: None,
+            raise_trap_sig: None,
             personality2_sig: None,
             throw_sig: None,
             alloc_exception_sig: None,
@@ -1013,6 +1015,17 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         (sig, VMBuiltinFunctionIndex::get_imported_throw_index())
     }
 
+    fn get_raise_trap_func(&mut self, func: &mut Function) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        let sig = self.raise_trap_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::new(I32));
+            let sig = func.import_signature(signature);
+            self.raise_trap_sig = Some(sig);
+            sig
+        });
+        (sig, VMBuiltinFunctionIndex::get_raise_trap_index())
+    }
+
     fn get_alloc_exception_func(
         &mut self,
         func: &mut Function,
@@ -1316,6 +1329,22 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
     fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
         // The first parameter is the vmctx. The rest are the wasm parameters.
         index >= 1
+    }
+
+    fn translate_unreachable(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()> {
+        let (func_sig, func_idx) = self.get_raise_trap_func(builder.func);
+        let mut pos = builder.cursor();
+        let (_, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        let trap_code = pos
+            .ins()
+            .iconst(I32, wasmer_types::TrapCode::UnreachableCodeReached as i64);
+        builder
+            .ins()
+            .call_indirect(func_sig, func_addr, &[trap_code]);
+        // Emit the terminator through `FunctionBuilder` so its block state is
+        // updated before later control-flow translation switches blocks.
+        builder.ins().trap(crate::TRAP_UNREACHABLE);
+        Ok(())
     }
 
     fn translate_table_grow(

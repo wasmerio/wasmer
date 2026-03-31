@@ -266,6 +266,9 @@ pub trait FuncEnvironment: TargetEnvironment {
         exnref: ir::Value,
     ) -> WasmResult<()>;
 
+    /// Translate a WebAssembly `unreachable` instruction.
+    fn translate_unreachable(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()>;
+
     /// Translate a `memory.grow` WebAssembly instruction.
     ///
     /// The `index` provided identifies the linear memory to grow, and `heap` is the heap reference

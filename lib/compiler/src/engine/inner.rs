@@ -8,8 +8,8 @@ use crate::engine::builder::EngineBuilder;
 use crate::{Compiler, CompilerConfig};
 
 #[cfg(feature = "compiler")]
-use wasmer_types::Features;
-use wasmer_types::{CompilationProgressCallback, CompileError, target::Target};
+use wasmer_types::{CompilationProgressCallback, Features};
+use wasmer_types::{CompileError, target::Target};
 
 #[cfg(not(target_arch = "wasm32"))]
 use shared_buffer::OwnedBuffer;
