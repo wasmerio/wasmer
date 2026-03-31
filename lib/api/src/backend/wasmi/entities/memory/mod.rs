@@ -1,16 +1,17 @@
 //! Data types, functions and traits for `wasmi`'s `Memory` implementation.
-//!
+#![allow(missing_docs)]
 use std::{marker::PhantomData, mem::MaybeUninit};
 
+use ::wasmi as wasmi_native;
 use tracing::warn;
 pub use wasmer_types::MemoryError;
-use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
+use wasmer_types::{MemoryType, Pages};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
     shared::SharedMemory,
     vm::{VMExtern, VMExternMemory},
-    wasmi::{bindings::*, vm::VMMemory},
+    wasmi::vm::{VMMemory, handle_bits},
 };
 
 pub(crate) mod view;
@@ -27,67 +28,43 @@ unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let max_requested = ty.maximum.unwrap_or(Pages::max_value());
-
-        let min = ty.minimum.0;
-        let max = max_requested.0;
-
-        if max < min {
-            return Err(MemoryError::InvalidMemory {
-                reason: format!("the maximum ({max} pages) is less than the minimum ({min} pages)",),
-            });
-        }
-
-        let max_allowed = Pages::max_value();
-        if max_requested > max_allowed {
-            return Err(MemoryError::MaximumMemoryTooLarge {
-                max_requested,
-                max_allowed,
-            });
-        }
-
-        let limits = Box::into_raw(Box::new(wasm_limits_t { min, max }));
-
-        let memorytype = unsafe { wasm_memorytype_new(limits) };
-
+        let ty = wasmi_native::MemoryType::new(ty.minimum.0, ty.maximum.map(|v| v.0));
         let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_wasmi().inner;
-        let c_memory = unsafe { wasm_memory_new(inner, memorytype) };
-
-        Ok(Self { handle: c_memory })
+        let handle = wasmi_native::Memory::new(&mut store.inner.store.as_wasmi_mut().inner, ty)
+            .map_err(|err| MemoryError::Generic(err.to_string()))?;
+        Ok(Self { handle })
     }
 
-    pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
+    pub fn new_from_existing(_new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
         Self { handle: memory }
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::Wasmi(unsafe { wasm_memory_as_extern(self.handle) })
+        VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Memory(self.handle))
     }
 
-    pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {
-        let memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle) };
-        let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(memory_type) };
-
+    pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
+        let ty = self
+            .handle
+            .ty(&store.as_store_ref().inner.store.as_wasmi().inner);
         MemoryType {
-            // [TODO]: Find a way to extract this from the inner memory type instead
-            // of hardcoding.
             shared: false,
-            minimum: unsafe { wasmer_types::Pages((*limits).min) },
-            maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
+            minimum: Pages(ty.minimum() as u32),
+            maximum: ty.maximum().map(|v| Pages(v as u32)),
         }
     }
 
     pub fn size(&self, store: &impl AsStoreRef) -> Pages {
-        let size = unsafe { wasm_memory_size(self.handle) };
-        Pages(size)
+        Pages(
+            self.handle
+                .size(&store.as_store_ref().inner.store.as_wasmi().inner) as u32,
+        )
     }
 
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }
 
-    // Note: the return value is the memory size (in [`Pages`]) *before* growing it.
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
@@ -96,19 +73,12 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
-        unsafe {
-            let delta: Pages = delta.into();
-            let current = Pages(wasm_memory_size(self.handle));
-
-            if !wasm_memory_grow(self.handle, delta.0) {
-                Err(MemoryError::CouldNotGrow {
-                    current,
-                    attempted_delta: delta,
-                })
-            } else {
-                Ok(current)
-            }
-        }
+        let delta: Pages = delta.into();
+        let mut store = store.as_store_mut();
+        self.handle
+            .grow(&mut store.inner.store.as_wasmi_mut().inner, delta.0 as u64)
+            .map(|prev| Pages(prev as u32))
+            .map_err(|err| MemoryError::Generic(err.to_string()))
     }
 
     pub fn grow_at_least(
@@ -116,14 +86,10 @@ impl Memory {
         store: &mut impl AsStoreMut,
         min_size: u64,
     ) -> Result<(), MemoryError> {
-        unsafe {
-            let current = wasm_memory_size(self.handle);
-            let delta = (min_size as u32) - current;
-            if delta > 0 {
-                self.grow(store, delta)?;
-            }
+        let current = self.size(store).0 as u64;
+        if min_size > current {
+            self.grow(store, Pages((min_size - current) as u32))?;
         }
-
         Ok(())
     }
 
@@ -136,70 +102,52 @@ impl Memory {
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        unimplemented!();
-        // let view = self.view(store);
-        // let ty = self.ty(store);
-        // let amount = view.data_size() as usize;
-
-        // let new_memory = Self::new(new_store, ty)?;
-        // let mut new_view = new_memory.view(&new_store);
-        // let new_view_size = new_view.data_size() as usize;
-        // if amount > new_view_size {
-        //     let delta = amount - new_view_size;
-        //     let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
-        //     new_memory.grow(new_store, Pages(pages as u32))?;
-        //     new_view = new_memory.view(&new_store);
-        // }
-
-        // // Copy the bytes
-        // view.copy_to_memory(amount as u64, &new_view)
-        //     .map_err(|err| MemoryError::Generic(err.to_string()))?;
-        // // // Return the new memory
-        // Ok(new_memory)
-    }
-
-    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
-        Self {
-            handle: internal.unwrap_wasmi(),
+        let view = self.view(store);
+        let amount = view.data_size() as usize;
+        let new_memory = Self::new(new_store, self.ty(store))?;
+        if amount > new_memory.view(new_store).data_size() as usize {
+            let delta = amount - new_memory.view(new_store).data_size() as usize;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
+            new_memory.grow(new_store, Pages(pages as u32))?;
         }
+        view.copy_to_memory(amount as u64, &new_memory.view(new_store))
+            .map_err(|err| MemoryError::Generic(err.to_string()))?;
+        Ok(new_memory)
     }
 
-    /// Cloning memory will create another reference to the same memory that
-    /// can be put into a new store
+    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
+        let crate::vm::VMExternMemory::Wasmi(handle) = internal else {
+            panic!("Not a `wasmi` memory extern")
+        };
+        Self { handle }
+    }
+
     pub fn try_clone(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         Ok(self.handle)
     }
 
-    /// Copying the memory will actually copy all the bytes in the memory to
-    /// a identical byte copy of the original that can be put into a new store
-    pub fn try_copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        let res = unsafe { wasm_memory_copy(self.handle) };
-        if res.is_null() {
-            Err(MemoryError::Generic("memory copy failed".to_owned()))
-        } else {
-            Ok(res)
-        }
+    pub fn try_copy(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        Err(MemoryError::Generic(
+            "copying native wasmi memories is not implemented".to_string(),
+        ))
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
 
-    #[allow(unused)]
-    pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        unimplemented!();
-        // self.handle.duplicate(store)
+    pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        Ok(self.handle)
     }
 
     pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<SharedMemory> {
-        // Not supported.
         None
     }
 }
 
 impl std::cmp::PartialEq for Memory {
     fn eq(&self, other: &Self) -> bool {
-        self.handle == other.handle
+        handle_bits(self.handle) == handle_bits(other.handle)
     }
 }
 
@@ -284,13 +232,6 @@ impl<'a> MemoryBuffer<'a> {
     }
 }
 
-// We can't use a normal memcpy here because it has undefined behavior if the
-// memory is being concurrently modified. So we need to write our own memcpy
-// implementation which uses volatile operations.
-//
-// The implementation of these functions can optimize very well when inlined
-// with a fixed length: they should compile down to a single load/store
-// instruction for small (8/16/32/64-bit) copies.
 #[inline]
 unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]
@@ -350,7 +291,6 @@ unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: u
 }
 
 impl crate::Memory {
-    /// Consume [`self`] into a [`crate::backend::wasmi::memory::Memory`].
     pub fn into_wasmi(self) -> crate::backend::wasmi::memory::Memory {
         match self.0 {
             BackendMemory::Wasmi(s) => s,
@@ -358,7 +298,6 @@ impl crate::Memory {
         }
     }
 
-    /// Convert a reference to [`self`] into a reference to [`crate::backend::wasmi::memory::Memory`].
     pub fn as_wasmi(&self) -> &crate::backend::wasmi::memory::Memory {
         match &self.0 {
             BackendMemory::Wasmi(s) => s,
@@ -366,7 +305,6 @@ impl crate::Memory {
         }
     }
 
-    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::backend::wasmi::memory::Memory`].
     pub fn as_wasmi_mut(&mut self) -> &mut crate::backend::wasmi::memory::Memory {
         match &mut self.0 {
             BackendMemory::Wasmi(s) => s,

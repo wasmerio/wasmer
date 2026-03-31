@@ -1,106 +1,82 @@
 //! Data types, functions and traits for `wasmi`'s `Instance` implementation.
 use std::sync::Arc;
 
+use ::wasmi as wasmi_native;
+
 use crate::{
-    AsStoreMut, AsStoreRef, Exports, Extern, Imports, InstantiationError, Module,
-    backend::wasmi::bindings::*, entities::external::VMExternToExtern, vm::VMExtern,
-    wasmi::error::Trap,
+    AsStoreMut, Exports, Extern, Imports, InstantiationError, Module,
+    VMExternToExtern,
+    vm::VMExtern,
 };
 
-#[derive(PartialEq, Eq)]
-pub(crate) struct InstanceHandle(pub(crate) *mut wasm_instance_t);
+#[derive(Clone, Copy)]
+pub(crate) struct InstanceHandle(pub(crate) wasmi_native::Instance);
 
 unsafe impl Send for InstanceHandle {}
 unsafe impl Sync for InstanceHandle {}
 
+impl PartialEq for InstanceHandle {
+    fn eq(&self, other: &Self) -> bool {
+        crate::backend::wasmi::vm::handle_bits(self.0)
+            == crate::backend::wasmi::vm::handle_bits(other.0)
+    }
+}
+
+impl Eq for InstanceHandle {}
+
+fn to_native_extern(extern_: VMExtern) -> wasmi_native::Extern {
+    match extern_ {
+        VMExtern::Wasmi(extern_) => match extern_ {
+            crate::backend::wasmi::vm::VMExtern::Function(f) => wasmi_native::Extern::Func(f),
+            crate::backend::wasmi::vm::VMExtern::Global(g) => wasmi_native::Extern::Global(g),
+            crate::backend::wasmi::vm::VMExtern::Memory(m) => wasmi_native::Extern::Memory(m),
+            crate::backend::wasmi::vm::VMExtern::Table(t) => wasmi_native::Extern::Table(t),
+        },
+        _ => panic!("cross-backend imports are not supported for wasmi"),
+    }
+}
+
 impl InstanceHandle {
-    #[allow(clippy::result_large_err, clippy::unnecessary_mut_passed)]
     fn new(
-        store: *mut wasm_store_t,
-        module: *mut wasm_module_t,
-        mut externs: Vec<VMExtern>,
+        store: &mut crate::backend::wasmi::store::Store,
+        module: &crate::backend::wasmi::module::Module,
+        externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
-        // Check if the thread env was already initialised.
-        //unsafe {
-        //    if !wasm_runtime_thread_env_inited() {
-        //        if !wasm_runtime_init_thread_env() {
-        //            panic!("Failed to initialize the thread environment!");
-        //        }
-        //    }
-        //}
-
-        let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
-        let externs: Vec<_> = externs.into_iter().map(|v| v.unwrap_wasmi()).collect();
-
-        let instance = unsafe {
-            let mut imports = unsafe {
-                let mut vec = Default::default();
-                wasm_extern_vec_new(&mut vec, externs.len(), externs.as_ptr());
-                vec
-            };
-
-            std::mem::forget(externs);
-
-            wasm_instance_new(store, module, &mut imports, &mut trap)
-        };
-
-        if instance.is_null() {
-            let trap = Trap::from(trap);
-            return Err(InstantiationError::Start(trap.into()));
-        }
-
+        let imports = externs.into_iter().map(to_native_extern).collect::<Vec<_>>();
+        let instance = wasmi_native::Instance::new(&mut store.inner, &module.handle.inner, &imports)
+            .map_err(|err| InstantiationError::Start(crate::backend::wasmi::error::Trap::from_wasmi_error(err)))?;
         Ok(Self(instance))
     }
 
-    fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
-        let mut c_api_externs = unsafe {
-            let mut vec = Default::default();
-            wasm_instance_exports(self.0, &mut vec);
-            vec
-        };
-
-        let c_api_externs: &[*mut wasm_extern_t] =
-            unsafe { std::slice::from_raw_parts(c_api_externs.data, c_api_externs.size) };
-        let c_api_externs = c_api_externs.to_vec();
-        let mut exports = unsafe {
-            let mut vec = Default::default();
-            wasm_module_exports(module.as_wasmi().handle.inner, &mut vec);
-            vec
-        };
-
-        let c_api_exports: &[*mut wasm_exporttype_t] =
-            unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
-        let c_api_exports = c_api_exports.to_vec();
-
-        // We need to use the order of the exports from the polyfill info to get the right
-        // one, i.e. the from the declaration.
-        let module_exports = module.exports().collect::<Vec<_>>();
-
-        let c_api_exports: Exports = c_api_exports
-            .into_iter()
-            .zip(c_api_externs)
-            .map(|(export, ext)| unsafe {
-                let name = wasm_exporttype_name(export);
-                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
-                let name = String::from_utf8(name.to_vec()).unwrap_or_default();
-                let ext = ext.to_extern(&mut store);
-                (name, ext)
-            })
-            .collect();
-
+    fn get_exports(
+        &self,
+        store: &mut impl AsStoreMut,
+        module: &Module,
+    ) -> Exports {
         let mut exports = Exports::new();
-
-        for e in module_exports {
-            let ext: Extern = c_api_exports.get::<Extern>(e.name()).unwrap().clone();
-            exports.insert(e.name().to_string(), ext);
+        for export in module.exports() {
+            if let Some(ext) = self
+                .0
+                .get_export(&store.as_store_ref().inner.store.as_wasmi().inner, export.name())
+            {
+                let vm_extern = match ext {
+                    wasmi_native::Extern::Func(f) => {
+                        VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Function(f))
+                    }
+                    wasmi_native::Extern::Global(g) => {
+                        VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Global(g))
+                    }
+                    wasmi_native::Extern::Memory(m) => {
+                        VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Memory(m))
+                    }
+                    wasmi_native::Extern::Table(t) => {
+                        VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Table(t))
+                    }
+                };
+                exports.insert(export.name().to_string(), vm_extern.to_extern(store));
+            }
         }
-
         exports
-    }
-}
-impl Drop for InstanceHandle {
-    fn drop(&mut self) {
-        unsafe { wasm_instance_delete(self.0) }
     }
 }
 
@@ -111,7 +87,6 @@ pub struct Instance {
 }
 
 impl Instance {
-    #[allow(clippy::result_large_err)]
     pub(crate) fn new(
         store: &mut impl AsStoreMut,
         module: &Module,
@@ -129,23 +104,16 @@ impl Instance {
         Self::new_by_index(store, module, &externs)
     }
 
-    #[allow(clippy::result_large_err)]
     pub(crate) fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,
         externs: &[Extern],
     ) -> Result<(Self, Exports), InstantiationError> {
-        let store_ref = store.as_store_ref();
-        let externs: Vec<VMExtern> = externs
-            .iter()
-            .map(|extern_| extern_.to_vm_extern())
-            .collect::<Vec<_>>();
-
-        let instance = InstanceHandle::new(
-            store_ref.inner.store.as_wasmi().inner,
-            module.as_wasmi().handle.inner,
-            externs,
-        )?;
+        let externs = externs.iter().map(|extern_| extern_.to_vm_extern()).collect::<Vec<_>>();
+        let instance = {
+            let store_mut = store.as_store_mut();
+            InstanceHandle::new(store_mut.inner.store.as_wasmi_mut(), module.as_wasmi(), externs)?
+        };
         let exports = instance.get_exports(store, module);
 
         Ok((
@@ -158,7 +126,6 @@ impl Instance {
 }
 
 impl crate::BackendInstance {
-    /// Consume [`self`] into a [`crate::backend::wasmi::instance::Instance`].
     pub(crate) fn into_wasmi(self) -> crate::backend::wasmi::instance::Instance {
         match self {
             Self::Wasmi(s) => s,

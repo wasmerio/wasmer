@@ -1,7 +1,7 @@
 mod imp;
 
 use crate::{
-    BackendKind, WasmTypeList,
+    BackendKind, FunctionEnvMut, RuntimeError, Value, WasmTypeList,
     vm::{VMFunctionCallback, VMTrampoline},
 };
 
@@ -22,6 +22,13 @@ where
     fn function_callback_sys(&self) -> crate::vm::VMFunctionCallback {
         unimplemented!()
     }
+
+    #[doc(hidden)]
+    fn call_wasm(
+        &self,
+        env: FunctionEnvMut<'_, T>,
+        params: &[Value],
+    ) -> Result<Vec<Value>, RuntimeError>;
 
     /// Get the pointer to the function call trampoline for a given runtime.
     fn call_trampoline_address() -> crate::vm::VMTrampoline;

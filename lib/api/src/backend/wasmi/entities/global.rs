@@ -1,21 +1,17 @@
 //! Data types, functions and traits for `wasmi`'s `Global` implementation.
+use ::wasmi as wasmi_native;
 use wasmer_types::{GlobalType, Mutability};
 
 use crate::{
     AsStoreMut, AsStoreRef, RuntimeError, Value,
     vm::{VMExtern, VMExternGlobal},
     wasmi::{
-        bindings::{
-            self, wasm_global_as_extern, wasm_global_get, wasm_global_new, wasm_global_set,
-            wasm_global_type, wasm_globaltype_content, wasm_globaltype_mutability,
-            wasm_globaltype_new, wasm_mutability_t, wasm_valtype_new,
-        },
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
-        vm::VMGlobal,
+        vm::{handle_bits, VMGlobal},
     },
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 /// A WebAssembly `global` in `wasmi`.
 pub struct Global {
     pub(crate) handle: VMGlobal,
@@ -24,59 +20,45 @@ pub struct Global {
 unsafe impl Send for Global {}
 unsafe impl Sync for Global {}
 
-// Global can't be Send in js because it dosen't support `structuredClone`
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// unsafe impl Send for Global {}
+impl PartialEq for Global {
+    fn eq(&self, other: &Self) -> bool {
+        handle_bits(self.handle) == handle_bits(other.handle)
+    }
+}
+
+impl Eq for Global {}
 
 impl Global {
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        let extern_ = unsafe { wasm_global_as_extern(self.handle) };
-        assert!(
-            !extern_.is_null(),
-            "Returned null Global extern from wasm-c-api"
-        );
-        VMExtern::Wasmi(extern_)
+        VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Global(self.handle))
     }
 
-    /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
     pub(crate) fn from_value(
         store: &mut impl AsStoreMut,
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        let store = store.as_store_mut();
-
-        let wasmi_type = val.ty().into_ct();
-        let wasmi_value = val.into_cv();
-        let wasmi_mutability = if mutability.is_mutable() {
-            bindings::wasm_mutability_enum_WASM_VAR
-        } else {
-            bindings::wasm_mutability_enum_WASM_CONST
-        } as wasm_mutability_t;
-
-        let wasmi_global_type =
-            unsafe { wasm_globaltype_new(wasm_valtype_new(wasmi_type), wasmi_mutability) };
-
+        let mut store = store.as_store_mut();
         Ok(Self {
-            handle: unsafe {
-                wasm_global_new(
-                    store.inner.store.as_wasmi().inner,
-                    wasmi_global_type,
-                    &wasmi_value,
-                )
-            },
+            handle: wasmi_native::Global::new(
+                &mut store.inner.store.as_wasmi_mut().inner,
+                val.into_cv(),
+                if mutability.is_mutable() {
+                    wasmi_native::Mutability::Var
+                } else {
+                    wasmi_native::Mutability::Const
+                },
+            ),
         })
     }
 
-    pub fn ty(&self, _store: &impl AsStoreRef) -> GlobalType {
-        let r#type = unsafe { wasm_global_type(self.handle) };
-        let mutability = unsafe { wasm_globaltype_mutability(&*r#type) };
-        let valtype = unsafe { wasm_globaltype_content(r#type) };
-        let wasmer_type = valtype.into_wt();
-
+    pub fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
+        let ty = self
+            .handle
+            .ty(&store.as_store_ref().inner.store.as_wasmi().inner);
         GlobalType::new(
-            wasmer_type,
-            if mutability == bindings::wasm_mutability_enum_WASM_VAR as u8 {
+            ty.content().into_wt(),
+            if ty.mutability().is_mut() {
                 Mutability::Var
             } else {
                 Mutability::Const
@@ -85,35 +67,22 @@ impl Global {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
-        let mut out = unsafe { std::mem::zeroed() };
-        unsafe { wasm_global_get(self.handle, &mut out) };
-        out.into_wv()
+        self.handle
+            .get(&store.as_store_ref().inner.store.as_wasmi().inner)
+            .into_wv()
     }
 
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
-        if val.ty() != self.ty(store).ty {
-            return Err(RuntimeError::new(format!(
-                "Incompatible types: {} != {}",
-                val.ty(),
-                self.ty(store)
-            )));
-        }
-
-        if self.ty(store).mutability == Mutability::Const {
-            return Err(RuntimeError::new("The global is immutable".to_owned()));
-        }
-
-        let value = val.into_cv();
-
-        unsafe { wasm_global_set(self.handle, &value) };
-
-        Ok(())
+        self.handle
+            .set(&mut store.as_store_mut().inner.store.as_wasmi_mut().inner, val.into_cv())
+            .map_err(|err| RuntimeError::new(err.to_string()))
     }
 
-    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
-        Self {
-            handle: vm_global.unwrap_wasmi(),
-        }
+    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
+        let crate::vm::VMExternGlobal::Wasmi(handle) = vm_global else {
+            panic!("Not a `wasmi` global extern")
+        };
+        Self { handle }
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {

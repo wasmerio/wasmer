@@ -1,9 +1,9 @@
 //! Data types, functions and traits for `wasmi`'s `Store` implementation.
 use crate::{
     AsStoreRef, BackendStore, StoreRef,
-    backend::wasmi::bindings::{wasm_store_delete, wasm_store_new, wasm_store_t},
     engine::{AsEngineRef, Engine, EngineRef},
 };
+use ::wasmi as wasmi_native;
 
 mod obj;
 pub use obj::*;
@@ -11,7 +11,7 @@ pub use obj::*;
 /// A WebAssembly `store` in `wasmi`.
 pub(crate) struct Store {
     pub(crate) engine: Engine,
-    pub(crate) inner: *mut wasm_store_t,
+    pub(crate) inner: wasmi_native::Store<()>,
 }
 
 impl std::fmt::Debug for Store {
@@ -24,7 +24,7 @@ impl std::fmt::Debug for Store {
 
 impl Store {
     pub(crate) fn new(engine: crate::engine::Engine) -> Self {
-        let inner: *mut wasm_store_t = unsafe { wasm_store_new(engine.as_wasmi().inner.engine) };
+        let inner = wasmi_native::Store::new(&engine.as_wasmi().inner.engine, ());
         Self { inner, engine }
     }
 
@@ -34,12 +34,6 @@ impl Store {
 
     pub(crate) fn engine_mut(&mut self) -> &mut Engine {
         &mut self.engine
-    }
-}
-
-impl Drop for Store {
-    fn drop(&mut self) {
-        unsafe { wasm_store_delete(self.inner) }
     }
 }
 

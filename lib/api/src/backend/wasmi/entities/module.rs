@@ -3,26 +3,22 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     AsEngineRef, BackendModule, IntoBytes,
-    backend::wasmi::bindings::{
-        wasm_byte_vec_t, wasm_module_delete, wasm_module_new, wasm_module_t,
-    },
 };
 
 use bytes::Bytes;
+use ::wasmi as wasmi_native;
 use wasmer_types::{
     CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
     GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
     SerializeError, TableType, Type,
 };
 pub(crate) struct ModuleHandle {
-    pub(crate) inner: *mut wasm_module_t,
-    pub(crate) store: std::sync::Mutex<crate::store::Store>,
+    pub(crate) inner: wasmi_native::Module,
 }
 
 impl PartialEq for ModuleHandle {
     fn eq(&self, other: &Self) -> bool {
-        self.inner == other.inner
-        // && self.store.lock() == other.store.lock()
+        std::ptr::eq(&self.inner, &other.inner)
     }
 }
 
@@ -30,27 +26,9 @@ impl Eq for ModuleHandle {}
 
 impl ModuleHandle {
     fn new(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
-        let bytes = wasm_byte_vec_t {
-            size: binary.len(),
-            data: binary.as_ptr() as _,
-        };
-
-        let store = crate::store::Store::new(engine.as_engine_ref().engine().clone());
-
-        let inner =
-            unsafe { wasm_module_new(store.inner.store.as_wasmi().inner, &bytes as *const _) };
-        let store = std::sync::Mutex::new(store);
-
-        if inner.is_null() {
-            return Err(CompileError::Validate("module is null".to_string()));
-        }
-
-        Ok(Self { inner, store })
-    }
-}
-impl Drop for ModuleHandle {
-    fn drop(&mut self) {
-        unsafe { wasm_module_delete(self.inner) }
+        let inner = wasmi_native::Module::new(&engine.as_engine_ref().engine().as_wasmi().inner.engine, binary)
+            .map_err(|err| CompileError::Validate(err.to_string()))?;
+        Ok(Self { inner })
     }
 }
 
@@ -95,8 +73,11 @@ impl Module {
     }
 
     pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
-        let engine = engine.as_engine_ref();
-        unimplemented!();
+        wasmi_native::Module::validate(
+            &engine.as_engine_ref().engine().as_wasmi().inner.engine,
+            binary,
+        )
+        .map_err(|err| CompileError::Validate(err.to_string()))
     }
 
     pub fn name(&self) -> Option<&str> {

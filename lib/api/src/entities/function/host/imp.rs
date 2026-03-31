@@ -45,6 +45,48 @@ macro_rules! impl_host_function {
                 }
             }
 
+            #[allow(non_snake_case)]
+            fn call_wasm(
+                &self,
+                mut env: FunctionEnvMut<'_, T>,
+                params: &[Value],
+            ) -> Result<Vec<Value>, RuntimeError> {
+                let raw_store = env.as_store_mut().as_raw() as usize;
+                $(let $x: $x;)*
+                {
+                    let mut _store = env.as_mut();
+                    let mut _i = 0usize;
+                    $(
+                        $x = {
+                            let raw = params
+                                .get(_i)
+                                .ok_or_else(|| RuntimeError::new("missing host function argument"))?
+                                .as_raw(&_store);
+                            let native = unsafe { NativeWasmTypeInto::from_raw(&mut _store, raw) };
+                            _i += 1;
+                            FromToNativeWasmType::from_native(native)
+                        };
+                    )*
+                }
+
+                let result = panic::catch_unwind(AssertUnwindSafe(|| (self)(env, $( $x, )*).into_result()));
+                let result = match result {
+                    Ok(Ok(result)) => result,
+                    Ok(Err(err)) => return Err(RuntimeError::user(Box::new(err))),
+                    Err(err) => panic::resume_unwind(err),
+                };
+
+                let types = Rets::wasm_types();
+                let mut store = unsafe { StoreMut::from_raw(raw_store as *mut _) };
+                let raw_results = unsafe { result.into_array(&mut store) };
+                let raw_results = &raw_results as *const _ as *const RawValue;
+                Ok(types
+                    .iter()
+                    .enumerate()
+                    .map(|(i, ty)| unsafe { Value::from_raw(&mut store, *ty, *raw_results.add(i)) })
+                    .collect())
+            }
+
             #[cfg(feature = "sys")]
             fn function_callback_sys(&self) -> crate::vm::VMFunctionCallback {
                 paste::paste! {
@@ -104,6 +146,47 @@ macro_rules! impl_host_function {
                         crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self))
                     }
                 }
+            }
+
+            #[allow(non_snake_case)]
+            fn call_wasm(
+                &self,
+                mut env: FunctionEnvMut<'_, ()>,
+                params: &[Value],
+            ) -> Result<Vec<Value>, RuntimeError> {
+                $(let $x: $x;)*
+                {
+                    let mut _store = env.as_mut();
+                    let mut _i = 0usize;
+                    $(
+                        $x = {
+                            let raw = params
+                                .get(_i)
+                                .ok_or_else(|| RuntimeError::new("missing host function argument"))?
+                                .as_raw(&_store);
+                            let native = unsafe { NativeWasmTypeInto::from_raw(&mut _store, raw) };
+                            _i += 1;
+                            FromToNativeWasmType::from_native(native)
+                        };
+                    )*
+                }
+
+                let result = panic::catch_unwind(AssertUnwindSafe(|| (self)($( $x, )*).into_result()));
+                let result = match result {
+                    Ok(Ok(result)) => result,
+                    Ok(Err(err)) => return Err(RuntimeError::user(Box::new(err))),
+                    Err(err) => panic::resume_unwind(err),
+                };
+
+                let types = Rets::wasm_types();
+                let mut store = env.as_mut();
+                let raw_results = unsafe { result.into_array(&mut store) };
+                let raw_results = &raw_results as *const _ as *const RawValue;
+                Ok(types
+                    .iter()
+                    .enumerate()
+                    .map(|(i, ty)| unsafe { Value::from_raw(&mut store, *ty, *raw_results.add(i)) })
+                    .collect())
             }
 
             #[allow(non_snake_case)]

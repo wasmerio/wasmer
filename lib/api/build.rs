@@ -410,74 +410,6 @@ fn build_v8() {
     println!("cargo:rustc-link-lib=static=wee8prefixed");
 }
 
-#[cfg(feature = "wasmi")]
-fn build_wasmi() {
-    use bindgen::callbacks::ParseCallbacks;
-    use std::{env, path::PathBuf};
-
-    #[derive(Debug)]
-    struct WasmiRenamer {}
-
-    impl ParseCallbacks for WasmiRenamer {
-        /// This function will run for every extern variable and function. The returned value determines
-        /// the link name in the bindings.
-        fn generated_link_name_override(
-            &self,
-            item_info: bindgen::callbacks::ItemInfo<'_>,
-        ) -> Option<String> {
-            if item_info.name.starts_with("wasm") {
-                let new_name = if cfg!(any(target_os = "macos", target_os = "ios")) {
-                    format!("_wasmi_{}", item_info.name)
-                } else {
-                    format!("wasmi_{}", item_info.name)
-                };
-
-                Some(new_name)
-            } else {
-                None
-            }
-        }
-    }
-
-    let bindings = bindgen::Builder::default()
-        .header(
-            PathBuf::from(std::env::var("DEP_WASMI_C_API_INCLUDE").unwrap())
-                .join("wasm.h")
-                .to_string_lossy(),
-        )
-        .derive_default(true)
-        .derive_debug(true)
-        .parse_callbacks(Box::new(WasmiRenamer {}))
-        .generate()
-        .expect("Unable to generate bindings for `wasmi`!");
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let bindings_path = out_path.join("wasmi_bindings.rs");
-    bindings
-        .write_to_file(&bindings_path)
-        .expect("Couldn't write bindings");
-
-    let original =
-        std::fs::read_to_string(&bindings_path).expect("Failed to read generated wasmi bindings");
-    let mut patched = String::with_capacity(original.len());
-    for line in original.lines() {
-        let trimmed = line.trim_start();
-        let indent_len = line.len() - trimmed.len();
-        let indent = &line[..indent_len];
-        if trimmed.starts_with("extern \"")
-            && trimmed.ends_with('{')
-            && !trimmed.starts_with("unsafe ")
-        {
-            patched.push_str(indent);
-            patched.push_str("unsafe ");
-            patched.push_str(trimmed);
-        } else {
-            patched.push_str(line);
-        }
-        patched.push('\n');
-    }
-    std::fs::write(&bindings_path, patched)
-        .expect("Failed to post-process wasmi bindings for Rust 2024");
-}
 #[allow(unused)]
 fn main() {
     #[cfg(feature = "wamr")]
@@ -485,7 +417,4 @@ fn main() {
 
     #[cfg(feature = "v8")]
     build_v8();
-
-    #[cfg(feature = "wasmi")]
-    build_wasmi();
 }

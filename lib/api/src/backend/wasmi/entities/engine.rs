@@ -1,33 +1,25 @@
 //! Data types, functions and traits for `wasmi` runtime's `Engine` implementation.
-use crate::{
-    BackendEngine,
-    backend::wasmi::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
-};
+use crate::BackendEngine;
+use ::wasmi as wasmi_native;
 use std::sync::Arc;
 use wasmer_types::{Features, target::Target};
 
 #[derive(Debug)]
-pub(crate) struct CApiEngine {
-    pub(crate) engine: *mut wasm_engine_t,
+pub(crate) struct NativeEngine {
+    pub(crate) engine: wasmi_native::Engine,
 }
 
-impl Default for CApiEngine {
+impl Default for NativeEngine {
     fn default() -> Self {
-        let engine: *mut wasm_engine_t = unsafe { wasm_engine_new() };
+        let engine = wasmi_native::Engine::default();
         Self { engine }
-    }
-}
-
-impl Drop for CApiEngine {
-    fn drop(&mut self) {
-        unsafe { wasm_engine_delete(self.engine) }
     }
 }
 
 /// The engine for the Web Assembly Micro Runtime.
 #[derive(Clone, Debug, Default)]
 pub struct Engine {
-    pub(crate) inner: Arc<CApiEngine>,
+    pub(crate) inner: Arc<NativeEngine>,
 }
 
 impl Engine {
@@ -47,8 +39,8 @@ impl Engine {
         features.bulk_memory(true);
         features.reference_types(true);
         features.multi_value(true);
-        features.simd(false);
-        features.threads(false);
+        features.simd(true);
+        features.threads(true);
         features.exceptions(false);
         features
     }
