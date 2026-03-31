@@ -1,5 +1,3 @@
 #include <errno.h>
 
-int get_value() {
-    return errno;
-}
+int get_value() { return errno; }

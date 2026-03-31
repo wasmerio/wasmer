@@ -3,6 +3,6 @@
 extern int erryes;
 
 int main() {
-    printf("error number: %i\n", erryes);
-    return 0;
+  printf("error number: %i\n", erryes);
+  return 0;
 }

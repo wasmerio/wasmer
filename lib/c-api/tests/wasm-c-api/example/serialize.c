@@ -1,21 +1,19 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
 #define own
 
 // A function to be called from Wasm code.
-own wasm_trap_t* hello_callback(
-  const wasm_val_vec_t* args, wasm_val_vec_t* results
-) {
+own wasm_trap_t* hello_callback(const wasm_val_vec_t* args,
+                                wasm_val_vec_t* results) {
   printf("Calling back...\n");
   printf("> Hello World!\n");
   return NULL;
 }
-
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -72,16 +70,16 @@ int main(int argc, const char* argv[]) {
   printf("Creating callback...\n");
   own wasm_functype_t* hello_type = wasm_functype_new_0_0();
   own wasm_func_t* hello_func =
-    wasm_func_new(store, hello_type, hello_callback);
+      wasm_func_new(store, hello_type, hello_callback);
 
   wasm_functype_delete(hello_type);
 
   // Instantiate.
   printf("Instantiating deserialized module...\n");
-  wasm_extern_t* externs[] = { wasm_func_as_extern(hello_func) };
+  wasm_extern_t* externs[] = {wasm_func_as_extern(hello_func)};
   wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
-    wasm_instance_new(store, deserialized, &imports, NULL);
+      wasm_instance_new(store, deserialized, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;

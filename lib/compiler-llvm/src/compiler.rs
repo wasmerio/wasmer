@@ -25,6 +25,7 @@ use wasmer_compiler::{
     WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets,
     translate_function_buckets,
 };
+use wasmer_types::ExportIndex;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
@@ -243,6 +244,7 @@ impl Compiler for LLVMCompiler {
         let module = &compile_info.module;
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+        let signature_hashes = &module.signature_hashes;
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
@@ -257,21 +259,32 @@ impl Compiler for LLVMCompiler {
             &pool,
             || {
                 let compiler = &self;
-                let target_machine = compiler
-                    .config()
-                    .target_machine_with_opt(target, OptimizationStyle::ForSpeed);
-                let target_machine_for_size = compiler
-                    .config()
-                    .target_machine_with_opt(target, OptimizationStyle::ForSize);
+                let target_machines = enum_iterator::all::<OptimizationStyle>()
+                    .map(|style| {
+                        (
+                            style,
+                            compiler.config().target_machine_with_opt(target, style),
+                        )
+                    })
+                    .collect();
                 let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
                     target.triple().clone(),
-                    target_machine,
-                    Some(target_machine_for_size),
+                    target_machines,
                     binary_format,
                     pointer_width,
                     *target.cpu_features(),
                     self.config.enable_non_volatile_memops,
+                    module
+                        .exports
+                        .get("__wasm_apply_data_relocs")
+                        .and_then(|export| {
+                            if let ExportIndex::Function(index) = export {
+                                Some(*index)
+                            } else {
+                                None
+                            }
+                        }),
                 )
                 .unwrap()
             },
@@ -279,6 +292,7 @@ impl Compiler for LLVMCompiler {
                 func_translator.translate(
                     module,
                     module_translation,
+                    signature_hashes,
                     i,
                     input,
                     self.config(),

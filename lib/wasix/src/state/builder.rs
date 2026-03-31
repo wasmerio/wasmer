@@ -19,6 +19,7 @@ use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
+    os::command::VirtualCommand,
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
@@ -78,6 +79,10 @@ pub struct WasiEnvBuilder {
 
     /// List of host commands to map into the WASI instance.
     pub(super) map_commands: HashMap<String, PathBuf>,
+    /// Indicates if internal builtin commands should be disabled.
+    pub(super) disable_default_builtins: bool,
+    /// List of builtin commands to register in the WASI instance.
+    pub(super) builtin_commands: Vec<(String, Arc<dyn VirtualCommand + Send + Sync + 'static>)>,
 
     pub(super) capabilites: Capabilities,
 
@@ -116,6 +121,8 @@ impl std::fmt::Debug for WasiEnvBuilder {
             .field("stdout_override exists", &self.stdout.is_some())
             .field("stderr_override exists", &self.stderr.is_some())
             .field("stdin_override exists", &self.stdin.is_some())
+            .field("disable_default_builtins", &self.disable_default_builtins)
+            .field("builtin_commands_count", &self.builtin_commands.len())
             .field("engine_override_exists", &self.engine.is_some())
             .field("runtime_override_exists", &self.runtime.is_some())
             .finish()
@@ -421,6 +428,65 @@ impl WasiEnvBuilder {
             self.add_webc(pkg);
         }
         self
+    }
+
+    /// Disable or enable internal builtin commands.
+    pub fn disable_default_builtins(mut self, disable_default_builtins: bool) -> Self {
+        self.set_disable_default_builtins(disable_default_builtins);
+        self
+    }
+
+    /// Disable or enable internal builtin commands.
+    pub fn set_disable_default_builtins(&mut self, disable_default_builtins: bool) {
+        self.disable_default_builtins = disable_default_builtins;
+    }
+
+    /// Add a builtin command at its canonical path (`/bin/<name>`).
+    pub fn builtin_command<C>(mut self, command: C) -> Self
+    where
+        C: VirtualCommand + Send + Sync + 'static,
+    {
+        self.add_builtin_command(command);
+        self
+    }
+
+    /// Add a builtin command at its canonical path (`/bin/<name>`).
+    pub fn add_builtin_command<C>(&mut self, command: C)
+    where
+        C: VirtualCommand + Send + Sync + 'static,
+    {
+        let path = format!("/bin/{}", command.name());
+        self.add_builtin_command_with_path(command, path);
+    }
+
+    /// Add a builtin command at a custom path.
+    pub fn builtin_command_with_path<C, P>(mut self, command: C, path: P) -> Self
+    where
+        C: VirtualCommand + Send + Sync + 'static,
+        P: Into<String>,
+    {
+        self.add_builtin_command_with_path(command, path);
+        self
+    }
+
+    /// Add a builtin command at a custom path.
+    pub fn add_builtin_command_with_path<C, P>(&mut self, command: C, path: P)
+    where
+        C: VirtualCommand + Send + Sync + 'static,
+        P: Into<String>,
+    {
+        self.add_builtin_command_with_path_shared(Arc::new(command), path);
+    }
+
+    /// Add a builtin command behind an [`Arc`] at a custom path.
+    fn add_builtin_command_with_path_shared<P>(
+        &mut self,
+        command: Arc<dyn VirtualCommand + Send + Sync + 'static>,
+        path: P,
+    ) where
+        P: Into<String>,
+    {
+        self.builtin_commands.push((path.into(), command));
     }
 
     /// Map an atom to a local binary
@@ -963,8 +1029,16 @@ impl WasiEnvBuilder {
 
         let uses = self.uses;
         let map_commands = self.map_commands;
+        let disable_default_builtins = self.disable_default_builtins;
+        let builtin_commands = self.builtin_commands;
 
-        let bin_factory = BinFactory::new(runtime.clone());
+        let mut bin_factory = BinFactory::new(runtime.clone());
+        if disable_default_builtins {
+            bin_factory.clear_builtin_commands();
+        }
+        for (path, command) in builtin_commands {
+            bin_factory.register_builtin_command_with_path_shared(command, path);
+        }
 
         let capabilities = self.capabilites;
 
@@ -1186,6 +1260,62 @@ impl PreopenDirBuilder {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{
+        SpawnError,
+        os::{
+            command::{BuiltinCommand, VirtualCommand},
+            task::{OwnedTaskStatus, TaskJoinHandle},
+        },
+    };
+    use wasmer::FunctionEnvMut;
+    use wasmer_wasix_types::wasi::Errno;
+
+    fn enter_tokio_runtime() -> Option<tokio::runtime::Runtime> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let runtime = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            Some(runtime)
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            None
+        }
+    }
+
+    #[derive(Debug)]
+    struct TestBuiltinCommand {
+        name: &'static str,
+    }
+
+    impl TestBuiltinCommand {
+        fn new(name: &'static str) -> Self {
+            Self { name }
+        }
+    }
+
+    impl VirtualCommand for TestBuiltinCommand {
+        fn name(&self) -> &str {
+            self.name
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn exec(
+            &self,
+            _parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
+            _path: &str,
+            _config: &mut Option<WasiEnv>,
+        ) -> Result<TaskJoinHandle, SpawnError> {
+            let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
+            Ok(handle)
+        }
+    }
 
     #[test]
     fn env_var_errors() {
@@ -1256,5 +1386,82 @@ mod test {
             err,
             WasiStateCreationError::ArgumentContainsNulByte(_)
         ));
+    }
+
+    #[test]
+    fn custom_builtin_command_uses_default_bin_path() {
+        let runtime = enter_tokio_runtime();
+        let _guard = runtime.as_ref().map(|rt| rt.enter());
+
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(Engine::default())
+            .builtin_command(TestBuiltinCommand::new("custom"))
+            .build_init()
+            .unwrap();
+
+        assert!(init.bin_factory.commands.exists("/bin/custom"));
+    }
+
+    #[test]
+    fn custom_builtin_command_supports_custom_path() {
+        let runtime = enter_tokio_runtime();
+        let _guard = runtime.as_ref().map(|rt| rt.enter());
+
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(Engine::default())
+            .builtin_command_with_path(TestBuiltinCommand::new("custom"), "/custom/bin/custom")
+            .build_init()
+            .unwrap();
+
+        assert!(init.bin_factory.commands.exists("/custom/bin/custom"));
+    }
+
+    #[test]
+    fn can_disable_default_builtin_commands() {
+        let runtime = enter_tokio_runtime();
+        let _guard = runtime.as_ref().map(|rt| rt.enter());
+
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(Engine::default())
+            .disable_default_builtins(true)
+            .build_init()
+            .unwrap();
+
+        assert!(!init.bin_factory.commands.exists("/bin/wasmer"));
+    }
+
+    #[test]
+    fn builtin_command_registration_overwrites_existing_path() {
+        let runtime = enter_tokio_runtime();
+        let _guard = runtime.as_ref().map(|rt| rt.enter());
+
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(Engine::default())
+            .builtin_command_with_path(TestBuiltinCommand::new("first"), "/bin/custom")
+            .builtin_command_with_path(TestBuiltinCommand::new("second"), "/bin/custom")
+            .build_init()
+            .unwrap();
+
+        let command = init.bin_factory.commands.get("/bin/custom").unwrap();
+        assert_eq!(command.name(), "second");
+    }
+
+    #[test]
+    fn closure_based_builtin_command_can_be_registered() {
+        let runtime = enter_tokio_runtime();
+        let _guard = runtime.as_ref().map(|rt| rt.enter());
+
+        let command = BuiltinCommand::new("closure", |_parent_ctx, _path, _config| {
+            let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
+            Ok(handle)
+        });
+
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(Engine::default())
+            .builtin_command(command)
+            .build_init()
+            .unwrap();
+
+        assert!(init.bin_factory.commands.exists("/bin/closure"));
     }
 }

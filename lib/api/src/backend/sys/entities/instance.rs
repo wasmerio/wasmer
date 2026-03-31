@@ -35,10 +35,10 @@ impl Instance {
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
         let mut handle = module.as_sys().instantiate(store, &externs)?;
-        let exports = Self::get_exports(store, module, handle.as_sys_mut());
+        let exports = Self::get_exports(store, module, handle.unwrap_sys_mut());
 
         let instance = Self {
-            _handle: StoreHandle::new(store.objects_mut().as_sys_mut(), handle.into_sys()),
+            _handle: StoreHandle::new(store.objects_mut().as_sys_mut(), handle.unwrap_sys()),
         };
 
         Ok((instance, exports))
@@ -52,11 +52,11 @@ impl Instance {
     ) -> Result<(Self, Exports), InstantiationError> {
         let externs = externs.to_vec();
         let mut handle = module.as_sys().instantiate(store, &externs)?;
-        let exports = Self::get_exports(store, module, handle.as_sys_mut());
+        let exports = Self::get_exports(store, module, handle.unwrap_sys_mut());
         let instance = Self {
             _handle: StoreHandle::new(
                 store.as_store_mut().objects_mut().as_sys_mut(),
-                handle.into_sys(),
+                handle.unwrap_sys(),
             ),
         };
 

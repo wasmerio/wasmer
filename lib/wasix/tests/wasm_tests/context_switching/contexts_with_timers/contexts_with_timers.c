@@ -16,7 +16,7 @@ void context1_fn(void) {
   clock_gettime(CLOCK_MONOTONIC, &start);
 
   // Sleep for a short time
-  usleep(10000); // 10ms
+  usleep(10000);  // 10ms
 
   // Get time after sleep
   clock_gettime(CLOCK_MONOTONIC, &end);
@@ -31,7 +31,7 @@ void context1_fn(void) {
 
   // After resuming, do another timing operation
   clock_gettime(CLOCK_MONOTONIC, &start);
-  usleep(5000); // 5ms
+  usleep(5000);  // 5ms
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   elapsed_ns =
@@ -49,7 +49,7 @@ void context2_fn(void) {
   assert(ts.tv_sec > 0 && "Should have valid timestamp");
 
   // Do a small sleep
-  usleep(3000); // 3ms
+  usleep(3000);  // 3ms
 
   // Switch back to context 1
   wasix_context_switch(ctx1);

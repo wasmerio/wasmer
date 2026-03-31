@@ -1,6 +1,4 @@
 use super::{run_build_script, run_wasm, run_wasm_with_result};
-use wasmer::Engine;
-use wasmer::sys::{Features, LLVM, NativeEngineExt, Target};
 
 #[test]
 fn test_pipe_send_recv_compat() {
