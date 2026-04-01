@@ -3,6 +3,7 @@ use super::super::trap::wasm_trap_t;
 use super::super::types::{wasm_functype_t, wasm_valkind_enum};
 use super::super::value::{wasm_val_inner, wasm_val_t, wasm_val_vec_t};
 use super::wasm_extern_t;
+use crate::error::update_last_error;
 use crate::wasm_c_api::function_env::FunctionCEnv;
 use libc::c_void;
 use std::convert::TryInto;
@@ -227,13 +228,21 @@ pub unsafe extern "C" fn wasm_func_call(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_func_param_arity(func: &wasm_func_t) -> usize {
+pub unsafe extern "C" fn wasm_func_param_arity(func: Option<&wasm_func_t>) -> usize {
+    let Some(func) = func else {
+        update_last_error("func pointer is null");
+        return 0;
+    };
     let store_ref = unsafe { func.extern_.store.store() };
     func.extern_.function().ty(&store_ref).params().len()
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
+pub unsafe extern "C" fn wasm_func_result_arity(func: Option<&wasm_func_t>) -> usize {
+    let Some(func) = func else {
+        update_last_error("func pointer is null");
+        return 0;
+    };
     let store_ref = unsafe { func.extern_.store.store() };
     func.extern_.function().ty(&store_ref).results().len()
 }
