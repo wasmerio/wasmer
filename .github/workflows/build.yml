@@ -521,7 +521,6 @@ jobs:
         shell: bash
         run: |
           git ls-files --recurse-submodules -z \
-            | grep -z -v '^wasmer-test-files/' \
             | tar --null -T - --transform="s,^,wasmer-${{ needs.setup.outputs.VERSION }}/," -czf "/tmp/wasmer-${{ needs.setup.outputs.VERSION }}-full-source.tar.gz"
       - name: Create Release
         id: create_release
