@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["code_translator","func_environ","func_state","func_translator","translation_utils","unwind"]};
+window.SIDEBAR_ITEMS = {"mod":["code_translator","func_state","func_translator","translation_utils","unwind"]};

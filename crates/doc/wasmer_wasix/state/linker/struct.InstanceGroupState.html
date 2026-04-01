@@ -112,7 +112,7 @@
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="enum.PartiallyResolvedExport.html" title="enum wasmer_wasix::state::linker::PartiallyResolvedExport">PartiallyResolvedExport</a>, <a class="enum" href="enum.ResolveError.html" title="enum wasmer_wasix::state::linker::ResolveError">ResolveError</a>&gt;</h4></section><section id="method.generate_stub_function" class="method"><a class="src rightside" href="../../../src/wasmer_wasix/state/linker.rs.html#3686-3866">Source</a><h4 class="code-header">fn <a href="#method.generate_stub_function" class="fn">generate_stub_function</a>(
     &amp;self,
     store: &amp;mut impl <a class="trait" href="../../syscalls/trait.AsStoreMut.html" title="trait wasmer_wasix::syscalls::AsStoreMut">AsStoreMut</a>,
-    ty: &amp;FunctionType,
+    ty: &amp;<a class="struct" href="../../../wasmer_types/types/struct.FunctionType.html" title="struct wasmer_types::types::FunctionType">FunctionType</a>,
     env: &amp;<a class="struct" href="../../syscalls/struct.FunctionEnv.html" title="struct wasmer_wasix::syscalls::FunctionEnv">FunctionEnv</a>&lt;<a class="struct" href="../../struct.WasiEnv.html" title="struct wasmer_wasix::WasiEnv">WasiEnv</a>&gt;,
     requesting_module: <a class="struct" href="struct.ModuleHandle.html" title="struct wasmer_wasix::state::linker::ModuleHandle">ModuleHandle</a>,
     name: <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,

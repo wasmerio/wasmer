@@ -5,8 +5,8 @@
     FetchFailed,
     CacheError(<a class="enum" href="runtime/module_cache/enum.CacheError.html" title="enum wasmer_wasix::runtime::module_cache::CacheError">CacheError</a>),
     CompileError {
-        module_hash: ModuleHash,
-        error: CompileError,
+        module_hash: <a class="struct" href="../wasmer_types/module_hash/struct.ModuleHash.html" title="struct wasmer_types::module_hash::ModuleHash">ModuleHash</a>,
+        error: <a class="enum" href="../wasmer_types/error/enum.CompileError.html" title="enum wasmer_types::error::CompileError">CompileError</a>,
     },
     InvalidABI,
     BadHandle,
@@ -37,7 +37,7 @@
 </div><section id="variant.InvalidWasmer" class="variant"><a href="#variant.InvalidWasmer" class="anchor">§</a><h3 class="code-header">InvalidWasmer</h3></section><div class="docblock"><p>Invalid Wasmer process</p>
 </div><section id="variant.FetchFailed" class="variant"><a href="#variant.FetchFailed" class="anchor">§</a><h3 class="code-header">FetchFailed</h3></section><div class="docblock"><p>Failed to fetch the Wasmer process</p>
 </div><section id="variant.CacheError" class="variant"><a href="#variant.CacheError" class="anchor">§</a><h3 class="code-header">CacheError(<a class="enum" href="runtime/module_cache/enum.CacheError.html" title="enum wasmer_wasix::runtime::module_cache::CacheError">CacheError</a>)</h3></section><section id="variant.CompileError" class="variant"><a href="#variant.CompileError" class="anchor">§</a><h3 class="code-header">CompileError</h3></section><div class="docblock"><p>Failed to compile the Wasmer process</p>
-</div><div class="sub-variant" id="variant.CompileError.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.CompileError.field.module_hash" class="section-header"><a href="#variant.CompileError.field.module_hash" class="anchor field">§</a><code>module_hash: ModuleHash</code></span></div><div class="sub-variant-field"><span id="variant.CompileError.field.error" class="section-header"><a href="#variant.CompileError.field.error" class="anchor field">§</a><code>error: CompileError</code></span></div></div><section id="variant.InvalidABI" class="variant"><a href="#variant.InvalidABI" class="anchor">§</a><h3 class="code-header">InvalidABI</h3></section><div class="docblock"><p>Invalid ABI</p>
+</div><div class="sub-variant" id="variant.CompileError.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.CompileError.field.module_hash" class="section-header"><a href="#variant.CompileError.field.module_hash" class="anchor field">§</a><code>module_hash: <a class="struct" href="../wasmer_types/module_hash/struct.ModuleHash.html" title="struct wasmer_types::module_hash::ModuleHash">ModuleHash</a></code></span></div><div class="sub-variant-field"><span id="variant.CompileError.field.error" class="section-header"><a href="#variant.CompileError.field.error" class="anchor field">§</a><code>error: <a class="enum" href="../wasmer_types/error/enum.CompileError.html" title="enum wasmer_types::error::CompileError">CompileError</a></code></span></div></div><section id="variant.InvalidABI" class="variant"><a href="#variant.InvalidABI" class="anchor">§</a><h3 class="code-header">InvalidABI</h3></section><div class="docblock"><p>Invalid ABI</p>
 </div><section id="variant.BadHandle" class="variant"><a href="#variant.BadHandle" class="anchor">§</a><h3 class="code-header">BadHandle</h3></section><div class="docblock"><p>Bad handle</p>
 </div><section id="variant.Unsupported" class="variant"><a href="#variant.Unsupported" class="anchor">§</a><h3 class="code-header">Unsupported</h3></section><div class="docblock"><p>Call is unsupported</p>
 </div><section id="variant.NotFound" class="variant"><a href="#variant.NotFound" class="anchor">§</a><h3 class="code-header">NotFound</h3></section><div class="docblock"><p>Not found</p>

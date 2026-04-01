@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_function_name","type_of_vmtable_definition_current_elements"],"struct":["ExceptionFieldLayout","ExceptionTypeLayout","FuncEnvironment"]};
+window.SIDEBAR_ITEMS = {"enum":["GlobalVariable"],"fn":["get_function_name","type_of_vmtable_definition_current_elements"],"struct":["ExceptionFieldLayout","ExceptionTypeLayout","FuncEnvironment"]};

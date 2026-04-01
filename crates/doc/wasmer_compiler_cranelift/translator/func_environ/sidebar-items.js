@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["GlobalVariable","ReturnMode"],"trait":["FuncEnvironment","TargetEnvironment"]};

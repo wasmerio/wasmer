@@ -9,7 +9,7 @@
 <a href=#9 id=9 data-nosnippet>9</a>//! The `FuncTranslationState` struct defined in this module is used to keep track of the WebAssembly
 <a href=#10 id=10 data-nosnippet>10</a>//! value and control stacks during the translation of a single function.
 <a href=#11 id=11 data-nosnippet>11</a>
-<a href=#12 id=12 data-nosnippet>12</a></span><span class="kw">use </span><span class="kw">super</span>::func_environ::{FuncEnvironment, GlobalVariable};
+<a href=#12 id=12 data-nosnippet>12</a></span><span class="kw">use </span><span class="kw">crate</span>::func_environ::{FuncEnvironment, GlobalVariable};
 <a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span><span class="kw">crate</span>::heap::Heap;
 <a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span><span class="kw">crate</span>::translator::code_translator::CatchClause;
 <a href=#15 id=15 data-nosnippet>15</a><span class="kw">use crate</span>::{HashMap, Occupied, Vacant};
@@ -576,11 +576,11 @@
 <a href=#576 id=576 data-nosnippet>576</a>    <span class="doccomment">/// Get the `GlobalVariable` reference that should be used to access the global variable
 <a href=#577 id=577 data-nosnippet>577</a>    /// `index`. Create the reference if necessary.
 <a href=#578 id=578 data-nosnippet>578</a>    /// Also return the WebAssembly type of the global.
-<a href=#579 id=579 data-nosnippet>579</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_global&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+<a href=#579 id=579 data-nosnippet>579</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_global(
 <a href=#580 id=580 data-nosnippet>580</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#581 id=581 data-nosnippet>581</a>        func: <span class="kw-2">&amp;mut </span>ir::Function,
 <a href=#582 id=582 data-nosnippet>582</a>        index: u32,
-<a href=#583 id=583 data-nosnippet>583</a>        environ: <span class="kw-2">&amp;mut </span>FE,
+<a href=#583 id=583 data-nosnippet>583</a>        environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#584 id=584 data-nosnippet>584</a>    ) -&gt; WasmResult&lt;GlobalVariable&gt; {
 <a href=#585 id=585 data-nosnippet>585</a>        <span class="kw">let </span>index = GlobalIndex::from_u32(index);
 <a href=#586 id=586 data-nosnippet>586</a>        <span class="kw">match </span><span class="self">self</span>.globals.entry(index) {
@@ -591,11 +591,11 @@
 <a href=#591 id=591 data-nosnippet>591</a>
 <a href=#592 id=592 data-nosnippet>592</a>    <span class="doccomment">/// Get the `Heap` reference that should be used to access linear memory `index`.
 <a href=#593 id=593 data-nosnippet>593</a>    /// Create the reference if necessary.
-<a href=#594 id=594 data-nosnippet>594</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_heap&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+<a href=#594 id=594 data-nosnippet>594</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_heap(
 <a href=#595 id=595 data-nosnippet>595</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#596 id=596 data-nosnippet>596</a>        func: <span class="kw-2">&amp;mut </span>ir::Function,
 <a href=#597 id=597 data-nosnippet>597</a>        index: u32,
-<a href=#598 id=598 data-nosnippet>598</a>        environ: <span class="kw-2">&amp;mut </span>FE,
+<a href=#598 id=598 data-nosnippet>598</a>        environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#599 id=599 data-nosnippet>599</a>    ) -&gt; WasmResult&lt;Heap&gt; {
 <a href=#600 id=600 data-nosnippet>600</a>        <span class="kw">let </span>index = MemoryIndex::from_u32(index);
 <a href=#601 id=601 data-nosnippet>601</a>        <span class="kw">match </span><span class="self">self</span>.heaps.entry(index) {
@@ -608,11 +608,11 @@
 <a href=#608 id=608 data-nosnippet>608</a>    /// `index`. Also return the number of WebAssembly arguments in the signature.
 <a href=#609 id=609 data-nosnippet>609</a>    ///
 <a href=#610 id=610 data-nosnippet>610</a>    /// Create the signature if necessary.
-<a href=#611 id=611 data-nosnippet>611</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_indirect_sig&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+<a href=#611 id=611 data-nosnippet>611</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_indirect_sig(
 <a href=#612 id=612 data-nosnippet>612</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#613 id=613 data-nosnippet>613</a>        func: <span class="kw-2">&amp;mut </span>ir::Function,
 <a href=#614 id=614 data-nosnippet>614</a>        index: u32,
-<a href=#615 id=615 data-nosnippet>615</a>        environ: <span class="kw-2">&amp;mut </span>FE,
+<a href=#615 id=615 data-nosnippet>615</a>        environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#616 id=616 data-nosnippet>616</a>    ) -&gt; WasmResult&lt;(ir::SigRef, usize)&gt; {
 <a href=#617 id=617 data-nosnippet>617</a>        <span class="kw">let </span>index = SignatureIndex::from_u32(index);
 <a href=#618 id=618 data-nosnippet>618</a>        <span class="kw">match </span><span class="self">self</span>.signatures.entry(index) {
@@ -628,11 +628,11 @@
 <a href=#628 id=628 data-nosnippet>628</a>    /// `index`. Also return the number of WebAssembly arguments in the signature.
 <a href=#629 id=629 data-nosnippet>629</a>    ///
 <a href=#630 id=630 data-nosnippet>630</a>    /// Create the function reference if necessary.
-<a href=#631 id=631 data-nosnippet>631</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_direct_func&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+<a href=#631 id=631 data-nosnippet>631</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_direct_func(
 <a href=#632 id=632 data-nosnippet>632</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#633 id=633 data-nosnippet>633</a>        func: <span class="kw-2">&amp;mut </span>ir::Function,
 <a href=#634 id=634 data-nosnippet>634</a>        index: u32,
-<a href=#635 id=635 data-nosnippet>635</a>        environ: <span class="kw-2">&amp;mut </span>FE,
+<a href=#635 id=635 data-nosnippet>635</a>        environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#636 id=636 data-nosnippet>636</a>    ) -&gt; WasmResult&lt;(ir::FuncRef, usize)&gt; {
 <a href=#637 id=637 data-nosnippet>637</a>        <span class="kw">let </span>index = FunctionIndex::from_u32(index);
 <a href=#638 id=638 data-nosnippet>638</a>        <span class="kw">match </span><span class="self">self</span>.functions.entry(index) {
@@ -649,11 +649,8 @@
 <a href=#649 id=649 data-nosnippet>649</a>    }
 <a href=#650 id=650 data-nosnippet>650</a>}
 <a href=#651 id=651 data-nosnippet>651</a>
-<a href=#652 id=652 data-nosnippet>652</a><span class="kw">fn </span>num_wasm_parameters&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
-<a href=#653 id=653 data-nosnippet>653</a>    environ: <span class="kw-2">&amp;</span>FE,
-<a href=#654 id=654 data-nosnippet>654</a>    signature: <span class="kw-2">&amp;</span>ir::Signature,
-<a href=#655 id=655 data-nosnippet>655</a>) -&gt; usize {
-<a href=#656 id=656 data-nosnippet>656</a>    (<span class="number">0</span>..signature.params.len())
-<a href=#657 id=657 data-nosnippet>657</a>        .filter(|index| environ.is_wasm_parameter(signature, <span class="kw-2">*</span>index))
-<a href=#658 id=658 data-nosnippet>658</a>        .count()
-<a href=#659 id=659 data-nosnippet>659</a>}</code></pre></div></section></main></body></html>
+<a href=#652 id=652 data-nosnippet>652</a><span class="kw">fn </span>num_wasm_parameters(environ: <span class="kw-2">&amp;</span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;, signature: <span class="kw-2">&amp;</span>ir::Signature) -&gt; usize {
+<a href=#653 id=653 data-nosnippet>653</a>    (<span class="number">0</span>..signature.params.len())
+<a href=#654 id=654 data-nosnippet>654</a>        .filter(|index| environ.is_wasm_parameter(signature, <span class="kw-2">*</span>index))
+<a href=#655 id=655 data-nosnippet>655</a>        .count()
+<a href=#656 id=656 data-nosnippet>656</a>}</code></pre></div></section></main></body></html>
