@@ -3029,7 +3029,8 @@ fn translate_load(
             Reachability::Reachable((f, i, b)) => (f, i, b),
         };
 
-    if allow_nonaligned_memory_accesses && mem_op_size > 1 {
+    // TODO: maybe support also v128
+    if allow_nonaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
         // Test and handle aligned / unaligned loads separately
         let block_aligned = builder.create_block();
         let block_unaligned = builder.create_block();
@@ -3049,30 +3050,18 @@ fn translate_load(
         builder.ins().jump(block_merge, &[fast_val.into()]);
 
         builder.switch_to_block(block_unaligned);
-        let slow_val = if result_ty.is_vector() {
-            debug_assert_eq!(result_ty, I8X16);
-            debug_assert_eq!(mem_op_size, 16);
 
-            let first_byte = builder.ins().uload8(I8, flags, base, 0);
-            let mut vector = builder.ins().scalar_to_vector(I8X16, first_byte);
-            for i in 1..mem_op_size {
-                let byte = builder.ins().uload8(I8, flags, base, i as i32);
-                vector = builder.ins().insertlane(vector, byte, i);
-            }
-            vector
-        } else {
-            let result_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
-                WasmError::Generic("cannot get uint type for memory load".to_string()),
-            )?;
-            let mut slow_val = builder.ins().iconst(result_uint_type, 0);
-            for i in 0..mem_op_size {
-                let byte = builder.ins().uload8(I8, flags, base, i as i32);
-                let byte = builder.ins().uextend(result_uint_type, byte);
-                let shifted = builder.ins().ishl_imm(byte, (i * 8) as i64);
-                slow_val = builder.ins().bor(slow_val, shifted);
-            }
-            builder.ins().bitcast(result_ty, flags, slow_val)
-        };
+        let result_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
+            WasmError::Generic("cannot get uint type for memory load".to_string()),
+        )?;
+        let mut slow_val = builder.ins().iconst(result_uint_type, 0);
+        for i in 0..mem_op_size {
+            let byte = builder.ins().uload8(I8, flags, base, i as i32);
+            let byte = builder.ins().uextend(result_uint_type, byte);
+            let shifted = builder.ins().ishl_imm(byte, (i * 8) as i64);
+            slow_val = builder.ins().bor(slow_val, shifted);
+        }
+        let slow_val = builder.ins().bitcast(result_ty, flags, slow_val);
         builder.ins().jump(block_merge, &[slow_val.into()]);
 
         builder.seal_block(block_merge);
