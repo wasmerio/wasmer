@@ -505,8 +505,31 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+  full_source_archive:
+    name: full-source-archive
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Package full source archive
+        shell: bash
+        run: |
+          mkdir -p /tmp/dist
+          git ls-files --recurse-submodules -z \
+            | tar --null -T - --transform="s,^,wasmer-${{ needs.setup.outputs.VERSION }}/," -czf "/tmp/dist/wasmer-${{ needs.setup.outputs.VERSION }}-full-source.tar.gz"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasmer-full-source
+          path: /tmp/dist
+          if-no-files-found: error
+          retention-days: 2
+
   release:
-    needs: [setup, build, windows_gnu, linux_riscv64]
+    needs: [setup, build, windows_gnu, linux_riscv64, full_source_archive]
     runs-on: ubuntu-latest
     if: (needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != '') && github.event_name != 'pull_request'
     steps:
@@ -517,11 +540,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Package full source archive
-        shell: bash
-        run: |
-          git ls-files --recurse-submodules -z \
-            | tar --null -T - --transform="s,^,wasmer-${{ needs.setup.outputs.VERSION }}/," -czf "/tmp/wasmer-${{ needs.setup.outputs.VERSION }}-full-source.tar.gz"
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -547,7 +565,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: /tmp/wasmer-${{ needs.setup.outputs.VERSION }}-full-source.tar.gz
+          asset_path: artifacts/wasmer-full-source/wasmer-${{ needs.setup.outputs.VERSION }}-full-source.tar.gz
           asset_name: wasmer-${{ needs.setup.outputs.VERSION }}-full-source.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Windows
