@@ -7,7 +7,7 @@ mod func_translator;
 mod translation_utils;
 mod unwind;
 
-pub use self::func_environ::{FuncEnvironment, GlobalVariable, TargetEnvironment};
+pub use self::func_environ::{GlobalVariable, ReturnMode};
 pub use self::func_translator::FuncTranslator;
 pub use self::translation_utils::{
     irlibcall_to_libcall, irreloc_to_relocationkind, signature_to_cranelift_ir,
