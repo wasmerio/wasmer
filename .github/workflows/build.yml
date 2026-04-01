@@ -565,8 +565,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-full-source/wasmer-${{ needs.setup.outputs.VERSION }}-full-source.tar.gz
-          asset_name: wasmer-${{ needs.setup.outputs.VERSION }}-full-source.tar.gz
+          asset_path: artifacts/wasmer-full-source/wasmer-full-source.tar.gz
+          asset_name: wasmer-full-source.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Windows
         uses: actions/upload-release-asset@v1
