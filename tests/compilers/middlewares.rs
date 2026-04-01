@@ -1,8 +1,8 @@
 use anyhow::Result;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use wasmer::FunctionEnv;
-use wasmer::wasmparser::Operator;
+use wasmer::wasmparser::{Operator, ValType};
 use wasmer::{sys::*, *};
 
 #[derive(Debug)]
@@ -209,5 +209,122 @@ fn middleware_chain_order_2(mut config: crate::Config) -> Result<()> {
     let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&store, "add")?;
     let result = f.call(&mut store, 4, 6)?;
     assert_eq!(result, 48);
+    Ok(())
+}
+
+/// Middleware that captures the locals information passed via `locals_info`.
+#[derive(Debug)]
+struct LocalsInfoCapture {
+    captured: Arc<Mutex<Vec<Vec<ValType>>>>,
+}
+
+impl ModuleMiddleware for LocalsInfoCapture {
+    fn generate_function_middleware<'a>(
+        &self,
+        _: LocalFunctionIndex,
+    ) -> Box<dyn FunctionMiddleware<'a> + 'a> {
+        Box::new(LocalsInfoCaptureMiddleware {
+            captured: self.captured.clone(),
+        })
+    }
+}
+
+#[derive(Debug)]
+struct LocalsInfoCaptureMiddleware {
+    captured: Arc<Mutex<Vec<Vec<ValType>>>>,
+}
+
+impl<'a> FunctionMiddleware<'a> for LocalsInfoCaptureMiddleware {
+    fn locals_info(&mut self, locals: &[ValType]) {
+        self.captured.lock().unwrap().push(locals.to_vec());
+    }
+}
+
+#[compiler_test(middlewares)]
+fn middleware_locals_info(mut config: crate::Config) -> Result<()> {
+    let captured: Arc<Mutex<Vec<Vec<ValType>>>> = Arc::new(Mutex::new(Vec::new()));
+    config.set_middlewares(vec![Arc::new(LocalsInfoCapture {
+        captured: captured.clone(),
+    }) as Arc<dyn ModuleMiddleware>]);
+    let store = config.store();
+    // Function with two i32 params and three explicit locals (one i64, two f32).
+    // Note: params are NOT included in locals_info — only declared locals are.
+    let wat = r#"(module
+        (func (export "test") (param i32 i32) (result i32)
+           (local i64)
+           (local f32 f32)
+           (i32.add (local.get 0) (local.get 1)))
+    )"#;
+    let _module = Module::new(&store, wat)?;
+
+    let locals = captured.lock().unwrap();
+    assert_eq!(
+        locals.len(),
+        1,
+        "expected locals_info called once for the single function"
+    );
+    assert_eq!(
+        locals[0],
+        vec![ValType::I64, ValType::F32, ValType::F32],
+        "expected the declared locals (i64, f32, f32)"
+    );
+    Ok(())
+}
+
+#[compiler_test(middlewares)]
+fn middleware_locals_info_no_locals(mut config: crate::Config) -> Result<()> {
+    let captured: Arc<Mutex<Vec<Vec<ValType>>>> = Arc::new(Mutex::new(Vec::new()));
+    config.set_middlewares(vec![Arc::new(LocalsInfoCapture {
+        captured: captured.clone(),
+    }) as Arc<dyn ModuleMiddleware>]);
+    let store = config.store();
+    // Function with no locals at all — locals_info should still be called with an empty slice.
+    let wat = r#"(module
+        (func (export "test") (param i32 i32) (result i32)
+           (i32.add (local.get 0) (local.get 1)))
+    )"#;
+    let _module = Module::new(&store, wat)?;
+
+    let locals = captured.lock().unwrap();
+    assert_eq!(
+        locals.len(),
+        1,
+        "expected locals_info called once for the single function"
+    );
+    assert!(
+        locals[0].is_empty(),
+        "expected empty locals for a function with no local declarations"
+    );
+    Ok(())
+}
+
+#[compiler_test(middlewares)]
+fn middleware_locals_info_multiple_functions(mut config: crate::Config) -> Result<()> {
+    let captured: Arc<Mutex<Vec<Vec<ValType>>>> = Arc::new(Mutex::new(Vec::new()));
+    config.set_middlewares(vec![Arc::new(LocalsInfoCapture {
+        captured: captured.clone(),
+    }) as Arc<dyn ModuleMiddleware>]);
+    let store = config.store();
+    let wat = r#"(module
+        (func (export "f1") (result i32)
+           (local i32 i32)
+           (i32.add (local.get 0) (local.get 1)))
+        (func (export "f2") (result f64)
+           (local f64)
+           (local.get 0))
+    )"#;
+    let _module = Module::new(&store, wat)?;
+
+    let locals = captured.lock().unwrap();
+    assert_eq!(
+        locals.len(),
+        2,
+        "expected locals_info called once per function"
+    );
+    // Order may vary due to concurrent compilation, so check both are present.
+    let mut sorted: Vec<Vec<ValType>> = locals.clone();
+    sorted.sort_by_key(|v| v.len());
+    assert_eq!(sorted[0], vec![ValType::F64]);
+    assert_eq!(sorted[1], vec![ValType::I32, ValType::I32]);
     Ok(())
 }
