@@ -79,10 +79,9 @@ mod bounds_checks;
 pub(crate) const TAG_TYPE: ir::Type = I32;
 pub(crate) const EXN_REF_TYPE: ir::Type = I32;
 
-use super::func_environ::GlobalVariable;
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
-use crate::func_environ::FuncEnvironment;
+use crate::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};

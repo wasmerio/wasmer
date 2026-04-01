@@ -9,8 +9,7 @@
 //! The `FuncTranslationState` struct defined in this module is used to keep track of the WebAssembly
 //! value and control stacks during the translation of a single function.
 
-use super::func_environ::GlobalVariable;
-use crate::func_environ::FuncEnvironment;
+use crate::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::heap::Heap;
 use crate::translator::code_translator::CatchClause;
 use crate::{HashMap, Occupied, Vacant};

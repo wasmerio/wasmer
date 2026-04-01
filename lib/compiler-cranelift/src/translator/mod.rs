@@ -1,13 +1,11 @@
 //! Tools for translating wasm function bytecode to Cranelift IR.
 
 mod code_translator;
-mod func_environ;
 mod func_state;
 mod func_translator;
 mod translation_utils;
 mod unwind;
 
-pub use self::func_environ::GlobalVariable;
 pub use self::func_translator::FuncTranslator;
 pub use self::translation_utils::{
     irlibcall_to_libcall, irreloc_to_relocationkind, signature_to_cranelift_ir,

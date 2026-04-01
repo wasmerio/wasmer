@@ -5,7 +5,7 @@ use crate::{
     HashMap,
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
-    translator::{EXN_REF_TYPE, GlobalVariable, LandingPad, TAG_TYPE},
+    translator::{EXN_REF_TYPE, LandingPad, TAG_TYPE},
 };
 use cranelift_codegen::{
     cursor::FuncCursor,
@@ -53,6 +53,28 @@ struct ExceptionFieldLayout {
 #[derive(Clone)]
 struct ExceptionTypeLayout {
     fields: SmallVec<[ExceptionFieldLayout; 4]>,
+}
+
+/// The value of a WebAssembly global variable.
+#[derive(Clone, Copy)]
+pub enum GlobalVariable {
+    #[allow(dead_code)]
+    /// This is a constant global with a value known at compile time.
+    Const(ir::Value),
+
+    /// This is a variable in memory that should be referenced through a `GlobalValue`.
+    Memory {
+        /// The address of the global variable storage.
+        gv: ir::GlobalValue,
+        /// An offset to add to the address.
+        offset: Offset32,
+        /// The global variable's type.
+        ty: ir::Type,
+    },
+
+    #[allow(dead_code)]
+    /// This is a global variable that needs to be handled by the environment.
+    Custom,
 }
 
 /// The `FuncEnvironment` implementation for use by the `ModuleEnvironment`.
