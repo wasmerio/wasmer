@@ -183,10 +183,6 @@ jobs:
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-      - name: Add `brew` libraries (Apple Silicon)
-        run: |
-          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-        if: matrix.os == 'macos-14' || matrix.os == 'depot-macos-14'
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
