@@ -892,8 +892,8 @@
 <a href=#892 id=892 data-nosnippet>892</a>        <span class="kw">let </span>coreutils = Path::new(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>))
 <a href=#893 id=893 data-nosnippet>893</a>            .join(<span class="string">".."</span>)
 <a href=#894 id=894 data-nosnippet>894</a>            .join(<span class="string">".."</span>)
-<a href=#895 id=895 data-nosnippet>895</a>            .join(<span class="string">"tests"</span>)
-<a href=#896 id=896 data-nosnippet>896</a>            .join(<span class="string">"old-tar-gz"</span>)
+<a href=#895 id=895 data-nosnippet>895</a>            .join(<span class="string">"wasmer-test-files"</span>)
+<a href=#896 id=896 data-nosnippet>896</a>            .join(<span class="string">"legacy"</span>)
 <a href=#897 id=897 data-nosnippet>897</a>            .join(<span class="string">"coreutils-1.0.11.tar.gz"</span>);
 <a href=#898 id=898 data-nosnippet>898</a>        <span class="macro">assert!</span>(coreutils.exists());
 <a href=#899 id=899 data-nosnippet>899</a>
@@ -945,8 +945,8 @@
 <a href=#945 id=945 data-nosnippet>945</a>        <span class="kw">let </span>tarball = Path::new(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>))
 <a href=#946 id=946 data-nosnippet>946</a>            .join(<span class="string">".."</span>)
 <a href=#947 id=947 data-nosnippet>947</a>            .join(<span class="string">".."</span>)
-<a href=#948 id=948 data-nosnippet>948</a>            .join(<span class="string">"tests"</span>)
-<a href=#949 id=949 data-nosnippet>949</a>            .join(<span class="string">"old-tar-gz"</span>)
+<a href=#948 id=948 data-nosnippet>948</a>            .join(<span class="string">"wasmer-test-files"</span>)
+<a href=#949 id=949 data-nosnippet>949</a>            .join(<span class="string">"legacy"</span>)
 <a href=#950 id=950 data-nosnippet>950</a>            .join(<span class="string">"cowsay-0.3.0.tar.gz"</span>);
 <a href=#951 id=951 data-nosnippet>951</a>
 <a href=#952 id=952 data-nosnippet>952</a>        <span class="kw">let </span>pkg = Package::from_tarball_file(tarball).unwrap();

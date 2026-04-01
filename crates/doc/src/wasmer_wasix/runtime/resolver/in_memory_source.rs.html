@@ -195,72 +195,78 @@
 <a href=#195 id=195 data-nosnippet>195</a>
 <a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../../c-api/examples/assets/python-0.1.0.wasmer"</span>);
-<a href=#199 id=199 data-nosnippet>199</a>    <span class="kw">const </span>COREUTILS_16: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(
-<a href=#200 id=200 data-nosnippet>200</a>        <span class="string">"../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
-<a href=#201 id=201 data-nosnippet>201</a>    </span>);
-<a href=#202 id=202 data-nosnippet>202</a>    <span class="kw">const </span>COREUTILS_11: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(
-<a href=#203 id=203 data-nosnippet>203</a>        <span class="string">"../../../../../tests/integration/cli/tests/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc"
-<a href=#204 id=204 data-nosnippet>204</a>    </span>);
-<a href=#205 id=205 data-nosnippet>205</a>    <span class="kw">const </span>BASH: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(
-<a href=#206 id=206 data-nosnippet>206</a>        <span class="string">"../../../../../tests/integration/cli/tests/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc"
-<a href=#207 id=207 data-nosnippet>207</a>    </span>);
-<a href=#208 id=208 data-nosnippet>208</a>
-<a href=#209 id=209 data-nosnippet>209</a>    <span class="attr">#[test]
-<a href=#210 id=210 data-nosnippet>210</a>    </span><span class="kw">fn </span>load_a_directory_tree() {
-<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#212 id=212 data-nosnippet>212</a>        std::fs::write(temp.path().join(<span class="string">"python-0.1.0.webc"</span>), PYTHON).unwrap();
-<a href=#213 id=213 data-nosnippet>213</a>        std::fs::write(temp.path().join(<span class="string">"coreutils-1.0.16.webc"</span>), COREUTILS_16).unwrap();
-<a href=#214 id=214 data-nosnippet>214</a>        std::fs::write(temp.path().join(<span class="string">"coreutils-1.0.11.webc"</span>), COREUTILS_11).unwrap();
-<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">let </span>nested = temp.path().join(<span class="string">"nested"</span>);
-<a href=#216 id=216 data-nosnippet>216</a>        std::fs::create_dir(<span class="kw-2">&amp;</span>nested).unwrap();
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>bash = nested.join(<span class="string">"bash-1.0.12.webc"</span>);
-<a href=#218 id=218 data-nosnippet>218</a>        std::fs::write(<span class="kw-2">&amp;</span>bash, BASH).unwrap();
-<a href=#219 id=219 data-nosnippet>219</a>
-<a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">let </span>source = InMemorySource::from_directory_tree(temp.path()).unwrap();
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a>        <span class="macro">assert_eq!</span>(
-<a href=#223 id=223 data-nosnippet>223</a>            source
-<a href=#224 id=224 data-nosnippet>224</a>                .named_packages
-<a href=#225 id=225 data-nosnippet>225</a>                .keys()
-<a href=#226 id=226 data-nosnippet>226</a>                .map(|k| k.as_str())
-<a href=#227 id=227 data-nosnippet>227</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-<a href=#228 id=228 data-nosnippet>228</a>            [<span class="string">"python"</span>, <span class="string">"sharrattj/bash"</span>, <span class="string">"sharrattj/coreutils"</span>]
-<a href=#229 id=229 data-nosnippet>229</a>        );
-<a href=#230 id=230 data-nosnippet>230</a>        <span class="macro">assert_eq!</span>(source.named_packages[<span class="string">"sharrattj/coreutils"</span>].len(), <span class="number">2</span>);
-<a href=#231 id=231 data-nosnippet>231</a>        <span class="macro">assert_eq!</span>(
-<a href=#232 id=232 data-nosnippet>232</a>            source.named_packages[<span class="string">"sharrattj/bash"</span>][<span class="number">0</span>].summary,
-<a href=#233 id=233 data-nosnippet>233</a>            PackageSummary {
-<a href=#234 id=234 data-nosnippet>234</a>                pkg: PackageInfo {
-<a href=#235 id=235 data-nosnippet>235</a>                    id: PackageId::Named(
-<a href=#236 id=236 data-nosnippet>236</a>                        NamedPackageId::try_new(<span class="string">"sharrattj/bash"</span>, <span class="string">"1.0.16"</span>).unwrap()
-<a href=#237 id=237 data-nosnippet>237</a>                    ),
-<a href=#238 id=238 data-nosnippet>238</a>                    dependencies: <span class="macro">vec!</span>[Dependency {
-<a href=#239 id=239 data-nosnippet>239</a>                        alias: <span class="string">"coreutils"</span>.to_string(),
-<a href=#240 id=240 data-nosnippet>240</a>                        pkg: <span class="string">"sharrattj/coreutils@^1.0.16"</span>.parse().unwrap()
-<a href=#241 id=241 data-nosnippet>241</a>                    }],
-<a href=#242 id=242 data-nosnippet>242</a>                    commands: <span class="macro">vec!</span>[<span class="kw">crate</span>::runtime::resolver::Command {
-<a href=#243 id=243 data-nosnippet>243</a>                        name: <span class="string">"bash"</span>.to_string(),
-<a href=#244 id=244 data-nosnippet>244</a>                    }],
-<a href=#245 id=245 data-nosnippet>245</a>                    entrypoint: <span class="prelude-val">Some</span>(<span class="string">"bash"</span>.to_string()),
-<a href=#246 id=246 data-nosnippet>246</a>                    filesystem: <span class="macro">vec!</span>[FileSystemMapping {
-<a href=#247 id=247 data-nosnippet>247</a>                        volume_name: <span class="string">"atom"</span>.to_string(),
-<a href=#248 id=248 data-nosnippet>248</a>                        mount_path: <span class="string">"/"</span>.to_string(),
-<a href=#249 id=249 data-nosnippet>249</a>                        original_path: <span class="prelude-val">Some</span>(<span class="string">"/"</span>.to_string()),
-<a href=#250 id=250 data-nosnippet>250</a>                        dependency_name: <span class="prelude-val">None</span>,
-<a href=#251 id=251 data-nosnippet>251</a>                    }],
-<a href=#252 id=252 data-nosnippet>252</a>                },
-<a href=#253 id=253 data-nosnippet>253</a>                dist: DistributionInfo {
-<a href=#254 id=254 data-nosnippet>254</a>                    webc: <span class="kw">crate</span>::runtime::resolver::utils::url_from_file_path(
-<a href=#255 id=255 data-nosnippet>255</a>                        bash.canonicalize().unwrap()
-<a href=#256 id=256 data-nosnippet>256</a>                    )
-<a href=#257 id=257 data-nosnippet>257</a>                    .unwrap(),
-<a href=#258 id=258 data-nosnippet>258</a>                    webc_sha256: WebcHash::from_bytes([
-<a href=#259 id=259 data-nosnippet>259</a>                        <span class="number">161</span>, <span class="number">101</span>, <span class="number">23</span>, <span class="number">194</span>, <span class="number">244</span>, <span class="number">92</span>, <span class="number">186</span>, <span class="number">213</span>, <span class="number">143</span>, <span class="number">33</span>, <span class="number">200</span>, <span class="number">128</span>, <span class="number">238</span>, <span class="number">23</span>, <span class="number">185</span>, <span class="number">174</span>,
-<a href=#260 id=260 data-nosnippet>260</a>                        <span class="number">180</span>, <span class="number">195</span>, <span class="number">144</span>, <span class="number">145</span>, <span class="number">78</span>, <span class="number">17</span>, <span class="number">227</span>, <span class="number">159</span>, <span class="number">118</span>, <span class="number">64</span>, <span class="number">83</span>, <span class="number">153</span>, <span class="number">0</span>, <span class="number">205</span>, <span class="number">253</span>, <span class="number">215</span>,
-<a href=#261 id=261 data-nosnippet>261</a>                    ]),
-<a href=#262 id=262 data-nosnippet>262</a>                },
-<a href=#263 id=263 data-nosnippet>263</a>            }
-<a href=#264 id=264 data-nosnippet>264</a>        );
-<a href=#265 id=265 data-nosnippet>265</a>    }
-<a href=#266 id=266 data-nosnippet>266</a>}</code></pre></div></section></main></body></html>
+<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="string">"/../../wasmer-test-files/examples/python-0.1.0.wasmer"
+<a href=#201 id=201 data-nosnippet>201</a>    </span>));
+<a href=#202 id=202 data-nosnippet>202</a>    <span class="kw">const </span>COREUTILS_16: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#203 id=203 data-nosnippet>203</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#204 id=204 data-nosnippet>204</a>        <span class="string">"/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+<a href=#205 id=205 data-nosnippet>205</a>    </span>));
+<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">const </span>COREUTILS_11: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#207 id=207 data-nosnippet>207</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#208 id=208 data-nosnippet>208</a>        <span class="string">"/../../wasmer-test-files/integration/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc"
+<a href=#209 id=209 data-nosnippet>209</a>    </span>));
+<a href=#210 id=210 data-nosnippet>210</a>    <span class="kw">const </span>BASH: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#212 id=212 data-nosnippet>212</a>        <span class="string">"/../../wasmer-test-files/integration/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc"
+<a href=#213 id=213 data-nosnippet>213</a>    </span>));
+<a href=#214 id=214 data-nosnippet>214</a>
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="attr">#[test]
+<a href=#216 id=216 data-nosnippet>216</a>    </span><span class="kw">fn </span>load_a_directory_tree() {
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#218 id=218 data-nosnippet>218</a>        std::fs::write(temp.path().join(<span class="string">"python-0.1.0.webc"</span>), PYTHON).unwrap();
+<a href=#219 id=219 data-nosnippet>219</a>        std::fs::write(temp.path().join(<span class="string">"coreutils-1.0.16.webc"</span>), COREUTILS_16).unwrap();
+<a href=#220 id=220 data-nosnippet>220</a>        std::fs::write(temp.path().join(<span class="string">"coreutils-1.0.11.webc"</span>), COREUTILS_11).unwrap();
+<a href=#221 id=221 data-nosnippet>221</a>        <span class="kw">let </span>nested = temp.path().join(<span class="string">"nested"</span>);
+<a href=#222 id=222 data-nosnippet>222</a>        std::fs::create_dir(<span class="kw-2">&amp;</span>nested).unwrap();
+<a href=#223 id=223 data-nosnippet>223</a>        <span class="kw">let </span>bash = nested.join(<span class="string">"bash-1.0.12.webc"</span>);
+<a href=#224 id=224 data-nosnippet>224</a>        std::fs::write(<span class="kw-2">&amp;</span>bash, BASH).unwrap();
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">let </span>source = InMemorySource::from_directory_tree(temp.path()).unwrap();
+<a href=#227 id=227 data-nosnippet>227</a>
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="macro">assert_eq!</span>(
+<a href=#229 id=229 data-nosnippet>229</a>            source
+<a href=#230 id=230 data-nosnippet>230</a>                .named_packages
+<a href=#231 id=231 data-nosnippet>231</a>                .keys()
+<a href=#232 id=232 data-nosnippet>232</a>                .map(|k| k.as_str())
+<a href=#233 id=233 data-nosnippet>233</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#234 id=234 data-nosnippet>234</a>            [<span class="string">"python"</span>, <span class="string">"sharrattj/bash"</span>, <span class="string">"sharrattj/coreutils"</span>]
+<a href=#235 id=235 data-nosnippet>235</a>        );
+<a href=#236 id=236 data-nosnippet>236</a>        <span class="macro">assert_eq!</span>(source.named_packages[<span class="string">"sharrattj/coreutils"</span>].len(), <span class="number">2</span>);
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="macro">assert_eq!</span>(
+<a href=#238 id=238 data-nosnippet>238</a>            source.named_packages[<span class="string">"sharrattj/bash"</span>][<span class="number">0</span>].summary,
+<a href=#239 id=239 data-nosnippet>239</a>            PackageSummary {
+<a href=#240 id=240 data-nosnippet>240</a>                pkg: PackageInfo {
+<a href=#241 id=241 data-nosnippet>241</a>                    id: PackageId::Named(
+<a href=#242 id=242 data-nosnippet>242</a>                        NamedPackageId::try_new(<span class="string">"sharrattj/bash"</span>, <span class="string">"1.0.16"</span>).unwrap()
+<a href=#243 id=243 data-nosnippet>243</a>                    ),
+<a href=#244 id=244 data-nosnippet>244</a>                    dependencies: <span class="macro">vec!</span>[Dependency {
+<a href=#245 id=245 data-nosnippet>245</a>                        alias: <span class="string">"coreutils"</span>.to_string(),
+<a href=#246 id=246 data-nosnippet>246</a>                        pkg: <span class="string">"sharrattj/coreutils@^1.0.16"</span>.parse().unwrap()
+<a href=#247 id=247 data-nosnippet>247</a>                    }],
+<a href=#248 id=248 data-nosnippet>248</a>                    commands: <span class="macro">vec!</span>[<span class="kw">crate</span>::runtime::resolver::Command {
+<a href=#249 id=249 data-nosnippet>249</a>                        name: <span class="string">"bash"</span>.to_string(),
+<a href=#250 id=250 data-nosnippet>250</a>                    }],
+<a href=#251 id=251 data-nosnippet>251</a>                    entrypoint: <span class="prelude-val">Some</span>(<span class="string">"bash"</span>.to_string()),
+<a href=#252 id=252 data-nosnippet>252</a>                    filesystem: <span class="macro">vec!</span>[FileSystemMapping {
+<a href=#253 id=253 data-nosnippet>253</a>                        volume_name: <span class="string">"atom"</span>.to_string(),
+<a href=#254 id=254 data-nosnippet>254</a>                        mount_path: <span class="string">"/"</span>.to_string(),
+<a href=#255 id=255 data-nosnippet>255</a>                        original_path: <span class="prelude-val">Some</span>(<span class="string">"/"</span>.to_string()),
+<a href=#256 id=256 data-nosnippet>256</a>                        dependency_name: <span class="prelude-val">None</span>,
+<a href=#257 id=257 data-nosnippet>257</a>                    }],
+<a href=#258 id=258 data-nosnippet>258</a>                },
+<a href=#259 id=259 data-nosnippet>259</a>                dist: DistributionInfo {
+<a href=#260 id=260 data-nosnippet>260</a>                    webc: <span class="kw">crate</span>::runtime::resolver::utils::url_from_file_path(
+<a href=#261 id=261 data-nosnippet>261</a>                        bash.canonicalize().unwrap()
+<a href=#262 id=262 data-nosnippet>262</a>                    )
+<a href=#263 id=263 data-nosnippet>263</a>                    .unwrap(),
+<a href=#264 id=264 data-nosnippet>264</a>                    webc_sha256: WebcHash::from_bytes([
+<a href=#265 id=265 data-nosnippet>265</a>                        <span class="number">161</span>, <span class="number">101</span>, <span class="number">23</span>, <span class="number">194</span>, <span class="number">244</span>, <span class="number">92</span>, <span class="number">186</span>, <span class="number">213</span>, <span class="number">143</span>, <span class="number">33</span>, <span class="number">200</span>, <span class="number">128</span>, <span class="number">238</span>, <span class="number">23</span>, <span class="number">185</span>, <span class="number">174</span>,
+<a href=#266 id=266 data-nosnippet>266</a>                        <span class="number">180</span>, <span class="number">195</span>, <span class="number">144</span>, <span class="number">145</span>, <span class="number">78</span>, <span class="number">17</span>, <span class="number">227</span>, <span class="number">159</span>, <span class="number">118</span>, <span class="number">64</span>, <span class="number">83</span>, <span class="number">153</span>, <span class="number">0</span>, <span class="number">205</span>, <span class="number">253</span>, <span class="number">215</span>,
+<a href=#267 id=267 data-nosnippet>267</a>                    ]),
+<a href=#268 id=268 data-nosnippet>268</a>                },
+<a href=#269 id=269 data-nosnippet>269</a>            }
+<a href=#270 id=270 data-nosnippet>270</a>        );
+<a href=#271 id=271 data-nosnippet>271</a>    }
+<a href=#272 id=272 data-nosnippet>272</a>}</code></pre></div></section></main></body></html>

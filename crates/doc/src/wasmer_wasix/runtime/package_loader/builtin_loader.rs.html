@@ -797,424 +797,425 @@
 <a href=#797 id=797 data-nosnippet>797</a>
 <a href=#798 id=798 data-nosnippet>798</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#799 id=799 data-nosnippet>799</a>
-<a href=#800 id=800 data-nosnippet>800</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../../c-api/examples/assets/python-0.1.0.wasmer"</span>);
-<a href=#801 id=801 data-nosnippet>801</a>
-<a href=#802 id=802 data-nosnippet>802</a>    <span class="attr">#[derive(Debug)]
-<a href=#803 id=803 data-nosnippet>803</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DummyClient {
-<a href=#804 id=804 data-nosnippet>804</a>        requests: Mutex&lt;Vec&lt;HttpRequest&gt;&gt;,
-<a href=#805 id=805 data-nosnippet>805</a>        responses: Mutex&lt;VecDeque&lt;HttpResponse&gt;&gt;,
-<a href=#806 id=806 data-nosnippet>806</a>    }
-<a href=#807 id=807 data-nosnippet>807</a>
-<a href=#808 id=808 data-nosnippet>808</a>    <span class="kw">impl </span>DummyClient {
-<a href=#809 id=809 data-nosnippet>809</a>        <span class="kw">pub fn </span>with_responses(responses: <span class="kw">impl </span>IntoIterator&lt;Item = HttpResponse&gt;) -&gt; <span class="self">Self </span>{
-<a href=#810 id=810 data-nosnippet>810</a>            DummyClient {
-<a href=#811 id=811 data-nosnippet>811</a>                requests: Mutex::new(Vec::new()),
-<a href=#812 id=812 data-nosnippet>812</a>                responses: Mutex::new(responses.into_iter().collect()),
-<a href=#813 id=813 data-nosnippet>813</a>            }
-<a href=#814 id=814 data-nosnippet>814</a>        }
-<a href=#815 id=815 data-nosnippet>815</a>    }
-<a href=#816 id=816 data-nosnippet>816</a>
-<a href=#817 id=817 data-nosnippet>817</a>    <span class="kw">impl </span>HttpClient <span class="kw">for </span>DummyClient {
-<a href=#818 id=818 data-nosnippet>818</a>        <span class="kw">fn </span>request(
-<a href=#819 id=819 data-nosnippet>819</a>            <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#820 id=820 data-nosnippet>820</a>            request: HttpRequest,
-<a href=#821 id=821 data-nosnippet>821</a>        ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
-<a href=#822 id=822 data-nosnippet>822</a>            <span class="kw">let </span>response = <span class="self">self</span>.responses.lock().unwrap().pop_front().unwrap();
-<a href=#823 id=823 data-nosnippet>823</a>            <span class="self">self</span>.requests.lock().unwrap().push(request);
-<a href=#824 id=824 data-nosnippet>824</a>            Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(response) })
-<a href=#825 id=825 data-nosnippet>825</a>        }
-<a href=#826 id=826 data-nosnippet>826</a>    }
-<a href=#827 id=827 data-nosnippet>827</a>
-<a href=#828 id=828 data-nosnippet>828</a>    <span class="kw">async fn </span>cache_misses_will_trigger_a_download_internal() {
-<a href=#829 id=829 data-nosnippet>829</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#830 id=830 data-nosnippet>830</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([HttpResponse {
-<a href=#831 id=831 data-nosnippet>831</a>            body: <span class="prelude-val">Some</span>(PYTHON.to_vec()),
-<a href=#832 id=832 data-nosnippet>832</a>            redirected: <span class="bool-val">false</span>,
-<a href=#833 id=833 data-nosnippet>833</a>            status: StatusCode::OK,
-<a href=#834 id=834 data-nosnippet>834</a>            headers: HeaderMap::new(),
-<a href=#835 id=835 data-nosnippet>835</a>        }]));
-<a href=#836 id=836 data-nosnippet>836</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
-<a href=#837 id=837 data-nosnippet>837</a>            .with_cache_dir(temp.path())
-<a href=#838 id=838 data-nosnippet>838</a>            .with_shared_http_client(client.clone());
-<a href=#839 id=839 data-nosnippet>839</a>        <span class="kw">let </span>summary = PackageSummary {
-<a href=#840 id=840 data-nosnippet>840</a>            pkg: PackageInfo {
-<a href=#841 id=841 data-nosnippet>841</a>                id: PackageId::new_named(<span class="string">"python/python"</span>, <span class="string">"0.1.0"</span>.parse().unwrap()),
-<a href=#842 id=842 data-nosnippet>842</a>                dependencies: Vec::new(),
-<a href=#843 id=843 data-nosnippet>843</a>                commands: Vec::new(),
-<a href=#844 id=844 data-nosnippet>844</a>                entrypoint: <span class="prelude-val">Some</span>(<span class="string">"asdf"</span>.to_string()),
-<a href=#845 id=845 data-nosnippet>845</a>                filesystem: Vec::new(),
-<a href=#846 id=846 data-nosnippet>846</a>            },
-<a href=#847 id=847 data-nosnippet>847</a>            dist: DistributionInfo {
-<a href=#848 id=848 data-nosnippet>848</a>                webc: <span class="string">"https://wasmer.io/python/python"</span>.parse().unwrap(),
-<a href=#849 id=849 data-nosnippet>849</a>                webc_sha256: [<span class="number">0xaa</span>; <span class="number">32</span>].into(),
-<a href=#850 id=850 data-nosnippet>850</a>            },
-<a href=#851 id=851 data-nosnippet>851</a>        };
-<a href=#852 id=852 data-nosnippet>852</a>
-<a href=#853 id=853 data-nosnippet>853</a>        <span class="kw">let </span>container = loader.load(<span class="kw-2">&amp;</span>summary).<span class="kw">await</span>.unwrap();
-<a href=#854 id=854 data-nosnippet>854</a>
-<a href=#855 id=855 data-nosnippet>855</a>        <span class="comment">// A HTTP request was sent
-<a href=#856 id=856 data-nosnippet>856</a>        </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
-<a href=#857 id=857 data-nosnippet>857</a>        <span class="kw">let </span>request = <span class="kw-2">&amp;</span>requests[<span class="number">0</span>];
-<a href=#858 id=858 data-nosnippet>858</a>        <span class="macro">assert_eq!</span>(request.url, summary.dist.webc);
-<a href=#859 id=859 data-nosnippet>859</a>        <span class="macro">assert_eq!</span>(request.method, <span class="string">"GET"</span>);
-<a href=#860 id=860 data-nosnippet>860</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#861 id=861 data-nosnippet>861</a>        </span>{
-<a href=#862 id=862 data-nosnippet>862</a>            <span class="macro">assert_eq!</span>(request.headers.len(), <span class="number">3</span>);
-<a href=#863 id=863 data-nosnippet>863</a>            <span class="macro">assert_eq!</span>(request.headers[<span class="string">"Accept-Encoding"</span>], <span class="string">"zstd;q=1.0, gzip;q=0.8"</span>);
-<a href=#864 id=864 data-nosnippet>864</a>        }
-<a href=#865 id=865 data-nosnippet>865</a>        <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
-<a href=#866 id=866 data-nosnippet>866</a>        </span>{
-<a href=#867 id=867 data-nosnippet>867</a>            <span class="macro">assert_eq!</span>(request.headers.len(), <span class="number">2</span>);
-<a href=#868 id=868 data-nosnippet>868</a>            <span class="macro">assert!</span>(!request.headers.contains_key(http::header::ACCEPT_ENCODING));
-<a href=#869 id=869 data-nosnippet>869</a>        }
-<a href=#870 id=870 data-nosnippet>870</a>        <span class="macro">assert_eq!</span>(request.headers[<span class="string">"Accept"</span>], <span class="string">"application/webc"</span>);
-<a href=#871 id=871 data-nosnippet>871</a>        <span class="macro">assert_eq!</span>(request.headers[<span class="string">"User-Agent"</span>], USER_AGENT);
-<a href=#872 id=872 data-nosnippet>872</a>        <span class="comment">// Make sure we got the right package
-<a href=#873 id=873 data-nosnippet>873</a>        </span><span class="kw">let </span>manifest = container.manifest();
-<a href=#874 id=874 data-nosnippet>874</a>        <span class="macro">assert_eq!</span>(manifest.entrypoint.as_deref(), <span class="prelude-val">Some</span>(<span class="string">"python"</span>));
-<a href=#875 id=875 data-nosnippet>875</a>        <span class="comment">// it should have been automatically saved to disk
-<a href=#876 id=876 data-nosnippet>876</a>        </span><span class="kw">let </span>path = loader
-<a href=#877 id=877 data-nosnippet>877</a>            .cache
-<a href=#878 id=878 data-nosnippet>878</a>            .as_ref()
-<a href=#879 id=879 data-nosnippet>879</a>            .unwrap()
-<a href=#880 id=880 data-nosnippet>880</a>            .path(<span class="kw-2">&amp;</span>summary.dist.webc_sha256);
-<a href=#881 id=881 data-nosnippet>881</a>        <span class="macro">assert!</span>(path.exists());
-<a href=#882 id=882 data-nosnippet>882</a>        <span class="macro">assert_eq!</span>(std::fs::read(<span class="kw-2">&amp;</span>path).unwrap(), PYTHON);
-<a href=#883 id=883 data-nosnippet>883</a>        <span class="comment">// and cached in memory for next time
-<a href=#884 id=884 data-nosnippet>884</a>        </span><span class="kw">let </span>in_memory = loader.in_memory.as_ref().unwrap().<span class="number">0</span>.read().unwrap();
-<a href=#885 id=885 data-nosnippet>885</a>        <span class="macro">assert!</span>(in_memory.contains_key(<span class="kw-2">&amp;</span>summary.dist.webc_sha256));
-<a href=#886 id=886 data-nosnippet>886</a>    }
-<a href=#887 id=887 data-nosnippet>887</a>
-<a href=#888 id=888 data-nosnippet>888</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#889 id=889 data-nosnippet>889</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
-<a href=#890 id=890 data-nosnippet>890</a>    </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
-<a href=#891 id=891 data-nosnippet>891</a>        cache_misses_will_trigger_a_download_internal().<span class="kw">await
-<a href=#892 id=892 data-nosnippet>892</a>    </span>}
-<a href=#893 id=893 data-nosnippet>893</a>
-<a href=#894 id=894 data-nosnippet>894</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#895 id=895 data-nosnippet>895</a>    #[tokio::test]
-<a href=#896 id=896 data-nosnippet>896</a>    </span><span class="kw">async fn </span>can_disable_in_memory_cache() {
-<a href=#897 id=897 data-nosnippet>897</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#898 id=898 data-nosnippet>898</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([HttpResponse {
-<a href=#899 id=899 data-nosnippet>899</a>            body: <span class="prelude-val">Some</span>(PYTHON.to_vec()),
-<a href=#900 id=900 data-nosnippet>900</a>            redirected: <span class="bool-val">false</span>,
-<a href=#901 id=901 data-nosnippet>901</a>            status: StatusCode::OK,
-<a href=#902 id=902 data-nosnippet>902</a>            headers: HeaderMap::new(),
-<a href=#903 id=903 data-nosnippet>903</a>        }]));
-<a href=#904 id=904 data-nosnippet>904</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
-<a href=#905 id=905 data-nosnippet>905</a>            .with_cache_dir(temp.path())
-<a href=#906 id=906 data-nosnippet>906</a>            .without_in_memory_cache()
-<a href=#907 id=907 data-nosnippet>907</a>            .with_shared_http_client(client);
-<a href=#908 id=908 data-nosnippet>908</a>        <span class="kw">let </span>summary = PackageSummary {
-<a href=#909 id=909 data-nosnippet>909</a>            pkg: PackageInfo {
-<a href=#910 id=910 data-nosnippet>910</a>                id: PackageId::new_named(<span class="string">"python/python"</span>, <span class="string">"0.1.0"</span>.parse().unwrap()),
-<a href=#911 id=911 data-nosnippet>911</a>                dependencies: Vec::new(),
-<a href=#912 id=912 data-nosnippet>912</a>                commands: Vec::new(),
-<a href=#913 id=913 data-nosnippet>913</a>                entrypoint: <span class="prelude-val">Some</span>(<span class="string">"asdf"</span>.to_string()),
-<a href=#914 id=914 data-nosnippet>914</a>                filesystem: Vec::new(),
-<a href=#915 id=915 data-nosnippet>915</a>            },
-<a href=#916 id=916 data-nosnippet>916</a>            dist: DistributionInfo {
-<a href=#917 id=917 data-nosnippet>917</a>                webc: <span class="string">"https://wasmer.io/python/python"</span>.parse().unwrap(),
-<a href=#918 id=918 data-nosnippet>918</a>                webc_sha256: [<span class="number">0xbb</span>; <span class="number">32</span>].into(),
-<a href=#919 id=919 data-nosnippet>919</a>            },
-<a href=#920 id=920 data-nosnippet>920</a>        };
-<a href=#921 id=921 data-nosnippet>921</a>
-<a href=#922 id=922 data-nosnippet>922</a>        loader.load(<span class="kw-2">&amp;</span>summary).<span class="kw">await</span>.unwrap();
-<a href=#923 id=923 data-nosnippet>923</a>
-<a href=#924 id=924 data-nosnippet>924</a>        <span class="macro">assert!</span>(loader.in_memory.is_none());
-<a href=#925 id=925 data-nosnippet>925</a>    }
-<a href=#926 id=926 data-nosnippet>926</a>
-<a href=#927 id=927 data-nosnippet>927</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
-<a href=#928 id=928 data-nosnippet>928</a>    #[tokio::test()]
-<a href=#929 id=929 data-nosnippet>929</a>    </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
-<a href=#930 id=930 data-nosnippet>930</a>        cache_misses_will_trigger_a_download_internal().<span class="kw">await
-<a href=#931 id=931 data-nosnippet>931</a>    </span>}
-<a href=#932 id=932 data-nosnippet>932</a>
-<a href=#933 id=933 data-nosnippet>933</a>    <span class="attr">#[tokio::test]
-<a href=#934 id=934 data-nosnippet>934</a>    </span><span class="kw">async fn </span>evict_cached_removes_in_memory_container() {
-<a href=#935 id=935 data-nosnippet>935</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new();
-<a href=#936 id=936 data-nosnippet>936</a>        <span class="kw">let </span>container = from_bytes(PYTHON).unwrap();
-<a href=#937 id=937 data-nosnippet>937</a>        <span class="kw">let </span>hash: WebcHash = [<span class="number">0xaa</span>; <span class="number">32</span>].into();
-<a href=#938 id=938 data-nosnippet>938</a>        loader.insert_cached(hash, <span class="kw-2">&amp;</span>container);
-<a href=#939 id=939 data-nosnippet>939</a>        <span class="kw">let </span>evicted = loader.evict_cached(<span class="kw-2">&amp;</span>hash);
-<a href=#940 id=940 data-nosnippet>940</a>        <span class="macro">assert!</span>(evicted.is_some());
-<a href=#941 id=941 data-nosnippet>941</a>        {
-<a href=#942 id=942 data-nosnippet>942</a>            <span class="kw">let </span>in_memory = loader.in_memory.as_ref().unwrap().<span class="number">0</span>.read().unwrap();
-<a href=#943 id=943 data-nosnippet>943</a>            <span class="macro">assert!</span>(!in_memory.contains_key(<span class="kw-2">&amp;</span>hash));
-<a href=#944 id=944 data-nosnippet>944</a>        }
-<a href=#945 id=945 data-nosnippet>945</a>        <span class="macro">assert!</span>(loader.evict_cached(<span class="kw-2">&amp;</span>hash).is_none());
-<a href=#946 id=946 data-nosnippet>946</a>    }
-<a href=#947 id=947 data-nosnippet>947</a>
-<a href=#948 id=948 data-nosnippet>948</a>    <span class="doccomment">/// Small helper to construct headers with a given content-encoding.
-<a href=#949 id=949 data-nosnippet>949</a>    </span><span class="kw">fn </span>headers_with_encoding(content_encoding: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; HeaderMap {
-<a href=#950 id=950 data-nosnippet>950</a>        <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::new();
-<a href=#951 id=951 data-nosnippet>951</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(value) = content_encoding {
-<a href=#952 id=952 data-nosnippet>952</a>            headers.insert(http::header::CONTENT_ENCODING, value.parse().unwrap());
-<a href=#953 id=953 data-nosnippet>953</a>        }
-<a href=#954 id=954 data-nosnippet>954</a>        headers
-<a href=#955 id=955 data-nosnippet>955</a>    }
-<a href=#956 id=956 data-nosnippet>956</a>
-<a href=#957 id=957 data-nosnippet>957</a>    <span class="doccomment">/// Small helper to construct headers with a raw content-encoding value.
-<a href=#958 id=958 data-nosnippet>958</a>    </span><span class="kw">fn </span>headers_with_raw_encoding(value: <span class="kw-2">&amp;</span>[u8]) -&gt; HeaderMap {
-<a href=#959 id=959 data-nosnippet>959</a>        <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::new();
-<a href=#960 id=960 data-nosnippet>960</a>        headers.insert(
-<a href=#961 id=961 data-nosnippet>961</a>            http::header::CONTENT_ENCODING,
-<a href=#962 id=962 data-nosnippet>962</a>            HeaderValue::from_bytes(value).unwrap(),
-<a href=#963 id=963 data-nosnippet>963</a>        );
-<a href=#964 id=964 data-nosnippet>964</a>        headers
-<a href=#965 id=965 data-nosnippet>965</a>    }
-<a href=#966 id=966 data-nosnippet>966</a>
-<a href=#967 id=967 data-nosnippet>967</a>    <span class="doccomment">/// Confirm decode_response_body passes through unencoded bodies unchanged.
-<a href=#968 id=968 data-nosnippet>968</a>    </span><span class="attr">#[test]
-<a href=#969 id=969 data-nosnippet>969</a>    </span><span class="kw">fn </span>decode_response_body_passthrough() {
-<a href=#970 id=970 data-nosnippet>970</a>        <span class="kw">let </span>body = <span class="string">b"plain-bytes"</span>.to_vec();
-<a href=#971 id=971 data-nosnippet>971</a>
-<a href=#972 id=972 data-nosnippet>972</a>        <span class="kw">let </span>decoded =
-<a href=#973 id=973 data-nosnippet>973</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">None</span>), body.clone())
-<a href=#974 id=974 data-nosnippet>974</a>                .unwrap();
-<a href=#975 id=975 data-nosnippet>975</a>        <span class="macro">assert_eq!</span>(decoded, body);
-<a href=#976 id=976 data-nosnippet>976</a>
-<a href=#977 id=977 data-nosnippet>977</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
-<a href=#978 id=978 data-nosnippet>978</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"identity"</span>)),
-<a href=#979 id=979 data-nosnippet>979</a>            body.clone(),
-<a href=#980 id=980 data-nosnippet>980</a>        )
-<a href=#981 id=981 data-nosnippet>981</a>        .unwrap();
-<a href=#982 id=982 data-nosnippet>982</a>        <span class="macro">assert_eq!</span>(decoded, body);
-<a href=#983 id=983 data-nosnippet>983</a>    }
-<a href=#984 id=984 data-nosnippet>984</a>
-<a href=#985 id=985 data-nosnippet>985</a>    <span class="doccomment">/// Confirm decode_response_body treats empty/whitespace encoding lists as no encoding.
-<a href=#986 id=986 data-nosnippet>986</a>    </span><span class="attr">#[test]
-<a href=#987 id=987 data-nosnippet>987</a>    </span><span class="kw">fn </span>decode_response_body_empty_encoding_list() {
-<a href=#988 id=988 data-nosnippet>988</a>        <span class="kw">let </span>body = <span class="string">b"plain-bytes"</span>.to_vec();
-<a href=#989 id=989 data-nosnippet>989</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
-<a href=#990 id=990 data-nosnippet>990</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">" , , "</span>)),
-<a href=#991 id=991 data-nosnippet>991</a>            body.clone(),
-<a href=#992 id=992 data-nosnippet>992</a>        )
-<a href=#993 id=993 data-nosnippet>993</a>        .unwrap();
-<a href=#994 id=994 data-nosnippet>994</a>        <span class="macro">assert_eq!</span>(decoded, body);
-<a href=#995 id=995 data-nosnippet>995</a>    }
-<a href=#996 id=996 data-nosnippet>996</a>
-<a href=#997 id=997 data-nosnippet>997</a>    <span class="doccomment">/// Confirm decode_response_body errors on non-utf8 content-encoding headers.
-<a href=#998 id=998 data-nosnippet>998</a>    </span><span class="attr">#[test]
-<a href=#999 id=999 data-nosnippet>999</a>    </span><span class="kw">fn </span>decode_response_body_non_utf8_encoding_header() {
-<a href=#1000 id=1000 data-nosnippet>1000</a>        <span class="kw">let </span>body = <span class="string">b"bytes"</span>.to_vec();
-<a href=#1001 id=1001 data-nosnippet>1001</a>        <span class="kw">let </span>err =
-<a href=#1002 id=1002 data-nosnippet>1002</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_raw_encoding(<span class="kw-2">&amp;</span>[<span class="number">0xff</span>]), body)
-<a href=#1003 id=1003 data-nosnippet>1003</a>                .unwrap_err();
-<a href=#1004 id=1004 data-nosnippet>1004</a>        <span class="kw">let </span>msg = err.to_string();
-<a href=#1005 id=1005 data-nosnippet>1005</a>        <span class="macro">assert!</span>(msg.contains(<span class="string">"non-utf8 content-encoding"</span>));
-<a href=#1006 id=1006 data-nosnippet>1006</a>    }
-<a href=#1007 id=1007 data-nosnippet>1007</a>
-<a href=#1008 id=1008 data-nosnippet>1008</a>    <span class="doccomment">/// Confirm decode_response_body decodes gzip-encoded bodies.
-<a href=#1009 id=1009 data-nosnippet>1009</a>    </span><span class="attr">#[test]
-<a href=#1010 id=1010 data-nosnippet>1010</a>    </span><span class="kw">fn </span>decode_response_body_gzip() {
-<a href=#1011 id=1011 data-nosnippet>1011</a>        <span class="kw">let </span>body = <span class="string">b"gzip-bytes"</span>.to_vec();
-<a href=#1012 id=1012 data-nosnippet>1012</a>        <span class="kw">let </span><span class="kw-2">mut </span>encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-<a href=#1013 id=1013 data-nosnippet>1013</a>        encoder.write_all(<span class="kw-2">&amp;</span>body).unwrap();
-<a href=#1014 id=1014 data-nosnippet>1014</a>        <span class="kw">let </span>encoded = encoder.finish().unwrap();
-<a href=#1015 id=1015 data-nosnippet>1015</a>
-<a href=#1016 id=1016 data-nosnippet>1016</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
-<a href=#1017 id=1017 data-nosnippet>1017</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"gzip"</span>)),
-<a href=#1018 id=1018 data-nosnippet>1018</a>            encoded,
-<a href=#1019 id=1019 data-nosnippet>1019</a>        )
-<a href=#1020 id=1020 data-nosnippet>1020</a>        .unwrap();
-<a href=#1021 id=1021 data-nosnippet>1021</a>        <span class="macro">assert_eq!</span>(decoded, body);
-<a href=#1022 id=1022 data-nosnippet>1022</a>    }
-<a href=#1023 id=1023 data-nosnippet>1023</a>
-<a href=#1024 id=1024 data-nosnippet>1024</a>    <span class="doccomment">/// Confirm decode_response_body ignores identity when combined with other encodings.
-<a href=#1025 id=1025 data-nosnippet>1025</a>    </span><span class="attr">#[test]
-<a href=#1026 id=1026 data-nosnippet>1026</a>    </span><span class="kw">fn </span>decode_response_body_identity_and_gzip() {
-<a href=#1027 id=1027 data-nosnippet>1027</a>        <span class="kw">let </span>body = <span class="string">b"gzip-bytes"</span>.to_vec();
-<a href=#1028 id=1028 data-nosnippet>1028</a>        <span class="kw">let </span><span class="kw-2">mut </span>encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-<a href=#1029 id=1029 data-nosnippet>1029</a>        encoder.write_all(<span class="kw-2">&amp;</span>body).unwrap();
-<a href=#1030 id=1030 data-nosnippet>1030</a>        <span class="kw">let </span>encoded = encoder.finish().unwrap();
-<a href=#1031 id=1031 data-nosnippet>1031</a>
-<a href=#1032 id=1032 data-nosnippet>1032</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
-<a href=#1033 id=1033 data-nosnippet>1033</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"identity, gzip"</span>)),
-<a href=#1034 id=1034 data-nosnippet>1034</a>            encoded,
-<a href=#1035 id=1035 data-nosnippet>1035</a>        )
-<a href=#1036 id=1036 data-nosnippet>1036</a>        .unwrap();
-<a href=#1037 id=1037 data-nosnippet>1037</a>        <span class="macro">assert_eq!</span>(decoded, body);
-<a href=#1038 id=1038 data-nosnippet>1038</a>    }
-<a href=#1039 id=1039 data-nosnippet>1039</a>
-<a href=#1040 id=1040 data-nosnippet>1040</a>    <span class="doccomment">/// Confirm decode_response_body errors on invalid gzip payloads.
-<a href=#1041 id=1041 data-nosnippet>1041</a>    </span><span class="attr">#[test]
-<a href=#1042 id=1042 data-nosnippet>1042</a>    </span><span class="kw">fn </span>decode_response_body_gzip_invalid_payload() {
-<a href=#1043 id=1043 data-nosnippet>1043</a>        <span class="kw">let </span>body = <span class="string">b"not-gzip"</span>.to_vec();
-<a href=#1044 id=1044 data-nosnippet>1044</a>        <span class="kw">let </span>err =
-<a href=#1045 id=1045 data-nosnippet>1045</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"gzip"</span>)), body)
-<a href=#1046 id=1046 data-nosnippet>1046</a>                .unwrap_err();
-<a href=#1047 id=1047 data-nosnippet>1047</a>        <span class="kw">let </span>msg = err.to_string();
-<a href=#1048 id=1048 data-nosnippet>1048</a>        <span class="macro">assert!</span>(msg.contains(<span class="string">"failed to decode response body"</span>));
-<a href=#1049 id=1049 data-nosnippet>1049</a>    }
-<a href=#1050 id=1050 data-nosnippet>1050</a>
-<a href=#1051 id=1051 data-nosnippet>1051</a>    <span class="doccomment">/// Confirm decode_response_body decodes zstd-encoded bodies.
-<a href=#1052 id=1052 data-nosnippet>1052</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#1053 id=1053 data-nosnippet>1053</a>    #[test]
-<a href=#1054 id=1054 data-nosnippet>1054</a>    </span><span class="kw">fn </span>decode_response_body_zstd() {
-<a href=#1055 id=1055 data-nosnippet>1055</a>        <span class="kw">let </span>body = <span class="string">b"zstd-bytes"</span>.to_vec();
-<a href=#1056 id=1056 data-nosnippet>1056</a>        <span class="kw">let </span>encoded = zstd::stream::encode_all(std::io::Cursor::new(<span class="kw-2">&amp;</span>body), <span class="number">0</span>).unwrap();
-<a href=#1057 id=1057 data-nosnippet>1057</a>
-<a href=#1058 id=1058 data-nosnippet>1058</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
-<a href=#1059 id=1059 data-nosnippet>1059</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"zstd"</span>)),
-<a href=#1060 id=1060 data-nosnippet>1060</a>            encoded,
-<a href=#1061 id=1061 data-nosnippet>1061</a>        )
-<a href=#1062 id=1062 data-nosnippet>1062</a>        .unwrap();
-<a href=#1063 id=1063 data-nosnippet>1063</a>        <span class="macro">assert_eq!</span>(decoded, body);
-<a href=#1064 id=1064 data-nosnippet>1064</a>    }
-<a href=#1065 id=1065 data-nosnippet>1065</a>
-<a href=#1066 id=1066 data-nosnippet>1066</a>    <span class="doccomment">/// Confirm decode_response_body errors on invalid zstd payloads.
-<a href=#1067 id=1067 data-nosnippet>1067</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#1068 id=1068 data-nosnippet>1068</a>    #[test]
-<a href=#1069 id=1069 data-nosnippet>1069</a>    </span><span class="kw">fn </span>decode_response_body_zstd_invalid_payload() {
-<a href=#1070 id=1070 data-nosnippet>1070</a>        <span class="kw">let </span>body = <span class="string">b"not-zstd"</span>.to_vec();
-<a href=#1071 id=1071 data-nosnippet>1071</a>        <span class="kw">let </span>err =
-<a href=#1072 id=1072 data-nosnippet>1072</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"zstd"</span>)), body)
-<a href=#1073 id=1073 data-nosnippet>1073</a>                .unwrap_err();
-<a href=#1074 id=1074 data-nosnippet>1074</a>        <span class="kw">let </span>msg = err.to_string();
-<a href=#1075 id=1075 data-nosnippet>1075</a>        <span class="macro">assert!</span>(msg.contains(<span class="string">"failed to decode response body"</span>));
-<a href=#1076 id=1076 data-nosnippet>1076</a>    }
-<a href=#1077 id=1077 data-nosnippet>1077</a>
-<a href=#1078 id=1078 data-nosnippet>1078</a>    <span class="doccomment">/// Confirm decode_response_body decodes layered gzip+zstd-encoded bodies.
-<a href=#1079 id=1079 data-nosnippet>1079</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#1080 id=1080 data-nosnippet>1080</a>    #[test]
-<a href=#1081 id=1081 data-nosnippet>1081</a>    </span><span class="kw">fn </span>decode_response_body_zstd_and_gzip() {
-<a href=#1082 id=1082 data-nosnippet>1082</a>        <span class="kw">let </span>body = <span class="string">b"layered-bytes"</span>.to_vec();
-<a href=#1083 id=1083 data-nosnippet>1083</a>        <span class="kw">let </span><span class="kw-2">mut </span>encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-<a href=#1084 id=1084 data-nosnippet>1084</a>        encoder.write_all(<span class="kw-2">&amp;</span>body).unwrap();
-<a href=#1085 id=1085 data-nosnippet>1085</a>        <span class="kw">let </span>gzipped = encoder.finish().unwrap();
-<a href=#1086 id=1086 data-nosnippet>1086</a>        <span class="kw">let </span>encoded = zstd::stream::encode_all(std::io::Cursor::new(gzipped), <span class="number">0</span>).unwrap();
-<a href=#1087 id=1087 data-nosnippet>1087</a>
-<a href=#1088 id=1088 data-nosnippet>1088</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
-<a href=#1089 id=1089 data-nosnippet>1089</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"gzip, zstd"</span>)),
-<a href=#1090 id=1090 data-nosnippet>1090</a>            encoded,
-<a href=#1091 id=1091 data-nosnippet>1091</a>        )
-<a href=#1092 id=1092 data-nosnippet>1092</a>        .unwrap();
-<a href=#1093 id=1093 data-nosnippet>1093</a>        <span class="macro">assert_eq!</span>(decoded, body);
-<a href=#1094 id=1094 data-nosnippet>1094</a>    }
-<a href=#1095 id=1095 data-nosnippet>1095</a>
-<a href=#1096 id=1096 data-nosnippet>1096</a>    <span class="doccomment">/// Confirm decode_response_body errors on unknown encodings.
-<a href=#1097 id=1097 data-nosnippet>1097</a>    </span><span class="attr">#[test]
-<a href=#1098 id=1098 data-nosnippet>1098</a>    </span><span class="kw">fn </span>decode_response_body_unknown_encoding() {
-<a href=#1099 id=1099 data-nosnippet>1099</a>        <span class="kw">let </span>body = <span class="string">b"weird"</span>.to_vec();
-<a href=#1100 id=1100 data-nosnippet>1100</a>        <span class="kw">let </span>err =
-<a href=#1101 id=1101 data-nosnippet>1101</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"br"</span>)), body)
-<a href=#1102 id=1102 data-nosnippet>1102</a>                .unwrap_err();
-<a href=#1103 id=1103 data-nosnippet>1103</a>        <span class="kw">let </span>msg = err.to_string();
-<a href=#1104 id=1104 data-nosnippet>1104</a>        <span class="macro">assert!</span>(msg.contains(<span class="string">"unsupported content-encoding"</span>));
-<a href=#1105 id=1105 data-nosnippet>1105</a>    }
-<a href=#1106 id=1106 data-nosnippet>1106</a>
-<a href=#1107 id=1107 data-nosnippet>1107</a>    <span class="comment">// NOTE: must be a tokio test because the BuiltinPackageLoader::new()
-<a href=#1108 id=1108 data-nosnippet>1108</a>    // constructor requires a runtime...
-<a href=#1109 id=1109 data-nosnippet>1109</a>    </span><span class="attr">#[tokio::test]
-<a href=#1110 id=1110 data-nosnippet>1110</a>    </span><span class="kw">async fn </span>test_builtin_package_downloader_cache_validation() {
-<a href=#1111 id=1111 data-nosnippet>1111</a>        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
-<a href=#1112 id=1112 data-nosnippet>1112</a>        <span class="kw">let </span>path = dir.path();
-<a href=#1113 id=1113 data-nosnippet>1113</a>
-<a href=#1114 id=1114 data-nosnippet>1114</a>        <span class="kw">let </span>contents = <span class="string">"fail"</span>;
-<a href=#1115 id=1115 data-nosnippet>1115</a>        <span class="kw">let </span>correct_hash = WebcHash::sha256(contents);
-<a href=#1116 id=1116 data-nosnippet>1116</a>        <span class="kw">let </span>used_hash =
-<a href=#1117 id=1117 data-nosnippet>1117</a>            WebcHash::parse_hex(<span class="string">"0000a28ea38a000f3a3328cb7fabe330638d3258affe1a869e3f92986222d997"</span>)
-<a href=#1118 id=1118 data-nosnippet>1118</a>                .unwrap();
-<a href=#1119 id=1119 data-nosnippet>1119</a>        <span class="kw">let </span>filename = <span class="macro">format!</span>(<span class="string">"{}{}"</span>, used_hash, FileSystemCache::FILE_SUFFIX);
-<a href=#1120 id=1120 data-nosnippet>1120</a>        <span class="kw">let </span>file_path = path.join(filename);
-<a href=#1121 id=1121 data-nosnippet>1121</a>        std::fs::write(<span class="kw-2">&amp;</span>file_path, contents).unwrap();
-<a href=#1122 id=1122 data-nosnippet>1122</a>
-<a href=#1123 id=1123 data-nosnippet>1123</a>        <span class="kw">let </span>dl = BuiltinPackageLoader::new().with_cache_dir(path);
-<a href=#1124 id=1124 data-nosnippet>1124</a>
-<a href=#1125 id=1125 data-nosnippet>1125</a>        <span class="kw">let </span>errors = dl
-<a href=#1126 id=1126 data-nosnippet>1126</a>            .validate_cache(CacheValidationMode::PruneOnMismatch)
-<a href=#1127 id=1127 data-nosnippet>1127</a>            .unwrap();
-<a href=#1128 id=1128 data-nosnippet>1128</a>        <span class="macro">assert_eq!</span>(errors.len(), <span class="number">1</span>);
-<a href=#1129 id=1129 data-nosnippet>1129</a>        <span class="macro">assert_eq!</span>(errors[<span class="number">0</span>].actual_hash, correct_hash);
-<a href=#1130 id=1130 data-nosnippet>1130</a>        <span class="macro">assert_eq!</span>(errors[<span class="number">0</span>].expected_hash, used_hash);
-<a href=#1131 id=1131 data-nosnippet>1131</a>
-<a href=#1132 id=1132 data-nosnippet>1132</a>        <span class="macro">assert_eq!</span>(file_path.exists(), <span class="bool-val">false</span>);
-<a href=#1133 id=1133 data-nosnippet>1133</a>    }
-<a href=#1134 id=1134 data-nosnippet>1134</a>
-<a href=#1135 id=1135 data-nosnippet>1135</a>    <span class="attr">#[tokio::test]
-<a href=#1136 id=1136 data-nosnippet>1136</a>    </span><span class="kw">async fn </span>test_file_cache_scan_retain() {
-<a href=#1137 id=1137 data-nosnippet>1137</a>        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
-<a href=#1138 id=1138 data-nosnippet>1138</a>        <span class="kw">let </span>path = dir.path();
-<a href=#1139 id=1139 data-nosnippet>1139</a>
-<a href=#1140 id=1140 data-nosnippet>1140</a>        <span class="kw">let </span>cache = FileSystemCache {
-<a href=#1141 id=1141 data-nosnippet>1141</a>            cache_dir: path.to_path_buf(),
-<a href=#1142 id=1142 data-nosnippet>1142</a>        };
-<a href=#1143 id=1143 data-nosnippet>1143</a>
-<a href=#1144 id=1144 data-nosnippet>1144</a>        {
-<a href=#1145 id=1145 data-nosnippet>1145</a>            <span class="kw">let </span>state = cache
-<a href=#1146 id=1146 data-nosnippet>1146</a>                .scan(<span class="number">0u64</span>, |state: <span class="kw-2">&amp;mut </span>u64, _entry| {
-<a href=#1147 id=1147 data-nosnippet>1147</a>                    <span class="kw-2">*</span>state += <span class="number">1</span>;
-<a href=#1148 id=1148 data-nosnippet>1148</a>                    <span class="prelude-val">Ok</span>(())
-<a href=#1149 id=1149 data-nosnippet>1149</a>                })
-<a href=#1150 id=1150 data-nosnippet>1150</a>                .<span class="kw">await
-<a href=#1151 id=1151 data-nosnippet>1151</a>                </span>.unwrap();
-<a href=#1152 id=1152 data-nosnippet>1152</a>
-<a href=#1153 id=1153 data-nosnippet>1153</a>            <span class="macro">assert_eq!</span>(state, <span class="number">0</span>);
-<a href=#1154 id=1154 data-nosnippet>1154</a>        }
-<a href=#1155 id=1155 data-nosnippet>1155</a>
-<a href=#1156 id=1156 data-nosnippet>1156</a>        <span class="kw">let </span>path1 = cache
-<a href=#1157 id=1157 data-nosnippet>1157</a>            .save(
-<a href=#1158 id=1158 data-nosnippet>1158</a>                Bytes::from_static(<span class="string">b"test1"</span>),
-<a href=#1159 id=1159 data-nosnippet>1159</a>                <span class="kw-2">&amp;</span>DistributionInfo {
-<a href=#1160 id=1160 data-nosnippet>1160</a>                    webc: Url::parse(<span class="string">"file:///test1.webc"</span>).unwrap(),
-<a href=#1161 id=1161 data-nosnippet>1161</a>                    webc_sha256: WebcHash::sha256(<span class="string">b"test1"</span>),
-<a href=#1162 id=1162 data-nosnippet>1162</a>                },
-<a href=#1163 id=1163 data-nosnippet>1163</a>            )
-<a href=#1164 id=1164 data-nosnippet>1164</a>            .<span class="kw">await
-<a href=#1165 id=1165 data-nosnippet>1165</a>            </span>.unwrap();
-<a href=#1166 id=1166 data-nosnippet>1166</a>        <span class="kw">let </span>path2 = cache
-<a href=#1167 id=1167 data-nosnippet>1167</a>            .save(
-<a href=#1168 id=1168 data-nosnippet>1168</a>                Bytes::from_static(<span class="string">b"test2"</span>),
-<a href=#1169 id=1169 data-nosnippet>1169</a>                <span class="kw-2">&amp;</span>DistributionInfo {
-<a href=#1170 id=1170 data-nosnippet>1170</a>                    webc: Url::parse(<span class="string">"file:///test2.webc"</span>).unwrap(),
-<a href=#1171 id=1171 data-nosnippet>1171</a>                    webc_sha256: WebcHash::sha256(<span class="string">b"test2"</span>),
-<a href=#1172 id=1172 data-nosnippet>1172</a>                },
-<a href=#1173 id=1173 data-nosnippet>1173</a>            )
-<a href=#1174 id=1174 data-nosnippet>1174</a>            .<span class="kw">await
-<a href=#1175 id=1175 data-nosnippet>1175</a>            </span>.unwrap();
-<a href=#1176 id=1176 data-nosnippet>1176</a>
-<a href=#1177 id=1177 data-nosnippet>1177</a>        {
-<a href=#1178 id=1178 data-nosnippet>1178</a>            <span class="kw">let </span>path1 = path1.clone();
-<a href=#1179 id=1179 data-nosnippet>1179</a>            <span class="kw">let </span>path2 = path2.clone();
-<a href=#1180 id=1180 data-nosnippet>1180</a>            <span class="kw">let </span>state = cache
-<a href=#1181 id=1181 data-nosnippet>1181</a>                .scan(<span class="number">0u64</span>, <span class="kw">move </span>|state: <span class="kw-2">&amp;mut </span>u64, entry| {
-<a href=#1182 id=1182 data-nosnippet>1182</a>                    <span class="kw-2">*</span>state += <span class="number">1</span>;
-<a href=#1183 id=1183 data-nosnippet>1183</a>                    <span class="macro">assert!</span>(entry.path() == path1 || entry.path() == path2);
-<a href=#1184 id=1184 data-nosnippet>1184</a>                    <span class="prelude-val">Ok</span>(())
-<a href=#1185 id=1185 data-nosnippet>1185</a>                })
-<a href=#1186 id=1186 data-nosnippet>1186</a>                .<span class="kw">await
-<a href=#1187 id=1187 data-nosnippet>1187</a>                </span>.unwrap();
-<a href=#1188 id=1188 data-nosnippet>1188</a>
-<a href=#1189 id=1189 data-nosnippet>1189</a>            <span class="macro">assert_eq!</span>(state, <span class="number">2</span>);
-<a href=#1190 id=1190 data-nosnippet>1190</a>        }
-<a href=#1191 id=1191 data-nosnippet>1191</a>
-<a href=#1192 id=1192 data-nosnippet>1192</a>        {
-<a href=#1193 id=1193 data-nosnippet>1193</a>            <span class="kw">let </span>path1 = path1.clone();
-<a href=#1194 id=1194 data-nosnippet>1194</a>            <span class="kw">let </span>state = cache
-<a href=#1195 id=1195 data-nosnippet>1195</a>                .retain(<span class="number">0u64</span>, <span class="kw">move </span>|state: <span class="kw-2">&amp;mut </span>u64, entry| {
-<a href=#1196 id=1196 data-nosnippet>1196</a>                    <span class="kw-2">*</span>state += <span class="number">1</span>;
-<a href=#1197 id=1197 data-nosnippet>1197</a>                    <span class="prelude-val">Ok</span>(entry.path() == path1)
-<a href=#1198 id=1198 data-nosnippet>1198</a>                })
-<a href=#1199 id=1199 data-nosnippet>1199</a>                .<span class="kw">await
-<a href=#1200 id=1200 data-nosnippet>1200</a>                </span>.unwrap();
-<a href=#1201 id=1201 data-nosnippet>1201</a>            <span class="macro">assert_eq!</span>(state, <span class="number">2</span>);
-<a href=#1202 id=1202 data-nosnippet>1202</a>        }
-<a href=#1203 id=1203 data-nosnippet>1203</a>
-<a href=#1204 id=1204 data-nosnippet>1204</a>        <span class="macro">assert!</span>(path1.exists());
-<a href=#1205 id=1205 data-nosnippet>1205</a>        <span class="macro">assert!</span>(!path2.exists(), <span class="string">"Path 2 should have been deleted"</span>);
-<a href=#1206 id=1206 data-nosnippet>1206</a>
-<a href=#1207 id=1207 data-nosnippet>1207</a>        {
-<a href=#1208 id=1208 data-nosnippet>1208</a>            <span class="kw">let </span>path1 = path1.clone();
-<a href=#1209 id=1209 data-nosnippet>1209</a>            <span class="kw">let </span>state = cache
-<a href=#1210 id=1210 data-nosnippet>1210</a>                .scan(<span class="number">0u64</span>, <span class="kw">move </span>|state: <span class="kw-2">&amp;mut </span>u64, entry| {
-<a href=#1211 id=1211 data-nosnippet>1211</a>                    <span class="kw-2">*</span>state += <span class="number">1</span>;
-<a href=#1212 id=1212 data-nosnippet>1212</a>                    <span class="macro">assert!</span>(entry.path() == path1);
-<a href=#1213 id=1213 data-nosnippet>1213</a>                    <span class="prelude-val">Ok</span>(())
-<a href=#1214 id=1214 data-nosnippet>1214</a>                })
-<a href=#1215 id=1215 data-nosnippet>1215</a>                .<span class="kw">await
-<a href=#1216 id=1216 data-nosnippet>1216</a>                </span>.unwrap();
-<a href=#1217 id=1217 data-nosnippet>1217</a>            <span class="macro">assert_eq!</span>(state, <span class="number">1</span>);
-<a href=#1218 id=1218 data-nosnippet>1218</a>        }
-<a href=#1219 id=1219 data-nosnippet>1219</a>    }
-<a href=#1220 id=1220 data-nosnippet>1220</a>}</code></pre></div></section></main></body></html>
+<a href=#800 id=800 data-nosnippet>800</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] =
+<a href=#801 id=801 data-nosnippet>801</a>        <span class="macro">include_bytes!</span>(<span class="string">"../../../../../wasmer-test-files/examples/python-0.1.0.wasmer"</span>);
+<a href=#802 id=802 data-nosnippet>802</a>
+<a href=#803 id=803 data-nosnippet>803</a>    <span class="attr">#[derive(Debug)]
+<a href=#804 id=804 data-nosnippet>804</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DummyClient {
+<a href=#805 id=805 data-nosnippet>805</a>        requests: Mutex&lt;Vec&lt;HttpRequest&gt;&gt;,
+<a href=#806 id=806 data-nosnippet>806</a>        responses: Mutex&lt;VecDeque&lt;HttpResponse&gt;&gt;,
+<a href=#807 id=807 data-nosnippet>807</a>    }
+<a href=#808 id=808 data-nosnippet>808</a>
+<a href=#809 id=809 data-nosnippet>809</a>    <span class="kw">impl </span>DummyClient {
+<a href=#810 id=810 data-nosnippet>810</a>        <span class="kw">pub fn </span>with_responses(responses: <span class="kw">impl </span>IntoIterator&lt;Item = HttpResponse&gt;) -&gt; <span class="self">Self </span>{
+<a href=#811 id=811 data-nosnippet>811</a>            DummyClient {
+<a href=#812 id=812 data-nosnippet>812</a>                requests: Mutex::new(Vec::new()),
+<a href=#813 id=813 data-nosnippet>813</a>                responses: Mutex::new(responses.into_iter().collect()),
+<a href=#814 id=814 data-nosnippet>814</a>            }
+<a href=#815 id=815 data-nosnippet>815</a>        }
+<a href=#816 id=816 data-nosnippet>816</a>    }
+<a href=#817 id=817 data-nosnippet>817</a>
+<a href=#818 id=818 data-nosnippet>818</a>    <span class="kw">impl </span>HttpClient <span class="kw">for </span>DummyClient {
+<a href=#819 id=819 data-nosnippet>819</a>        <span class="kw">fn </span>request(
+<a href=#820 id=820 data-nosnippet>820</a>            <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#821 id=821 data-nosnippet>821</a>            request: HttpRequest,
+<a href=#822 id=822 data-nosnippet>822</a>        ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
+<a href=#823 id=823 data-nosnippet>823</a>            <span class="kw">let </span>response = <span class="self">self</span>.responses.lock().unwrap().pop_front().unwrap();
+<a href=#824 id=824 data-nosnippet>824</a>            <span class="self">self</span>.requests.lock().unwrap().push(request);
+<a href=#825 id=825 data-nosnippet>825</a>            Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(response) })
+<a href=#826 id=826 data-nosnippet>826</a>        }
+<a href=#827 id=827 data-nosnippet>827</a>    }
+<a href=#828 id=828 data-nosnippet>828</a>
+<a href=#829 id=829 data-nosnippet>829</a>    <span class="kw">async fn </span>cache_misses_will_trigger_a_download_internal() {
+<a href=#830 id=830 data-nosnippet>830</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#831 id=831 data-nosnippet>831</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([HttpResponse {
+<a href=#832 id=832 data-nosnippet>832</a>            body: <span class="prelude-val">Some</span>(PYTHON.to_vec()),
+<a href=#833 id=833 data-nosnippet>833</a>            redirected: <span class="bool-val">false</span>,
+<a href=#834 id=834 data-nosnippet>834</a>            status: StatusCode::OK,
+<a href=#835 id=835 data-nosnippet>835</a>            headers: HeaderMap::new(),
+<a href=#836 id=836 data-nosnippet>836</a>        }]));
+<a href=#837 id=837 data-nosnippet>837</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
+<a href=#838 id=838 data-nosnippet>838</a>            .with_cache_dir(temp.path())
+<a href=#839 id=839 data-nosnippet>839</a>            .with_shared_http_client(client.clone());
+<a href=#840 id=840 data-nosnippet>840</a>        <span class="kw">let </span>summary = PackageSummary {
+<a href=#841 id=841 data-nosnippet>841</a>            pkg: PackageInfo {
+<a href=#842 id=842 data-nosnippet>842</a>                id: PackageId::new_named(<span class="string">"python/python"</span>, <span class="string">"0.1.0"</span>.parse().unwrap()),
+<a href=#843 id=843 data-nosnippet>843</a>                dependencies: Vec::new(),
+<a href=#844 id=844 data-nosnippet>844</a>                commands: Vec::new(),
+<a href=#845 id=845 data-nosnippet>845</a>                entrypoint: <span class="prelude-val">Some</span>(<span class="string">"asdf"</span>.to_string()),
+<a href=#846 id=846 data-nosnippet>846</a>                filesystem: Vec::new(),
+<a href=#847 id=847 data-nosnippet>847</a>            },
+<a href=#848 id=848 data-nosnippet>848</a>            dist: DistributionInfo {
+<a href=#849 id=849 data-nosnippet>849</a>                webc: <span class="string">"https://wasmer.io/python/python"</span>.parse().unwrap(),
+<a href=#850 id=850 data-nosnippet>850</a>                webc_sha256: [<span class="number">0xaa</span>; <span class="number">32</span>].into(),
+<a href=#851 id=851 data-nosnippet>851</a>            },
+<a href=#852 id=852 data-nosnippet>852</a>        };
+<a href=#853 id=853 data-nosnippet>853</a>
+<a href=#854 id=854 data-nosnippet>854</a>        <span class="kw">let </span>container = loader.load(<span class="kw-2">&amp;</span>summary).<span class="kw">await</span>.unwrap();
+<a href=#855 id=855 data-nosnippet>855</a>
+<a href=#856 id=856 data-nosnippet>856</a>        <span class="comment">// A HTTP request was sent
+<a href=#857 id=857 data-nosnippet>857</a>        </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
+<a href=#858 id=858 data-nosnippet>858</a>        <span class="kw">let </span>request = <span class="kw-2">&amp;</span>requests[<span class="number">0</span>];
+<a href=#859 id=859 data-nosnippet>859</a>        <span class="macro">assert_eq!</span>(request.url, summary.dist.webc);
+<a href=#860 id=860 data-nosnippet>860</a>        <span class="macro">assert_eq!</span>(request.method, <span class="string">"GET"</span>);
+<a href=#861 id=861 data-nosnippet>861</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#862 id=862 data-nosnippet>862</a>        </span>{
+<a href=#863 id=863 data-nosnippet>863</a>            <span class="macro">assert_eq!</span>(request.headers.len(), <span class="number">3</span>);
+<a href=#864 id=864 data-nosnippet>864</a>            <span class="macro">assert_eq!</span>(request.headers[<span class="string">"Accept-Encoding"</span>], <span class="string">"zstd;q=1.0, gzip;q=0.8"</span>);
+<a href=#865 id=865 data-nosnippet>865</a>        }
+<a href=#866 id=866 data-nosnippet>866</a>        <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
+<a href=#867 id=867 data-nosnippet>867</a>        </span>{
+<a href=#868 id=868 data-nosnippet>868</a>            <span class="macro">assert_eq!</span>(request.headers.len(), <span class="number">2</span>);
+<a href=#869 id=869 data-nosnippet>869</a>            <span class="macro">assert!</span>(!request.headers.contains_key(http::header::ACCEPT_ENCODING));
+<a href=#870 id=870 data-nosnippet>870</a>        }
+<a href=#871 id=871 data-nosnippet>871</a>        <span class="macro">assert_eq!</span>(request.headers[<span class="string">"Accept"</span>], <span class="string">"application/webc"</span>);
+<a href=#872 id=872 data-nosnippet>872</a>        <span class="macro">assert_eq!</span>(request.headers[<span class="string">"User-Agent"</span>], USER_AGENT);
+<a href=#873 id=873 data-nosnippet>873</a>        <span class="comment">// Make sure we got the right package
+<a href=#874 id=874 data-nosnippet>874</a>        </span><span class="kw">let </span>manifest = container.manifest();
+<a href=#875 id=875 data-nosnippet>875</a>        <span class="macro">assert_eq!</span>(manifest.entrypoint.as_deref(), <span class="prelude-val">Some</span>(<span class="string">"python"</span>));
+<a href=#876 id=876 data-nosnippet>876</a>        <span class="comment">// it should have been automatically saved to disk
+<a href=#877 id=877 data-nosnippet>877</a>        </span><span class="kw">let </span>path = loader
+<a href=#878 id=878 data-nosnippet>878</a>            .cache
+<a href=#879 id=879 data-nosnippet>879</a>            .as_ref()
+<a href=#880 id=880 data-nosnippet>880</a>            .unwrap()
+<a href=#881 id=881 data-nosnippet>881</a>            .path(<span class="kw-2">&amp;</span>summary.dist.webc_sha256);
+<a href=#882 id=882 data-nosnippet>882</a>        <span class="macro">assert!</span>(path.exists());
+<a href=#883 id=883 data-nosnippet>883</a>        <span class="macro">assert_eq!</span>(std::fs::read(<span class="kw-2">&amp;</span>path).unwrap(), PYTHON);
+<a href=#884 id=884 data-nosnippet>884</a>        <span class="comment">// and cached in memory for next time
+<a href=#885 id=885 data-nosnippet>885</a>        </span><span class="kw">let </span>in_memory = loader.in_memory.as_ref().unwrap().<span class="number">0</span>.read().unwrap();
+<a href=#886 id=886 data-nosnippet>886</a>        <span class="macro">assert!</span>(in_memory.contains_key(<span class="kw-2">&amp;</span>summary.dist.webc_sha256));
+<a href=#887 id=887 data-nosnippet>887</a>    }
+<a href=#888 id=888 data-nosnippet>888</a>
+<a href=#889 id=889 data-nosnippet>889</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#890 id=890 data-nosnippet>890</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
+<a href=#891 id=891 data-nosnippet>891</a>    </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
+<a href=#892 id=892 data-nosnippet>892</a>        cache_misses_will_trigger_a_download_internal().<span class="kw">await
+<a href=#893 id=893 data-nosnippet>893</a>    </span>}
+<a href=#894 id=894 data-nosnippet>894</a>
+<a href=#895 id=895 data-nosnippet>895</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#896 id=896 data-nosnippet>896</a>    #[tokio::test]
+<a href=#897 id=897 data-nosnippet>897</a>    </span><span class="kw">async fn </span>can_disable_in_memory_cache() {
+<a href=#898 id=898 data-nosnippet>898</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#899 id=899 data-nosnippet>899</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([HttpResponse {
+<a href=#900 id=900 data-nosnippet>900</a>            body: <span class="prelude-val">Some</span>(PYTHON.to_vec()),
+<a href=#901 id=901 data-nosnippet>901</a>            redirected: <span class="bool-val">false</span>,
+<a href=#902 id=902 data-nosnippet>902</a>            status: StatusCode::OK,
+<a href=#903 id=903 data-nosnippet>903</a>            headers: HeaderMap::new(),
+<a href=#904 id=904 data-nosnippet>904</a>        }]));
+<a href=#905 id=905 data-nosnippet>905</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
+<a href=#906 id=906 data-nosnippet>906</a>            .with_cache_dir(temp.path())
+<a href=#907 id=907 data-nosnippet>907</a>            .without_in_memory_cache()
+<a href=#908 id=908 data-nosnippet>908</a>            .with_shared_http_client(client);
+<a href=#909 id=909 data-nosnippet>909</a>        <span class="kw">let </span>summary = PackageSummary {
+<a href=#910 id=910 data-nosnippet>910</a>            pkg: PackageInfo {
+<a href=#911 id=911 data-nosnippet>911</a>                id: PackageId::new_named(<span class="string">"python/python"</span>, <span class="string">"0.1.0"</span>.parse().unwrap()),
+<a href=#912 id=912 data-nosnippet>912</a>                dependencies: Vec::new(),
+<a href=#913 id=913 data-nosnippet>913</a>                commands: Vec::new(),
+<a href=#914 id=914 data-nosnippet>914</a>                entrypoint: <span class="prelude-val">Some</span>(<span class="string">"asdf"</span>.to_string()),
+<a href=#915 id=915 data-nosnippet>915</a>                filesystem: Vec::new(),
+<a href=#916 id=916 data-nosnippet>916</a>            },
+<a href=#917 id=917 data-nosnippet>917</a>            dist: DistributionInfo {
+<a href=#918 id=918 data-nosnippet>918</a>                webc: <span class="string">"https://wasmer.io/python/python"</span>.parse().unwrap(),
+<a href=#919 id=919 data-nosnippet>919</a>                webc_sha256: [<span class="number">0xbb</span>; <span class="number">32</span>].into(),
+<a href=#920 id=920 data-nosnippet>920</a>            },
+<a href=#921 id=921 data-nosnippet>921</a>        };
+<a href=#922 id=922 data-nosnippet>922</a>
+<a href=#923 id=923 data-nosnippet>923</a>        loader.load(<span class="kw-2">&amp;</span>summary).<span class="kw">await</span>.unwrap();
+<a href=#924 id=924 data-nosnippet>924</a>
+<a href=#925 id=925 data-nosnippet>925</a>        <span class="macro">assert!</span>(loader.in_memory.is_none());
+<a href=#926 id=926 data-nosnippet>926</a>    }
+<a href=#927 id=927 data-nosnippet>927</a>
+<a href=#928 id=928 data-nosnippet>928</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
+<a href=#929 id=929 data-nosnippet>929</a>    #[tokio::test()]
+<a href=#930 id=930 data-nosnippet>930</a>    </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
+<a href=#931 id=931 data-nosnippet>931</a>        cache_misses_will_trigger_a_download_internal().<span class="kw">await
+<a href=#932 id=932 data-nosnippet>932</a>    </span>}
+<a href=#933 id=933 data-nosnippet>933</a>
+<a href=#934 id=934 data-nosnippet>934</a>    <span class="attr">#[tokio::test]
+<a href=#935 id=935 data-nosnippet>935</a>    </span><span class="kw">async fn </span>evict_cached_removes_in_memory_container() {
+<a href=#936 id=936 data-nosnippet>936</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new();
+<a href=#937 id=937 data-nosnippet>937</a>        <span class="kw">let </span>container = from_bytes(PYTHON).unwrap();
+<a href=#938 id=938 data-nosnippet>938</a>        <span class="kw">let </span>hash: WebcHash = [<span class="number">0xaa</span>; <span class="number">32</span>].into();
+<a href=#939 id=939 data-nosnippet>939</a>        loader.insert_cached(hash, <span class="kw-2">&amp;</span>container);
+<a href=#940 id=940 data-nosnippet>940</a>        <span class="kw">let </span>evicted = loader.evict_cached(<span class="kw-2">&amp;</span>hash);
+<a href=#941 id=941 data-nosnippet>941</a>        <span class="macro">assert!</span>(evicted.is_some());
+<a href=#942 id=942 data-nosnippet>942</a>        {
+<a href=#943 id=943 data-nosnippet>943</a>            <span class="kw">let </span>in_memory = loader.in_memory.as_ref().unwrap().<span class="number">0</span>.read().unwrap();
+<a href=#944 id=944 data-nosnippet>944</a>            <span class="macro">assert!</span>(!in_memory.contains_key(<span class="kw-2">&amp;</span>hash));
+<a href=#945 id=945 data-nosnippet>945</a>        }
+<a href=#946 id=946 data-nosnippet>946</a>        <span class="macro">assert!</span>(loader.evict_cached(<span class="kw-2">&amp;</span>hash).is_none());
+<a href=#947 id=947 data-nosnippet>947</a>    }
+<a href=#948 id=948 data-nosnippet>948</a>
+<a href=#949 id=949 data-nosnippet>949</a>    <span class="doccomment">/// Small helper to construct headers with a given content-encoding.
+<a href=#950 id=950 data-nosnippet>950</a>    </span><span class="kw">fn </span>headers_with_encoding(content_encoding: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; HeaderMap {
+<a href=#951 id=951 data-nosnippet>951</a>        <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::new();
+<a href=#952 id=952 data-nosnippet>952</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(value) = content_encoding {
+<a href=#953 id=953 data-nosnippet>953</a>            headers.insert(http::header::CONTENT_ENCODING, value.parse().unwrap());
+<a href=#954 id=954 data-nosnippet>954</a>        }
+<a href=#955 id=955 data-nosnippet>955</a>        headers
+<a href=#956 id=956 data-nosnippet>956</a>    }
+<a href=#957 id=957 data-nosnippet>957</a>
+<a href=#958 id=958 data-nosnippet>958</a>    <span class="doccomment">/// Small helper to construct headers with a raw content-encoding value.
+<a href=#959 id=959 data-nosnippet>959</a>    </span><span class="kw">fn </span>headers_with_raw_encoding(value: <span class="kw-2">&amp;</span>[u8]) -&gt; HeaderMap {
+<a href=#960 id=960 data-nosnippet>960</a>        <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::new();
+<a href=#961 id=961 data-nosnippet>961</a>        headers.insert(
+<a href=#962 id=962 data-nosnippet>962</a>            http::header::CONTENT_ENCODING,
+<a href=#963 id=963 data-nosnippet>963</a>            HeaderValue::from_bytes(value).unwrap(),
+<a href=#964 id=964 data-nosnippet>964</a>        );
+<a href=#965 id=965 data-nosnippet>965</a>        headers
+<a href=#966 id=966 data-nosnippet>966</a>    }
+<a href=#967 id=967 data-nosnippet>967</a>
+<a href=#968 id=968 data-nosnippet>968</a>    <span class="doccomment">/// Confirm decode_response_body passes through unencoded bodies unchanged.
+<a href=#969 id=969 data-nosnippet>969</a>    </span><span class="attr">#[test]
+<a href=#970 id=970 data-nosnippet>970</a>    </span><span class="kw">fn </span>decode_response_body_passthrough() {
+<a href=#971 id=971 data-nosnippet>971</a>        <span class="kw">let </span>body = <span class="string">b"plain-bytes"</span>.to_vec();
+<a href=#972 id=972 data-nosnippet>972</a>
+<a href=#973 id=973 data-nosnippet>973</a>        <span class="kw">let </span>decoded =
+<a href=#974 id=974 data-nosnippet>974</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">None</span>), body.clone())
+<a href=#975 id=975 data-nosnippet>975</a>                .unwrap();
+<a href=#976 id=976 data-nosnippet>976</a>        <span class="macro">assert_eq!</span>(decoded, body);
+<a href=#977 id=977 data-nosnippet>977</a>
+<a href=#978 id=978 data-nosnippet>978</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
+<a href=#979 id=979 data-nosnippet>979</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"identity"</span>)),
+<a href=#980 id=980 data-nosnippet>980</a>            body.clone(),
+<a href=#981 id=981 data-nosnippet>981</a>        )
+<a href=#982 id=982 data-nosnippet>982</a>        .unwrap();
+<a href=#983 id=983 data-nosnippet>983</a>        <span class="macro">assert_eq!</span>(decoded, body);
+<a href=#984 id=984 data-nosnippet>984</a>    }
+<a href=#985 id=985 data-nosnippet>985</a>
+<a href=#986 id=986 data-nosnippet>986</a>    <span class="doccomment">/// Confirm decode_response_body treats empty/whitespace encoding lists as no encoding.
+<a href=#987 id=987 data-nosnippet>987</a>    </span><span class="attr">#[test]
+<a href=#988 id=988 data-nosnippet>988</a>    </span><span class="kw">fn </span>decode_response_body_empty_encoding_list() {
+<a href=#989 id=989 data-nosnippet>989</a>        <span class="kw">let </span>body = <span class="string">b"plain-bytes"</span>.to_vec();
+<a href=#990 id=990 data-nosnippet>990</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
+<a href=#991 id=991 data-nosnippet>991</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">" , , "</span>)),
+<a href=#992 id=992 data-nosnippet>992</a>            body.clone(),
+<a href=#993 id=993 data-nosnippet>993</a>        )
+<a href=#994 id=994 data-nosnippet>994</a>        .unwrap();
+<a href=#995 id=995 data-nosnippet>995</a>        <span class="macro">assert_eq!</span>(decoded, body);
+<a href=#996 id=996 data-nosnippet>996</a>    }
+<a href=#997 id=997 data-nosnippet>997</a>
+<a href=#998 id=998 data-nosnippet>998</a>    <span class="doccomment">/// Confirm decode_response_body errors on non-utf8 content-encoding headers.
+<a href=#999 id=999 data-nosnippet>999</a>    </span><span class="attr">#[test]
+<a href=#1000 id=1000 data-nosnippet>1000</a>    </span><span class="kw">fn </span>decode_response_body_non_utf8_encoding_header() {
+<a href=#1001 id=1001 data-nosnippet>1001</a>        <span class="kw">let </span>body = <span class="string">b"bytes"</span>.to_vec();
+<a href=#1002 id=1002 data-nosnippet>1002</a>        <span class="kw">let </span>err =
+<a href=#1003 id=1003 data-nosnippet>1003</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_raw_encoding(<span class="kw-2">&amp;</span>[<span class="number">0xff</span>]), body)
+<a href=#1004 id=1004 data-nosnippet>1004</a>                .unwrap_err();
+<a href=#1005 id=1005 data-nosnippet>1005</a>        <span class="kw">let </span>msg = err.to_string();
+<a href=#1006 id=1006 data-nosnippet>1006</a>        <span class="macro">assert!</span>(msg.contains(<span class="string">"non-utf8 content-encoding"</span>));
+<a href=#1007 id=1007 data-nosnippet>1007</a>    }
+<a href=#1008 id=1008 data-nosnippet>1008</a>
+<a href=#1009 id=1009 data-nosnippet>1009</a>    <span class="doccomment">/// Confirm decode_response_body decodes gzip-encoded bodies.
+<a href=#1010 id=1010 data-nosnippet>1010</a>    </span><span class="attr">#[test]
+<a href=#1011 id=1011 data-nosnippet>1011</a>    </span><span class="kw">fn </span>decode_response_body_gzip() {
+<a href=#1012 id=1012 data-nosnippet>1012</a>        <span class="kw">let </span>body = <span class="string">b"gzip-bytes"</span>.to_vec();
+<a href=#1013 id=1013 data-nosnippet>1013</a>        <span class="kw">let </span><span class="kw-2">mut </span>encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+<a href=#1014 id=1014 data-nosnippet>1014</a>        encoder.write_all(<span class="kw-2">&amp;</span>body).unwrap();
+<a href=#1015 id=1015 data-nosnippet>1015</a>        <span class="kw">let </span>encoded = encoder.finish().unwrap();
+<a href=#1016 id=1016 data-nosnippet>1016</a>
+<a href=#1017 id=1017 data-nosnippet>1017</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
+<a href=#1018 id=1018 data-nosnippet>1018</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"gzip"</span>)),
+<a href=#1019 id=1019 data-nosnippet>1019</a>            encoded,
+<a href=#1020 id=1020 data-nosnippet>1020</a>        )
+<a href=#1021 id=1021 data-nosnippet>1021</a>        .unwrap();
+<a href=#1022 id=1022 data-nosnippet>1022</a>        <span class="macro">assert_eq!</span>(decoded, body);
+<a href=#1023 id=1023 data-nosnippet>1023</a>    }
+<a href=#1024 id=1024 data-nosnippet>1024</a>
+<a href=#1025 id=1025 data-nosnippet>1025</a>    <span class="doccomment">/// Confirm decode_response_body ignores identity when combined with other encodings.
+<a href=#1026 id=1026 data-nosnippet>1026</a>    </span><span class="attr">#[test]
+<a href=#1027 id=1027 data-nosnippet>1027</a>    </span><span class="kw">fn </span>decode_response_body_identity_and_gzip() {
+<a href=#1028 id=1028 data-nosnippet>1028</a>        <span class="kw">let </span>body = <span class="string">b"gzip-bytes"</span>.to_vec();
+<a href=#1029 id=1029 data-nosnippet>1029</a>        <span class="kw">let </span><span class="kw-2">mut </span>encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+<a href=#1030 id=1030 data-nosnippet>1030</a>        encoder.write_all(<span class="kw-2">&amp;</span>body).unwrap();
+<a href=#1031 id=1031 data-nosnippet>1031</a>        <span class="kw">let </span>encoded = encoder.finish().unwrap();
+<a href=#1032 id=1032 data-nosnippet>1032</a>
+<a href=#1033 id=1033 data-nosnippet>1033</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
+<a href=#1034 id=1034 data-nosnippet>1034</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"identity, gzip"</span>)),
+<a href=#1035 id=1035 data-nosnippet>1035</a>            encoded,
+<a href=#1036 id=1036 data-nosnippet>1036</a>        )
+<a href=#1037 id=1037 data-nosnippet>1037</a>        .unwrap();
+<a href=#1038 id=1038 data-nosnippet>1038</a>        <span class="macro">assert_eq!</span>(decoded, body);
+<a href=#1039 id=1039 data-nosnippet>1039</a>    }
+<a href=#1040 id=1040 data-nosnippet>1040</a>
+<a href=#1041 id=1041 data-nosnippet>1041</a>    <span class="doccomment">/// Confirm decode_response_body errors on invalid gzip payloads.
+<a href=#1042 id=1042 data-nosnippet>1042</a>    </span><span class="attr">#[test]
+<a href=#1043 id=1043 data-nosnippet>1043</a>    </span><span class="kw">fn </span>decode_response_body_gzip_invalid_payload() {
+<a href=#1044 id=1044 data-nosnippet>1044</a>        <span class="kw">let </span>body = <span class="string">b"not-gzip"</span>.to_vec();
+<a href=#1045 id=1045 data-nosnippet>1045</a>        <span class="kw">let </span>err =
+<a href=#1046 id=1046 data-nosnippet>1046</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"gzip"</span>)), body)
+<a href=#1047 id=1047 data-nosnippet>1047</a>                .unwrap_err();
+<a href=#1048 id=1048 data-nosnippet>1048</a>        <span class="kw">let </span>msg = err.to_string();
+<a href=#1049 id=1049 data-nosnippet>1049</a>        <span class="macro">assert!</span>(msg.contains(<span class="string">"failed to decode response body"</span>));
+<a href=#1050 id=1050 data-nosnippet>1050</a>    }
+<a href=#1051 id=1051 data-nosnippet>1051</a>
+<a href=#1052 id=1052 data-nosnippet>1052</a>    <span class="doccomment">/// Confirm decode_response_body decodes zstd-encoded bodies.
+<a href=#1053 id=1053 data-nosnippet>1053</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#1054 id=1054 data-nosnippet>1054</a>    #[test]
+<a href=#1055 id=1055 data-nosnippet>1055</a>    </span><span class="kw">fn </span>decode_response_body_zstd() {
+<a href=#1056 id=1056 data-nosnippet>1056</a>        <span class="kw">let </span>body = <span class="string">b"zstd-bytes"</span>.to_vec();
+<a href=#1057 id=1057 data-nosnippet>1057</a>        <span class="kw">let </span>encoded = zstd::stream::encode_all(std::io::Cursor::new(<span class="kw-2">&amp;</span>body), <span class="number">0</span>).unwrap();
+<a href=#1058 id=1058 data-nosnippet>1058</a>
+<a href=#1059 id=1059 data-nosnippet>1059</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
+<a href=#1060 id=1060 data-nosnippet>1060</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"zstd"</span>)),
+<a href=#1061 id=1061 data-nosnippet>1061</a>            encoded,
+<a href=#1062 id=1062 data-nosnippet>1062</a>        )
+<a href=#1063 id=1063 data-nosnippet>1063</a>        .unwrap();
+<a href=#1064 id=1064 data-nosnippet>1064</a>        <span class="macro">assert_eq!</span>(decoded, body);
+<a href=#1065 id=1065 data-nosnippet>1065</a>    }
+<a href=#1066 id=1066 data-nosnippet>1066</a>
+<a href=#1067 id=1067 data-nosnippet>1067</a>    <span class="doccomment">/// Confirm decode_response_body errors on invalid zstd payloads.
+<a href=#1068 id=1068 data-nosnippet>1068</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#1069 id=1069 data-nosnippet>1069</a>    #[test]
+<a href=#1070 id=1070 data-nosnippet>1070</a>    </span><span class="kw">fn </span>decode_response_body_zstd_invalid_payload() {
+<a href=#1071 id=1071 data-nosnippet>1071</a>        <span class="kw">let </span>body = <span class="string">b"not-zstd"</span>.to_vec();
+<a href=#1072 id=1072 data-nosnippet>1072</a>        <span class="kw">let </span>err =
+<a href=#1073 id=1073 data-nosnippet>1073</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"zstd"</span>)), body)
+<a href=#1074 id=1074 data-nosnippet>1074</a>                .unwrap_err();
+<a href=#1075 id=1075 data-nosnippet>1075</a>        <span class="kw">let </span>msg = err.to_string();
+<a href=#1076 id=1076 data-nosnippet>1076</a>        <span class="macro">assert!</span>(msg.contains(<span class="string">"failed to decode response body"</span>));
+<a href=#1077 id=1077 data-nosnippet>1077</a>    }
+<a href=#1078 id=1078 data-nosnippet>1078</a>
+<a href=#1079 id=1079 data-nosnippet>1079</a>    <span class="doccomment">/// Confirm decode_response_body decodes layered gzip+zstd-encoded bodies.
+<a href=#1080 id=1080 data-nosnippet>1080</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#1081 id=1081 data-nosnippet>1081</a>    #[test]
+<a href=#1082 id=1082 data-nosnippet>1082</a>    </span><span class="kw">fn </span>decode_response_body_zstd_and_gzip() {
+<a href=#1083 id=1083 data-nosnippet>1083</a>        <span class="kw">let </span>body = <span class="string">b"layered-bytes"</span>.to_vec();
+<a href=#1084 id=1084 data-nosnippet>1084</a>        <span class="kw">let </span><span class="kw-2">mut </span>encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+<a href=#1085 id=1085 data-nosnippet>1085</a>        encoder.write_all(<span class="kw-2">&amp;</span>body).unwrap();
+<a href=#1086 id=1086 data-nosnippet>1086</a>        <span class="kw">let </span>gzipped = encoder.finish().unwrap();
+<a href=#1087 id=1087 data-nosnippet>1087</a>        <span class="kw">let </span>encoded = zstd::stream::encode_all(std::io::Cursor::new(gzipped), <span class="number">0</span>).unwrap();
+<a href=#1088 id=1088 data-nosnippet>1088</a>
+<a href=#1089 id=1089 data-nosnippet>1089</a>        <span class="kw">let </span>decoded = BuiltinPackageLoader::decode_response_body(
+<a href=#1090 id=1090 data-nosnippet>1090</a>            <span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"gzip, zstd"</span>)),
+<a href=#1091 id=1091 data-nosnippet>1091</a>            encoded,
+<a href=#1092 id=1092 data-nosnippet>1092</a>        )
+<a href=#1093 id=1093 data-nosnippet>1093</a>        .unwrap();
+<a href=#1094 id=1094 data-nosnippet>1094</a>        <span class="macro">assert_eq!</span>(decoded, body);
+<a href=#1095 id=1095 data-nosnippet>1095</a>    }
+<a href=#1096 id=1096 data-nosnippet>1096</a>
+<a href=#1097 id=1097 data-nosnippet>1097</a>    <span class="doccomment">/// Confirm decode_response_body errors on unknown encodings.
+<a href=#1098 id=1098 data-nosnippet>1098</a>    </span><span class="attr">#[test]
+<a href=#1099 id=1099 data-nosnippet>1099</a>    </span><span class="kw">fn </span>decode_response_body_unknown_encoding() {
+<a href=#1100 id=1100 data-nosnippet>1100</a>        <span class="kw">let </span>body = <span class="string">b"weird"</span>.to_vec();
+<a href=#1101 id=1101 data-nosnippet>1101</a>        <span class="kw">let </span>err =
+<a href=#1102 id=1102 data-nosnippet>1102</a>            BuiltinPackageLoader::decode_response_body(<span class="kw-2">&amp;</span>headers_with_encoding(<span class="prelude-val">Some</span>(<span class="string">"br"</span>)), body)
+<a href=#1103 id=1103 data-nosnippet>1103</a>                .unwrap_err();
+<a href=#1104 id=1104 data-nosnippet>1104</a>        <span class="kw">let </span>msg = err.to_string();
+<a href=#1105 id=1105 data-nosnippet>1105</a>        <span class="macro">assert!</span>(msg.contains(<span class="string">"unsupported content-encoding"</span>));
+<a href=#1106 id=1106 data-nosnippet>1106</a>    }
+<a href=#1107 id=1107 data-nosnippet>1107</a>
+<a href=#1108 id=1108 data-nosnippet>1108</a>    <span class="comment">// NOTE: must be a tokio test because the BuiltinPackageLoader::new()
+<a href=#1109 id=1109 data-nosnippet>1109</a>    // constructor requires a runtime...
+<a href=#1110 id=1110 data-nosnippet>1110</a>    </span><span class="attr">#[tokio::test]
+<a href=#1111 id=1111 data-nosnippet>1111</a>    </span><span class="kw">async fn </span>test_builtin_package_downloader_cache_validation() {
+<a href=#1112 id=1112 data-nosnippet>1112</a>        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
+<a href=#1113 id=1113 data-nosnippet>1113</a>        <span class="kw">let </span>path = dir.path();
+<a href=#1114 id=1114 data-nosnippet>1114</a>
+<a href=#1115 id=1115 data-nosnippet>1115</a>        <span class="kw">let </span>contents = <span class="string">"fail"</span>;
+<a href=#1116 id=1116 data-nosnippet>1116</a>        <span class="kw">let </span>correct_hash = WebcHash::sha256(contents);
+<a href=#1117 id=1117 data-nosnippet>1117</a>        <span class="kw">let </span>used_hash =
+<a href=#1118 id=1118 data-nosnippet>1118</a>            WebcHash::parse_hex(<span class="string">"0000a28ea38a000f3a3328cb7fabe330638d3258affe1a869e3f92986222d997"</span>)
+<a href=#1119 id=1119 data-nosnippet>1119</a>                .unwrap();
+<a href=#1120 id=1120 data-nosnippet>1120</a>        <span class="kw">let </span>filename = <span class="macro">format!</span>(<span class="string">"{}{}"</span>, used_hash, FileSystemCache::FILE_SUFFIX);
+<a href=#1121 id=1121 data-nosnippet>1121</a>        <span class="kw">let </span>file_path = path.join(filename);
+<a href=#1122 id=1122 data-nosnippet>1122</a>        std::fs::write(<span class="kw-2">&amp;</span>file_path, contents).unwrap();
+<a href=#1123 id=1123 data-nosnippet>1123</a>
+<a href=#1124 id=1124 data-nosnippet>1124</a>        <span class="kw">let </span>dl = BuiltinPackageLoader::new().with_cache_dir(path);
+<a href=#1125 id=1125 data-nosnippet>1125</a>
+<a href=#1126 id=1126 data-nosnippet>1126</a>        <span class="kw">let </span>errors = dl
+<a href=#1127 id=1127 data-nosnippet>1127</a>            .validate_cache(CacheValidationMode::PruneOnMismatch)
+<a href=#1128 id=1128 data-nosnippet>1128</a>            .unwrap();
+<a href=#1129 id=1129 data-nosnippet>1129</a>        <span class="macro">assert_eq!</span>(errors.len(), <span class="number">1</span>);
+<a href=#1130 id=1130 data-nosnippet>1130</a>        <span class="macro">assert_eq!</span>(errors[<span class="number">0</span>].actual_hash, correct_hash);
+<a href=#1131 id=1131 data-nosnippet>1131</a>        <span class="macro">assert_eq!</span>(errors[<span class="number">0</span>].expected_hash, used_hash);
+<a href=#1132 id=1132 data-nosnippet>1132</a>
+<a href=#1133 id=1133 data-nosnippet>1133</a>        <span class="macro">assert_eq!</span>(file_path.exists(), <span class="bool-val">false</span>);
+<a href=#1134 id=1134 data-nosnippet>1134</a>    }
+<a href=#1135 id=1135 data-nosnippet>1135</a>
+<a href=#1136 id=1136 data-nosnippet>1136</a>    <span class="attr">#[tokio::test]
+<a href=#1137 id=1137 data-nosnippet>1137</a>    </span><span class="kw">async fn </span>test_file_cache_scan_retain() {
+<a href=#1138 id=1138 data-nosnippet>1138</a>        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
+<a href=#1139 id=1139 data-nosnippet>1139</a>        <span class="kw">let </span>path = dir.path();
+<a href=#1140 id=1140 data-nosnippet>1140</a>
+<a href=#1141 id=1141 data-nosnippet>1141</a>        <span class="kw">let </span>cache = FileSystemCache {
+<a href=#1142 id=1142 data-nosnippet>1142</a>            cache_dir: path.to_path_buf(),
+<a href=#1143 id=1143 data-nosnippet>1143</a>        };
+<a href=#1144 id=1144 data-nosnippet>1144</a>
+<a href=#1145 id=1145 data-nosnippet>1145</a>        {
+<a href=#1146 id=1146 data-nosnippet>1146</a>            <span class="kw">let </span>state = cache
+<a href=#1147 id=1147 data-nosnippet>1147</a>                .scan(<span class="number">0u64</span>, |state: <span class="kw-2">&amp;mut </span>u64, _entry| {
+<a href=#1148 id=1148 data-nosnippet>1148</a>                    <span class="kw-2">*</span>state += <span class="number">1</span>;
+<a href=#1149 id=1149 data-nosnippet>1149</a>                    <span class="prelude-val">Ok</span>(())
+<a href=#1150 id=1150 data-nosnippet>1150</a>                })
+<a href=#1151 id=1151 data-nosnippet>1151</a>                .<span class="kw">await
+<a href=#1152 id=1152 data-nosnippet>1152</a>                </span>.unwrap();
+<a href=#1153 id=1153 data-nosnippet>1153</a>
+<a href=#1154 id=1154 data-nosnippet>1154</a>            <span class="macro">assert_eq!</span>(state, <span class="number">0</span>);
+<a href=#1155 id=1155 data-nosnippet>1155</a>        }
+<a href=#1156 id=1156 data-nosnippet>1156</a>
+<a href=#1157 id=1157 data-nosnippet>1157</a>        <span class="kw">let </span>path1 = cache
+<a href=#1158 id=1158 data-nosnippet>1158</a>            .save(
+<a href=#1159 id=1159 data-nosnippet>1159</a>                Bytes::from_static(<span class="string">b"test1"</span>),
+<a href=#1160 id=1160 data-nosnippet>1160</a>                <span class="kw-2">&amp;</span>DistributionInfo {
+<a href=#1161 id=1161 data-nosnippet>1161</a>                    webc: Url::parse(<span class="string">"file:///test1.webc"</span>).unwrap(),
+<a href=#1162 id=1162 data-nosnippet>1162</a>                    webc_sha256: WebcHash::sha256(<span class="string">b"test1"</span>),
+<a href=#1163 id=1163 data-nosnippet>1163</a>                },
+<a href=#1164 id=1164 data-nosnippet>1164</a>            )
+<a href=#1165 id=1165 data-nosnippet>1165</a>            .<span class="kw">await
+<a href=#1166 id=1166 data-nosnippet>1166</a>            </span>.unwrap();
+<a href=#1167 id=1167 data-nosnippet>1167</a>        <span class="kw">let </span>path2 = cache
+<a href=#1168 id=1168 data-nosnippet>1168</a>            .save(
+<a href=#1169 id=1169 data-nosnippet>1169</a>                Bytes::from_static(<span class="string">b"test2"</span>),
+<a href=#1170 id=1170 data-nosnippet>1170</a>                <span class="kw-2">&amp;</span>DistributionInfo {
+<a href=#1171 id=1171 data-nosnippet>1171</a>                    webc: Url::parse(<span class="string">"file:///test2.webc"</span>).unwrap(),
+<a href=#1172 id=1172 data-nosnippet>1172</a>                    webc_sha256: WebcHash::sha256(<span class="string">b"test2"</span>),
+<a href=#1173 id=1173 data-nosnippet>1173</a>                },
+<a href=#1174 id=1174 data-nosnippet>1174</a>            )
+<a href=#1175 id=1175 data-nosnippet>1175</a>            .<span class="kw">await
+<a href=#1176 id=1176 data-nosnippet>1176</a>            </span>.unwrap();
+<a href=#1177 id=1177 data-nosnippet>1177</a>
+<a href=#1178 id=1178 data-nosnippet>1178</a>        {
+<a href=#1179 id=1179 data-nosnippet>1179</a>            <span class="kw">let </span>path1 = path1.clone();
+<a href=#1180 id=1180 data-nosnippet>1180</a>            <span class="kw">let </span>path2 = path2.clone();
+<a href=#1181 id=1181 data-nosnippet>1181</a>            <span class="kw">let </span>state = cache
+<a href=#1182 id=1182 data-nosnippet>1182</a>                .scan(<span class="number">0u64</span>, <span class="kw">move </span>|state: <span class="kw-2">&amp;mut </span>u64, entry| {
+<a href=#1183 id=1183 data-nosnippet>1183</a>                    <span class="kw-2">*</span>state += <span class="number">1</span>;
+<a href=#1184 id=1184 data-nosnippet>1184</a>                    <span class="macro">assert!</span>(entry.path() == path1 || entry.path() == path2);
+<a href=#1185 id=1185 data-nosnippet>1185</a>                    <span class="prelude-val">Ok</span>(())
+<a href=#1186 id=1186 data-nosnippet>1186</a>                })
+<a href=#1187 id=1187 data-nosnippet>1187</a>                .<span class="kw">await
+<a href=#1188 id=1188 data-nosnippet>1188</a>                </span>.unwrap();
+<a href=#1189 id=1189 data-nosnippet>1189</a>
+<a href=#1190 id=1190 data-nosnippet>1190</a>            <span class="macro">assert_eq!</span>(state, <span class="number">2</span>);
+<a href=#1191 id=1191 data-nosnippet>1191</a>        }
+<a href=#1192 id=1192 data-nosnippet>1192</a>
+<a href=#1193 id=1193 data-nosnippet>1193</a>        {
+<a href=#1194 id=1194 data-nosnippet>1194</a>            <span class="kw">let </span>path1 = path1.clone();
+<a href=#1195 id=1195 data-nosnippet>1195</a>            <span class="kw">let </span>state = cache
+<a href=#1196 id=1196 data-nosnippet>1196</a>                .retain(<span class="number">0u64</span>, <span class="kw">move </span>|state: <span class="kw-2">&amp;mut </span>u64, entry| {
+<a href=#1197 id=1197 data-nosnippet>1197</a>                    <span class="kw-2">*</span>state += <span class="number">1</span>;
+<a href=#1198 id=1198 data-nosnippet>1198</a>                    <span class="prelude-val">Ok</span>(entry.path() == path1)
+<a href=#1199 id=1199 data-nosnippet>1199</a>                })
+<a href=#1200 id=1200 data-nosnippet>1200</a>                .<span class="kw">await
+<a href=#1201 id=1201 data-nosnippet>1201</a>                </span>.unwrap();
+<a href=#1202 id=1202 data-nosnippet>1202</a>            <span class="macro">assert_eq!</span>(state, <span class="number">2</span>);
+<a href=#1203 id=1203 data-nosnippet>1203</a>        }
+<a href=#1204 id=1204 data-nosnippet>1204</a>
+<a href=#1205 id=1205 data-nosnippet>1205</a>        <span class="macro">assert!</span>(path1.exists());
+<a href=#1206 id=1206 data-nosnippet>1206</a>        <span class="macro">assert!</span>(!path2.exists(), <span class="string">"Path 2 should have been deleted"</span>);
+<a href=#1207 id=1207 data-nosnippet>1207</a>
+<a href=#1208 id=1208 data-nosnippet>1208</a>        {
+<a href=#1209 id=1209 data-nosnippet>1209</a>            <span class="kw">let </span>path1 = path1.clone();
+<a href=#1210 id=1210 data-nosnippet>1210</a>            <span class="kw">let </span>state = cache
+<a href=#1211 id=1211 data-nosnippet>1211</a>                .scan(<span class="number">0u64</span>, <span class="kw">move </span>|state: <span class="kw-2">&amp;mut </span>u64, entry| {
+<a href=#1212 id=1212 data-nosnippet>1212</a>                    <span class="kw-2">*</span>state += <span class="number">1</span>;
+<a href=#1213 id=1213 data-nosnippet>1213</a>                    <span class="macro">assert!</span>(entry.path() == path1);
+<a href=#1214 id=1214 data-nosnippet>1214</a>                    <span class="prelude-val">Ok</span>(())
+<a href=#1215 id=1215 data-nosnippet>1215</a>                })
+<a href=#1216 id=1216 data-nosnippet>1216</a>                .<span class="kw">await
+<a href=#1217 id=1217 data-nosnippet>1217</a>                </span>.unwrap();
+<a href=#1218 id=1218 data-nosnippet>1218</a>            <span class="macro">assert_eq!</span>(state, <span class="number">1</span>);
+<a href=#1219 id=1219 data-nosnippet>1219</a>        }
+<a href=#1220 id=1220 data-nosnippet>1220</a>    }
+<a href=#1221 id=1221 data-nosnippet>1221</a>}</code></pre></div></section></main></body></html>

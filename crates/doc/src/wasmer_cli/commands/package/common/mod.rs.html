@@ -276,7 +276,7 @@
 <a href=#276 id=276 data-nosnippet>276</a>        <span class="kw">let </span>client = WasmerClient::new(Url::parse(<span class="kw-2">&amp;</span>registry)<span class="question-mark">?</span>, <span class="string">"wasmer-cli-upload-test"</span>)<span class="question-mark">?
 <a href=#277 id=277 data-nosnippet>277</a>            </span>.with_auth_token(token);
 <a href=#278 id=278 data-nosnippet>278</a>        <span class="kw">let </span>pkg_path = PathBuf::from(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>))
-<a href=#279 id=279 data-nosnippet>279</a>            .join(<span class="string">"../../tests/old-tar-gz/cowsay-0.3.0.tar.gz"</span>);
+<a href=#279 id=279 data-nosnippet>279</a>            .join(<span class="string">"../../wasmer-test-files/legacy/coreutils-1.0.11.tar.gz"</span>);
 <a href=#280 id=280 data-nosnippet>280</a>        <span class="kw">let </span>package = Package::from_tarball_file(<span class="kw-2">&amp;</span>pkg_path)<span class="question-mark">?</span>;
 <a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span>bytes = package.serialize()<span class="question-mark">?</span>;
 <a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">let </span>hash_bytes: [u8; <span class="number">32</span>] = Sha256::digest(<span class="kw-2">&amp;</span>bytes).into();

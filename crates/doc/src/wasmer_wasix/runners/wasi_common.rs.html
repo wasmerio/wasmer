@@ -319,164 +319,165 @@
 <a href=#319 id=319 data-nosnippet>319</a>
 <a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#321 id=321 data-nosnippet>321</a>
-<a href=#322 id=322 data-nosnippet>322</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../c-api/examples/assets/python-0.1.0.wasmer"</span>);
-<a href=#323 id=323 data-nosnippet>323</a>
-<a href=#324 id=324 data-nosnippet>324</a>    <span class="doccomment">/// Fixes &lt;https://github.com/wasmerio/wasmer/issues/3789&gt;
-<a href=#325 id=325 data-nosnippet>325</a>    </span><span class="attr">#[tokio::test]
-<a href=#326 id=326 data-nosnippet>326</a>    </span><span class="kw">async fn </span>mix_args_from_the_webc_and_user() {
-<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">let </span>args = CommonWasiOptions {
-<a href=#328 id=328 data-nosnippet>328</a>            args: <span class="macro">vec!</span>[<span class="string">"extra"</span>.to_string(), <span class="string">"args"</span>.to_string()],
-<a href=#329 id=329 data-nosnippet>329</a>            ..Default::default()
-<a href=#330 id=330 data-nosnippet>330</a>        };
-<a href=#331 id=331 data-nosnippet>331</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">"program-name"</span>);
-<a href=#332 id=332 data-nosnippet>332</a>        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">"some-atom"</span>);
-<a href=#333 id=333 data-nosnippet>333</a>        annotations.main_args = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[
-<a href=#334 id=334 data-nosnippet>334</a>            <span class="string">"hard"</span>.to_string(),
-<a href=#335 id=335 data-nosnippet>335</a>            <span class="string">"coded"</span>.to_string(),
-<a href=#336 id=336 data-nosnippet>336</a>            <span class="string">"args"</span>.to_string(),
-<a href=#337 id=337 data-nosnippet>337</a>        ]);
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a>        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
-<a href=#340 id=340 data-nosnippet>340</a>            .unwrap();
-<a href=#341 id=341 data-nosnippet>341</a>
-<a href=#342 id=342 data-nosnippet>342</a>        <span class="macro">assert_eq!</span>(
-<a href=#343 id=343 data-nosnippet>343</a>            builder.get_args(),
-<a href=#344 id=344 data-nosnippet>344</a>            [
-<a href=#345 id=345 data-nosnippet>345</a>                <span class="comment">// the program name from
-<a href=#346 id=346 data-nosnippet>346</a>                </span><span class="string">"program-name"</span>,
-<a href=#347 id=347 data-nosnippet>347</a>                <span class="comment">// from the WEBC's annotations
-<a href=#348 id=348 data-nosnippet>348</a>                </span><span class="string">"hard"</span>,
-<a href=#349 id=349 data-nosnippet>349</a>                <span class="string">"coded"</span>,
-<a href=#350 id=350 data-nosnippet>350</a>                <span class="string">"args"</span>,
-<a href=#351 id=351 data-nosnippet>351</a>                <span class="comment">// from the user
-<a href=#352 id=352 data-nosnippet>352</a>                </span><span class="string">"extra"</span>,
-<a href=#353 id=353 data-nosnippet>353</a>                <span class="string">"args"</span>,
-<a href=#354 id=354 data-nosnippet>354</a>            ]
-<a href=#355 id=355 data-nosnippet>355</a>        );
-<a href=#356 id=356 data-nosnippet>356</a>    }
-<a href=#357 id=357 data-nosnippet>357</a>
-<a href=#358 id=358 data-nosnippet>358</a>    <span class="attr">#[tokio::test]
-<a href=#359 id=359 data-nosnippet>359</a>    </span><span class="kw">async fn </span>mix_env_vars_from_the_webc_and_user() {
-<a href=#360 id=360 data-nosnippet>360</a>        <span class="kw">let </span>args = CommonWasiOptions {
-<a href=#361 id=361 data-nosnippet>361</a>            env: <span class="macro">vec!</span>[(<span class="string">"EXTRA"</span>.to_string(), <span class="string">"envs"</span>.to_string())]
-<a href=#362 id=362 data-nosnippet>362</a>                .into_iter()
-<a href=#363 id=363 data-nosnippet>363</a>                .collect(),
-<a href=#364 id=364 data-nosnippet>364</a>            ..Default::default()
-<a href=#365 id=365 data-nosnippet>365</a>        };
-<a href=#366 id=366 data-nosnippet>366</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">"python"</span>);
-<a href=#367 id=367 data-nosnippet>367</a>        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">"python"</span>);
-<a href=#368 id=368 data-nosnippet>368</a>        annotations.env = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"HARD_CODED=env-vars"</span>.to_string()]);
-<a href=#369 id=369 data-nosnippet>369</a>
-<a href=#370 id=370 data-nosnippet>370</a>        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
-<a href=#371 id=371 data-nosnippet>371</a>            .unwrap();
-<a href=#372 id=372 data-nosnippet>372</a>
-<a href=#373 id=373 data-nosnippet>373</a>        <span class="macro">assert_eq!</span>(
-<a href=#374 id=374 data-nosnippet>374</a>            builder.get_env(),
-<a href=#375 id=375 data-nosnippet>375</a>            [
-<a href=#376 id=376 data-nosnippet>376</a>                (<span class="string">"HARD_CODED"</span>.to_string(), <span class="string">b"env-vars"</span>.to_vec()),
-<a href=#377 id=377 data-nosnippet>377</a>                (<span class="string">"EXTRA"</span>.to_string(), <span class="string">b"envs"</span>.to_vec()),
-<a href=#378 id=378 data-nosnippet>378</a>            ]
-<a href=#379 id=379 data-nosnippet>379</a>        );
-<a href=#380 id=380 data-nosnippet>380</a>    }
-<a href=#381 id=381 data-nosnippet>381</a>
-<a href=#382 id=382 data-nosnippet>382</a>    <span class="kw">fn </span>unix_timestamp_nanos(instant: SystemTime) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
-<a href=#383 id=383 data-nosnippet>383</a>        <span class="kw">let </span>duration = instant.duration_since(SystemTime::UNIX_EPOCH).ok()<span class="question-mark">?</span>;
-<a href=#384 id=384 data-nosnippet>384</a>        <span class="prelude-val">Some</span>(duration.as_nanos() <span class="kw">as </span>u64)
-<a href=#385 id=385 data-nosnippet>385</a>    }
-<a href=#386 id=386 data-nosnippet>386</a>
-<a href=#387 id=387 data-nosnippet>387</a>    <span class="attr">#[tokio::test]
-<a href=#388 id=388 data-nosnippet>388</a>    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
-<a href=#389 id=389 data-nosnippet>389</a>    </span><span class="kw">async fn </span>python_use_case() {
-<a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#391 id=391 data-nosnippet>391</a>        <span class="kw">let </span>sub_dir = temp.path().join(<span class="string">"path"</span>).join(<span class="string">"to"</span>);
-<a href=#392 id=392 data-nosnippet>392</a>        std::fs::create_dir_all(<span class="kw-2">&amp;</span>sub_dir).unwrap();
-<a href=#393 id=393 data-nosnippet>393</a>        std::fs::write(sub_dir.join(<span class="string">"file.txt"</span>), <span class="string">b"Hello, World!"</span>).unwrap();
-<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw">let </span>mapping = [MountedDirectory::from(MappedDirectory {
-<a href=#395 id=395 data-nosnippet>395</a>            guest: <span class="string">"/home"</span>.to_string(),
-<a href=#396 id=396 data-nosnippet>396</a>            host: sub_dir,
-<a href=#397 id=397 data-nosnippet>397</a>        })];
-<a href=#398 id=398 data-nosnippet>398</a>        <span class="kw">let </span>container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
-<a href=#399 id=399 data-nosnippet>399</a>        <span class="kw">let </span>webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
-<a href=#400 id=400 data-nosnippet>400</a>        <span class="kw">let </span>union_fs = UnionFileSystem::new();
-<a href=#401 id=401 data-nosnippet>401</a>        union_fs
-<a href=#402 id=402 data-nosnippet>402</a>            .mount(<span class="string">"webc"</span>.to_string(), Path::new(<span class="string">"/"</span>), Box::new(webc_fs))
-<a href=#403 id=403 data-nosnippet>403</a>            .unwrap();
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#406 id=406 data-nosnippet>406</a>        <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span>mapping, <span class="prelude-val">Some</span>(union_fs)).unwrap();
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(fs, WasiFsRoot::Overlay(<span class="kw">_</span>)));
-<a href=#409 id=409 data-nosnippet>409</a>        <span class="kw">if let </span>WasiFsRoot::Overlay(overlay_fs) = <span class="kw-2">&amp;</span>fs {
-<a href=#410 id=410 data-nosnippet>410</a>            <span class="kw">use </span>virtual_fs::FileSystem;
-<a href=#411 id=411 data-nosnippet>411</a>            <span class="macro">assert!</span>(
-<a href=#412 id=412 data-nosnippet>412</a>                overlay_fs
-<a href=#413 id=413 data-nosnippet>413</a>                    .metadata(<span class="string">"/home/file.txt"</span>.as_ref())
-<a href=#414 id=414 data-nosnippet>414</a>                    .unwrap()
-<a href=#415 id=415 data-nosnippet>415</a>                    .is_file()
-<a href=#416 id=416 data-nosnippet>416</a>            );
-<a href=#417 id=417 data-nosnippet>417</a>            <span class="macro">assert!</span>(overlay_fs.metadata(<span class="string">"lib"</span>.as_ref()).unwrap().is_dir());
-<a href=#418 id=418 data-nosnippet>418</a>            <span class="macro">assert!</span>(
-<a href=#419 id=419 data-nosnippet>419</a>                overlay_fs
-<a href=#420 id=420 data-nosnippet>420</a>                    .metadata(<span class="string">"lib/python3.6/collections/__init__.py"</span>.as_ref())
-<a href=#421 id=421 data-nosnippet>421</a>                    .unwrap()
-<a href=#422 id=422 data-nosnippet>422</a>                    .is_file()
-<a href=#423 id=423 data-nosnippet>423</a>            );
-<a href=#424 id=424 data-nosnippet>424</a>            <span class="macro">assert!</span>(
-<a href=#425 id=425 data-nosnippet>425</a>                overlay_fs
-<a href=#426 id=426 data-nosnippet>426</a>                    .metadata(<span class="string">"lib/python3.6/encodings/__init__.py"</span>.as_ref())
-<a href=#427 id=427 data-nosnippet>427</a>                    .unwrap()
-<a href=#428 id=428 data-nosnippet>428</a>                    .is_file()
-<a href=#429 id=429 data-nosnippet>429</a>            );
-<a href=#430 id=430 data-nosnippet>430</a>        }
-<a href=#431 id=431 data-nosnippet>431</a>    }
-<a href=#432 id=432 data-nosnippet>432</a>
-<a href=#433 id=433 data-nosnippet>433</a>    <span class="attr">#[tokio::test]
-<a href=#434 id=434 data-nosnippet>434</a>    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
-<a href=#435 id=435 data-nosnippet>435</a>    </span><span class="kw">async fn </span>convert_mapped_directory_to_mounted_directory() {
-<a href=#436 id=436 data-nosnippet>436</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#437 id=437 data-nosnippet>437</a>        <span class="kw">let </span>dir = MappedDirectory {
-<a href=#438 id=438 data-nosnippet>438</a>            guest: <span class="string">"/mnt/dir"</span>.to_string(),
-<a href=#439 id=439 data-nosnippet>439</a>            host: temp.path().to_path_buf(),
-<a href=#440 id=440 data-nosnippet>440</a>        };
-<a href=#441 id=441 data-nosnippet>441</a>        <span class="kw">let </span>contents = <span class="string">"Hello, World!"</span>;
-<a href=#442 id=442 data-nosnippet>442</a>        <span class="kw">let </span>file_txt = temp.path().join(<span class="string">"file.txt"</span>);
-<a href=#443 id=443 data-nosnippet>443</a>        std::fs::write(<span class="kw-2">&amp;</span>file_txt, contents).unwrap();
-<a href=#444 id=444 data-nosnippet>444</a>        <span class="kw">let </span>metadata = std::fs::metadata(<span class="kw-2">&amp;</span>file_txt).unwrap();
-<a href=#445 id=445 data-nosnippet>445</a>
-<a href=#446 id=446 data-nosnippet>446</a>        <span class="kw">let </span>got = MountedDirectory::from(dir);
-<a href=#447 id=447 data-nosnippet>447</a>
-<a href=#448 id=448 data-nosnippet>448</a>        <span class="kw">let </span>directory_contents: Vec&lt;<span class="kw">_</span>&gt; = got
-<a href=#449 id=449 data-nosnippet>449</a>            .fs
-<a href=#450 id=450 data-nosnippet>450</a>            .read_dir(<span class="string">"/"</span>.as_ref())
-<a href=#451 id=451 data-nosnippet>451</a>            .unwrap()
-<a href=#452 id=452 data-nosnippet>452</a>            .map(|entry| entry.unwrap())
-<a href=#453 id=453 data-nosnippet>453</a>            .collect();
-<a href=#454 id=454 data-nosnippet>454</a>        <span class="macro">assert_eq!</span>(
-<a href=#455 id=455 data-nosnippet>455</a>            directory_contents,
-<a href=#456 id=456 data-nosnippet>456</a>            <span class="macro">vec!</span>[DirEntry {
-<a href=#457 id=457 data-nosnippet>457</a>                path: PathBuf::from(<span class="string">"/file.txt"</span>),
-<a href=#458 id=458 data-nosnippet>458</a>                metadata: <span class="prelude-val">Ok</span>(Metadata {
-<a href=#459 id=459 data-nosnippet>459</a>                    ft: FileType::new_file(),
-<a href=#460 id=460 data-nosnippet>460</a>                    <span class="comment">// Note: Some timestamps aren't available on MUSL and will
-<a href=#461 id=461 data-nosnippet>461</a>                    // default to zero.
-<a href=#462 id=462 data-nosnippet>462</a>                    </span>accessed: metadata
-<a href=#463 id=463 data-nosnippet>463</a>                        .accessed()
-<a href=#464 id=464 data-nosnippet>464</a>                        .ok()
-<a href=#465 id=465 data-nosnippet>465</a>                        .and_then(unix_timestamp_nanos)
-<a href=#466 id=466 data-nosnippet>466</a>                        .unwrap_or(<span class="number">0</span>),
-<a href=#467 id=467 data-nosnippet>467</a>                    created: metadata
-<a href=#468 id=468 data-nosnippet>468</a>                        .created()
-<a href=#469 id=469 data-nosnippet>469</a>                        .ok()
-<a href=#470 id=470 data-nosnippet>470</a>                        .and_then(unix_timestamp_nanos)
-<a href=#471 id=471 data-nosnippet>471</a>                        .unwrap_or(<span class="number">0</span>),
-<a href=#472 id=472 data-nosnippet>472</a>                    modified: metadata
-<a href=#473 id=473 data-nosnippet>473</a>                        .modified()
-<a href=#474 id=474 data-nosnippet>474</a>                        .ok()
-<a href=#475 id=475 data-nosnippet>475</a>                        .and_then(unix_timestamp_nanos)
-<a href=#476 id=476 data-nosnippet>476</a>                        .unwrap_or(<span class="number">0</span>),
-<a href=#477 id=477 data-nosnippet>477</a>                    len: contents.len() <span class="kw">as </span>u64,
-<a href=#478 id=478 data-nosnippet>478</a>                })
-<a href=#479 id=479 data-nosnippet>479</a>            }]
-<a href=#480 id=480 data-nosnippet>480</a>        );
-<a href=#481 id=481 data-nosnippet>481</a>    }
-<a href=#482 id=482 data-nosnippet>482</a>}</code></pre></div></section></main></body></html>
+<a href=#322 id=322 data-nosnippet>322</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] =
+<a href=#323 id=323 data-nosnippet>323</a>        <span class="macro">include_bytes!</span>(<span class="string">"../../../../wasmer-test-files/examples/python-0.1.0.wasmer"</span>);
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>    <span class="doccomment">/// Fixes &lt;https://github.com/wasmerio/wasmer/issues/3789&gt;
+<a href=#326 id=326 data-nosnippet>326</a>    </span><span class="attr">#[tokio::test]
+<a href=#327 id=327 data-nosnippet>327</a>    </span><span class="kw">async fn </span>mix_args_from_the_webc_and_user() {
+<a href=#328 id=328 data-nosnippet>328</a>        <span class="kw">let </span>args = CommonWasiOptions {
+<a href=#329 id=329 data-nosnippet>329</a>            args: <span class="macro">vec!</span>[<span class="string">"extra"</span>.to_string(), <span class="string">"args"</span>.to_string()],
+<a href=#330 id=330 data-nosnippet>330</a>            ..Default::default()
+<a href=#331 id=331 data-nosnippet>331</a>        };
+<a href=#332 id=332 data-nosnippet>332</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">"program-name"</span>);
+<a href=#333 id=333 data-nosnippet>333</a>        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">"some-atom"</span>);
+<a href=#334 id=334 data-nosnippet>334</a>        annotations.main_args = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[
+<a href=#335 id=335 data-nosnippet>335</a>            <span class="string">"hard"</span>.to_string(),
+<a href=#336 id=336 data-nosnippet>336</a>            <span class="string">"coded"</span>.to_string(),
+<a href=#337 id=337 data-nosnippet>337</a>            <span class="string">"args"</span>.to_string(),
+<a href=#338 id=338 data-nosnippet>338</a>        ]);
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
+<a href=#341 id=341 data-nosnippet>341</a>            .unwrap();
+<a href=#342 id=342 data-nosnippet>342</a>
+<a href=#343 id=343 data-nosnippet>343</a>        <span class="macro">assert_eq!</span>(
+<a href=#344 id=344 data-nosnippet>344</a>            builder.get_args(),
+<a href=#345 id=345 data-nosnippet>345</a>            [
+<a href=#346 id=346 data-nosnippet>346</a>                <span class="comment">// the program name from
+<a href=#347 id=347 data-nosnippet>347</a>                </span><span class="string">"program-name"</span>,
+<a href=#348 id=348 data-nosnippet>348</a>                <span class="comment">// from the WEBC's annotations
+<a href=#349 id=349 data-nosnippet>349</a>                </span><span class="string">"hard"</span>,
+<a href=#350 id=350 data-nosnippet>350</a>                <span class="string">"coded"</span>,
+<a href=#351 id=351 data-nosnippet>351</a>                <span class="string">"args"</span>,
+<a href=#352 id=352 data-nosnippet>352</a>                <span class="comment">// from the user
+<a href=#353 id=353 data-nosnippet>353</a>                </span><span class="string">"extra"</span>,
+<a href=#354 id=354 data-nosnippet>354</a>                <span class="string">"args"</span>,
+<a href=#355 id=355 data-nosnippet>355</a>            ]
+<a href=#356 id=356 data-nosnippet>356</a>        );
+<a href=#357 id=357 data-nosnippet>357</a>    }
+<a href=#358 id=358 data-nosnippet>358</a>
+<a href=#359 id=359 data-nosnippet>359</a>    <span class="attr">#[tokio::test]
+<a href=#360 id=360 data-nosnippet>360</a>    </span><span class="kw">async fn </span>mix_env_vars_from_the_webc_and_user() {
+<a href=#361 id=361 data-nosnippet>361</a>        <span class="kw">let </span>args = CommonWasiOptions {
+<a href=#362 id=362 data-nosnippet>362</a>            env: <span class="macro">vec!</span>[(<span class="string">"EXTRA"</span>.to_string(), <span class="string">"envs"</span>.to_string())]
+<a href=#363 id=363 data-nosnippet>363</a>                .into_iter()
+<a href=#364 id=364 data-nosnippet>364</a>                .collect(),
+<a href=#365 id=365 data-nosnippet>365</a>            ..Default::default()
+<a href=#366 id=366 data-nosnippet>366</a>        };
+<a href=#367 id=367 data-nosnippet>367</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">"python"</span>);
+<a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">"python"</span>);
+<a href=#369 id=369 data-nosnippet>369</a>        annotations.env = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"HARD_CODED=env-vars"</span>.to_string()]);
+<a href=#370 id=370 data-nosnippet>370</a>
+<a href=#371 id=371 data-nosnippet>371</a>        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
+<a href=#372 id=372 data-nosnippet>372</a>            .unwrap();
+<a href=#373 id=373 data-nosnippet>373</a>
+<a href=#374 id=374 data-nosnippet>374</a>        <span class="macro">assert_eq!</span>(
+<a href=#375 id=375 data-nosnippet>375</a>            builder.get_env(),
+<a href=#376 id=376 data-nosnippet>376</a>            [
+<a href=#377 id=377 data-nosnippet>377</a>                (<span class="string">"HARD_CODED"</span>.to_string(), <span class="string">b"env-vars"</span>.to_vec()),
+<a href=#378 id=378 data-nosnippet>378</a>                (<span class="string">"EXTRA"</span>.to_string(), <span class="string">b"envs"</span>.to_vec()),
+<a href=#379 id=379 data-nosnippet>379</a>            ]
+<a href=#380 id=380 data-nosnippet>380</a>        );
+<a href=#381 id=381 data-nosnippet>381</a>    }
+<a href=#382 id=382 data-nosnippet>382</a>
+<a href=#383 id=383 data-nosnippet>383</a>    <span class="kw">fn </span>unix_timestamp_nanos(instant: SystemTime) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">let </span>duration = instant.duration_since(SystemTime::UNIX_EPOCH).ok()<span class="question-mark">?</span>;
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="prelude-val">Some</span>(duration.as_nanos() <span class="kw">as </span>u64)
+<a href=#386 id=386 data-nosnippet>386</a>    }
+<a href=#387 id=387 data-nosnippet>387</a>
+<a href=#388 id=388 data-nosnippet>388</a>    <span class="attr">#[tokio::test]
+<a href=#389 id=389 data-nosnippet>389</a>    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
+<a href=#390 id=390 data-nosnippet>390</a>    </span><span class="kw">async fn </span>python_use_case() {
+<a href=#391 id=391 data-nosnippet>391</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#392 id=392 data-nosnippet>392</a>        <span class="kw">let </span>sub_dir = temp.path().join(<span class="string">"path"</span>).join(<span class="string">"to"</span>);
+<a href=#393 id=393 data-nosnippet>393</a>        std::fs::create_dir_all(<span class="kw-2">&amp;</span>sub_dir).unwrap();
+<a href=#394 id=394 data-nosnippet>394</a>        std::fs::write(sub_dir.join(<span class="string">"file.txt"</span>), <span class="string">b"Hello, World!"</span>).unwrap();
+<a href=#395 id=395 data-nosnippet>395</a>        <span class="kw">let </span>mapping = [MountedDirectory::from(MappedDirectory {
+<a href=#396 id=396 data-nosnippet>396</a>            guest: <span class="string">"/home"</span>.to_string(),
+<a href=#397 id=397 data-nosnippet>397</a>            host: sub_dir,
+<a href=#398 id=398 data-nosnippet>398</a>        })];
+<a href=#399 id=399 data-nosnippet>399</a>        <span class="kw">let </span>container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+<a href=#400 id=400 data-nosnippet>400</a>        <span class="kw">let </span>webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
+<a href=#401 id=401 data-nosnippet>401</a>        <span class="kw">let </span>union_fs = UnionFileSystem::new();
+<a href=#402 id=402 data-nosnippet>402</a>        union_fs
+<a href=#403 id=403 data-nosnippet>403</a>            .mount(<span class="string">"webc"</span>.to_string(), Path::new(<span class="string">"/"</span>), Box::new(webc_fs))
+<a href=#404 id=404 data-nosnippet>404</a>            .unwrap();
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#407 id=407 data-nosnippet>407</a>        <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span>mapping, <span class="prelude-val">Some</span>(union_fs)).unwrap();
+<a href=#408 id=408 data-nosnippet>408</a>
+<a href=#409 id=409 data-nosnippet>409</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(fs, WasiFsRoot::Overlay(<span class="kw">_</span>)));
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">if let </span>WasiFsRoot::Overlay(overlay_fs) = <span class="kw-2">&amp;</span>fs {
+<a href=#411 id=411 data-nosnippet>411</a>            <span class="kw">use </span>virtual_fs::FileSystem;
+<a href=#412 id=412 data-nosnippet>412</a>            <span class="macro">assert!</span>(
+<a href=#413 id=413 data-nosnippet>413</a>                overlay_fs
+<a href=#414 id=414 data-nosnippet>414</a>                    .metadata(<span class="string">"/home/file.txt"</span>.as_ref())
+<a href=#415 id=415 data-nosnippet>415</a>                    .unwrap()
+<a href=#416 id=416 data-nosnippet>416</a>                    .is_file()
+<a href=#417 id=417 data-nosnippet>417</a>            );
+<a href=#418 id=418 data-nosnippet>418</a>            <span class="macro">assert!</span>(overlay_fs.metadata(<span class="string">"lib"</span>.as_ref()).unwrap().is_dir());
+<a href=#419 id=419 data-nosnippet>419</a>            <span class="macro">assert!</span>(
+<a href=#420 id=420 data-nosnippet>420</a>                overlay_fs
+<a href=#421 id=421 data-nosnippet>421</a>                    .metadata(<span class="string">"lib/python3.6/collections/__init__.py"</span>.as_ref())
+<a href=#422 id=422 data-nosnippet>422</a>                    .unwrap()
+<a href=#423 id=423 data-nosnippet>423</a>                    .is_file()
+<a href=#424 id=424 data-nosnippet>424</a>            );
+<a href=#425 id=425 data-nosnippet>425</a>            <span class="macro">assert!</span>(
+<a href=#426 id=426 data-nosnippet>426</a>                overlay_fs
+<a href=#427 id=427 data-nosnippet>427</a>                    .metadata(<span class="string">"lib/python3.6/encodings/__init__.py"</span>.as_ref())
+<a href=#428 id=428 data-nosnippet>428</a>                    .unwrap()
+<a href=#429 id=429 data-nosnippet>429</a>                    .is_file()
+<a href=#430 id=430 data-nosnippet>430</a>            );
+<a href=#431 id=431 data-nosnippet>431</a>        }
+<a href=#432 id=432 data-nosnippet>432</a>    }
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a>    <span class="attr">#[tokio::test]
+<a href=#435 id=435 data-nosnippet>435</a>    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
+<a href=#436 id=436 data-nosnippet>436</a>    </span><span class="kw">async fn </span>convert_mapped_directory_to_mounted_directory() {
+<a href=#437 id=437 data-nosnippet>437</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#438 id=438 data-nosnippet>438</a>        <span class="kw">let </span>dir = MappedDirectory {
+<a href=#439 id=439 data-nosnippet>439</a>            guest: <span class="string">"/mnt/dir"</span>.to_string(),
+<a href=#440 id=440 data-nosnippet>440</a>            host: temp.path().to_path_buf(),
+<a href=#441 id=441 data-nosnippet>441</a>        };
+<a href=#442 id=442 data-nosnippet>442</a>        <span class="kw">let </span>contents = <span class="string">"Hello, World!"</span>;
+<a href=#443 id=443 data-nosnippet>443</a>        <span class="kw">let </span>file_txt = temp.path().join(<span class="string">"file.txt"</span>);
+<a href=#444 id=444 data-nosnippet>444</a>        std::fs::write(<span class="kw-2">&amp;</span>file_txt, contents).unwrap();
+<a href=#445 id=445 data-nosnippet>445</a>        <span class="kw">let </span>metadata = std::fs::metadata(<span class="kw-2">&amp;</span>file_txt).unwrap();
+<a href=#446 id=446 data-nosnippet>446</a>
+<a href=#447 id=447 data-nosnippet>447</a>        <span class="kw">let </span>got = MountedDirectory::from(dir);
+<a href=#448 id=448 data-nosnippet>448</a>
+<a href=#449 id=449 data-nosnippet>449</a>        <span class="kw">let </span>directory_contents: Vec&lt;<span class="kw">_</span>&gt; = got
+<a href=#450 id=450 data-nosnippet>450</a>            .fs
+<a href=#451 id=451 data-nosnippet>451</a>            .read_dir(<span class="string">"/"</span>.as_ref())
+<a href=#452 id=452 data-nosnippet>452</a>            .unwrap()
+<a href=#453 id=453 data-nosnippet>453</a>            .map(|entry| entry.unwrap())
+<a href=#454 id=454 data-nosnippet>454</a>            .collect();
+<a href=#455 id=455 data-nosnippet>455</a>        <span class="macro">assert_eq!</span>(
+<a href=#456 id=456 data-nosnippet>456</a>            directory_contents,
+<a href=#457 id=457 data-nosnippet>457</a>            <span class="macro">vec!</span>[DirEntry {
+<a href=#458 id=458 data-nosnippet>458</a>                path: PathBuf::from(<span class="string">"/file.txt"</span>),
+<a href=#459 id=459 data-nosnippet>459</a>                metadata: <span class="prelude-val">Ok</span>(Metadata {
+<a href=#460 id=460 data-nosnippet>460</a>                    ft: FileType::new_file(),
+<a href=#461 id=461 data-nosnippet>461</a>                    <span class="comment">// Note: Some timestamps aren't available on MUSL and will
+<a href=#462 id=462 data-nosnippet>462</a>                    // default to zero.
+<a href=#463 id=463 data-nosnippet>463</a>                    </span>accessed: metadata
+<a href=#464 id=464 data-nosnippet>464</a>                        .accessed()
+<a href=#465 id=465 data-nosnippet>465</a>                        .ok()
+<a href=#466 id=466 data-nosnippet>466</a>                        .and_then(unix_timestamp_nanos)
+<a href=#467 id=467 data-nosnippet>467</a>                        .unwrap_or(<span class="number">0</span>),
+<a href=#468 id=468 data-nosnippet>468</a>                    created: metadata
+<a href=#469 id=469 data-nosnippet>469</a>                        .created()
+<a href=#470 id=470 data-nosnippet>470</a>                        .ok()
+<a href=#471 id=471 data-nosnippet>471</a>                        .and_then(unix_timestamp_nanos)
+<a href=#472 id=472 data-nosnippet>472</a>                        .unwrap_or(<span class="number">0</span>),
+<a href=#473 id=473 data-nosnippet>473</a>                    modified: metadata
+<a href=#474 id=474 data-nosnippet>474</a>                        .modified()
+<a href=#475 id=475 data-nosnippet>475</a>                        .ok()
+<a href=#476 id=476 data-nosnippet>476</a>                        .and_then(unix_timestamp_nanos)
+<a href=#477 id=477 data-nosnippet>477</a>                        .unwrap_or(<span class="number">0</span>),
+<a href=#478 id=478 data-nosnippet>478</a>                    len: contents.len() <span class="kw">as </span>u64,
+<a href=#479 id=479 data-nosnippet>479</a>                })
+<a href=#480 id=480 data-nosnippet>480</a>            }]
+<a href=#481 id=481 data-nosnippet>481</a>        );
+<a href=#482 id=482 data-nosnippet>482</a>    }
+<a href=#483 id=483 data-nosnippet>483</a>}</code></pre></div></section></main></body></html>

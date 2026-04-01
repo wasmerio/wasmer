@@ -386,214 +386,218 @@
 <a href=#386 id=386 data-nosnippet>386</a>
 <a href=#387 id=387 data-nosnippet>387</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../../c-api/examples/assets/python-0.1.0.wasmer"</span>);
-<a href=#390 id=390 data-nosnippet>390</a>    <span class="kw">const </span>COREUTILS: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(
-<a href=#391 id=391 data-nosnippet>391</a>        <span class="string">"../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
-<a href=#392 id=392 data-nosnippet>392</a>    </span>);
-<a href=#393 id=393 data-nosnippet>393</a>    <span class="kw">const </span>DUMMY_URL: <span class="kw-2">&amp;</span>str = <span class="string">"http://my-registry.io/some/package"</span>;
-<a href=#394 id=394 data-nosnippet>394</a>    <span class="kw">const </span>DUMMY_URL_HASH: <span class="kw-2">&amp;</span>str = <span class="string">"4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D"</span>;
-<a href=#395 id=395 data-nosnippet>395</a>
-<a href=#396 id=396 data-nosnippet>396</a>    <span class="attr">#[derive(Debug)]
-<a href=#397 id=397 data-nosnippet>397</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DummyClient {
-<a href=#398 id=398 data-nosnippet>398</a>        requests: Mutex&lt;Vec&lt;HttpRequest&gt;&gt;,
-<a href=#399 id=399 data-nosnippet>399</a>        responses: Mutex&lt;VecDeque&lt;HttpResponse&gt;&gt;,
-<a href=#400 id=400 data-nosnippet>400</a>    }
-<a href=#401 id=401 data-nosnippet>401</a>
-<a href=#402 id=402 data-nosnippet>402</a>    <span class="kw">impl </span>DummyClient {
-<a href=#403 id=403 data-nosnippet>403</a>        <span class="kw">pub fn </span>with_responses(responses: <span class="kw">impl </span>IntoIterator&lt;Item = HttpResponse&gt;) -&gt; <span class="self">Self </span>{
-<a href=#404 id=404 data-nosnippet>404</a>            DummyClient {
-<a href=#405 id=405 data-nosnippet>405</a>                requests: Mutex::new(Vec::new()),
-<a href=#406 id=406 data-nosnippet>406</a>                responses: Mutex::new(responses.into_iter().collect()),
-<a href=#407 id=407 data-nosnippet>407</a>            }
-<a href=#408 id=408 data-nosnippet>408</a>        }
-<a href=#409 id=409 data-nosnippet>409</a>    }
-<a href=#410 id=410 data-nosnippet>410</a>
-<a href=#411 id=411 data-nosnippet>411</a>    <span class="kw">impl </span>HttpClient <span class="kw">for </span>DummyClient {
-<a href=#412 id=412 data-nosnippet>412</a>        <span class="kw">fn </span>request(
-<a href=#413 id=413 data-nosnippet>413</a>            <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#414 id=414 data-nosnippet>414</a>            request: HttpRequest,
-<a href=#415 id=415 data-nosnippet>415</a>        ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
-<a href=#416 id=416 data-nosnippet>416</a>            <span class="kw">let </span>response = <span class="self">self</span>.responses.lock().unwrap().pop_front().unwrap();
-<a href=#417 id=417 data-nosnippet>417</a>            <span class="self">self</span>.requests.lock().unwrap().push(request);
-<a href=#418 id=418 data-nosnippet>418</a>            Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(response) })
-<a href=#419 id=419 data-nosnippet>419</a>        }
-<a href=#420 id=420 data-nosnippet>420</a>    }
-<a href=#421 id=421 data-nosnippet>421</a>
-<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">struct </span>ResponseBuilder(HttpResponse);
-<a href=#423 id=423 data-nosnippet>423</a>
-<a href=#424 id=424 data-nosnippet>424</a>    <span class="kw">impl </span>ResponseBuilder {
-<a href=#425 id=425 data-nosnippet>425</a>        <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-<a href=#426 id=426 data-nosnippet>426</a>            ResponseBuilder(HttpResponse {
-<a href=#427 id=427 data-nosnippet>427</a>                body: <span class="prelude-val">None</span>,
-<a href=#428 id=428 data-nosnippet>428</a>                redirected: <span class="bool-val">false</span>,
-<a href=#429 id=429 data-nosnippet>429</a>                status: StatusCode::OK,
-<a href=#430 id=430 data-nosnippet>430</a>                headers: HeaderMap::new(),
-<a href=#431 id=431 data-nosnippet>431</a>            })
-<a href=#432 id=432 data-nosnippet>432</a>        }
-<a href=#433 id=433 data-nosnippet>433</a>
-<a href=#434 id=434 data-nosnippet>434</a>        <span class="kw">pub fn </span>with_status(<span class="kw-2">mut </span><span class="self">self</span>, code: StatusCode) -&gt; <span class="self">Self </span>{
-<a href=#435 id=435 data-nosnippet>435</a>            <span class="self">self</span>.<span class="number">0</span>.status = code;
-<a href=#436 id=436 data-nosnippet>436</a>            <span class="self">self
-<a href=#437 id=437 data-nosnippet>437</a>        </span>}
-<a href=#438 id=438 data-nosnippet>438</a>
-<a href=#439 id=439 data-nosnippet>439</a>        <span class="kw">pub fn </span>with_body(<span class="kw-2">mut </span><span class="self">self</span>, body: <span class="kw">impl </span>Into&lt;Vec&lt;u8&gt;&gt;) -&gt; <span class="self">Self </span>{
-<a href=#440 id=440 data-nosnippet>440</a>            <span class="self">self</span>.<span class="number">0</span>.body = <span class="prelude-val">Some</span>(body.into());
-<a href=#441 id=441 data-nosnippet>441</a>            <span class="self">self
-<a href=#442 id=442 data-nosnippet>442</a>        </span>}
-<a href=#443 id=443 data-nosnippet>443</a>
-<a href=#444 id=444 data-nosnippet>444</a>        <span class="kw">pub fn </span>with_etag(<span class="self">self</span>, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
-<a href=#445 id=445 data-nosnippet>445</a>            <span class="self">self</span>.with_header(<span class="string">"ETag"</span>, value)
-<a href=#446 id=446 data-nosnippet>446</a>        }
+<a href=#389 id=389 data-nosnippet>389</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#390 id=390 data-nosnippet>390</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#391 id=391 data-nosnippet>391</a>        <span class="string">"/../../wasmer-test-files/examples/python-0.1.0.wasmer"
+<a href=#392 id=392 data-nosnippet>392</a>    </span>));
+<a href=#393 id=393 data-nosnippet>393</a>    <span class="kw">const </span>COREUTILS: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#394 id=394 data-nosnippet>394</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#395 id=395 data-nosnippet>395</a>        <span class="string">"/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+<a href=#396 id=396 data-nosnippet>396</a>    </span>));
+<a href=#397 id=397 data-nosnippet>397</a>    <span class="kw">const </span>DUMMY_URL: <span class="kw-2">&amp;</span>str = <span class="string">"http://my-registry.io/some/package"</span>;
+<a href=#398 id=398 data-nosnippet>398</a>    <span class="kw">const </span>DUMMY_URL_HASH: <span class="kw-2">&amp;</span>str = <span class="string">"4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D"</span>;
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>    <span class="attr">#[derive(Debug)]
+<a href=#401 id=401 data-nosnippet>401</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DummyClient {
+<a href=#402 id=402 data-nosnippet>402</a>        requests: Mutex&lt;Vec&lt;HttpRequest&gt;&gt;,
+<a href=#403 id=403 data-nosnippet>403</a>        responses: Mutex&lt;VecDeque&lt;HttpResponse&gt;&gt;,
+<a href=#404 id=404 data-nosnippet>404</a>    }
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>    <span class="kw">impl </span>DummyClient {
+<a href=#407 id=407 data-nosnippet>407</a>        <span class="kw">pub fn </span>with_responses(responses: <span class="kw">impl </span>IntoIterator&lt;Item = HttpResponse&gt;) -&gt; <span class="self">Self </span>{
+<a href=#408 id=408 data-nosnippet>408</a>            DummyClient {
+<a href=#409 id=409 data-nosnippet>409</a>                requests: Mutex::new(Vec::new()),
+<a href=#410 id=410 data-nosnippet>410</a>                responses: Mutex::new(responses.into_iter().collect()),
+<a href=#411 id=411 data-nosnippet>411</a>            }
+<a href=#412 id=412 data-nosnippet>412</a>        }
+<a href=#413 id=413 data-nosnippet>413</a>    }
+<a href=#414 id=414 data-nosnippet>414</a>
+<a href=#415 id=415 data-nosnippet>415</a>    <span class="kw">impl </span>HttpClient <span class="kw">for </span>DummyClient {
+<a href=#416 id=416 data-nosnippet>416</a>        <span class="kw">fn </span>request(
+<a href=#417 id=417 data-nosnippet>417</a>            <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#418 id=418 data-nosnippet>418</a>            request: HttpRequest,
+<a href=#419 id=419 data-nosnippet>419</a>        ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
+<a href=#420 id=420 data-nosnippet>420</a>            <span class="kw">let </span>response = <span class="self">self</span>.responses.lock().unwrap().pop_front().unwrap();
+<a href=#421 id=421 data-nosnippet>421</a>            <span class="self">self</span>.requests.lock().unwrap().push(request);
+<a href=#422 id=422 data-nosnippet>422</a>            Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(response) })
+<a href=#423 id=423 data-nosnippet>423</a>        }
+<a href=#424 id=424 data-nosnippet>424</a>    }
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>    <span class="kw">struct </span>ResponseBuilder(HttpResponse);
+<a href=#427 id=427 data-nosnippet>427</a>
+<a href=#428 id=428 data-nosnippet>428</a>    <span class="kw">impl </span>ResponseBuilder {
+<a href=#429 id=429 data-nosnippet>429</a>        <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+<a href=#430 id=430 data-nosnippet>430</a>            ResponseBuilder(HttpResponse {
+<a href=#431 id=431 data-nosnippet>431</a>                body: <span class="prelude-val">None</span>,
+<a href=#432 id=432 data-nosnippet>432</a>                redirected: <span class="bool-val">false</span>,
+<a href=#433 id=433 data-nosnippet>433</a>                status: StatusCode::OK,
+<a href=#434 id=434 data-nosnippet>434</a>                headers: HeaderMap::new(),
+<a href=#435 id=435 data-nosnippet>435</a>            })
+<a href=#436 id=436 data-nosnippet>436</a>        }
+<a href=#437 id=437 data-nosnippet>437</a>
+<a href=#438 id=438 data-nosnippet>438</a>        <span class="kw">pub fn </span>with_status(<span class="kw-2">mut </span><span class="self">self</span>, code: StatusCode) -&gt; <span class="self">Self </span>{
+<a href=#439 id=439 data-nosnippet>439</a>            <span class="self">self</span>.<span class="number">0</span>.status = code;
+<a href=#440 id=440 data-nosnippet>440</a>            <span class="self">self
+<a href=#441 id=441 data-nosnippet>441</a>        </span>}
+<a href=#442 id=442 data-nosnippet>442</a>
+<a href=#443 id=443 data-nosnippet>443</a>        <span class="kw">pub fn </span>with_body(<span class="kw-2">mut </span><span class="self">self</span>, body: <span class="kw">impl </span>Into&lt;Vec&lt;u8&gt;&gt;) -&gt; <span class="self">Self </span>{
+<a href=#444 id=444 data-nosnippet>444</a>            <span class="self">self</span>.<span class="number">0</span>.body = <span class="prelude-val">Some</span>(body.into());
+<a href=#445 id=445 data-nosnippet>445</a>            <span class="self">self
+<a href=#446 id=446 data-nosnippet>446</a>        </span>}
 <a href=#447 id=447 data-nosnippet>447</a>
-<a href=#448 id=448 data-nosnippet>448</a>        <span class="kw">pub fn </span>with_header(<span class="kw-2">mut </span><span class="self">self</span>, name: <span class="kw">impl </span>IntoHeaderName, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
-<a href=#449 id=449 data-nosnippet>449</a>            <span class="self">self</span>.<span class="number">0</span>.headers.insert(name, value.parse().unwrap());
-<a href=#450 id=450 data-nosnippet>450</a>            <span class="self">self
-<a href=#451 id=451 data-nosnippet>451</a>        </span>}
-<a href=#452 id=452 data-nosnippet>452</a>
-<a href=#453 id=453 data-nosnippet>453</a>        <span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; HttpResponse {
-<a href=#454 id=454 data-nosnippet>454</a>            <span class="self">self</span>.<span class="number">0
+<a href=#448 id=448 data-nosnippet>448</a>        <span class="kw">pub fn </span>with_etag(<span class="self">self</span>, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+<a href=#449 id=449 data-nosnippet>449</a>            <span class="self">self</span>.with_header(<span class="string">"ETag"</span>, value)
+<a href=#450 id=450 data-nosnippet>450</a>        }
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>        <span class="kw">pub fn </span>with_header(<span class="kw-2">mut </span><span class="self">self</span>, name: <span class="kw">impl </span>IntoHeaderName, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+<a href=#453 id=453 data-nosnippet>453</a>            <span class="self">self</span>.<span class="number">0</span>.headers.insert(name, value.parse().unwrap());
+<a href=#454 id=454 data-nosnippet>454</a>            <span class="self">self
 <a href=#455 id=455 data-nosnippet>455</a>        </span>}
-<a href=#456 id=456 data-nosnippet>456</a>    }
-<a href=#457 id=457 data-nosnippet>457</a>
-<a href=#458 id=458 data-nosnippet>458</a>    <span class="kw">async fn </span>empty_cache_does_a_full_download_internal() {
-<a href=#459 id=459 data-nosnippet>459</a>        <span class="kw">let </span>dummy_etag = <span class="string">"This is an etag"</span>;
-<a href=#460 id=460 data-nosnippet>460</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#461 id=461 data-nosnippet>461</a>        <span class="kw">let </span>client = DummyClient::with_responses([ResponseBuilder::new()
-<a href=#462 id=462 data-nosnippet>462</a>            .with_body(PYTHON)
-<a href=#463 id=463 data-nosnippet>463</a>            .with_etag(dummy_etag)
-<a href=#464 id=464 data-nosnippet>464</a>            .build()]);
-<a href=#465 id=465 data-nosnippet>465</a>        <span class="kw">let </span>source = WebSource::new(temp.path(), Arc::new(client));
-<a href=#466 id=466 data-nosnippet>466</a>        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
-<a href=#467 id=467 data-nosnippet>467</a>
-<a href=#468 id=468 data-nosnippet>468</a>        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
-<a href=#469 id=469 data-nosnippet>469</a>
-<a href=#470 id=470 data-nosnippet>470</a>        <span class="comment">// We got the right response, as expected
-<a href=#471 id=471 data-nosnippet>471</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-<a href=#472 id=472 data-nosnippet>472</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
-<a href=#473 id=473 data-nosnippet>473</a>        <span class="comment">// But we should have also cached the file and etag
-<a href=#474 id=474 data-nosnippet>474</a>        </span><span class="kw">let </span>path = temp.path().join(DUMMY_URL_HASH);
-<a href=#475 id=475 data-nosnippet>475</a>        <span class="macro">assert!</span>(path.exists());
-<a href=#476 id=476 data-nosnippet>476</a>        <span class="kw">let </span>etag_path = path.with_extension(<span class="string">"etag"</span>);
-<a href=#477 id=477 data-nosnippet>477</a>        <span class="macro">assert!</span>(etag_path.exists());
-<a href=#478 id=478 data-nosnippet>478</a>        <span class="comment">// And they should contain the correct content
-<a href=#479 id=479 data-nosnippet>479</a>        </span><span class="macro">assert_eq!</span>(std::fs::read_to_string(etag_path).unwrap(), dummy_etag);
-<a href=#480 id=480 data-nosnippet>480</a>        <span class="macro">assert_eq!</span>(std::fs::read(path).unwrap(), PYTHON);
-<a href=#481 id=481 data-nosnippet>481</a>    }
-<a href=#482 id=482 data-nosnippet>482</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#483 id=483 data-nosnippet>483</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
-<a href=#484 id=484 data-nosnippet>484</a>    </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
-<a href=#485 id=485 data-nosnippet>485</a>        empty_cache_does_a_full_download_internal().<span class="kw">await
-<a href=#486 id=486 data-nosnippet>486</a>    </span>}
-<a href=#487 id=487 data-nosnippet>487</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
-<a href=#488 id=488 data-nosnippet>488</a>    #[tokio::test()]
-<a href=#489 id=489 data-nosnippet>489</a>    </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
-<a href=#490 id=490 data-nosnippet>490</a>        empty_cache_does_a_full_download_internal().<span class="kw">await
-<a href=#491 id=491 data-nosnippet>491</a>    </span>}
-<a href=#492 id=492 data-nosnippet>492</a>
-<a href=#493 id=493 data-nosnippet>493</a>    <span class="kw">async fn </span>cache_hit_internal() {
-<a href=#494 id=494 data-nosnippet>494</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#495 id=495 data-nosnippet>495</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([]));
-<a href=#496 id=496 data-nosnippet>496</a>        <span class="kw">let </span>source = WebSource::new(temp.path(), client.clone());
-<a href=#497 id=497 data-nosnippet>497</a>        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
-<a href=#498 id=498 data-nosnippet>498</a>        <span class="comment">// Prime the cache
-<a href=#499 id=499 data-nosnippet>499</a>        </span>std::fs::write(temp.path().join(DUMMY_URL_HASH), PYTHON).unwrap();
-<a href=#500 id=500 data-nosnippet>500</a>
-<a href=#501 id=501 data-nosnippet>501</a>        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
-<a href=#502 id=502 data-nosnippet>502</a>
-<a href=#503 id=503 data-nosnippet>503</a>        <span class="comment">// We got the right response, as expected
-<a href=#504 id=504 data-nosnippet>504</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-<a href=#505 id=505 data-nosnippet>505</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
-<a href=#506 id=506 data-nosnippet>506</a>        <span class="comment">// And no requests were sent
-<a href=#507 id=507 data-nosnippet>507</a>        </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">0</span>);
-<a href=#508 id=508 data-nosnippet>508</a>    }
-<a href=#509 id=509 data-nosnippet>509</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#510 id=510 data-nosnippet>510</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
-<a href=#511 id=511 data-nosnippet>511</a>    </span><span class="kw">async fn </span>cache_hit() {
-<a href=#512 id=512 data-nosnippet>512</a>        cache_hit_internal().<span class="kw">await
-<a href=#513 id=513 data-nosnippet>513</a>    </span>}
-<a href=#514 id=514 data-nosnippet>514</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
-<a href=#515 id=515 data-nosnippet>515</a>    #[tokio::test()]
-<a href=#516 id=516 data-nosnippet>516</a>    </span><span class="kw">async fn </span>cache_hit() {
-<a href=#517 id=517 data-nosnippet>517</a>        cache_hit_internal().<span class="kw">await
-<a href=#518 id=518 data-nosnippet>518</a>    </span>}
-<a href=#519 id=519 data-nosnippet>519</a>
-<a href=#520 id=520 data-nosnippet>520</a>    <span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails_internal() {
-<a href=#521 id=521 data-nosnippet>521</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#522 id=522 data-nosnippet>522</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([ResponseBuilder::new()
-<a href=#523 id=523 data-nosnippet>523</a>            .with_status(StatusCode::INTERNAL_SERVER_ERROR)
-<a href=#524 id=524 data-nosnippet>524</a>            .build()]));
-<a href=#525 id=525 data-nosnippet>525</a>        <span class="comment">// Add something to the cache
-<a href=#526 id=526 data-nosnippet>526</a>        </span><span class="kw">let </span>python_path = temp.path().join(DUMMY_URL_HASH);
-<a href=#527 id=527 data-nosnippet>527</a>        std::fs::write(<span class="kw-2">&amp;</span>python_path, PYTHON).unwrap();
-<a href=#528 id=528 data-nosnippet>528</a>        <span class="kw">let </span>source = WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::ZERO);
-<a href=#529 id=529 data-nosnippet>529</a>        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
-<a href=#530 id=530 data-nosnippet>530</a>
-<a href=#531 id=531 data-nosnippet>531</a>        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
-<a href=#532 id=532 data-nosnippet>532</a>
-<a href=#533 id=533 data-nosnippet>533</a>        <span class="comment">// We got the right response, as expected
-<a href=#534 id=534 data-nosnippet>534</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-<a href=#535 id=535 data-nosnippet>535</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
-<a href=#536 id=536 data-nosnippet>536</a>        <span class="comment">// And one request was sent
-<a href=#537 id=537 data-nosnippet>537</a>        </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">1</span>);
-<a href=#538 id=538 data-nosnippet>538</a>        <span class="comment">// The etag file wasn't written
-<a href=#539 id=539 data-nosnippet>539</a>        </span><span class="macro">assert!</span>(!python_path.with_extension(<span class="string">"etag"</span>).exists());
-<a href=#540 id=540 data-nosnippet>540</a>    }
-<a href=#541 id=541 data-nosnippet>541</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#542 id=542 data-nosnippet>542</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
-<a href=#543 id=543 data-nosnippet>543</a>    </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
-<a href=#544 id=544 data-nosnippet>544</a>        fall_back_to_stale_cache_if_request_fails_internal().<span class="kw">await
-<a href=#545 id=545 data-nosnippet>545</a>    </span>}
-<a href=#546 id=546 data-nosnippet>546</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
-<a href=#547 id=547 data-nosnippet>547</a>    #[tokio::test()]
-<a href=#548 id=548 data-nosnippet>548</a>    </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
-<a href=#549 id=549 data-nosnippet>549</a>        fall_back_to_stale_cache_if_request_fails_internal().<span class="kw">await
-<a href=#550 id=550 data-nosnippet>550</a>    </span>}
-<a href=#551 id=551 data-nosnippet>551</a>
-<a href=#552 id=552 data-nosnippet>552</a>    <span class="kw">async fn </span>download_again_if_etag_is_different_internal() {
-<a href=#553 id=553 data-nosnippet>553</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#554 id=554 data-nosnippet>554</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([
-<a href=#555 id=555 data-nosnippet>555</a>            ResponseBuilder::new().with_etag(<span class="string">"coreutils"</span>).build(),
-<a href=#556 id=556 data-nosnippet>556</a>            ResponseBuilder::new()
-<a href=#557 id=557 data-nosnippet>557</a>                .with_body(COREUTILS)
-<a href=#558 id=558 data-nosnippet>558</a>                .with_etag(<span class="string">"coreutils"</span>)
-<a href=#559 id=559 data-nosnippet>559</a>                .build(),
-<a href=#560 id=560 data-nosnippet>560</a>        ]));
-<a href=#561 id=561 data-nosnippet>561</a>        <span class="comment">// Add Python to the cache
-<a href=#562 id=562 data-nosnippet>562</a>        </span><span class="kw">let </span>path = temp.path().join(DUMMY_URL_HASH);
-<a href=#563 id=563 data-nosnippet>563</a>        std::fs::write(<span class="kw-2">&amp;</span>path, PYTHON).unwrap();
-<a href=#564 id=564 data-nosnippet>564</a>        std::fs::write(path.with_extension(<span class="string">"etag"</span>), <span class="string">"python"</span>).unwrap();
-<a href=#565 id=565 data-nosnippet>565</a>        <span class="comment">// but create a source that will always want to re-check the etags
-<a href=#566 id=566 data-nosnippet>566</a>        </span><span class="kw">let </span>source =
-<a href=#567 id=567 data-nosnippet>567</a>            WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::new(<span class="number">0</span>, <span class="number">0</span>));
-<a href=#568 id=568 data-nosnippet>568</a>        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
-<a href=#569 id=569 data-nosnippet>569</a>
-<a href=#570 id=570 data-nosnippet>570</a>        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
-<a href=#571 id=571 data-nosnippet>571</a>
-<a href=#572 id=572 data-nosnippet>572</a>        <span class="comment">// Instead of Python (the originally cached item), we should get coreutils
-<a href=#573 id=573 data-nosnippet>573</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-<a href=#574 id=574 data-nosnippet>574</a>        <span class="macro">assert_eq!</span>(
-<a href=#575 id=575 data-nosnippet>575</a>            summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name,
-<a href=#576 id=576 data-nosnippet>576</a>            <span class="string">"sharrattj/coreutils"
-<a href=#577 id=577 data-nosnippet>577</a>        </span>);
-<a href=#578 id=578 data-nosnippet>578</a>        <span class="comment">// both a HEAD and GET request were sent
-<a href=#579 id=579 data-nosnippet>579</a>        </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
-<a href=#580 id=580 data-nosnippet>580</a>        <span class="macro">assert_eq!</span>(requests.len(), <span class="number">2</span>);
-<a href=#581 id=581 data-nosnippet>581</a>        <span class="macro">assert_eq!</span>(requests[<span class="number">0</span>].method, <span class="string">"HEAD"</span>);
-<a href=#582 id=582 data-nosnippet>582</a>        <span class="macro">assert_eq!</span>(requests[<span class="number">1</span>].method, <span class="string">"GET"</span>);
-<a href=#583 id=583 data-nosnippet>583</a>        <span class="comment">// The etag file was also updated
-<a href=#584 id=584 data-nosnippet>584</a>        </span><span class="macro">assert_eq!</span>(
-<a href=#585 id=585 data-nosnippet>585</a>            std::fs::read_to_string(path.with_extension(<span class="string">"etag"</span>)).unwrap(),
-<a href=#586 id=586 data-nosnippet>586</a>            <span class="string">"coreutils"
-<a href=#587 id=587 data-nosnippet>587</a>        </span>);
-<a href=#588 id=588 data-nosnippet>588</a>    }
-<a href=#589 id=589 data-nosnippet>589</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#590 id=590 data-nosnippet>590</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
-<a href=#591 id=591 data-nosnippet>591</a>    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
-<a href=#592 id=592 data-nosnippet>592</a>        download_again_if_etag_is_different_internal().<span class="kw">await
-<a href=#593 id=593 data-nosnippet>593</a>    </span>}
-<a href=#594 id=594 data-nosnippet>594</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
-<a href=#595 id=595 data-nosnippet>595</a>    #[tokio::test()]
-<a href=#596 id=596 data-nosnippet>596</a>    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
-<a href=#597 id=597 data-nosnippet>597</a>        download_again_if_etag_is_different_internal().<span class="kw">await
-<a href=#598 id=598 data-nosnippet>598</a>    </span>}
-<a href=#599 id=599 data-nosnippet>599</a>}</code></pre></div></section></main></body></html>
+<a href=#456 id=456 data-nosnippet>456</a>
+<a href=#457 id=457 data-nosnippet>457</a>        <span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; HttpResponse {
+<a href=#458 id=458 data-nosnippet>458</a>            <span class="self">self</span>.<span class="number">0
+<a href=#459 id=459 data-nosnippet>459</a>        </span>}
+<a href=#460 id=460 data-nosnippet>460</a>    }
+<a href=#461 id=461 data-nosnippet>461</a>
+<a href=#462 id=462 data-nosnippet>462</a>    <span class="kw">async fn </span>empty_cache_does_a_full_download_internal() {
+<a href=#463 id=463 data-nosnippet>463</a>        <span class="kw">let </span>dummy_etag = <span class="string">"This is an etag"</span>;
+<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#465 id=465 data-nosnippet>465</a>        <span class="kw">let </span>client = DummyClient::with_responses([ResponseBuilder::new()
+<a href=#466 id=466 data-nosnippet>466</a>            .with_body(PYTHON)
+<a href=#467 id=467 data-nosnippet>467</a>            .with_etag(dummy_etag)
+<a href=#468 id=468 data-nosnippet>468</a>            .build()]);
+<a href=#469 id=469 data-nosnippet>469</a>        <span class="kw">let </span>source = WebSource::new(temp.path(), Arc::new(client));
+<a href=#470 id=470 data-nosnippet>470</a>        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
+<a href=#471 id=471 data-nosnippet>471</a>
+<a href=#472 id=472 data-nosnippet>472</a>        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a>        <span class="comment">// We got the right response, as expected
+<a href=#475 id=475 data-nosnippet>475</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
+<a href=#476 id=476 data-nosnippet>476</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
+<a href=#477 id=477 data-nosnippet>477</a>        <span class="comment">// But we should have also cached the file and etag
+<a href=#478 id=478 data-nosnippet>478</a>        </span><span class="kw">let </span>path = temp.path().join(DUMMY_URL_HASH);
+<a href=#479 id=479 data-nosnippet>479</a>        <span class="macro">assert!</span>(path.exists());
+<a href=#480 id=480 data-nosnippet>480</a>        <span class="kw">let </span>etag_path = path.with_extension(<span class="string">"etag"</span>);
+<a href=#481 id=481 data-nosnippet>481</a>        <span class="macro">assert!</span>(etag_path.exists());
+<a href=#482 id=482 data-nosnippet>482</a>        <span class="comment">// And they should contain the correct content
+<a href=#483 id=483 data-nosnippet>483</a>        </span><span class="macro">assert_eq!</span>(std::fs::read_to_string(etag_path).unwrap(), dummy_etag);
+<a href=#484 id=484 data-nosnippet>484</a>        <span class="macro">assert_eq!</span>(std::fs::read(path).unwrap(), PYTHON);
+<a href=#485 id=485 data-nosnippet>485</a>    }
+<a href=#486 id=486 data-nosnippet>486</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#487 id=487 data-nosnippet>487</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
+<a href=#488 id=488 data-nosnippet>488</a>    </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
+<a href=#489 id=489 data-nosnippet>489</a>        empty_cache_does_a_full_download_internal().<span class="kw">await
+<a href=#490 id=490 data-nosnippet>490</a>    </span>}
+<a href=#491 id=491 data-nosnippet>491</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
+<a href=#492 id=492 data-nosnippet>492</a>    #[tokio::test()]
+<a href=#493 id=493 data-nosnippet>493</a>    </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
+<a href=#494 id=494 data-nosnippet>494</a>        empty_cache_does_a_full_download_internal().<span class="kw">await
+<a href=#495 id=495 data-nosnippet>495</a>    </span>}
+<a href=#496 id=496 data-nosnippet>496</a>
+<a href=#497 id=497 data-nosnippet>497</a>    <span class="kw">async fn </span>cache_hit_internal() {
+<a href=#498 id=498 data-nosnippet>498</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#499 id=499 data-nosnippet>499</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([]));
+<a href=#500 id=500 data-nosnippet>500</a>        <span class="kw">let </span>source = WebSource::new(temp.path(), client.clone());
+<a href=#501 id=501 data-nosnippet>501</a>        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
+<a href=#502 id=502 data-nosnippet>502</a>        <span class="comment">// Prime the cache
+<a href=#503 id=503 data-nosnippet>503</a>        </span>std::fs::write(temp.path().join(DUMMY_URL_HASH), PYTHON).unwrap();
+<a href=#504 id=504 data-nosnippet>504</a>
+<a href=#505 id=505 data-nosnippet>505</a>        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
+<a href=#506 id=506 data-nosnippet>506</a>
+<a href=#507 id=507 data-nosnippet>507</a>        <span class="comment">// We got the right response, as expected
+<a href=#508 id=508 data-nosnippet>508</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
+<a href=#509 id=509 data-nosnippet>509</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
+<a href=#510 id=510 data-nosnippet>510</a>        <span class="comment">// And no requests were sent
+<a href=#511 id=511 data-nosnippet>511</a>        </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">0</span>);
+<a href=#512 id=512 data-nosnippet>512</a>    }
+<a href=#513 id=513 data-nosnippet>513</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#514 id=514 data-nosnippet>514</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
+<a href=#515 id=515 data-nosnippet>515</a>    </span><span class="kw">async fn </span>cache_hit() {
+<a href=#516 id=516 data-nosnippet>516</a>        cache_hit_internal().<span class="kw">await
+<a href=#517 id=517 data-nosnippet>517</a>    </span>}
+<a href=#518 id=518 data-nosnippet>518</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
+<a href=#519 id=519 data-nosnippet>519</a>    #[tokio::test()]
+<a href=#520 id=520 data-nosnippet>520</a>    </span><span class="kw">async fn </span>cache_hit() {
+<a href=#521 id=521 data-nosnippet>521</a>        cache_hit_internal().<span class="kw">await
+<a href=#522 id=522 data-nosnippet>522</a>    </span>}
+<a href=#523 id=523 data-nosnippet>523</a>
+<a href=#524 id=524 data-nosnippet>524</a>    <span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails_internal() {
+<a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#526 id=526 data-nosnippet>526</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([ResponseBuilder::new()
+<a href=#527 id=527 data-nosnippet>527</a>            .with_status(StatusCode::INTERNAL_SERVER_ERROR)
+<a href=#528 id=528 data-nosnippet>528</a>            .build()]));
+<a href=#529 id=529 data-nosnippet>529</a>        <span class="comment">// Add something to the cache
+<a href=#530 id=530 data-nosnippet>530</a>        </span><span class="kw">let </span>python_path = temp.path().join(DUMMY_URL_HASH);
+<a href=#531 id=531 data-nosnippet>531</a>        std::fs::write(<span class="kw-2">&amp;</span>python_path, PYTHON).unwrap();
+<a href=#532 id=532 data-nosnippet>532</a>        <span class="kw">let </span>source = WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::ZERO);
+<a href=#533 id=533 data-nosnippet>533</a>        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
+<a href=#534 id=534 data-nosnippet>534</a>
+<a href=#535 id=535 data-nosnippet>535</a>        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
+<a href=#536 id=536 data-nosnippet>536</a>
+<a href=#537 id=537 data-nosnippet>537</a>        <span class="comment">// We got the right response, as expected
+<a href=#538 id=538 data-nosnippet>538</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
+<a href=#539 id=539 data-nosnippet>539</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
+<a href=#540 id=540 data-nosnippet>540</a>        <span class="comment">// And one request was sent
+<a href=#541 id=541 data-nosnippet>541</a>        </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">1</span>);
+<a href=#542 id=542 data-nosnippet>542</a>        <span class="comment">// The etag file wasn't written
+<a href=#543 id=543 data-nosnippet>543</a>        </span><span class="macro">assert!</span>(!python_path.with_extension(<span class="string">"etag"</span>).exists());
+<a href=#544 id=544 data-nosnippet>544</a>    }
+<a href=#545 id=545 data-nosnippet>545</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#546 id=546 data-nosnippet>546</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
+<a href=#547 id=547 data-nosnippet>547</a>    </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
+<a href=#548 id=548 data-nosnippet>548</a>        fall_back_to_stale_cache_if_request_fails_internal().<span class="kw">await
+<a href=#549 id=549 data-nosnippet>549</a>    </span>}
+<a href=#550 id=550 data-nosnippet>550</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
+<a href=#551 id=551 data-nosnippet>551</a>    #[tokio::test()]
+<a href=#552 id=552 data-nosnippet>552</a>    </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
+<a href=#553 id=553 data-nosnippet>553</a>        fall_back_to_stale_cache_if_request_fails_internal().<span class="kw">await
+<a href=#554 id=554 data-nosnippet>554</a>    </span>}
+<a href=#555 id=555 data-nosnippet>555</a>
+<a href=#556 id=556 data-nosnippet>556</a>    <span class="kw">async fn </span>download_again_if_etag_is_different_internal() {
+<a href=#557 id=557 data-nosnippet>557</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#558 id=558 data-nosnippet>558</a>        <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([
+<a href=#559 id=559 data-nosnippet>559</a>            ResponseBuilder::new().with_etag(<span class="string">"coreutils"</span>).build(),
+<a href=#560 id=560 data-nosnippet>560</a>            ResponseBuilder::new()
+<a href=#561 id=561 data-nosnippet>561</a>                .with_body(COREUTILS)
+<a href=#562 id=562 data-nosnippet>562</a>                .with_etag(<span class="string">"coreutils"</span>)
+<a href=#563 id=563 data-nosnippet>563</a>                .build(),
+<a href=#564 id=564 data-nosnippet>564</a>        ]));
+<a href=#565 id=565 data-nosnippet>565</a>        <span class="comment">// Add Python to the cache
+<a href=#566 id=566 data-nosnippet>566</a>        </span><span class="kw">let </span>path = temp.path().join(DUMMY_URL_HASH);
+<a href=#567 id=567 data-nosnippet>567</a>        std::fs::write(<span class="kw-2">&amp;</span>path, PYTHON).unwrap();
+<a href=#568 id=568 data-nosnippet>568</a>        std::fs::write(path.with_extension(<span class="string">"etag"</span>), <span class="string">"python"</span>).unwrap();
+<a href=#569 id=569 data-nosnippet>569</a>        <span class="comment">// but create a source that will always want to re-check the etags
+<a href=#570 id=570 data-nosnippet>570</a>        </span><span class="kw">let </span>source =
+<a href=#571 id=571 data-nosnippet>571</a>            WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::new(<span class="number">0</span>, <span class="number">0</span>));
+<a href=#572 id=572 data-nosnippet>572</a>        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
+<a href=#573 id=573 data-nosnippet>573</a>
+<a href=#574 id=574 data-nosnippet>574</a>        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
+<a href=#575 id=575 data-nosnippet>575</a>
+<a href=#576 id=576 data-nosnippet>576</a>        <span class="comment">// Instead of Python (the originally cached item), we should get coreutils
+<a href=#577 id=577 data-nosnippet>577</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
+<a href=#578 id=578 data-nosnippet>578</a>        <span class="macro">assert_eq!</span>(
+<a href=#579 id=579 data-nosnippet>579</a>            summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name,
+<a href=#580 id=580 data-nosnippet>580</a>            <span class="string">"sharrattj/coreutils"
+<a href=#581 id=581 data-nosnippet>581</a>        </span>);
+<a href=#582 id=582 data-nosnippet>582</a>        <span class="comment">// both a HEAD and GET request were sent
+<a href=#583 id=583 data-nosnippet>583</a>        </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
+<a href=#584 id=584 data-nosnippet>584</a>        <span class="macro">assert_eq!</span>(requests.len(), <span class="number">2</span>);
+<a href=#585 id=585 data-nosnippet>585</a>        <span class="macro">assert_eq!</span>(requests[<span class="number">0</span>].method, <span class="string">"HEAD"</span>);
+<a href=#586 id=586 data-nosnippet>586</a>        <span class="macro">assert_eq!</span>(requests[<span class="number">1</span>].method, <span class="string">"GET"</span>);
+<a href=#587 id=587 data-nosnippet>587</a>        <span class="comment">// The etag file was also updated
+<a href=#588 id=588 data-nosnippet>588</a>        </span><span class="macro">assert_eq!</span>(
+<a href=#589 id=589 data-nosnippet>589</a>            std::fs::read_to_string(path.with_extension(<span class="string">"etag"</span>)).unwrap(),
+<a href=#590 id=590 data-nosnippet>590</a>            <span class="string">"coreutils"
+<a href=#591 id=591 data-nosnippet>591</a>        </span>);
+<a href=#592 id=592 data-nosnippet>592</a>    }
+<a href=#593 id=593 data-nosnippet>593</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#594 id=594 data-nosnippet>594</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
+<a href=#595 id=595 data-nosnippet>595</a>    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
+<a href=#596 id=596 data-nosnippet>596</a>        download_again_if_etag_is_different_internal().<span class="kw">await
+<a href=#597 id=597 data-nosnippet>597</a>    </span>}
+<a href=#598 id=598 data-nosnippet>598</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
+<a href=#599 id=599 data-nosnippet>599</a>    #[tokio::test()]
+<a href=#600 id=600 data-nosnippet>600</a>    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
+<a href=#601 id=601 data-nosnippet>601</a>        download_again_if_etag_is_different_internal().<span class="kw">await
+<a href=#602 id=602 data-nosnippet>602</a>    </span>}
+<a href=#603 id=603 data-nosnippet>603</a>}</code></pre></div></section></main></body></html>
