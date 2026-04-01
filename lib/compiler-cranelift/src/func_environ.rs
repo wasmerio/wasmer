@@ -2286,11 +2286,6 @@ impl FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn get_global_type(&self, global_index: GlobalIndex) -> Option<WasmerType> {
-        Some(self.module.globals.get(global_index)?.ty)
-    }
-
     pub(crate) fn push_local_decl_on_stack(&mut self, ty: WasmerType) {
         self.type_stack.push(ty);
     }
