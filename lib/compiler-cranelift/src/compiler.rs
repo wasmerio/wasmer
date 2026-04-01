@@ -321,7 +321,7 @@ impl CraneliftCompiler {
         let mut custom_sections = PrimaryMap::new();
 
         #[cfg(not(feature = "rayon"))]
-        let mut func_translator = FuncTranslator::new();
+        let mut func_translator = FuncTranslator::new(self.config.allow_nonaligned_memory_accesses);
         #[cfg(not(feature = "rayon"))]
         let results = function_body_inputs
             .iter()
@@ -351,7 +351,7 @@ impl CraneliftCompiler {
 
             translate_function_buckets(
                 &pool,
-                FuncTranslator::new,
+                || FuncTranslator::new(self.config.allow_nonaligned_memory_accesses),
                 |func_translator, i, input| compile_function(func_translator, i, input),
                 progress.clone(),
                 &buckets,

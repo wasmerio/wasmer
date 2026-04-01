@@ -101,7 +101,7 @@ use wasmer_compiler::wasmparser::{self, Catch, MemArg, Operator};
 use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
 use wasmer_types::{
     CATCH_ALL_TAG_VALUE, FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
-    TagIndex, WasmResult,
+    TagIndex, WasmError, WasmResult,
 };
 
 /// Given a `Reachability<T>`, unwrap the inner `T` or, when unreachable, set
@@ -132,6 +132,7 @@ pub fn translate_operator(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FuncEnvironment<'_>,
+    allow_nonaligned_memory_accesses: bool,
 ) -> WasmResult<()> {
     if !state.reachable {
         translate_unreachable_operator(module_translation_state, op, builder, state, environ)?;
@@ -765,91 +766,211 @@ pub fn translate_operator(
         Operator::I32Load8U { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Uload8, I32, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Uload8,
+                    I32,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I32Load16U { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Uload16, I32, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Uload16,
+                    I32,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I32Load8S { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Sload8, I32, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Sload8,
+                    I32,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I32Load16S { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Sload16, I32, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Sload16,
+                    I32,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I64Load8U { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Uload8, I64, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Uload8,
+                    I64,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I64Load16U { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Uload16, I64, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Uload16,
+                    I64,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I64Load8S { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Sload8, I64, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Sload8,
+                    I64,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I64Load16S { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Sload16, I64, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Sload16,
+                    I64,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I64Load32S { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Sload32, I64, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Sload32,
+                    I64,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I64Load32U { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Uload32, I64, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Uload32,
+                    I64,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I32Load { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Load, I32, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Load,
+                    I32,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::F32Load { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Load, F32, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Load,
+                    F32,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::I64Load { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Load, I64, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Load,
+                    I64,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::F64Load { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Load, F64, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Load,
+                    F64,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::V128Load { memarg } => {
             unwrap_or_return_unreachable_state!(
                 state,
-                translate_load(memarg, ir::Opcode::Load, I8X16, builder, state, environ)?
+                translate_load(
+                    memarg,
+                    ir::Opcode::Load,
+                    I8X16,
+                    builder,
+                    state,
+                    environ,
+                    allow_nonaligned_memory_accesses,
+                )?
             );
         }
         Operator::V128Load8x8S { memarg } => {
@@ -909,19 +1030,54 @@ pub fn translate_operator(
         | Operator::I64Store { memarg }
         | Operator::F32Store { memarg }
         | Operator::F64Store { memarg } => {
-            translate_store(memarg, ir::Opcode::Store, builder, state, environ)?;
+            translate_store(
+                memarg,
+                ir::Opcode::Store,
+                builder,
+                state,
+                environ,
+                allow_nonaligned_memory_accesses,
+            )?;
         }
         Operator::I32Store8 { memarg } | Operator::I64Store8 { memarg } => {
-            translate_store(memarg, ir::Opcode::Istore8, builder, state, environ)?;
+            translate_store(
+                memarg,
+                ir::Opcode::Istore8,
+                builder,
+                state,
+                environ,
+                allow_nonaligned_memory_accesses,
+            )?;
         }
         Operator::I32Store16 { memarg } | Operator::I64Store16 { memarg } => {
-            translate_store(memarg, ir::Opcode::Istore16, builder, state, environ)?;
+            translate_store(
+                memarg,
+                ir::Opcode::Istore16,
+                builder,
+                state,
+                environ,
+                allow_nonaligned_memory_accesses,
+            )?;
         }
         Operator::I64Store32 { memarg } => {
-            translate_store(memarg, ir::Opcode::Istore32, builder, state, environ)?;
+            translate_store(
+                memarg,
+                ir::Opcode::Istore32,
+                builder,
+                state,
+                environ,
+                allow_nonaligned_memory_accesses,
+            )?;
         }
         Operator::V128Store { memarg } => {
-            translate_store(memarg, ir::Opcode::Store, builder, state, environ)?;
+            translate_store(
+                memarg,
+                ir::Opcode::Store,
+                builder,
+                state,
+                environ,
+                allow_nonaligned_memory_accesses,
+            )?;
         }
         /****************************** Nullary Operators ************************************/
         Operator::I32Const { value } => {
@@ -1640,6 +1796,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
+                    allow_nonaligned_memory_accesses,
                 )?
             );
             let splatted = builder.ins().splat(type_of(op), state.pop1());
@@ -1655,6 +1812,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
+                    allow_nonaligned_memory_accesses,
                 )?
             );
             let as_vector = builder.ins().scalar_to_vector(type_of(op), state.pop1());
@@ -1674,6 +1832,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
+                    allow_nonaligned_memory_accesses,
                 )?
             );
             let replacement = state.pop1();
@@ -1685,7 +1844,14 @@ pub fn translate_operator(
         | Operator::V128Store64Lane { memarg, lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().extractlane(vector, *lane));
-            translate_store(memarg, ir::Opcode::Store, builder, state, environ)?;
+            translate_store(
+                memarg,
+                ir::Opcode::Store,
+                builder,
+                state,
+                environ,
+                allow_nonaligned_memory_accesses,
+            )?;
         }
         Operator::I8x16ExtractLaneS { lane } | Operator::I16x8ExtractLaneS { lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
@@ -2854,6 +3020,7 @@ fn translate_load(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FuncEnvironment<'_>,
+    allow_nonaligned_memory_accesses: bool,
 ) -> WasmResult<Reachability<()>> {
     let mem_op_size = mem_op_size(opcode, result_ty);
     let (flags, _wasm_index, base) =
@@ -2862,10 +3029,62 @@ fn translate_load(
             Reachability::Reachable((f, i, b)) => (f, i, b),
         };
 
-    let (load, dfg) = builder
-        .ins()
-        .Load(opcode, result_ty, flags, Offset32::new(0), base);
-    state.push1(dfg.first_result(load));
+    if allow_nonaligned_memory_accesses && mem_op_size > 1 {
+        // Test and handle aligned / unaligned loads separately
+        let block_aligned = builder.create_block();
+        let block_unaligned = builder.create_block();
+        let block_merge = builder.create_block();
+        builder.append_block_param(block_merge, result_ty);
+
+        let alignment_check = builder.ins().band_imm(base, (mem_op_size - 1) as i64);
+        builder
+            .ins()
+            .brif(alignment_check, block_unaligned, &[], block_aligned, &[]);
+
+        builder.seal_block(block_aligned);
+        builder.seal_block(block_unaligned);
+
+        builder.switch_to_block(block_aligned);
+        let fast_val = builder.ins().load(result_ty, flags, base, 0);
+        builder.ins().jump(block_merge, &[fast_val.into()]);
+
+        builder.switch_to_block(block_unaligned);
+        let slow_val = if result_ty.is_vector() {
+            debug_assert_eq!(result_ty, I8X16);
+            debug_assert_eq!(mem_op_size, 16);
+
+            let first_byte = builder.ins().uload8(I8, flags, base, 0);
+            let mut vector = builder.ins().scalar_to_vector(I8X16, first_byte);
+            for i in 1..mem_op_size {
+                let byte = builder.ins().uload8(I8, flags, base, i as i32);
+                vector = builder.ins().insertlane(vector, byte, i);
+            }
+            vector
+        } else {
+            let result_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
+                WasmError::Generic("cannot get uint type for memory load".to_string()),
+            )?;
+            let mut slow_val = builder.ins().iconst(result_uint_type, 0);
+            for i in 0..mem_op_size {
+                let byte = builder.ins().uload8(I8, flags, base, i as i32);
+                let byte = builder.ins().uextend(result_uint_type, byte);
+                let shifted = builder.ins().ishl_imm(byte, (i * 8) as i64);
+                slow_val = builder.ins().bor(slow_val, shifted);
+            }
+            builder.ins().bitcast(result_ty, flags, slow_val)
+        };
+        builder.ins().jump(block_merge, &[slow_val.into()]);
+
+        builder.seal_block(block_merge);
+        builder.switch_to_block(block_merge);
+        state.push1(builder.block_params(block_merge)[0]);
+    } else {
+        let (load, dfg) = builder
+            .ins()
+            .Load(opcode, result_ty, flags, Offset32::new(0), base);
+        state.push1(dfg.first_result(load));
+    }
+
     Ok(Reachability::Reachable(()))
 }
 
@@ -2876,6 +3095,7 @@ fn translate_store(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FuncEnvironment<'_>,
+    allow_nonaligned_memory_accesses: bool,
 ) -> WasmResult<()> {
     let val = state.pop1();
     let val_ty = builder.func.dfg.value_type(val);
@@ -2886,9 +3106,19 @@ fn translate_store(
         prepare_addr(memarg, mem_op_size, builder, state, environ)?
     );
 
-    builder
-        .ins()
-        .Store(opcode, val_ty, flags, Offset32::new(0), val, base);
+    if allow_nonaligned_memory_accesses {
+        // Unaligned store
+        assert_eq!(flags.explicit_endianness(), Some(ir::Endianness::Little));
+        for i in 0..mem_op_size {
+            let shifted = builder.ins().ushr_imm(val, (i * 8) as i64);
+            builder.ins().istore8(flags, shifted, base, i as i32);
+        }
+    } else {
+        builder
+            .ins()
+            .Store(opcode, val_ty, flags, Offset32::new(0), val, base);
+    }
+
     Ok(())
 }
 
