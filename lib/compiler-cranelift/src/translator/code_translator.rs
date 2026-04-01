@@ -3046,22 +3046,43 @@ fn translate_load(
         builder.seal_block(block_unaligned);
 
         builder.switch_to_block(block_aligned);
-        let fast_val = builder.ins().load(result_ty, flags, base, 0);
+        let (fast_load, fast_dfg) =
+            builder
+                .ins()
+                .Load(opcode, result_ty, flags, Offset32::new(0), base);
+        let fast_val = fast_dfg.first_result(fast_load);
         builder.ins().jump(block_merge, &[fast_val.into()]);
 
         builder.switch_to_block(block_unaligned);
 
-        let result_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
+        // We're going to build the final value as an unsigned integer type that will be later bitcasted.
+        let result_uint_type = Type::int_with_byte_size(u16::try_from(result_ty.bytes()).unwrap())
+            .ok_or(WasmError::Generic(
+                "cannot get uint type for memory load".to_string(),
+            ))?;
+        let raw_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
             WasmError::Generic("cannot get uint type for memory load".to_string()),
         )?;
-        let mut slow_val = builder.ins().iconst(result_uint_type, 0);
-        for i in 0..mem_op_size {
-            let byte = builder.ins().uload8(I8, flags, base, i as i32);
-            let byte = builder.ins().uextend(result_uint_type, byte);
+        let mut slow_val = builder.ins().uload8(result_uint_type, flags, base, 0);
+        for i in 1..mem_op_size {
+            let byte = builder
+                .ins()
+                .uload8(result_uint_type, flags, base, i as i32);
             let shifted = builder.ins().ishl_imm(byte, (i * 8) as i64);
             slow_val = builder.ins().bor(slow_val, shifted);
         }
-        let slow_val = builder.ins().bitcast(result_ty, flags, slow_val);
+        if matches!(
+            opcode,
+            ir::Opcode::Sload8 | ir::Opcode::Sload16 | ir::Opcode::Sload32
+        ) {
+            let narrow = builder.ins().ireduce(raw_uint_type, slow_val);
+            slow_val = builder.ins().sextend(result_uint_type, narrow);
+        }
+        let slow_val = builder.ins().bitcast(
+            result_ty,
+            MemFlags::new().with_endianness(ir::Endianness::Little),
+            slow_val,
+        );
         builder.ins().jump(block_merge, &[slow_val.into()]);
 
         builder.seal_block(block_merge);
