@@ -22,7 +22,7 @@ use crate::{
     EngineInner, ModuleEnvironment, ModuleMiddlewareChain, serialize::SerializableCompilation,
 };
 #[cfg(feature = "compiler")]
-use wasmer_types::target::Target;
+use wasmer_types::{CompilationProgressCallback, target::Target};
 
 use core::mem::MaybeUninit;
 use enumset::EnumSet;
@@ -31,7 +31,7 @@ use self_cell::self_cell;
 use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
 use wasmer_types::{
-    CompilationProgressCallback, DeserializeError,
+    DeserializeError,
     entity::{ArchivedPrimaryMap, PrimaryMap},
     target::CpuFeature,
 };

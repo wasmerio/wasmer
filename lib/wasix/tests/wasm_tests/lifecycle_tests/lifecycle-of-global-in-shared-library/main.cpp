@@ -1,7 +1,6 @@
 #include <dlfcn.h>
-#include <thread>
-#include <iostream>
 
-int main() {
-    return 0;
-}
+#include <iostream>
+#include <thread>
+
+int main() { return 0; }

@@ -508,6 +508,11 @@ impl EmitterRiscv for Assembler {
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addi X(dst), X(src1), imm as _);
             }
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                assert!(ImmType::Bits12.compatible_imm(imm as i64));
+                dynasm!(self ; addi X(dst), X(src1), imm as _);
+            }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; addw X(dst), X(src1), X(src2));
             }

@@ -12,17 +12,17 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=7.1.0-rc.2", path = "lib/api", default-features = false }
-wasmer-cache = { version = "=7.1.0-rc.2", path = "lib/cache", optional = true }
-wasmer-compiler = { version = "=7.1.0-rc.2", path = "lib/compiler", features = [
+wasmer = { version = "=7.1.0", path = "lib/api", default-features = false }
+wasmer-cache = { version = "=7.1.0", path = "lib/cache", optional = true }
+wasmer-compiler = { version = "=7.1.0", path = "lib/compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=7.1.0-rc.2", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=7.1.0-rc.2", path = "lib/compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=7.1.0-rc.2", path = "lib/compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=7.1.0-rc.2", path = "lib/middlewares", optional = true }
-wasmer-types = { version = "=7.1.0-rc.2", path = "lib/types" }
-wasmer-wast = { version = "=7.1.0-rc.2", path = "tests/lib/wast", optional = true }
+wasmer-compiler-cranelift = { version = "=7.1.0", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=7.1.0", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=7.1.0", path = "lib/compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=7.1.0", path = "lib/middlewares", optional = true }
+wasmer-types = { version = "=7.1.0", path = "lib/types" }
+wasmer-wast = { version = "=7.1.0", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
@@ -82,11 +82,11 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.91"
-version = "7.1.0-rc.2"
+version = "7.1.0"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.701.0-rc.2", path = "lib/package" }
+wasmer-package = { version = "0.701.0", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
@@ -135,9 +135,10 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.129.1", default-features = false }
-cranelift-entity = { version = "=0.129.1", default-features = false }
-cranelift-frontend = { version = "=0.129.1", default-features = false }
+cranelift-codegen = { version = "=0.130.0", default-features = false }
+cranelift-entity = { version = "=0.130.0", default-features = false }
+cranelift-frontend = { version = "=0.130.0", default-features = false }
+crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
 crossbeam-queue = "0.3.8"
@@ -235,7 +236,7 @@ region = "3.0"
 replace_with = "0.1.7"
 reqwest = { version = "0.13.0", default-features = false }
 rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
-rustc-demangle = "0.1"
+symbolic-demangle = { version = "12", default-features = false, features = ["rust", "cpp", "msvc"] }
 rustc_version = "0.4"
 rusty_jsc = "0.1.0"
 rusty_pool = "0.7.0"
@@ -333,7 +334,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=7.1.0-rc.2", path = "lib/api", features = [
+wasmer = { version = "=7.1.0", path = "lib/api", features = [
 	"compiler",
 	"singlepass",
 	"sys",

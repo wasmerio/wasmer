@@ -28,8 +28,8 @@ use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
-    ModuleInfo, SignatureIndex, TableIndex, TableStyle, TagIndex, Type as WasmerType,
-    VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
+    ModuleInfo, SignatureHash, SignatureIndex, TableIndex, TableStyle, TagIndex,
+    Type as WasmerType, VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
     entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
 
@@ -71,6 +71,9 @@ pub struct FuncEnvironment<'module_environment> {
 
     /// The module function signatures
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+
+    /// Cached stable hashes for module signatures.
+    signature_hashes: &'module_environment PrimaryMap<SignatureIndex, SignatureHash>,
 
     /// Heaps implementing WebAssembly linear memories.
     heaps: PrimaryMap<Heap, HeapData>,
@@ -140,6 +143,7 @@ pub struct FuncEnvironment<'module_environment> {
     memory32_atomic_notify_sig: Option<ir::SigRef>,
 
     /// Cached signatures for exception helper builtins.
+    raise_trap_sig: Option<ir::SigRef>,
     personality2_sig: Option<ir::SigRef>,
     throw_sig: Option<ir::SigRef>,
     alloc_exception_sig: Option<ir::SigRef>,
@@ -166,6 +170,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         target_config: TargetFrontendConfig,
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+        signature_hashes: &'module_environment PrimaryMap<SignatureIndex, SignatureHash>,
         memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
@@ -173,6 +178,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             target_config,
             module,
             signatures,
+            signature_hashes,
             type_stack: vec![],
             heaps: PrimaryMap::new(),
             vmctx: None,
@@ -194,6 +200,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             memory32_atomic_wait32_sig: None,
             memory32_atomic_wait64_sig: None,
             memory32_atomic_notify_sig: None,
+            raise_trap_sig: None,
             personality2_sig: None,
             throw_sig: None,
             alloc_exception_sig: None,
@@ -217,71 +224,96 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         }
 
         let pointer_type = self.pointer_type();
-
-        let (ptr, base_offset, current_elements_offset) = {
-            let vmctx = self.vmctx(func);
-            if let Some(def_index) = self.module.local_table_index(index) {
-                let base_offset =
-                    i32::try_from(self.offsets.vmctx_vmtable_definition_base(def_index)).unwrap();
-                let current_elements_offset = i32::try_from(
-                    self.offsets
-                        .vmctx_vmtable_definition_current_elements(def_index),
-                )
-                .unwrap();
-                (vmctx, base_offset, current_elements_offset)
-            } else {
-                let from_offset = self.offsets.vmctx_vmtable_import(index);
-                let table = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: Offset32::new(i32::try_from(from_offset).unwrap()),
-                    global_type: pointer_type,
-                    flags: MemFlags::trusted().with_readonly(),
-                });
-                let base_offset = i32::from(self.offsets.vmtable_definition_base());
-                let current_elements_offset =
-                    i32::from(self.offsets.vmtable_definition_current_elements());
-                (table, base_offset, current_elements_offset)
-            }
-        };
-
         let table = &self.module.tables[index];
-        let element_size = self.reference_type().bytes();
 
-        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: ptr,
-            offset: Offset32::new(base_offset),
-            global_type: pointer_type,
-            flags: if Some(table.minimum) == table.maximum {
-                // A fixed-size table can't be resized so its base address won't
-                // change.
-                MemFlags::trusted().with_readonly()
-            } else {
-                MemFlags::trusted()
-            },
-        });
-
-        let bound = if Some(table.minimum) == table.maximum {
-            TableSize::Static {
-                bound: table.minimum,
-            }
-        } else {
-            TableSize::Dynamic {
-                bound_gv: func.create_global_value(ir::GlobalValueData::Load {
-                    base: ptr,
-                    offset: Offset32::new(current_elements_offset),
-                    global_type: ir::Type::int(
-                        u16::from(self.offsets.size_of_vmtable_definition_current_elements()) * 8,
+        let (base_gv, table_base_offset, bound, element_size, inline_anyfunc) =
+            if let Some(def_index) = self.module.local_table_index(index)
+                && table.is_fixed_funcref_table()
+            {
+                (
+                    self.vmctx(func),
+                    i32::try_from(
+                        self.offsets
+                            .vmctx_fixed_funcref_table_anyfuncs(def_index)
+                            .expect("fixed funcref table must have inline VMContext storage"),
                     )
                     .unwrap(),
-                    flags: MemFlags::trusted(),
-                }),
-            }
-        };
+                    TableSize::Static {
+                        bound: table.minimum,
+                    },
+                    u32::from(self.offsets.size_of_vmcaller_checked_anyfunc()),
+                    true,
+                )
+            } else {
+                let (ptr, base_offset, current_elements_offset) = {
+                    let vmctx = self.vmctx(func);
+                    if let Some(def_index) = self.module.local_table_index(index) {
+                        let base_offset =
+                            i32::try_from(self.offsets.vmctx_vmtable_definition_base(def_index))
+                                .unwrap();
+                        let current_elements_offset = i32::try_from(
+                            self.offsets
+                                .vmctx_vmtable_definition_current_elements(def_index),
+                        )
+                        .unwrap();
+                        (vmctx, base_offset, current_elements_offset)
+                    } else {
+                        let from_offset = self.offsets.vmctx_vmtable_import(index);
+                        let table = func.create_global_value(ir::GlobalValueData::Load {
+                            base: vmctx,
+                            offset: Offset32::new(i32::try_from(from_offset).unwrap()),
+                            global_type: pointer_type,
+                            flags: MemFlags::trusted().with_readonly(),
+                        });
+                        let base_offset = i32::from(self.offsets.vmtable_definition_base());
+                        let current_elements_offset =
+                            i32::from(self.offsets.vmtable_definition_current_elements());
+                        (table, base_offset, current_elements_offset)
+                    }
+                };
+
+                let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+                    base: ptr,
+                    offset: Offset32::new(base_offset),
+                    global_type: pointer_type,
+                    flags: if Some(table.minimum) == table.maximum {
+                        // A fixed-size table can't be resized so its base address won't
+                        // change.
+                        MemFlags::trusted().with_readonly()
+                    } else {
+                        MemFlags::trusted()
+                    },
+                });
+
+                let bound = if Some(table.minimum) == table.maximum {
+                    TableSize::Static {
+                        bound: table.minimum,
+                    }
+                } else {
+                    TableSize::Dynamic {
+                        bound_gv: func.create_global_value(ir::GlobalValueData::Load {
+                            base: ptr,
+                            offset: Offset32::new(current_elements_offset),
+                            global_type: ir::Type::int(
+                                u16::from(
+                                    self.offsets.size_of_vmtable_definition_current_elements(),
+                                ) * 8,
+                            )
+                            .unwrap(),
+                            flags: MemFlags::trusted(),
+                        }),
+                    }
+                };
+
+                (base_gv, 0, bound, self.reference_type().bytes(), false)
+            };
 
         self.tables[index] = Some(TableData {
             base_gv,
+            base_offset: table_base_offset,
             bound,
             element_size,
+            inline_anyfunc,
         });
     }
 
@@ -983,6 +1015,17 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         (sig, VMBuiltinFunctionIndex::get_imported_throw_index())
     }
 
+    fn get_raise_trap_func(&mut self, func: &mut Function) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        let sig = self.raise_trap_sig.unwrap_or_else(|| {
+            let mut signature = Signature::new(self.target_config.default_call_conv);
+            signature.params.push(AbiParam::new(I32));
+            let sig = func.import_signature(signature);
+            self.raise_trap_sig = Some(sig);
+            sig
+        });
+        (sig, VMBuiltinFunctionIndex::get_raise_trap_index())
+    }
+
     fn get_alloc_exception_func(
         &mut self,
         func: &mut Function,
@@ -1258,18 +1301,21 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
         index: ir::Value,
-    ) -> ir::Value {
+    ) -> (ir::Value, bool) {
         let pointer_type = self.pointer_type();
         self.ensure_table_exists(builder.func, table_index);
         let table_data = self.tables[table_index].as_ref().unwrap();
 
-        // To support lazy initialization of table
-        // contents, we check for a null entry here, and
-        // if null, we take a slow-path that invokes a
-        // libcall.
         let (table_entry_addr, flags) =
             table_data.prepare_table_addr(builder, index, pointer_type, false);
-        builder.ins().load(pointer_type, flags, table_entry_addr, 0)
+        if table_data.inline_anyfunc {
+            (table_entry_addr, true)
+        } else {
+            (
+                builder.ins().load(pointer_type, flags, table_entry_addr, 0),
+                false,
+            )
+        }
     }
 }
 
@@ -1283,6 +1329,22 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
     fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
         // The first parameter is the vmctx. The rest are the wasm parameters.
         index >= 1
+    }
+
+    fn translate_unreachable(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()> {
+        let (func_sig, func_idx) = self.get_raise_trap_func(builder.func);
+        let mut pos = builder.cursor();
+        let (_, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        let trap_code = pos
+            .ins()
+            .iconst(I32, wasmer_types::TrapCode::UnreachableCodeReached as i64);
+        builder
+            .ins()
+            .call_indirect(func_sig, func_addr, &[trap_code]);
+        // Emit the terminator through `FunctionBuilder` so its block state is
+        // updated before later control-flow translation switches blocks.
+        builder.ins().trap(crate::TRAP_UNREACHABLE);
+        Ok(())
     }
 
     fn translate_table_grow(
@@ -1533,20 +1595,20 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let (ptr, offset) = {
             let vmctx = self.vmctx(func);
 
-            let from_offset = if let Some(def_index) = self.module.local_global_index(index) {
-                self.offsets.vmctx_vmglobal_definition(def_index)
+            if let Some(def_index) = self.module.local_global_index(index) {
+                let from_offset = self.offsets.vmctx_vmglobal_definition(def_index);
+                let global = func.create_global_value(ir::GlobalValueData::VMContext);
+                (global, i32::try_from(from_offset).unwrap())
             } else {
-                self.offsets.vmctx_vmglobal_import_definition(index)
-            };
-
-            let global = func.create_global_value(ir::GlobalValueData::Load {
-                base: vmctx,
-                offset: Offset32::new(i32::try_from(from_offset).unwrap()),
-                global_type: pointer_type,
-                flags: MemFlags::trusted(),
-            });
-
-            (global, 0)
+                let from_offset = self.offsets.vmctx_vmglobal_import_definition(index);
+                let global = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: Offset32::new(i32::try_from(from_offset).unwrap()),
+                    global_type: pointer_type,
+                    flags: MemFlags::trusted(),
+                });
+                (global, 0)
+            }
         };
 
         Ok(GlobalVariable::Memory {
@@ -1603,15 +1665,18 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         let pointer_type = self.pointer_type();
 
         // Get the anyfunc pointer (the funcref) from the table.
-        let anyfunc_ptr = self.get_or_init_funcref_table_elem(builder, table_index, callee);
+        let (anyfunc_ptr, inline_anyfunc) =
+            self.get_or_init_funcref_table_elem(builder, table_index, callee);
 
         // Dereference table_entry_addr to get the function address.
         let mem_flags = ir::MemFlags::trusted();
 
         // check if the funcref is null
-        builder
-            .ins()
-            .trapz(anyfunc_ptr, crate::TRAP_INDIRECT_CALL_TO_NULL);
+        if !inline_anyfunc {
+            builder
+                .ins()
+                .trapz(anyfunc_ptr, crate::TRAP_INDIRECT_CALL_TO_NULL);
+        }
 
         let func_addr = builder.ins().load(
             pointer_type,
@@ -1620,34 +1685,34 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
             i32::from(self.offsets.vmcaller_checked_anyfunc_func_ptr()),
         );
 
+        if inline_anyfunc {
+            builder
+                .ins()
+                .trapz(func_addr, crate::TRAP_INDIRECT_CALL_TO_NULL);
+        }
+
         // If necessary, check the signature.
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
-                let sig_id_size = self.offsets.size_of_vmshared_signature_index();
-                let sig_id_type = ir::Type::int(u16::from(sig_id_size) * 8).unwrap();
-                let vmctx = self.vmctx(builder.func);
-                let base = builder.ins().global_value(pointer_type, vmctx);
-                let offset =
-                    i32::try_from(self.offsets.vmctx_vmshared_signature_id(sig_index)).unwrap();
-
-                // Load the caller ID.
-                let mut mem_flags = ir::MemFlags::trusted();
-                mem_flags.set_readonly();
-                let caller_sig_id = builder.ins().load(sig_id_type, mem_flags, base, offset);
+                let sig_hash_type = ir::types::I32;
+                let expected_sig_hash = builder.ins().iconst(
+                    sig_hash_type,
+                    i64::from(self.signature_hashes[sig_index].as_u32()),
+                );
 
                 // Load the callee ID.
                 let mem_flags = ir::MemFlags::trusted();
-                let callee_sig_id = builder.ins().load(
-                    sig_id_type,
+                let callee_sig_hash = builder.ins().load(
+                    sig_hash_type,
                     mem_flags,
                     anyfunc_ptr,
-                    i32::from(self.offsets.vmcaller_checked_anyfunc_type_index()),
+                    i32::from(self.offsets.vmcaller_checked_anyfunc_signature_hash()),
                 );
 
                 // Check that they match.
                 let cmp = builder
                     .ins()
-                    .icmp(IntCC::Equal, callee_sig_id, caller_sig_id);
+                    .icmp(IntCC::Equal, callee_sig_hash, expected_sig_hash);
                 builder.ins().trapz(cmp, crate::TRAP_BAD_SIGNATURE);
             }
         }

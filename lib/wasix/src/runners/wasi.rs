@@ -2,9 +2,6 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-#[cfg(feature = "napi-v8")]
-use std::borrow::Cow;
-
 use anyhow::{Context, Error};
 use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
@@ -22,9 +19,6 @@ use crate::{
 };
 
 use super::wasi_common::{MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand};
-
-#[cfg(feature = "napi-v8")]
-use wasmer_napi::NapiCtx;
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -180,24 +174,6 @@ impl WasiRunner {
         self
     }
 
-    #[cfg(feature = "napi-v8")]
-    pub fn with_napi_ctx(
-        &mut self,
-        runtime: &mut crate::PluggableRuntime,
-        napi: &NapiCtx,
-    ) -> &mut Self {
-        let hooks = napi.runtime_hooks();
-        runtime.with_additional_imports({
-            let hooks = hooks.clone();
-            move |module, store| hooks.additional_imports(module, store)
-        });
-        runtime.with_instance_setup(move |module, store, instance, imported_memory| {
-            hooks.configure_instance(module, store, instance, imported_memory)
-        });
-
-        self
-    }
-
     #[cfg(feature = "journal")]
     pub fn with_snapshot_trigger(&mut self, on: SnapshotTrigger) -> &mut Self {
         self.wasi.snapshot_on.push(on);
@@ -290,32 +266,15 @@ impl WasiRunner {
         }
     }
 
-    #[cfg(feature = "napi-v8")]
-    fn maybe_disable_async_threading_for_module(&mut self, module: &Module) {
-        if crate::module_needs_napi(module) {
-            self.wasi
-                .capabilities
-                .threading
-                .enable_asynchronous_threading = false;
-        }
-    }
-
-    #[cfg(feature = "napi-v8")]
-    fn maybe_disable_async_threading_for_command(
+    pub fn with_asynchronous_threading(
         &mut self,
-        cmd: &crate::bin_factory::BinaryPackageCommand,
-        runtime_or_engine: &RuntimeOrEngine,
-    ) -> Result<(), anyhow::Error> {
-        let module = match runtime_or_engine {
-            RuntimeOrEngine::Runtime(runtime) => runtime.resolve_module_sync(
-                crate::runtime::ModuleInput::Command(Cow::Borrowed(cmd)),
-                None,
-                None,
-            )?,
-            RuntimeOrEngine::Engine(engine) => Module::new(engine, cmd.atom_ref())?,
-        };
-        self.maybe_disable_async_threading_for_module(&module);
-        Ok(())
+        enable_asynchronous_threading: bool,
+    ) -> &mut Self {
+        self.wasi
+            .capabilities
+            .threading
+            .enable_asynchronous_threading = enable_asynchronous_threading;
+        self
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
@@ -391,12 +350,7 @@ impl WasiRunner {
         let tokio_runtime = Self::ensure_tokio_runtime();
         let _guard = tokio_runtime.as_ref().map(|rt| rt.enter());
 
-        #[cfg(feature = "napi-v8")]
-        let mut runner = self.clone();
-        #[cfg(not(feature = "napi-v8"))]
         let runner = self.clone();
-        #[cfg(feature = "napi-v8")]
-        runner.maybe_disable_async_threading_for_module(&module);
 
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
 
@@ -492,9 +446,6 @@ impl WasiRunner {
         let cmd = pkg
             .get_command(command_name)
             .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
-
-        #[cfg(feature = "napi-v8")]
-        self.maybe_disable_async_threading_for_command(cmd, &runtime_or_engine)?;
 
         let wasi = cmd
             .metadata()
@@ -723,7 +674,8 @@ mod tests {
         let mut rt = crate::PluggableRuntime::new(tm);
         rt.set_package_loader(crate::runtime::package_loader::BuiltinPackageLoader::new());
 
-        let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
+        let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("../../wasmer-test-files/integration/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
         let webc_data = std::fs::read(webc_path).unwrap();
         let container = from_bytes(webc_data).unwrap();
 

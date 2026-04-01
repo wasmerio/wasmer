@@ -169,7 +169,7 @@ impl Table {
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, vm_extern: VMExternTable) -> Self {
         Self {
-            handle: vm_extern.into_wamr(),
+            handle: vm_extern.unwrap_wamr(),
         }
     }
 

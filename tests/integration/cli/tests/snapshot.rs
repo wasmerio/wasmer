@@ -60,7 +60,8 @@ fn is_false(b: &bool) -> bool {
     !(*b)
 }
 
-static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
+static WEBC_PYTHON: &[u8] =
+    include_bytes!("../../../../wasmer-test-files/integration/webc/python-0.1.0.webc");
 
 impl std::fmt::Debug for TestSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -447,7 +448,9 @@ macro_rules! function {
 fn test_snapshot_condvar() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-condvar.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-condvar.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -457,7 +460,9 @@ fn test_snapshot_condvar_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-condvar.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-condvar.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -468,7 +473,9 @@ fn test_snapshot_default_file_system_tree() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .arg("ls")
-        .run_wasm(include_bytes!("./wasm/coreutils.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/coreutils.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -480,7 +487,9 @@ fn test_snapshot_stdin_stdout_stderr() {
         .with_name(function!())
         .stdin_str("blah")
         .args(["tee", "/dev/stderr"])
-        .run_wasm(include_bytes!("./wasm/coreutils.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/coreutils.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -491,7 +500,9 @@ fn test_snapshot_cowsay() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("blah\n")
-        .run_wasm(include_bytes!("./wasm/cowsay.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/cowsay.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -500,7 +511,9 @@ fn test_snapshot_cowsay() {
 fn test_snapshot_epoll() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-epoll.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-epoll.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -510,7 +523,9 @@ fn test_snapshot_epoll_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-epoll.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-epoll.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -523,7 +538,9 @@ fn test_snapshot_file_copy() {
         .stdin_str("hi")
         .arg("/dev/stdin")
         .arg("/dev/stdout")
-        .run_wasm(include_bytes!("./wasm/example-file-copy.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-file-copy.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -533,7 +550,9 @@ fn test_snapshot_execve() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-execve.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -544,7 +563,9 @@ fn test_snapshot_readdir_tree() {
         .with_name(function!())
         .use_coreutils()
         .args(["/"])
-        .run_wasm(include_bytes!("./wasm/example-readdir_tree.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-readdir_tree.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -559,7 +580,9 @@ fn test_snapshot_minimodem_tx() {
         .arg("--stdio")
         .arg("--float-samples")
         .arg("same")
-        .run_wasm(include_bytes!("./wasm/minimodem.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/minimodem.wasm"
+        ));
     snapshot.convert_stdout_to_hash();
 
     assert_json_snapshot!(snapshot);
@@ -575,8 +598,12 @@ fn test_snapshot_minimodem_rx() {
         .arg("--stdio")
         .arg("--float-samples")
         .arg("same")
-        .stdin(include_bytes!("./wasm/minimodem.data"))
-        .run_wasm(include_bytes!("./wasm/minimodem.wasm"));
+        .stdin(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/minimodem.data"
+        ))
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/minimodem.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -665,7 +692,9 @@ fn test_run_http_request(
 fn test_snapshot_tokio() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-tokio.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-tokio.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -693,7 +722,7 @@ fn test_snapshot_web_server_epoll() {
         .arg(format!("{port}"));
 
     let snapshot = builder.run_wasm_with(
-        include_bytes!("./wasm/web-server-epoll.wasm"),
+        include_bytes!("../../../../wasmer-test-files/integration/wasm/web-server-epoll.wasm"),
         Box::new(with),
     );
     assert_json_snapshot!(snapshot);
@@ -723,7 +752,7 @@ fn test_snapshot_web_server_poll() {
         .arg(format!("{port}"));
 
     let snapshot = builder.run_wasm_with(
-        include_bytes!("./wasm/web-server-poll.wasm"),
+        include_bytes!("../../../../wasmer-test-files/integration/wasm/web-server-poll.wasm"),
         Box::new(with),
     );
     assert_json_snapshot!(snapshot);
@@ -736,7 +765,9 @@ fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-execve.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -750,7 +781,9 @@ fn test_snapshot_fork_and_exec_async() {
         .with_name(function!())
         .use_coreutils()
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-execve.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -762,7 +795,9 @@ fn test_snapshot_longjump() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-longjmp.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-longjmp.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -773,7 +808,9 @@ fn test_snapshot_fork() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-fork.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-fork.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -785,7 +822,9 @@ fn test_snapshot_fork_async() {
         .with_name(function!())
         .use_coreutils()
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-fork.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-fork.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -798,7 +837,9 @@ fn test_snapshot_fork_async() {
 fn test_snapshot_longjump_fork() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-fork-longjmp.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-fork-longjmp.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -812,7 +853,9 @@ fn test_snapshot_longjump_fork_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-fork-longjmp.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-fork-longjmp.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -822,7 +865,9 @@ fn test_snapshot_longjump_fork_async() {
 fn test_snapshot_multithreading() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-multi-threading.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -833,7 +878,9 @@ fn test_snapshot_wasi_threads() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .enable_threads(true)
-        .run_wasm(include_bytes!("./wasm/wasi-threads.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/wasi-threads.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -843,7 +890,9 @@ fn test_snapshot_wasi_threads() {
 fn test_snapshot_threaded_memory() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/threaded-memory.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/threaded-memory.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -854,7 +903,9 @@ fn test_snapshot_threaded_memory() {
 fn test_snapshot_sleep() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-sleep.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-sleep.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -866,7 +917,9 @@ fn test_snapshot_sleep_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-sleep.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-sleep.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -877,7 +930,9 @@ fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-spawn.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -890,7 +945,9 @@ fn test_snapshot_process_spawn_async() {
         .with_name(function!())
         .use_coreutils()
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-spawn.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -901,7 +958,7 @@ fn test_snapshot_process_spawn_async() {
 //     let snapshot = TestBuilder::new()
 //         .with_name(function!())
 //         .use_coreutils()
-//         .run_wasm(include_bytes!("./wasm/example-tcp-client.wasm"));
+//         .run_wasm(include_bytes!("../../../../wasmer-test-files/integration/wasm/example-tcp-client.wasm"));
 //     assert_json_snapshot!(snapshot);
 // }
 
@@ -911,7 +968,9 @@ fn test_snapshot_process_spawn_async() {
 fn test_snapshot_thread_locals() {
     let mut snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-thread-local.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-thread-local.wasm"
+        ));
 
     match &mut snapshot.result {
         TestResult::Success(out) => {
@@ -934,7 +993,9 @@ fn test_snapshot_vfork() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-vfork.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-vfork.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -947,7 +1008,9 @@ fn test_snapshot_vfork_async() {
         .with_name(function!())
         .use_coreutils()
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-vfork.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-vfork.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -956,7 +1019,9 @@ fn test_snapshot_vfork_async() {
 fn test_snapshot_signals() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/example-signal.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-signal.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -966,7 +1031,9 @@ fn test_snapshot_signals_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .with_async_threads()
-        .run_wasm(include_bytes!("./wasm/example-signal.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/example-signal.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -977,7 +1044,9 @@ fn test_snapshot_dash_echo() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("echo 2")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/dash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -988,7 +1057,9 @@ fn test_snapshot_dash_echo_to_cat() {
         .with_name(function!())
         .use_coreutils()
         .stdin_str("echo hello | cat")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/dash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1001,7 +1072,9 @@ fn test_snapshot_dash_python() {
         .use_coreutils()
         .include_static_package("syrusakbary/python@0.1.0", WEBC_PYTHON)
         .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/dash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1012,7 +1085,9 @@ fn test_snapshot_python_3_11_3() {
         .with_name(function!())
         .arg("-c")
         .arg("print(10)")
-        .run_wasm(include_bytes!("./wasm/python-3.11.3.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/python-3.11.3.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1024,7 +1099,9 @@ fn test_snapshot_dash_dash() {
         .with_name(function!())
         .use_bash()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/dash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1036,7 +1113,9 @@ fn test_snapshot_dash_bash() {
         .with_name(function!())
         .use_bash()
         .stdin_str("/bin/bash\necho hi\nexit\nexit\n")
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/dash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1046,7 +1125,9 @@ fn test_snapshot_bash_echo() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("echo hello\n")
-        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/bash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1057,7 +1138,9 @@ fn test_snapshot_bash_ls() {
         .with_name(function!())
         .stdin_str("ls\nexit\n")
         .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/bash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1068,7 +1151,9 @@ fn test_snapshot_bash_cd_ls() {
         .with_name(function!())
         .stdin_str("cd bin\nls\nexit\n")
         .use_bash()
-        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/bash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1079,7 +1164,9 @@ fn test_snapshot_bash_pipe() {
         .with_name(function!())
         .stdin_str("echo hello | cat\nexit\n")
         .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/bash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1092,7 +1179,9 @@ fn test_snapshot_bash_python() {
         .use_coreutils()
         .include_static_package("syrusakbary/python@0.1.0", WEBC_PYTHON)
         .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'\n")
-        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/bash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1104,7 +1193,9 @@ fn test_snapshot_bash_bash() {
         .with_name(function!())
         .stdin_str("/bin/bash\necho hi\nexit\necho hi2\n")
         .use_bash()
-        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/bash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1116,7 +1207,9 @@ fn test_snapshot_bash_dash() {
         .with_name(function!())
         .use_bash()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
-        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/bash.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1126,7 +1219,9 @@ fn test_snapshot_catsay() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("meoooww")
-        .run_wasm(include_bytes!("./wasm/catsay.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/catsay.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1136,7 +1231,9 @@ fn test_snapshot_quickjs() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("print(2+2);\n\\q\n")
-        .run_wasm(include_bytes!("./wasm/qjs.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/qjs.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1145,7 +1242,9 @@ fn test_snapshot_quickjs() {
 fn test_snapshot_fs_rename() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/fs-rename.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/fs-rename.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1154,7 +1253,9 @@ fn test_snapshot_fs_rename() {
 fn test_snapshot_exit_0_from_main() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/exit-0-from-main.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/exit-0-from-main.wasm"
+        ));
     assert!(matches!(
         snapshot.result,
         TestResult::Success(TestOutput { exit_code: 0, .. })
@@ -1167,7 +1268,9 @@ fn test_snapshot_exit_0_from_main() {
 fn test_snapshot_exit_1_from_main() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/exit-1-from-main.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/exit-1-from-main.wasm"
+        ));
     assert!(matches!(
         snapshot.result,
         TestResult::Success(TestOutput { exit_code: 1, .. })
@@ -1180,7 +1283,9 @@ fn test_snapshot_exit_1_from_main() {
 fn test_snapshot_exit_0_from_worker() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/exit-0-from-worker.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/exit-0-from-worker.wasm"
+        ));
     assert!(matches!(
         snapshot.result,
         TestResult::Success(TestOutput { exit_code: 0, .. })
@@ -1194,7 +1299,9 @@ fn test_snapshot_exit_0_from_worker() {
 fn test_snapshot_exit_1_from_worker() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/exit-1-from-worker.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/exit-1-from-worker.wasm"
+        ));
     assert!(matches!(
         snapshot.result,
         TestResult::Success(TestOutput { exit_code: 1, .. })
@@ -1207,7 +1314,9 @@ fn test_snapshot_exit_1_from_worker() {
 fn test_snapshot_worker_terminating_normally() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/worker-terminating-normally.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/worker-terminating-normally.wasm"
+        ));
     assert!(matches!(
         snapshot.result,
         TestResult::Success(TestOutput { exit_code: 0, .. })
@@ -1224,7 +1333,9 @@ fn test_snapshot_worker_terminating_normally() {
 fn test_snapshot_worker_panicking() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/worker-panicking.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/worker-panicking.wasm"
+        ));
     assert!(matches!(
         snapshot.result,
         TestResult::Success(TestOutput { exit_code: 129, .. })
@@ -1237,6 +1348,8 @@ fn test_snapshot_worker_panicking() {
 fn test_snapshot_mkdir_rename() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/mkdir-rename.wasm"));
+        .run_wasm(include_bytes!(
+            "../../../../wasmer-test-files/integration/wasm/mkdir-rename.wasm"
+        ));
     assert_json_snapshot!(snapshot);
 }
