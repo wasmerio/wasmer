@@ -3,6 +3,9 @@
 * Wasmer is written in Rust. To build Wasmer, where possible, do not
   directly invoke `cargo`, but use the supplied `Makefile`
 
+* For packaging purposes, use the provided `wasmer-full-source.tar.xz`,
+  which includes all required submodules.
+
 * Wasmer provides several compilers and the `Makefile` autodetects
   when compilers can be compiled and/or installed. Set the environment
   variables `ENABLE_{CRANELIFT,LLVM,SINGLEPASS}=1` to force compiler
