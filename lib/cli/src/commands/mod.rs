@@ -532,7 +532,8 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
             "--exclude=*"
         ],
         fallback = "",
-    );
+    )
+    .to_string();
     if !git_hash.is_empty() {
         println!("commit-hash: {git_hash}",);
     }

@@ -31,6 +31,8 @@ mod threadconditions;
 mod trap;
 mod vmcontext;
 
+#[cfg(feature = "experimental-host-interrupt")]
+pub mod interrupt_registry;
 pub mod libcalls;
 
 use std::ptr::NonNull;
@@ -59,7 +61,7 @@ pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMSharedTagIndex, VMTableDefinition, VMTableImport,
+    VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
 pub use store::StoreObject;
@@ -68,7 +70,7 @@ pub use wasmer_types::MemoryError;
 pub use wasmer_types::MemoryStyle;
 use wasmer_types::RawValue;
 pub use wasmer_types::TableStyle;
-pub use wasmer_types::{StoreId, TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
+pub use wasmer_types::{StoreId, VMBuiltinFunctionIndex, VMOffsets};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

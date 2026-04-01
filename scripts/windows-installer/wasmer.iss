@@ -9,8 +9,8 @@ OutputDir=.\
 DisableProgramGroupPage=yes
 ChangesEnvironment=yes
 OutputBaseFilename=WasmerInstaller
-WizardImageFile=media\wizard_logo_2.bmp
-WizardSmallImageFile=media\wizard_logo_small.bmp
+WizardImageFile=media\wizard_logo_2.png
+WizardSmallImageFile=media\wizard_logo_small.png
 SetupIconFile=media\wizard_logo.ico
 DisableWelcomePage=no
 

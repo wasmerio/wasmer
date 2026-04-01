@@ -36,7 +36,7 @@ void context2_fn(void) {
   phase = 2;
 
   // Do some operations
-  char *buf = malloc(1024);
+  char* buf = malloc(1024);
   free(buf);
 
   wasix_context_switch(ctx1);

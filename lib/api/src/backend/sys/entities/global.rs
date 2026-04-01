@@ -92,7 +92,7 @@ impl Global {
             handle: unsafe {
                 StoreHandle::from_internal(
                     store.as_store_ref().objects().id(),
-                    vm_extern.into_sys(),
+                    vm_extern.unwrap_sys(),
                 )
             },
         }

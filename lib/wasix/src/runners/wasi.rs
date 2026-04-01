@@ -674,7 +674,8 @@ mod tests {
         let mut rt = crate::PluggableRuntime::new(tm);
         rt.set_package_loader(crate::runtime::package_loader::BuiltinPackageLoader::new());
 
-        let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
+        let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("../../wasmer-test-files/integration/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
         let webc_data = std::fs::read(webc_path).unwrap();
         let container = from_bytes(webc_data).unwrap();
 
