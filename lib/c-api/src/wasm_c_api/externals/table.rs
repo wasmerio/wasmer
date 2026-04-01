@@ -1,3 +1,5 @@
+use crate::error::update_last_error;
+
 use super::super::store::wasm_store_t;
 use super::super::types::{wasm_ref_t, wasm_table_size_t, wasm_tabletype_t};
 use super::wasm_extern_t;
@@ -40,7 +42,10 @@ pub unsafe extern "C" fn wasm_table_copy(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_table_size(table: Option<&wasm_table_t>) -> usize {
-    let Some(table) = table else { return 0 };
+    let Some(table) = table else {
+        update_last_error("table pointer is null");
+        return 0;
+    };
     let store_ref = unsafe { table.extern_.store.store() };
     table.extern_.table().size(&store_ref) as _
 }
