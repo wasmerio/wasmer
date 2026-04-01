@@ -217,6 +217,12 @@ impl MiddlewareError {
     }
 }
 
+impl From<MiddlewareError> for CompileError {
+    fn from(error: MiddlewareError) -> Self {
+        WasmError::Middleware(error).into()
+    }
+}
+
 /// A WebAssembly translation error.
 ///
 /// When a WebAssembly function can't be translated, one of these error codes will be returned
