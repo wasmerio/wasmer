@@ -8,7 +8,6 @@
 //! WebAssembly module and the runtime environment.
 
 use super::code_translator::translate_operator;
-use super::func_environ::ReturnMode;
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
 use crate::func_environ::FuncEnvironment;
@@ -259,11 +258,9 @@ fn parse_function_body(
     if state.reachable {
         //debug_assert!(builder.is_pristine());
         if !builder.is_unreachable() {
-            match environ.return_mode() {
-                ReturnMode::NormalReturns => {
-                    bitcast_wasm_returns(environ, &mut state.stack, builder);
-                    builder.ins().return_(&state.stack)
-                }
+            {
+                bitcast_wasm_returns(environ, &mut state.stack, builder);
+                builder.ins().return_(&state.stack)
             };
         }
     }

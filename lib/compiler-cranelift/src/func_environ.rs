@@ -5,7 +5,7 @@ use crate::{
     HashMap,
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
-    translator::{EXN_REF_TYPE, GlobalVariable, LandingPad, ReturnMode, TAG_TYPE},
+    translator::{EXN_REF_TYPE, GlobalVariable, LandingPad, TAG_TYPE},
 };
 use cranelift_codegen::{
     cursor::FuncCursor,
@@ -24,9 +24,9 @@ use smallvec::SmallVec;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
-    ModuleInfo, SignatureHash, SignatureIndex, TableIndex, TableStyle, TagIndex,
-    Type as WasmerType, VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo,
+    SignatureHash, SignatureIndex, TableIndex, TableStyle, TagIndex, Type as WasmerType,
+    VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
     entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
 
@@ -2296,9 +2296,5 @@ impl FuncEnvironment<'_> {
 
     pub(crate) fn is_wasm_return(&self, signature: &ir::Signature, index: usize) -> bool {
         signature.returns[index].purpose == ir::ArgumentPurpose::Normal
-    }
-
-    pub(crate) fn return_mode(&self) -> crate::translator::ReturnMode {
-        ReturnMode::NormalReturns
     }
 }

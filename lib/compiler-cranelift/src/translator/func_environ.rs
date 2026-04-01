@@ -27,11 +27,3 @@ pub enum GlobalVariable {
     /// This is a global variable that needs to be handled by the environment.
     Custom,
 }
-
-#[allow(dead_code)]
-/// How to return from functions.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ReturnMode {
-    /// Use normal return instructions as needed.
-    NormalReturns,
-}
