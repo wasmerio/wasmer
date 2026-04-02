@@ -3116,8 +3116,26 @@ fn translate_store(
         prepare_addr(memarg, mem_op_size, builder, state, environ)?
     );
 
-    if allow_nonaligned_memory_accesses {
-        // Unaligned store
+    if allow_nonaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
+        let block_aligned = builder.create_block();
+        let block_unaligned = builder.create_block();
+        let block_merge = builder.create_block();
+
+        let alignment_check = builder.ins().band_imm(base, (mem_op_size - 1) as i64);
+        builder
+            .ins()
+            .brif(alignment_check, block_unaligned, &[], block_aligned, &[]);
+
+        builder.seal_block(block_aligned);
+        builder.seal_block(block_unaligned);
+
+        builder.switch_to_block(block_aligned);
+        builder
+            .ins()
+            .Store(opcode, val_ty, flags, Offset32::new(0), val, base);
+        builder.ins().jump(block_merge, &[]);
+
+        builder.switch_to_block(block_unaligned);
         let val = if val_ty.is_int() {
             val
         } else {
@@ -3134,6 +3152,10 @@ fn translate_store(
             let shifted = builder.ins().ushr_imm(val, (i * 8) as i64);
             builder.ins().istore8(flags, shifted, base, i as i32);
         }
+        builder.ins().jump(block_merge, &[]);
+
+        builder.seal_block(block_merge);
+        builder.switch_to_block(block_merge);
     } else {
         builder
             .ins()

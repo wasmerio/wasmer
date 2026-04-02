@@ -124,7 +124,7 @@ impl Cranelift {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: false,
-            allow_nonaligned_memory_accesses: true,
+            allow_nonaligned_memory_accesses: false,
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
