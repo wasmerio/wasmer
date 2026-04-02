@@ -764,9 +764,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             if loc != Location::GPR(gpr) {
                 self.machine
                     .move_location(Size::S64, loc, Location::GPR(gpr))?;
-                // Adjust the argument if required by ABI
-                self.machine.adjust_gpr_param_location(gpr, size)?;
             }
+            // Adjust the argument if required by ABI
+            self.machine.adjust_gpr_param_location(gpr, size)?;
         }
 
         if matches!(call_type, NativeCallType::IncludeVMCtxArgument) {
