@@ -3424,7 +3424,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S8, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_relaxed_load(Size::S8, false, ret, Location::Memory(addr, 0)),
         )
     }
     fn i32_atomic_load_16u(
@@ -3447,7 +3447,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S16, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_relaxed_load(Size::S16, false, ret, Location::Memory(addr, 0)),
         )
     }
     fn i32_save(
