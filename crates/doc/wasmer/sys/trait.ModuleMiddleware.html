@@ -3,10 +3,10 @@
     + <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>
     + <a class="trait" href="https://doc.rust-lang.org/1.91.1/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
     // Required method
-    fn <a href="#tymethod.generate_function_middleware" class="fn">generate_function_middleware</a>(
+    fn <a href="#tymethod.generate_function_middleware" class="fn">generate_function_middleware</a>&lt;'a&gt;(
         &amp;self,
         local_function_index: <a class="struct" href="../struct.LocalFunctionIndex.html" title="struct wasmer::LocalFunctionIndex">LocalFunctionIndex</a>,
-    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.FunctionMiddleware.html" title="trait wasmer::sys::FunctionMiddleware">FunctionMiddleware</a>&gt;;
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.FunctionMiddleware.html" title="trait wasmer::sys::FunctionMiddleware">FunctionMiddleware</a>&lt;'a&gt; + 'a&gt;;
 
     // Provided method
     fn <a href="#method.transform_module_info" class="fn">transform_module_info</a>(
@@ -14,10 +14,10 @@
         _: &amp;mut <a class="struct" href="../struct.ModuleInfo.html" title="struct wasmer::ModuleInfo">ModuleInfo</a>,
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.1/std/primitive.unit.html">()</a>, <a class="struct" href="struct.MiddlewareError.html" title="struct wasmer::sys::MiddlewareError">MiddlewareError</a>&gt; { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A shared builder for function middlewares.</p>
-</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.generate_function_middleware" class="method"><h4 class="code-header">fn <a href="#tymethod.generate_function_middleware" class="fn">generate_function_middleware</a>(
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.generate_function_middleware" class="method"><h4 class="code-header">fn <a href="#tymethod.generate_function_middleware" class="fn">generate_function_middleware</a>&lt;'a&gt;(
     &amp;self,
     local_function_index: <a class="struct" href="../struct.LocalFunctionIndex.html" title="struct wasmer::LocalFunctionIndex">LocalFunctionIndex</a>,
-) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.FunctionMiddleware.html" title="trait wasmer::sys::FunctionMiddleware">FunctionMiddleware</a>&gt;</h4></section></summary><div class="docblock"><p>Generates a <code>FunctionMiddleware</code> for a given function.</p>
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.91.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.FunctionMiddleware.html" title="trait wasmer::sys::FunctionMiddleware">FunctionMiddleware</a>&lt;'a&gt; + 'a&gt;</h4></section></summary><div class="docblock"><p>Generates a <code>FunctionMiddleware</code> for a given function.</p>
 <p>Here we generate a separate object for each function instead of executing directly on per-function operators,
 in order to enable concurrent middleware application. Takes immutable <code>&amp;self</code> because this function can be called
 concurrently from multiple compilation threads.</p>
