@@ -83,6 +83,8 @@ enum ImmType {
     OffsetDWord,
 }
 
+const SCRATCH_REG: GPR = GPR::X17;
+
 #[allow(dead_code)]
 impl MachineARM64 {
     pub fn new(target: Option<Target>) -> Self {
@@ -1576,7 +1578,7 @@ impl Machine for MachineARM64 {
         let delta = if self.compatible_imm(delta_stack_offset as _, ImmType::Bits12) {
             Location::Imm32(delta_stack_offset as _)
         } else {
-            let tmp = GPR::X17;
+            let tmp = SCRATCH_REG;
             self.assembler
                 .emit_mov_imm(Location::GPR(tmp), delta_stack_offset as u64)?;
             Location::GPR(tmp)
@@ -1593,7 +1595,7 @@ impl Machine for MachineARM64 {
         let delta = if self.compatible_imm(delta_stack_offset as _, ImmType::Bits12) {
             Location::Imm32(delta_stack_offset as _)
         } else {
-            let tmp = GPR::X17;
+            let tmp = SCRATCH_REG;
             self.assembler
                 .emit_mov_imm(Location::GPR(tmp), delta_stack_offset as u64)?;
             Location::GPR(tmp)
@@ -1619,8 +1621,8 @@ impl Machine for MachineARM64 {
             | Location::Imm8(_)
             | Location::Memory(_, _)
             | Location::Memory2(_, _, _, _) => {
-                self.move_location(size, loc, Location::GPR(GPR::X17))?;
-                self.move_location(size, Location::GPR(GPR::X17), dest)
+                self.move_location(size, loc, Location::GPR(SCRATCH_REG))?;
+                self.move_location(size, Location::GPR(SCRATCH_REG), dest)
             }
             _ => self.move_location(size, loc, dest),
         }
@@ -1662,7 +1664,7 @@ impl Machine for MachineARM64 {
             self.assembler
                 .emit_stur(Size::S64, location, GPR::X29, -stack_offset)?;
         } else {
-            let tmp = GPR::X17;
+            let tmp = SCRATCH_REG;
             if stack_offset < 0x1_0000 {
                 self.assembler
                     .emit_mov_imm(Location::GPR(tmp), (-stack_offset as i64) as u64)?;
@@ -1847,7 +1849,7 @@ impl Machine for MachineARM64 {
                     } else if self.compatible_imm(offs as i64, ImmType::UnscaledOffset) {
                         self.assembler.emit_stur(size, source, addr, offs)
                     } else {
-                        let tmp = GPR::X17;
+                        let tmp = SCRATCH_REG;
                         if offs < 0 {
                             self.assembler
                                 .emit_mov_imm(Location::GPR(tmp), (-offs) as u64)?;
@@ -1930,7 +1932,7 @@ impl Machine for MachineARM64 {
                     } else if offs > -256 && offs < 256 {
                         self.assembler.emit_ldur(size, dest, addr, offs)
                     } else {
-                        let tmp = GPR::X17;
+                        let tmp = SCRATCH_REG;
                         if offs < 0 {
                             self.assembler
                                 .emit_mov_imm(Location::GPR(tmp), (-offs) as u64)?;
