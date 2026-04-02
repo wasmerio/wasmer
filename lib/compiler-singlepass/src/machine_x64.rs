@@ -8260,8 +8260,8 @@ impl Machine for MachineX86_64 {
             relocations: vec![],
         })
     }
-    #[cfg(feature = "unwind")]
 
+    #[cfg(feature = "unwind")]
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
         let mut instructions = vec![];
         for &(instruction_offset, ref inst) in &self.unwind_ops {
@@ -8302,7 +8302,6 @@ impl Machine for MachineX86_64 {
     }
 
     #[cfg(feature = "unwind")]
-
     fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         let unwind_info = create_unwind_info_from_insts(&self.unwind_ops);
         if let Some(unwind) = unwind_info {

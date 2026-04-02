@@ -8400,8 +8400,8 @@ impl Machine for MachineARM64 {
     ) -> Result<CustomSection, CompileError> {
         gen_import_call_trampoline_arm64(vmoffsets, index, sig, calling_convention)
     }
-    #[cfg(feature = "unwind")]
 
+    #[cfg(feature = "unwind")]
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
         let mut instructions = vec![];
         for &(instruction_offset, ref inst) in &self.unwind_ops {
