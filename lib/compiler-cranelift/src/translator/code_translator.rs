@@ -3118,7 +3118,18 @@ fn translate_store(
 
     if allow_nonaligned_memory_accesses {
         // Unaligned store
-        assert_eq!(flags.explicit_endianness(), Some(ir::Endianness::Little));
+        let val = if val_ty.is_int() {
+            val
+        } else {
+            let result_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
+                WasmError::Generic("cannot get uint type for memory load".to_string()),
+            )?;
+            builder.ins().bitcast(
+                result_uint_type,
+                MemFlags::new().with_endianness(ir::Endianness::Little),
+                val,
+            )
+        };
         for i in 0..mem_op_size {
             let shifted = builder.ins().ushr_imm(val, (i * 8) as i64);
             builder.ins().istore8(flags, shifted, base, i as i32);
