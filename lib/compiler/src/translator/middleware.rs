@@ -70,8 +70,8 @@ pub struct MiddlewareReaderState<'a> {
     /// The pending operations added by the middleware.
     pending_operations: VecDeque<Operator<'a>>,
 
-    /// Number of local declarations that will ever be read.
-    local_decls: u32,
+    /// Number of local declaration groups (each group is a count + type pair).
+    local_decls_group: u32,
 
     /// Number of local declarations read so far.
     local_decls_read: u32,
@@ -142,7 +142,7 @@ impl<'a> MiddlewareBinaryReader<'a> {
                     reader: inner,
                 }),
                 pending_operations: VecDeque::new(),
-                local_decls: 0,
+                local_decls_group: 0,
                 local_decls_read: 0,
                 locals: vec![],
             },
@@ -174,7 +174,7 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
                 offset: self.current_position(),
             }),
         }?;
-        self.state.local_decls = total;
+        self.state.local_decls_group = total;
         self.state.locals.reserve(total as usize);
         if total == 0 {
             self.emit_locals_info();
@@ -203,7 +203,7 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
         }
 
         self.state.local_decls_read += 1;
-        if self.state.local_decls_read == self.state.local_decls {
+        if self.state.local_decls_read == self.state.local_decls_group {
             self.emit_locals_info();
         }
         Ok((count, ty))

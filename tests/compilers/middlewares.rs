@@ -259,14 +259,8 @@ fn middleware_locals_info(mut config: crate::Config) -> Result<()> {
 
     let locals = captured.lock().unwrap();
     assert_eq!(
-        locals.len(),
-        1,
-        "expected locals_info called once for the single function"
-    );
-    assert_eq!(
-        locals[0],
-        vec![ValType::I64, ValType::F32, ValType::F32],
-        "expected the declared locals (i64, f32, f32)"
+        *locals,
+        vec![vec![ValType::I64, ValType::F32, ValType::F32]]
     );
     Ok(())
 }
@@ -286,15 +280,7 @@ fn middleware_locals_info_no_locals(mut config: crate::Config) -> Result<()> {
     let _module = Module::new(&store, wat)?;
 
     let locals = captured.lock().unwrap();
-    assert_eq!(
-        locals.len(),
-        1,
-        "expected locals_info called once for the single function"
-    );
-    assert!(
-        locals[0].is_empty(),
-        "expected empty locals for a function with no local declarations"
-    );
+    assert_eq!(*locals, vec![vec![]]);
     Ok(())
 }
 
@@ -316,15 +302,12 @@ fn middleware_locals_info_multiple_functions(mut config: crate::Config) -> Resul
     let _module = Module::new(&store, wat)?;
 
     let locals = captured.lock().unwrap();
-    assert_eq!(
-        locals.len(),
-        2,
-        "expected locals_info called once per function"
-    );
-    // Order may vary due to concurrent compilation, so check both are present.
+    // Order may vary due to concurrent compilation, so sort before comparing.
     let mut sorted: Vec<Vec<ValType>> = locals.clone();
     sorted.sort_by_key(|v| v.len());
-    assert_eq!(sorted[0], vec![ValType::F64]);
-    assert_eq!(sorted[1], vec![ValType::I32, ValType::I32]);
+    assert_eq!(
+        sorted,
+        vec![vec![ValType::F64], vec![ValType::I32, ValType::I32]]
+    );
     Ok(())
 }
