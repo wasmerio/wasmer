@@ -54,6 +54,10 @@ pub trait CompilerConfig {
     /// (but are not 100% SPEC compliant).
     fn enable_non_volatile_memops(&mut self) {}
 
+    /// Enable run-time handling of potentially non-aligned memory accesses.
+    /// Available for Cranelift and Singlepass (RISC-V).
+    fn enable_nonaligned_memory_accesses(&mut self) {}
+
     /// Enable NaN canonicalization.
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly

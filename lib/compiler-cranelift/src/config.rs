@@ -296,6 +296,10 @@ impl CompilerConfig for Cranelift {
         self.enable_perfmap = true;
     }
 
+    fn enable_nonaligned_memory_accesses(&mut self) {
+        self.allow_nonaligned_memory_accesses = true;
+    }
+
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
     }
