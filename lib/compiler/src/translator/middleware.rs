@@ -73,8 +73,8 @@ pub struct MiddlewareReaderState<'a> {
     /// Number of local declaration groups (each group is a count + type pair).
     local_decls_group: u32,
 
-    /// Number of local declarations read so far.
-    local_decls_read: u32,
+    /// Number of local declaration groups read so far.
+    local_decls_group_read: u32,
 
     /// Locals read so far.
     locals: Vec<ValType>,
@@ -143,7 +143,7 @@ impl<'a> MiddlewareBinaryReader<'a> {
                 }),
                 pending_operations: VecDeque::new(),
                 local_decls_group: 0,
-                local_decls_read: 0,
+                local_decls_group_read: 0,
                 locals: vec![],
             },
             chain: vec![],
@@ -202,8 +202,8 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
             self.state.locals.push(ty);
         }
 
-        self.state.local_decls_read += 1;
-        if self.state.local_decls_read == self.state.local_decls_group {
+        self.state.local_decls_group_read += 1;
+        if self.state.local_decls_group_read == self.state.local_decls_group {
             self.emit_locals_info();
         }
         Ok((count, ty))
