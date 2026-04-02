@@ -1593,30 +1593,28 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
             return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
-        // Disable read-only check as we're initializing the table.
-        let is_readonly = table.ty().readonly;
-        table.ty_as_mut().readonly = false;
         if let wasmer_types::Type::FuncRef = table.ty().ty {
             for (i, func_idx) in init.elements.iter().enumerate() {
                 let anyfunc = instance.func_ref(*func_idx);
                 table
-                    .set(
+                    .set_with_construction(
                         u32::try_from(start + i).unwrap(),
                         TableElement::FuncRef(anyfunc),
+                        true,
                     )
                     .unwrap();
             }
         } else {
             for i in 0..init.elements.len() {
                 table
-                    .set(
+                    .set_with_construction(
                         u32::try_from(start + i).unwrap(),
                         TableElement::ExternRef(None),
+                        true,
                     )
                     .unwrap();
             }
         }
-        table.ty_as_mut().readonly = is_readonly;
 
         instance.sync_fixed_funcref_table_by_index(init.table_index);
     }

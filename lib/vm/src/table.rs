@@ -187,11 +187,6 @@ impl VMTable {
         &self.table
     }
 
-    /// Returns the type for this Table as mutable.
-    pub(crate) fn ty_as_mut(&mut self) -> &mut TableType {
-        &mut self.table
-    }
-
     /// Returns the style for this Table.
     pub fn style(&self) -> &TableStyle {
         &self.style
@@ -257,7 +252,16 @@ impl VMTable {
     ///
     /// Returns an error if the index is out of bounds.
     pub fn set(&mut self, index: u32, reference: TableElement) -> Result<(), Trap> {
-        if self.table.readonly {
+        self.set_with_construction(index, reference, false)
+    }
+
+    pub(crate) fn set_with_construction(
+        &mut self,
+        index: u32,
+        reference: TableElement,
+        in_construction: bool,
+    ) -> Result<(), Trap> {
+        if !in_construction && self.table.readonly {
             return Err(Trap::lib(TrapCode::ReadonlyTableModified));
         }
         match self.vec.get_mut(index as usize) {
