@@ -34,7 +34,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         || wast_path.ends_with("throw_ref.wast")
         || wast_path.ends_with("imports.wast");
     let is_wide_arithmetic = wast_path.contains("wide-arithmetic");
-    let is_nonaligned_memory = wast_path.contains("nonaligned-memory");
+    let is_unaligned_memory = wast_path.contains("unaligned-memory");
 
     let is_tail_call = wast_path.contains("return_call") || wast_path.ends_with("try_table.wast");
 
@@ -61,8 +61,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     }
     config.set_features(features);
     config.set_nan_canonicalization(try_nan_canonicalization);
-    if is_nonaligned_memory {
-        config.set_allow_nonaligned_memory_accesses(true);
+    if is_unaligned_memory {
+        config.set_allow_unaligned_memory_accesses(true);
     }
 
     let store = config.store();

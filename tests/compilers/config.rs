@@ -19,7 +19,7 @@ pub struct Config {
     pub features: Option<Features>,
     pub middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     pub canonicalize_nans: bool,
-    pub allow_nonaligned_memory_accesses: bool,
+    pub allow_unaligned_memory_accesses: bool,
 }
 
 impl Config {
@@ -28,7 +28,7 @@ impl Config {
             compiler,
             features: None,
             canonicalize_nans: false,
-            allow_nonaligned_memory_accesses: false,
+            allow_unaligned_memory_accesses: false,
             middlewares: vec![],
         }
     }
@@ -45,15 +45,13 @@ impl Config {
         self.canonicalize_nans = canonicalize_nans;
     }
 
-    pub fn set_allow_nonaligned_memory_accesses(&mut self, enable: bool) {
-        self.allow_nonaligned_memory_accesses = enable;
+    pub fn set_allow_unaligned_memory_accesses(&mut self, enable: bool) {
+        self.allow_unaligned_memory_accesses = enable;
     }
 
     pub fn store(&self) -> Store {
-        let compiler_config = self.compiler_config(
-            self.canonicalize_nans,
-            self.allow_nonaligned_memory_accesses,
-        );
+        let compiler_config =
+            self.compiler_config(self.canonicalize_nans, self.allow_unaligned_memory_accesses);
         let engine = self.engine(compiler_config);
         Store::new(engine)
     }
@@ -78,7 +76,7 @@ impl Config {
     pub fn compiler_config(
         &self,
         #[allow(unused_variables)] canonicalize_nans: bool,
-        #[allow(unused_variables)] allow_nonaligned_memory_accesses: bool,
+        #[allow(unused_variables)] allow_unaligned_memory_accesses: bool,
     ) -> Box<dyn CompilerConfig> {
         let debug_dir = std::env::var("WASMER_COMPILER_DEBUG_DIR")
             .ok()
@@ -91,7 +89,7 @@ impl Config {
 
                 let mut compiler = wasmer_compiler_cranelift::Cranelift::new();
                 compiler.canonicalize_nans(canonicalize_nans);
-                compiler.allow_nonaligned_memory_accesses(allow_nonaligned_memory_accesses);
+                compiler.allow_unaligned_memory_accesses(allow_unaligned_memory_accesses);
                 compiler.enable_verifier();
                 if let Some(mut debug_dir) = debug_dir {
                     debug_dir.push("cranelift");
@@ -123,7 +121,7 @@ impl Config {
             Compiler::Singlepass => {
                 let mut compiler = wasmer_compiler_singlepass::Singlepass::new();
                 compiler.canonicalize_nans(canonicalize_nans);
-                compiler.allow_nonaligned_memory_accesses(allow_nonaligned_memory_accesses);
+                compiler.allow_unaligned_memory_accesses(allow_unaligned_memory_accesses);
                 compiler.enable_verifier();
                 if let Some(mut debug_dir) = debug_dir {
                     use wasmer_compiler_singlepass::SinglepassCallbacks;

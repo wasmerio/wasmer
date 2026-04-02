@@ -76,7 +76,7 @@ impl SinglepassCallbacks {
 #[derive(Debug, Clone)]
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
-    pub(crate) allow_nonaligned_memory_accesses: bool,
+    pub(crate) allow_unaligned_memory_accesses: bool,
 
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -93,7 +93,7 @@ impl Singlepass {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: true,
-            allow_nonaligned_memory_accesses: false,
+            allow_unaligned_memory_accesses: false,
             middlewares: vec![],
             callbacks: None,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
@@ -105,11 +105,11 @@ impl Singlepass {
         self
     }
 
-    /// Enable run-time handling of potentially non-aligned memory accesses.
+    /// Enable run-time handling of potentially unaligned memory accesses.
     /// Unaligned memory accesses occur when you try to read N bytes of data starting
     /// from an address that is not evenly divisible by N.
-    pub fn allow_nonaligned_memory_accesses(&mut self, enable: bool) -> &mut Self {
-        self.allow_nonaligned_memory_accesses = enable;
+    pub fn allow_unaligned_memory_accesses(&mut self, enable: bool) -> &mut Self {
+        self.allow_unaligned_memory_accesses = enable;
         self
     }
 

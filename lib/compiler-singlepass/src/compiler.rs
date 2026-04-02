@@ -219,7 +219,7 @@ impl SinglepassCompiler {
                     Architecture::Riscv64(_) => {
                         let machine = MachineRiscv::new(
                             Some(target.clone()),
-                            self.config.allow_nonaligned_memory_accesses,
+                            self.config.allow_unaligned_memory_accesses,
                         )?;
                         let mut generator = FuncGen::new(
                             module,

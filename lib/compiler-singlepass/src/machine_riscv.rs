@@ -73,7 +73,7 @@ impl DerefMut for AssemblerRiscv {
 /// The RISC-V machine state and code emitter.
 pub struct MachineRiscv {
     assembler: AssemblerRiscv,
-    allow_nonaligned_memory_accesses: bool,
+    allow_unaligned_memory_accesses: bool,
     used_gprs: u32,
     used_fprs: u32,
     trap_table: TrapTable,
@@ -92,12 +92,12 @@ impl MachineRiscv {
     /// Creates a new RISC-V machine for code generation.
     pub fn new(
         target: Option<Target>,
-        allow_nonaligned_memory_accesses: bool,
+        allow_unaligned_memory_accesses: bool,
     ) -> Result<Self, CompileError> {
         // TODO: for now always require FPU
         Ok(MachineRiscv {
             assembler: AssemblerRiscv::new(0, target)?,
-            allow_nonaligned_memory_accesses,
+            allow_unaligned_memory_accesses,
             used_gprs: 0,
             used_fprs: 0,
             trap_table: TrapTable::default(),
@@ -1109,7 +1109,7 @@ impl MachineRiscv {
         dst: Location,
         src: GPR,
     ) -> Result<(), CompileError> {
-        if !self.allow_nonaligned_memory_accesses {
+        if !self.allow_unaligned_memory_accesses {
             return self.emit_relaxed_load(sz, signed, dst, Location::Memory(src, 0));
         }
 
@@ -1221,7 +1221,7 @@ impl MachineRiscv {
         src: Location,
         dst: GPR,
     ) -> Result<(), CompileError> {
-        if !self.allow_nonaligned_memory_accesses {
+        if !self.allow_unaligned_memory_accesses {
             return self.emit_relaxed_store(sz, src, Location::Memory(dst, 0));
         }
 

@@ -132,7 +132,7 @@ pub fn translate_operator(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FuncEnvironment<'_>,
-    allow_nonaligned_memory_accesses: bool,
+    allow_unaligned_memory_accesses: bool,
 ) -> WasmResult<()> {
     if !state.reachable {
         translate_unreachable_operator(module_translation_state, op, builder, state, environ)?;
@@ -773,7 +773,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -787,7 +787,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -801,7 +801,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -815,7 +815,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -829,7 +829,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -843,7 +843,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -857,7 +857,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -871,7 +871,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -885,7 +885,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -899,7 +899,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -913,7 +913,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -927,7 +927,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -941,7 +941,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -955,7 +955,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -969,7 +969,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
         }
@@ -1036,7 +1036,7 @@ pub fn translate_operator(
                 builder,
                 state,
                 environ,
-                allow_nonaligned_memory_accesses,
+                allow_unaligned_memory_accesses,
             )?;
         }
         Operator::I32Store8 { memarg } | Operator::I64Store8 { memarg } => {
@@ -1046,7 +1046,7 @@ pub fn translate_operator(
                 builder,
                 state,
                 environ,
-                allow_nonaligned_memory_accesses,
+                allow_unaligned_memory_accesses,
             )?;
         }
         Operator::I32Store16 { memarg } | Operator::I64Store16 { memarg } => {
@@ -1056,7 +1056,7 @@ pub fn translate_operator(
                 builder,
                 state,
                 environ,
-                allow_nonaligned_memory_accesses,
+                allow_unaligned_memory_accesses,
             )?;
         }
         Operator::I64Store32 { memarg } => {
@@ -1066,7 +1066,7 @@ pub fn translate_operator(
                 builder,
                 state,
                 environ,
-                allow_nonaligned_memory_accesses,
+                allow_unaligned_memory_accesses,
             )?;
         }
         Operator::V128Store { memarg } => {
@@ -1076,7 +1076,7 @@ pub fn translate_operator(
                 builder,
                 state,
                 environ,
-                allow_nonaligned_memory_accesses,
+                allow_unaligned_memory_accesses,
             )?;
         }
         /****************************** Nullary Operators ************************************/
@@ -1796,7 +1796,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
             let splatted = builder.ins().splat(type_of(op), state.pop1());
@@ -1812,7 +1812,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
             let as_vector = builder.ins().scalar_to_vector(type_of(op), state.pop1());
@@ -1832,7 +1832,7 @@ pub fn translate_operator(
                     builder,
                     state,
                     environ,
-                    allow_nonaligned_memory_accesses,
+                    allow_unaligned_memory_accesses,
                 )?
             );
             let replacement = state.pop1();
@@ -1850,7 +1850,7 @@ pub fn translate_operator(
                 builder,
                 state,
                 environ,
-                allow_nonaligned_memory_accesses,
+                allow_unaligned_memory_accesses,
             )?;
         }
         Operator::I8x16ExtractLaneS { lane } | Operator::I16x8ExtractLaneS { lane } => {
@@ -3020,7 +3020,7 @@ fn translate_load(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FuncEnvironment<'_>,
-    allow_nonaligned_memory_accesses: bool,
+    allow_unaligned_memory_accesses: bool,
 ) -> WasmResult<Reachability<()>> {
     let mem_op_size = mem_op_size(opcode, result_ty);
     let (flags, _wasm_index, base) =
@@ -3030,7 +3030,7 @@ fn translate_load(
         };
 
     // TODO: maybe support also v128
-    if allow_nonaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
+    if allow_unaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
         // Test and handle aligned / unaligned loads separately
         let block_aligned = builder.create_block();
         let block_unaligned = builder.create_block();
@@ -3105,7 +3105,7 @@ fn translate_store(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FuncEnvironment<'_>,
-    allow_nonaligned_memory_accesses: bool,
+    allow_unaligned_memory_accesses: bool,
 ) -> WasmResult<()> {
     let val = state.pop1();
     let val_ty = builder.func.dfg.value_type(val);
@@ -3116,7 +3116,7 @@ fn translate_store(
         prepare_addr(memarg, mem_op_size, builder, state, environ)?
     );
 
-    if allow_nonaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
+    if allow_unaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
         let block_aligned = builder.create_block();
         let block_unaligned = builder.create_block();
         let block_merge = builder.create_block();
