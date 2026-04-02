@@ -3140,7 +3140,10 @@ fn translate_store(
             val
         } else {
             let result_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
-                WasmError::Generic("cannot get uint type for memory load".to_string()),
+                WasmError::Generic(format!(
+                    "cannot get uint type of size {} bytes for memory store from {:?}",
+                    mem_op_size, val_ty,
+                )),
             )?;
             builder.ins().bitcast(
                 result_uint_type,
