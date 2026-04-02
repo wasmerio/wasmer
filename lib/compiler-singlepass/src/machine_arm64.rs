@@ -1371,7 +1371,6 @@ impl Machine for MachineARM64 {
         None
     }
 
-    // Picks an unused general purpose register for internal temporary use.
     fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[X8, X7, X6, X5, X4, X3, X2, X1];
@@ -1424,7 +1423,6 @@ impl Machine for MachineARM64 {
         Ok(())
     }
 
-    // Picks an unused NEON register.
     fn pick_simd(&self) -> Option<NEON> {
         use NEON::*;
         static REGS: &[NEON] = &[V8, V9, V10, V11, V12];
@@ -1436,7 +1434,6 @@ impl Machine for MachineARM64 {
         None
     }
 
-    // Picks an unused NEON register for internal temporary use.
     fn pick_temp_simd(&self) -> Option<NEON> {
         use NEON::*;
         static REGS: &[NEON] = &[V0, V1, V2, V3, V4, V5, V6, V7];
@@ -1448,7 +1445,6 @@ impl Machine for MachineARM64 {
         None
     }
 
-    // Acquires a temporary NEON register.
     fn acquire_temp_simd(&mut self) -> Option<NEON> {
         let simd = self.pick_temp_simd();
         if let Some(x) = simd {
@@ -1461,7 +1457,6 @@ impl Machine for MachineARM64 {
         self.used_simd_insert(simd);
     }
 
-    // Releases a temporary NEON register.
     fn release_simd(&mut self, simd: NEON) {
         assert!(self.used_simd_remove(&simd));
     }
@@ -1504,11 +1499,9 @@ impl Machine for MachineARM64 {
         )
     }
 
-    /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32) {
         self.src_loc = offset;
     }
-    /// Marks each address in the code range emitted by `f` with the trap code `code`.
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         for i in begin..end {
             self.trap_table.offset_to_code.insert(i, code);
@@ -1516,20 +1509,16 @@ impl Machine for MachineARM64 {
         self.mark_instruction_address_end(begin);
     }
 
-    /// Marks one address as trappable with trap code `code`.
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
         self.mark_instruction_address_end(offset);
     }
-    /// Marks the instruction as trappable with trap code `code`. return "begin" offset
     fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
         offset
     }
-    /// Pushes the instruction to the address map, calculating the offset from a
-    /// provided beginning address.
     fn mark_instruction_address_end(&mut self, begin: usize) {
         self.instructions_address_map.push(InstructionAddressMap {
             srcloc: SourceLoc::new(self.src_loc),
@@ -1538,7 +1527,6 @@ impl Machine for MachineARM64 {
         });
     }
 
-    /// Insert a StackOverflow (at offset 0)
     fn insert_stackoverflow(&mut self) {
         let offset = 0;
         self.trap_table
@@ -1547,7 +1535,6 @@ impl Machine for MachineARM64 {
         self.mark_instruction_address_end(offset);
     }
 
-    /// Get all current TrapInformation
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
         self.trap_table
             .offset_to_code
@@ -1564,12 +1551,10 @@ impl Machine for MachineARM64 {
         self.instructions_address_map.clone()
     }
 
-    // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize {
         value.next_multiple_of(16)
     }
 
-    // Memory location for a local on the stack
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         Location::Memory(GPR::X29, -stack_offset)
     }
@@ -1608,7 +1593,6 @@ impl Machine for MachineARM64 {
         )
     }
 
-    // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,
         size: Size,
@@ -1628,22 +1612,18 @@ impl Machine for MachineARM64 {
         }
     }
 
-    // Zero a location that is 32bits
     fn zero_location(&mut self, size: Size, location: Location) -> Result<(), CompileError> {
         self.move_location(size, Location::GPR(GPR::XzrSp), location)
     }
 
-    // GPR Reg used for local pointer on the stack
     fn local_pointer(&self) -> GPR {
         GPR::X29
     }
 
-    // Determine whether a local should be allocated on the stack.
     fn is_local_on_stack(&self, idx: usize) -> bool {
         idx > 7
     }
 
-    // Determine a local's location.
     fn get_local_location(&self, idx: usize, callee_saved_regs_size: usize) -> Location {
         // Use callee-saved registers for the first locals.
         match idx {
@@ -1658,7 +1638,6 @@ impl Machine for MachineARM64 {
             _ => Location::Memory(GPR::X29, -(((idx - 7) * 8 + callee_saved_regs_size) as i32)),
         }
     }
-    // Move a local to the stack
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
         if stack_offset < 256 {
             self.assembler
@@ -1700,12 +1679,10 @@ impl Machine for MachineARM64 {
         Ok(())
     }
 
-    // List of register to save, depending on the CallingConvention
     fn list_to_save(&self, _calling_convention: CallingConvention) -> Vec<Location> {
         vec![]
     }
 
-    /// Get registers for first N function call parameters.
     fn get_param_registers(&self, _calling_convention: CallingConvention) -> &'static [Self::GPR] {
         &[
             GPR::X0,
@@ -1719,7 +1696,6 @@ impl Machine for MachineARM64 {
         ]
     }
 
-    // Get param location, MUST be called in order!
     fn get_param_location(
         &self,
         idx: usize,
@@ -1751,7 +1727,6 @@ impl Machine for MachineARM64 {
             }
         }
     }
-    // Get call param location, MUST be called in order!
     fn get_call_param_location(
         &self,
         return_slots: usize,
@@ -1833,7 +1808,6 @@ impl Machine for MachineARM64 {
         )
     }
 
-    // move a location to another
     fn move_location(
         &mut self,
         size: Size,
@@ -1975,7 +1949,6 @@ impl Machine for MachineARM64 {
             ),
         }
     }
-    // move a location to another
     fn move_location_extend(
         &mut self,
         size_val: Size,
@@ -2060,7 +2033,6 @@ impl Machine for MachineARM64 {
         Ok(())
     }
 
-    // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
         init_stack_loc_cnt: u64,
@@ -2147,7 +2119,6 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    // Restore save_area
     fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError> {
         let real_delta = if saved_area_offset & 15 != 0 {
             self.pushed = true;
@@ -2179,12 +2150,10 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    // Pop a location
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.emit_pop(Size::S64, location)
     }
 
-    // assembler finalize
     fn assembler_finalize(
         self,
         assembly_comments: HashMap<usize, AssemblyComment>,
@@ -2350,7 +2319,6 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    // math
     fn location_add(
         &mut self,
         size: Size,
@@ -2406,7 +2374,6 @@ impl Machine for MachineARM64 {
         self.assembler.emit_bcond_label_far(cond, label)
     }
 
-    // jmp table
     fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) -> Result<(), CompileError> {
         let tmp1 = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -2467,7 +2434,6 @@ impl Machine for MachineARM64 {
         Ok(())
     }
 
-    // relaxed binop based...
     fn emit_relaxed_mov(
         &mut self,
         sz: Size,
@@ -3366,7 +3332,6 @@ impl Machine for MachineARM64 {
         )?;
         self.assembler.emit_dmb()
     }
-    // i32 atomic Add with i32
     fn i32_atomic_add(
         &mut self,
         loc: Location,
@@ -3427,7 +3392,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Add with u8
     fn i32_atomic_add_8u(
         &mut self,
         loc: Location,
@@ -3488,7 +3452,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Add with u16
     fn i32_atomic_add_16u(
         &mut self,
         loc: Location,
@@ -3549,7 +3512,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Sub with i32
     fn i32_atomic_sub(
         &mut self,
         loc: Location,
@@ -3610,7 +3572,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Sub with u8
     fn i32_atomic_sub_8u(
         &mut self,
         loc: Location,
@@ -3671,7 +3632,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Sub with u16
     fn i32_atomic_sub_16u(
         &mut self,
         loc: Location,
@@ -3732,7 +3692,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic And with i32
     fn i32_atomic_and(
         &mut self,
         loc: Location,
@@ -3793,7 +3752,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic And with u8
     fn i32_atomic_and_8u(
         &mut self,
         loc: Location,
@@ -3854,7 +3812,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic And with u16
     fn i32_atomic_and_16u(
         &mut self,
         loc: Location,
@@ -3915,7 +3872,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Or with i32
     fn i32_atomic_or(
         &mut self,
         loc: Location,
@@ -3976,7 +3932,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Or with u8
     fn i32_atomic_or_8u(
         &mut self,
         loc: Location,
@@ -4037,7 +3992,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Or with u16
     fn i32_atomic_or_16u(
         &mut self,
         loc: Location,
@@ -4098,7 +4052,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Xor with i32
     fn i32_atomic_xor(
         &mut self,
         loc: Location,
@@ -4159,7 +4112,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Xor with u8
     fn i32_atomic_xor_8u(
         &mut self,
         loc: Location,
@@ -4220,7 +4172,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Xor with u16
     fn i32_atomic_xor_16u(
         &mut self,
         loc: Location,
@@ -4281,7 +4232,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Exchange with i32
     fn i32_atomic_xchg(
         &mut self,
         loc: Location,
@@ -4339,7 +4289,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Exchange with u8
     fn i32_atomic_xchg_8u(
         &mut self,
         loc: Location,
@@ -4397,7 +4346,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Exchange with u16
     fn i32_atomic_xchg_16u(
         &mut self,
         loc: Location,
@@ -4455,7 +4403,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Exchange with i32
     fn i32_atomic_cmpxchg(
         &mut self,
         new: Location,
@@ -4518,7 +4465,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Exchange with u8
     fn i32_atomic_cmpxchg_8u(
         &mut self,
         new: Location,
@@ -4581,7 +4527,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i32 atomic Exchange with u16
     fn i32_atomic_cmpxchg_16u(
         &mut self,
         new: Location,
@@ -5632,7 +5577,6 @@ impl Machine for MachineARM64 {
         )?;
         self.assembler.emit_dmb()
     }
-    // i64 atomic Add with i64
     fn i64_atomic_add(
         &mut self,
         loc: Location,
@@ -5693,7 +5637,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Add with u8
     fn i64_atomic_add_8u(
         &mut self,
         loc: Location,
@@ -5754,7 +5697,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Add with u16
     fn i64_atomic_add_16u(
         &mut self,
         loc: Location,
@@ -5815,7 +5757,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Add with u32
     fn i64_atomic_add_32u(
         &mut self,
         loc: Location,
@@ -5876,7 +5817,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Sub with i64
     fn i64_atomic_sub(
         &mut self,
         loc: Location,
@@ -5937,7 +5877,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Sub with u8
     fn i64_atomic_sub_8u(
         &mut self,
         loc: Location,
@@ -5998,7 +5937,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Sub with u16
     fn i64_atomic_sub_16u(
         &mut self,
         loc: Location,
@@ -6059,7 +5997,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Sub with u32
     fn i64_atomic_sub_32u(
         &mut self,
         loc: Location,
@@ -6120,7 +6057,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic And with i64
     fn i64_atomic_and(
         &mut self,
         loc: Location,
@@ -6181,7 +6117,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic And with u8
     fn i64_atomic_and_8u(
         &mut self,
         loc: Location,
@@ -6242,7 +6177,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic And with u16
     fn i64_atomic_and_16u(
         &mut self,
         loc: Location,
@@ -6303,7 +6237,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic And with u32
     fn i64_atomic_and_32u(
         &mut self,
         loc: Location,
@@ -6364,7 +6297,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Or with i64
     fn i64_atomic_or(
         &mut self,
         loc: Location,
@@ -6425,7 +6357,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Or with u8
     fn i64_atomic_or_8u(
         &mut self,
         loc: Location,
@@ -6486,7 +6417,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Or with u16
     fn i64_atomic_or_16u(
         &mut self,
         loc: Location,
@@ -6547,7 +6477,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Or with u32
     fn i64_atomic_or_32u(
         &mut self,
         loc: Location,
@@ -6608,7 +6537,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Xor with i64
     fn i64_atomic_xor(
         &mut self,
         loc: Location,
@@ -6669,7 +6597,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Xor with u8
     fn i64_atomic_xor_8u(
         &mut self,
         loc: Location,
@@ -6730,7 +6657,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Xor with u16
     fn i64_atomic_xor_16u(
         &mut self,
         loc: Location,
@@ -6791,7 +6717,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Xor with u32
     fn i64_atomic_xor_32u(
         &mut self,
         loc: Location,
@@ -6852,7 +6777,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Exchange with i64
     fn i64_atomic_xchg(
         &mut self,
         loc: Location,
@@ -6910,7 +6834,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Exchange with u8
     fn i64_atomic_xchg_8u(
         &mut self,
         loc: Location,
@@ -6968,7 +6891,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Exchange with u16
     fn i64_atomic_xchg_16u(
         &mut self,
         loc: Location,
@@ -7026,7 +6948,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Exchange with u32
     fn i64_atomic_xchg_32u(
         &mut self,
         loc: Location,
@@ -7084,7 +7005,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Exchange with i64
     fn i64_atomic_cmpxchg(
         &mut self,
         new: Location,
@@ -7147,7 +7067,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Exchange with u8
     fn i64_atomic_cmpxchg_8u(
         &mut self,
         new: Location,
@@ -7210,7 +7129,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Exchange with u16
     fn i64_atomic_cmpxchg_16u(
         &mut self,
         new: Location,
@@ -7273,7 +7191,6 @@ impl Machine for MachineARM64 {
             },
         )
     }
-    // i64 atomic Exchange with u32
     fn i64_atomic_cmpxchg_32u(
         &mut self,
         new: Location,

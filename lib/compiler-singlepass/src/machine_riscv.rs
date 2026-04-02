@@ -1917,7 +1917,6 @@ impl Machine for MachineRiscv {
         None
     }
 
-    // Picks an unused general purpose register for internal temporary use.
     fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
         // Reserve a few registers for the first locals of a function!
@@ -1985,7 +1984,6 @@ impl Machine for MachineRiscv {
         None
     }
 
-    // Picks an unused FP register for internal temporary use.
     fn pick_temp_simd(&self) -> Option<FPR> {
         use FPR::*;
         static REGS: &[FPR] = &[F28, F29, F31];
@@ -2042,7 +2040,6 @@ impl Machine for MachineRiscv {
         )
     }
 
-    // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize {
         if value & 0xf != 0 {
             ((value >> 4) + 1) << 4
@@ -2051,7 +2048,6 @@ impl Machine for MachineRiscv {
         }
     }
 
-    /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32) {
         self.src_loc = offset;
     }
@@ -2067,7 +2063,6 @@ impl Machine for MachineRiscv {
         self.trap_table.offset_to_code.insert(offset, code);
         self.mark_instruction_address_end(offset);
     }
-    /// Marks the instruction as trappable with trap code `code`. return "begin" offset
     fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
@@ -2080,7 +2075,6 @@ impl Machine for MachineRiscv {
             code_len: self.assembler.get_offset().0 - begin,
         });
     }
-    /// Insert a StackOverflow (at offset 0)
     fn insert_stackoverflow(&mut self) {
         let offset = 0;
         self.trap_table
@@ -2089,7 +2083,6 @@ impl Machine for MachineRiscv {
         self.mark_instruction_address_end(offset);
     }
 
-    /// Get all current TrapInformation
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
         self.trap_table
             .offset_to_code
@@ -2144,7 +2137,6 @@ impl Machine for MachineRiscv {
     fn local_pointer(&self) -> Self::GPR {
         GPR::Fp
     }
-    // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,
         _size: Size,
@@ -2167,7 +2159,6 @@ impl Machine for MachineRiscv {
         idx > 9
     }
 
-    // Determine a local's location.
     fn get_local_location(&self, idx: usize, callee_saved_regs_size: usize) -> Location {
         // Use callee-saved registers for the first locals.
         match idx {
@@ -2185,7 +2176,6 @@ impl Machine for MachineRiscv {
         }
     }
 
-    // Move a local to the stack
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
         self.move_location(
             Size::S64,
@@ -2210,7 +2200,6 @@ impl Machine for MachineRiscv {
         vec![]
     }
 
-    /// Get registers for first N function call parameters.
     fn get_param_registers(&self, _calling_convention: CallingConvention) -> &'static [Self::GPR] {
         &[
             GPR::X10,
@@ -2240,7 +2229,6 @@ impl Machine for MachineRiscv {
             loc
         }
     }
-    // Get call param location, MUST be called in order!
     fn get_call_param_location(
         &self,
         return_slots: usize,
@@ -2305,7 +2293,6 @@ impl Machine for MachineRiscv {
         )
     }
 
-    // move a location to another
     fn move_location(
         &mut self,
         size: Size,
@@ -2365,7 +2352,6 @@ impl Machine for MachineRiscv {
         }
     }
 
-    // move a location to another
     fn move_location_extend(
         &mut self,
         size_val: Size,
@@ -2410,7 +2396,6 @@ impl Machine for MachineRiscv {
         Ok(())
     }
 
-    // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
         init_stack_loc_cnt: u64,
@@ -2483,7 +2468,6 @@ impl Machine for MachineRiscv {
         Ok(())
     }
 
-    // Restore save_area
     fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError> {
         self.assembler.emit_sub(
             Size::S64,
@@ -2493,7 +2477,6 @@ impl Machine for MachineRiscv {
         )
     }
 
-    // Pop a location
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.emit_pop(Size::S64, location)
     }
@@ -2742,7 +2725,6 @@ impl Machine for MachineRiscv {
         Ok(())
     }
 
-    // jmp table
     fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) -> Result<(), CompileError> {
         let tmp1 = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -2787,7 +2769,6 @@ impl Machine for MachineRiscv {
     fn emit_pop(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         self.assembler.emit_pop(size, loc)
     }
-    // relaxed binop based...
     fn emit_relaxed_mov(
         &mut self,
         sz: Size,
