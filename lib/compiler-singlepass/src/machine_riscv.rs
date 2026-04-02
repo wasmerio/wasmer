@@ -2281,16 +2281,17 @@ impl Machine for MachineRiscv {
         // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
         // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
         // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
-        if size != Size::S64 {
-            assert_eq!(size, Size::S32);
-            self.assembler.emit_extend(
+        match size {
+            Size::S64 => Ok(()),
+            Size::S32 => self.assembler.emit_extend(
                 Size::S32,
                 true,
                 Location::GPR(register),
                 Location::GPR(register),
-            )
-        } else {
-            Ok(())
+            ),
+            Size::S8 | Size::S16 => {
+                codegen_error!("singlepass adjust_gpr_param_location unreachable")
+            }
         }
     }
 
