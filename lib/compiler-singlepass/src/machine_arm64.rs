@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use dynasmrt::{VecAssembler, aarch64::Aarch64Relocation};
+use fixedbitset::FixedBitSet;
 #[cfg(feature = "unwind")]
 use gimli::{AArch64, write::CallFrameInstruction};
 
@@ -33,8 +34,8 @@ type Location = AbstractLocation<GPR, NEON>;
 
 pub struct MachineARM64 {
     assembler: Assembler,
-    used_gprs: u32,
-    used_simd: u32,
+    used_gprs: FixedBitSet,
+    used_simd: FixedBitSet,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     // Ordered by increasing InstructionAddressMap::srcloc.
@@ -95,8 +96,8 @@ impl MachineARM64 {
 
         MachineARM64 {
             assembler: Assembler::new(0),
-            used_gprs: 0,
-            used_simd: 0,
+            used_gprs: FixedBitSet::with_capacity(32),
+            used_simd: FixedBitSet::with_capacity(32),
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
@@ -1303,25 +1304,25 @@ impl MachineARM64 {
     }
 
     fn used_gprs_contains(&self, r: &GPR) -> bool {
-        self.used_gprs & (1 << r.into_index()) != 0
+        self.used_gprs.contains(r.into_index())
     }
     fn used_simd_contains(&self, r: &NEON) -> bool {
-        self.used_simd & (1 << r.into_index()) != 0
+        self.used_simd.contains(r.into_index())
     }
     fn used_gprs_insert(&mut self, r: GPR) {
-        self.used_gprs |= 1 << r.into_index();
+        self.used_gprs.insert(r.into_index());
     }
     fn used_simd_insert(&mut self, r: NEON) {
-        self.used_simd |= 1 << r.into_index();
+        self.used_simd.insert(r.into_index());
     }
     fn used_gprs_remove(&mut self, r: &GPR) -> bool {
         let ret = self.used_gprs_contains(r);
-        self.used_gprs &= !(1 << r.into_index());
+        self.used_gprs.set(r.into_index(), false);
         ret
     }
     fn used_simd_remove(&mut self, r: &NEON) -> bool {
         let ret = self.used_simd_contains(r);
-        self.used_simd &= !(1 << r.into_index());
+        self.used_simd.set(r.into_index(), false);
         ret
     }
     fn emit_unwind_op(&mut self, op: UnwindOps<GPR, NEON>) {
@@ -1345,14 +1346,14 @@ impl Machine for MachineARM64 {
 
     fn get_used_gprs(&self) -> Vec<GPR> {
         GPR::iterator()
-            .filter(|x| self.used_gprs & (1 << x.into_index()) != 0)
+            .filter(|x| self.used_gprs.contains(x.into_index()))
             .cloned()
             .collect()
     }
 
     fn get_used_simd(&self) -> Vec<NEON> {
         NEON::iterator()
-            .filter(|x| self.used_simd & (1 << x.into_index()) != 0)
+            .filter(|x| self.used_simd.contains(x.into_index()))
             .cloned()
             .collect()
     }

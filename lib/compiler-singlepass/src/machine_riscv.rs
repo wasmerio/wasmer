@@ -1,6 +1,7 @@
 //! RISC-V machine scaffolding.
 
 use dynasmrt::{DynasmError, VecAssembler, riscv::RiscvRelocation};
+use fixedbitset::FixedBitSet;
 #[cfg(feature = "unwind")]
 use gimli::{RiscV, write::CallFrameInstruction};
 
@@ -73,8 +74,8 @@ impl DerefMut for AssemblerRiscv {
 /// The RISC-V machine state and code emitter.
 pub struct MachineRiscv {
     assembler: AssemblerRiscv,
-    used_gprs: u32,
-    used_fprs: u32,
+    used_gprs: FixedBitSet,
+    used_fprs: FixedBitSet,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     /// Ordered by increasing InstructionAddressMap::srcloc.
@@ -93,8 +94,8 @@ impl MachineRiscv {
         // TODO: for now always require FPU
         Ok(MachineRiscv {
             assembler: AssemblerRiscv::new(0, target)?,
-            used_gprs: 0,
-            used_fprs: 0,
+            used_gprs: FixedBitSet::with_capacity(32),
+            used_fprs: FixedBitSet::with_capacity(32),
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
@@ -103,26 +104,26 @@ impl MachineRiscv {
     }
 
     fn used_gprs_contains(&self, r: &GPR) -> bool {
-        self.used_gprs & (1 << r.into_index()) != 0
+        self.used_gprs.contains(r.into_index())
     }
     fn used_gprs_insert(&mut self, r: GPR) {
-        self.used_gprs |= 1 << r.into_index();
+        self.used_gprs.insert(r.into_index());
     }
     fn used_gprs_remove(&mut self, r: &GPR) -> bool {
         let ret = self.used_gprs_contains(r);
-        self.used_gprs &= !(1 << r.into_index());
+        self.used_gprs.set(r.into_index(), false);
         ret
     }
 
     fn used_fp_contains(&self, r: &FPR) -> bool {
-        self.used_fprs & (1 << r.into_index()) != 0
+        self.used_fprs.contains(r.into_index())
     }
     fn used_fprs_insert(&mut self, r: FPR) {
-        self.used_fprs |= 1 << r.into_index();
+        self.used_fprs.insert(r.into_index());
     }
     fn used_fprs_remove(&mut self, r: &FPR) -> bool {
         let ret = self.used_fp_contains(r);
-        self.used_fprs &= !(1 << r.into_index());
+        self.used_fprs.set(r.into_index(), false);
         ret
     }
 
@@ -1933,13 +1934,13 @@ impl Machine for MachineRiscv {
 
     fn get_used_gprs(&self) -> Vec<Self::GPR> {
         GPR::iterator()
-            .filter(|x| self.used_gprs & (1 << x.into_index()) != 0)
+            .filter(|x| self.used_gprs.contains(x.into_index()))
             .cloned()
             .collect()
     }
     fn get_used_simd(&self) -> Vec<Self::SIMD> {
         FPR::iterator()
-            .filter(|x| self.used_fprs & (1 << x.into_index()) != 0)
+            .filter(|x| self.used_fprs.contains(x.into_index()))
             .cloned()
             .collect()
     }
