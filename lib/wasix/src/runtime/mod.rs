@@ -38,10 +38,19 @@ use crate::{
     },
 };
 
-pub type MakeImportCallback =
-    dyn Fn(&mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> + Send + Sync + 'static;
-pub type ConfigureInstanceCallback =
-    dyn Fn(&mut wasmer::StoreMut, &wasmer::Instance) -> anyhow::Result<()> + Send + Sync + 'static;
+pub type MakeImportCallback = dyn Fn(&wasmer::Module, &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>
+    + Send
+    + Sync
+    + 'static;
+pub type ConfigureInstanceCallback = dyn Fn(
+        &wasmer::Module,
+        &mut wasmer::StoreMut,
+        &wasmer::Instance,
+        Option<&wasmer::Memory>,
+    ) -> anyhow::Result<()>
+    + Send
+    + Sync
+    + 'static;
 
 #[derive(Clone)]
 pub struct ImportCallback(pub Arc<MakeImportCallback>);
@@ -192,15 +201,21 @@ where
     /// This callback may be invoked multiple times (e.g. process bootstrap,
     /// thread spawn), so implementations should create imports that are valid
     /// for the given store each time.
-    fn additional_imports(&self, _store: &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> {
+    fn additional_imports(
+        &self,
+        _module: &wasmer::Module,
+        _store: &mut wasmer::StoreMut,
+    ) -> anyhow::Result<wasmer::Imports> {
         Ok(wasmer::Imports::new())
     }
 
     /// Configure an instantiated instance before initialization/startup.
     fn configure_new_instance(
         &self,
+        _module: &wasmer::Module,
         _store: &mut wasmer::StoreMut,
         _instance: &wasmer::Instance,
+        _imported_memory: Option<&wasmer::Memory>,
     ) -> anyhow::Result<()> {
         Ok(())
     }
@@ -555,7 +570,7 @@ impl PluggableRuntime {
 
     pub fn with_additional_imports(
         &mut self,
-        imports: impl Fn(&mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>
+        imports: impl Fn(&wasmer::Module, &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>
         + Send
         + Sync
         + 'static,
@@ -567,7 +582,12 @@ impl PluggableRuntime {
 
     pub fn with_instance_setup(
         &mut self,
-        callback: impl Fn(&mut wasmer::StoreMut, &wasmer::Instance) -> anyhow::Result<()>
+        callback: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+            &wasmer::Instance,
+            Option<&wasmer::Memory>,
+        ) -> anyhow::Result<()>
         + Send
         + Sync
         + 'static,
@@ -615,21 +635,27 @@ impl Runtime for PluggableRuntime {
         self.module_cache.clone()
     }
 
-    fn additional_imports(&self, store: &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> {
+    fn additional_imports(
+        &self,
+        module: &wasmer::Module,
+        store: &mut wasmer::StoreMut,
+    ) -> anyhow::Result<wasmer::Imports> {
         let mut imports = wasmer::Imports::new();
         for cb in &self.additional_imports {
-            imports.extend(&(*(cb.0))(store)?);
+            imports.extend(&(*(cb.0))(module, store)?);
         }
         Ok(imports)
     }
 
     fn configure_new_instance(
         &self,
+        module: &wasmer::Module,
         store: &mut wasmer::StoreMut,
         instance: &wasmer::Instance,
+        imported_memory: Option<&wasmer::Memory>,
     ) -> anyhow::Result<()> {
         for cb in &self.instance_callbacks {
-            (*(cb.0))(store, instance)?;
+            (*(cb.0))(module, store, instance, imported_memory)?;
         }
         Ok(())
     }
@@ -663,6 +689,8 @@ pub struct OverriddenRuntime {
     engine: Option<Engine>,
     module_cache: Option<Arc<dyn ModuleCache + Send + Sync>>,
     tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
+    additional_imports: Vec<ImportCallback>,
+    instance_callbacks: Vec<InstanceCallback>,
     #[cfg(feature = "journal")]
     pub read_only_journals: Option<Vec<Arc<DynReadableJournal>>>,
     #[cfg(feature = "journal")]
@@ -681,6 +709,8 @@ impl OverriddenRuntime {
             engine: None,
             module_cache: None,
             tty: None,
+            additional_imports: Vec::new(),
+            instance_callbacks: Vec::new(),
             #[cfg(feature = "journal")]
             read_only_journals: None,
             #[cfg(feature = "journal")]
@@ -728,6 +758,35 @@ impl OverriddenRuntime {
 
     pub fn with_tty(mut self, tty: Arc<dyn TtyBridge + Send + Sync>) -> Self {
         self.tty.replace(tty);
+        self
+    }
+
+    pub fn with_additional_imports(
+        mut self,
+        imports: impl Fn(&wasmer::Module, &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        self.additional_imports
+            .push(ImportCallback(Arc::new(imports)));
+        self
+    }
+
+    pub fn with_instance_setup(
+        mut self,
+        callback: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+            &wasmer::Instance,
+            Option<&wasmer::Memory>,
+        ) -> anyhow::Result<()>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        self.instance_callbacks
+            .push(InstanceCallback(Arc::new(callback)));
         self
     }
 
@@ -801,16 +860,31 @@ impl Runtime for OverriddenRuntime {
         }
     }
 
-    fn additional_imports(&self, store: &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> {
-        self.inner.additional_imports(store)
+    fn additional_imports(
+        &self,
+        module: &wasmer::Module,
+        store: &mut wasmer::StoreMut,
+    ) -> anyhow::Result<wasmer::Imports> {
+        let mut imports = self.inner.additional_imports(module, store)?;
+        for cb in &self.additional_imports {
+            imports.extend(&(*(cb.0))(module, store)?);
+        }
+        Ok(imports)
     }
 
     fn configure_new_instance(
         &self,
+        module: &wasmer::Module,
         store: &mut wasmer::StoreMut,
         instance: &wasmer::Instance,
+        imported_memory: Option<&wasmer::Memory>,
     ) -> anyhow::Result<()> {
-        self.inner.configure_new_instance(store, instance)
+        self.inner
+            .configure_new_instance(module, store, instance, imported_memory)?;
+        for cb in &self.instance_callbacks {
+            (*(cb.0))(module, store, instance, imported_memory)?;
+        }
+        Ok(())
     }
 
     fn http_client(&self) -> Option<&DynHttpClient> {

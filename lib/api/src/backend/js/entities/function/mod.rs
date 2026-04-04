@@ -264,7 +264,7 @@ impl Function {
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
         Self {
-            handle: internal.into_js(),
+            handle: internal.unwrap_js(),
         }
     }
 
@@ -322,7 +322,7 @@ where
         T: Sized,
     {
         Self {
-            address: function.function_callback(crate::BackendKind::Js).into_js(),
+            address: function.function_callback(crate::BackendKind::Js).unwrap_js(),
             _phantom: PhantomData,
         }
     }

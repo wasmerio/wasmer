@@ -11,6 +11,6 @@
 #endif
 
 int main() {
-    catch_exception();
-    return 0;
+  catch_exception();
+  return 0;
 }

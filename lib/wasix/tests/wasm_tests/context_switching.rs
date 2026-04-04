@@ -1,3 +1,4 @@
+#[cfg(all(unix, not(target_os = "macos")))]
 use super::{run_build_script, run_wasm};
 
 // macOS is currently disabled, because cranelift does not

@@ -148,7 +148,7 @@ jobs:
         shell: bash
         run: |
           sudo xcode-select -s /Library/Developer/CommandLineTools
-          echo "CPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include" >> $GITHUB_ENV
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: startsWith(matrix.build, 'windows-')
@@ -183,10 +183,6 @@ jobs:
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-      - name: Add `brew` libraries (Apple Silicon)
-        run: |
-          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-        if: matrix.os == 'macos-14' || matrix.os == 'depot-macos-14'
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -505,11 +501,37 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+  full_source_archive:
+    name: full-source-archive
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Package full source archive
+        shell: bash
+        run: |
+          mkdir -p /tmp/dist
+          git ls-files --recurse-submodules -z \
+            | tar --null -T - --transform="s,^,wasmer/," -czf "/tmp/dist/wasmer-full-source.tar.gz"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasmer-full-source
+          path: /tmp/dist
+          if-no-files-found: error
+          retention-days: 2
+
   release:
-    needs: [setup, build, windows_gnu, linux_riscv64]
+    needs: [setup, build, windows_gnu, linux_riscv64, full_source_archive]
     runs-on: ubuntu-latest
     if: (needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != '') && github.event_name != 'pull_request'
     steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Download the Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -533,6 +555,15 @@ jobs:
           asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
           asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset Full Source
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-full-source/wasmer-full-source.tar.gz
+          asset_name: wasmer-full-source.tar.gz
+          asset_content_type: application/gzip
       - name: Upload Release Asset Windows
         uses: actions/upload-release-asset@v1
         env:

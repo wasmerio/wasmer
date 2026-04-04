@@ -4,13 +4,17 @@ mod dynamic_library_tests;
 mod edge_case_tests;
 mod exception_tests;
 mod exit_tests;
+mod fd_tests;
 mod ffi_tests;
 mod libc_tests;
 mod lifecycle_tests;
 mod longjmp_tests;
+mod path_tests;
+mod poll_tests;
 mod reflection_tests;
 mod semaphore_tests;
 mod shared_library_tests;
+mod socket_tests;
 mod threadlocal_tests;
 
 use std::borrow::Cow;
@@ -291,6 +295,35 @@ fn get_cache_dir() -> PathBuf {
     }
 }
 
+fn create_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
+    #[cfg(target_os = "macos")]
+    {
+        use wasmer::{sys::EngineBuilder, sys::Target};
+
+        // On macOS, the default Cranelift backend has limited support for the features
+        // required by these tests, especially exception handling. Use the slower LLVM
+        // backend instead so the WASIX test suite can run reliably on macOS.
+        let target = Target::default();
+        let features = wasmer_types::Features::detect_from_wasm(wasm_bytes).unwrap_or_else(|_| {
+            wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::LLVM, &target)
+        });
+
+        let compiler = wasmer::sys::LLVM::default();
+
+        return EngineBuilder::new(compiler)
+            .set_features(Some(features))
+            .set_target(Some(target))
+            .engine()
+            .into();
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = wasm_bytes;
+        wasmer::Engine::default()
+    }
+}
+
 /// Result from running a WASM program, including captured output and exit status
 pub struct WasmRunResult {
     #[allow(dead_code)]
@@ -320,9 +353,9 @@ pub fn run_wasm_with_result(
 ) -> Result<WasmRunResult, anyhow::Error> {
     // Load the compiled WASM module
     let wasm_bytes = std::fs::read(wasm_path)?;
+    let engine = create_engine_for_wasm(&wasm_bytes);
     let module_data = HashedModuleData::new(wasm_bytes);
     let hash = *module_data.hash();
-    let engine = wasmer::Engine::default();
 
     // Create buffers to capture stdout and stderr
     let stdout_buffer = Arc::new(Mutex::new(Vec::new()));

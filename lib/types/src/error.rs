@@ -151,7 +151,7 @@ pub enum CompileError {
     #[cfg_attr(feature = "std", error("WebAssembly translation error: {0}"))]
     Wasm(WasmError),
 
-    /// A compilation error occured.
+    /// A compilation error occurred.
     #[cfg_attr(feature = "std", error("Compilation error: {0}"))]
     Codegen(String),
 
@@ -214,6 +214,12 @@ impl MiddlewareError {
             name: name.into(),
             message: message.into(),
         }
+    }
+}
+
+impl From<MiddlewareError> for CompileError {
+    fn from(error: MiddlewareError) -> Self {
+        WasmError::Middleware(error).into()
     }
 }
 

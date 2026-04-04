@@ -7,7 +7,7 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
-use crate::compiler::ModuleBasedSymbolRegistry;
+use crate::{compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
 use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
@@ -20,8 +20,8 @@ use inkwell::{
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
-        FunctionValue, InstructionOpcode, InstructionValue, IntValue, PhiValue, PointerValue,
-        VectorValue,
+        FunctionValue, InstructionOpcode, InstructionValue, IntValue, LLVMTailCallKind, PhiValue,
+        PointerValue, VectorValue,
     },
 };
 use itertools::Itertools;
@@ -52,7 +52,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, Type, target::CpuFeature,
+    ModuleInfo, SignatureHash, SignatureIndex, TableIndex, Type, target::CpuFeature,
 };
 use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
@@ -71,14 +71,14 @@ const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
-    target_machine: TargetMachine,
-    target_machine_no_opt: Option<TargetMachine>,
+    target_machines: HashMap<OptimizationStyle, TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
+    wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -86,19 +86,21 @@ impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 impl FuncTranslator {
     pub fn new(
         target_triple: Triple,
-        target_machine: TargetMachine,
-        target_machine_no_opt: Option<TargetMachine>,
+        target_machines: HashMap<OptimizationStyle, TargetMachine>,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
         non_volatile_memory_ops: bool,
+        wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
     ) -> Result<Self, CompileError> {
-        let abi = get_abi(&target_machine);
+        let abi_source_tm = target_machines
+            .get(&OptimizationStyle::ForSpeed)
+            .expect("target_machines must contain OptimizationStyle::ForSpeed");
+        let abi = get_abi(abi_source_tm);
         Ok(Self {
             ctx: Context::create(),
             target_triple,
-            target_machine,
-            target_machine_no_opt,
+            target_machines,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -113,6 +115,7 @@ impl FuncTranslator {
             pointer_width,
             cpu_features,
             non_volatile_memory_ops,
+            wasm_apply_data_relocs_fn_index,
         })
     }
 
@@ -121,6 +124,7 @@ impl FuncTranslator {
         &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
+        signature_hashes: &PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
@@ -128,6 +132,7 @@ impl FuncTranslator {
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &dyn SymbolRegistry,
         target: &Triple,
+        opt_style: OptimizationStyle,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let func_index = wasm_module.func_index(*local_func_index);
@@ -148,7 +153,7 @@ impl FuncTranslator {
         };
         let module = self.ctx.create_module(module_name.as_str());
 
-        let target_machine = &self.target_machine;
+        let target_machine = &self.target_machines.values().next().unwrap();
         let target_triple = target_machine.get_triple();
         let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
@@ -333,6 +338,7 @@ impl FuncTranslator {
             _table_styles,
             module: &module,
             module_translation,
+            signature_hashes,
             wasm_module,
             symbol_registry,
             abi: &*self.abi,
@@ -365,41 +371,51 @@ impl FuncTranslator {
         }
 
         let mut passes = vec![];
-
         if config.enable_verifier {
             passes.push("verify");
         }
 
-        passes.push("sccp");
-        passes.push("early-cse");
-        //passes.push("deadargelim");
-        passes.push("adce");
-        passes.push("sroa");
-        passes.push("aggressive-instcombine");
-        passes.push("jump-threading");
-        //passes.push("ipsccp");
-        passes.push("simplifycfg");
-        passes.push("reassociate");
-        passes.push("loop-rotate");
-        passes.push("indvars");
-        //passes.push("lcssa");
-        //passes.push("licm");
-        //passes.push("instcombine");
-        passes.push("sccp");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("gvn");
-        passes.push("memcpyopt");
-        passes.push("dse");
-        passes.push("dce");
-        //passes.push("instcombine");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("mem2reg");
+        match opt_style {
+            OptimizationStyle::Disabled => {
+                passes.push("default<O0>");
+            }
+            OptimizationStyle::ForSize => {
+                // Apparently, the default<Os> could be much slower compared to -O1.
+                passes.push("default<O1>");
+            }
+            OptimizationStyle::ForSpeed => {
+                passes.push("sccp");
+                passes.push("early-cse");
+                //passes.push("deadargelim");
+                passes.push("adce");
+                passes.push("sroa");
+                passes.push("aggressive-instcombine");
+                passes.push("jump-threading");
+                //passes.push("ipsccp");
+                passes.push("simplifycfg");
+                passes.push("reassociate");
+                passes.push("loop-rotate");
+                passes.push("indvars");
+                //passes.push("lcssa");
+                //passes.push("licm");
+                //passes.push("instcombine");
+                passes.push("sccp");
+                passes.push("reassociate");
+                passes.push("simplifycfg");
+                passes.push("gvn");
+                passes.push("memcpyopt");
+                passes.push("dse");
+                passes.push("dce");
+                //passes.push("instcombine");
+                passes.push("reassociate");
+                passes.push("simplifycfg");
+                passes.push("mem2reg");
+            }
+        }
 
         module
             .run_passes(
-                passes.join(",").as_str(),
+                &passes.join(","),
                 target_machine,
                 PassBuilderOptions::create(),
             )
@@ -417,6 +433,7 @@ impl FuncTranslator {
         &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
+        signature_hashes: &PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
@@ -425,9 +442,21 @@ impl FuncTranslator {
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
+        let func_index = wasm_module.func_index(*local_func_index);
+        let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
+            // `__wasm_apply_data_relocs` can become a very large function made up
+            // mostly of loads and stores, and even `-O1` can spend significant
+            // time optimizing it.
+            OptimizationStyle::Disabled
+        } else if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
+            OptimizationStyle::ForSize
+        } else {
+            OptimizationStyle::ForSpeed
+        };
         let module = self.translate_to_module(
             wasm_module,
             module_translation,
+            signature_hashes,
             local_func_index,
             function_body,
             config,
@@ -435,19 +464,12 @@ impl FuncTranslator {
             table_styles,
             symbol_registry,
             target,
+            opt_style,
         )?;
-        let function = CompiledKind::Local(
-            *local_func_index,
-            wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
-        );
+        let function =
+            CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
 
-        let target_machine = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
-            self.target_machine_no_opt
-                .as_ref()
-                .unwrap_or(&self.target_machine)
-        } else {
-            &self.target_machine
-        };
+        let target_machine = self.target_machines.get(&opt_style).unwrap();
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
@@ -470,14 +492,11 @@ impl FuncTranslator {
             |name: &str| {
                 Ok({
                     let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
-                        if name.starts_with("_") {
-                            name.replacen("_", "", 1)
-                        } else {
-                            name.to_string()
-                        }
+                        name.strip_prefix("_").unwrap_or(name)
                     } else {
-                        name.to_string()
-                    };
+                        name
+                    }
+                    .to_string();
                     if let Some(Symbol::LocalFunction(local_func_index)) =
                         symbol_registry.name_to_symbol(&name)
                     {
@@ -1562,6 +1581,48 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
+    fn emit_return_call(
+        &mut self,
+        call_site: CallSiteValue<'ctx>,
+        callee_llvm_func_type: inkwell::types::FunctionType<'ctx>,
+    ) -> Result<(), CompileError> {
+        // This is an unintuitive spec corner case: a tail call must bypass all enclosing
+        // try_table blocks in the function. See https://github.com/WebAssembly/exception-handling/issues/249.
+        //
+        // The LLVM MustTail is more restrictive than the one defined in the WebAssembly spec.
+        // WebAssembly types alone are not enough here: the lowered ABI can add hidden arguments
+        // like `m0` and `sret`, so we must compare the actual LLVM function types instead.
+        let tail_call_kind = if self.function.get_type() == callee_llvm_func_type {
+            LLVMTailCallKind::LLVMTailCallKindMustTail
+        } else {
+            LLVMTailCallKind::LLVMTailCallKindTail
+        };
+        call_site.set_tail_call_kind(tail_call_kind);
+
+        if self.function.get_type().get_return_type().is_none() {
+            err!(self.builder.build_return(None));
+        } else {
+            let ret = call_site.try_as_basic_value();
+            if ret.is_instruction() {
+                return Err(CompileError::Codegen(
+                    "return_call expected a non-void call result".to_string(),
+                ));
+            }
+            err!(self.builder.build_return(Some(&ret.unwrap_basic())));
+        }
+        Ok(())
+    }
+
+    // Return sret pointer if the functions needs the hidden argument for multiple return values.
+    fn current_sret_ptr(&self, func_type: &FunctionType) -> Option<PointerValue<'ctx>> {
+        self.abi.is_sret(func_type).ok().map(|_| {
+            self.function
+                .get_first_param()
+                .unwrap()
+                .into_pointer_value()
+        })
+    }
+
     fn build_m0_indirect_call(
         &mut self,
         table_index: u32,
@@ -1569,12 +1630,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
         func_index: IntValue<'ctx>,
+        is_return_call: bool,
     ) -> Result<(), CompileError> {
         let Some(m0) = self.m0_param else {
             return Err(CompileError::Codegen(
                 "Call to build_m0_indirect_call without m0 parameter!".to_string(),
             ));
         };
+
+        let params = self.state.popn_save_extra(func_type.params().len())?;
 
         let mut local_func_indices = vec![];
         let mut foreign_func_indices = vec![];
@@ -1607,7 +1671,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 .context
                 .append_basic_block(self.function, "unreachable_indirect_call_branch");
 
-            let cont = self.context.append_basic_block(self.function, "cont");
+            let cont =
+                (!is_return_call).then(|| self.context.append_basic_block(self.function, "cont"));
 
             err!(
                 self.builder.build_switch(
@@ -1633,31 +1698,66 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             //let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(local_idx_block);
-            let local_call_site =
-                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
-
-            let local_rets = self.abi.rets_from_call(
-                &self.builder,
-                self.intrinsics,
-                local_call_site,
+            let (local_call_site, local_llvm_func_type) = self.build_indirect_call_with_params(
+                ctx_ptr,
                 func_type,
+                func_ptr,
+                Some(m0),
+                is_return_call,
+                &params,
             )?;
 
-            err!(self.builder.build_unconditional_branch(cont));
+            let local_rets = if is_return_call {
+                self.emit_return_call(local_call_site, local_llvm_func_type)?;
+                Vec::new()
+            } else {
+                let rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    local_call_site,
+                    func_type,
+                )?;
+                err!(
+                    self.builder
+                        .build_unconditional_branch(cont.expect("non-return call requires cont"))
+                );
+                rets
+            };
 
             self.builder.position_at_end(foreign_idx_block);
-            let foreign_call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
+            let (foreign_call_site, foreign_llvm_func_type) = self
+                .build_indirect_call_with_params(
+                    ctx_ptr,
+                    func_type,
+                    func_ptr,
+                    None,
+                    is_return_call,
+                    &params,
+                )?;
 
-            let foreign_rets = self.abi.rets_from_call(
-                &self.builder,
-                self.intrinsics,
-                foreign_call_site,
-                func_type,
-            )?;
+            let foreign_rets = if is_return_call {
+                self.emit_return_call(foreign_call_site, foreign_llvm_func_type)?;
+                Vec::new()
+            } else {
+                let rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    foreign_call_site,
+                    func_type,
+                )?;
+                err!(
+                    self.builder
+                        .build_unconditional_branch(cont.expect("non-return call requires cont"))
+                );
+                rets
+            };
 
-            err!(self.builder.build_unconditional_branch(cont));
+            if is_return_call {
+                return Ok(());
+            }
 
-            self.builder.position_at_end(cont);
+            self.builder
+                .position_at_end(cont.expect("non-return call requires cont"));
 
             for i in 0..foreign_rets.len() {
                 let f_i = foreign_rets[i];
@@ -1668,18 +1768,40 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {
-            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
+            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                Some(m0),
+                is_return_call,
+                &params,
+            )?;
 
-            self.abi
-                .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                .iter()
-                .for_each(|ret| self.state.push1(*ret));
+            if is_return_call {
+                self.emit_return_call(call_site, llvm_func_type)?;
+            } else {
+                self.abi
+                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
+            }
         } else {
-            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
-            self.abi
-                .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                .iter()
-                .for_each(|ret| self.state.push1(*ret));
+            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                None,
+                is_return_call,
+                &params,
+            )?;
+            if is_return_call {
+                self.emit_return_call(call_site, llvm_func_type)?;
+            } else {
+                self.abi
+                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
+            }
         }
 
         Ok(())
@@ -1691,7 +1813,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
         m0_param: Option<PointerValue<'ctx>>,
-    ) -> Result<CallSiteValue<'ctx>, CompileError> {
+        is_return_call: bool,
+    ) -> Result<(CallSiteValue<'ctx>, inkwell::types::FunctionType<'ctx>), CompileError> {
+        let params = self.state.popn_save_extra(func_type.params().len())?;
+        self.build_indirect_call_with_params(
+            ctx_ptr,
+            func_type,
+            func_ptr,
+            m0_param,
+            is_return_call,
+            &params,
+        )
+    }
+
+    fn build_indirect_call_with_params(
+        &mut self,
+        ctx_ptr: PointerValue<'ctx>,
+        func_type: &FunctionType,
+        func_ptr: PointerValue<'ctx>,
+        m0_param: Option<PointerValue<'ctx>>,
+        is_return_call: bool,
+        params: &[(BasicValueEnum<'ctx>, ExtraInfo)],
+    ) -> Result<(CallSiteValue<'ctx>, inkwell::types::FunctionType<'ctx>), CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
             self.context,
             self.intrinsics,
@@ -1699,8 +1842,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             func_type,
             m0_param.is_some(),
         )?;
-
-        let params = self.state.popn_save_extra(func_type.params().len())?;
 
         // Apply pending canonicalizations.
         let params = params
@@ -1730,6 +1871,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             params.as_slice(),
             self.intrinsics,
             m0_param,
+            is_return_call
+                .then(|| self.current_sret_ptr(func_type))
+                .flatten(),
         )?;
 
         let typed_func_ptr = err!(self.builder.build_pointer_cast(
@@ -1743,12 +1887,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             typed_func_ptr,
             params.as_slice(),
             "then_block",
+            is_return_call,
         )?;
         for (attr, attr_loc) in llvm_func_attrs {
             call_site_local.add_attribute(attr_loc, attr);
         }
 
-        Ok(call_site_local)
+        Ok((call_site_local, llvm_func_type))
     }
 
     fn build_indirect_call_or_invoke(
@@ -1757,8 +1902,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         params: &[BasicValueEnum<'ctx>],
         then_block_name: &str,
+        is_return_call: bool,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
-        if let Some(lpad) = self.state.get_innermost_landingpad() {
+        // This is an unintuitive spec corner case: a tail call must bypass all enclosing
+        // try_table blocks in the function. See https://github.com/WebAssembly/exception-handling/issues/249.
+        if let Some(lpad) = self.state.get_innermost_landingpad()
+            && !is_return_call
+        {
             let then_block = self
                 .context
                 .append_basic_block(self.function, then_block_name);
@@ -1805,6 +1955,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
+    signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
@@ -2803,7 +2954,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 };
                 self.state.push1_extra(res, info);
             }
-            Operator::Call { function_index } => {
+            Operator::Call { function_index } | Operator::ReturnCall { function_index } => {
+                let is_return_call = matches!(op, Operator::ReturnCall { .. });
                 let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
@@ -2870,7 +3022,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 {
                     /* For imported functions, we must be careful about when to include `g0_param`:
                     imports from another Wasm module expect it, while host-function imports do not.
-                    */
+                    We intentionally not leverage tail-calls for such function calls. */
                     let (llvm_func_type_no_m0, llvm_func_attrs_no_m0) =
                         self.abi.func_type_to_llvm(
                             self.context,
@@ -2887,6 +3039,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         Some(m0_param),
+                        is_return_call
+                            .then(|| self.current_sret_ptr(func_type))
+                            .flatten(),
                     )?;
                     let params_no_m0 = self.abi.args_to_call(
                         &self.alloca_builder,
@@ -2896,6 +3051,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         None,
+                        is_return_call
+                            .then(|| self.current_sret_ptr(func_type))
+                            .flatten(),
                     )?;
 
                     let include_m0_call_block = self
@@ -2916,6 +3074,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params_with_m0.as_slice(),
                         "then_block_with_m0",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in &attrs {
                         call_site_with_m0.add_attribute(*attr_loc, *attr);
@@ -2939,6 +3098,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params_no_m0.as_slice(),
                         "then_block",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in &llvm_func_attrs_no_m0 {
                         call_site_no_m0.add_attribute(*attr_loc, *attr);
@@ -2973,6 +3133,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         params.as_slice(),
                         self.intrinsics,
                         self.m0_param,
+                        if is_return_call {
+                            self.current_sret_ptr(func_type)
+                        } else {
+                            None
+                        },
                     )?;
 
                     let call_site = self.build_indirect_call_or_invoke(
@@ -2980,45 +3145,75 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         func,
                         params.as_slice(),
                         "then_block",
+                        is_return_call,
                     )?;
                     for (attr, attr_loc) in attrs {
                         call_site.add_attribute(attr_loc, attr);
                     }
 
-                    self.abi
-                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                        .iter()
-                        .for_each(|ret| self.state.push1(*ret));
+                    if is_return_call {
+                        self.emit_return_call(call_site, llvm_func_type)?;
+                        self.state.reachable = false;
+                    } else {
+                        self.abi
+                            .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                            .iter()
+                            .for_each(|ret| self.state.push1(*ret));
+                    }
                 }
             }
             Operator::CallIndirect {
                 type_index,
                 table_index,
+            }
+            | Operator::ReturnCallIndirect {
+                type_index,
+                table_index,
             } => {
+                let is_return_call = matches!(op, Operator::ReturnCallIndirect { .. });
                 let sigindex = SignatureIndex::from_u32(type_index);
+                let table_index = TableIndex::from_u32(table_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
-                let expected_dynamic_sigindex =
-                    self.ctx
-                        .dynamic_sigindex(sigindex, self.intrinsics, self.module)?;
-                let (table_base, table_bound) = self.ctx.table(
-                    TableIndex::from_u32(table_index),
-                    self.intrinsics,
-                    self.module,
-                    &self.builder,
-                )?;
-                let func_index = self.state.pop1()?.into_int_value();
+                let table = self.wasm_module.tables.get(table_index).unwrap();
+                let local_fixed_funcref_table = self
+                    .wasm_module
+                    .local_table_index(table_index)
+                    .filter(|_| table.is_fixed_funcref_table());
+                let expected_signature_hash = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(u64::from(self.signature_hashes[sigindex].as_u32()), false);
 
-                let truncated_table_bounds = err!(self.builder.build_int_truncate(
-                    table_bound,
-                    self.intrinsics.i32_ty,
-                    "truncated_table_bounds",
-                ));
+                let func_index = self.state.pop1()?.into_int_value();
+                let generic_table = if local_fixed_funcref_table.is_none() {
+                    Some(self.ctx.table(
+                        table_index,
+                        self.intrinsics,
+                        self.module,
+                        &self.builder,
+                    )?)
+                } else {
+                    None
+                };
+
+                let table_bound = if local_fixed_funcref_table.is_some() {
+                    self.intrinsics
+                        .i32_ty
+                        .const_int(table.minimum.into(), false)
+                } else {
+                    let (_, table_bound) = *generic_table.as_ref().unwrap();
+                    err!(self.builder.build_int_truncate(
+                        table_bound,
+                        self.intrinsics.i32_ty,
+                        "truncated_table_bounds",
+                    ))
+                };
 
                 // First, check if the index is outside of the table bounds.
                 let index_in_bounds = err!(self.builder.build_int_compare(
                     IntPredicate::ULT,
                     func_index,
-                    truncated_table_bounds,
+                    table_bound,
                     "index_in_bounds",
                 ));
 
@@ -3055,61 +3250,91 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(in_bounds_continue_block);
 
-                // We assume the table has the `funcref` (pointer to `anyfunc`)
-                // element type.
-                let casted_table_base = err!(self.builder.build_pointer_cast(
-                    table_base,
-                    self.context.ptr_type(AddressSpace::default()),
-                    "casted_table_base",
-                ));
+                let anyfunc_struct_ptr = if let Some(local_table_index) = local_fixed_funcref_table
+                {
+                    let anyfuncs = self.ctx.fixed_funcref_table_anyfuncs(
+                        local_table_index,
+                        self.intrinsics,
+                        &self.builder,
+                    )?;
+                    unsafe {
+                        err!(self.builder.build_in_bounds_gep(
+                            self.intrinsics.anyfunc_ty,
+                            anyfuncs,
+                            &[func_index],
+                            "anyfunc_struct_ptr",
+                        ))
+                    }
+                } else {
+                    let (table_base, _) = *generic_table.as_ref().unwrap();
 
-                let funcref_ptr = unsafe {
-                    err!(self.builder.build_in_bounds_gep(
+                    // We assume the table has the `funcref` (pointer to `anyfunc`)
+                    // element type.
+                    let casted_table_base = err!(self.builder.build_pointer_cast(
+                        table_base,
+                        self.context.ptr_type(AddressSpace::default()),
+                        "casted_table_base",
+                    ));
+
+                    let funcref_ptr = unsafe {
+                        err!(self.builder.build_in_bounds_gep(
+                            self.intrinsics.ptr_ty,
+                            casted_table_base,
+                            &[func_index],
+                            "funcref_ptr",
+                        ))
+                    };
+
+                    // a funcref (pointer to `anyfunc`)
+                    let anyfunc_struct_ptr = err!(self.builder.build_load(
                         self.intrinsics.ptr_ty,
-                        casted_table_base,
-                        &[func_index],
-                        "funcref_ptr",
+                        funcref_ptr,
+                        "anyfunc_struct_ptr",
                     ))
+                    .into_pointer_value();
+
+                    // trap if we're trying to call a null funcref
+                    {
+                        let funcref_not_null = err!(
+                            self.builder
+                                .build_is_not_null(anyfunc_struct_ptr, "null_funcref_check")
+                        );
+
+                        let funcref_continue_deref_block = self
+                            .context
+                            .append_basic_block(self.function, "funcref_continue_deref_block");
+
+                        let funcref_is_null_block = self
+                            .context
+                            .append_basic_block(self.function, "funcref_is_null_block");
+                        err!(self.builder.build_conditional_branch(
+                            funcref_not_null,
+                            funcref_continue_deref_block,
+                            funcref_is_null_block,
+                        ));
+                        self.builder.position_at_end(funcref_is_null_block);
+                        self.build_call_with_param_attributes(
+                            self.intrinsics.throw_trap,
+                            &[self.intrinsics.trap_call_indirect_null.into()],
+                            "throw",
+                        )?;
+                        err!(self.builder.build_unreachable());
+                        self.builder.position_at_end(funcref_continue_deref_block);
+                    }
+
+                    anyfunc_struct_ptr
                 };
 
-                // a funcref (pointer to `anyfunc`)
-                let anyfunc_struct_ptr = err!(self.builder.build_load(
-                    self.intrinsics.ptr_ty,
-                    funcref_ptr,
-                    "anyfunc_struct_ptr",
-                ))
-                .into_pointer_value();
-
-                // trap if we're trying to call a null funcref
-                {
-                    let funcref_not_null = err!(
-                        self.builder
-                            .build_is_not_null(anyfunc_struct_ptr, "null_funcref_check")
-                    );
-
-                    let funcref_continue_deref_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_continue_deref_block");
-
-                    let funcref_is_null_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_is_null_block");
-                    err!(self.builder.build_conditional_branch(
-                        funcref_not_null,
-                        funcref_continue_deref_block,
-                        funcref_is_null_block,
-                    ));
-                    self.builder.position_at_end(funcref_is_null_block);
-                    self.build_call_with_param_attributes(
-                        self.intrinsics.throw_trap,
-                        &[self.intrinsics.trap_call_indirect_null.into()],
-                        "throw",
-                    )?;
-                    err!(self.builder.build_unreachable());
-                    self.builder.position_at_end(funcref_continue_deref_block);
-                }
-
                 // Load things from the anyfunc data structure.
+                let sig_hash_ptr = self
+                    .builder
+                    .build_struct_gep(
+                        self.intrinsics.anyfunc_ty,
+                        anyfunc_struct_ptr,
+                        1,
+                        "sig_hash_ptr",
+                    )
+                    .unwrap();
                 let func_ptr_ptr = self
                     .builder
                     .build_struct_gep(
@@ -3117,15 +3342,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         anyfunc_struct_ptr,
                         0,
                         "func_ptr_ptr",
-                    )
-                    .unwrap();
-                let sigindex_ptr = self
-                    .builder
-                    .build_struct_gep(
-                        self.intrinsics.anyfunc_ty,
-                        anyfunc_struct_ptr,
-                        1,
-                        "sigindex_ptr",
                     )
                     .unwrap();
                 let ctx_ptr_ptr = self
@@ -3137,7 +3353,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "ctx_ptr_ptr",
                     )
                     .unwrap();
-                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
+                let (func_ptr, found_signature_hash, ctx_ptr) = (
                     err!(
                         self.builder
                             .build_load(self.intrinsics.ptr_ty, func_ptr_ptr, "func_ptr")
@@ -3145,7 +3361,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .into_pointer_value(),
                     err!(
                         self.builder
-                            .build_load(self.intrinsics.i32_ty, sigindex_ptr, "sigindex")
+                            .build_load(self.intrinsics.i32_ty, sig_hash_ptr, "sig_hash")
                     )
                     .into_int_value(),
                     err!(
@@ -3161,28 +3377,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 // Next, check if the signature id is correct.
 
-                let sigindices_equal = err!(self.builder.build_int_compare(
+                let sig_hashes_equal = err!(self.builder.build_int_compare(
                     IntPredicate::EQ,
-                    expected_dynamic_sigindex,
-                    found_dynamic_sigindex,
-                    "sigindices_equal",
+                    expected_signature_hash,
+                    found_signature_hash,
+                    "sig_hashes_equal",
                 ));
 
-                let initialized_and_sigindices_match = err!(self.builder.build_and(
+                let initialized_and_sig_hashes_match = err!(self.builder.build_and(
                     elem_initialized,
-                    sigindices_equal,
+                    sig_hashes_equal,
                     ""
                 ));
 
-                // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let initialized_and_sigindices_match = self
+                // Tell llvm that the expected and found signature hashes should match.
+                let initialized_and_sig_hashes_match = self
                     .build_call_with_param_attributes(
                         self.intrinsics.expect_i1,
                         &[
-                            initialized_and_sigindices_match.into(),
+                            initialized_and_sig_hashes_match.into(),
                             self.intrinsics.i1_ty.const_int(1, false).into(),
                         ],
-                        "initialized_and_sigindices_match_expect",
+                        "initialized_and_sig_hashes_match_expect",
                     )?
                     .try_as_basic_value()
                     .unwrap_basic()
@@ -3191,16 +3407,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let continue_block = self
                     .context
                     .append_basic_block(self.function, "continue_block");
-                let sigindices_notequal_block = self
+                let sighashes_notequal_block = self
                     .context
-                    .append_basic_block(self.function, "sigindices_notequal_block");
+                    .append_basic_block(self.function, "sighashes_notequal_block");
                 err!(self.builder.build_conditional_branch(
-                    initialized_and_sigindices_match,
+                    initialized_and_sig_hashes_match,
                     continue_block,
-                    sigindices_notequal_block,
+                    sighashes_notequal_block,
                 ));
 
-                self.builder.position_at_end(sigindices_notequal_block);
+                self.builder.position_at_end(sighashes_notequal_block);
                 let trap_code = err!(self.builder.build_select(
                     elem_initialized,
                     self.intrinsics.trap_call_indirect_sig,
@@ -3217,24 +3433,34 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 if self.m0_param.is_some() {
                     self.build_m0_indirect_call(
-                        table_index,
+                        table_index.as_u32(),
                         ctx_ptr.into_pointer_value(),
                         func_type,
                         func_ptr,
                         func_index,
+                        is_return_call,
                     )?;
                 } else {
-                    let call_site = self.build_indirect_call(
+                    let (call_site, llvm_func_type) = self.build_indirect_call(
                         ctx_ptr.into_pointer_value(),
                         func_type,
                         func_ptr,
                         None,
+                        is_return_call,
                     )?;
 
-                    self.abi
-                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                        .iter()
-                        .for_each(|ret| self.state.push1(*ret));
+                    if is_return_call {
+                        self.emit_return_call(call_site, llvm_func_type)?;
+                    } else {
+                        self.abi
+                            .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                            .iter()
+                            .for_each(|ret| self.state.push1(*ret));
+                    }
+                }
+
+                if is_return_call {
+                    self.state.reachable = false;
                 }
             }
 

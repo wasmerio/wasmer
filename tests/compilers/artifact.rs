@@ -10,7 +10,9 @@ const ARTIFACT_FILES: [&str; 3] = ["bash.wasm", "cowsay.wasm", "python-3.11.3.wa
 #[compiler_test(artifact)]
 fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
     for file_name in ARTIFACT_FILES {
-        let path = PathBuf::from("tests/integration/cli/tests/wasm").join(file_name);
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("wasmer-test-files/integration/wasm")
+            .join(file_name);
         let wasm_module = fs::read(path).unwrap();
         let store = config.store();
         let module = Module::new(&store, wasm_module).unwrap();
@@ -42,14 +44,18 @@ fn artifact_serialization_build() {
     cpu_feature.insert(CpuFeature::from_str("sse2").unwrap());
     let target = Target::new(triple, cpu_feature);
     for file_name in ARTIFACT_FILES {
-        let path = PathBuf::from("tests/integration/cli/tests/wasm").join(file_name);
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("wasmer-test-files/integration/wasm")
+            .join(file_name);
         let wasm_module = fs::read(path).unwrap();
         let config = get_default_compiler_config().unwrap();
         let engine = Engine::new(config, target.clone(), Features::default());
 
         let module = Module::new(&engine, wasm_module).unwrap();
         let serialized_bytes = module.serialize().unwrap();
-        let path = PathBuf::from(&format!("tests/compilers/wasmu/linux/{file_name}u"));
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("wasmer-test-files/compilers/linux")
+            .join(format!("{file_name}u"));
         std::fs::write(path, serialized_bytes).unwrap();
     }
 }
@@ -61,7 +67,9 @@ fn artifact_deserialization_roundtrip() {
     // by mistake. Otherwise, everything in this test is already tested in
     // `artifact_serialization_roundtrip`.
     for file_name in ARTIFACT_FILES {
-        let path = PathBuf::from("tests/compilers/wasmu/linux").join(format!("{file_name}u"));
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("wasmer-test-files/compilers/linux")
+            .join(format!("{file_name}u"));
         let wasm_module_bytes = fs::read(path).unwrap();
         let engine = wasmer::Engine::default();
         let module = unsafe { Module::deserialize(&engine, wasm_module_bytes.clone()) }.unwrap();

@@ -62,8 +62,6 @@ pub struct FuncGen<'a, M: Machine> {
     // // Memory plans.
     memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
 
-    // // Table plans.
-    // table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     /// Function signature.
     signature: FunctionType,
 
@@ -1093,20 +1091,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let loc = self.acquire_location(&ty)?;
                 self.value_stack.push((loc, CanonicalizeType::None));
 
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-
-                let src = if let Some(local_global_index) =
+                let (src, tmp) = if let Some(local_global_index) =
                     self.module.local_global_index(global_index)
                 {
                     let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                    self.machine.emit_relaxed_mov(
-                        Size::S64,
+                    (
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
-                        Location::GPR(tmp),
-                    )?;
-                    Location::Memory(tmp, 0)
+                        None,
+                    )
                 } else {
                     // Imported globals require one level of indirection.
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
                     let offset = self
                         .vmoffsets
                         .vmctx_vmglobal_import_definition(global_index);
@@ -1115,28 +1110,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
                         Location::GPR(tmp),
                     )?;
-                    Location::Memory(tmp, 0)
+                    (Location::Memory(tmp, 0), Some(tmp))
                 };
 
                 self.machine.emit_relaxed_mov(Size::S64, src, loc)?;
 
-                self.machine.release_gpr(tmp);
+                if let Some(tmp) = tmp {
+                    self.machine.release_gpr(tmp);
+                }
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                let dst = if let Some(local_global_index) =
+                let (dst, tmp) = if let Some(local_global_index) =
                     self.module.local_global_index(global_index)
                 {
                     let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                    self.machine.emit_relaxed_mov(
-                        Size::S64,
+                    (
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
-                        Location::GPR(tmp),
-                    )?;
-                    Location::Memory(tmp, 0)
+                        None,
+                    )
                 } else {
                     // Imported globals require one level of indirection.
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
                     let offset = self
                         .vmoffsets
                         .vmctx_vmglobal_import_definition(global_index);
@@ -1145,7 +1140,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
                         Location::GPR(tmp),
                     )?;
-                    Location::Memory(tmp, 0)
+                    (Location::Memory(tmp, 0), Some(tmp))
                 };
                 let (loc, canonicalize) = self.pop_value_released()?;
                 if let Some(canonicalize_size) = canonicalize.to_size() {
@@ -1157,7 +1152,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 } else {
                     self.machine.emit_relaxed_mov(Size::S64, loc, dst)?;
                 }
-                self.machine.release_gpr(tmp);
+                if let Some(tmp) = tmp {
+                    self.machine.release_gpr(tmp);
+                }
             }
             Operator::LocalGet { local_index } => {
                 let local_index = local_index as usize;
@@ -2235,6 +2232,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(table_index as _);
                 let index = SignatureIndex::new(type_index as usize);
                 let sig = self.module.signatures.get(index).unwrap();
+                let expected_sig_hash = self.module.signature_hashes.get(index).unwrap();
+                let table = self.module.tables.get(table_index).unwrap();
+                let local_fixed_funcref_table = self
+                    .module
+                    .local_table_index(table_index)
+                    .filter(|_| table.is_fixed_funcref_table());
                 let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
@@ -2261,9 +2264,30 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let table_base = self.machine.acquire_temp_gpr().unwrap();
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
-                let sigidx = self.machine.acquire_temp_gpr().unwrap();
+                let sig_hash = self.machine.acquire_temp_gpr().unwrap();
 
-                if let Some(local_table_index) = self.module.local_table_index(table_index) {
+                if let Some(local_table_index) = local_fixed_funcref_table {
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::GPR(self.machine.get_vmctx_reg()),
+                        Location::GPR(table_base),
+                    )?;
+                    self.machine.location_add(
+                        Size::S64,
+                        Location::Imm32(
+                            self.vmoffsets
+                                .vmctx_fixed_funcref_table_anyfuncs(local_table_index)
+                                .expect("fixed funcref table must have inline VMContext storage"),
+                        ),
+                        Location::GPR(table_base),
+                        false,
+                    )?;
+                    self.machine.move_location(
+                        Size::S32,
+                        Location::Imm32(table.minimum),
+                        Location::GPR(table_count),
+                    )?;
+                } else if let Some(local_table_index) = self.module.local_table_index(table_index) {
                     let (vmctx_offset_base, vmctx_offset_len) = (
                         self.vmoffsets.vmctx_vmtable_definition(local_table_index),
                         self.vmoffsets
@@ -2317,7 +2341,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .move_location(Size::S32, func_index, Location::GPR(table_count))?;
                 self.machine.emit_imul_imm32(
                     Size::S64,
-                    self.vmoffsets.size_of_vm_funcref() as u32,
+                    if local_fixed_funcref_table.is_some() {
+                        self.vmoffsets.size_of_vmcaller_checked_anyfunc() as u32
+                    } else {
+                        self.vmoffsets.size_of_vm_funcref() as u32
+                    },
                     table_count,
                 )?;
                 self.machine.location_add(
@@ -2327,41 +2355,59 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     false,
                 )?;
 
-                // deref the table to get a VMFuncRef
-                self.machine.move_location(
-                    Size::S64,
-                    Location::Memory(table_count, self.vmoffsets.vm_funcref_anyfunc_ptr() as i32),
-                    Location::GPR(table_count),
-                )?;
-                // Trap if the FuncRef is null
-                self.machine.jmp_on_condition(
-                    UnsignedCondition::Equal,
-                    Size::S64,
-                    Location::GPR(table_count),
-                    Location::Imm32(0),
-                    self.special_labels.indirect_call_null,
-                )?;
+                if local_fixed_funcref_table.is_some() {
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::Memory(
+                            table_count,
+                            self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as i32,
+                        ),
+                        Location::GPR(table_base),
+                    )?;
+                    self.machine.jmp_on_condition(
+                        UnsignedCondition::Equal,
+                        Size::S64,
+                        Location::GPR(table_base),
+                        Location::Imm32(0),
+                        self.special_labels.indirect_call_null,
+                    )?;
+                } else {
+                    // deref the table to get a VMFuncRef
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::Memory(
+                            table_count,
+                            self.vmoffsets.vm_funcref_anyfunc_ptr() as i32,
+                        ),
+                        Location::GPR(table_count),
+                    )?;
+                    // Trap if the FuncRef is null
+                    self.machine.jmp_on_condition(
+                        UnsignedCondition::Equal,
+                        Size::S64,
+                        Location::GPR(table_count),
+                        Location::Imm32(0),
+                        self.special_labels.indirect_call_null,
+                    )?;
+                }
                 self.machine.move_location(
                     Size::S32,
-                    Location::Memory(
-                        self.machine.get_vmctx_reg(),
-                        self.vmoffsets.vmctx_vmshared_signature_id(index) as i32,
-                    ),
-                    Location::GPR(sigidx),
+                    Location::Imm32(expected_sig_hash.as_u32()),
+                    Location::GPR(sig_hash),
                 )?;
 
                 // Trap if signature mismatches.
                 self.machine.jmp_on_condition(
                     UnsignedCondition::NotEqual,
                     Size::S32,
-                    Location::GPR(sigidx),
+                    Location::GPR(sig_hash),
                     Location::Memory(
                         table_count,
-                        (self.vmoffsets.vmcaller_checked_anyfunc_type_index() as usize) as i32,
+                        (self.vmoffsets.vmcaller_checked_anyfunc_signature_hash() as usize) as i32,
                     ),
                     self.special_labels.bad_signature,
                 )?;
-                self.machine.release_gpr(sigidx);
+                self.machine.release_gpr(sig_hash);
                 self.machine.release_gpr(table_count);
                 self.machine.release_gpr(table_base);
 
@@ -3450,19 +3496,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Br { relative_depth } => {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.return_types.is_empty() {
-                    if matches!(frame.state, ControlState::Loop) {
-                        // Store into the PHI params of the loop, not to the return values.
-                        self.emit_loop_params_store(
-                            frame.value_stack_depth_after(),
-                            frame.param_types.len(),
-                        )?;
-                    } else {
-                        self.emit_return_values(
-                            frame.value_stack_depth_after(),
-                            frame.return_types.len(),
-                        )?;
-                    }
+                if matches!(frame.state, ControlState::Loop) {
+                    // Store into the PHI params of the loop, not to the return values.
+                    self.emit_loop_params_store(
+                        frame.value_stack_depth_after(),
+                        frame.param_types.len(),
+                    )?;
+                } else if !frame.return_types.is_empty() {
+                    self.emit_return_values(
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
+                    )?;
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
@@ -3486,19 +3530,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.return_types.is_empty() {
-                    if matches!(frame.state, ControlState::Loop) {
-                        // Store into the PHI params of the loop, not to the return values.
-                        self.emit_loop_params_store(
-                            frame.value_stack_depth_after(),
-                            frame.param_types.len(),
-                        )?;
-                    } else {
-                        self.emit_return_values(
-                            frame.value_stack_depth_after(),
-                            frame.return_types.len(),
-                        )?;
-                    }
+                if matches!(frame.state, ControlState::Loop) {
+                    // Store into the PHI params of the loop, not to the return values.
+                    self.emit_loop_params_store(
+                        frame.value_stack_depth_after(),
+                        frame.param_types.len(),
+                    )?;
+                } else if !frame.return_types.is_empty() {
+                    self.emit_return_values(
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
+                    )?;
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
@@ -3535,19 +3577,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     table.push(label);
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    if !frame.return_types.is_empty() {
-                        if matches!(frame.state, ControlState::Loop) {
-                            // Store into the PHI params of the loop, not to the return values.
-                            self.emit_loop_params_store(
-                                frame.value_stack_depth_after(),
-                                frame.param_types.len(),
-                            )?;
-                        } else {
-                            self.emit_return_values(
-                                frame.value_stack_depth_after(),
-                                frame.return_types.len(),
-                            )?;
-                        }
+                    if matches!(frame.state, ControlState::Loop) {
+                        // Store into the PHI params of the loop, not to the return values.
+                        self.emit_loop_params_store(
+                            frame.value_stack_depth_after(),
+                            frame.param_types.len(),
+                        )?;
+                    } else if !frame.return_types.is_empty() {
+                        self.emit_return_values(
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
+                        )?;
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
@@ -3561,19 +3601,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 {
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    if !frame.return_types.is_empty() {
-                        if matches!(frame.state, ControlState::Loop) {
-                            // Store into the PHI params of the loop, not to the return values.
-                            self.emit_loop_params_store(
-                                frame.value_stack_depth_after(),
-                                frame.param_types.len(),
-                            )?;
-                        } else {
-                            self.emit_return_values(
-                                frame.value_stack_depth_after(),
-                                frame.return_types.len(),
-                            )?;
-                        }
+                    if matches!(frame.state, ControlState::Loop) {
+                        // Store into the PHI params of the loop, not to the return values.
+                        self.emit_loop_params_store(
+                            frame.value_stack_depth_after(),
+                            frame.param_types.len(),
+                        )?;
+                    } else if !frame.return_types.is_empty() {
+                        self.emit_return_values(
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
+                        )?;
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];

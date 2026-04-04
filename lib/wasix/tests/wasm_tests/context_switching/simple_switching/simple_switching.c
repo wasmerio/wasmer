@@ -7,7 +7,7 @@
 wasix_context_id_t context1;
 wasix_context_id_t context2;
 
-char *message = "Uninitialized\n";
+char* message = "Uninitialized\n";
 int stop = 0;
 int counter = 0;
 
