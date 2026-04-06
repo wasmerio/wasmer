@@ -3,6 +3,7 @@ use crate::{FileSystem, MountFileSystem, VirtualFile};
 use std::path::{Path, PathBuf};
 use tracing::*;
 
+use crate::limiter::DynFsMemoryLimiter;
 use super::ZeroFile;
 use super::{DeviceFile, NullFile};
 use crate::tmp_fs::TmpFileSystem;
@@ -15,6 +16,7 @@ pub struct RootFileSystemBuilder {
     stdout: Option<Box<dyn VirtualFile + Send + Sync>>,
     stderr: Option<Box<dyn VirtualFile + Send + Sync>>,
     tty: Option<Box<dyn VirtualFile + Send + Sync>>,
+    memory_limiter: Option<DynFsMemoryLimiter>,
 }
 
 impl Default for RootFileSystemBuilder {
@@ -27,6 +29,7 @@ impl Default for RootFileSystemBuilder {
             stdout: None,
             stderr: None,
             tty: None,
+            memory_limiter: None,
         }
     }
 }
@@ -56,6 +59,16 @@ impl RootFileSystemBuilder {
         self
     }
 
+    pub fn with_memory_limiter(mut self, limiter: DynFsMemoryLimiter) -> Self {
+        self.memory_limiter = Some(limiter);
+        self
+    }
+
+    pub fn with_memory_limiter_opt(mut self, limiter: Option<DynFsMemoryLimiter>) -> Self {
+        self.memory_limiter = limiter;
+        self
+    }
+
     pub fn default_root_dirs(mut self, val: bool) -> Self {
         self.default_root_dirs = val;
         self
@@ -79,6 +92,10 @@ impl RootFileSystemBuilder {
 
     pub fn build_tmp_ext(self, mapped_dirs: &[&str]) -> TmpFileSystem {
         let tmp = TmpFileSystem::new();
+
+        if let Some(limiter) = &self.memory_limiter {
+            tmp.set_memory_limiter(limiter.clone());
+        }
 
         if self.default_root_dirs {
             let default_dirs = ["/.app", "/.private", "/bin", "/dev", "/etc", "/tmp"]

@@ -434,7 +434,7 @@ fn filesystem_v3(
 ) -> Result<MountFileSystem, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let union_fs = MountFileSystem::new();
+    let mount_fs = MountFileSystem::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -473,10 +473,10 @@ fn filesystem_v3(
         })?;
 
         let webc_vol = writable_package_mount(WebcVolumeFileSystem::new(volume.clone()));
-        union_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))?;
+        mount_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))?;
     }
 
-    Ok(union_fs)
+    Ok(mount_fs)
 }
 
 /// Build the filesystem for webc v2 packages.
@@ -487,8 +487,8 @@ fn filesystem_v3(
 // filesystem implementations we've got available.
 //
 // Ideally, we would create a WebcVolumeFileSystem for each volume we're
-// using, then we'd have a single "union" filesystem which lets you mount
-// filesystem objects under various paths and can deal with conflicts.
+// using, then we'd have a single mount filesystem which lets you mount
+// filesystem objects under various paths.
 //
 // The OverlayFileSystem lets us make files from multiple filesystem
 // implementations available at the same time, however all of the
@@ -509,7 +509,7 @@ fn filesystem_v2(
 ) -> Result<MountFileSystem, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let union_fs = MountFileSystem::new();
+    let mount_fs = MountFileSystem::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -567,14 +567,14 @@ fn filesystem_v2(
             )
         };
 
-        union_fs.mount(
+        mount_fs.mount(
             volume_name.clone(),
             mount_path,
             Box::new(writable_package_mount(fs)),
         )?;
     }
 
-    Ok(union_fs)
+    Ok(mount_fs)
 }
 
 fn strip_root_prefix(path: &Path) -> PathBuf {
@@ -778,10 +778,10 @@ mod tests {
             }],
         };
 
-        let union_fs = filesystem_v2(&packages, &pkg, false).unwrap();
-        assert!(union_fs.metadata(Path::new("/public")).unwrap().is_dir());
+        let mount_fs = filesystem_v2(&packages, &pkg, false).unwrap();
+        assert!(mount_fs.metadata(Path::new("/public")).unwrap().is_dir());
         assert!(
-            union_fs
+            mount_fs
                 .metadata(Path::new("/public/index.html"))
                 .unwrap()
                 .is_file()

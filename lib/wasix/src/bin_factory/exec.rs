@@ -30,7 +30,7 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    spawn_union_fs(&env, &binary).await?;
+    import_package_mounts(&env, &binary).await?;
 
     let cmd = package_command_by_name(&binary, name)?;
     let input = ModuleInput::Command(Cow::Borrowed(cmd));
@@ -103,17 +103,17 @@ pub async fn spawn_load_module(
     }
 }
 
-pub async fn spawn_union_fs(env: &WasiEnv, binary: &BinaryPackage) -> Result<(), SpawnError> {
-    // If the file system has not already been union'ed then do so
+pub async fn import_package_mounts(env: &WasiEnv, binary: &BinaryPackage) -> Result<(), SpawnError> {
+    // If the package mounts have not already been imported then do so.
     env.state
         .fs
         .conditional_union(binary)
         .await
         .map_err(|err| {
-            tracing::warn!("failed to union file system - {err}");
+            tracing::warn!("failed to import package mounts - {err}");
             SpawnError::FileSystemError(crate::ExtendedFsError::with_msg(
                 err,
-                "could not union filesystems",
+                "could not import package mounts",
             ))
         })?;
     tracing::debug!("{:?}", env.state.fs);

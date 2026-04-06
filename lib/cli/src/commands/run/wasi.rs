@@ -13,7 +13,8 @@ use itertools::Itertools;
 use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{
-    DeviceFile, FileSystem, MountFileSystem, OverlayFileSystem, RootFileSystemBuilder,
+    ArcFileSystem, DeviceFile, FileSystem, MountFileSystem, OverlayFileSystem,
+    RootFileSystemBuilder,
 };
 use virtual_net::ruleset::Ruleset;
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
@@ -347,9 +348,9 @@ impl Wasi {
         let mut builder = {
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
-                .build_tmp();
+                .build();
             let (have_current_dir, mapped_dirs) = self.build_mapped_directories(false)?;
-            let mount_fs = MountFileSystem::new();
+            let mount_fs = root_fs.duplicate();
             let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
 
             for mapped in mapped_dirs {
@@ -361,12 +362,18 @@ impl Wasi {
                 }
             }
 
+            let existing_root = root_fs
+                .filesystem_at(Path::new("/"))
+                .expect("root fs builder should always mount /");
             let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
-                Box::new(root_fs.clone())
+                Box::new(ArcFileSystem::new(existing_root))
             } else {
-                Box::new(OverlayFileSystem::new(root_fs.clone(), root_layers))
+                Box::new(OverlayFileSystem::new(
+                    ArcFileSystem::new(existing_root),
+                    root_layers,
+                ))
             };
-            mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
+            mount_fs.set_mount(Path::new("/"), root_mount)?;
 
             if let Some(cwd) = self.cwd.as_ref() {
                 if !cwd.starts_with("/") {

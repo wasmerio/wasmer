@@ -2395,6 +2395,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use virtual_fs::RootFileSystemBuilder;
 
     #[tokio::test]
     async fn test_relative_path_to_absolute() {

@@ -385,13 +385,13 @@ mod tests {
         })];
         let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
         let webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
-        let union_fs = MountFileSystem::new();
-        union_fs
+        let mount_fs = MountFileSystem::new();
+        mount_fs
             .mount("webc".to_string(), Path::new("/"), Box::new(webc_fs))
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &mapping, Some(union_fs)).unwrap();
+        let fs = prepare_filesystem(root_fs, &mapping, Some(mount_fs)).unwrap();
 
         use virtual_fs::FileSystem;
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
@@ -416,8 +416,8 @@ mod tests {
         let lower = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
         let pkg_mount = virtual_fs::OverlayFileSystem::new(TmpFileSystem::new(), [lower]);
 
-        let union_fs = MountFileSystem::new();
-        union_fs
+        let mount_fs = MountFileSystem::new();
+        mount_fs
             .mount(
                 "python".to_string(),
                 Path::new("/python"),
@@ -426,7 +426,7 @@ mod tests {
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &[], Some(union_fs)).unwrap();
+        let fs = prepare_filesystem(root_fs, &[], Some(mount_fs)).unwrap();
 
         fs.create_dir(Path::new("/python/custom")).unwrap();
         fs.new_open_options()
@@ -455,8 +455,8 @@ mod tests {
         let lower = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
         let pkg_mount = virtual_fs::OverlayFileSystem::new(TmpFileSystem::new(), [lower]);
 
-        let union_fs = MountFileSystem::new();
-        union_fs
+        let mount_fs = MountFileSystem::new();
+        mount_fs
             .mount(
                 "python".to_string(),
                 Path::new("/python"),
@@ -465,7 +465,7 @@ mod tests {
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &[], Some(union_fs)).unwrap();
+        let fs = prepare_filesystem(root_fs, &[], Some(mount_fs)).unwrap();
 
         fs.create_symlink(
             Path::new("lib/python3.6/collections"),

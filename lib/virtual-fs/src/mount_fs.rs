@@ -1,4 +1,4 @@
-//! Another implementation of the union that uses paths,
+//! A mount-topology filesystem that routes operations by path,
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
 

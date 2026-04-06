@@ -14,7 +14,7 @@ use tempfile::TempDir;
 use tokio::runtime::Handle;
 use virtual_fs::{
     AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt, FileSystem, Pipe, ReadBuf,
-    RootFileSystemBuilder, host_fs, mem_fs, passthru_fs, tmp_fs, union_fs,
+    RootFileSystemBuilder, host_fs, mem_fs, mount_fs, passthru_fs, tmp_fs,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_types::ModuleHash;
@@ -41,7 +41,7 @@ pub enum WasiFileSystemKind {
     /// Instruct the test runner to use `virtual_fs::passtru_fs`
     PassthruMemory,
 
-    /// Instruct the test runner to use `virtual_fs::union_fs<host_fs, mem_fs>`
+    /// Instruct the test runner to use `virtual_fs::mount_fs::MountFileSystem`
     UnionHostMemory,
 
     /// Instruct the test runner to use the TempFs returned by `virtual_fs::builder::RootFileSystemBuilder`
@@ -261,7 +261,7 @@ impl<'a> WasiTest<'a> {
                         let e = mem_fs::FileSystem::default();
                         let f = mem_fs::FileSystem::default();
 
-                        let union = union_fs::MountFileSystem::new();
+                        let union = mount_fs::MountFileSystem::new();
 
                         union.mount(
                             "mem_fs".to_string(),

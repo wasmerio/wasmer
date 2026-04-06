@@ -34,7 +34,7 @@ pub mod passthru_fs;
 pub mod random_file;
 pub mod special_file;
 pub mod tmp_fs;
-pub mod union_fs;
+pub mod mount_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
 mod filesystems;
@@ -68,7 +68,7 @@ pub use special_file::*;
 pub use static_file::StaticFile;
 pub use tmp_fs::*;
 pub use trace_fs::TraceFileSystem;
-pub use union_fs::*;
+pub use mount_fs::*;
 #[cfg(feature = "webc-fs")]
 pub use webc_volume_fs::WebcVolumeFileSystem;
 pub use zero_file::*;

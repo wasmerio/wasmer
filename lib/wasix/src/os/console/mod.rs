@@ -18,8 +18,8 @@ use tokio::sync::{RwLock, mpsc};
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 use virtual_fs::{
-    ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
-    PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
+    ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem,
+    Pipe, PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
 };
 use virtual_mio::block_on;
 #[cfg(feature = "sys")]
@@ -215,11 +215,8 @@ impl Console {
                 Box::new(self.stdout.clone()),
                 Box::new(self.stdin.clone()),
             )))
-            .build_tmp();
-
-        if let Some(limiter) = &self.memfs_memory_limiter {
-            root_fs.set_memory_limiter(limiter.clone());
-        }
+            .with_memory_limiter_opt(self.memfs_memory_limiter.clone())
+            .build();
 
         let builder = crate::runners::wasi::WasiRunner::new()
             .with_envs(self.env.clone())
@@ -233,7 +230,7 @@ impl Console {
                 &wasi_opts,
                 PackageOrHash::Package(&pkg),
                 RuntimeOrEngine::Runtime(self.runtime.clone()),
-                Some(crate::fs::WasiFsRoot::from_filesystem(std::sync::Arc::new(root_fs))),
+                Some(crate::fs::WasiFsRoot::from_mount_fs(root_fs)),
             )
             // TODO: better error conversion
             .map_err(|err| SpawnError::Other(err.into()))?;
