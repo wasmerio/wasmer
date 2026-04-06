@@ -38,6 +38,10 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
         self.execute(path, |fs, p| fs.create_dir(p))
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
+        self.execute(target, |fs, p| fs.create_symlink(source, p))
+    }
+
     fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
         self.execute(path, |fs, p| fs.remove_dir(p))
     }

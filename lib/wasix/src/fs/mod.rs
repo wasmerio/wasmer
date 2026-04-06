@@ -467,6 +467,15 @@ impl FileSystem for WasiFsRoot {
         }
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
+        match self {
+            Self::Sandbox(fs) => fs.create_symlink(source, target),
+            Self::Mount { root, .. } => root.create_symlink(source, target),
+            Self::Overlay(overlay) => overlay.create_symlink(source, target),
+            Self::Backing(fs) => fs.create_symlink(source, target),
+        }
+    }
+
     fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
             Self::Sandbox(fs) => fs.remove_dir(path),

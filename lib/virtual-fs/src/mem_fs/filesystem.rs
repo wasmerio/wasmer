@@ -460,6 +460,10 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        self.create_symlink(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         let (inode_of_parent, position, inode_of_directory) = {
             // Read lock.

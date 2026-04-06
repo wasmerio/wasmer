@@ -89,6 +89,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
+    fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
     fn remove_dir(&self, path: &Path) -> Result<()>;
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
@@ -128,6 +131,10 @@ where
 
     fn create_dir(&self, path: &Path) -> Result<()> {
         (**self).create_dir(path)
+    }
+
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        (**self).create_symlink(source, target)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {

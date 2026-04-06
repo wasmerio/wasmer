@@ -443,6 +443,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn package_mount_symlinks_remain_writable() {
+        use virtual_fs::FileSystem;
+
+        let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+        let lower = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
+        let pkg_mount = virtual_fs::OverlayFileSystem::new(TmpFileSystem::new(), [lower]);
+
+        let union_fs = MountFileSystem::new();
+        union_fs
+            .mount(
+                "python".to_string(),
+                Path::new("/python"),
+                Box::new(pkg_mount),
+            )
+            .unwrap();
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(root_fs, &[], Some(union_fs)).unwrap();
+
+        fs.create_symlink(
+            Path::new("lib/python3.6/collections"),
+            Path::new("/python/collections-link"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs.readlink(Path::new("/python/collections-link")).unwrap(),
+            Path::new("lib/python3.6/collections")
+        );
+        assert!(
+            fs.symlink_metadata(Path::new("/python/collections-link"))
+                .unwrap()
+                .ft
+                .is_symlink()
+        );
+    }
+
+    #[tokio::test]
     #[cfg_attr(not(feature = "host-fs"), ignore)]
     async fn convert_mapped_directory_to_mounted_directory() {
         let temp = TempDir::new().unwrap();

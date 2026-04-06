@@ -422,6 +422,23 @@ impl FileSystem for MountFileSystem {
         }
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        let target = self.prepare_path(target);
+
+        if target.as_os_str().is_empty() {
+            return Err(FsError::AlreadyExists);
+        }
+
+        if self.exact_node(&target).is_some() {
+            return Err(FsError::AlreadyExists);
+        }
+
+        match self.resolve_mount(target) {
+            Some(resolved) => resolved.fs.create_symlink(source, &resolved.delegated_path),
+            None => Err(FsError::EntryNotFound),
+        }
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path);
 
