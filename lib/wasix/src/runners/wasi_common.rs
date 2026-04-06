@@ -79,7 +79,10 @@ impl CommonWasiOptions {
             WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build_ext(&mapped_dirs))
         });
         let fs = prepare_filesystem(
-            root_fs.root().duplicate(),
+            root_fs
+                .root()
+                .filesystem_at(Path::new("/"))
+                .context("root fs is missing a / mount")?,
             &self.mounts,
             container_mounts,
             self.existing_mount_conflict_behavior,
@@ -200,16 +203,13 @@ fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
 }
 
 fn prepare_filesystem(
-    root_fs: MountFileSystem,
+    base_root: Arc<dyn FileSystem + Send + Sync>,
     mounted_dirs: &[MountedDirectory],
     container_mounts: Option<&BinaryPackageMounts>,
     conflict_behavior: ExistingMountConflictBehavior,
 ) -> Result<WasiFsRoot, Error> {
     let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
     let mount_fs = MountFileSystem::new();
-    let base_root = root_fs
-        .filesystem_at(Path::new("/"))
-        .context("root fs is missing a / mount")?;
 
     for MountedDirectory { guest, fs } in mounted_dirs {
         let guest_path = normalized_mount_path(guest)?;
@@ -382,6 +382,10 @@ mod tests {
 
     use super::*;
 
+    fn base_root(root_fs: &MountFileSystem) -> Arc<dyn FileSystem + Send + Sync> {
+        root_fs.filesystem_at(Path::new("/")).unwrap()
+    }
+
     fn package_mounts(fs: MountFileSystem) -> BinaryPackageMounts {
         BinaryPackageMounts::from_mount_fs(fs)
     }
@@ -472,7 +476,7 @@ mod tests {
 
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
-            root_fs,
+            base_root(&root_fs),
             &mapping,
             Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
@@ -509,7 +513,7 @@ mod tests {
 
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
-            root_fs,
+            base_root(&root_fs),
             &[],
             Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
@@ -550,7 +554,7 @@ mod tests {
 
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
-            root_fs,
+            base_root(&root_fs),
             &[],
             Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
@@ -607,7 +611,7 @@ mod tests {
 
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
-            root_fs,
+            base_root(&root_fs),
             &mounted_dirs,
             Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Override,
@@ -642,7 +646,7 @@ mod tests {
 
         let root_fs = RootFileSystemBuilder::default().build();
         let error = prepare_filesystem(
-            root_fs,
+            base_root(&root_fs),
             &mounted_dirs,
             Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Fail,
@@ -688,7 +692,7 @@ mod tests {
 
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
-            root_fs,
+            base_root(&root_fs),
             &mounted_dirs,
             Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Fail,
@@ -732,7 +736,7 @@ mod tests {
 
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
-            root_fs,
+            base_root(&root_fs),
             &mounted_dirs,
             None,
             ExistingMountConflictBehavior::Fail,
