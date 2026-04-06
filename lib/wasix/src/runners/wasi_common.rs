@@ -178,12 +178,21 @@ fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
             Component::RootDir => normalized = PathBuf::from("/"),
             Component::CurDir => {}
             Component::ParentDir => {
-                if normalized.as_os_str() != "/" {
-                    normalized.pop();
+                if normalized.as_os_str() == "/" {
+                    anyhow::bail!(
+                        "Invalid guest mount path \"{}\": parent traversal escapes the virtual root",
+                        guest_path.display()
+                    );
                 }
+                normalized.pop();
             }
             Component::Normal(part) => normalized.push(part),
-            Component::Prefix(_) => {}
+            Component::Prefix(_) => {
+                anyhow::bail!(
+                    "Invalid guest mount path \"{}\": platform-specific prefixes are not supported",
+                    guest_path.display()
+                );
+            }
         }
     }
 
@@ -609,6 +618,17 @@ mod tests {
 
         assert!(
             error.to_string().contains("Unable to merge container mounts"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn invalid_guest_mount_paths_are_rejected() {
+        let error = normalized_mount_path("../../python").unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("parent traversal escapes the virtual root"),
             "{error:#}"
         );
     }
