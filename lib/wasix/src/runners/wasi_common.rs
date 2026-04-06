@@ -622,6 +622,92 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn root_mounts_are_composed_even_in_fail_mode() {
+        use virtual_fs::FileSystem;
+
+        let root_mount = TmpFileSystem::new();
+        root_mount
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/user.txt"))
+            .unwrap();
+
+        let mounted_dirs = [MountedDirectory {
+            guest: "/".to_string(),
+            fs: Arc::new(root_mount),
+        }];
+
+        let container_mounts = MountFileSystem::new();
+        let container_root = TmpFileSystem::new();
+        container_root
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/pkg.txt"))
+            .unwrap();
+        container_mounts
+            .mount("root".to_string(), Path::new("/"), Box::new(container_root))
+            .unwrap();
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(
+            root_fs,
+            &mounted_dirs,
+            Some(container_mounts),
+            ExistingMountConflictBehavior::Fail,
+        )
+        .unwrap();
+
+        assert!(fs.metadata(Path::new("/user.txt")).unwrap().is_file());
+        assert!(fs.metadata(Path::new("/pkg.txt")).unwrap().is_file());
+    }
+
+    #[tokio::test]
+    async fn multiple_root_mounts_are_composed() {
+        use virtual_fs::FileSystem;
+
+        let first_root = TmpFileSystem::new();
+        first_root
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/first.txt"))
+            .unwrap();
+
+        let second_root = TmpFileSystem::new();
+        second_root
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/second.txt"))
+            .unwrap();
+
+        let mounted_dirs = [
+            MountedDirectory {
+                guest: "/".to_string(),
+                fs: Arc::new(first_root),
+            },
+            MountedDirectory {
+                guest: "/".to_string(),
+                fs: Arc::new(second_root),
+            },
+        ];
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(
+            root_fs,
+            &mounted_dirs,
+            None,
+            ExistingMountConflictBehavior::Fail,
+        )
+        .unwrap();
+
+        assert!(fs.metadata(Path::new("/first.txt")).unwrap().is_file());
+        assert!(fs.metadata(Path::new("/second.txt")).unwrap().is_file());
+    }
+
     #[test]
     fn invalid_guest_mount_paths_are_rejected() {
         let error = normalized_mount_path("../../python").unwrap_err();

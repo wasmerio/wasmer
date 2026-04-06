@@ -341,10 +341,11 @@ impl MountFileSystem {
     ) -> Result<bool> {
         if let Some(other_mount) = Self::mounted(other) {
             match this.mount.entry(()) {
-                Entry::Occupied(_) => match conflict_mode {
+                Entry::Occupied(existing) => match conflict_mode {
                     ExactMountConflictMode::Fail => return Err(FsError::AlreadyExists),
                     ExactMountConflictMode::KeepExisting => return Ok(true),
                     ExactMountConflictMode::ReplaceExisting => {
+                        drop(existing);
                         Self::overwrite_node(this, other);
                         return Ok(true);
                     }
@@ -1369,6 +1370,85 @@ mod tests {
         assert_eq!(
             primary.metadata(Path::new("/python/lib/child.txt")),
             Err(FsError::EntryNotFound)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_replace_existing_conflict_replaces_the_whole_subtree() {
+        let primary = MountFileSystem::new();
+        let user_mount = mem_fs::FileSystem::default();
+        user_mount
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/user.txt"))
+            .unwrap();
+        let user_child = mem_fs::FileSystem::default();
+        user_child
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/user-child.txt"))
+            .unwrap();
+        primary
+            .mount("python".to_string(), Path::new("/python"), Box::new(user_mount))
+            .unwrap();
+        primary
+            .mount(
+                "python-lib".to_string(),
+                Path::new("/python/lib"),
+                Box::new(user_child),
+            )
+            .unwrap();
+
+        let injected = MountFileSystem::new();
+        let package_mount = mem_fs::FileSystem::default();
+        package_mount
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/pkg.txt"))
+            .unwrap();
+        let package_child = mem_fs::FileSystem::default();
+        package_child
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/pkg-child.txt"))
+            .unwrap();
+        injected
+            .mount(
+                "python".to_string(),
+                Path::new("/python"),
+                Box::new(package_mount),
+            )
+            .unwrap();
+        injected
+            .mount(
+                "python-lib".to_string(),
+                Path::new("/python/lib"),
+                Box::new(package_child),
+            )
+            .unwrap();
+
+        primary
+            .import_mounts_with_mode(&injected, super::ExactMountConflictMode::ReplaceExisting)
+            .unwrap();
+
+        assert_eq!(
+            primary.metadata(Path::new("/python/user.txt")),
+            Err(FsError::EntryNotFound)
+        );
+        assert_eq!(
+            primary.metadata(Path::new("/python/lib/user-child.txt")),
+            Err(FsError::EntryNotFound)
+        );
+        assert!(primary.metadata(Path::new("/python/pkg.txt")).unwrap().is_file());
+        assert!(
+            primary
+                .metadata(Path::new("/python/lib/pkg-child.txt"))
+                .unwrap()
+                .is_file()
         );
     }
 
