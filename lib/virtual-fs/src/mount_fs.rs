@@ -160,6 +160,13 @@ impl MountFileSystem {
         }
     }
 
+    fn should_fallback_to_synthetic_dir(error: &FsError) -> bool {
+        matches!(
+            error,
+            FsError::Unsupported | FsError::NotAFile | FsError::BaseNotDirectory
+        )
+    }
+
     fn synthetic_entry(name: OsString, base: &Path) -> DirEntry {
         DirEntry {
             path: base.join(PathBuf::from(name)),
@@ -292,7 +299,9 @@ impl MountFileSystem {
                             .unwrap_or(true)
                     }));
                 }
-                Err(_) if node.has_children() => {}
+                Err(error)
+                    if node.has_children()
+                        && Self::should_fallback_to_synthetic_dir(&error) => {}
                 Err(error) => return Err(error),
             }
         }
@@ -492,13 +501,11 @@ impl FileSystem for MountFileSystem {
             return if let Some(fs) = node.fs {
                 let result = fs.create_dir(Path::new("/"));
 
-                if let Err(error) = result
-                    && error == FsError::AlreadyExists
-                {
-                    return Ok(());
+                match result {
+                    Ok(()) | Err(FsError::AlreadyExists) => Ok(()),
+                    Err(error) if Self::should_fallback_to_synthetic_dir(&error) => Ok(()),
+                    Err(error) => Err(error),
                 }
-
-                result
             } else {
                 Ok(())
             };
@@ -600,7 +607,13 @@ impl FileSystem for MountFileSystem {
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
                 fs.metadata(Path::new("/"))
-                    .or_else(|_| Ok(Self::directory_metadata()))
+                    .or_else(|error| {
+                        if Self::should_fallback_to_synthetic_dir(&error) {
+                            Ok(Self::directory_metadata())
+                        } else {
+                            Err(error)
+                        }
+                    })
             } else if node.has_children() {
                 Ok(Self::directory_metadata())
             } else {
@@ -620,7 +633,13 @@ impl FileSystem for MountFileSystem {
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
                 fs.symlink_metadata(Path::new("/"))
-                    .or_else(|_| Ok(Self::directory_metadata()))
+                    .or_else(|error| {
+                        if Self::should_fallback_to_synthetic_dir(&error) {
+                            Ok(Self::directory_metadata())
+                        } else {
+                            Err(error)
+                        }
+                    })
             } else if node.has_children() {
                 Ok(Self::directory_metadata())
             } else {
@@ -718,6 +737,9 @@ mod tests {
     struct RootOpaqueFileSystem {
         inner: mem_fs::FileSystem,
     }
+
+    #[derive(Debug, Clone, Default)]
+    struct RootPermissionDeniedFileSystem;
 
     impl FileSystemTrait for MountlessFileSystem {
         fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
@@ -838,6 +860,58 @@ mod tests {
                 .new_open_options()
                 .options(conf.clone())
                 .open(path)
+        }
+    }
+
+    impl FileSystemTrait for RootPermissionDeniedFileSystem {
+        fn readlink(&self, _path: &Path) -> crate::Result<PathBuf> {
+            Err(FsError::PermissionDenied)
+        }
+
+        fn read_dir(&self, _path: &Path) -> crate::Result<crate::ReadDir> {
+            Err(FsError::PermissionDenied)
+        }
+
+        fn create_dir(&self, _path: &Path) -> crate::Result<()> {
+            Err(FsError::PermissionDenied)
+        }
+
+        fn remove_dir(&self, _path: &Path) -> crate::Result<()> {
+            Err(FsError::PermissionDenied)
+        }
+
+        fn rename<'a>(
+            &'a self,
+            _from: &'a Path,
+            _to: &'a Path,
+        ) -> futures::future::BoxFuture<'a, crate::Result<()>> {
+            Box::pin(async { Err(FsError::PermissionDenied) })
+        }
+
+        fn metadata(&self, _path: &Path) -> crate::Result<crate::Metadata> {
+            Err(FsError::PermissionDenied)
+        }
+
+        fn symlink_metadata(&self, _path: &Path) -> crate::Result<crate::Metadata> {
+            Err(FsError::PermissionDenied)
+        }
+
+        fn remove_file(&self, _path: &Path) -> crate::Result<()> {
+            Err(FsError::PermissionDenied)
+        }
+
+        fn new_open_options(&self) -> crate::OpenOptions<'_> {
+            crate::OpenOptions::new(self)
+        }
+    }
+
+    impl FileOpener for RootPermissionDeniedFileSystem {
+        fn open(
+            &self,
+            _path: &Path,
+            _conf: &OpenOptionsConfig,
+        ) -> crate::Result<Box<dyn crate::VirtualFile + Send + Sync>> {
+            Err(FsError::PermissionDenied)
         }
     }
 
@@ -1182,6 +1256,7 @@ mod tests {
 
         assert!(fs.metadata(Path::new("/opaque")).unwrap().is_dir());
         assert!(fs.symlink_metadata(Path::new("/opaque")).unwrap().is_dir());
+        assert_eq!(fs.create_dir(Path::new("/opaque")), Ok(()));
     }
 
     #[tokio::test]
@@ -1201,6 +1276,40 @@ mod tests {
         .unwrap();
 
         assert_eq!(read_dir_names(&fs, "/opaque"), vec!["assets".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_exact_mount_fallback_does_not_mask_permission_denied() {
+        let fs = MountFileSystem::new();
+        fs.mount(
+            "denied".to_string(),
+            Path::new("/denied"),
+            Box::new(RootPermissionDeniedFileSystem),
+        )
+        .unwrap();
+        fs.mount(
+            "child".to_string(),
+            Path::new("/denied/assets"),
+            Box::new(mem_fs::FileSystem::default()),
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs.metadata(Path::new("/denied")),
+            Err(FsError::PermissionDenied)
+        );
+        assert_eq!(
+            fs.symlink_metadata(Path::new("/denied")),
+            Err(FsError::PermissionDenied)
+        );
+        assert_eq!(
+            fs.read_dir(Path::new("/denied")).map(|_| ()),
+            Err(FsError::PermissionDenied)
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("/denied")),
+            Err(FsError::PermissionDenied)
+        );
     }
 
     #[tokio::test]
