@@ -347,7 +347,7 @@ impl Wasi {
         let mut builder = {
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
-                .build();
+                .build_tmp();
             let (have_current_dir, mapped_dirs) = self.build_mapped_directories(false)?;
             let mount_fs = MountFileSystem::new();
             let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();

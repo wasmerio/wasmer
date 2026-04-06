@@ -1,5 +1,5 @@
 use crate::random_file::RandomFile;
-use crate::{FileSystem, VirtualFile};
+use crate::{FileSystem, MountFileSystem, VirtualFile};
 use std::path::{Path, PathBuf};
 use tracing::*;
 
@@ -61,11 +61,23 @@ impl RootFileSystemBuilder {
         self
     }
 
-    pub fn build(self) -> TmpFileSystem {
+    pub fn build(self) -> MountFileSystem {
         self.build_ext(&[])
     }
 
-    pub fn build_ext(self, mapped_dirs: &[&str]) -> TmpFileSystem {
+    pub fn build_ext(self, mapped_dirs: &[&str]) -> MountFileSystem {
+        let tmp = self.build_tmp_ext(mapped_dirs);
+        let root = MountFileSystem::new();
+        root.mount("root".to_string(), Path::new("/"), Box::new(tmp))
+            .expect("mounting the root fs on an empty mount fs should succeed");
+        root
+    }
+
+    pub fn build_tmp(self) -> TmpFileSystem {
+        self.build_tmp_ext(&[])
+    }
+
+    pub fn build_tmp_ext(self, mapped_dirs: &[&str]) -> TmpFileSystem {
         let tmp = TmpFileSystem::new();
 
         if self.default_root_dirs {

@@ -67,7 +67,7 @@ impl CommonWasiOptions {
                 .iter()
                 .map(|d| d.guest.as_str())
                 .collect::<Vec<_>>();
-            RootFileSystemBuilder::default().build_ext(&mapped_dirs)
+            RootFileSystemBuilder::default().build_tmp_ext(&mapped_dirs)
         });
         let fs = prepare_filesystem(root_fs, &self.mounts, container_fs)?;
 
@@ -378,7 +378,7 @@ mod tests {
             .mount("webc".to_string(), Path::new("/"), Box::new(webc_fs))
             .unwrap();
 
-        let root_fs = RootFileSystemBuilder::default().build();
+        let root_fs = RootFileSystemBuilder::default().build_tmp();
         let fs = prepare_filesystem(root_fs, &mapping, Some(union_fs)).unwrap();
 
         use virtual_fs::FileSystem;
@@ -413,7 +413,7 @@ mod tests {
             )
             .unwrap();
 
-        let root_fs = RootFileSystemBuilder::default().build();
+        let root_fs = RootFileSystemBuilder::default().build_tmp();
         let fs = prepare_filesystem(root_fs, &[], Some(union_fs)).unwrap();
 
         fs.create_dir(Path::new("/python/custom")).unwrap();
@@ -452,7 +452,7 @@ mod tests {
             )
             .unwrap();
 
-        let root_fs = RootFileSystemBuilder::default().build();
+        let root_fs = RootFileSystemBuilder::default().build_tmp();
         let fs = prepare_filesystem(root_fs, &[], Some(union_fs)).unwrap();
 
         fs.create_symlink(

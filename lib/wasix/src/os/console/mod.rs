@@ -215,7 +215,7 @@ impl Console {
                 Box::new(self.stdout.clone()),
                 Box::new(self.stdin.clone()),
             )))
-            .build();
+            .build_tmp();
 
         if let Some(limiter) = &self.memfs_memory_limiter {
             root_fs.set_memory_limiter(limiter.clone());
