@@ -768,19 +768,16 @@ impl WasiEnvBuilder {
     }
 
     pub fn set_fs(&mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) {
-        self.fs = Some(WasiFsRoot::Backing(fs.into()));
+        self.fs = Some(WasiFsRoot::from_filesystem(fs.into()));
     }
 
-    pub fn mount_fs(mut self, fs: MountFileSystem, writable: TmpFileSystem) -> Self {
-        self.set_mount_fs(fs, writable);
+    pub fn mount_fs(mut self, fs: MountFileSystem) -> Self {
+        self.set_mount_fs(fs);
         self
     }
 
-    pub fn set_mount_fs(&mut self, fs: MountFileSystem, writable: TmpFileSystem) {
-        self.fs = Some(WasiFsRoot::Mount {
-            root: Arc::new(fs),
-            writable,
-        });
+    pub fn set_mount_fs(&mut self, fs: MountFileSystem) {
+        self.fs = Some(WasiFsRoot::from_mount_fs(fs));
     }
 
     pub(crate) fn set_fs_root(&mut self, fs: WasiFsRoot) {

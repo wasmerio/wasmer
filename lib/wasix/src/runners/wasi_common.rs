@@ -197,10 +197,7 @@ fn prepare_filesystem(
         };
         mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
 
-        return Ok(WasiFsRoot::Mount {
-            root: Arc::new(mount_fs),
-            writable: root_fs,
-        });
+        return Ok(WasiFsRoot::from_mount_fs(mount_fs));
     };
 
     if let Some(container_root) = container.filesystem_at(Path::new("/")) {
@@ -216,10 +213,7 @@ fn prepare_filesystem(
     mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
     mount_fs.merge(&container, virtual_fs::UnionMergeMode::Skip)?;
 
-    Ok(WasiFsRoot::Mount {
-        root: Arc::new(mount_fs),
-        writable: root_fs,
-    })
+    Ok(WasiFsRoot::from_mount_fs(mount_fs))
 }
 
 /// HACK: We need this so users can mount host directories at relative paths.
@@ -387,7 +381,6 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(root_fs, &mapping, Some(union_fs)).unwrap();
 
-        assert!(matches!(fs, WasiFsRoot::Mount { .. }));
         use virtual_fs::FileSystem;
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());

@@ -377,7 +377,7 @@ impl Wasi {
 
             // Open the root of the new filesystem
             builder = builder
-                .mount_fs(mount_fs, root_fs)
+                .mount_fs(mount_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap();
 
