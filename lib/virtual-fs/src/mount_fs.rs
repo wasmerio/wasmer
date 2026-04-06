@@ -86,7 +86,7 @@ impl MountFileSystem {
         path: &Path,
         fs: Box<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
         let node = self.mount_node(&Self::path_components(&path));
 
         match node.mount.entry(()) {
@@ -110,8 +110,23 @@ impl MountFileSystem {
         self.root = Arc::new(MountNode::default());
     }
 
-    fn prepare_path(&self, path: &Path) -> PathBuf {
-        path.strip_prefix(Path::new("/")).unwrap_or(path).to_owned()
+    fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
+        let mut normalized = PathBuf::new();
+
+        for component in path.components() {
+            match component {
+                std::path::Component::RootDir | std::path::Component::CurDir => {}
+                std::path::Component::ParentDir => {
+                    if !normalized.pop() {
+                        return Err(FsError::InvalidInput);
+                    }
+                }
+                std::path::Component::Normal(part) => normalized.push(part),
+                std::path::Component::Prefix(_) => return Err(FsError::InvalidInput),
+            }
+        }
+
+        Ok(normalized)
     }
 
     fn path_components(path: &Path) -> Vec<OsString> {
@@ -159,7 +174,7 @@ impl MountFileSystem {
     }
 
     fn find_node(&self, path: &Path) -> Option<Arc<MountNode>> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path).ok()?;
         let mut node = Arc::clone(&self.root);
 
         for component in Self::path_components(&path) {
@@ -174,7 +189,7 @@ impl MountFileSystem {
     }
 
     fn exact_node(&self, path: &Path) -> Option<ExactNode> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path).ok()?;
         let visible_path = Path::new("/").join(&path);
         let node = self.find_node(&path)?;
         let mounted = Self::mounted(&node);
@@ -191,7 +206,7 @@ impl MountFileSystem {
     }
 
     fn resolve_mount(&self, path: PathBuf) -> Option<ResolvedMount> {
-        let path = self.prepare_path(&path);
+        let path = self.prepare_path(&path).ok()?;
         let components = Self::path_components(&path);
         let mut node = Arc::clone(&self.root);
         let mut best = Self::mounted(&node).map(|mount| ResolvedMount {
@@ -315,7 +330,7 @@ impl MountFileSystem {
         path: &Path,
         fs: Box<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
         let node = self.mount_node(&Self::path_components(&path));
         node.mount.insert((), MountedFileSystem { fs: Arc::from(fs) });
         Ok(())
@@ -359,7 +374,7 @@ impl MountFileSystem {
 
 impl FileSystem for MountFileSystem {
     fn readlink(&self, path: &Path) -> Result<PathBuf> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
             Err(FsError::NotAFile)
@@ -378,7 +393,7 @@ impl FileSystem for MountFileSystem {
     }
 
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if let Some(node) = self.exact_node(&path) {
             return self.read_dir_from_exact_node(&node);
@@ -399,7 +414,7 @@ impl FileSystem for MountFileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
             return Ok(());
@@ -438,7 +453,7 @@ impl FileSystem for MountFileSystem {
     }
 
     fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
-        let target = self.prepare_path(target);
+        let target = self.prepare_path(target)?;
 
         if target.as_os_str().is_empty() {
             return Err(FsError::AlreadyExists);
@@ -455,7 +470,7 @@ impl FileSystem for MountFileSystem {
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
             return Err(FsError::PermissionDenied);
@@ -479,8 +494,8 @@ impl FileSystem for MountFileSystem {
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
-            let from = self.prepare_path(from);
-            let to = self.prepare_path(to);
+            let from = self.prepare_path(from)?;
+            let to = self.prepare_path(to)?;
 
             if from.as_os_str().is_empty() {
                 return Err(FsError::PermissionDenied);
@@ -508,7 +523,7 @@ impl FileSystem for MountFileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
@@ -527,7 +542,7 @@ impl FileSystem for MountFileSystem {
     }
 
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
@@ -546,7 +561,7 @@ impl FileSystem for MountFileSystem {
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
             return Err(FsError::NotAFile);
@@ -586,7 +601,7 @@ impl FileOpener for MountFileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
             return Err(FsError::NotAFile);
@@ -959,6 +974,56 @@ mod tests {
 
         assert!(fs.metadata(Path::new("/opt/bin/tool")).is_ok());
         assert!(fs.metadata(Path::new("/opt/assets/css/site.css")).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_normalized_paths_still_route_to_deepest_mount() {
+        let fs = MountFileSystem::new();
+
+        let top = MountlessFileSystem::default();
+        top.create_dir(Path::new("/bin")).unwrap();
+        top.new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/bin/tool"))
+            .unwrap();
+
+        let nested = mem_fs::FileSystem::default();
+        nested.create_dir(Path::new("/css")).unwrap();
+        nested
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/css/site.css"))
+            .unwrap();
+
+        fs.mount("opt".to_string(), Path::new("/opt"), Box::new(top))
+            .unwrap();
+        fs.mount(
+            "assets".to_string(),
+            Path::new("/opt/assets"),
+            Box::new(nested),
+        )
+        .unwrap();
+
+        assert!(
+            fs.metadata(Path::new("/opt/./assets/../assets/css/site.css"))
+                .unwrap()
+                .is_file()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_invalid_above_root_path_is_rejected() {
+        let fs = MountFileSystem::new();
+        fs.mount(
+            "root".to_string(),
+            Path::new("/"),
+            Box::new(mem_fs::FileSystem::default()),
+        )
+        .unwrap();
+
+        assert_eq!(fs.metadata(Path::new("../foo")), Err(FsError::InvalidInput));
     }
 
     #[tokio::test]
