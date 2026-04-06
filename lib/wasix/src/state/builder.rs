@@ -918,7 +918,9 @@ impl WasiEnvBuilder {
         let fs_backing = self
             .fs
             .take()
-            .unwrap_or_else(|| WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build()));
+            .unwrap_or_else(|| {
+                WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()))
+            });
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {

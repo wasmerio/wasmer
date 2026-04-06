@@ -76,7 +76,9 @@ impl CommonWasiOptions {
                 .iter()
                 .map(|d| d.guest.as_str())
                 .collect::<Vec<_>>();
-            WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build_ext(&mapped_dirs))
+            WasiFsRoot::from_filesystem(Arc::new(
+                RootFileSystemBuilder::default().build_tmp_ext(&mapped_dirs),
+            ))
         });
         let fs = prepare_filesystem(
             root_fs

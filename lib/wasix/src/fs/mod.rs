@@ -2410,7 +2410,8 @@ mod tests {
     #[tokio::test]
     async fn test_relative_path_to_absolute() {
         let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build());
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
         let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
 
         // Test absolute path (returned as-is, no normalization)
@@ -2496,7 +2497,8 @@ mod tests {
     #[tokio::test]
     async fn conditional_union_merges_root_and_non_root_package_mounts_once() {
         let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build());
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
         let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
 
         let root_layer = TmpFileSystem::new();
