@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use anyhow::Context;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
-use virtual_fs::UnionFileSystem;
+use virtual_fs::MountFileSystem;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use wasmer_package::package::Package;
 use webc::Container;
@@ -114,10 +114,10 @@ pub struct BinaryPackage {
     /// entrypoint.
     pub entrypoint_cmd: Option<String>,
     pub hash: OnceCell<ModuleHash>,
-    // TODO: using a UnionFileSystem here directly is suboptimal, since cloning
+    // TODO: using a MountFileSystem here directly is suboptimal, since cloning
     // it is expensive. Should instead store an immutable map that can easily
     // be converted into a dashmap.
-    pub webc_fs: Option<Arc<UnionFileSystem>>,
+    pub webc_fs: Option<Arc<MountFileSystem>>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub file_system_memory_footprint: u64,

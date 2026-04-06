@@ -609,18 +609,13 @@ mod tests {
     async fn test_volume_mount_without_webcs() {
         use std::sync::Arc;
 
-        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
-
         let tokrt = tokio::runtime::Handle::current();
 
         let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
         let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
 
-        root_fs
-            .mount("/host".into(), &hostdir_dyn, "/".into())
-            .unwrap();
-
-        let envb = crate::runners::wasi::WasiRunner::new();
+        let mut envb = crate::runners::wasi::WasiRunner::new();
+        envb.with_mount("/host".to_string(), hostdir_dyn);
 
         let annotations = webc::metadata::annotations::Wasi::new("test");
 
@@ -635,7 +630,7 @@ mod tests {
                 &annotations,
                 PackageOrHash::Hash(ModuleHash::random()),
                 RuntimeOrEngine::Runtime(Arc::new(rt)),
-                Some(root_fs),
+                None,
             )
             .unwrap();
 
@@ -653,18 +648,13 @@ mod tests {
 
         use wasmer_package::utils::from_bytes;
 
-        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
-
         let tokrt = tokio::runtime::Handle::current();
 
         let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
         let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
 
-        root_fs
-            .mount("/host".into(), &hostdir_dyn, "/".into())
-            .unwrap();
-
-        let envb = crate::runners::wasi::WasiRunner::new();
+        let mut envb = crate::runners::wasi::WasiRunner::new();
+        envb.with_mount("/host".to_string(), hostdir_dyn);
 
         let annotations = webc::metadata::annotations::Wasi::new("test");
 
@@ -689,7 +679,7 @@ mod tests {
                 &annotations,
                 PackageOrHash::Package(&binpkg),
                 RuntimeOrEngine::Runtime(Arc::new(rt)),
-                Some(root_fs),
+                None,
             )
             .unwrap();
 

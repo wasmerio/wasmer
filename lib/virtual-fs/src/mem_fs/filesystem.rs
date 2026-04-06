@@ -773,16 +773,6 @@ impl crate::FileSystem for FileSystem {
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
-
-    fn mount(
-        &self,
-        _name: String,
-        path: &Path,
-        fs: Box<dyn crate::FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        let fs: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(fs);
-        self.mount(path.to_owned(), &fs, PathBuf::from("/"))
-    }
 }
 
 impl fmt::Debug for FileSystem {

@@ -261,7 +261,7 @@ impl<'a> WasiTest<'a> {
                         let e = mem_fs::FileSystem::default();
                         let f = mem_fs::FileSystem::default();
 
-                        let union = union_fs::UnionFileSystem::new();
+                        let union = union_fs::MountFileSystem::new();
 
                         union.mount(
                             "mem_fs".to_string(),

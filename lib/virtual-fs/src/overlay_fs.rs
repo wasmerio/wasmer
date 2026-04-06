@@ -414,15 +414,6 @@ where
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
-
-    fn mount(
-        &self,
-        _name: String,
-        _path: &Path,
-        _fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> Result<(), FsError> {
-        Err(FsError::Unsupported)
-    }
 }
 
 impl<P, S> FileOpener for OverlayFileSystem<P, S>
@@ -1131,12 +1122,12 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::{TmpFileSystem, mem_fs::FileSystem as MemFS};
+    use crate::mem_fs::FileSystem as MemFS;
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     #[test]
     fn overlay_read_dir_rebases_mounted_entries() {
-        let primary = TmpFileSystem::new();
+        let primary = MemFS::default();
         ops::create_dir_all(&primary, "/app").unwrap();
 
         let volume = MemFS::default();

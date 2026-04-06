@@ -35,7 +35,7 @@ use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{
-    FileSystem, FsError, OpenOptions, UnionFileSystem, VirtualFile, copy_reference,
+    FileSystem, FsError, MountFileSystem, OpenOptions, VirtualFile, copy_reference,
     tmp_fs::TmpFileSystem,
 };
 use wasmer_config::package::PackageId;
@@ -398,6 +398,10 @@ impl Default for WasiInodes {
 #[derive(Debug, Clone)]
 pub enum WasiFsRoot {
     Sandbox(TmpFileSystem),
+    Mount {
+        root: Arc<MountFileSystem>,
+        writable: TmpFileSystem,
+    },
     /// Dedicated canonical overlay representation.
     ///
     /// Overlays are the common form of the file system for WASIX packages.
@@ -411,17 +415,44 @@ pub enum WasiFsRoot {
         Arc<
             virtual_fs::OverlayFileSystem<
                 TmpFileSystem,
-                [RelativeOrAbsolutePathHack<UnionFileSystem>; 1],
+                [RelativeOrAbsolutePathHack<MountFileSystem>; 1],
             >,
         >,
     ),
     Backing(Arc<dyn FileSystem + Send + Sync>),
 }
 
+impl WasiFsRoot {
+    pub(crate) fn new_mount(writable: TmpFileSystem) -> Self {
+        let root = MountFileSystem::new();
+        root.mount(
+            "root".to_string(),
+            Path::new("/"),
+            Box::new(writable.clone()),
+        )
+        .expect("mounting the writable root on an empty mount fs should succeed");
+
+        Self::Mount {
+            root: Arc::new(root),
+            writable,
+        }
+    }
+
+    pub(crate) fn writable_root(&self) -> Option<&TmpFileSystem> {
+        match self {
+            Self::Sandbox(fs) => Some(fs),
+            Self::Mount { writable, .. } => Some(writable),
+            Self::Overlay(overlay) => Some(overlay.primary()),
+            Self::Backing(_) => None,
+        }
+    }
+}
+
 impl FileSystem for WasiFsRoot {
     fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
         match self {
             Self::Sandbox(fs) => fs.readlink(path),
+            Self::Mount { root, .. } => root.readlink(path),
             Self::Overlay(overlay) => overlay.readlink(path),
             Self::Backing(fs) => fs.readlink(path),
         }
@@ -430,6 +461,7 @@ impl FileSystem for WasiFsRoot {
     fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
         match self {
             Self::Sandbox(fs) => fs.read_dir(path),
+            Self::Mount { root, .. } => root.read_dir(path),
             Self::Overlay(overlay) => overlay.read_dir(path),
             Self::Backing(fs) => fs.read_dir(path),
         }
@@ -438,6 +470,7 @@ impl FileSystem for WasiFsRoot {
     fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
             Self::Sandbox(fs) => fs.create_dir(path),
+            Self::Mount { root, .. } => root.create_dir(path),
             Self::Overlay(overlay) => overlay.create_dir(path),
             Self::Backing(fs) => fs.create_dir(path),
         }
@@ -446,6 +479,7 @@ impl FileSystem for WasiFsRoot {
     fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
             Self::Sandbox(fs) => fs.remove_dir(path),
+            Self::Mount { root, .. } => root.remove_dir(path),
             Self::Overlay(overlay) => overlay.remove_dir(path),
             Self::Backing(fs) => fs.remove_dir(path),
         }
@@ -458,6 +492,7 @@ impl FileSystem for WasiFsRoot {
         Box::pin(async move {
             match this {
                 Self::Sandbox(fs) => fs.rename(&from, &to).await,
+                Self::Mount { root, .. } => root.rename(&from, &to).await,
                 Self::Overlay(overlay) => overlay.rename(&from, &to).await,
                 Self::Backing(fs) => fs.rename(&from, &to).await,
             }
@@ -467,6 +502,7 @@ impl FileSystem for WasiFsRoot {
     fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         match self {
             Self::Sandbox(fs) => fs.metadata(path),
+            Self::Mount { root, .. } => root.metadata(path),
             Self::Overlay(overlay) => overlay.metadata(path),
             Self::Backing(fs) => fs.metadata(path),
         }
@@ -475,6 +511,7 @@ impl FileSystem for WasiFsRoot {
     fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         match self {
             Self::Sandbox(fs) => fs.symlink_metadata(path),
+            Self::Mount { root, .. } => root.symlink_metadata(path),
             Self::Overlay(overlay) => overlay.symlink_metadata(path),
             Self::Backing(fs) => fs.symlink_metadata(path),
         }
@@ -483,6 +520,7 @@ impl FileSystem for WasiFsRoot {
     fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
             Self::Sandbox(fs) => fs.remove_file(path),
+            Self::Mount { root, .. } => root.remove_file(path),
             Self::Overlay(overlay) => overlay.remove_file(path),
             Self::Backing(fs) => fs.remove_file(path),
         }
@@ -491,21 +529,9 @@ impl FileSystem for WasiFsRoot {
     fn new_open_options(&self) -> OpenOptions<'_> {
         match self {
             Self::Sandbox(fs) => fs.new_open_options(),
+            Self::Mount { root, .. } => root.new_open_options(),
             Self::Overlay(overlay) => overlay.new_open_options(),
             Self::Backing(fs) => fs.new_open_options(),
-        }
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> virtual_fs::Result<()> {
-        match self {
-            Self::Sandbox(root) => FileSystem::mount(root, name, path, fs),
-            Self::Overlay(overlay) => FileSystem::mount(overlay.primary(), name, path, fs),
-            Self::Backing(f) => f.mount(name, path, fs),
         }
     }
 }
@@ -769,6 +795,7 @@ impl WasiFs {
                 fs.union(&fdyn);
                 Ok(())
             }
+            WasiFsRoot::Mount { root, .. } => root.merge(webc_fs, virtual_fs::UnionMergeMode::Skip),
             WasiFsRoot::Overlay(overlay) => {
                 let union = &overlay.secondaries()[0];
                 union.0.merge(webc_fs, virtual_fs::UnionMergeMode::Skip)
@@ -2423,14 +2450,6 @@ impl FileSystem for FallbackFileSystem {
     fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
         Self::fail();
     }
-    fn mount(
-        &self,
-        _name: String,
-        _path: &Path,
-        _fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> virtual_fs::Result<()> {
-        Self::fail()
-    }
 }
 
 pub fn virtual_file_type_to_wasi_file_type(file_type: virtual_fs::FileType) -> Filetype {
@@ -2510,7 +2529,7 @@ mod tests {
     #[tokio::test]
     async fn test_relative_path_to_absolute() {
         let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::Sandbox(TmpFileSystem::new());
+        let fs_backing = WasiFsRoot::new_mount(TmpFileSystem::new());
         let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
 
         // Test absolute path (returned as-is, no normalization)

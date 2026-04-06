@@ -9,7 +9,9 @@ use anyhow::{Context, Error};
 use futures::{StreamExt, TryStreamExt, future::BoxFuture};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
-use virtual_fs::{FileSystem, UnionFileSystem, WebcVolumeFileSystem};
+use virtual_fs::{
+    FileSystem, MountFileSystem, OverlayFileSystem, TmpFileSystem, WebcVolumeFileSystem,
+};
 use wasmer_config::package::PackageId;
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
@@ -374,7 +376,7 @@ fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<Option<UnionFileSystem>, Error> {
+) -> Result<Option<MountFileSystem>, Error> {
     if pkg.filesystem.is_empty() {
         return Ok(None);
     }
@@ -429,10 +431,10 @@ fn filesystem_v3(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<UnionFileSystem, Error> {
+) -> Result<MountFileSystem, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let union_fs = UnionFileSystem::new();
+    let union_fs = MountFileSystem::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -470,7 +472,7 @@ fn filesystem_v3(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let webc_vol = WebcVolumeFileSystem::new(volume.clone());
+        let webc_vol = writable_package_mount(WebcVolumeFileSystem::new(volume.clone()));
         union_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))?;
     }
 
@@ -504,10 +506,10 @@ fn filesystem_v2(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<UnionFileSystem, Error> {
+) -> Result<MountFileSystem, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let union_fs = UnionFileSystem::new();
+    let union_fs = MountFileSystem::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -547,7 +549,7 @@ fn filesystem_v2(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        // UnionFileSystem strips the mount point before forwarding paths to the
+        // MountFileSystem strips the mount point before forwarding paths to the
         // mounted filesystem. That means paths are already relative to the
         // mount root and shouldn't be stripped by mount_path.
         let fs = if let Some(original) = original_path {
@@ -565,7 +567,11 @@ fn filesystem_v2(
             )
         };
 
-        union_fs.mount(volume_name.clone(), mount_path, Box::new(fs))?;
+        union_fs.mount(
+            volume_name.clone(),
+            mount_path,
+            Box::new(writable_package_mount(fs)),
+        )?;
     }
 
     Ok(union_fs)
@@ -573,6 +579,13 @@ fn filesystem_v2(
 
 fn strip_root_prefix(path: &Path) -> PathBuf {
     path.strip_prefix("/").unwrap_or(path).to_owned()
+}
+
+fn writable_package_mount<F>(fs: F) -> OverlayFileSystem<TmpFileSystem, [F; 1]>
+where
+    F: FileSystem + Send + Sync + 'static,
+{
+    OverlayFileSystem::new(TmpFileSystem::new(), [fs])
 }
 
 type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;
@@ -650,16 +663,6 @@ where
 
     fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
         virtual_fs::OpenOptions::new(self)
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.mount(name, path.as_path(), fs)
     }
 }
 

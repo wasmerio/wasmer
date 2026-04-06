@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 use tokio::runtime::Handle;
 use virtual_fs::{
-    FileSystem, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem, UnionFileSystem,
+    FileSystem, MountFileSystem, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem,
 };
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
@@ -15,7 +15,7 @@ use crate::{
     WasiEnvBuilder,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    fs::{WasiFsRoot, relative_path_hack::RelativeOrAbsolutePathHack},
+    fs::WasiFsRoot,
     journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
 };
 
@@ -53,7 +53,7 @@ impl CommonWasiOptions {
     pub(crate) fn prepare_webc_env(
         &self,
         builder: &mut WasiEnvBuilder,
-        container_fs: Option<UnionFileSystem>,
+        container_fs: Option<MountFileSystem>,
         wasi: &WasiAnnotation,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
@@ -151,80 +151,75 @@ impl CommonWasiOptions {
 // type ContainerFs =
 //     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
 
-fn build_directory_mappings(
-    root_fs: &mut TmpFileSystem,
+fn normalized_mount_path(root_fs: &TmpFileSystem, guest_path: &str) -> Result<PathBuf, Error> {
+    let mut guest_path = PathBuf::from(guest_path);
+
+    if guest_path.is_relative() {
+        guest_path = apply_relative_path_mounting_hack(&guest_path);
+    }
+
+    root_fs
+        .canonicalize_unchecked(&guest_path)
+        .with_context(|| {
+            format!(
+                "Unable to canonicalize guest path '{}'",
+                guest_path.display()
+            )
+        })
+}
+
+fn prepare_filesystem(
+    root_fs: TmpFileSystem,
     mounted_dirs: &[MountedDirectory],
-) -> Result<(), anyhow::Error> {
-    for dir in mounted_dirs {
-        let MountedDirectory {
-            guest: guest_path,
-            fs,
-        } = dir;
-        let mut guest_path = PathBuf::from(guest_path);
-        tracing::debug!(
-            guest=%guest_path.display(),
-            "Mounting",
-        );
+    container_fs: Option<MountFileSystem>,
+) -> Result<WasiFsRoot, Error> {
+    let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
+    let mount_fs = MountFileSystem::new();
 
-        if guest_path.is_relative() {
-            guest_path = apply_relative_path_mounting_hack(&guest_path);
-        }
-
-        let guest_path = root_fs
-            .canonicalize_unchecked(&guest_path)
-            .with_context(|| {
-                format!(
-                    "Unable to canonicalize guest path '{}'",
-                    guest_path.display()
-                )
-            })?;
+    for MountedDirectory { guest, fs } in mounted_dirs {
+        let guest_path = normalized_mount_path(&root_fs, guest)?;
+        tracing::debug!(guest=%guest_path.display(), "Mounting");
 
         if guest_path == Path::new("/") {
-            root_fs
-                .mount_directory_entries(&guest_path, fs, "/".as_ref())
-                .context("Unable to mount to root")?;
+            root_layers.push(fs.clone());
         } else {
-            if let Some(parent) = guest_path.parent() {
-                create_dir_all(&*root_fs, parent).with_context(|| {
-                    format!("Unable to create the \"{}\" directory", parent.display())
-                })?;
-            }
-
-            TmpFileSystem::mount(root_fs, guest_path.clone(), fs, "/".into())
+            mount_fs
+                .mount(guest.clone(), &guest_path, Box::new(fs.clone()))
                 .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?;
         }
     }
 
-    Ok(())
-}
+    let Some(container) = container_fs else {
+        let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
+            Box::new(root_fs.clone())
+        } else {
+            Box::new(OverlayFileSystem::new(root_fs.clone(), root_layers))
+        };
+        mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
 
-fn prepare_filesystem(
-    mut root_fs: TmpFileSystem,
-    mounted_dirs: &[MountedDirectory],
-    container_fs: Option<UnionFileSystem>,
-) -> Result<WasiFsRoot, Error> {
-    if !mounted_dirs.is_empty() {
-        build_directory_mappings(&mut root_fs, mounted_dirs)?;
-    }
-
-    // HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
-    // paths, but our Python executable will try to access its standard library
-    // with relative paths assuming that it is being run from the root
-    // directory (i.e. it does `open("lib/python3.6/io.py")` instead of
-    // `open("/lib/python3.6/io.py")`).
-    // Until the FileSystem trait figures out whether relative paths should be
-    // supported or not, we'll add an adapter that automatically retries
-    // operations using an absolute path if it failed using a relative path.
-
-    let fs = if let Some(container) = container_fs {
-        let container = RelativeOrAbsolutePathHack(container);
-        let fs = OverlayFileSystem::new(root_fs, [container]);
-        WasiFsRoot::Overlay(Arc::new(fs))
-    } else {
-        WasiFsRoot::Sandbox(root_fs)
+        return Ok(WasiFsRoot::Mount {
+            root: Arc::new(mount_fs),
+            writable: root_fs,
+        });
     };
 
-    Ok(fs)
+    if let Some(container_root) = container.filesystem_at(Path::new("/")) {
+        root_layers.push(container_root);
+    }
+
+    let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
+        Box::new(root_fs.clone())
+    } else {
+        Box::new(OverlayFileSystem::new(root_fs.clone(), root_layers))
+    };
+
+    mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
+    mount_fs.merge(&container, virtual_fs::UnionMergeMode::Skip)?;
+
+    Ok(WasiFsRoot::Mount {
+        root: Arc::new(mount_fs),
+        writable: root_fs,
+    })
 }
 
 /// HACK: We need this so users can mount host directories at relative paths.
@@ -255,20 +250,6 @@ fn apply_relative_path_mounting_hack(original: &Path) -> PathBuf {
     );
 
     mapped_path
-}
-
-fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
-    if fs.metadata(path).is_ok() {
-        return Ok(());
-    }
-
-    if let Some(parent) = path.parent() {
-        create_dir_all(fs, parent)?;
-    }
-
-    fs.create_dir(path)?;
-
-    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -398,7 +379,7 @@ mod tests {
         })];
         let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
         let webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
-        let union_fs = UnionFileSystem::new();
+        let union_fs = MountFileSystem::new();
         union_fs
             .mount("webc".to_string(), Path::new("/"), Box::new(webc_fs))
             .unwrap();
@@ -406,29 +387,59 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(root_fs, &mapping, Some(union_fs)).unwrap();
 
-        assert!(matches!(fs, WasiFsRoot::Overlay(_)));
-        if let WasiFsRoot::Overlay(overlay_fs) = &fs {
-            use virtual_fs::FileSystem;
-            assert!(
-                overlay_fs
-                    .metadata("/home/file.txt".as_ref())
-                    .unwrap()
-                    .is_file()
-            );
-            assert!(overlay_fs.metadata("lib".as_ref()).unwrap().is_dir());
-            assert!(
-                overlay_fs
-                    .metadata("lib/python3.6/collections/__init__.py".as_ref())
-                    .unwrap()
-                    .is_file()
-            );
-            assert!(
-                overlay_fs
-                    .metadata("lib/python3.6/encodings/__init__.py".as_ref())
-                    .unwrap()
-                    .is_file()
-            );
-        }
+        assert!(matches!(fs, WasiFsRoot::Mount { .. }));
+        use virtual_fs::FileSystem;
+        assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
+        assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
+        assert!(
+            fs.metadata("lib/python3.6/collections/__init__.py".as_ref())
+                .unwrap()
+                .is_file()
+        );
+        assert!(
+            fs.metadata("lib/python3.6/encodings/__init__.py".as_ref())
+                .unwrap()
+                .is_file()
+        );
+    }
+
+    #[tokio::test]
+    async fn package_mount_paths_remain_writable() {
+        use virtual_fs::FileSystem;
+
+        let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+        let lower = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
+        let pkg_mount = virtual_fs::OverlayFileSystem::new(TmpFileSystem::new(), [lower]);
+
+        let union_fs = MountFileSystem::new();
+        union_fs
+            .mount(
+                "python".to_string(),
+                Path::new("/python"),
+                Box::new(pkg_mount),
+            )
+            .unwrap();
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(root_fs, &[], Some(union_fs)).unwrap();
+
+        fs.create_dir(Path::new("/python/custom")).unwrap();
+        fs.new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/python/custom/sitecustomize.py"))
+            .unwrap();
+
+        assert!(
+            fs.metadata(Path::new("/python/custom/sitecustomize.py"))
+                .unwrap()
+                .is_file()
+        );
+        assert!(
+            fs.metadata(Path::new("/python/lib/python3.6/collections/__init__.py"))
+                .unwrap()
+                .is_file()
+        );
     }
 
     #[tokio::test]

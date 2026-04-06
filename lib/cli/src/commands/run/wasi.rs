@@ -12,7 +12,9 @@ use clap::Parser;
 use itertools::Itertools;
 use tokio::runtime::Handle;
 use url::Url;
-use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
+use virtual_fs::{
+    DeviceFile, FileSystem, MountFileSystem, OverlayFileSystem, RootFileSystemBuilder,
+};
 use virtual_net::ruleset::Ruleset;
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_config::package::PackageSource as PackageSpecifier;
@@ -24,13 +26,13 @@ use wasmer_wasix::{
     WasiVersion,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    default_fs_backing, get_wasi_versions,
+    get_wasi_versions,
     http::HttpClient,
     journal::{CompactingLogFileJournal, DynJournal, DynReadableJournal},
     os::{TtyBridge, tty_sys::SysTty},
     rewind_ext,
     runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
-    runners::{MappedCommand, MappedDirectory},
+    runners::{MappedCommand, MappedDirectory, MountedDirectory},
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
@@ -343,25 +345,28 @@ impl Wasi {
             .map_commands(map_commands);
 
         let mut builder = {
-            // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
                 .build();
+            let (have_current_dir, mapped_dirs) = self.build_mapped_directories(false)?;
+            let mount_fs = MountFileSystem::new();
+            let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
 
-            let (have_current_dir, mut mapped_dirs) = self.build_mapped_directories(false)?;
-            if !mapped_dirs.is_empty() {
-                // TODO: should we expose the common ancestor instead of root?
-                let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(PassthruFileSystem::new_arc(default_fs_backing()));
-                for MappedDirectory { host, guest } in self.all_volumes() {
-                    let host = if !host.is_absolute() {
-                        Path::new("/").join(host)
-                    } else {
-                        host
-                    };
-                    root_fs.mount(guest.into(), &fs_backing, host)?;
+            for mapped in mapped_dirs {
+                let MountedDirectory { guest, fs } = MountedDirectory::from(mapped);
+                if guest == "/" {
+                    root_layers.push(fs);
+                } else {
+                    mount_fs.mount(guest.clone(), Path::new(&guest), Box::new(fs))?;
                 }
             }
+
+            let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
+                Box::new(root_fs.clone())
+            } else {
+                Box::new(OverlayFileSystem::new(root_fs.clone(), root_layers))
+            };
+            mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
 
             if let Some(cwd) = self.cwd.as_ref() {
                 if !cwd.starts_with("/") {
@@ -372,7 +377,7 @@ impl Wasi {
 
             // Open the root of the new filesystem
             builder = builder
-                .sandbox_fs(root_fs)
+                .mount_fs(mount_fs, root_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap();
 

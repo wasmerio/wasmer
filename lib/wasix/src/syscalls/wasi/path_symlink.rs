@@ -125,6 +125,7 @@ pub fn path_symlink_internal(
     let target_path = symlink_path.as_path();
     let persisted_in_backing_fs = match &state.fs.root_fs {
         WasiFsRoot::Sandbox(fs) => fs.create_symlink(source_path, target_path),
+        WasiFsRoot::Mount { writable, .. } => writable.create_symlink(source_path, target_path),
         WasiFsRoot::Overlay(overlay) => overlay.primary().create_symlink(source_path, target_path),
         WasiFsRoot::Backing(_) => Err(FsError::Unsupported),
     };

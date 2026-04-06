@@ -1107,74 +1107,53 @@ impl WasiEnv {
 
                 let atom = command.atom();
 
-                match root_fs {
-                    WasiFsRoot::Sandbox(root_fs) => {
-                        if let Err(err) = root_fs
-                            .new_open_options_ext()
-                            .insert_ro_file(path, atom.clone())
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
+                if let Some(root_fs) = root_fs.writable_root() {
+                    if let Err(err) = root_fs
+                        .new_open_options_ext()
+                        .insert_ro_file(path, atom.clone())
+                    {
+                        tracing::debug!(
+                            "failed to add package [{}] command [{}] - {}",
+                            pkg.id,
+                            command.name(),
+                            err
+                        );
+                        continue;
                     }
-                    WasiFsRoot::Overlay(ofs) => {
-                        let root_fs = ofs.primary();
-
-                        if let Err(err) = root_fs
-                            .new_open_options_ext()
-                            .insert_ro_file(path, atom.clone())
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
+                    if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom) {
+                        tracing::debug!(
+                            "failed to add package [{}] command [{}] - {}",
+                            pkg.id,
+                            command.name(),
+                            err
+                        );
+                        continue;
                     }
-                    WasiFsRoot::Backing(fs) => {
-                        // FIXME: we're counting on the fs being a mem_fs here. Otherwise, memory
-                        // usage will be very high.
-                        let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
-                            tracing::warn!(
-                                error = &e as &dyn std::error::Error,
-                                "Unable to copy file reference",
-                            );
+                } else {
+                    match root_fs {
+                        WasiFsRoot::Backing(fs) => {
+                            // FIXME: we're counting on the fs being a mem_fs here. Otherwise, memory
+                            // usage will be very high.
+                            let mut f =
+                                fs.new_open_options().create(true).write(true).open(path)?;
+                            if let Err(e) = f.copy_from_owned_buffer(&atom).await {
+                                tracing::warn!(
+                                    error = &e as &dyn std::error::Error,
+                                    "Unable to copy file reference",
+                                );
+                            }
+                            let mut f =
+                                fs.new_open_options().create(true).write(true).open(path2)?;
+                            if let Err(e) = f.copy_from_owned_buffer(&atom).await {
+                                tracing::warn!(
+                                    error = &e as &dyn std::error::Error,
+                                    "Unable to copy file reference",
+                                );
+                            }
                         }
-                        let mut f = fs.new_open_options().create(true).write(true).open(path2)?;
-                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
-                            tracing::warn!(
-                                error = &e as &dyn std::error::Error,
-                                "Unable to copy file reference",
-                            );
-                        }
+                        WasiFsRoot::Sandbox(_)
+                        | WasiFsRoot::Mount { .. }
+                        | WasiFsRoot::Overlay(_) => unreachable!(),
                     }
                 }
 
@@ -1248,7 +1227,7 @@ impl WasiEnv {
             })?;
             let file = OwnedBuffer::from(file);
 
-            if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
+            if let Some(root_fs) = self.state.fs.root_fs.writable_root() {
                 let _ = root_fs.create_dir(Path::new("/bin"));
                 let _ = root_fs.create_dir(Path::new("/usr"));
                 let _ = root_fs.create_dir(Path::new("/usr/bin"));
