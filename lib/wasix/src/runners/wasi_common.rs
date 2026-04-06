@@ -14,7 +14,7 @@ use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
     WasiEnvBuilder,
-    bin_factory::BinaryPackage,
+    bin_factory::{BinaryPackage, BinaryPackageMounts},
     capabilities::Capabilities,
     fs::WasiFsRoot,
     journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
@@ -62,7 +62,7 @@ impl CommonWasiOptions {
     pub(crate) fn prepare_webc_env(
         &self,
         builder: &mut WasiEnvBuilder,
-        container_fs: Option<MountFileSystem>,
+        container_mounts: Option<&BinaryPackageMounts>,
         wasi: &WasiAnnotation,
         root_fs: Option<WasiFsRoot>,
     ) -> Result<(), anyhow::Error> {
@@ -81,7 +81,7 @@ impl CommonWasiOptions {
         let fs = prepare_filesystem(
             root_fs.root().duplicate(),
             &self.mounts,
-            container_fs,
+            container_mounts,
             self.existing_mount_conflict_behavior,
         )?;
 
@@ -202,7 +202,7 @@ fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
 fn prepare_filesystem(
     root_fs: MountFileSystem,
     mounted_dirs: &[MountedDirectory],
-    container_fs: Option<MountFileSystem>,
+    container_mounts: Option<&BinaryPackageMounts>,
     conflict_behavior: ExistingMountConflictBehavior,
 ) -> Result<WasiFsRoot, Error> {
     let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
@@ -229,25 +229,31 @@ fn prepare_filesystem(
         }
     }
 
-    let Some(container) = container_fs else {
+    let Some(container) = container_mounts else {
         let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
             Box::new(ArcFileSystem::new(base_root))
         } else {
-            Box::new(OverlayFileSystem::new(ArcFileSystem::new(base_root), root_layers))
+            Box::new(OverlayFileSystem::new(
+                ArcFileSystem::new(base_root),
+                root_layers,
+            ))
         };
         mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
 
         return Ok(WasiFsRoot::from_mount_fs(mount_fs));
     };
 
-    if let Some(container_root) = container.filesystem_at(Path::new("/")) {
-        root_layers.push(container_root);
+    if let Some(container_root) = &container.root_layer {
+        root_layers.push(container_root.clone());
     }
 
     let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
         Box::new(ArcFileSystem::new(base_root))
     } else {
-        Box::new(OverlayFileSystem::new(ArcFileSystem::new(base_root), root_layers))
+        Box::new(OverlayFileSystem::new(
+            ArcFileSystem::new(base_root),
+            root_layers,
+        ))
     };
 
     mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
@@ -255,9 +261,52 @@ fn prepare_filesystem(
         ExistingMountConflictBehavior::Fail => ExactMountConflictMode::Fail,
         ExistingMountConflictBehavior::Override => ExactMountConflictMode::KeepExisting,
     };
-    mount_fs
-        .import_mounts_without_root_with_mode(&container, import_mode)
-        .context("Unable to merge container mounts into the prepared filesystem")?;
+    let mut skipped_subtree: Option<PathBuf> = None;
+    for mount in &container.mounts {
+        if skipped_subtree
+            .as_ref()
+            .is_some_and(|prefix| mount.guest_path.starts_with(prefix))
+        {
+            continue;
+        }
+
+        match import_mode {
+            ExactMountConflictMode::Fail => {
+                mount_fs
+                    .mount(
+                        mount.guest_path.display().to_string(),
+                        &mount.guest_path,
+                        Box::new(mount.fs.clone()),
+                    )
+                    .with_context(|| {
+                        format!(
+                            "Unable to merge container mount \"{}\" into the prepared filesystem",
+                            mount.guest_path.display()
+                        )
+                    })?;
+            }
+            ExactMountConflictMode::KeepExisting => {
+                if mount_fs.filesystem_at(&mount.guest_path).is_some() {
+                    skipped_subtree = Some(mount.guest_path.clone());
+                    continue;
+                }
+
+                mount_fs
+                    .mount(
+                        mount.guest_path.display().to_string(),
+                        &mount.guest_path,
+                        Box::new(mount.fs.clone()),
+                    )
+                    .with_context(|| {
+                        format!(
+                            "Unable to merge container mount \"{}\" into the prepared filesystem",
+                            mount.guest_path.display()
+                        )
+                    })?;
+            }
+            ExactMountConflictMode::ReplaceExisting => unreachable!("not used here"),
+        }
+    }
 
     Ok(WasiFsRoot::from_mount_fs(mount_fs))
 }
@@ -340,6 +389,10 @@ mod tests {
     use virtual_fs::{DirEntry, FileType, Metadata};
 
     use super::*;
+
+    fn package_mounts(fs: MountFileSystem) -> BinaryPackageMounts {
+        BinaryPackageMounts::from_mount_fs(fs)
+    }
 
     const PYTHON: &[u8] =
         include_bytes!("../../../../wasmer-test-files/examples/python-0.1.0.wasmer");
@@ -429,7 +482,7 @@ mod tests {
         let fs = prepare_filesystem(
             root_fs,
             &mapping,
-            Some(mount_fs),
+            Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
         )
         .unwrap();
@@ -470,7 +523,7 @@ mod tests {
         let fs = prepare_filesystem(
             root_fs,
             &[],
-            Some(mount_fs),
+            Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
         )
         .unwrap();
@@ -515,7 +568,7 @@ mod tests {
         let fs = prepare_filesystem(
             root_fs,
             &[],
-            Some(mount_fs),
+            Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
         )
         .unwrap();
@@ -576,12 +629,16 @@ mod tests {
         let fs = prepare_filesystem(
             root_fs,
             &mounted_dirs,
-            Some(container_mounts),
+            Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Override,
         )
         .unwrap();
 
-        assert!(fs.metadata(Path::new("/python/user.txt")).unwrap().is_file());
+        assert!(
+            fs.metadata(Path::new("/python/user.txt"))
+                .unwrap()
+                .is_file()
+        );
         assert_eq!(
             fs.metadata(Path::new("/python/pkg.txt")),
             Err(virtual_fs::FsError::EntryNotFound)
@@ -611,13 +668,15 @@ mod tests {
         let error = prepare_filesystem(
             root_fs,
             &mounted_dirs,
-            Some(container_mounts),
+            Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Fail,
         )
         .unwrap_err();
 
         assert!(
-            error.to_string().contains("Unable to merge container mounts"),
+            error
+                .to_string()
+                .contains("Unable to merge container mount \"/python\""),
             "{error:#}"
         );
     }
@@ -655,7 +714,7 @@ mod tests {
         let fs = prepare_filesystem(
             root_fs,
             &mounted_dirs,
-            Some(container_mounts),
+            Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Fail,
         )
         .unwrap();

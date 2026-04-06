@@ -307,13 +307,13 @@ impl WasiRunner {
             }
         }
 
-        let container_fs = match pkg_or_hash {
+        let container_mounts = match pkg_or_hash {
             PackageOrHash::Package(pkg) => {
                 builder.add_webc(pkg.clone());
                 builder.set_module_hash(pkg.hash());
                 builder.include_packages(pkg.package_ids.clone());
 
-                pkg.mount_file_system().map_err(Error::from)?
+                pkg.package_mounts.as_deref()
             }
             PackageOrHash::Hash(hash) => {
                 builder.set_module_hash(hash);
@@ -334,7 +334,7 @@ impl WasiRunner {
         }
 
         self.wasi
-            .prepare_webc_env(&mut builder, container_fs, wasi, root_fs)?;
+            .prepare_webc_env(&mut builder, container_mounts, wasi, root_fs)?;
 
         if let Some(stdin) = &self.stdin {
             builder.set_stdin(Box::new(stdin.clone()));

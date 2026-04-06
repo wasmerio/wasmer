@@ -344,12 +344,6 @@ impl BinaryPackage {
         }
     }
 
-    pub fn mount_file_system(&self) -> Result<Option<MountFileSystem>, virtual_fs::FsError> {
-        self.package_mounts
-            .as_ref()
-            .map(|mounts| mounts.to_mount_fs())
-            .transpose()
-    }
 }
 
 #[cfg(test)]
@@ -417,9 +411,11 @@ mod tests {
         // We should have mapped "./out/file.txt" on the host to
         // "/public/file.txt" on the guest.
         let mut f = pkg
-            .mount_file_system()
+            .package_mounts
+            .as_ref()
+            .expect("no package mounts")
+            .to_mount_fs()
             .expect("mount fs reconstruction failed")
-            .expect("no webc fs")
             .new_open_options()
             .read(true)
             .open("/public/file.txt")
