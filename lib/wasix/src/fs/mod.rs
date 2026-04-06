@@ -34,7 +34,8 @@ use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{
-    FileSystem, FsError, MountFileSystem, OpenOptions, VirtualFile, tmp_fs::TmpFileSystem,
+    ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
+    VirtualFile, tmp_fs::TmpFileSystem,
 };
 use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
@@ -431,6 +432,21 @@ impl WasiFsRoot {
     pub(crate) fn root(&self) -> &Arc<MountFileSystem> {
         &self.root
     }
+
+    pub(crate) fn stack_root_filesystem(
+        &self,
+        lower: Arc<dyn FileSystem + Send + Sync>,
+    ) -> Result<(), FsError> {
+        let current = self
+            .root
+            .filesystem_at(Path::new("/"))
+            .ok_or(FsError::EntryNotFound)?;
+        let overlay = OverlayFileSystem::new(
+            ArcFileSystem::new(current),
+            [ArcFileSystem::new(lower)],
+        );
+        self.root.set_mount(Path::new("/"), Box::new(overlay))
+    }
 }
 
 impl FileSystem for WasiFsRoot {
@@ -665,9 +681,11 @@ impl WasiFs {
             return Ok(());
         }
 
-        self.root_fs
-            .root()
-            .merge(webc_fs, virtual_fs::UnionMergeMode::Skip)
+        if let Some(root_layer) = webc_fs.filesystem_at(Path::new("/")) {
+            self.root_fs.stack_root_filesystem(root_layer)?;
+        }
+
+        self.root_fs.root().merge_without_root(webc_fs)
     }
 
     /// Created for the builder API. like `new` but with more information

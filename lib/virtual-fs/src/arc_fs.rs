@@ -30,6 +30,10 @@ impl FileSystem for ArcFileSystem {
         self.fs.create_dir(path)
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        self.fs.create_symlink(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         self.fs.remove_dir(path)
     }

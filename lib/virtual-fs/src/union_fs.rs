@@ -75,17 +75,6 @@ pub struct MountFileSystem {
     root: Arc<MountNode>,
 }
 
-/// Defines how to handle conflicts when merging two mount file systems
-#[derive(Clone, Copy, Debug)]
-pub enum UnionMergeMode {
-    /// Replace existing nodes with the new ones.
-    Replace,
-    /// Skip conflicting nodes, and keep the existing ones.
-    Skip,
-    /// Return an error if a conflict is found.
-    Fail,
-}
-
 impl MountFileSystem {
     pub fn new() -> Self {
         Self::default()
@@ -286,29 +275,21 @@ impl MountFileSystem {
         node
     }
 
-    fn merge_nodes(
-        this: &Arc<MountNode>,
-        other: &Arc<MountNode>,
-        mode: UnionMergeMode,
-    ) -> Result<()> {
+    fn merge_node_mount(this: &Arc<MountNode>, other: &Arc<MountNode>) -> Result<()> {
         if let Some(other_mount) = Self::mounted(other) {
             match this.mount.entry(()) {
-                Entry::Occupied(mut existing) => match mode {
-                    UnionMergeMode::Replace => {
-                        existing.insert(other_mount);
-                    }
-                    UnionMergeMode::Skip => {
-                        tracing::debug!(
-                            "skipping existing mount point while merging two union file systems"
-                        );
-                    }
-                    UnionMergeMode::Fail => return Err(FsError::AlreadyExists),
-                },
+                Entry::Occupied(_) => return Err(FsError::AlreadyExists),
                 Entry::Vacant(slot) => {
                     slot.insert(other_mount);
                 }
             }
         }
+
+        Ok(())
+    }
+
+    fn merge_nodes(this: &Arc<MountNode>, other: &Arc<MountNode>) -> Result<()> {
+        Self::merge_node_mount(this, other)?;
 
         for child in other.children.iter() {
             let child_name = child.key().clone();
@@ -317,7 +298,7 @@ impl MountFileSystem {
             match this.children.entry(child_name) {
                 Entry::Occupied(existing) => {
                     let existing_child = Arc::clone(existing.get());
-                    Self::merge_nodes(&existing_child, &other_child, mode)?;
+                    Self::merge_nodes(&existing_child, &other_child)?;
                 }
                 Entry::Vacant(slot) => {
                     slot.insert(Self::duplicate_node(&other_child));
@@ -328,9 +309,43 @@ impl MountFileSystem {
         Ok(())
     }
 
+    /// Overwrite the mount at `path`.
+    pub fn set_mount(
+        &self,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        let path = self.prepare_path(path);
+        let node = self.mount_node(&Self::path_components(&path));
+        node.mount.insert((), MountedFileSystem { fs: Arc::from(fs) });
+        Ok(())
+    }
+
     /// Merge another MountFileSystem into this one.
-    pub fn merge(&self, other: &MountFileSystem, mode: UnionMergeMode) -> Result<()> {
-        Self::merge_nodes(&self.root, &other.root, mode)
+    ///
+    /// Shared prefixes are merged structurally. Exact mount-point conflicts are errors.
+    pub fn merge(&self, other: &MountFileSystem) -> Result<()> {
+        Self::merge_nodes(&self.root, &other.root)
+    }
+
+    /// Merge another MountFileSystem into this one, excluding any exact mount at `/`.
+    pub fn merge_without_root(&self, other: &MountFileSystem) -> Result<()> {
+        for child in other.root.children.iter() {
+            let child_name = child.key().clone();
+            let other_child = Arc::clone(child.value());
+
+            match self.root.children.entry(child_name) {
+                Entry::Occupied(existing) => {
+                    let existing_child = Arc::clone(existing.get());
+                    Self::merge_nodes(&existing_child, &other_child)?;
+                }
+                Entry::Vacant(slot) => {
+                    slot.insert(Self::duplicate_node(&other_child));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Duplicate this MountFileSystem.
@@ -603,7 +618,7 @@ mod tests {
 
     use tokio::io::AsyncWriteExt;
 
-    use crate::{FileSystem as FileSystemTrait, FsError, MountFileSystem, UnionMergeMode, mem_fs};
+    use crate::{FileSystem as FileSystemTrait, FsError, MountFileSystem, mem_fs};
 
     use super::{FileOpener, OpenOptionsConfig};
 
@@ -897,7 +912,7 @@ mod tests {
             )
             .unwrap();
 
-        primary.merge(&injected, UnionMergeMode::Skip).unwrap();
+        primary.merge(&injected).unwrap();
 
         let root_contents = read_dir_names(&primary, "/");
         assert!(root_contents.contains(&"app".to_string()));
@@ -1054,7 +1069,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_merge_fail_allows_shared_prefix_without_exact_mount_conflict() {
+    async fn test_merge_allows_shared_prefix_without_exact_mount_conflict() {
         let primary = MountFileSystem::new();
         let bin = mem_fs::FileSystem::default();
         bin.new_open_options()
@@ -1082,10 +1097,33 @@ mod tests {
             )
             .unwrap();
 
-        primary.merge(&injected, UnionMergeMode::Fail).unwrap();
+        primary.merge(&injected).unwrap();
 
         assert!(primary.metadata(Path::new("/opt/bin/tool")).is_ok());
         assert!(primary.metadata(Path::new("/opt/assets/logo.svg")).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_merge_rejects_exact_mount_conflict() {
+        let primary = MountFileSystem::new();
+        primary
+            .mount(
+                "bin".to_string(),
+                Path::new("/opt/bin"),
+                Box::new(mem_fs::FileSystem::default()),
+            )
+            .unwrap();
+
+        let injected = MountFileSystem::new();
+        injected
+            .mount(
+                "bin2".to_string(),
+                Path::new("/opt/bin"),
+                Box::new(mem_fs::FileSystem::default()),
+            )
+            .unwrap();
+
+        assert_eq!(primary.merge(&injected), Err(FsError::AlreadyExists));
     }
 
     #[tokio::test]
