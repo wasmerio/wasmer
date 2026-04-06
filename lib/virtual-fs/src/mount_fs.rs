@@ -25,6 +25,7 @@ pub enum ExactMountConflictMode {
 #[derive(Debug, Clone)]
 struct MountedFileSystem {
     fs: DynFileSystem,
+    source_path: PathBuf,
 }
 
 #[derive(Debug, Default)]
@@ -37,6 +38,7 @@ struct MountNode {
 struct ExactNode {
     path: PathBuf,
     fs: Option<DynFileSystem>,
+    source_path: PathBuf,
     child_names: BTreeSet<OsString>,
 }
 
@@ -65,6 +67,7 @@ pub struct MountPoint {
 pub struct MountEntry {
     pub path: PathBuf,
     pub fs: DynFileSystem,
+    pub source_path: PathBuf,
 }
 
 impl MountPoint {
@@ -98,13 +101,26 @@ impl MountFileSystem {
         path: &Path,
         fs: Box<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
+        self.mount_with_source(path, Path::new("/"), fs)
+    }
+
+    pub fn mount_with_source(
+        &self,
+        path: &Path,
+        source_path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<()> {
         let path = self.prepare_path(path)?;
+        let source_path = Self::normalize_source_path(source_path);
         let node = self.mount_node(&Self::path_components(&path));
 
         match node.mount.entry(()) {
             Entry::Occupied(_) => Err(FsError::AlreadyExists),
             Entry::Vacant(slot) => {
-                slot.insert(MountedFileSystem { fs: Arc::from(fs) });
+                slot.insert(MountedFileSystem {
+                    fs: Arc::from(fs),
+                    source_path,
+                });
                 Ok(())
             }
         }
@@ -150,6 +166,12 @@ impl MountFileSystem {
         path
     }
 
+    fn normalize_source_path(path: &Path) -> PathBuf {
+        let mut normalized = PathBuf::from("/");
+        normalized.push(path.strip_prefix("/").unwrap_or(path));
+        normalized
+    }
+
     fn directory_metadata() -> Metadata {
         Metadata {
             ft: FileType::new_dir(),
@@ -187,6 +209,7 @@ impl MountFileSystem {
             entries.push(MountEntry {
                 path: path.to_path_buf(),
                 fs: mount.fs,
+                source_path: mount.source_path,
             });
         }
 
@@ -233,7 +256,10 @@ impl MountFileSystem {
 
         Some(ExactNode {
             path: visible_path.clone(),
-            fs: mounted.map(|mount| mount.fs),
+            fs: mounted.as_ref().map(|mount| mount.fs.clone()),
+            source_path: mounted
+                .map(|mount| mount.source_path)
+                .unwrap_or_else(|| PathBuf::from("/")),
             child_names: node
                 .children
                 .iter()
@@ -248,7 +274,11 @@ impl MountFileSystem {
         let mut node = Arc::clone(&self.root);
         let mut best = Self::mounted(&node).map(|mount| ResolvedMount {
             mount_path: PathBuf::from("/"),
-            delegated_path: Self::absolute_path(&components),
+            delegated_path: mount.source_path.join(
+                Self::absolute_path(&components)
+                    .strip_prefix("/")
+                    .unwrap_or(Path::new("")),
+            ),
             fs: mount.fs,
         });
 
@@ -265,7 +295,11 @@ impl MountFileSystem {
             if let Some(mount) = Self::mounted(&node) {
                 best = Some(ResolvedMount {
                     mount_path: Self::absolute_path(&components[..=index]),
-                    delegated_path: Self::absolute_path(&components[index + 1..]),
+                    delegated_path: mount.source_path.join(
+                        Self::absolute_path(&components[index + 1..])
+                            .strip_prefix("/")
+                            .unwrap_or(Path::new("")),
+                    ),
                     fs: mount.fs,
                 });
             }
@@ -290,9 +324,9 @@ impl MountFileSystem {
         let mut entries = Vec::new();
 
         if let Some(fs) = &node.fs {
-            match fs.read_dir(Path::new("/")) {
+            match fs.read_dir(&node.source_path) {
                 Ok(mut base_entries) => {
-                    Self::rebase_entries(&mut base_entries, Path::new("/"), &node.path);
+                    Self::rebase_entries(&mut base_entries, &node.source_path, &node.path);
                     entries.extend(base_entries.data.into_iter().filter(|entry| {
                         entry
                             .path
@@ -348,7 +382,13 @@ impl MountFileSystem {
     ) -> Result<()> {
         let path = self.prepare_path(path)?;
         let node = self.mount_node(&Self::path_components(&path));
-        node.mount.insert((), MountedFileSystem { fs: Arc::from(fs) });
+        node.mount.insert(
+            (),
+            MountedFileSystem {
+                fs: Arc::from(fs),
+                source_path: PathBuf::from("/"),
+            },
+        );
         Ok(())
     }
 
@@ -375,13 +415,19 @@ impl MountFileSystem {
                     ExactMountConflictMode::ReplaceExisting => {
                         let node = self.mount_node(&Self::path_components(&self.prepare_path(&entry.path)?));
                         Self::clear_descendants(&node);
-                        node.mount.insert((), MountedFileSystem { fs: entry.fs });
+                        node.mount.insert(
+                            (),
+                            MountedFileSystem {
+                                fs: entry.fs,
+                                source_path: entry.source_path,
+                            },
+                        );
                         continue;
                     }
                 }
             }
 
-            self.mount(&entry.path, Box::new(entry.fs))?;
+            self.mount_with_source(&entry.path, &entry.source_path, Box::new(entry.fs))?;
         }
 
         Ok(())
@@ -550,7 +596,7 @@ impl FileSystem for MountFileSystem {
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
-                fs.metadata(Path::new("/"))
+                fs.metadata(&node.source_path)
                     .or_else(|error| {
                         if Self::should_fallback_to_synthetic_dir(&error) {
                             Ok(Self::directory_metadata())
@@ -576,7 +622,7 @@ impl FileSystem for MountFileSystem {
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
-                fs.symlink_metadata(Path::new("/"))
+                fs.symlink_metadata(&node.source_path)
                     .or_else(|error| {
                         if Self::should_fallback_to_synthetic_dir(&error) {
                             Ok(Self::directory_metadata())
@@ -1446,6 +1492,29 @@ mod tests {
         assert_eq!(
             css_contents,
             vec![PathBuf::from("/opt/assets/css/site.css")]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_mount_with_source_path_exposes_subtree() {
+        let fs = MountFileSystem::new();
+
+        let source = mem_fs::FileSystem::default();
+        source.create_dir(Path::new("/python")).unwrap();
+        source
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/python/lib.py"))
+            .unwrap();
+
+        fs.mount_with_source(Path::new("/runtime"), Path::new("/python"), Box::new(source))
+            .unwrap();
+
+        assert!(fs.metadata(Path::new("/runtime/lib.py")).unwrap().is_file());
+        assert_eq!(
+            read_dir_names(&fs, "/runtime"),
+            vec!["lib.py".to_string()]
         );
     }
 

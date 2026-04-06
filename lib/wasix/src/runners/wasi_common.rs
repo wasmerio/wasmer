@@ -275,7 +275,11 @@ fn prepare_filesystem(
         match import_mode {
             ExactMountConflictMode::Fail => {
                 mount_fs
-                    .mount(&mount.guest_path, Box::new(mount.fs.clone()))
+                    .mount_with_source(
+                        &mount.guest_path,
+                        &mount.source_path,
+                        Box::new(mount.fs.clone()),
+                    )
                     .with_context(|| {
                         format!(
                             "Unable to merge container mount \"{}\" into the prepared filesystem",
@@ -290,7 +294,11 @@ fn prepare_filesystem(
                 }
 
                 mount_fs
-                    .mount(&mount.guest_path, Box::new(mount.fs.clone()))
+                    .mount_with_source(
+                        &mount.guest_path,
+                        &mount.source_path,
+                        Box::new(mount.fs.clone()),
+                    )
                     .with_context(|| {
                         format!(
                             "Unable to merge container mount \"{}\" into the prepared filesystem",

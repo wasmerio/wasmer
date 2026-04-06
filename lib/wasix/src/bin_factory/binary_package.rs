@@ -108,6 +108,7 @@ pub struct BinaryPackageMount {
     pub guest_path: PathBuf,
     #[debug(ignore)]
     pub fs: Arc<dyn FileSystem + Send + Sync>,
+    pub source_path: PathBuf,
 }
 
 #[derive(derive_more::Debug, Clone, Default)]
@@ -129,6 +130,7 @@ impl BinaryPackageMounts {
                 mounts.push(BinaryPackageMount {
                     guest_path: entry.path,
                     fs: entry.fs,
+                    source_path: entry.source_path,
                 });
             }
         }
@@ -144,7 +146,11 @@ impl BinaryPackageMounts {
         }
 
         for mount in &self.mounts {
-            mount_fs.mount(&mount.guest_path, Box::new(mount.fs.clone()))?;
+            mount_fs.mount_with_source(
+                &mount.guest_path,
+                &mount.source_path,
+                Box::new(mount.fs.clone()),
+            )?;
         }
 
         Ok(mount_fs)

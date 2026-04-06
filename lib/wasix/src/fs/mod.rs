@@ -674,7 +674,11 @@ impl WasiFs {
         for mount in &package_mounts.mounts {
             self.root_fs
                 .root()
-                .mount(&mount.guest_path, Box::new(mount.fs.clone()))?;
+                .mount_with_source(
+                    &mount.guest_path,
+                    &mount.source_path,
+                    Box::new(mount.fs.clone()),
+                )?;
         }
 
         Ok(())
@@ -2528,6 +2532,7 @@ mod tests {
                 mounts: vec![BinaryPackageMount {
                     guest_path: PathBuf::from("/public"),
                     fs: Arc::new(public_mount),
+                    source_path: PathBuf::from("/"),
                 }],
             })),
             commands: vec![],

@@ -491,6 +491,7 @@ fn filesystem_v3(
             mounts.push(BinaryPackageMount {
                 guest_path: mount_path.clone(),
                 fs: Arc::new(webc_vol),
+                source_path: PathBuf::from("/"),
             });
         }
     }
@@ -593,6 +594,7 @@ fn filesystem_v2(
             mounts.push(BinaryPackageMount {
                 guest_path: mount_path.clone(),
                 fs: mounted_fs,
+                source_path: PathBuf::from("/"),
             });
         }
     }
