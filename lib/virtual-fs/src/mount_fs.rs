@@ -514,10 +514,8 @@ impl FileSystem for MountFileSystem {
         }
 
         if let Some(node) = self.exact_node(&path) {
-            return if node.has_children() {
+            return if node.fs.is_some() || node.has_children() {
                 Err(FsError::PermissionDenied)
-            } else if let Some(fs) = node.fs {
-                fs.remove_dir(Path::new("/"))
             } else {
                 Err(FsError::EntryNotFound)
             };
@@ -539,7 +537,13 @@ impl FileSystem for MountFileSystem {
             }
 
             if let Some(node) = self.exact_node(&from)
-                && (node.fs.is_none() || node.has_children())
+                && (node.fs.is_some() || node.has_children())
+            {
+                return Err(FsError::PermissionDenied);
+            }
+
+            if let Some(node) = self.exact_node(&to)
+                && (node.fs.is_some() || node.has_children())
             {
                 return Err(FsError::PermissionDenied);
             }
@@ -605,10 +609,8 @@ impl FileSystem for MountFileSystem {
         }
 
         if let Some(node) = self.exact_node(&path) {
-            return if node.has_children() {
+            return if node.fs.is_some() || node.has_children() {
                 Err(FsError::PermissionDenied)
-            } else if let Some(fs) = node.fs {
-                fs.remove_file(Path::new("/"))
             } else {
                 Err(FsError::EntryNotFound)
             };
@@ -1064,6 +1066,43 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_exact_mountpoints_reject_destructive_mutation() {
+        let fs = MountFileSystem::new();
+        let mounted = mem_fs::FileSystem::default();
+        mounted.create_dir(Path::new("/dir")).unwrap();
+        mounted
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/file.txt"))
+            .unwrap();
+
+        fs.mount(
+            "mounted".to_string(),
+            Path::new("/mounted"),
+            Box::new(mounted),
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs.remove_dir(Path::new("/mounted")),
+            Err(FsError::PermissionDenied)
+        );
+        assert_eq!(
+            fs.remove_file(Path::new("/mounted")),
+            Err(FsError::PermissionDenied)
+        );
+        assert_eq!(
+            fs.rename(Path::new("/mounted"), Path::new("/other")).await,
+            Err(FsError::PermissionDenied)
+        );
+        assert_eq!(
+            fs.rename(Path::new("/mounted/file.txt"), Path::new("/mounted")).await,
+            Err(FsError::PermissionDenied)
+        );
+    }
+
+    #[tokio::test]
     async fn test_parent_read_dir_merges_leaf_entries_with_child_mounts() {
         let fs = MountFileSystem::new();
 
@@ -1373,8 +1412,8 @@ mod tests {
         );
         assert_eq!(
             fs.rename(Path::new("/foo"), Path::new("/")).await,
-            Err(FsError::EntryNotFound),
-            "renaming to a directory that has no parent",
+            Err(FsError::PermissionDenied),
+            "renaming to the synthetic root directory is rejected",
         );
 
         assert_eq!(fs.create_dir(Path::new("/test_rename")), Ok(()));
