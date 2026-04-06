@@ -685,7 +685,7 @@ impl WasiFs {
             self.root_fs.stack_root_filesystem(root_layer)?;
         }
 
-        self.root_fs.root().merge_without_root(webc_fs)
+        self.root_fs.root().import_mounts_without_root(webc_fs)
     }
 
     /// Created for the builder API. like `new` but with more information

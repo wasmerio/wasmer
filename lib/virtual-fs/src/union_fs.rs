@@ -321,15 +321,15 @@ impl MountFileSystem {
         Ok(())
     }
 
-    /// Merge another MountFileSystem into this one.
+    /// Import another MountFileSystem into this one.
     ///
-    /// Shared prefixes are merged structurally. Exact mount-point conflicts are errors.
-    pub fn merge(&self, other: &MountFileSystem) -> Result<()> {
+    /// Shared prefixes are imported structurally. Exact mount-point conflicts are errors.
+    pub fn import_mounts(&self, other: &MountFileSystem) -> Result<()> {
         Self::merge_nodes(&self.root, &other.root)
     }
 
-    /// Merge another MountFileSystem into this one, excluding any exact mount at `/`.
-    pub fn merge_without_root(&self, other: &MountFileSystem) -> Result<()> {
+    /// Import another MountFileSystem into this one, excluding any exact mount at `/`.
+    pub fn import_mounts_without_root(&self, other: &MountFileSystem) -> Result<()> {
         for child in other.root.children.iter() {
             let child_name = child.key().clone();
             let other_child = Arc::clone(child.value());
@@ -867,7 +867,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_merge_preserves_nested_root_mounts_with_skip() {
+    async fn test_import_mounts_preserves_nested_root_mounts() {
         let primary = MountFileSystem::new();
         let openssl = mem_fs::FileSystem::default();
         openssl.create_dir(Path::new("/certs")).unwrap();
@@ -912,7 +912,7 @@ mod tests {
             )
             .unwrap();
 
-        primary.merge(&injected).unwrap();
+        primary.import_mounts(&injected).unwrap();
 
         let root_contents = read_dir_names(&primary, "/");
         assert!(root_contents.contains(&"app".to_string()));
@@ -1069,7 +1069,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_merge_allows_shared_prefix_without_exact_mount_conflict() {
+    async fn test_import_mounts_allows_shared_prefix_without_exact_mount_conflict() {
         let primary = MountFileSystem::new();
         let bin = mem_fs::FileSystem::default();
         bin.new_open_options()
@@ -1097,14 +1097,14 @@ mod tests {
             )
             .unwrap();
 
-        primary.merge(&injected).unwrap();
+        primary.import_mounts(&injected).unwrap();
 
         assert!(primary.metadata(Path::new("/opt/bin/tool")).is_ok());
         assert!(primary.metadata(Path::new("/opt/assets/logo.svg")).is_ok());
     }
 
     #[tokio::test]
-    async fn test_merge_rejects_exact_mount_conflict() {
+    async fn test_import_mounts_rejects_exact_mount_conflict() {
         let primary = MountFileSystem::new();
         primary
             .mount(
@@ -1123,7 +1123,10 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(primary.merge(&injected), Err(FsError::AlreadyExists));
+        assert_eq!(
+            primary.import_mounts(&injected),
+            Err(FsError::AlreadyExists)
+        );
     }
 
     #[tokio::test]

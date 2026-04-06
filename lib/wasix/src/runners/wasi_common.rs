@@ -211,7 +211,7 @@ fn prepare_filesystem(
     };
 
     mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
-    mount_fs.merge_without_root(&container)?;
+    mount_fs.import_mounts_without_root(&container)?;
 
     Ok(WasiFsRoot::from_mount_fs(mount_fs))
 }
