@@ -437,15 +437,6 @@ impl WasiFsRoot {
             writable,
         }
     }
-
-    pub(crate) fn writable_root(&self) -> Option<&TmpFileSystem> {
-        match self {
-            Self::Sandbox(fs) => Some(fs),
-            Self::Mount { writable, .. } => Some(writable),
-            Self::Overlay(overlay) => Some(overlay.primary()),
-            Self::Backing(_) => None,
-        }
-    }
 }
 
 impl FileSystem for WasiFsRoot {
