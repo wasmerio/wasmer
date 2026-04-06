@@ -9,16 +9,14 @@ use anyhow::{Context, Error};
 use futures::{StreamExt, TryStreamExt, future::BoxFuture};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
-use virtual_fs::{
-    FileSystem, MountFileSystem, OverlayFileSystem, TmpFileSystem, WebcVolumeFileSystem,
-};
+use virtual_fs::{FileSystem, OverlayFileSystem, TmpFileSystem, WebcVolumeFileSystem};
 use wasmer_config::package::PackageId;
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
 use webc::{Container, Volume};
 
 use crate::{
-    bin_factory::{BinaryPackage, BinaryPackageCommand, BinaryPackageMounts},
+    bin_factory::{BinaryPackage, BinaryPackageCommand, BinaryPackageMount, BinaryPackageMounts},
     runtime::{
         package_loader::PackageLoader,
         resolver::{
@@ -70,7 +68,7 @@ pub async fn load_package_tree(
     let commands = commands(&resolution.package.commands, &containers, resolution)?;
 
     let file_system_memory_footprint = if let Some(fs) = &fs_opt {
-        count_file_system(fs, Path::new("/"))
+        count_package_mounts(fs)
     } else {
         0
     };
@@ -86,7 +84,7 @@ pub async fn load_package_tree(
         .map(|ts| ts as u128),
         hash: OnceCell::new(),
         entrypoint_cmd: resolution.package.entrypoint.clone(),
-        package_mounts: fs_opt.map(BinaryPackageMounts::from_mount_fs).map(Arc::new),
+        package_mounts: fs_opt.map(Arc::new),
         commands,
         uses: Vec::new(),
         file_system_memory_footprint,
@@ -368,6 +366,20 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     total
 }
 
+fn count_package_mounts(mounts: &BinaryPackageMounts) -> u64 {
+    let mut total = 0;
+
+    if let Some(root_layer) = &mounts.root_layer {
+        total += count_file_system(root_layer.as_ref(), Path::new("/"));
+    }
+
+    for mount in &mounts.mounts {
+        total += count_file_system(mount.fs.as_ref(), Path::new("/"));
+    }
+
+    total
+}
+
 /// Given a set of [`ResolvedFileSystemMapping`]s and the [`Container`] for each
 /// package in a dependency tree, construct the resulting filesystem.
 ///
@@ -376,7 +388,7 @@ fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<Option<MountFileSystem>, Error> {
+) -> Result<Option<BinaryPackageMounts>, Error> {
     if pkg.filesystem.is_empty() {
         return Ok(None);
     }
@@ -431,10 +443,10 @@ fn filesystem_v3(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<MountFileSystem, Error> {
+) -> Result<BinaryPackageMounts, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
-
-    let mount_fs = MountFileSystem::new();
+    let mut root_layer = None;
+    let mut mounts = Vec::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -473,10 +485,17 @@ fn filesystem_v3(
         })?;
 
         let webc_vol = writable_package_mount(WebcVolumeFileSystem::new(volume.clone()));
-        mount_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))?;
+        if mount_path.as_path() == Path::new("/") {
+            root_layer = Some(Arc::new(webc_vol) as Arc<dyn FileSystem + Send + Sync>);
+        } else {
+            mounts.push(BinaryPackageMount {
+                guest_path: mount_path.clone(),
+                fs: Arc::new(webc_vol),
+            });
+        }
     }
 
-    Ok(mount_fs)
+    Ok(BinaryPackageMounts { root_layer, mounts })
 }
 
 /// Build the filesystem for webc v2 packages.
@@ -506,10 +525,10 @@ fn filesystem_v2(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<MountFileSystem, Error> {
+) -> Result<BinaryPackageMounts, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
-
-    let mount_fs = MountFileSystem::new();
+    let mut root_layer = None;
+    let mut mounts = Vec::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -567,14 +586,18 @@ fn filesystem_v2(
             )
         };
 
-        mount_fs.mount(
-            volume_name.clone(),
-            mount_path,
-            Box::new(writable_package_mount(fs)),
-        )?;
+        let mounted_fs = Arc::new(writable_package_mount(fs)) as Arc<dyn FileSystem + Send + Sync>;
+        if mount_path.as_path() == Path::new("/") {
+            root_layer = Some(mounted_fs);
+        } else {
+            mounts.push(BinaryPackageMount {
+                guest_path: mount_path.clone(),
+                fs: mounted_fs,
+            });
+        }
     }
 
-    Ok(mount_fs)
+    Ok(BinaryPackageMounts { root_layer, mounts })
 }
 
 fn strip_root_prefix(path: &Path) -> PathBuf {
@@ -778,7 +801,8 @@ mod tests {
             }],
         };
 
-        let mount_fs = filesystem_v2(&packages, &pkg, false).unwrap();
+        let mounts = filesystem_v2(&packages, &pkg, false).unwrap();
+        let mount_fs = mounts.to_mount_fs().unwrap();
         assert!(mount_fs.metadata(Path::new("/public")).unwrap().is_dir());
         assert!(
             mount_fs
