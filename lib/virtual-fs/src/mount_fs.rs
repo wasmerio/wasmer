@@ -160,6 +160,13 @@ impl MountFileSystem {
         }
     }
 
+    fn synthetic_entry(name: OsString, base: &Path) -> DirEntry {
+        DirEntry {
+            path: base.join(PathBuf::from(name)),
+            metadata: Ok(Self::directory_metadata()),
+        }
+    }
+
     fn mounted(node: &Arc<MountNode>) -> Option<MountedFileSystem> {
         node.mount.get(&()).map(|mount| mount.clone())
     }
@@ -178,6 +185,20 @@ impl MountFileSystem {
         }
 
         duplicated
+    }
+
+    fn overwrite_node(this: &Arc<MountNode>, other: &Arc<MountNode>) {
+        this.mount.clear();
+        this.children.clear();
+
+        if let Some(mount) = Self::mounted(other) {
+            this.mount.insert((), mount);
+        }
+
+        for child in other.children.iter() {
+            this.children
+                .insert(child.key().clone(), Self::duplicate_node(child.value()));
+        }
     }
 
     fn find_node(&self, path: &Path) -> Option<Arc<MountNode>> {
@@ -260,21 +281,28 @@ impl MountFileSystem {
         let mut entries = Vec::new();
 
         if let Some(fs) = &node.fs {
-            let mut base_entries = fs.read_dir(Path::new("/"))?;
-            Self::rebase_entries(&mut base_entries, Path::new("/"), &node.path);
-            entries.extend(base_entries.data.into_iter().filter(|entry| {
-                entry
-                    .path
-                    .file_name()
-                    .map(|name| !node.child_names.contains(name))
-                    .unwrap_or(true)
-            }));
+            match fs.read_dir(Path::new("/")) {
+                Ok(mut base_entries) => {
+                    Self::rebase_entries(&mut base_entries, Path::new("/"), &node.path);
+                    entries.extend(base_entries.data.into_iter().filter(|entry| {
+                        entry
+                            .path
+                            .file_name()
+                            .map(|name| !node.child_names.contains(name))
+                            .unwrap_or(true)
+                    }));
+                }
+                Err(_) if node.has_children() => {}
+                Err(error) => return Err(error),
+            }
         }
 
-        entries.extend(node.child_names.iter().cloned().map(|name| DirEntry {
-            path: node.path.join(PathBuf::from(name)),
-            metadata: Ok(Self::directory_metadata()),
-        }));
+        entries.extend(
+            node.child_names
+                .iter()
+                .cloned()
+                .map(|name| Self::synthetic_entry(name, &node.path)),
+        );
 
         Ok(ReadDir::new(entries))
     }
@@ -301,14 +329,15 @@ impl MountFileSystem {
         this: &Arc<MountNode>,
         other: &Arc<MountNode>,
         conflict_mode: ExactMountConflictMode,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         if let Some(other_mount) = Self::mounted(other) {
             match this.mount.entry(()) {
-                Entry::Occupied(mut existing) => match conflict_mode {
+                Entry::Occupied(_) => match conflict_mode {
                     ExactMountConflictMode::Fail => return Err(FsError::AlreadyExists),
-                    ExactMountConflictMode::KeepExisting => {}
+                    ExactMountConflictMode::KeepExisting => return Ok(true),
                     ExactMountConflictMode::ReplaceExisting => {
-                        existing.insert(other_mount);
+                        Self::overwrite_node(this, other);
+                        return Ok(true);
                     }
                 },
                 Entry::Vacant(slot) => {
@@ -317,7 +346,7 @@ impl MountFileSystem {
             }
         }
 
-        Ok(())
+        Ok(false)
     }
 
     fn merge_nodes(
@@ -325,7 +354,9 @@ impl MountFileSystem {
         other: &Arc<MountNode>,
         conflict_mode: ExactMountConflictMode,
     ) -> Result<()> {
-        Self::merge_node_mount(this, other, conflict_mode)?;
+        if Self::merge_node_mount(this, other, conflict_mode)? {
+            return Ok(());
+        }
 
         for child in other.children.iter() {
             let child_name = child.key().clone();
@@ -569,6 +600,7 @@ impl FileSystem for MountFileSystem {
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
                 fs.metadata(Path::new("/"))
+                    .or_else(|_| Ok(Self::directory_metadata()))
             } else if node.has_children() {
                 Ok(Self::directory_metadata())
             } else {
@@ -588,6 +620,7 @@ impl FileSystem for MountFileSystem {
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
                 fs.symlink_metadata(Path::new("/"))
+                    .or_else(|_| Ok(Self::directory_metadata()))
             } else if node.has_children() {
                 Ok(Self::directory_metadata())
             } else {
@@ -681,6 +714,11 @@ mod tests {
         inner: mem_fs::FileSystem,
     }
 
+    #[derive(Debug, Clone, Default)]
+    struct RootOpaqueFileSystem {
+        inner: mem_fs::FileSystem,
+    }
+
     impl FileSystemTrait for MountlessFileSystem {
         fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
             self.inner.readlink(path)
@@ -724,6 +762,73 @@ mod tests {
     }
 
     impl FileOpener for MountlessFileSystem {
+        fn open(
+            &self,
+            path: &Path,
+            conf: &OpenOptionsConfig,
+        ) -> crate::Result<Box<dyn crate::VirtualFile + Send + Sync>> {
+            self.inner
+                .new_open_options()
+                .options(conf.clone())
+                .open(path)
+        }
+    }
+
+    impl FileSystemTrait for RootOpaqueFileSystem {
+        fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+            self.inner.readlink(path)
+        }
+
+        fn read_dir(&self, path: &Path) -> crate::Result<crate::ReadDir> {
+            if path == Path::new("/") {
+                Err(FsError::Unsupported)
+            } else {
+                self.inner.read_dir(path)
+            }
+        }
+
+        fn create_dir(&self, path: &Path) -> crate::Result<()> {
+            self.inner.create_dir(path)
+        }
+
+        fn remove_dir(&self, path: &Path) -> crate::Result<()> {
+            self.inner.remove_dir(path)
+        }
+
+        fn rename<'a>(
+            &'a self,
+            from: &'a Path,
+            to: &'a Path,
+        ) -> futures::future::BoxFuture<'a, crate::Result<()>> {
+            Box::pin(async move { self.inner.rename(from, to).await })
+        }
+
+        fn metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
+            if path == Path::new("/") {
+                Err(FsError::Unsupported)
+            } else {
+                self.inner.metadata(path)
+            }
+        }
+
+        fn symlink_metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
+            if path == Path::new("/") {
+                Err(FsError::Unsupported)
+            } else {
+                self.inner.symlink_metadata(path)
+            }
+        }
+
+        fn remove_file(&self, path: &Path) -> crate::Result<()> {
+            self.inner.remove_file(path)
+        }
+
+        fn new_open_options(&self) -> crate::OpenOptions<'_> {
+            self.inner.new_open_options()
+        }
+    }
+
+    impl FileOpener for RootOpaqueFileSystem {
         fn open(
             &self,
             path: &Path,
@@ -1063,6 +1168,99 @@ mod tests {
         .unwrap();
 
         assert_eq!(fs.metadata(Path::new("../foo")), Err(FsError::InvalidInput));
+    }
+
+    #[tokio::test]
+    async fn test_exact_mount_metadata_falls_back_to_synthetic_directory() {
+        let fs = MountFileSystem::new();
+        fs.mount(
+            "opaque".to_string(),
+            Path::new("/opaque"),
+            Box::new(RootOpaqueFileSystem::default()),
+        )
+        .unwrap();
+
+        assert!(fs.metadata(Path::new("/opaque")).unwrap().is_dir());
+        assert!(fs.symlink_metadata(Path::new("/opaque")).unwrap().is_dir());
+    }
+
+    #[tokio::test]
+    async fn test_exact_mount_read_dir_falls_back_to_child_mounts_when_root_is_unlistable() {
+        let fs = MountFileSystem::new();
+        fs.mount(
+            "opaque".to_string(),
+            Path::new("/opaque"),
+            Box::new(RootOpaqueFileSystem::default()),
+        )
+        .unwrap();
+        fs.mount(
+            "child".to_string(),
+            Path::new("/opaque/assets"),
+            Box::new(mem_fs::FileSystem::default()),
+        )
+        .unwrap();
+
+        assert_eq!(read_dir_names(&fs, "/opaque"), vec!["assets".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_keep_existing_conflict_skips_the_other_subtree() {
+        let primary = MountFileSystem::new();
+        let user_mount = mem_fs::FileSystem::default();
+        user_mount
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/user.txt"))
+            .unwrap();
+        primary
+            .mount("python".to_string(), Path::new("/python"), Box::new(user_mount))
+            .unwrap();
+
+        let injected = MountFileSystem::new();
+        let package_mount = mem_fs::FileSystem::default();
+        package_mount
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/pkg.txt"))
+            .unwrap();
+        injected
+            .mount(
+                "python".to_string(),
+                Path::new("/python"),
+                Box::new(package_mount),
+            )
+            .unwrap();
+
+        let package_child = mem_fs::FileSystem::default();
+        package_child
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/child.txt"))
+            .unwrap();
+        injected
+            .mount(
+                "python-lib".to_string(),
+                Path::new("/python/lib"),
+                Box::new(package_child),
+            )
+            .unwrap();
+
+        primary
+            .import_mounts_with_mode(&injected, super::ExactMountConflictMode::KeepExisting)
+            .unwrap();
+
+        assert!(primary.metadata(Path::new("/python/user.txt")).unwrap().is_file());
+        assert_eq!(
+            primary.metadata(Path::new("/python/pkg.txt")),
+            Err(FsError::EntryNotFound)
+        );
+        assert_eq!(
+            primary.metadata(Path::new("/python/lib/child.txt")),
+            Err(FsError::EntryNotFound)
+        );
     }
 
     #[tokio::test]
