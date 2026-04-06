@@ -399,13 +399,13 @@ pub struct WasiFsRoot {
 }
 
 impl WasiFsRoot {
-    pub(crate) fn from_mount_fs(root: MountFileSystem) -> Self {
+    pub fn from_mount_fs(root: MountFileSystem) -> Self {
         Self {
             root: Arc::new(root),
         }
     }
 
-    pub(crate) fn from_filesystem(fs: Arc<dyn FileSystem + Send + Sync>) -> Self {
+    pub fn from_filesystem(fs: Arc<dyn FileSystem + Send + Sync>) -> Self {
         let root = MountFileSystem::new();
         root.mount(Path::new("/"), Box::new(fs))
             .expect("mounting the root fs on an empty mount fs should succeed");
