@@ -1091,11 +1091,11 @@ impl WasiEnv {
     /// The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
     /// `/bin/command`.
     ///
-    /// This will also merge the command's filesystem
-    /// ([`BinaryPackage::webc_fs`][pkg-fs]) into the current filesystem.
+    /// This will also merge the package's mount manifest
+    /// ([`BinaryPackage::package_mounts`][pkg-fs]) into the current filesystem.
     ///
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
-    /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
+    /// [pkg-fs]: crate::bin_factory::BinaryPackage::package_mounts
     pub async fn use_package_async(
         &self,
         pkg: &BinaryPackage,
@@ -1103,12 +1103,12 @@ impl WasiEnv {
         tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
-        // We first need to merge the filesystem in the package into the
-        // main file system, if it has not been merged already.
+        // We first need to merge the package mounts into the main
+        // filesystem, if they have not been merged already.
         if let Err(e) = self.state.fs.conditional_union(pkg).await {
             tracing::warn!(
                 error = &e as &dyn std::error::Error,
-                "Unable to merge the package's filesystem into the main one",
+                "Unable to merge the package mounts into the main filesystem",
             );
         }
 

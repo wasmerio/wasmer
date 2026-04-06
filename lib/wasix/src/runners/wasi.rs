@@ -313,7 +313,7 @@ impl WasiRunner {
                 builder.set_module_hash(pkg.hash());
                 builder.include_packages(pkg.package_ids.clone());
 
-                pkg.webc_fs.as_deref().map(|fs| fs.duplicate())
+                pkg.mount_file_system().map_err(Error::from)?
             }
             PackageOrHash::Hash(hash) => {
                 builder.set_module_hash(hash);

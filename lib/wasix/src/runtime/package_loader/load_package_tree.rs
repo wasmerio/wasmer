@@ -18,7 +18,7 @@ use webc::metadata::annotations::Atom as AtomAnnotation;
 use webc::{Container, Volume};
 
 use crate::{
-    bin_factory::{BinaryPackage, BinaryPackageCommand},
+    bin_factory::{BinaryPackage, BinaryPackageCommand, BinaryPackageMounts},
     runtime::{
         package_loader::PackageLoader,
         resolver::{
@@ -86,7 +86,7 @@ pub async fn load_package_tree(
         .map(|ts| ts as u128),
         hash: OnceCell::new(),
         entrypoint_cmd: resolution.package.entrypoint.clone(),
-        webc_fs: fs_opt.map(Arc::new),
+        package_mounts: fs_opt.map(BinaryPackageMounts::from_mount_fs).map(Arc::new),
         commands,
         uses: Vec::new(),
         file_system_memory_footprint,

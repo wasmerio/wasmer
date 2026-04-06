@@ -71,7 +71,7 @@ impl WcgiRunner {
             None => default_dialect,
         };
 
-        let container_fs = pkg.webc_fs.clone();
+        let container_fs = pkg.mount_file_system().context("Unable to reconstruct package mounts")?;
 
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);

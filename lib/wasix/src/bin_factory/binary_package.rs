@@ -1,9 +1,9 @@
-use std::{path::Path, sync::Arc};
+use std::{path::{Path, PathBuf}, sync::Arc};
 
 use anyhow::Context;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
-use virtual_fs::MountFileSystem;
+use virtual_fs::{FileSystem, MountFileSystem};
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use wasmer_package::package::Package;
 use webc::Container;
@@ -103,6 +103,62 @@ impl BinaryPackageCommand {
 }
 
 /// A WebAssembly package that has been loaded into memory.
+#[derive(derive_more::Debug, Clone)]
+pub struct BinaryPackageMount {
+    pub guest_path: PathBuf,
+    #[debug(ignore)]
+    pub fs: Arc<dyn FileSystem + Send + Sync>,
+}
+
+#[derive(derive_more::Debug, Clone, Default)]
+pub struct BinaryPackageMounts {
+    #[debug(ignore)]
+    pub root_layer: Option<Arc<dyn FileSystem + Send + Sync>>,
+    pub mounts: Vec<BinaryPackageMount>,
+}
+
+impl BinaryPackageMounts {
+    pub fn from_mount_fs(fs: MountFileSystem) -> Self {
+        let mut root_layer = None;
+        let mut mounts = Vec::new();
+
+        for entry in fs.mount_entries() {
+            if entry.path == Path::new("/") {
+                root_layer = Some(entry.fs);
+            } else {
+                mounts.push(BinaryPackageMount {
+                    guest_path: entry.path,
+                    fs: entry.fs,
+                });
+            }
+        }
+
+        Self { root_layer, mounts }
+    }
+
+    pub fn to_mount_fs(&self) -> Result<MountFileSystem, virtual_fs::FsError> {
+        let mount_fs = MountFileSystem::new();
+
+        if let Some(root_layer) = &self.root_layer {
+            mount_fs.mount(
+                "root".to_string(),
+                Path::new("/"),
+                Box::new(root_layer.clone()),
+            )?;
+        }
+
+        for mount in &self.mounts {
+            mount_fs.mount(
+                mount.guest_path.display().to_string(),
+                &mount.guest_path,
+                Box::new(mount.fs.clone()),
+            )?;
+        }
+
+        Ok(mount_fs)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BinaryPackage {
     pub id: PackageId,
@@ -114,10 +170,7 @@ pub struct BinaryPackage {
     /// entrypoint.
     pub entrypoint_cmd: Option<String>,
     pub hash: OnceCell<ModuleHash>,
-    // TODO: using a MountFileSystem here directly is suboptimal, since cloning
-    // it is expensive. Should instead store an immutable map that can easily
-    // be converted into a dashmap.
-    pub webc_fs: Option<Arc<MountFileSystem>>,
+    pub package_mounts: Option<Arc<BinaryPackageMounts>>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub file_system_memory_footprint: u64,
@@ -290,6 +343,13 @@ impl BinaryPackage {
             }
         }
     }
+
+    pub fn mount_file_system(&self) -> Result<Option<MountFileSystem>, virtual_fs::FsError> {
+        self.package_mounts
+            .as_ref()
+            .map(|mounts| mounts.to_mount_fs())
+            .transpose()
+    }
 }
 
 #[cfg(test)]
@@ -357,8 +417,8 @@ mod tests {
         // We should have mapped "./out/file.txt" on the host to
         // "/public/file.txt" on the guest.
         let mut f = pkg
-            .webc_fs
-            .as_ref()
+            .mount_file_system()
+            .expect("mount fs reconstruction failed")
             .expect("no webc fs")
             .new_open_options()
             .read(true)

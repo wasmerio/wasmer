@@ -658,7 +658,7 @@ impl WasiFs {
         &self,
         binary: &BinaryPackage,
     ) -> Result<(), virtual_fs::FsError> {
-        let Some(webc_fs) = &binary.webc_fs else {
+        let Some(package_mounts) = &binary.package_mounts else {
             return Ok(());
         };
 
@@ -667,11 +667,19 @@ impl WasiFs {
             return Ok(());
         }
 
-        if let Some(root_layer) = webc_fs.filesystem_at(Path::new("/")) {
-            self.root_fs.stack_root_filesystem(root_layer)?;
+        if let Some(root_layer) = &package_mounts.root_layer {
+            self.root_fs.stack_root_filesystem(root_layer.clone())?;
         }
 
-        self.root_fs.root().import_mounts_without_root(webc_fs)
+        for mount in &package_mounts.mounts {
+            self.root_fs.root().mount(
+                mount.guest_path.display().to_string(),
+                &mount.guest_path,
+                Box::new(mount.fs.clone()),
+            )?;
+        }
+
+        Ok(())
     }
 
     /// Created for the builder API. like `new` but with more information

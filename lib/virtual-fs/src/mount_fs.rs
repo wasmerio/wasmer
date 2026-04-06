@@ -61,6 +61,12 @@ pub struct MountPoint {
     pub children: Option<Arc<MountFileSystem>>,
 }
 
+#[derive(Debug, Clone)]
+pub struct MountEntry {
+    pub path: PathBuf,
+    pub fs: DynFileSystem,
+}
+
 impl MountPoint {
     pub fn fs(&self) -> Option<&(dyn FileSystem + Send + Sync)> {
         self.fs.as_deref()
@@ -192,6 +198,38 @@ impl MountFileSystem {
         }
 
         duplicated
+    }
+
+    fn collect_mount_entries(
+        node: &Arc<MountNode>,
+        path: &Path,
+        entries: &mut Vec<MountEntry>,
+    ) {
+        if let Some(mount) = Self::mounted(node) {
+            entries.push(MountEntry {
+                path: path.to_path_buf(),
+                fs: mount.fs,
+            });
+        }
+
+        let mut child_names = node
+            .children
+            .iter()
+            .map(|child| child.key().clone())
+            .collect::<Vec<_>>();
+        child_names.sort();
+
+        for child_name in child_names {
+            let Some(child) = node
+                .children
+                .get(&child_name)
+                .map(|entry| Arc::clone(entry.value()))
+            else {
+                continue;
+            };
+            let child_path = path.join(&child_name);
+            Self::collect_mount_entries(&child, &child_path, entries);
+        }
     }
 
     fn overwrite_node(this: &Arc<MountNode>, other: &Arc<MountNode>) {
@@ -447,6 +485,12 @@ impl MountFileSystem {
     /// underlying tree.
     pub fn duplicate(&self) -> Self {
         Self::from_root(Self::duplicate_node(&self.root))
+    }
+
+    pub fn mount_entries(&self) -> Vec<MountEntry> {
+        let mut entries = Vec::new();
+        Self::collect_mount_entries(&self.root, Path::new("/"), &mut entries);
+        entries
     }
 }
 
