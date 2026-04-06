@@ -407,7 +407,7 @@ impl WasiFsRoot {
 
     pub(crate) fn from_filesystem(fs: Arc<dyn FileSystem + Send + Sync>) -> Self {
         let root = MountFileSystem::new();
-        root.mount("root".to_string(), Path::new("/"), Box::new(fs))
+        root.mount(Path::new("/"), Box::new(fs))
             .expect("mounting the root fs on an empty mount fs should succeed");
 
         Self {
@@ -672,11 +672,9 @@ impl WasiFs {
         }
 
         for mount in &package_mounts.mounts {
-            self.root_fs.root().mount(
-                mount.guest_path.display().to_string(),
-                &mount.guest_path,
-                Box::new(mount.fs.clone()),
-            )?;
+            self.root_fs
+                .root()
+                .mount(&mount.guest_path, Box::new(mount.fs.clone()))?;
         }
 
         Ok(())

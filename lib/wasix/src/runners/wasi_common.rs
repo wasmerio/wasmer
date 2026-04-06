@@ -220,7 +220,7 @@ fn prepare_filesystem(
         } else {
             match conflict_behavior {
                 ExistingMountConflictBehavior::Fail => mount_fs
-                    .mount(guest.clone(), &guest_path, Box::new(fs.clone()))
+                    .mount(&guest_path, Box::new(fs.clone()))
                     .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?,
                 ExistingMountConflictBehavior::Override => mount_fs
                     .set_mount(&guest_path, Box::new(fs.clone()))
@@ -238,7 +238,7 @@ fn prepare_filesystem(
                 root_layers,
             ))
         };
-        mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
+        mount_fs.mount(Path::new("/"), root_mount)?;
 
         return Ok(WasiFsRoot::from_mount_fs(mount_fs));
     };
@@ -256,7 +256,7 @@ fn prepare_filesystem(
         ))
     };
 
-    mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
+    mount_fs.mount(Path::new("/"), root_mount)?;
     let import_mode = match conflict_behavior {
         ExistingMountConflictBehavior::Fail => ExactMountConflictMode::Fail,
         ExistingMountConflictBehavior::Override => ExactMountConflictMode::KeepExisting,
@@ -273,11 +273,7 @@ fn prepare_filesystem(
         match import_mode {
             ExactMountConflictMode::Fail => {
                 mount_fs
-                    .mount(
-                        mount.guest_path.display().to_string(),
-                        &mount.guest_path,
-                        Box::new(mount.fs.clone()),
-                    )
+                    .mount(&mount.guest_path, Box::new(mount.fs.clone()))
                     .with_context(|| {
                         format!(
                             "Unable to merge container mount \"{}\" into the prepared filesystem",
@@ -292,11 +288,7 @@ fn prepare_filesystem(
                 }
 
                 mount_fs
-                    .mount(
-                        mount.guest_path.display().to_string(),
-                        &mount.guest_path,
-                        Box::new(mount.fs.clone()),
-                    )
+                    .mount(&mount.guest_path, Box::new(mount.fs.clone()))
                     .with_context(|| {
                         format!(
                             "Unable to merge container mount \"{}\" into the prepared filesystem",
@@ -475,7 +467,7 @@ mod tests {
         let webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
         let mount_fs = MountFileSystem::new();
         mount_fs
-            .mount("webc".to_string(), Path::new("/"), Box::new(webc_fs))
+            .mount(Path::new("/"), Box::new(webc_fs))
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
@@ -512,11 +504,7 @@ mod tests {
 
         let mount_fs = MountFileSystem::new();
         mount_fs
-            .mount(
-                "python".to_string(),
-                Path::new("/python"),
-                Box::new(pkg_mount),
-            )
+            .mount(Path::new("/python"), Box::new(pkg_mount))
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
@@ -557,11 +545,7 @@ mod tests {
 
         let mount_fs = MountFileSystem::new();
         mount_fs
-            .mount(
-                "python".to_string(),
-                Path::new("/python"),
-                Box::new(pkg_mount),
-            )
+            .mount(Path::new("/python"), Box::new(pkg_mount))
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
@@ -618,11 +602,7 @@ mod tests {
 
         let container_mounts = MountFileSystem::new();
         container_mounts
-            .mount(
-                "python".to_string(),
-                Path::new("/python"),
-                Box::new(package_mount),
-            )
+            .mount(Path::new("/python"), Box::new(package_mount))
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
@@ -657,11 +637,7 @@ mod tests {
 
         let container_mounts = MountFileSystem::new();
         container_mounts
-            .mount(
-                "python".to_string(),
-                Path::new("/python"),
-                Box::new(package_mount),
-            )
+            .mount(Path::new("/python"), Box::new(package_mount))
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
@@ -707,7 +683,7 @@ mod tests {
             .open(Path::new("/pkg.txt"))
             .unwrap();
         container_mounts
-            .mount("root".to_string(), Path::new("/"), Box::new(container_root))
+            .mount(Path::new("/"), Box::new(container_root))
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();

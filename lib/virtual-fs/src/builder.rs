@@ -81,7 +81,7 @@ impl RootFileSystemBuilder {
     pub fn build_ext(self, mapped_dirs: &[&str]) -> MountFileSystem {
         let tmp = self.build_tmp_ext(mapped_dirs);
         let root = MountFileSystem::new();
-        root.mount("root".to_string(), Path::new("/"), Box::new(tmp))
+        root.mount(Path::new("/"), Box::new(tmp))
             .expect("mounting the root fs on an empty mount fs should succeed");
         root
     }

@@ -140,19 +140,11 @@ impl BinaryPackageMounts {
         let mount_fs = MountFileSystem::new();
 
         if let Some(root_layer) = &self.root_layer {
-            mount_fs.mount(
-                "root".to_string(),
-                Path::new("/"),
-                Box::new(root_layer.clone()),
-            )?;
+            mount_fs.mount(Path::new("/"), Box::new(root_layer.clone()))?;
         }
 
         for mount in &self.mounts {
-            mount_fs.mount(
-                mount.guest_path.display().to_string(),
-                &mount.guest_path,
-                Box::new(mount.fs.clone()),
-            )?;
+            mount_fs.mount(&mount.guest_path, Box::new(mount.fs.clone()))?;
         }
 
         Ok(mount_fs)

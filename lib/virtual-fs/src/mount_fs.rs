@@ -95,7 +95,6 @@ impl MountFileSystem {
 
     pub fn mount(
         &self,
-        _name: String,
         path: &Path,
         fs: Box<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
@@ -972,60 +971,28 @@ mod tests {
         let h = mem_fs::FileSystem::default();
 
         union
-            .mount(
-                "mem_fs_1".to_string(),
-                PathBuf::from("/test_new_filesystem").as_path(),
-                Box::new(a),
-            )
+            .mount(PathBuf::from("/test_new_filesystem").as_path(), Box::new(a))
             .unwrap();
         union
-            .mount(
-                "mem_fs_2".to_string(),
-                PathBuf::from("/test_create_dir").as_path(),
-                Box::new(b),
-            )
+            .mount(PathBuf::from("/test_create_dir").as_path(), Box::new(b))
             .unwrap();
         union
-            .mount(
-                "mem_fs_3".to_string(),
-                PathBuf::from("/test_remove_dir").as_path(),
-                Box::new(c),
-            )
+            .mount(PathBuf::from("/test_remove_dir").as_path(), Box::new(c))
             .unwrap();
         union
-            .mount(
-                "mem_fs_4".to_string(),
-                PathBuf::from("/test_rename").as_path(),
-                Box::new(d),
-            )
+            .mount(PathBuf::from("/test_rename").as_path(), Box::new(d))
             .unwrap();
         union
-            .mount(
-                "mem_fs_5".to_string(),
-                PathBuf::from("/test_metadata").as_path(),
-                Box::new(e),
-            )
+            .mount(PathBuf::from("/test_metadata").as_path(), Box::new(e))
             .unwrap();
         union
-            .mount(
-                "mem_fs_6".to_string(),
-                PathBuf::from("/test_remove_file").as_path(),
-                Box::new(f),
-            )
+            .mount(PathBuf::from("/test_remove_file").as_path(), Box::new(f))
             .unwrap();
         union
-            .mount(
-                "mem_fs_6".to_string(),
-                PathBuf::from("/test_readdir").as_path(),
-                Box::new(g),
-            )
+            .mount(PathBuf::from("/test_readdir").as_path(), Box::new(g))
             .unwrap();
         union
-            .mount(
-                "mem_fs_6".to_string(),
-                PathBuf::from("/test_canonicalize").as_path(),
-                Box::new(h),
-            )
+            .mount(PathBuf::from("/test_canonicalize").as_path(), Box::new(h))
             .unwrap();
 
         union
@@ -1061,18 +1028,10 @@ mod tests {
         .unwrap();
 
         union
-            .mount(
-                "mem_fs_1".to_string(),
-                PathBuf::from("/app/a").as_path(),
-                Box::new(a),
-            )
+            .mount(PathBuf::from("/app/a").as_path(), Box::new(a))
             .unwrap();
         union
-            .mount(
-                "mem_fs_2".to_string(),
-                PathBuf::from("/app/b").as_path(),
-                Box::new(b),
-            )
+            .mount(PathBuf::from("/app/b").as_path(), Box::new(b))
             .unwrap();
 
         union
@@ -1156,11 +1115,7 @@ mod tests {
             .open(Path::new("/certs/ca.pem"))
             .unwrap();
         primary
-            .mount(
-                "openssl".to_string(),
-                Path::new("/openssl"),
-                Box::new(openssl),
-            )
+            .mount(Path::new("/openssl"), Box::new(openssl))
             .unwrap();
 
         let injected = MountFileSystem::new();
@@ -1171,7 +1126,7 @@ mod tests {
             .open(Path::new("/index.php"))
             .unwrap();
         injected
-            .mount("app".to_string(), Path::new("/app"), Box::new(app))
+            .mount(Path::new("/app"), Box::new(app))
             .unwrap();
 
         let assets = mem_fs::FileSystem::default();
@@ -1183,11 +1138,7 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
         injected
-            .mount(
-                "assets".to_string(),
-                Path::new("/opt/assets"),
-                Box::new(assets),
-            )
+            .mount(Path::new("/opt/assets"), Box::new(assets))
             .unwrap();
 
         primary.import_mounts(&injected).unwrap();
@@ -1226,10 +1177,9 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount("opt".to_string(), Path::new("/opt"), Box::new(top))
+        fs.mount(Path::new("/opt"), Box::new(top))
             .unwrap();
         fs.mount(
-            "assets".to_string(),
             Path::new("/opt/assets"),
             Box::new(nested),
         )
@@ -1260,10 +1210,9 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount("opt".to_string(), Path::new("/opt"), Box::new(top))
+        fs.mount(Path::new("/opt"), Box::new(top))
             .unwrap();
         fs.mount(
-            "assets".to_string(),
             Path::new("/opt/assets"),
             Box::new(nested),
         )
@@ -1279,11 +1228,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_above_root_path_is_rejected() {
         let fs = MountFileSystem::new();
-        fs.mount(
-            "root".to_string(),
-            Path::new("/"),
-            Box::new(mem_fs::FileSystem::default()),
-        )
+        fs.mount(Path::new("/"), Box::new(mem_fs::FileSystem::default()))
         .unwrap();
 
         assert_eq!(fs.metadata(Path::new("../foo")), Err(FsError::InvalidInput));
@@ -1292,11 +1237,7 @@ mod tests {
     #[tokio::test]
     async fn test_exact_mount_metadata_falls_back_to_synthetic_directory() {
         let fs = MountFileSystem::new();
-        fs.mount(
-            "opaque".to_string(),
-            Path::new("/opaque"),
-            Box::new(RootOpaqueFileSystem::default()),
-        )
+        fs.mount(Path::new("/opaque"), Box::new(RootOpaqueFileSystem::default()))
         .unwrap();
 
         assert!(fs.metadata(Path::new("/opaque")).unwrap().is_dir());
@@ -1307,14 +1248,9 @@ mod tests {
     #[tokio::test]
     async fn test_exact_mount_read_dir_falls_back_to_child_mounts_when_root_is_unlistable() {
         let fs = MountFileSystem::new();
-        fs.mount(
-            "opaque".to_string(),
-            Path::new("/opaque"),
-            Box::new(RootOpaqueFileSystem::default()),
-        )
+        fs.mount(Path::new("/opaque"), Box::new(RootOpaqueFileSystem::default()))
         .unwrap();
         fs.mount(
-            "child".to_string(),
             Path::new("/opaque/assets"),
             Box::new(mem_fs::FileSystem::default()),
         )
@@ -1326,14 +1262,9 @@ mod tests {
     #[tokio::test]
     async fn test_exact_mount_fallback_does_not_mask_permission_denied() {
         let fs = MountFileSystem::new();
-        fs.mount(
-            "denied".to_string(),
-            Path::new("/denied"),
-            Box::new(RootPermissionDeniedFileSystem),
-        )
+        fs.mount(Path::new("/denied"), Box::new(RootPermissionDeniedFileSystem))
         .unwrap();
         fs.mount(
-            "child".to_string(),
             Path::new("/denied/assets"),
             Box::new(mem_fs::FileSystem::default()),
         )
@@ -1368,7 +1299,7 @@ mod tests {
             .open(Path::new("/user.txt"))
             .unwrap();
         primary
-            .mount("python".to_string(), Path::new("/python"), Box::new(user_mount))
+            .mount(Path::new("/python"), Box::new(user_mount))
             .unwrap();
 
         let injected = MountFileSystem::new();
@@ -1380,11 +1311,7 @@ mod tests {
             .open(Path::new("/pkg.txt"))
             .unwrap();
         injected
-            .mount(
-                "python".to_string(),
-                Path::new("/python"),
-                Box::new(package_mount),
-            )
+            .mount(Path::new("/python"), Box::new(package_mount))
             .unwrap();
 
         let package_child = mem_fs::FileSystem::default();
@@ -1395,11 +1322,7 @@ mod tests {
             .open(Path::new("/child.txt"))
             .unwrap();
         injected
-            .mount(
-                "python-lib".to_string(),
-                Path::new("/python/lib"),
-                Box::new(package_child),
-            )
+            .mount(Path::new("/python/lib"), Box::new(package_child))
             .unwrap();
 
         primary
@@ -1435,14 +1358,10 @@ mod tests {
             .open(Path::new("/user-child.txt"))
             .unwrap();
         primary
-            .mount("python".to_string(), Path::new("/python"), Box::new(user_mount))
+            .mount(Path::new("/python"), Box::new(user_mount))
             .unwrap();
         primary
-            .mount(
-                "python-lib".to_string(),
-                Path::new("/python/lib"),
-                Box::new(user_child),
-            )
+            .mount(Path::new("/python/lib"), Box::new(user_child))
             .unwrap();
 
         let injected = MountFileSystem::new();
@@ -1461,18 +1380,10 @@ mod tests {
             .open(Path::new("/pkg-child.txt"))
             .unwrap();
         injected
-            .mount(
-                "python".to_string(),
-                Path::new("/python"),
-                Box::new(package_mount),
-            )
+            .mount(Path::new("/python"), Box::new(package_mount))
             .unwrap();
         injected
-            .mount(
-                "python-lib".to_string(),
-                Path::new("/python/lib"),
-                Box::new(package_child),
-            )
+            .mount(Path::new("/python/lib"), Box::new(package_child))
             .unwrap();
 
         primary
@@ -1508,11 +1419,7 @@ mod tests {
             .open(Path::new("/file.txt"))
             .unwrap();
 
-        fs.mount(
-            "mounted".to_string(),
-            Path::new("/mounted"),
-            Box::new(mounted),
-        )
+        fs.mount(Path::new("/mounted"), Box::new(mounted))
         .unwrap();
 
         assert_eq!(
@@ -1554,10 +1461,9 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount("opt".to_string(), Path::new("/opt"), Box::new(top))
+        fs.mount(Path::new("/opt"), Box::new(top))
             .unwrap();
         fs.mount(
-            "assets".to_string(),
             Path::new("/opt/assets"),
             Box::new(nested),
         )
@@ -1588,10 +1494,9 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount("opt".to_string(), Path::new("/opt"), Box::new(top))
+        fs.mount(Path::new("/opt"), Box::new(top))
             .unwrap();
         fs.mount(
-            "assets".to_string(),
             Path::new("/opt/assets"),
             Box::new(nested),
         )
@@ -1621,11 +1526,7 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount(
-            "assets".to_string(),
-            Path::new("/opt/assets"),
-            Box::new(nested),
-        )
+        fs.mount(Path::new("/opt/assets"), Box::new(nested))
         .unwrap();
 
         let css_contents: Vec<PathBuf> = fs
@@ -1650,7 +1551,7 @@ mod tests {
             .open(Path::new("/tool"))
             .unwrap();
         primary
-            .mount("bin".to_string(), Path::new("/opt/bin"), Box::new(bin))
+            .mount(Path::new("/opt/bin"), Box::new(bin))
             .unwrap();
 
         let injected = MountFileSystem::new();
@@ -1662,11 +1563,7 @@ mod tests {
             .open(Path::new("/logo.svg"))
             .unwrap();
         injected
-            .mount(
-                "assets".to_string(),
-                Path::new("/opt/assets"),
-                Box::new(assets),
-            )
+            .mount(Path::new("/opt/assets"), Box::new(assets))
             .unwrap();
 
         primary.import_mounts(&injected).unwrap();
@@ -1679,20 +1576,12 @@ mod tests {
     async fn test_import_mounts_rejects_exact_mount_conflict() {
         let primary = MountFileSystem::new();
         primary
-            .mount(
-                "bin".to_string(),
-                Path::new("/opt/bin"),
-                Box::new(mem_fs::FileSystem::default()),
-            )
+            .mount(Path::new("/opt/bin"), Box::new(mem_fs::FileSystem::default()))
             .unwrap();
 
         let injected = MountFileSystem::new();
         injected
-            .mount(
-                "bin2".to_string(),
-                Path::new("/opt/bin"),
-                Box::new(mem_fs::FileSystem::default()),
-            )
+            .mount(Path::new("/opt/bin"), Box::new(mem_fs::FileSystem::default()))
             .unwrap();
 
         assert_eq!(
