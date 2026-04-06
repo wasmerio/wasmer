@@ -2403,7 +2403,11 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use virtual_fs::RootFileSystemBuilder;
+    use once_cell::sync::OnceCell;
+    use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
+    use wasmer_config::package::PackageId;
+
+    use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
 
     #[tokio::test]
     async fn test_relative_path_to_absolute() {
@@ -2488,6 +2492,68 @@ mod tests {
         assert_eq!(
             wasi_fs.relative_path_to_absolute("file.txt".to_string()),
             "/home/user/file.txt"
+        );
+    }
+
+    #[tokio::test]
+    async fn conditional_union_merges_root_and_non_root_package_mounts_once() {
+        let inodes = WasiInodes::new();
+        let fs_backing = WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build());
+        let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
+
+        let root_layer = TmpFileSystem::new();
+        root_layer
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/root.txt"))
+            .unwrap();
+
+        let public_mount = TmpFileSystem::new();
+        public_mount
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/index.html"))
+            .unwrap();
+
+        let pkg = BinaryPackage {
+            id: PackageId::new_named("ns/pkg", "0.1.0".parse().unwrap()),
+            package_ids: vec![],
+            when_cached: None,
+            entrypoint_cmd: None,
+            hash: OnceCell::new(),
+            package_mounts: Some(Arc::new(BinaryPackageMounts {
+                root_layer: Some(Arc::new(root_layer)),
+                mounts: vec![BinaryPackageMount {
+                    guest_path: PathBuf::from("/public"),
+                    fs: Arc::new(public_mount),
+                }],
+            })),
+            commands: vec![],
+            uses: vec![],
+            file_system_memory_footprint: 0,
+            additional_host_mapped_directories: vec![],
+        };
+
+        wasi_fs.conditional_union(&pkg).await.unwrap();
+        assert!(wasi_fs.root_fs.metadata(Path::new("/root.txt")).unwrap().is_file());
+        assert!(
+            wasi_fs
+                .root_fs
+                .metadata(Path::new("/public/index.html"))
+                .unwrap()
+                .is_file()
+        );
+
+        wasi_fs.conditional_union(&pkg).await.unwrap();
+        assert!(wasi_fs.root_fs.metadata(Path::new("/root.txt")).unwrap().is_file());
+        assert!(
+            wasi_fs
+                .root_fs
+                .metadata(Path::new("/public/index.html"))
+                .unwrap()
+                .is_file()
         );
     }
 }

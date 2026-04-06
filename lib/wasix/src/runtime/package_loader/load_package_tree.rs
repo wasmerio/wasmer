@@ -768,8 +768,13 @@ mod tests {
             "index.html".parse().unwrap(),
             DirEntry::File(FileEntry::from(b"ok".as_slice())),
         );
-        let public_dir = Directory {
+        let public_mount_dir = Directory {
             children: public_children,
+        };
+        let mut public_root_children = BTreeMap::new();
+        public_root_children.insert("public".parse().unwrap(), DirEntry::Dir(public_mount_dir));
+        let public_dir = Directory {
+            children: public_root_children,
         };
         let mut root_children = BTreeMap::new();
         root_children.insert("public".parse().unwrap(), DirEntry::Dir(public_dir));
@@ -810,5 +815,90 @@ mod tests {
                 .unwrap()
                 .is_file()
         );
+    }
+
+    #[test]
+    fn v2_filesystem_mapping_preserves_root_and_nested_mounts() {
+        let mut manifest = Manifest::default();
+        let fs = FileSystemMappings(vec![
+            FileSystemMapping {
+                from: None,
+                volume_name: "root".to_string(),
+                host_path: Some("/".to_string()),
+                mount_path: "/".to_string(),
+            },
+            FileSystemMapping {
+                from: None,
+                volume_name: "public".to_string(),
+                host_path: Some("/public".to_string()),
+                mount_path: "/public".to_string(),
+            },
+        ]);
+        let mut package = IndexMap::new();
+        package.insert(
+            FileSystemMappings::KEY.to_string(),
+            Value::serialized(&fs).unwrap(),
+        );
+        manifest.package = package;
+
+        let mut root_children = BTreeMap::new();
+        root_children.insert(
+            "root.txt".parse().unwrap(),
+            DirEntry::File(FileEntry::from(b"root".as_slice())),
+        );
+        let root_dir = Directory {
+            children: root_children,
+        };
+
+        let mut public_children = BTreeMap::new();
+        public_children.insert(
+            "index.html".parse().unwrap(),
+            DirEntry::File(FileEntry::from(b"ok".as_slice())),
+        );
+        let public_dir = Directory {
+            children: public_children,
+        };
+
+        let writer = Writer::default().write_manifest(&manifest).unwrap();
+        let writer = writer.write_atoms(BTreeMap::new()).unwrap();
+        let writer = writer.with_volume("root", root_dir).unwrap();
+        let writer = writer.with_volume("public", public_dir).unwrap();
+        let bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+
+        let reader = OwnedReader::parse(bytes).unwrap();
+        let container = Container::from(reader);
+
+        let pkg_id = PackageId::new_named("ns/pkg", "0.1.0".parse().unwrap());
+        let mut packages = HashMap::new();
+        packages.insert(pkg_id.clone(), container);
+
+        let pkg = ResolvedPackage {
+            root_package: pkg_id.clone(),
+            commands: BTreeMap::new(),
+            entrypoint: None,
+            filesystem: vec![
+                ResolvedFileSystemMapping {
+                    mount_path: PathBuf::from("/"),
+                    volume_name: "root".to_string(),
+                    original_path: Some("/".to_string()),
+                    package: pkg_id.clone(),
+                },
+                ResolvedFileSystemMapping {
+                    mount_path: PathBuf::from("/public"),
+                    volume_name: "public".to_string(),
+                    original_path: Some("/public".to_string()),
+                    package: pkg_id,
+                },
+            ],
+        };
+
+        let mounts = filesystem_v2(&packages, &pkg, false).unwrap();
+        let root_layer = mounts
+            .root_layer
+            .as_ref()
+            .expect("expected root layer mount");
+        assert!(root_layer.metadata(Path::new("/root.txt")).unwrap().is_file());
+        assert_eq!(mounts.mounts.len(), 1);
+        assert_eq!(mounts.mounts[0].guest_path, Path::new("/public"));
     }
 }
