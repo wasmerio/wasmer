@@ -210,22 +210,6 @@ impl MountFileSystem {
         }
     }
 
-    fn overwrite_node(this: &Arc<MountNode>, other: Arc<MountNode>) {
-        this.mount.clear();
-        this.children.clear();
-
-        let other = Arc::try_unwrap(other).unwrap_or_else(|_| {
-            panic!("mount subtree must be uniquely owned when moved into another mount fs")
-        });
-
-        for (_, mount) in other.mount.into_iter() {
-            this.mount.insert((), mount);
-        }
-        for (name, child) in other.children.into_iter() {
-            this.children.insert(name, child);
-        }
-    }
-
     fn find_node(&self, path: &Path) -> Option<Arc<MountNode>> {
         let path = self.prepare_path(path).ok()?;
         let mut node = Arc::clone(&self.root);
@@ -352,55 +336,8 @@ impl MountFileSystem {
         node
     }
 
-    fn merge_node_mount(
-        this: &Arc<MountNode>,
-        other: &Arc<MountNode>,
-        conflict_mode: ExactMountConflictMode,
-    ) -> Result<bool> {
-        if let Some(other_mount) = Self::mounted(other) {
-            match this.mount.entry(()) {
-                Entry::Occupied(_existing) => match conflict_mode {
-                    ExactMountConflictMode::Fail => return Err(FsError::AlreadyExists),
-                    ExactMountConflictMode::KeepExisting => return Ok(true),
-                    ExactMountConflictMode::ReplaceExisting => return Ok(true),
-                },
-                Entry::Vacant(slot) => {
-                    slot.insert(other_mount);
-                }
-            }
-        }
-
-        Ok(false)
-    }
-
-    fn merge_nodes(
-        this: &Arc<MountNode>,
-        other: Arc<MountNode>,
-        conflict_mode: ExactMountConflictMode,
-    ) -> Result<()> {
-        if Self::merge_node_mount(this, &other, conflict_mode)? {
-            if conflict_mode == ExactMountConflictMode::ReplaceExisting {
-                Self::overwrite_node(this, other);
-            }
-            return Ok(());
-        }
-
-        let other = Arc::try_unwrap(other).unwrap_or_else(|_| {
-            panic!("mount subtree must be uniquely owned when moved into another mount fs")
-        });
-        for (child_name, other_child) in other.children.into_iter() {
-            match this.children.entry(child_name) {
-                Entry::Occupied(existing) => {
-                    let existing_child = Arc::clone(existing.get());
-                    Self::merge_nodes(&existing_child, other_child, conflict_mode)?;
-                }
-                Entry::Vacant(slot) => {
-                    slot.insert(other_child);
-                }
-            }
-        }
-
-        Ok(())
+    fn clear_descendants(node: &Arc<MountNode>) {
+        node.children.clear();
     }
 
     /// Overwrite the mount at `path`.
@@ -415,44 +352,36 @@ impl MountFileSystem {
         Ok(())
     }
 
-    /// Import another MountFileSystem into this one.
-    ///
-    /// Shared prefixes are imported structurally. Exact mount-point conflicts are errors.
-    pub fn import_mounts(&self, other: MountFileSystem) -> Result<()> {
-        self.import_mounts_with_mode(other, ExactMountConflictMode::Fail)
-    }
-
-    pub fn import_mounts_with_mode(
+    pub fn add_mount_entries_with_mode(
         &self,
-        other: MountFileSystem,
+        entries: impl IntoIterator<Item = MountEntry>,
         conflict_mode: ExactMountConflictMode,
     ) -> Result<()> {
-        Self::merge_nodes(&self.root, other.root, conflict_mode)
-    }
+        let mut skipped_subtrees = Vec::<PathBuf>::new();
 
-    /// Import another MountFileSystem into this one, excluding any exact mount at `/`.
-    pub fn import_mounts_without_root(&self, other: MountFileSystem) -> Result<()> {
-        self.import_mounts_without_root_with_mode(other, ExactMountConflictMode::Fail)
-    }
+        for entry in entries {
+            if skipped_subtrees.iter().any(|prefix| entry.path.starts_with(prefix)) {
+                continue;
+            }
 
-    pub fn import_mounts_without_root_with_mode(
-        &self,
-        other: MountFileSystem,
-        conflict_mode: ExactMountConflictMode,
-    ) -> Result<()> {
-        let root = Arc::try_unwrap(other.root).unwrap_or_else(|_| {
-            panic!("mount fs root must be uniquely owned when moved into another mount fs")
-        });
-        for (child_name, other_child) in root.children.into_iter() {
-            match self.root.children.entry(child_name) {
-                Entry::Occupied(existing) => {
-                    let existing_child = Arc::clone(existing.get());
-                    Self::merge_nodes(&existing_child, other_child, conflict_mode)?;
-                }
-                Entry::Vacant(slot) => {
-                    slot.insert(other_child);
+            let exact_conflict = self.filesystem_at(&entry.path).is_some();
+            if exact_conflict {
+                match conflict_mode {
+                    ExactMountConflictMode::Fail => return Err(FsError::AlreadyExists),
+                    ExactMountConflictMode::KeepExisting => {
+                        skipped_subtrees.push(entry.path);
+                        continue;
+                    }
+                    ExactMountConflictMode::ReplaceExisting => {
+                        let node = self.mount_node(&Self::path_components(&self.prepare_path(&entry.path)?));
+                        Self::clear_descendants(&node);
+                        node.mount.insert((), MountedFileSystem { fs: entry.fs });
+                        continue;
+                    }
                 }
             }
+
+            self.mount(&entry.path, Box::new(entry.fs))?;
         }
 
         Ok(())
@@ -1112,7 +1041,9 @@ mod tests {
             .mount(Path::new("/opt/assets"), Box::new(assets))
             .unwrap();
 
-        primary.import_mounts(injected).unwrap();
+        primary
+            .add_mount_entries_with_mode(injected.mount_entries(), super::ExactMountConflictMode::Fail)
+            .unwrap();
 
         let root_contents = read_dir_names(&primary, "/");
         assert!(root_contents.contains(&"app".to_string()));
@@ -1297,7 +1228,10 @@ mod tests {
             .unwrap();
 
         primary
-            .import_mounts_with_mode(injected, super::ExactMountConflictMode::KeepExisting)
+            .add_mount_entries_with_mode(
+                injected.mount_entries(),
+                super::ExactMountConflictMode::KeepExisting,
+            )
             .unwrap();
 
         assert!(primary.metadata(Path::new("/python/user.txt")).unwrap().is_file());
@@ -1358,7 +1292,10 @@ mod tests {
             .unwrap();
 
         primary
-            .import_mounts_with_mode(injected, super::ExactMountConflictMode::ReplaceExisting)
+            .add_mount_entries_with_mode(
+                injected.mount_entries(),
+                super::ExactMountConflictMode::ReplaceExisting,
+            )
             .unwrap();
 
         assert_eq!(
@@ -1537,7 +1474,9 @@ mod tests {
             .mount(Path::new("/opt/assets"), Box::new(assets))
             .unwrap();
 
-        primary.import_mounts(injected).unwrap();
+        primary
+            .add_mount_entries_with_mode(injected.mount_entries(), super::ExactMountConflictMode::Fail)
+            .unwrap();
 
         assert!(primary.metadata(Path::new("/opt/bin/tool")).is_ok());
         assert!(primary.metadata(Path::new("/opt/assets/logo.svg")).is_ok());
@@ -1556,7 +1495,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            primary.import_mounts(injected),
+            primary.add_mount_entries_with_mode(
+                injected.mount_entries(),
+                super::ExactMountConflictMode::Fail,
+            ),
             Err(FsError::AlreadyExists)
         );
     }
