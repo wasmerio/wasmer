@@ -1,13 +1,13 @@
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::{Context, Error};
 use tokio::runtime::Handle;
 use virtual_fs::{
-    FileSystem, MountFileSystem, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem,
+    ArcFileSystem, FileSystem, MountFileSystem, OverlayFileSystem, RootFileSystemBuilder,
 };
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
@@ -55,7 +55,7 @@ impl CommonWasiOptions {
         builder: &mut WasiEnvBuilder,
         container_fs: Option<MountFileSystem>,
         wasi: &WasiAnnotation,
-        root_fs: Option<TmpFileSystem>,
+        root_fs: Option<WasiFsRoot>,
     ) -> Result<(), anyhow::Error> {
         if let Some(ref entry_function) = self.entry_function {
             builder.set_entry_function(entry_function);
@@ -67,9 +67,9 @@ impl CommonWasiOptions {
                 .iter()
                 .map(|d| d.guest.as_str())
                 .collect::<Vec<_>>();
-            RootFileSystemBuilder::default().build_tmp_ext(&mapped_dirs)
+            WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build_ext(&mapped_dirs))
         });
-        let fs = prepare_filesystem(root_fs, &self.mounts, container_fs)?;
+        let fs = prepare_filesystem(root_fs.root().duplicate(), &self.mounts, container_fs)?;
 
         // TODO: What's a preopen for '.' supposed to mean anyway? Why do we need it?
         if self.mounts.iter().all(|m| m.guest != ".") {
@@ -151,33 +151,44 @@ impl CommonWasiOptions {
 // type ContainerFs =
 //     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
 
-fn normalized_mount_path(root_fs: &TmpFileSystem, guest_path: &str) -> Result<PathBuf, Error> {
+fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
     let mut guest_path = PathBuf::from(guest_path);
 
     if guest_path.is_relative() {
         guest_path = apply_relative_path_mounting_hack(&guest_path);
     }
 
-    root_fs
-        .canonicalize_unchecked(&guest_path)
-        .with_context(|| {
-            format!(
-                "Unable to canonicalize guest path '{}'",
-                guest_path.display()
-            )
-        })
+    let mut normalized = PathBuf::from("/");
+    for component in guest_path.components() {
+        match component {
+            Component::RootDir => normalized = PathBuf::from("/"),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if normalized.as_os_str() != "/" {
+                    normalized.pop();
+                }
+            }
+            Component::Normal(part) => normalized.push(part),
+            Component::Prefix(_) => {}
+        }
+    }
+
+    Ok(normalized)
 }
 
 fn prepare_filesystem(
-    root_fs: TmpFileSystem,
+    root_fs: MountFileSystem,
     mounted_dirs: &[MountedDirectory],
     container_fs: Option<MountFileSystem>,
 ) -> Result<WasiFsRoot, Error> {
     let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
     let mount_fs = MountFileSystem::new();
+    let base_root = root_fs
+        .filesystem_at(Path::new("/"))
+        .context("root fs is missing a / mount")?;
 
     for MountedDirectory { guest, fs } in mounted_dirs {
-        let guest_path = normalized_mount_path(&root_fs, guest)?;
+        let guest_path = normalized_mount_path(guest)?;
         tracing::debug!(guest=%guest_path.display(), "Mounting");
 
         if guest_path == Path::new("/") {
@@ -191,9 +202,9 @@ fn prepare_filesystem(
 
     let Some(container) = container_fs else {
         let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
-            Box::new(root_fs.clone())
+            Box::new(ArcFileSystem::new(base_root))
         } else {
-            Box::new(OverlayFileSystem::new(root_fs.clone(), root_layers))
+            Box::new(OverlayFileSystem::new(ArcFileSystem::new(base_root), root_layers))
         };
         mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
 
@@ -205,9 +216,9 @@ fn prepare_filesystem(
     }
 
     let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
-        Box::new(root_fs.clone())
+        Box::new(ArcFileSystem::new(base_root))
     } else {
-        Box::new(OverlayFileSystem::new(root_fs.clone(), root_layers))
+        Box::new(OverlayFileSystem::new(ArcFileSystem::new(base_root), root_layers))
     };
 
     mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
@@ -290,6 +301,7 @@ mod tests {
     use std::time::SystemTime;
 
     use tempfile::TempDir;
+    use virtual_fs::TmpFileSystem;
     use virtual_fs::{DirEntry, FileType, Metadata};
 
     use super::*;
@@ -378,7 +390,7 @@ mod tests {
             .mount("webc".to_string(), Path::new("/"), Box::new(webc_fs))
             .unwrap();
 
-        let root_fs = RootFileSystemBuilder::default().build_tmp();
+        let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(root_fs, &mapping, Some(union_fs)).unwrap();
 
         use virtual_fs::FileSystem;
@@ -413,7 +425,7 @@ mod tests {
             )
             .unwrap();
 
-        let root_fs = RootFileSystemBuilder::default().build_tmp();
+        let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(root_fs, &[], Some(union_fs)).unwrap();
 
         fs.create_dir(Path::new("/python/custom")).unwrap();
@@ -452,7 +464,7 @@ mod tests {
             )
             .unwrap();
 
-        let root_fs = RootFileSystemBuilder::default().build_tmp();
+        let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(root_fs, &[], Some(union_fs)).unwrap();
 
         fs.create_symlink(

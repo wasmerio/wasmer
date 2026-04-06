@@ -8,7 +8,7 @@ use std::{
 
 use rand::RngExt;
 use thiserror::Error;
-use virtual_fs::{ArcFile, FileSystem, FsError, MountFileSystem, TmpFileSystem, VirtualFile};
+use virtual_fs::{ArcFile, FileSystem, FsError, MountFileSystem, RootFileSystemBuilder, VirtualFile};
 use wasmer::{AsStoreMut, Engine, Instance, Module};
 use wasmer_config::package::PackageId;
 
@@ -785,10 +785,8 @@ impl WasiEnvBuilder {
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
-    ///
-    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-    pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
-        self.fs = Some(WasiFsRoot::new_mount(fs));
+    pub fn sandbox_fs(mut self, fs: MountFileSystem) -> Self {
+        self.fs = Some(WasiFsRoot::from_mount_fs(fs));
         self
     }
 
@@ -920,7 +918,7 @@ impl WasiEnvBuilder {
         let fs_backing = self
             .fs
             .take()
-            .unwrap_or_else(|| WasiFsRoot::new_mount(TmpFileSystem::new()));
+            .unwrap_or_else(|| WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build()));
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {

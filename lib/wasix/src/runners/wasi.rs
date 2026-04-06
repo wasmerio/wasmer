@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
 use tracing::Instrument;
-use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
+use virtual_fs::{ArcBoxFile, FileSystem, VirtualFile};
 use wasmer::{Engine, Module};
 use wasmer_types::ModuleHash;
 use webc::metadata::{Command, annotations::Wasi};
@@ -284,7 +284,7 @@ impl WasiRunner {
         wasi: &Wasi,
         pkg_or_hash: PackageOrHash,
         runtime_or_engine: RuntimeOrEngine,
-        root_fs: Option<TmpFileSystem>,
+        root_fs: Option<crate::fs::WasiFsRoot>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
 

@@ -35,7 +35,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
-    VirtualFile, tmp_fs::TmpFileSystem,
+    VirtualFile,
 };
 use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
@@ -399,20 +399,6 @@ pub struct WasiFsRoot {
 }
 
 impl WasiFsRoot {
-    pub(crate) fn new_mount(writable: TmpFileSystem) -> Self {
-        let root = MountFileSystem::new();
-        root.mount(
-            "root".to_string(),
-            Path::new("/"),
-            Box::new(writable.clone()),
-        )
-        .expect("mounting the writable root on an empty mount fs should succeed");
-
-        Self {
-            root: Arc::new(root),
-        }
-    }
-
     pub(crate) fn from_mount_fs(root: MountFileSystem) -> Self {
         Self {
             root: Arc::new(root),
@@ -2413,7 +2399,7 @@ mod tests {
     #[tokio::test]
     async fn test_relative_path_to_absolute() {
         let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::new_mount(TmpFileSystem::new());
+        let fs_backing = WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build());
         let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
 
         // Test absolute path (returned as-is, no normalization)
