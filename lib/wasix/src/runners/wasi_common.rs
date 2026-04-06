@@ -7,7 +7,8 @@ use std::{
 use anyhow::{Context, Error};
 use tokio::runtime::Handle;
 use virtual_fs::{
-    ArcFileSystem, FileSystem, MountFileSystem, OverlayFileSystem, RootFileSystemBuilder,
+    ArcFileSystem, ExactMountConflictMode, FileSystem, MountFileSystem, OverlayFileSystem,
+    RootFileSystemBuilder,
 };
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
@@ -20,6 +21,13 @@ use crate::{
 };
 
 pub const MAPPED_CURRENT_DIR_DEFAULT_PATH: &str = "/home";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExistingMountConflictBehavior {
+    Fail,
+    #[default]
+    Override,
+}
 
 #[derive(Debug, Clone)]
 pub struct MappedCommand {
@@ -47,6 +55,7 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) stop_running_after_snapshot: bool,
     pub(crate) skip_stdio_during_bootstrap: bool,
     pub(crate) current_dir: Option<PathBuf>,
+    pub(crate) existing_mount_conflict_behavior: ExistingMountConflictBehavior,
 }
 
 impl CommonWasiOptions {
@@ -69,7 +78,12 @@ impl CommonWasiOptions {
                 .collect::<Vec<_>>();
             WasiFsRoot::from_mount_fs(RootFileSystemBuilder::default().build_ext(&mapped_dirs))
         });
-        let fs = prepare_filesystem(root_fs.root().duplicate(), &self.mounts, container_fs)?;
+        let fs = prepare_filesystem(
+            root_fs.root().duplicate(),
+            &self.mounts,
+            container_fs,
+            self.existing_mount_conflict_behavior,
+        )?;
 
         // TODO: What's a preopen for '.' supposed to mean anyway? Why do we need it?
         if self.mounts.iter().all(|m| m.guest != ".") {
@@ -180,6 +194,7 @@ fn prepare_filesystem(
     root_fs: MountFileSystem,
     mounted_dirs: &[MountedDirectory],
     container_fs: Option<MountFileSystem>,
+    conflict_behavior: ExistingMountConflictBehavior,
 ) -> Result<WasiFsRoot, Error> {
     let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
     let mount_fs = MountFileSystem::new();
@@ -194,9 +209,14 @@ fn prepare_filesystem(
         if guest_path == Path::new("/") {
             root_layers.push(fs.clone());
         } else {
-            mount_fs
-                .mount(guest.clone(), &guest_path, Box::new(fs.clone()))
-                .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?;
+            match conflict_behavior {
+                ExistingMountConflictBehavior::Fail => mount_fs
+                    .mount(guest.clone(), &guest_path, Box::new(fs.clone()))
+                    .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?,
+                ExistingMountConflictBehavior::Override => mount_fs
+                    .set_mount(&guest_path, Box::new(fs.clone()))
+                    .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?,
+            }
         }
     }
 
@@ -222,7 +242,13 @@ fn prepare_filesystem(
     };
 
     mount_fs.mount("root".to_string(), Path::new("/"), root_mount)?;
-    mount_fs.import_mounts_without_root(&container)?;
+    let import_mode = match conflict_behavior {
+        ExistingMountConflictBehavior::Fail => ExactMountConflictMode::Fail,
+        ExistingMountConflictBehavior::Override => ExactMountConflictMode::KeepExisting,
+    };
+    mount_fs
+        .import_mounts_without_root_with_mode(&container, import_mode)
+        .context("Unable to merge container mounts into the prepared filesystem")?;
 
     Ok(WasiFsRoot::from_mount_fs(mount_fs))
 }
@@ -391,7 +417,13 @@ mod tests {
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &mapping, Some(mount_fs)).unwrap();
+        let fs = prepare_filesystem(
+            root_fs,
+            &mapping,
+            Some(mount_fs),
+            ExistingMountConflictBehavior::Override,
+        )
+        .unwrap();
 
         use virtual_fs::FileSystem;
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
@@ -426,7 +458,13 @@ mod tests {
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &[], Some(mount_fs)).unwrap();
+        let fs = prepare_filesystem(
+            root_fs,
+            &[],
+            Some(mount_fs),
+            ExistingMountConflictBehavior::Override,
+        )
+        .unwrap();
 
         fs.create_dir(Path::new("/python/custom")).unwrap();
         fs.new_open_options()
@@ -465,7 +503,13 @@ mod tests {
             .unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &[], Some(mount_fs)).unwrap();
+        let fs = prepare_filesystem(
+            root_fs,
+            &[],
+            Some(mount_fs),
+            ExistingMountConflictBehavior::Override,
+        )
+        .unwrap();
 
         fs.create_symlink(
             Path::new("lib/python3.6/collections"),
@@ -482,6 +526,90 @@ mod tests {
                 .unwrap()
                 .ft
                 .is_symlink()
+        );
+    }
+
+    #[tokio::test]
+    async fn user_mounts_override_package_mounts_when_configured() {
+        use virtual_fs::FileSystem;
+
+        let user_mount = TmpFileSystem::new();
+        user_mount
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/user.txt"))
+            .unwrap();
+
+        let package_mount = TmpFileSystem::new();
+        package_mount
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/pkg.txt"))
+            .unwrap();
+
+        let mounted_dirs = [MountedDirectory {
+            guest: "/python".to_string(),
+            fs: Arc::new(user_mount),
+        }];
+
+        let container_mounts = MountFileSystem::new();
+        container_mounts
+            .mount(
+                "python".to_string(),
+                Path::new("/python"),
+                Box::new(package_mount),
+            )
+            .unwrap();
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(
+            root_fs,
+            &mounted_dirs,
+            Some(container_mounts),
+            ExistingMountConflictBehavior::Override,
+        )
+        .unwrap();
+
+        assert!(fs.metadata(Path::new("/python/user.txt")).unwrap().is_file());
+        assert_eq!(
+            fs.metadata(Path::new("/python/pkg.txt")),
+            Err(virtual_fs::FsError::EntryNotFound)
+        );
+    }
+
+    #[tokio::test]
+    async fn conflicting_mounts_fail_when_configured() {
+        let user_mount = TmpFileSystem::new();
+        let package_mount = TmpFileSystem::new();
+
+        let mounted_dirs = [MountedDirectory {
+            guest: "/python".to_string(),
+            fs: Arc::new(user_mount),
+        }];
+
+        let container_mounts = MountFileSystem::new();
+        container_mounts
+            .mount(
+                "python".to_string(),
+                Path::new("/python"),
+                Box::new(package_mount),
+            )
+            .unwrap();
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let error = prepare_filesystem(
+            root_fs,
+            &mounted_dirs,
+            Some(container_mounts),
+            ExistingMountConflictBehavior::Fail,
+        )
+        .unwrap_err();
+
+        assert!(
+            error.to_string().contains("Unable to merge container mounts"),
+            "{error:#}"
         );
     }
 

@@ -15,6 +15,13 @@ use std::{
 
 type DynFileSystem = Arc<dyn FileSystem + Send + Sync>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExactMountConflictMode {
+    Fail,
+    KeepExisting,
+    ReplaceExisting,
+}
+
 #[derive(Debug, Clone)]
 struct MountedFileSystem {
     fs: DynFileSystem,
@@ -290,10 +297,20 @@ impl MountFileSystem {
         node
     }
 
-    fn merge_node_mount(this: &Arc<MountNode>, other: &Arc<MountNode>) -> Result<()> {
+    fn merge_node_mount(
+        this: &Arc<MountNode>,
+        other: &Arc<MountNode>,
+        conflict_mode: ExactMountConflictMode,
+    ) -> Result<()> {
         if let Some(other_mount) = Self::mounted(other) {
             match this.mount.entry(()) {
-                Entry::Occupied(_) => return Err(FsError::AlreadyExists),
+                Entry::Occupied(mut existing) => match conflict_mode {
+                    ExactMountConflictMode::Fail => return Err(FsError::AlreadyExists),
+                    ExactMountConflictMode::KeepExisting => {}
+                    ExactMountConflictMode::ReplaceExisting => {
+                        existing.insert(other_mount);
+                    }
+                },
                 Entry::Vacant(slot) => {
                     slot.insert(other_mount);
                 }
@@ -303,8 +320,12 @@ impl MountFileSystem {
         Ok(())
     }
 
-    fn merge_nodes(this: &Arc<MountNode>, other: &Arc<MountNode>) -> Result<()> {
-        Self::merge_node_mount(this, other)?;
+    fn merge_nodes(
+        this: &Arc<MountNode>,
+        other: &Arc<MountNode>,
+        conflict_mode: ExactMountConflictMode,
+    ) -> Result<()> {
+        Self::merge_node_mount(this, other, conflict_mode)?;
 
         for child in other.children.iter() {
             let child_name = child.key().clone();
@@ -313,7 +334,7 @@ impl MountFileSystem {
             match this.children.entry(child_name) {
                 Entry::Occupied(existing) => {
                     let existing_child = Arc::clone(existing.get());
-                    Self::merge_nodes(&existing_child, &other_child)?;
+                    Self::merge_nodes(&existing_child, &other_child, conflict_mode)?;
                 }
                 Entry::Vacant(slot) => {
                     slot.insert(Self::duplicate_node(&other_child));
@@ -340,11 +361,27 @@ impl MountFileSystem {
     ///
     /// Shared prefixes are imported structurally. Exact mount-point conflicts are errors.
     pub fn import_mounts(&self, other: &MountFileSystem) -> Result<()> {
-        Self::merge_nodes(&self.root, &other.root)
+        self.import_mounts_with_mode(other, ExactMountConflictMode::Fail)
+    }
+
+    pub fn import_mounts_with_mode(
+        &self,
+        other: &MountFileSystem,
+        conflict_mode: ExactMountConflictMode,
+    ) -> Result<()> {
+        Self::merge_nodes(&self.root, &other.root, conflict_mode)
     }
 
     /// Import another MountFileSystem into this one, excluding any exact mount at `/`.
     pub fn import_mounts_without_root(&self, other: &MountFileSystem) -> Result<()> {
+        self.import_mounts_without_root_with_mode(other, ExactMountConflictMode::Fail)
+    }
+
+    pub fn import_mounts_without_root_with_mode(
+        &self,
+        other: &MountFileSystem,
+        conflict_mode: ExactMountConflictMode,
+    ) -> Result<()> {
         for child in other.root.children.iter() {
             let child_name = child.key().clone();
             let other_child = Arc::clone(child.value());
@@ -352,7 +389,7 @@ impl MountFileSystem {
             match self.root.children.entry(child_name) {
                 Entry::Occupied(existing) => {
                     let existing_child = Arc::clone(existing.get());
-                    Self::merge_nodes(&existing_child, &other_child)?;
+                    Self::merge_nodes(&existing_child, &other_child, conflict_mode)?;
                 }
                 Entry::Vacant(slot) => {
                     slot.insert(Self::duplicate_node(&other_child));

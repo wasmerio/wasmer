@@ -18,7 +18,9 @@ use crate::{
     runtime::task_manager::VirtualTaskManagerExt,
 };
 
-use super::wasi_common::{MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand};
+use super::wasi_common::{
+    ExistingMountConflictBehavior, MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -121,6 +123,14 @@ impl WasiRunner {
     /// Mount a [`FileSystem`] instance at a particular location.
     pub fn with_mount(&mut self, dest: String, fs: Arc<dyn FileSystem + Send + Sync>) -> &mut Self {
         self.wasi.mounts.push(MountedDirectory { guest: dest, fs });
+        self
+    }
+
+    pub fn with_existing_mount_conflict_behavior(
+        &mut self,
+        behavior: ExistingMountConflictBehavior,
+    ) -> &mut Self {
+        self.wasi.existing_mount_conflict_behavior = behavior;
         self
     }
 
