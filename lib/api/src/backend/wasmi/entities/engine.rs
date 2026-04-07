@@ -1,7 +1,7 @@
 //! Data types, functions and traits for `wasmi` runtime's `Engine` implementation.
 use crate::BackendEngine;
 use ::wasmi;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use wasmer_types::{Features, target::Target};
 
 #[derive(Debug)]
@@ -17,7 +17,7 @@ impl Default for NativeEngine {
 }
 
 /// The engine for the Web Assembly Micro Runtime.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Engine {
     pub(crate) inner: Arc<NativeEngine>,
 }
@@ -48,6 +48,21 @@ impl Engine {
     /// Returns the default features for the WASMI engine.
     pub fn default_features() -> Features {
         Self::supported_features()
+    }
+}
+
+impl Default for Engine {
+    fn default() -> Self {
+        // Wasmi 1.x keeps a per-engine function-type registry and panics with:
+        // `encountered foreign entity in func type registry` if a module built on one engine
+        // is instantiated against a Store backed by a different engine.
+        static DEFAULT_ENGINE: OnceLock<Arc<NativeEngine>> = OnceLock::new();
+
+        Self {
+            inner: DEFAULT_ENGINE
+                .get_or_init(|| Arc::new(NativeEngine::default()))
+                .clone(),
+        }
     }
 }
 
