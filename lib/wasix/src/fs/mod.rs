@@ -431,6 +431,11 @@ impl WasiFsRoot {
         &self.root
     }
 
+    pub(crate) fn writable_root(&self) -> Option<TmpFileSystem> {
+        let root = self.root.filesystem_at(Path::new("/"))?;
+        find_writable_root(root.as_ref())
+    }
+
     pub(crate) fn stack_root_filesystem(
         &self,
         lower: Arc<dyn FileSystem + Send + Sync>,
@@ -443,6 +448,32 @@ impl WasiFsRoot {
             OverlayFileSystem::new(ArcFileSystem::new(current), [ArcFileSystem::new(lower)]);
         self.root.set_mount(Path::new("/"), Arc::new(overlay))
     }
+}
+
+fn find_writable_root(fs: &(dyn FileSystem + Send + Sync)) -> Option<TmpFileSystem> {
+    if let Some(tmp) = fs.upcast_any_ref().downcast_ref::<TmpFileSystem>() {
+        return Some(tmp.clone());
+    }
+
+    if let Some(arc_fs) = fs.upcast_any_ref().downcast_ref::<ArcFileSystem>() {
+        return find_writable_root(arc_fs.inner().as_ref());
+    }
+
+    if let Some(overlay) = fs
+        .upcast_any_ref()
+        .downcast_ref::<OverlayFileSystem<ArcFileSystem, Vec<Arc<dyn FileSystem + Send + Sync>>>>()
+    {
+        return find_writable_root(overlay.primary());
+    }
+
+    if let Some(overlay) = fs
+        .upcast_any_ref()
+        .downcast_ref::<OverlayFileSystem<ArcFileSystem, [ArcFileSystem; 1]>>()
+    {
+        return find_writable_root(overlay.primary());
+    }
+
+    None
 }
 
 impl FileSystem for WasiFsRoot {
@@ -2519,6 +2550,18 @@ mod tests {
             wasi_fs.relative_path_to_absolute("file.txt".to_string()),
             "/home/user/file.txt"
         );
+    }
+
+    #[tokio::test]
+    async fn writable_root_is_preserved_through_root_overlays() {
+        let base_root = Arc::new(RootFileSystemBuilder::default().build_tmp());
+        let root = WasiFsRoot::from_filesystem(base_root);
+        assert!(root.writable_root().is_some());
+
+        let lower = Arc::new(TmpFileSystem::new()) as Arc<dyn FileSystem + Send + Sync>;
+        root.stack_root_filesystem(lower).unwrap();
+
+        assert!(root.writable_root().is_some());
     }
 
     #[tokio::test]

@@ -43,13 +43,19 @@ use webc::metadata::annotations::Wasi;
 pub use super::handles::*;
 use super::{Linker, WasiState, context_switching::ContextSwitchingEnvironment, conv_env_vars};
 
-async fn write_buffer_to_fs(
+async fn write_readonly_buffer_to_fs(
     fs: &WasiFsRoot,
     path: &Path,
     contents: &shared_buffer::OwnedBuffer,
 ) -> Result<(), FsError> {
     if let Some(parent) = path.parent() {
         virtual_fs::create_dir_all(fs, parent)?;
+    }
+
+    if let Some(root_fs) = fs.writable_root() {
+        return root_fs
+            .new_open_options_ext()
+            .insert_ro_file(path, contents.clone());
     }
 
     let mut file = fs
@@ -1127,7 +1133,7 @@ impl WasiEnv {
 
                 let atom = command.atom();
 
-                if let Err(err) = write_buffer_to_fs(root_fs, path, &atom).await {
+                if let Err(err) = write_readonly_buffer_to_fs(root_fs, path, &atom).await {
                     tracing::debug!(
                         "failed to add package [{}] command [{}] - {}",
                         pkg.id,
@@ -1136,7 +1142,7 @@ impl WasiEnv {
                     );
                     continue;
                 }
-                if let Err(err) = write_buffer_to_fs(root_fs, path2, &atom).await {
+                if let Err(err) = write_readonly_buffer_to_fs(root_fs, path2, &atom).await {
                     tracing::debug!(
                         "failed to add package [{}] command [{}] - {}",
                         pkg.id,
@@ -1218,14 +1224,22 @@ impl WasiEnv {
 
             let path = format!("/bin/{command}");
             let path = Path::new(path.as_str());
-            if let Err(err) = block_on(write_buffer_to_fs(&self.state.fs.root_fs, path, &file)) {
+            if let Err(err) = block_on(write_readonly_buffer_to_fs(
+                &self.state.fs.root_fs,
+                path,
+                &file,
+            )) {
                 tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
             }
 
             let path = format!("/usr/bin/{command}");
             let path = Path::new(path.as_str());
-            if let Err(err) = block_on(write_buffer_to_fs(&self.state.fs.root_fs, path, &file)) {
+            if let Err(err) = block_on(write_readonly_buffer_to_fs(
+                &self.state.fs.root_fs,
+                path,
+                &file,
+            )) {
                 tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
             }
