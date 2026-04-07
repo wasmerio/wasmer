@@ -1,3 +1,1 @@
-int other_func() {
-    return 42;
-}
+int other_func() { return 42; }

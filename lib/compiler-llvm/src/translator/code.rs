@@ -52,7 +52,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, Type, target::CpuFeature,
+    ModuleInfo, SignatureHash, SignatureIndex, TableIndex, Type, target::CpuFeature,
 };
 use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
@@ -71,14 +71,14 @@ const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
-    target_machine: TargetMachine,
-    target_machine_for_size: Option<TargetMachine>,
+    target_machines: HashMap<OptimizationStyle, TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
+    wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -86,19 +86,21 @@ impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 impl FuncTranslator {
     pub fn new(
         target_triple: Triple,
-        target_machine: TargetMachine,
-        target_machine_for_size: Option<TargetMachine>,
+        target_machines: HashMap<OptimizationStyle, TargetMachine>,
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
         non_volatile_memory_ops: bool,
+        wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
     ) -> Result<Self, CompileError> {
-        let abi = get_abi(&target_machine);
+        let abi_source_tm = target_machines
+            .get(&OptimizationStyle::ForSpeed)
+            .expect("target_machines must contain OptimizationStyle::ForSpeed");
+        let abi = get_abi(abi_source_tm);
         Ok(Self {
             ctx: Context::create(),
             target_triple,
-            target_machine,
-            target_machine_for_size,
+            target_machines,
             abi,
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
@@ -113,6 +115,7 @@ impl FuncTranslator {
             pointer_width,
             cpu_features,
             non_volatile_memory_ops,
+            wasm_apply_data_relocs_fn_index,
         })
     }
 
@@ -121,6 +124,7 @@ impl FuncTranslator {
         &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
+        signature_hashes: &PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
@@ -149,7 +153,7 @@ impl FuncTranslator {
         };
         let module = self.ctx.create_module(module_name.as_str());
 
-        let target_machine = &self.target_machine;
+        let target_machine = &self.target_machines.values().next().unwrap();
         let target_triple = target_machine.get_triple();
         let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
@@ -334,6 +338,7 @@ impl FuncTranslator {
             _table_styles,
             module: &module,
             module_translation,
+            signature_hashes,
             wasm_module,
             symbol_registry,
             abi: &*self.abi,
@@ -371,6 +376,9 @@ impl FuncTranslator {
         }
 
         match opt_style {
+            OptimizationStyle::Disabled => {
+                passes.push("default<O0>");
+            }
             OptimizationStyle::ForSize => {
                 // Apparently, the default<Os> could be much slower compared to -O1.
                 passes.push("default<O1>");
@@ -425,6 +433,7 @@ impl FuncTranslator {
         &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
+        signature_hashes: &PrimaryMap<SignatureIndex, SignatureHash>,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
@@ -433,7 +442,13 @@ impl FuncTranslator {
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
-        let opt_style = if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
+        let func_index = wasm_module.func_index(*local_func_index);
+        let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
+            // `__wasm_apply_data_relocs` can become a very large function made up
+            // mostly of loads and stores, and even `-O1` can spend significant
+            // time optimizing it.
+            OptimizationStyle::Disabled
+        } else if function_body.data.len() as u64 > WASM_LARGE_FUNCTION_THRESHOLD {
             OptimizationStyle::ForSize
         } else {
             OptimizationStyle::ForSpeed
@@ -441,6 +456,7 @@ impl FuncTranslator {
         let module = self.translate_to_module(
             wasm_module,
             module_translation,
+            signature_hashes,
             local_func_index,
             function_body,
             config,
@@ -450,19 +466,10 @@ impl FuncTranslator {
             target,
             opt_style,
         )?;
-        let function = CompiledKind::Local(
-            *local_func_index,
-            wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
-        );
+        let function =
+            CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
 
-        let target_machine = match opt_style {
-            OptimizationStyle::ForSize => self
-                .target_machine_for_size
-                .as_ref()
-                .unwrap_or(&self.target_machine),
-            OptimizationStyle::ForSpeed => &self.target_machine,
-        };
-
+        let target_machine = self.target_machines.get(&opt_style).unwrap();
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
@@ -1948,6 +1955,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
+    signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
@@ -3164,29 +3172,48 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             } => {
                 let is_return_call = matches!(op, Operator::ReturnCallIndirect { .. });
                 let sigindex = SignatureIndex::from_u32(type_index);
+                let table_index = TableIndex::from_u32(table_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
-                let expected_dynamic_sigindex =
-                    self.ctx
-                        .dynamic_sigindex(sigindex, self.intrinsics, self.module)?;
-                let (table_base, table_bound) = self.ctx.table(
-                    TableIndex::from_u32(table_index),
-                    self.intrinsics,
-                    self.module,
-                    &self.builder,
-                )?;
-                let func_index = self.state.pop1()?.into_int_value();
+                let table = self.wasm_module.tables.get(table_index).unwrap();
+                let local_fixed_funcref_table = self
+                    .wasm_module
+                    .local_table_index(table_index)
+                    .filter(|_| table.is_fixed_funcref_table());
+                let expected_signature_hash = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(u64::from(self.signature_hashes[sigindex].as_u32()), false);
 
-                let truncated_table_bounds = err!(self.builder.build_int_truncate(
-                    table_bound,
-                    self.intrinsics.i32_ty,
-                    "truncated_table_bounds",
-                ));
+                let func_index = self.state.pop1()?.into_int_value();
+                let generic_table = if local_fixed_funcref_table.is_none() {
+                    Some(self.ctx.table(
+                        table_index,
+                        self.intrinsics,
+                        self.module,
+                        &self.builder,
+                    )?)
+                } else {
+                    None
+                };
+
+                let table_bound = if local_fixed_funcref_table.is_some() {
+                    self.intrinsics
+                        .i32_ty
+                        .const_int(table.minimum.into(), false)
+                } else {
+                    let (_, table_bound) = *generic_table.as_ref().unwrap();
+                    err!(self.builder.build_int_truncate(
+                        table_bound,
+                        self.intrinsics.i32_ty,
+                        "truncated_table_bounds",
+                    ))
+                };
 
                 // First, check if the index is outside of the table bounds.
                 let index_in_bounds = err!(self.builder.build_int_compare(
                     IntPredicate::ULT,
                     func_index,
-                    truncated_table_bounds,
+                    table_bound,
                     "index_in_bounds",
                 ));
 
@@ -3223,61 +3250,91 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(in_bounds_continue_block);
 
-                // We assume the table has the `funcref` (pointer to `anyfunc`)
-                // element type.
-                let casted_table_base = err!(self.builder.build_pointer_cast(
-                    table_base,
-                    self.context.ptr_type(AddressSpace::default()),
-                    "casted_table_base",
-                ));
+                let anyfunc_struct_ptr = if let Some(local_table_index) = local_fixed_funcref_table
+                {
+                    let anyfuncs = self.ctx.fixed_funcref_table_anyfuncs(
+                        local_table_index,
+                        self.intrinsics,
+                        &self.builder,
+                    )?;
+                    unsafe {
+                        err!(self.builder.build_in_bounds_gep(
+                            self.intrinsics.anyfunc_ty,
+                            anyfuncs,
+                            &[func_index],
+                            "anyfunc_struct_ptr",
+                        ))
+                    }
+                } else {
+                    let (table_base, _) = *generic_table.as_ref().unwrap();
 
-                let funcref_ptr = unsafe {
-                    err!(self.builder.build_in_bounds_gep(
+                    // We assume the table has the `funcref` (pointer to `anyfunc`)
+                    // element type.
+                    let casted_table_base = err!(self.builder.build_pointer_cast(
+                        table_base,
+                        self.context.ptr_type(AddressSpace::default()),
+                        "casted_table_base",
+                    ));
+
+                    let funcref_ptr = unsafe {
+                        err!(self.builder.build_in_bounds_gep(
+                            self.intrinsics.ptr_ty,
+                            casted_table_base,
+                            &[func_index],
+                            "funcref_ptr",
+                        ))
+                    };
+
+                    // a funcref (pointer to `anyfunc`)
+                    let anyfunc_struct_ptr = err!(self.builder.build_load(
                         self.intrinsics.ptr_ty,
-                        casted_table_base,
-                        &[func_index],
-                        "funcref_ptr",
+                        funcref_ptr,
+                        "anyfunc_struct_ptr",
                     ))
+                    .into_pointer_value();
+
+                    if !table.readonly {
+                        // trap if we're trying to call a null funcref
+                        let funcref_not_null = err!(
+                            self.builder
+                                .build_is_not_null(anyfunc_struct_ptr, "null_funcref_check")
+                        );
+
+                        let funcref_continue_deref_block = self
+                            .context
+                            .append_basic_block(self.function, "funcref_continue_deref_block");
+
+                        let funcref_is_null_block = self
+                            .context
+                            .append_basic_block(self.function, "funcref_is_null_block");
+                        err!(self.builder.build_conditional_branch(
+                            funcref_not_null,
+                            funcref_continue_deref_block,
+                            funcref_is_null_block,
+                        ));
+                        self.builder.position_at_end(funcref_is_null_block);
+                        self.build_call_with_param_attributes(
+                            self.intrinsics.throw_trap,
+                            &[self.intrinsics.trap_call_indirect_null.into()],
+                            "throw",
+                        )?;
+                        err!(self.builder.build_unreachable());
+                        self.builder.position_at_end(funcref_continue_deref_block);
+                    }
+
+                    anyfunc_struct_ptr
                 };
 
-                // a funcref (pointer to `anyfunc`)
-                let anyfunc_struct_ptr = err!(self.builder.build_load(
-                    self.intrinsics.ptr_ty,
-                    funcref_ptr,
-                    "anyfunc_struct_ptr",
-                ))
-                .into_pointer_value();
-
-                // trap if we're trying to call a null funcref
-                {
-                    let funcref_not_null = err!(
-                        self.builder
-                            .build_is_not_null(anyfunc_struct_ptr, "null_funcref_check")
-                    );
-
-                    let funcref_continue_deref_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_continue_deref_block");
-
-                    let funcref_is_null_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_is_null_block");
-                    err!(self.builder.build_conditional_branch(
-                        funcref_not_null,
-                        funcref_continue_deref_block,
-                        funcref_is_null_block,
-                    ));
-                    self.builder.position_at_end(funcref_is_null_block);
-                    self.build_call_with_param_attributes(
-                        self.intrinsics.throw_trap,
-                        &[self.intrinsics.trap_call_indirect_null.into()],
-                        "throw",
-                    )?;
-                    err!(self.builder.build_unreachable());
-                    self.builder.position_at_end(funcref_continue_deref_block);
-                }
-
                 // Load things from the anyfunc data structure.
+                let sig_hash_ptr = self
+                    .builder
+                    .build_struct_gep(
+                        self.intrinsics.anyfunc_ty,
+                        anyfunc_struct_ptr,
+                        1,
+                        "sig_hash_ptr",
+                    )
+                    .unwrap();
                 let func_ptr_ptr = self
                     .builder
                     .build_struct_gep(
@@ -3287,25 +3344,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "func_ptr_ptr",
                     )
                     .unwrap();
-                let sigindex_ptr = self
-                    .builder
-                    .build_struct_gep(
-                        self.intrinsics.anyfunc_ty,
-                        anyfunc_struct_ptr,
-                        1,
-                        "sigindex_ptr",
-                    )
-                    .unwrap();
-                let ctx_ptr_ptr = self
-                    .builder
-                    .build_struct_gep(
-                        self.intrinsics.anyfunc_ty,
-                        anyfunc_struct_ptr,
-                        2,
-                        "ctx_ptr_ptr",
-                    )
-                    .unwrap();
-                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
+                let (func_ptr, found_signature_hash) = (
                     err!(
                         self.builder
                             .build_load(self.intrinsics.ptr_ty, func_ptr_ptr, "func_ptr")
@@ -3313,13 +3352,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .into_pointer_value(),
                     err!(
                         self.builder
-                            .build_load(self.intrinsics.i32_ty, sigindex_ptr, "sigindex")
+                            .build_load(self.intrinsics.i32_ty, sig_hash_ptr, "sig_hash")
                     )
                     .into_int_value(),
-                    err!(
-                        self.builder
-                            .build_load(self.intrinsics.ptr_ty, ctx_ptr_ptr, "ctx_ptr")
-                    ),
                 );
 
                 // Next, check if the table element is initialized.
@@ -3329,28 +3364,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 // Next, check if the signature id is correct.
 
-                let sigindices_equal = err!(self.builder.build_int_compare(
+                let sig_hashes_equal = err!(self.builder.build_int_compare(
                     IntPredicate::EQ,
-                    expected_dynamic_sigindex,
-                    found_dynamic_sigindex,
-                    "sigindices_equal",
+                    expected_signature_hash,
+                    found_signature_hash,
+                    "sig_hashes_equal",
                 ));
 
-                let initialized_and_sigindices_match = err!(self.builder.build_and(
+                let initialized_and_sig_hashes_match = err!(self.builder.build_and(
                     elem_initialized,
-                    sigindices_equal,
+                    sig_hashes_equal,
                     ""
                 ));
 
-                // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let initialized_and_sigindices_match = self
+                // Tell llvm that the expected and found signature hashes should match.
+                let initialized_and_sig_hashes_match = self
                     .build_call_with_param_attributes(
                         self.intrinsics.expect_i1,
                         &[
-                            initialized_and_sigindices_match.into(),
+                            initialized_and_sig_hashes_match.into(),
                             self.intrinsics.i1_ty.const_int(1, false).into(),
                         ],
-                        "initialized_and_sigindices_match_expect",
+                        "initialized_and_sig_hashes_match_expect",
                     )?
                     .try_as_basic_value()
                     .unwrap_basic()
@@ -3359,16 +3394,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let continue_block = self
                     .context
                     .append_basic_block(self.function, "continue_block");
-                let sigindices_notequal_block = self
+                let sighashes_notequal_block = self
                     .context
-                    .append_basic_block(self.function, "sigindices_notequal_block");
+                    .append_basic_block(self.function, "sighashes_notequal_block");
                 err!(self.builder.build_conditional_branch(
-                    initialized_and_sigindices_match,
+                    initialized_and_sig_hashes_match,
                     continue_block,
-                    sigindices_notequal_block,
+                    sighashes_notequal_block,
                 ));
 
-                self.builder.position_at_end(sigindices_notequal_block);
+                self.builder.position_at_end(sighashes_notequal_block);
                 let trap_code = err!(self.builder.build_select(
                     elem_initialized,
                     self.intrinsics.trap_call_indirect_sig,
@@ -3383,10 +3418,29 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(continue_block);
 
+                let callee_vmctx = if table.readonly {
+                    *vmctx
+                } else {
+                    let ctx_ptr_ptr = self
+                        .builder
+                        .build_struct_gep(
+                            self.intrinsics.anyfunc_ty,
+                            anyfunc_struct_ptr,
+                            2,
+                            "ctx_ptr_ptr",
+                        )
+                        .unwrap();
+                    err!(
+                        self.builder
+                            .build_load(self.intrinsics.ptr_ty, ctx_ptr_ptr, "ctx_ptr")
+                    )
+                    .into_pointer_value()
+                };
+
                 if self.m0_param.is_some() {
                     self.build_m0_indirect_call(
-                        table_index,
-                        ctx_ptr.into_pointer_value(),
+                        table_index.as_u32(),
+                        callee_vmctx,
                         func_type,
                         func_ptr,
                         func_index,
@@ -3394,7 +3448,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     )?;
                 } else {
                     let (call_site, llvm_func_type) = self.build_indirect_call(
-                        ctx_ptr.into_pointer_value(),
+                        callee_vmctx,
                         func_type,
                         func_ptr,
                         None,

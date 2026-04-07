@@ -79,9 +79,9 @@ mod bounds_checks;
 pub(crate) const TAG_TYPE: ir::Type = I32;
 pub(crate) const EXN_REF_TYPE: ir::Type = I32;
 
-use super::func_environ::{FuncEnvironment, GlobalVariable};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
+use crate::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
@@ -126,12 +126,12 @@ macro_rules! unwrap_or_return_unreachable_state {
 #[allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)]
 /// Translates wasm operators into Cranelift IR instructions. Returns `true` if it inserted
 /// a return.
-pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
+pub fn translate_operator(
     module_translation_state: &ModuleTranslationState,
     op: &Operator,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     if !state.reachable {
         translate_unreachable_operator(module_translation_state, op, builder, state, environ)?;
@@ -211,7 +211,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     }
                     debug_assert_eq!(ty, builder.func.dfg.value_type(val));
                     builder.ins().store(flags, val, addr, offset);
-                    environ.update_global(builder, *global_index, val);
                 }
                 GlobalVariable::Custom => {
                     let val = state.pop1();
@@ -257,7 +256,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             // We do nothing
         }
         Operator::Unreachable => {
-            builder.ins().trap(crate::TRAP_UNREACHABLE);
+            environ.translate_unreachable(builder)?;
             state.reachable = false;
         }
         /***************************** Control flow blocks **********************************
@@ -291,7 +290,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 .extend_from_slice(builder.block_params(loop_body));
 
             builder.switch_to_block(loop_body);
-            environ.translate_loop_header(builder.cursor())?;
         }
         Operator::If { blockty } => {
             let val = state.pop1();
@@ -595,7 +593,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             };
             {
                 let return_args = state.peekn_mut(return_count);
-                environ.handle_before_return(return_args, builder);
                 bitcast_wasm_returns(environ, return_args, builder);
                 builder.ins().return_(return_args);
             }
@@ -2469,12 +2466,12 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 /// Deals with a Wasm instruction located in an unreachable portion of the code. Most of them
 /// are dropped but special ones like `End` or `Else` signal the potential end of the unreachable
 /// portion so the translation state must be updated accordingly.
-fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
+fn translate_unreachable_operator(
     module_translation_state: &ModuleTranslationState,
     op: &Operator,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     debug_assert!(!state.reachable);
     match *op {
@@ -2621,16 +2618,13 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
 /// Returns `None` when the Wasm access will unconditionally trap.
 ///
 /// Returns `(flags, wasm_addr, native_addr)`.
-fn prepare_addr<FE>(
+fn prepare_addr(
     memarg: &MemArg,
     access_size: u8,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
-) -> WasmResult<Reachability<(MemFlags, Value, Value)>>
-where
-    FE: FuncEnvironment + ?Sized,
-{
+    environ: &mut FuncEnvironment<'_>,
+) -> WasmResult<Reachability<(MemFlags, Value, Value)>> {
     let index = state.pop1();
     let heap = state.get_heap(builder.func, memarg.memory, environ)?;
 
@@ -2823,12 +2817,12 @@ fn align_atomic_addr(
 /// Like `prepare_addr` but for atomic accesses.
 ///
 /// Returns `None` when the Wasm access will unconditionally trap.
-fn prepare_atomic_addr<FE: FuncEnvironment + ?Sized>(
+fn prepare_atomic_addr(
     memarg: &MemArg,
     loaded_bytes: u8,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<Reachability<(MemFlags, Value, Value)>> {
     align_atomic_addr(memarg, loaded_bytes, builder, state);
     prepare_addr(memarg, loaded_bytes, builder, state, environ)
@@ -2853,22 +2847,20 @@ pub enum Reachability<T> {
 /// Translate a load instruction.
 ///
 /// Returns the execution state's reachability after the load is translated.
-fn translate_load<FE: FuncEnvironment + ?Sized>(
+fn translate_load(
     memarg: &MemArg,
     opcode: ir::Opcode,
     result_ty: Type,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<Reachability<()>> {
     let mem_op_size = mem_op_size(opcode, result_ty);
-    let (flags, wasm_index, base) =
+    let (flags, _wasm_index, base) =
         match prepare_addr(memarg, mem_op_size, builder, state, environ)? {
             Reachability::Unreachable => return Ok(Reachability::Unreachable),
             Reachability::Reachable((f, i, b)) => (f, i, b),
         };
-
-    environ.before_load(builder, mem_op_size, wasm_index, memarg.offset);
 
     let (load, dfg) = builder
         .ins()
@@ -2878,23 +2870,21 @@ fn translate_load<FE: FuncEnvironment + ?Sized>(
 }
 
 /// Translate a store instruction.
-fn translate_store<FE: FuncEnvironment + ?Sized>(
+fn translate_store(
     memarg: &MemArg,
     opcode: ir::Opcode,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     let val = state.pop1();
     let val_ty = builder.func.dfg.value_type(val);
     let mem_op_size = mem_op_size(opcode, val_ty);
 
-    let (flags, wasm_index, base) = unwrap_or_return_unreachable_state!(
+    let (flags, _wasm_index, base) = unwrap_or_return_unreachable_state!(
         state,
         prepare_addr(memarg, mem_op_size, builder, state, environ)?
     );
-
-    environ.before_store(builder, mem_op_size, wasm_index, memarg.offset);
 
     builder
         .ins()
@@ -2950,14 +2940,14 @@ fn fold_atomic_mem_addr(
     final_lma
 }
 
-fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
+fn translate_atomic_rmw(
     widened_ty: Type,
     access_ty: Type,
     op: AtomicRmwOp,
     memarg: &MemArg,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     let mut arg2 = state.pop1();
     let arg2_ty = builder.func.dfg.value_type(arg2);
@@ -2999,13 +2989,13 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
     state.push1(res);
     Ok(())
 }
-fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
+fn translate_atomic_cas(
     widened_ty: Type,
     access_ty: Type,
     memarg: &MemArg,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     let (mut expected, mut replacement) = state.pop2();
     let expected_ty = builder.func.dfg.value_type(expected);
@@ -3052,13 +3042,13 @@ fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
     Ok(())
 }
 
-fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
+fn translate_atomic_load(
     widened_ty: Type,
     access_ty: Type,
     memarg: &MemArg,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     // The load is performed at type `access_ty`, and the loaded value is zero extended
     // to `widened_ty`.
@@ -3092,12 +3082,12 @@ fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
     Ok(())
 }
 
-fn translate_atomic_store<FE: FuncEnvironment + ?Sized>(
+fn translate_atomic_store(
     access_ty: Type,
     memarg: &MemArg,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     let mut data = state.pop1();
     let data_ty = builder.func.dfg.value_type(data);
@@ -3580,8 +3570,8 @@ pub fn bitcast_arguments<'a>(
 /// place to point to the result of a `bitcast`. This conversion is necessary to translate Wasm
 /// code that uses `V128` as function parameters (or implicitly in block parameters) and still use
 /// specific CLIF types (e.g. `I32X4`) in the function body.
-pub fn bitcast_wasm_returns<FE: FuncEnvironment + ?Sized>(
-    environ: &mut FE,
+pub fn bitcast_wasm_returns(
+    environ: &mut FuncEnvironment<'_>,
     arguments: &mut [Value],
     builder: &mut FunctionBuilder,
 ) {
@@ -3596,8 +3586,8 @@ pub fn bitcast_wasm_returns<FE: FuncEnvironment + ?Sized>(
 }
 
 /// Like `bitcast_wasm_returns`, but for the parameters being passed to a specified callee.
-pub fn bitcast_wasm_params<FE: FuncEnvironment + ?Sized>(
-    environ: &mut FE,
+pub fn bitcast_wasm_params(
+    environ: &mut FuncEnvironment<'_>,
     callee_signature: ir::SigRef,
     arguments: &mut [Value],
     builder: &mut FunctionBuilder,
@@ -3620,11 +3610,11 @@ pub(crate) struct CatchClause {
     pub(crate) block: ir::Block,
 }
 
-fn create_catch_block<FE: FuncEnvironment + ?Sized>(
+fn create_catch_block(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     catch: &wasmparser::Catch,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<CatchClause> {
     let (is_ref, wasm_tag, label) = match catch {
         wasmparser::Catch::One { tag, label } => (false, Some(*tag), *label),
@@ -3662,9 +3652,9 @@ fn create_catch_block<FE: FuncEnvironment + ?Sized>(
     })
 }
 
-fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
+fn create_dispatch_block(
     builder: &mut FunctionBuilder,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
     clauses: impl Iterator<Item = CatchClause>,
 ) -> WasmResult<ir::Block> {
     let clauses = clauses.collect_vec();

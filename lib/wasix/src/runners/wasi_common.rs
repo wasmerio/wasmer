@@ -319,7 +319,8 @@ mod tests {
 
     use super::*;
 
-    const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
+    const PYTHON: &[u8] =
+        include_bytes!("../../../../wasmer-test-files/examples/python-0.1.0.wasmer");
 
     /// Fixes <https://github.com/wasmerio/wasmer/issues/3789>
     #[tokio::test]

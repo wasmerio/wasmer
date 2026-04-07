@@ -7,10 +7,11 @@ use crate::{
     vm::{VMExtern, VMExternMemory, VMMemory},
 };
 
-gen_rt_ty!(Memory
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
+    pub BackendMemory(entities::memory::Memory);
+}
 
 impl BackendMemory {
     /// Creates a new host [`BackendMemory`] from the provided [`MemoryType`].
@@ -64,42 +65,42 @@ impl BackendMemory {
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_sys(),
+                    memory.unwrap_sys(),
                 ),
             ),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => Self::Wamr(
                 crate::backend::wamr::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_wamr(),
+                    memory.unwrap_wamr(),
                 ),
             ),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => Self::Wasmi(
                 crate::backend::wasmi::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_wasmi(),
+                    memory.unwrap_wasmi(),
                 ),
             ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(
                 crate::backend::v8::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_v8(),
+                    memory.unwrap_v_8(),
                 ),
             ),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(
                 crate::backend::js::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_js(),
+                    memory.unwrap_js(),
                 ),
             ),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_jsc(),
+                    memory.unwrap_jsc(),
                 ),
             ),
         }
