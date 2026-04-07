@@ -43,14 +43,14 @@ void do_directory_operations(void) {
   mkdir("/tmp/test_dir", 0755);
 
   // Open the directory
-  DIR *dir = opendir("/tmp");
+  DIR* dir = opendir("/tmp");
   if (!dir) {
     perror("opendir");
     return;
   }
 
   // Read some entries
-  struct dirent *entry;
+  struct dirent* entry;
   int count = 0;
   while ((entry = readdir(dir)) != NULL && count < 5) {
     count++;
@@ -76,15 +76,13 @@ void do_file_operations(void) {
 
   if (fd1 < 0 || fd2 < 0) {
     perror("open");
-    if (fd1 >= 0)
-      close(fd1);
-    if (fd2 >= 0)
-      close(fd2);
+    if (fd1 >= 0) close(fd1);
+    if (fd2 >= 0) close(fd2);
     return;
   }
 
   // Write to both
-  const char *data = "test data\n";
+  const char* data = "test data\n";
   write(fd1, data, strlen(data));
   write(fd2, data, strlen(data));
 

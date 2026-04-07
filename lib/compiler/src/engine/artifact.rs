@@ -44,7 +44,7 @@ use wasmer_types::{
 
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
-    VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
+    VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -63,7 +63,7 @@ pub struct AllocatedArtifact {
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
-    signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
@@ -410,7 +410,8 @@ impl Artifact {
             module_info
                 .signatures
                 .values()
-                .map(|sig| signature_registry.register(sig))
+                .zip(module_info.signature_hashes.values())
+                .map(|(sig, sig_hash)| signature_registry.register(sig, *sig_hash))
                 .collect::<PrimaryMap<_, _>>()
         };
 
@@ -808,7 +809,7 @@ impl Artifact {
     }
 
     /// Returns the associated VM signatures for this `Artifact`.
-    pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+    pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSignatureHash> {
         &self
             .allocated
             .as_ref()
@@ -864,8 +865,12 @@ impl Artifact {
             // Get pointers to where metadata about local memories should live in VM memory.
             // Get pointers to where metadata about local tables should live in VM memory.
 
-            let (allocator, memory_definition_locations, table_definition_locations) =
-                InstanceAllocator::new(&module);
+            let (
+                allocator,
+                memory_definition_locations,
+                table_definition_locations,
+                global_definition_locations,
+            ) = InstanceAllocator::new(&module);
             let finished_memories = tunables
                 .create_memories(
                     context,
@@ -885,7 +890,7 @@ impl Artifact {
                 .map_err(InstantiationError::Link)?
                 .into_boxed_slice();
             let finished_globals = tunables
-                .create_globals(context, &module)
+                .create_globals(context, &module, &global_definition_locations)
                 .map_err(InstantiationError::Link)?
                 .into_boxed_slice();
 
@@ -1082,7 +1087,7 @@ impl Artifact {
         - TableIndex -> TableStyle
         - LocalFunctionIndex -> FunctionBodyPtr // finished functions
         - FunctionIndex -> FunctionBodyPtr // finished dynamic function trampolines
-        - SignatureIndex -> VMSharedSignatureindextureIndex // signatures
+        - SignatureIndex -> VMSignatureHash // signatures
          */
 
         let mut metadata_builder =
@@ -1219,12 +1224,12 @@ impl Artifact {
 
             // We register all the signatures
             let signatures = {
-                metadata
-                    .compile_info
-                    .module
+                let module = &metadata.compile_info.module;
+                module
                     .signatures
                     .values()
-                    .map(|sig| signature_registry.register(sig))
+                    .zip(module.signature_hashes.values())
+                    .map(|(sig, sig_hash)| signature_registry.register(sig, *sig_hash))
                     .collect::<PrimaryMap<_, _>>()
             };
 

@@ -12,7 +12,10 @@ use crate::{
     macros::backend::{gen_rt_ty, match_rt},
 };
 
-gen_rt_ty!(Engine @derives Debug, Clone);
+gen_rt_ty! {
+    #[derive(Debug, Clone)]
+    pub(crate) BackendEngine(entities::engine::Engine);
+}
 
 impl BackendEngine {
     /// Returns the deterministic id of this engine.

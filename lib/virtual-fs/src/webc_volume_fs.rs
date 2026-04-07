@@ -363,7 +363,8 @@ mod tests {
     use tokio::io::AsyncReadExt;
     use wasmer_package::utils::from_bytes;
 
-    const PYTHON_WEBC: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
+    const PYTHON_WEBC: &[u8] =
+        include_bytes!("../../../wasmer-test-files/examples/python-0.1.0.wasmer");
 
     #[test]
     fn normalize_paths() {

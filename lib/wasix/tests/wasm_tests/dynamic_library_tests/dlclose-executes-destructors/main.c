@@ -2,26 +2,20 @@
 #include <dlfcn.h>
 #include <stdio.h>
 
-__attribute__((constructor))
-static void init() {
-    printf("a");
-}
+__attribute__((constructor)) static void init() { printf("a"); }
 
-__attribute__((destructor))
-static void fini() {
-    printf("f");
-}
+__attribute__((destructor)) static void fini() { printf("f"); }
 
 int main() {
-    printf("c");
+  printf("c");
 
-    void *handle = dlopen("libside.so", RTLD_NOW | RTLD_LOCAL);
-    assert(handle);
+  void* handle = dlopen("libside.so", RTLD_NOW | RTLD_LOCAL);
+  assert(handle);
 
-    int result = dlclose(handle);
-    assert(result == 0);
+  int result = dlclose(handle);
+  assert(result == 0);
 
-    printf("e");
+  printf("e");
 
-    return 0;
+  return 0;
 }

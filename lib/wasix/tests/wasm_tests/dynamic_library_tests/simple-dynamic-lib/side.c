@@ -1,3 +1,1 @@
-int get_value() {
-    return 42;
-}
+int get_value() { return 42; }

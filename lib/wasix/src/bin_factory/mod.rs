@@ -26,7 +26,10 @@ pub use self::{
 };
 use crate::{
     Runtime, SpawnError, WasiEnv,
-    os::{command::Commands, task::TaskJoinHandle},
+    os::{
+        command::{Commands, VirtualCommand},
+        task::TaskJoinHandle,
+    },
     runtime::module_cache::HashedModuleData,
 };
 
@@ -48,6 +51,40 @@ impl BinFactory {
 
     pub fn runtime(&self) -> &(dyn Runtime + Send + Sync) {
         self.runtime.deref()
+    }
+
+    /// Register a builtin command.
+    pub fn register_builtin_command<C>(&mut self, cmd: C)
+    where
+        C: VirtualCommand + Send + Sync + 'static,
+    {
+        self.commands.register_command(cmd);
+    }
+
+    /// Register a builtin command at a custom path.
+    pub fn register_builtin_command_with_path<C, P>(&mut self, cmd: C, path: P)
+    where
+        C: VirtualCommand + Send + Sync + 'static,
+        P: Into<String>,
+    {
+        self.commands.register_command_with_path(cmd, path.into());
+    }
+
+    /// Register a builtin command behind an [`Arc`] at a custom path.
+    pub(crate) fn register_builtin_command_with_path_shared<P>(
+        &mut self,
+        cmd: Arc<dyn VirtualCommand + Send + Sync + 'static>,
+        path: P,
+    ) where
+        P: Into<String>,
+    {
+        self.commands
+            .register_command_with_path_shared(cmd, path.into());
+    }
+
+    /// Remove all registered builtin commands.
+    pub fn clear_builtin_commands(&mut self) {
+        self.commands.clear();
     }
 
     pub fn set_binary(&self, name: &str, binary: &Arc<BinaryPackage>) {

@@ -797,7 +797,8 @@ mod tests {
 
     use super::*;
 
-    const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
+    const PYTHON: &[u8] =
+        include_bytes!("../../../../../wasmer-test-files/examples/python-0.1.0.wasmer");
 
     #[derive(Debug)]
     pub(crate) struct DummyClient {
@@ -944,6 +945,7 @@ mod tests {
         }
         assert!(loader.evict_cached(&hash).is_none());
     }
+
     /// Small helper to construct headers with a given content-encoding.
     fn headers_with_encoding(content_encoding: Option<&str>) -> HeaderMap {
         let mut headers = HeaderMap::new();

@@ -5,14 +5,17 @@
 //! `wasmer::Module`.
 
 use crate::entity::{EntityRef, PrimaryMap};
+use crate::indexes::SignatureHash;
 use crate::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex, MemoryIndex, MemoryType,
     ModuleHash, SignatureIndex, TableIndex, TableInitializer, TableType, TagIndex, TagType,
+    WasmError, WasmResult,
 };
 
 use indexmap::IndexMap;
+use itertools::Itertools;
 use rkyv::rancor::{Fallible, Source, Trace};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -153,6 +156,9 @@ pub struct ModuleInfo {
     /// WebAssembly function signatures.
     pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
 
+    /// WebAssembly function signature hashes.
+    pub signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
+
     /// WebAssembly functions (imported and local).
     pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
 
@@ -205,6 +211,7 @@ pub struct ArchivableModuleInfo {
     global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
     function_names: BTreeMap<FunctionIndex, String>,
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
+    signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
     functions: PrimaryMap<FunctionIndex, SignatureIndex>,
     tables: PrimaryMap<TableIndex, TableType>,
     memories: PrimaryMap<MemoryIndex, MemoryType>,
@@ -233,6 +240,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
+            signature_hashes: it.signature_hashes,
             functions: it.functions,
             tables: it.tables,
             memories: it.memories,
@@ -264,6 +272,7 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
+            signature_hashes: it.signature_hashes,
             functions: it.functions,
             tables: it.tables,
             memories: it.memories,
@@ -328,6 +337,7 @@ impl PartialEq for ModuleInfo {
             && self.global_initializers == other.global_initializers
             && self.function_names == other.function_names
             && self.signatures == other.signatures
+            && self.signature_hashes == other.signature_hashes
             && self.functions == other.functions
             && self.tables == other.tables
             && self.memories == other.memories
@@ -359,6 +369,23 @@ impl ModuleInfo {
     /// Returns the module hash as String if available
     pub fn hash_string(&self) -> Option<String> {
         self.hash.map(|m| m.to_string())
+    }
+
+    /// Validates invariants for the precomputed signature hashes.
+    pub fn validate_signature_hashes(&self) -> WasmResult<()> {
+        // TODO: the signatures are not distinct, thus we cannot just validate signature_hashes.
+        if self
+            .signatures
+            .iter()
+            .map(|(_, signature)| signature)
+            .unique()
+            .map(|signature| signature.signature_hash())
+            .all_unique()
+        {
+            Ok(())
+        } else {
+            Err(WasmError::Generic("signature hash collision".to_string()))
+        }
     }
 
     /// Get the given passive element, if it exists.

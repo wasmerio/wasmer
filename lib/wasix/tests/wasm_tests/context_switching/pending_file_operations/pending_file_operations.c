@@ -14,7 +14,7 @@ void context1_fn(void) {
   char buffer[256];
 
   // Open a file for writing
-  FILE *fp = fopen("/tmp/ctx_test1.txt", "w");
+  FILE* fp = fopen("/tmp/ctx_test1.txt", "w");
   assert(fp != NULL && "Failed to open file");
 
   // Write some data
@@ -39,7 +39,7 @@ void context2_fn(void) {
   char buffer[256];
 
   // Open another file
-  FILE *fp = fopen("/tmp/ctx_test2.txt", "w");
+  FILE* fp = fopen("/tmp/ctx_test2.txt", "w");
   assert(fp != NULL && "Failed to open file");
 
   fprintf(fp, "Context 2 data\n");
@@ -58,7 +58,7 @@ void context2_fn(void) {
 
 void context3_fn(void) {
   // Do some operations
-  FILE *fp = tmpfile();
+  FILE* fp = tmpfile();
   assert(fp != NULL && "Failed to create temp file");
 
   fprintf(fp, "Temp data\n");
