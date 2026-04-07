@@ -186,7 +186,7 @@ impl Table {
         let store_mut = store.as_store_mut();
 
         Self {
-            handle: vm_extern.into_v8(),
+            handle: vm_extern.unwrap_v_8(),
         }
     }
 

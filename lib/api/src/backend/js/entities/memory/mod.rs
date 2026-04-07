@@ -151,7 +151,7 @@ impl Memory {
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
         Self {
-            handle: internal.into_js(),
+            handle: internal.unwrap_js(),
         }
     }
 

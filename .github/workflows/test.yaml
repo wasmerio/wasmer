@@ -219,11 +219,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git make lld curl
       - name: Install wasixcc
-        uses: wasix-org/wasixcc@v0.4.2
+        uses: wasix-org/wasixcc@v0.4.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
-          version: v0.4.2
+          version: v0.4.3
 
       - name: Install build-scripts sysroot
         uses: wasix-org/build-scripts@main
@@ -705,12 +705,6 @@ jobs:
           echo "LLVM_SYS_211_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-      - name: Add `brew` libs to `RUSTFLAGS`
-        if: matrix.metadata.os == 'macos-14'
-        shell: bash
-        run: |
-          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-          echo "RUSTDOCFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |
@@ -969,11 +963,11 @@ jobs:
 
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
-        uses: wasix-org/wasixcc@v0.4.2
+        uses: wasix-org/wasixcc@v0.4.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
-          version: v0.4.2
+          version: v0.4.3
 
       - name: Install build-scripts sysroot
         if: matrix.metadata.build != 'windows-x64'
@@ -997,12 +991,6 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-      - name: Add `brew` libs to `RUSTFLAGS`
-        if: matrix.metadata.os == 'macos-14' || matrix.metadata.os == 'depot-macos-14'
-        shell: bash
-        run: |
-          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-          echo "RUSTDOCFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |

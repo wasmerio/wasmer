@@ -138,6 +138,7 @@ corosensei = "0.3.0"
 cranelift-codegen = { version = "=0.130.0", default-features = false }
 cranelift-entity = { version = "=0.130.0", default-features = false }
 cranelift-frontend = { version = "=0.130.0", default-features = false }
+crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
 crossbeam-queue = "0.3.8"
@@ -156,6 +157,7 @@ enumset = "1.1.0"
 env_logger = { version = "0.11.5", default-features = false }
 field-offset = "0.3.3"
 filetime = "0.2.18"
+fixedbitset = "0.5.7"
 flate2 = "1.0.34"
 zstd = "0.13.2"
 fnv = "1.0.3"

@@ -164,7 +164,7 @@ impl RuntimeError {
             #[cfg(feature = "sys")]
             crate::StoreObjects::Sys(ref store_objects) => {
                 crate::backend::sys::vm::Trap::uncaught_exception(
-                    exnref.as_sys().clone(),
+                    exnref.unwrap_sys_ref().clone(),
                     store_objects,
                 )
                 .into()
