@@ -3,7 +3,7 @@ use crate::{
     AsStoreRef, BackendStore, StoreRef,
     engine::{AsEngineRef, Engine, EngineRef},
 };
-use ::wasmi as wasmi_native;
+use ::wasmi;
 
 mod obj;
 pub use obj::*;
@@ -11,7 +11,7 @@ pub use obj::*;
 /// A WebAssembly `store` in `wasmi`.
 pub(crate) struct Store {
     pub(crate) engine: Engine,
-    pub(crate) inner: wasmi_native::Store<()>,
+    pub(crate) inner: wasmi::Store<()>,
 }
 
 impl std::fmt::Debug for Store {
@@ -24,7 +24,7 @@ impl std::fmt::Debug for Store {
 
 impl Store {
     pub(crate) fn new(engine: crate::engine::Engine) -> Self {
-        let inner = wasmi_native::Store::new(&engine.as_wasmi().inner.engine, ());
+        let inner = wasmi::Store::new(&engine.as_wasmi().inner.engine, ());
         Self { inner, engine }
     }
 

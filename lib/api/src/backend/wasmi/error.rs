@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use ::wasmi as wasmi_native;
+use ::wasmi;
 
 use crate::wasmi::vm::VMExceptionRef;
 
@@ -19,12 +19,12 @@ impl std::error::Error for UserTrap {
     }
 }
 
-impl wasmi_native::errors::HostError for UserTrap {}
+impl wasmi::errors::HostError for UserTrap {}
 
 #[derive(Debug)]
 enum InnerTrap {
     User(Box<dyn Error + Send + Sync>),
-    Wasmi(wasmi_native::Error),
+    Wasmi(wasmi::Error),
 }
 
 /// A struct representing a Trap.
@@ -43,16 +43,16 @@ impl Trap {
         }
     }
 
-    pub(crate) fn from_wasmi_error(error: wasmi_native::Error) -> crate::RuntimeError {
+    pub(crate) fn from_wasmi_error(error: wasmi::Error) -> crate::RuntimeError {
         Self {
             inner: InnerTrap::Wasmi(error),
         }
         .into()
     }
 
-    pub(crate) fn into_wasmi_error(self) -> wasmi_native::Error {
+    pub(crate) fn into_wasmi_error(self) -> wasmi::Error {
         match self.inner {
-            InnerTrap::User(err) => wasmi_native::Error::host(UserTrap(err)),
+            InnerTrap::User(err) => wasmi::Error::host(UserTrap(err)),
             InnerTrap::Wasmi(err) => err,
         }
     }

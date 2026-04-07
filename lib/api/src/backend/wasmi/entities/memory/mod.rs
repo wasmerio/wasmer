@@ -2,7 +2,7 @@
 #![allow(missing_docs)]
 use std::{marker::PhantomData, mem::MaybeUninit};
 
-use ::wasmi as wasmi_native;
+use ::wasmi;
 use tracing::warn;
 pub use wasmer_types::MemoryError;
 use wasmer_types::{MemoryType, Pages};
@@ -28,9 +28,9 @@ unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let ty = wasmi_native::MemoryType::new(ty.minimum.0, ty.maximum.map(|v| v.0));
+        let ty = wasmi::MemoryType::new(ty.minimum.0, ty.maximum.map(|v| v.0));
         let mut store = store.as_store_mut();
-        let handle = wasmi_native::Memory::new(&mut store.inner.store.as_wasmi_mut().inner, ty)
+        let handle = wasmi::Memory::new(&mut store.inner.store.as_wasmi_mut().inner, ty)
             .map_err(|err| MemoryError::Generic(err.to_string()))?;
         Ok(Self { handle })
     }

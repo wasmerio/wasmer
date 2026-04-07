@@ -5,7 +5,7 @@
 
 use std::panic::{self, AssertUnwindSafe};
 
-use ::wasmi as wasmi_native;
+use ::wasmi;
 use crate::{
     AsStoreMut, AsStoreRef, BackendFunction, FunctionEnv, FunctionEnvMut, HostFunction,
     RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
@@ -45,14 +45,14 @@ impl From<VMFunction> for Function {
     }
 }
 
-fn wasmi_func_type(ty: &FunctionType) -> wasmi_native::FuncType {
-    wasmi_native::FuncType::new(
+fn wasmi_func_type(ty: &FunctionType) -> wasmi::FuncType {
+    wasmi::FuncType::new(
         ty.params().iter().copied().map(|param| param.into_ct()),
         ty.results().iter().copied().map(|result| result.into_ct()),
     )
 }
 
-fn wasmi_error_from_runtime_error(err: RuntimeError) -> wasmi_native::Error {
+fn wasmi_error_from_runtime_error(err: RuntimeError) -> wasmi::Error {
     crate::backend::wasmi::error::Trap::user(Box::new(err)).into_wasmi_error()
 }
 
@@ -61,7 +61,7 @@ fn run_call_with_on_called<T, F>(
     mut f: F,
 ) -> Result<T, RuntimeError>
 where
-    F: FnMut(&mut crate::backend::wasmi::store::Store) -> Result<T, wasmi_native::Error>,
+    F: FnMut(&mut crate::backend::wasmi::store::Store) -> Result<T, wasmi::Error>,
 {
     loop {
         let result = {
@@ -110,7 +110,7 @@ impl Function {
         let raw_store = store.as_raw() as usize;
         let env_handle = env.as_wasmi().handle.clone();
 
-        let handle = wasmi_native::Func::new(
+        let handle = wasmi::Func::new(
             &mut store.inner.store.as_wasmi_mut().inner,
             wasmi_ty,
             move |_caller, inputs, outputs| {
@@ -122,11 +122,11 @@ impl Function {
                 let values = match result {
                     Ok(Ok(values)) => values,
                     Ok(Err(err)) => return Err(wasmi_error_from_runtime_error(err)),
-                    Err(_) => return Err(wasmi_native::Error::new("host function panicked")),
+                    Err(_) => return Err(wasmi::Error::new("host function panicked")),
                 };
 
                 if values.len() != outputs.len() {
-                    return Err(wasmi_native::Error::new(
+                    return Err(wasmi::Error::new(
                         "host function returned unexpected number of results",
                     ));
                 }
@@ -207,12 +207,12 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
-        let args: Vec<wasmi_native::Val> = params.iter().cloned().map(IntoCApiValue::into_cv).collect();
+        let args: Vec<wasmi::Val> = params.iter().cloned().map(IntoCApiValue::into_cv).collect();
         let result_types = self.ty(store).results().to_vec();
-        let mut results: Vec<wasmi_native::Val> = result_types
+        let mut results: Vec<wasmi::Val> = result_types
             .iter()
             .copied()
-            .map(|ty| wasmi_native::Val::default(ty.into_ct()))
+            .map(|ty| wasmi::Val::default(ty.into_ct()))
             .collect();
 
         run_call_with_on_called(store, |store_inner| {

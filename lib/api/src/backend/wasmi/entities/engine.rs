@@ -1,17 +1,17 @@
 //! Data types, functions and traits for `wasmi` runtime's `Engine` implementation.
 use crate::BackendEngine;
-use ::wasmi as wasmi_native;
+use ::wasmi;
 use std::sync::Arc;
 use wasmer_types::{Features, target::Target};
 
 #[derive(Debug)]
 pub(crate) struct NativeEngine {
-    pub(crate) engine: wasmi_native::Engine,
+    pub(crate) engine: wasmi::Engine,
 }
 
 impl Default for NativeEngine {
     fn default() -> Self {
-        let engine = wasmi_native::Engine::default();
+        let engine = wasmi::Engine::default();
         Self { engine }
     }
 }

@@ -1,5 +1,5 @@
 //! Data types, functions and traits for `wasmi`'s `Global` implementation.
-use ::wasmi as wasmi_native;
+use ::wasmi;
 use wasmer_types::{GlobalType, Mutability};
 
 use crate::{
@@ -40,13 +40,13 @@ impl Global {
     ) -> Result<Self, RuntimeError> {
         let mut store = store.as_store_mut();
         Ok(Self {
-            handle: wasmi_native::Global::new(
+            handle: wasmi::Global::new(
                 &mut store.inner.store.as_wasmi_mut().inner,
                 val.into_cv(),
                 if mutability.is_mutable() {
-                    wasmi_native::Mutability::Var
+                    wasmi::Mutability::Var
                 } else {
-                    wasmi_native::Mutability::Const
+                    wasmi::Mutability::Const
                 },
             ),
         })

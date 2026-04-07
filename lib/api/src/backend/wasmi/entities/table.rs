@@ -1,6 +1,6 @@
 //! Data types, functions and traits for `wasmi`'s `Table` implementation.
 #![allow(missing_docs)]
-use ::wasmi as wasmi_native;
+use ::wasmi;
 use wasmer_types::TableType;
 
 use crate::{
@@ -29,8 +29,8 @@ impl PartialEq for Table {
 
 impl Eq for Table {}
 
-fn wasmi_table_type(ty: TableType) -> wasmi_native::TableType {
-    wasmi_native::TableType::new(ty.ty.into_ct(), ty.minimum, ty.maximum)
+fn wasmi_table_type(ty: TableType) -> wasmi::TableType {
+    wasmi::TableType::new(ty.ty.into_ct(), ty.minimum, ty.maximum)
 }
 
 impl Table {
@@ -40,7 +40,7 @@ impl Table {
         init: Value,
     ) -> Result<Self, RuntimeError> {
         let mut store = store.as_store_mut();
-        let handle = wasmi_native::Table::new(
+        let handle = wasmi::Table::new(
             &mut store.inner.store.as_wasmi_mut().inner,
             wasmi_table_type(ty),
             init.into_cv(),

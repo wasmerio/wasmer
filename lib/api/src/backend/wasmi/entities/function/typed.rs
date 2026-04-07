@@ -7,7 +7,7 @@ use crate::{
     TypedFunction, Value, WasmTypeList,
     backend::wasmi::{function::Function, utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerValue}},
 };
-use ::wasmi as wasmi_native;
+use ::wasmi;
 use wasmer_types::RawValue;
 
 macro_rules! impl_native_traits {
@@ -20,7 +20,7 @@ macro_rules! impl_native_traits {
         {
             #[allow(clippy::too_many_arguments)]
             pub fn call_wasmi(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
-                let params_list: Vec<wasmi_native::Val> = unsafe {
+                let params_list: Vec<wasmi::Val> = unsafe {
                     vec![ $({
                         let raw = $x.to_native().into_raw(&mut store);
                         let value = Value::from_raw(&mut store, <$x::Native as NativeWasmType>::WASM_TYPE, raw);
@@ -29,10 +29,10 @@ macro_rules! impl_native_traits {
                 };
 
                 let result_types = Rets::wasm_types();
-                let mut results: Vec<wasmi_native::Val> = result_types
+                let mut results: Vec<wasmi::Val> = result_types
                     .iter()
                     .copied()
-                    .map(|ty| wasmi_native::Val::default(ty.into_ct()))
+                    .map(|ty| wasmi::Val::default(ty.into_ct()))
                     .collect();
 
                 self.func

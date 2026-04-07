@@ -1,7 +1,7 @@
 //! Data types, functions and traits for `wasmi`'s `Instance` implementation.
 use std::sync::Arc;
 
-use ::wasmi as wasmi_native;
+use ::wasmi;
 
 use crate::{
     AsStoreMut, Exports, Extern, Imports, InstantiationError, Module,
@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Clone, Copy)]
-pub(crate) struct InstanceHandle(pub(crate) wasmi_native::Instance);
+pub(crate) struct InstanceHandle(pub(crate) wasmi::Instance);
 
 unsafe impl Send for InstanceHandle {}
 unsafe impl Sync for InstanceHandle {}
@@ -24,13 +24,13 @@ impl PartialEq for InstanceHandle {
 
 impl Eq for InstanceHandle {}
 
-fn to_native_extern(extern_: VMExtern) -> wasmi_native::Extern {
+fn to_native_extern(extern_: VMExtern) -> wasmi::Extern {
     match extern_ {
         VMExtern::Wasmi(extern_) => match extern_ {
-            crate::backend::wasmi::vm::VMExtern::Function(f) => wasmi_native::Extern::Func(f),
-            crate::backend::wasmi::vm::VMExtern::Global(g) => wasmi_native::Extern::Global(g),
-            crate::backend::wasmi::vm::VMExtern::Memory(m) => wasmi_native::Extern::Memory(m),
-            crate::backend::wasmi::vm::VMExtern::Table(t) => wasmi_native::Extern::Table(t),
+            crate::backend::wasmi::vm::VMExtern::Function(f) => wasmi::Extern::Func(f),
+            crate::backend::wasmi::vm::VMExtern::Global(g) => wasmi::Extern::Global(g),
+            crate::backend::wasmi::vm::VMExtern::Memory(m) => wasmi::Extern::Memory(m),
+            crate::backend::wasmi::vm::VMExtern::Table(t) => wasmi::Extern::Table(t),
         },
         _ => panic!("cross-backend imports are not supported for wasmi"),
     }
@@ -43,7 +43,7 @@ impl InstanceHandle {
         externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
         let imports = externs.into_iter().map(to_native_extern).collect::<Vec<_>>();
-        let instance = wasmi_native::Instance::new(&mut store.inner, &module.handle.inner, &imports)
+        let instance = wasmi::Instance::new(&mut store.inner, &module.handle.inner, &imports)
             .map_err(|err| InstantiationError::Start(crate::backend::wasmi::error::Trap::from_wasmi_error(err)))?;
         Ok(Self(instance))
     }
@@ -60,16 +60,16 @@ impl InstanceHandle {
                 .get_export(&store.as_store_ref().inner.store.as_wasmi().inner, export.name())
             {
                 let vm_extern = match ext {
-                    wasmi_native::Extern::Func(f) => {
+                    wasmi::Extern::Func(f) => {
                         VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Function(f))
                     }
-                    wasmi_native::Extern::Global(g) => {
+                    wasmi::Extern::Global(g) => {
                         VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Global(g))
                     }
-                    wasmi_native::Extern::Memory(m) => {
+                    wasmi::Extern::Memory(m) => {
                         VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Memory(m))
                     }
-                    wasmi_native::Extern::Table(t) => {
+                    wasmi::Extern::Table(t) => {
                         VMExtern::Wasmi(crate::backend::wasmi::vm::VMExtern::Table(t))
                     }
                 };

@@ -6,14 +6,14 @@ use crate::{
 };
 
 use bytes::Bytes;
-use ::wasmi as wasmi_native;
+use ::wasmi;
 use wasmer_types::{
     CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
     GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
     SerializeError, TableType, Type,
 };
 pub(crate) struct ModuleHandle {
-    pub(crate) inner: wasmi_native::Module,
+    pub(crate) inner: wasmi::Module,
 }
 
 impl PartialEq for ModuleHandle {
@@ -26,7 +26,7 @@ impl Eq for ModuleHandle {}
 
 impl ModuleHandle {
     fn new(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
-        let inner = wasmi_native::Module::new(&engine.as_engine_ref().engine().as_wasmi().inner.engine, binary)
+        let inner = wasmi::Module::new(&engine.as_engine_ref().engine().as_wasmi().inner.engine, binary)
             .map_err(|err| CompileError::Validate(err.to_string()))?;
         Ok(Self { inner })
     }
@@ -73,7 +73,7 @@ impl Module {
     }
 
     pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
-        wasmi_native::Module::validate(
+        wasmi::Module::validate(
             &engine.as_engine_ref().engine().as_wasmi().inner.engine,
             binary,
         )
