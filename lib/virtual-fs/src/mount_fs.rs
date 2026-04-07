@@ -2,15 +2,13 @@
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
 
-use dashmap::{DashMap, mapref::entry::Entry};
-
 use crate::*;
 
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     ffi::OsString,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 
 type DynFileSystem = Arc<dyn FileSystem + Send + Sync>;
@@ -30,8 +28,8 @@ struct MountedFileSystem {
 
 #[derive(Debug, Default)]
 struct MountNode {
-    mount: DashMap<(), MountedFileSystem>,
-    children: DashMap<OsString, Arc<MountNode>>,
+    mount: Option<MountedFileSystem>,
+    children: BTreeMap<OsString, MountNode>,
 }
 
 #[derive(Debug, Clone)]
@@ -88,7 +86,7 @@ impl MountPoint {
 /// to be mounted at various mount points
 #[derive(Debug, Default)]
 pub struct MountFileSystem {
-    root: Arc<MountNode>,
+    root: RwLock<MountNode>,
 }
 
 impl MountFileSystem {
@@ -112,14 +110,14 @@ impl MountFileSystem {
     ) -> Result<()> {
         let path = self.prepare_path(path.as_ref())?;
         let source_path = Self::normalize_source_path(source_path.as_ref());
-        let node = self.mount_node(&Self::path_components(&path));
+        let mut root = self.root.write().unwrap();
+        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path));
 
-        match node.mount.entry(()) {
-            Entry::Occupied(_) => Err(FsError::AlreadyExists),
-            Entry::Vacant(slot) => {
-                slot.insert(MountedFileSystem { fs, source_path });
-                Ok(())
-            }
+        if node.mount.is_some() {
+            Err(FsError::AlreadyExists)
+        } else {
+            node.mount = Some(MountedFileSystem { fs, source_path });
+            Ok(())
         }
     }
 
@@ -129,8 +127,9 @@ impl MountFileSystem {
     ) -> Option<Arc<dyn FileSystem + Send + Sync>> {
         self.exact_node(path.as_ref()).and_then(|node| node.fs)
     }
+
     pub fn clear(&mut self) {
-        self.root = Arc::new(MountNode::default());
+        *self.root.write().unwrap() = MountNode::default();
     }
 
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
@@ -196,11 +195,11 @@ impl MountFileSystem {
         }
     }
 
-    fn mounted(node: &Arc<MountNode>) -> Option<MountedFileSystem> {
-        node.mount.get(&()).map(|mount| mount.clone())
+    fn mounted(node: &MountNode) -> Option<MountedFileSystem> {
+        node.mount.clone()
     }
 
-    fn collect_mount_entries(node: &Arc<MountNode>, path: &Path, entries: &mut Vec<MountEntry>) {
+    fn collect_mount_entries(node: &MountNode, path: &Path, entries: &mut Vec<MountEntry>) {
         if let Some(mount) = Self::mounted(node) {
             entries.push(MountEntry {
                 path: path.to_path_buf(),
@@ -209,46 +208,27 @@ impl MountFileSystem {
             });
         }
 
-        let mut child_names = node
-            .children
-            .iter()
-            .map(|child| child.key().clone())
-            .collect::<Vec<_>>();
-        child_names.sort();
-
-        for child_name in child_names {
-            let Some(child) = node
-                .children
-                .get(&child_name)
-                .map(|entry| Arc::clone(entry.value()))
-            else {
-                continue;
-            };
-            let child_path = path.join(&child_name);
-            Self::collect_mount_entries(&child, &child_path, entries);
+        for (child_name, child) in &node.children {
+            let child_path = path.join(child_name);
+            Self::collect_mount_entries(child, &child_path, entries);
         }
     }
 
-    fn find_node(&self, path: &Path) -> Option<Arc<MountNode>> {
-        let path = self.prepare_path(path).ok()?;
-        let mut node = Arc::clone(&self.root);
-
-        for component in Self::path_components(&path) {
-            let child = node
-                .children
-                .get(&component)
-                .map(|entry| Arc::clone(entry.value()))?;
-            node = child;
+    fn find_node<'a>(node: &'a MountNode, components: &[OsString]) -> Option<&'a MountNode> {
+        let mut node = node;
+        for component in components {
+            node = node.children.get(component)?;
         }
-
         Some(node)
     }
 
     fn exact_node(&self, path: &Path) -> Option<ExactNode> {
         let path = self.prepare_path(path).ok()?;
+        let components = Self::path_components(&path);
         let visible_path = Path::new("/").join(&path);
-        let node = self.find_node(&path)?;
-        let mounted = Self::mounted(&node);
+        let root = self.root.read().unwrap();
+        let node = Self::find_node(&root, &components)?;
+        let mounted = Self::mounted(node);
 
         Some(ExactNode {
             path: visible_path.clone(),
@@ -256,19 +236,16 @@ impl MountFileSystem {
             source_path: mounted
                 .map(|mount| mount.source_path)
                 .unwrap_or_else(|| PathBuf::from("/")),
-            child_names: node
-                .children
-                .iter()
-                .map(|child| child.key().clone())
-                .collect(),
+            child_names: node.children.keys().cloned().collect(),
         })
     }
 
     fn resolve_mount(&self, path: PathBuf) -> Option<ResolvedMount> {
         let path = self.prepare_path(&path).ok()?;
         let components = Self::path_components(&path);
-        let mut node = Arc::clone(&self.root);
-        let mut best = Self::mounted(&node).map(|mount| ResolvedMount {
+        let root = self.root.read().unwrap();
+        let mut node = &*root;
+        let mut best = Self::mounted(node).map(|mount| ResolvedMount {
             mount_path: PathBuf::from("/"),
             delegated_path: mount.source_path.join(
                 Self::absolute_path(&components)
@@ -279,11 +256,7 @@ impl MountFileSystem {
         });
 
         for (index, component) in components.iter().enumerate() {
-            let Some(child) = node
-                .children
-                .get(component)
-                .map(|entry| Arc::clone(entry.value()))
-            else {
+            let Some(child) = node.children.get(component) else {
                 break;
             };
             node = child;
@@ -347,25 +320,16 @@ impl MountFileSystem {
         Ok(ReadDir::new(entries))
     }
 
-    fn mount_node(&self, components: &[OsString]) -> Arc<MountNode> {
-        let mut node = Arc::clone(&self.root);
-
+    fn mount_node_mut<'a>(node: &'a mut MountNode, components: &[OsString]) -> &'a mut MountNode {
+        let mut node = node;
         for component in components {
-            let next = match node.children.entry(component.clone()) {
-                Entry::Occupied(existing) => Arc::clone(existing.get()),
-                Entry::Vacant(slot) => {
-                    let child = Arc::new(MountNode::default());
-                    slot.insert(Arc::clone(&child));
-                    child
-                }
-            };
-            node = next;
+            node = node.children.entry(component.clone()).or_default();
         }
 
         node
     }
 
-    fn clear_descendants(node: &Arc<MountNode>) {
+    fn clear_descendants(node: &mut MountNode) {
         node.children.clear();
     }
 
@@ -376,14 +340,12 @@ impl MountFileSystem {
         fs: Arc<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
         let path = self.prepare_path(path.as_ref())?;
-        let node = self.mount_node(&Self::path_components(&path));
-        node.mount.insert(
-            (),
-            MountedFileSystem {
-                fs,
-                source_path: PathBuf::from("/"),
-            },
-        );
+        let mut root = self.root.write().unwrap();
+        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path));
+        node.mount = Some(MountedFileSystem {
+            fs,
+            source_path: PathBuf::from("/"),
+        });
         Ok(())
     }
 
@@ -411,16 +373,16 @@ impl MountFileSystem {
                         continue;
                     }
                     ExactMountConflictMode::ReplaceExisting => {
-                        let node = self
-                            .mount_node(&Self::path_components(&self.prepare_path(&entry.path)?));
-                        Self::clear_descendants(&node);
-                        node.mount.insert(
-                            (),
-                            MountedFileSystem {
-                                fs: entry.fs,
-                                source_path: entry.source_path,
-                            },
+                        let mut root = self.root.write().unwrap();
+                        let node = Self::mount_node_mut(
+                            &mut root,
+                            &Self::path_components(&self.prepare_path(&entry.path)?),
                         );
+                        Self::clear_descendants(node);
+                        node.mount = Some(MountedFileSystem {
+                            fs: entry.fs,
+                            source_path: entry.source_path,
+                        });
                         continue;
                     }
                 }
@@ -433,7 +395,8 @@ impl MountFileSystem {
     }
     pub fn mount_entries(&self) -> Vec<MountEntry> {
         let mut entries = Vec::new();
-        Self::collect_mount_entries(&self.root, Path::new("/"), &mut entries);
+        let root = self.root.read().unwrap();
+        Self::collect_mount_entries(&root, Path::new("/"), &mut entries);
         entries
     }
 }
