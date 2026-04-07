@@ -3,6 +3,7 @@
 use anyhow::{Chain, Error};
 use colored::*;
 use std::fmt::{self, Debug, Write};
+use std::process::ExitCode;
 #[cfg(not(any(feature = "jsc", feature = "wamr", feature = "wasmi", feature = "v8")))]
 use wasmer::RuntimeError;
 
@@ -29,11 +30,10 @@ macro_rules! warning {
 
 #[cfg(not(any(feature = "jsc", feature = "wamr", feature = "wasmi", feature = "v8")))]
 impl PrettyError {
-    /// Process a `Result` printing any errors and exiting
-    /// the process after
-    pub fn report<T>(result: Result<T, Error>) -> ! {
-        std::process::exit(match result {
-            Ok(_t) => 0,
+    /// Process a `Result` printing any errors and return exit code.
+    pub fn exit_code<T>(result: Result<T, Error>) -> ExitCode {
+        match result {
+            Ok(_t) => ExitCode::SUCCESS,
             Err(error) => {
                 let runtime: Option<&RuntimeError> = error.downcast_ref();
                 let trapcode = runtime.map(|e| e.clone().to_trap());
@@ -43,31 +43,30 @@ impl PrettyError {
                 // but still exit with the expected error code
                 match trapcode {
                     #[cfg(target_os = "windows")]
-                    Some(_) => 3,
+                    Some(_) => ExitCode::from(3),
                     #[cfg(not(target_os = "windows"))]
-                    Some(_) => 128 + libc::SIGABRT,
-                    _ => 1,
+                    Some(_) => ExitCode::from(128 + libc::SIGABRT as u8),
+                    _ => ExitCode::from(1),
                 }
             }
-        });
+        }
     }
 }
 
 #[cfg(any(feature = "jsc", feature = "wamr", feature = "wasmi", feature = "v8"))]
 impl PrettyError {
-    /// Process a `Result` printing any errors and exiting
-    /// the process after
-    pub fn report<T>(result: Result<T, Error>) -> ! {
-        std::process::exit(match result {
-            Ok(_t) => 0,
+    /// Process a `Result` printing any errors and return exit code.
+    pub fn exit_code<T>(result: Result<T, Error>) -> ExitCode {
+        match result {
+            Ok(_t) => ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{:?}", PrettyError { error });
                 // we don't use process:abort() here to avoid message from rust
                 // that could interfer with testing tools
                 // but still exit with the expected error code
-                1
+                ExitCode::from(1)
             }
-        });
+        }
     }
 }
 

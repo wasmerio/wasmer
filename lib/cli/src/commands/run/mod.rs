@@ -15,6 +15,7 @@ use std::{
     io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
+    process::ExitCode,
     str::FromStr,
     sync::{Arc, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -172,9 +173,8 @@ impl Run {
     #[cfg(not(feature = "napi-v8"))]
     fn configure_wasi_runner_for_napi(&self, _module: &Module, _runner: &mut WasiRunner) {}
 
-    pub fn execute(self, output: Output) -> ! {
-        let result = self.execute_inner(output);
-        exit_with_wasi_exit_code(result);
+    pub fn execute(self, output: Output) -> Result<(), Error> {
+        self.execute_inner(output)
     }
 
     #[tracing::instrument(level = "debug", name = "wasmer_run", skip_all)]
@@ -870,9 +870,20 @@ impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
     }
 }
 
-/// Exit the current process, using the WASI exit code if the error contains
-/// one.
-fn exit_with_wasi_exit_code(result: Result<(), Error>) -> ! {
+/// Get exit code if the WASI error contains one.
+// TODO: move to PrettyError very likely.
+fn exit_code(result: Result<(), Error>) -> ExitCode {
+    fn get_exit_code(
+        error: &(dyn std::error::Error + 'static),
+    ) -> Option<wasmer_wasix::types::wasi::ExitCode> {
+        if let Some(WasiError::Exit(exit_code)) = error.downcast_ref() {
+            return Some(*exit_code);
+        }
+        error
+            .downcast_ref::<wasmer_wasix::WasiRuntimeError>()
+            .and_then(|error| error.as_exit_code())
+    }
+
     let exit_code = match result {
         Ok(_) => 0,
         Err(error) => {
@@ -887,21 +898,5 @@ fn exit_with_wasi_exit_code(result: Result<(), Error>) -> ! {
         }
     };
 
-    std::io::stdout().flush().ok();
-    std::io::stderr().flush().ok();
-
-    std::process::exit(exit_code);
-}
-
-fn get_exit_code(
-    error: &(dyn std::error::Error + 'static),
-) -> Option<wasmer_wasix::types::wasi::ExitCode> {
-    if let Some(WasiError::Exit(exit_code)) = error.downcast_ref() {
-        return Some(*exit_code);
-    }
-    if let Some(error) = error.downcast_ref::<wasmer_wasix::WasiRuntimeError>() {
-        return error.as_exit_code();
-    }
-
-    None
+    ExitCode::from(exit_code as u8)
 }

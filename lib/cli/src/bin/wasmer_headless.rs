@@ -1,3 +1,3 @@
-fn main() {
-    wasmer_cli::run_cli();
+fn main() -> ExitCode {
+    wasmer_cli::run_cli()
 }

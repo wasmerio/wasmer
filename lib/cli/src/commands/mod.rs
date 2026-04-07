@@ -32,7 +32,7 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 use itertools::Itertools;
-use std::io::IsTerminal as _;
+use std::{io::IsTerminal as _, process::ExitCode};
 use tokio::task::JoinHandle;
 
 #[cfg(target_os = "linux")]
@@ -228,12 +228,12 @@ impl WasmerCmd {
     }
 
     /// The main function for the Wasmer CLI tool.
-    pub fn run() {
+    pub fn run() -> ExitCode {
         // We allow windows to print properly colors
         #[cfg(windows)]
         colored::control::set_virtual_terminal(true).unwrap();
 
-        PrettyError::report(Self::run_inner())
+        PrettyError::exit_code(Self::run_inner())
     }
 
     fn run_inner() -> Result<(), anyhow::Error> {
@@ -324,10 +324,10 @@ impl WasmerCmd {
                     // parser's help, but that's fine.
                     let output = crate::logging::Output::default();
                     output.initialize_logging();
-                    run.execute(output);
+                    run.execute(output)
+                } else {
+                    Err(e.into())
                 }
-
-                e.exit();
             }
         }
     }
