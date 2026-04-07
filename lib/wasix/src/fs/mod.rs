@@ -407,7 +407,7 @@ impl WasiFsRoot {
 
     pub fn from_filesystem(fs: Arc<dyn FileSystem + Send + Sync>) -> Self {
         let root = MountFileSystem::new();
-        root.mount(Path::new("/"), Box::new(fs))
+        root.mount(Path::new("/"), fs)
             .expect("mounting the root fs on an empty mount fs should succeed");
 
         Self {
@@ -427,11 +427,9 @@ impl WasiFsRoot {
             .root
             .filesystem_at(Path::new("/"))
             .ok_or(FsError::EntryNotFound)?;
-        let overlay = OverlayFileSystem::new(
-            ArcFileSystem::new(current),
-            [ArcFileSystem::new(lower)],
-        );
-        self.root.set_mount(Path::new("/"), Box::new(overlay))
+        let overlay =
+            OverlayFileSystem::new(ArcFileSystem::new(current), [ArcFileSystem::new(lower)]);
+        self.root.set_mount(Path::new("/"), Arc::new(overlay))
     }
 }
 
@@ -672,13 +670,11 @@ impl WasiFs {
         }
 
         for mount in &package_mounts.mounts {
-            self.root_fs
-                .root()
-                .mount_with_source(
-                    &mount.guest_path,
-                    &mount.source_path,
-                    Box::new(mount.fs.clone()),
-                )?;
+            self.root_fs.root().mount_with_source(
+                &mount.guest_path,
+                &mount.source_path,
+                mount.fs.clone(),
+            )?;
         }
 
         Ok(())
@@ -2542,7 +2538,13 @@ mod tests {
         };
 
         wasi_fs.conditional_union(&pkg).await.unwrap();
-        assert!(wasi_fs.root_fs.metadata(Path::new("/root.txt")).unwrap().is_file());
+        assert!(
+            wasi_fs
+                .root_fs
+                .metadata(Path::new("/root.txt"))
+                .unwrap()
+                .is_file()
+        );
         assert!(
             wasi_fs
                 .root_fs
@@ -2552,7 +2554,13 @@ mod tests {
         );
 
         wasi_fs.conditional_union(&pkg).await.unwrap();
-        assert!(wasi_fs.root_fs.metadata(Path::new("/root.txt")).unwrap().is_file());
+        assert!(
+            wasi_fs
+                .root_fs
+                .metadata(Path::new("/root.txt"))
+                .unwrap()
+                .is_file()
+        );
         assert!(
             wasi_fs
                 .root_fs

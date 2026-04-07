@@ -98,36 +98,36 @@ impl MountFileSystem {
 
     pub fn mount(
         &self,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
+        path: impl AsRef<Path>,
+        fs: Arc<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
         self.mount_with_source(path, Path::new("/"), fs)
     }
 
     pub fn mount_with_source(
         &self,
-        path: &Path,
-        source_path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
+        path: impl AsRef<Path>,
+        source_path: impl AsRef<Path>,
+        fs: Arc<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
-        let path = self.prepare_path(path)?;
-        let source_path = Self::normalize_source_path(source_path);
+        let path = self.prepare_path(path.as_ref())?;
+        let source_path = Self::normalize_source_path(source_path.as_ref());
         let node = self.mount_node(&Self::path_components(&path));
 
         match node.mount.entry(()) {
             Entry::Occupied(_) => Err(FsError::AlreadyExists),
             Entry::Vacant(slot) => {
-                slot.insert(MountedFileSystem {
-                    fs: Arc::from(fs),
-                    source_path,
-                });
+                slot.insert(MountedFileSystem { fs, source_path });
                 Ok(())
             }
         }
     }
 
-    pub fn filesystem_at(&self, path: &Path) -> Option<Arc<dyn FileSystem + Send + Sync>> {
-        self.exact_node(path).and_then(|node| node.fs)
+    pub fn filesystem_at(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Option<Arc<dyn FileSystem + Send + Sync>> {
+        self.exact_node(path.as_ref()).and_then(|node| node.fs)
     }
     pub fn clear(&mut self) {
         self.root = Arc::new(MountNode::default());
@@ -200,11 +200,7 @@ impl MountFileSystem {
         node.mount.get(&()).map(|mount| mount.clone())
     }
 
-    fn collect_mount_entries(
-        node: &Arc<MountNode>,
-        path: &Path,
-        entries: &mut Vec<MountEntry>,
-    ) {
+    fn collect_mount_entries(node: &Arc<MountNode>, path: &Path, entries: &mut Vec<MountEntry>) {
         if let Some(mount) = Self::mounted(node) {
             entries.push(MountEntry {
                 path: path.to_path_buf(),
@@ -336,8 +332,7 @@ impl MountFileSystem {
                     }));
                 }
                 Err(error)
-                    if node.has_children()
-                        && Self::should_fallback_to_synthetic_dir(&error) => {}
+                    if node.has_children() && Self::should_fallback_to_synthetic_dir(&error) => {}
                 Err(error) => return Err(error),
             }
         }
@@ -377,15 +372,15 @@ impl MountFileSystem {
     /// Overwrite the mount at `path`.
     pub fn set_mount(
         &self,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
+        path: impl AsRef<Path>,
+        fs: Arc<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
-        let path = self.prepare_path(path)?;
+        let path = self.prepare_path(path.as_ref())?;
         let node = self.mount_node(&Self::path_components(&path));
         node.mount.insert(
             (),
             MountedFileSystem {
-                fs: Arc::from(fs),
+                fs,
                 source_path: PathBuf::from("/"),
             },
         );
@@ -400,7 +395,10 @@ impl MountFileSystem {
         let mut skipped_subtrees = Vec::<PathBuf>::new();
 
         for entry in entries {
-            if skipped_subtrees.iter().any(|prefix| entry.path.starts_with(prefix)) {
+            if skipped_subtrees
+                .iter()
+                .any(|prefix| entry.path.starts_with(prefix))
+            {
                 continue;
             }
 
@@ -413,7 +411,8 @@ impl MountFileSystem {
                         continue;
                     }
                     ExactMountConflictMode::ReplaceExisting => {
-                        let node = self.mount_node(&Self::path_components(&self.prepare_path(&entry.path)?));
+                        let node = self
+                            .mount_node(&Self::path_components(&self.prepare_path(&entry.path)?));
                         Self::clear_descendants(&node);
                         node.mount.insert(
                             (),
@@ -427,7 +426,7 @@ impl MountFileSystem {
                 }
             }
 
-            self.mount_with_source(&entry.path, &entry.source_path, Box::new(entry.fs))?;
+            self.mount_with_source(&entry.path, &entry.source_path, entry.fs)?;
         }
 
         Ok(())
@@ -596,14 +595,13 @@ impl FileSystem for MountFileSystem {
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
-                fs.metadata(&node.source_path)
-                    .or_else(|error| {
-                        if Self::should_fallback_to_synthetic_dir(&error) {
-                            Ok(Self::directory_metadata())
-                        } else {
-                            Err(error)
-                        }
-                    })
+                fs.metadata(&node.source_path).or_else(|error| {
+                    if Self::should_fallback_to_synthetic_dir(&error) {
+                        Ok(Self::directory_metadata())
+                    } else {
+                        Err(error)
+                    }
+                })
             } else if node.has_children() {
                 Ok(Self::directory_metadata())
             } else {
@@ -622,14 +620,13 @@ impl FileSystem for MountFileSystem {
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
-                fs.symlink_metadata(&node.source_path)
-                    .or_else(|error| {
-                        if Self::should_fallback_to_synthetic_dir(&error) {
-                            Ok(Self::directory_metadata())
-                        } else {
-                            Err(error)
-                        }
-                    })
+                fs.symlink_metadata(&node.source_path).or_else(|error| {
+                    if Self::should_fallback_to_synthetic_dir(&error) {
+                        Ok(Self::directory_metadata())
+                    } else {
+                        Err(error)
+                    }
+                })
             } else if node.has_children() {
                 Ok(Self::directory_metadata())
             } else {
@@ -710,6 +707,7 @@ mod tests {
     use std::{
         collections::HashSet,
         path::{Path, PathBuf},
+        sync::Arc,
     };
 
     use tokio::io::AsyncWriteExt;
@@ -917,28 +915,28 @@ mod tests {
         let h = mem_fs::FileSystem::default();
 
         union
-            .mount(PathBuf::from("/test_new_filesystem").as_path(), Box::new(a))
+            .mount(PathBuf::from("/test_new_filesystem").as_path(), Arc::new(a))
             .unwrap();
         union
-            .mount(PathBuf::from("/test_create_dir").as_path(), Box::new(b))
+            .mount(PathBuf::from("/test_create_dir").as_path(), Arc::new(b))
             .unwrap();
         union
-            .mount(PathBuf::from("/test_remove_dir").as_path(), Box::new(c))
+            .mount(PathBuf::from("/test_remove_dir").as_path(), Arc::new(c))
             .unwrap();
         union
-            .mount(PathBuf::from("/test_rename").as_path(), Box::new(d))
+            .mount(PathBuf::from("/test_rename").as_path(), Arc::new(d))
             .unwrap();
         union
-            .mount(PathBuf::from("/test_metadata").as_path(), Box::new(e))
+            .mount(PathBuf::from("/test_metadata").as_path(), Arc::new(e))
             .unwrap();
         union
-            .mount(PathBuf::from("/test_remove_file").as_path(), Box::new(f))
+            .mount(PathBuf::from("/test_remove_file").as_path(), Arc::new(f))
             .unwrap();
         union
-            .mount(PathBuf::from("/test_readdir").as_path(), Box::new(g))
+            .mount(PathBuf::from("/test_readdir").as_path(), Arc::new(g))
             .unwrap();
         union
-            .mount(PathBuf::from("/test_canonicalize").as_path(), Box::new(h))
+            .mount(PathBuf::from("/test_canonicalize").as_path(), Arc::new(h))
             .unwrap();
 
         union
@@ -974,10 +972,10 @@ mod tests {
         .unwrap();
 
         union
-            .mount(PathBuf::from("/app/a").as_path(), Box::new(a))
+            .mount(PathBuf::from("/app/a").as_path(), Arc::new(a))
             .unwrap();
         union
-            .mount(PathBuf::from("/app/b").as_path(), Box::new(b))
+            .mount(PathBuf::from("/app/b").as_path(), Arc::new(b))
             .unwrap();
 
         union
@@ -1061,7 +1059,7 @@ mod tests {
             .open(Path::new("/certs/ca.pem"))
             .unwrap();
         primary
-            .mount(Path::new("/openssl"), Box::new(openssl))
+            .mount(Path::new("/openssl"), Arc::new(openssl))
             .unwrap();
 
         let injected = MountFileSystem::new();
@@ -1071,9 +1069,7 @@ mod tests {
             .create_new(true)
             .open(Path::new("/index.php"))
             .unwrap();
-        injected
-            .mount(Path::new("/app"), Box::new(app))
-            .unwrap();
+        injected.mount(Path::new("/app"), Arc::new(app)).unwrap();
 
         let assets = mem_fs::FileSystem::default();
         assets.create_dir(Path::new("/css")).unwrap();
@@ -1084,11 +1080,14 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
         injected
-            .mount(Path::new("/opt/assets"), Box::new(assets))
+            .mount(Path::new("/opt/assets"), Arc::new(assets))
             .unwrap();
 
         primary
-            .add_mount_entries_with_mode(injected.mount_entries(), super::ExactMountConflictMode::Fail)
+            .add_mount_entries_with_mode(
+                injected.mount_entries(),
+                super::ExactMountConflictMode::Fail,
+            )
             .unwrap();
 
         let root_contents = read_dir_names(&primary, "/");
@@ -1125,13 +1124,9 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount(Path::new("/opt"), Box::new(top))
+        fs.mount(Path::new("/opt"), Arc::new(top)).unwrap();
+        fs.mount(Path::new("/opt/assets"), Arc::new(nested))
             .unwrap();
-        fs.mount(
-            Path::new("/opt/assets"),
-            Box::new(nested),
-        )
-        .unwrap();
 
         assert!(fs.metadata(Path::new("/opt/bin/tool")).is_ok());
         assert!(fs.metadata(Path::new("/opt/assets/css/site.css")).is_ok());
@@ -1158,13 +1153,9 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount(Path::new("/opt"), Box::new(top))
+        fs.mount(Path::new("/opt"), Arc::new(top)).unwrap();
+        fs.mount(Path::new("/opt/assets"), Arc::new(nested))
             .unwrap();
-        fs.mount(
-            Path::new("/opt/assets"),
-            Box::new(nested),
-        )
-        .unwrap();
 
         assert!(
             fs.metadata(Path::new("/opt/./assets/../assets/css/site.css"))
@@ -1176,8 +1167,8 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_above_root_path_is_rejected() {
         let fs = MountFileSystem::new();
-        fs.mount(Path::new("/"), Box::new(mem_fs::FileSystem::default()))
-        .unwrap();
+        fs.mount(Path::new("/"), Arc::new(mem_fs::FileSystem::default()))
+            .unwrap();
 
         assert_eq!(fs.metadata(Path::new("../foo")), Err(FsError::InvalidInput));
     }
@@ -1185,7 +1176,10 @@ mod tests {
     #[tokio::test]
     async fn test_exact_mount_metadata_falls_back_to_synthetic_directory() {
         let fs = MountFileSystem::new();
-        fs.mount(Path::new("/opaque"), Box::new(RootOpaqueFileSystem::default()))
+        fs.mount(
+            Path::new("/opaque"),
+            Arc::new(RootOpaqueFileSystem::default()),
+        )
         .unwrap();
 
         assert!(fs.metadata(Path::new("/opaque")).unwrap().is_dir());
@@ -1196,11 +1190,14 @@ mod tests {
     #[tokio::test]
     async fn test_exact_mount_read_dir_falls_back_to_child_mounts_when_root_is_unlistable() {
         let fs = MountFileSystem::new();
-        fs.mount(Path::new("/opaque"), Box::new(RootOpaqueFileSystem::default()))
+        fs.mount(
+            Path::new("/opaque"),
+            Arc::new(RootOpaqueFileSystem::default()),
+        )
         .unwrap();
         fs.mount(
             Path::new("/opaque/assets"),
-            Box::new(mem_fs::FileSystem::default()),
+            Arc::new(mem_fs::FileSystem::default()),
         )
         .unwrap();
 
@@ -1210,11 +1207,14 @@ mod tests {
     #[tokio::test]
     async fn test_exact_mount_fallback_does_not_mask_permission_denied() {
         let fs = MountFileSystem::new();
-        fs.mount(Path::new("/denied"), Box::new(RootPermissionDeniedFileSystem))
+        fs.mount(
+            Path::new("/denied"),
+            Arc::new(RootPermissionDeniedFileSystem),
+        )
         .unwrap();
         fs.mount(
             Path::new("/denied/assets"),
-            Box::new(mem_fs::FileSystem::default()),
+            Arc::new(mem_fs::FileSystem::default()),
         )
         .unwrap();
 
@@ -1247,7 +1247,7 @@ mod tests {
             .open(Path::new("/user.txt"))
             .unwrap();
         primary
-            .mount(Path::new("/python"), Box::new(user_mount))
+            .mount(Path::new("/python"), Arc::new(user_mount))
             .unwrap();
 
         let injected = MountFileSystem::new();
@@ -1259,7 +1259,7 @@ mod tests {
             .open(Path::new("/pkg.txt"))
             .unwrap();
         injected
-            .mount(Path::new("/python"), Box::new(package_mount))
+            .mount(Path::new("/python"), Arc::new(package_mount))
             .unwrap();
 
         let package_child = mem_fs::FileSystem::default();
@@ -1270,7 +1270,7 @@ mod tests {
             .open(Path::new("/child.txt"))
             .unwrap();
         injected
-            .mount(Path::new("/python/lib"), Box::new(package_child))
+            .mount(Path::new("/python/lib"), Arc::new(package_child))
             .unwrap();
 
         primary
@@ -1280,7 +1280,12 @@ mod tests {
             )
             .unwrap();
 
-        assert!(primary.metadata(Path::new("/python/user.txt")).unwrap().is_file());
+        assert!(
+            primary
+                .metadata(Path::new("/python/user.txt"))
+                .unwrap()
+                .is_file()
+        );
         assert_eq!(
             primary.metadata(Path::new("/python/pkg.txt")),
             Err(FsError::EntryNotFound)
@@ -1309,10 +1314,10 @@ mod tests {
             .open(Path::new("/user-child.txt"))
             .unwrap();
         primary
-            .mount(Path::new("/python"), Box::new(user_mount))
+            .mount(Path::new("/python"), Arc::new(user_mount))
             .unwrap();
         primary
-            .mount(Path::new("/python/lib"), Box::new(user_child))
+            .mount(Path::new("/python/lib"), Arc::new(user_child))
             .unwrap();
 
         let injected = MountFileSystem::new();
@@ -1331,10 +1336,10 @@ mod tests {
             .open(Path::new("/pkg-child.txt"))
             .unwrap();
         injected
-            .mount(Path::new("/python"), Box::new(package_mount))
+            .mount(Path::new("/python"), Arc::new(package_mount))
             .unwrap();
         injected
-            .mount(Path::new("/python/lib"), Box::new(package_child))
+            .mount(Path::new("/python/lib"), Arc::new(package_child))
             .unwrap();
 
         primary
@@ -1352,7 +1357,12 @@ mod tests {
             primary.metadata(Path::new("/python/lib/user-child.txt")),
             Err(FsError::EntryNotFound)
         );
-        assert!(primary.metadata(Path::new("/python/pkg.txt")).unwrap().is_file());
+        assert!(
+            primary
+                .metadata(Path::new("/python/pkg.txt"))
+                .unwrap()
+                .is_file()
+        );
         assert!(
             primary
                 .metadata(Path::new("/python/lib/pkg-child.txt"))
@@ -1373,8 +1383,7 @@ mod tests {
             .open(Path::new("/file.txt"))
             .unwrap();
 
-        fs.mount(Path::new("/mounted"), Box::new(mounted))
-        .unwrap();
+        fs.mount(Path::new("/mounted"), Arc::new(mounted)).unwrap();
 
         assert_eq!(
             fs.remove_dir(Path::new("/mounted")),
@@ -1389,7 +1398,8 @@ mod tests {
             Err(FsError::PermissionDenied)
         );
         assert_eq!(
-            fs.rename(Path::new("/mounted/file.txt"), Path::new("/mounted")).await,
+            fs.rename(Path::new("/mounted/file.txt"), Path::new("/mounted"))
+                .await,
             Err(FsError::PermissionDenied)
         );
     }
@@ -1415,13 +1425,9 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount(Path::new("/opt"), Box::new(top))
+        fs.mount(Path::new("/opt"), Arc::new(top)).unwrap();
+        fs.mount(Path::new("/opt/assets"), Arc::new(nested))
             .unwrap();
-        fs.mount(
-            Path::new("/opt/assets"),
-            Box::new(nested),
-        )
-        .unwrap();
 
         let opt_contents = read_dir_names(&fs, "/opt");
         assert!(opt_contents.contains(&"bin".to_string()));
@@ -1448,13 +1454,9 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount(Path::new("/opt"), Box::new(top))
+        fs.mount(Path::new("/opt"), Arc::new(top)).unwrap();
+        fs.mount(Path::new("/opt/assets"), Arc::new(nested))
             .unwrap();
-        fs.mount(
-            Path::new("/opt/assets"),
-            Box::new(nested),
-        )
-        .unwrap();
 
         assert!(fs.metadata(Path::new("/opt/assets")).unwrap().is_dir());
         assert_eq!(
@@ -1480,8 +1482,8 @@ mod tests {
             .open(Path::new("/css/site.css"))
             .unwrap();
 
-        fs.mount(Path::new("/opt/assets"), Box::new(nested))
-        .unwrap();
+        fs.mount(Path::new("/opt/assets"), Arc::new(nested))
+            .unwrap();
 
         let css_contents: Vec<PathBuf> = fs
             .read_dir(Path::new("/opt/assets/css"))
@@ -1508,14 +1510,15 @@ mod tests {
             .open(Path::new("/python/lib.py"))
             .unwrap();
 
-        fs.mount_with_source(Path::new("/runtime"), Path::new("/python"), Box::new(source))
-            .unwrap();
+        fs.mount_with_source(
+            Path::new("/runtime"),
+            Path::new("/python"),
+            Arc::new(source),
+        )
+        .unwrap();
 
         assert!(fs.metadata(Path::new("/runtime/lib.py")).unwrap().is_file());
-        assert_eq!(
-            read_dir_names(&fs, "/runtime"),
-            vec!["lib.py".to_string()]
-        );
+        assert_eq!(read_dir_names(&fs, "/runtime"), vec!["lib.py".to_string()]);
     }
 
     #[tokio::test]
@@ -1527,9 +1530,7 @@ mod tests {
             .create_new(true)
             .open(Path::new("/tool"))
             .unwrap();
-        primary
-            .mount(Path::new("/opt/bin"), Box::new(bin))
-            .unwrap();
+        primary.mount(Path::new("/opt/bin"), Arc::new(bin)).unwrap();
 
         let injected = MountFileSystem::new();
         let assets = mem_fs::FileSystem::default();
@@ -1540,11 +1541,14 @@ mod tests {
             .open(Path::new("/logo.svg"))
             .unwrap();
         injected
-            .mount(Path::new("/opt/assets"), Box::new(assets))
+            .mount(Path::new("/opt/assets"), Arc::new(assets))
             .unwrap();
 
         primary
-            .add_mount_entries_with_mode(injected.mount_entries(), super::ExactMountConflictMode::Fail)
+            .add_mount_entries_with_mode(
+                injected.mount_entries(),
+                super::ExactMountConflictMode::Fail,
+            )
             .unwrap();
 
         assert!(primary.metadata(Path::new("/opt/bin/tool")).is_ok());
@@ -1555,12 +1559,18 @@ mod tests {
     async fn test_import_mounts_rejects_exact_mount_conflict() {
         let primary = MountFileSystem::new();
         primary
-            .mount(Path::new("/opt/bin"), Box::new(mem_fs::FileSystem::default()))
+            .mount(
+                Path::new("/opt/bin"),
+                Arc::new(mem_fs::FileSystem::default()),
+            )
             .unwrap();
 
         let injected = MountFileSystem::new();
         injected
-            .mount(Path::new("/opt/bin"), Box::new(mem_fs::FileSystem::default()))
+            .mount(
+                Path::new("/opt/bin"),
+                Arc::new(mem_fs::FileSystem::default()),
+            )
             .unwrap();
 
         assert_eq!(

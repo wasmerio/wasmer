@@ -346,11 +346,10 @@ impl Wasi {
             .map_commands(map_commands);
 
         let mut builder = {
-            let root_fs = RootFileSystemBuilder::new()
+            let mount_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
                 .build();
             let (have_current_dir, mapped_dirs) = self.build_mapped_directories(false)?;
-            let mount_fs = root_fs.duplicate();
             let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
 
             for mapped in mapped_dirs {
@@ -358,22 +357,22 @@ impl Wasi {
                 if guest == "/" {
                     root_layers.push(fs);
                 } else {
-                    mount_fs.mount(guest.clone(), Path::new(&guest), Box::new(fs))?;
+                    mount_fs.mount(&guest, Arc::new(fs))?;
                 }
             }
 
-            let existing_root = root_fs
-                .filesystem_at(Path::new("/"))
-                .expect("root fs builder should always mount /");
-            let root_mount: Box<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
-                Box::new(ArcFileSystem::new(existing_root))
-            } else {
-                Box::new(OverlayFileSystem::new(
-                    ArcFileSystem::new(existing_root),
-                    root_layers,
-                ))
+            if !root_layers.is_empty() {
+                let existing_root = mount_fs
+                    .filesystem_at(Path::new("/"))
+                    .expect("root fs builder should always mount /");
+                mount_fs.set_mount(
+                    Path::new("/"),
+                    Arc::new(OverlayFileSystem::new(
+                        ArcFileSystem::new(existing_root),
+                        root_layers,
+                    )),
+                )?;
             };
-            mount_fs.set_mount(Path::new("/"), root_mount)?;
 
             if let Some(cwd) = self.cwd.as_ref() {
                 if !cwd.starts_with("/") {

@@ -261,40 +261,24 @@ impl<'a> WasiTest<'a> {
                         let e = mem_fs::FileSystem::default();
                         let f = mem_fs::FileSystem::default();
 
-                        let union = mount_fs::MountFileSystem::new();
+                        let mount_fs = mount_fs::MountFileSystem::new();
 
-                        union.mount(
-                            "mem_fs".to_string(),
-                            PathBuf::from("/test_fs").as_ref(),
-                            Box::new(a),
+                        mount_fs.mount_with_source("mem_fs", "/test_fs", Arc::new(a))?;
+                        mount_fs.mount_with_source("mem_fs_2", "/snapshot1", Arc::new(b))?;
+                        mount_fs.mount_with_source("mem_fs_3", "/tests", Arc::new(c))?;
+                        mount_fs.mount_with_source(
+                            "mem_fs_4",
+                            "/nightly_2022_10_18",
+                            Arc::new(d),
                         )?;
-                        union.mount(
-                            "mem_fs_2".to_string(),
-                            PathBuf::from("/snapshot1").as_ref(),
-                            Box::new(b),
-                        )?;
-                        union.mount(
-                            "mem_fs_3".to_string(),
-                            PathBuf::from("/tests").as_ref(),
-                            Box::new(c),
-                        )?;
-                        union.mount(
-                            "mem_fs_4".to_string(),
-                            PathBuf::from("/nightly_2022_10_18").as_ref(),
-                            Box::new(d),
-                        )?;
-                        union.mount(
-                            "mem_fs_5".to_string(),
-                            PathBuf::from("/unstable").as_ref(),
-                            Box::new(e),
-                        )?;
-                        union.mount(
-                            "mem_fs_6".to_string(),
-                            PathBuf::from("/.tmp_wasmer_wast_0").as_ref(),
-                            Box::new(f),
+                        mount_fs.mount_with_source("mem_fs_5", "/unstable", Arc::new(e))?;
+                        mount_fs.mount_with_source(
+                            "mem_fs_6",
+                            "/.tmp_wasmer_wast_0",
+                            Arc::new(f),
                         )?;
 
-                        Arc::new(union)
+                        Arc::new(mount_fs)
                     }
                     _ => {
                         panic!("unexpected filesystem type {other:?}");

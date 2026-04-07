@@ -1,11 +1,14 @@
 use crate::random_file::RandomFile;
 use crate::{FileSystem, MountFileSystem, VirtualFile};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tracing::*;
 
-use crate::limiter::DynFsMemoryLimiter;
 use super::ZeroFile;
 use super::{DeviceFile, NullFile};
+use crate::limiter::DynFsMemoryLimiter;
 use crate::tmp_fs::TmpFileSystem;
 
 pub struct RootFileSystemBuilder {
@@ -81,7 +84,7 @@ impl RootFileSystemBuilder {
     pub fn build_ext(self, mapped_dirs: &[&str]) -> MountFileSystem {
         let tmp = self.build_tmp_ext(mapped_dirs);
         let root = MountFileSystem::new();
-        root.mount(Path::new("/"), Box::new(tmp))
+        root.mount(Path::new("/"), Arc::new(tmp))
             .expect("mounting the root fs on an empty mount fs should succeed");
         root
     }

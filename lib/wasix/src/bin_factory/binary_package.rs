@@ -1,4 +1,7 @@
-use std::{path::{Path, PathBuf}, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use once_cell::sync::OnceCell;
@@ -142,15 +145,11 @@ impl BinaryPackageMounts {
         let mount_fs = MountFileSystem::new();
 
         if let Some(root_layer) = &self.root_layer {
-            mount_fs.mount(Path::new("/"), Box::new(root_layer.clone()))?;
+            mount_fs.mount(Path::new("/"), root_layer.clone())?;
         }
 
         for mount in &self.mounts {
-            mount_fs.mount_with_source(
-                &mount.guest_path,
-                &mount.source_path,
-                Box::new(mount.fs.clone()),
-            )?;
+            mount_fs.mount_with_source(&mount.guest_path, &mount.source_path, mount.fs.clone())?;
         }
 
         Ok(mount_fs)
@@ -341,7 +340,6 @@ impl BinaryPackage {
             }
         }
     }
-
 }
 
 #[cfg(test)]
