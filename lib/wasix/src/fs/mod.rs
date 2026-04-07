@@ -721,10 +721,11 @@ impl WasiFs {
         }
 
         if let Some(root_layer) = &package_mounts.root_layer {
-            self.root_fs.stack_root_filesystem(Self::writable_package_mount(
-                root_layer.clone(),
-                self.root_fs.memory_limiter(),
-            ))?;
+            self.root_fs
+                .stack_root_filesystem(Self::writable_package_mount(
+                    root_layer.clone(),
+                    self.root_fs.memory_limiter(),
+                ))?;
         }
 
         for mount in &package_mounts.mounts {
