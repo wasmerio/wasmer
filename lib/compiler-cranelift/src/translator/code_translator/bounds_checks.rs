@@ -21,8 +21,8 @@
 
 use super::Reachability;
 use crate::{
+    func_environ::FuncEnvironment,
     heap::{HeapData, HeapStyle},
-    translator::func_environ::FuncEnvironment,
 };
 use Reachability::*;
 use cranelift_codegen::{
@@ -38,9 +38,9 @@ use wasmer_types::WasmResult;
 ///
 /// Returns the `ir::Value` holding the native address of the heap access, or
 /// `None` if the heap access will unconditionally trap.
-pub fn bounds_check_and_compute_addr<Env>(
+pub fn bounds_check_and_compute_addr(
     builder: &mut FunctionBuilder,
-    env: &mut Env,
+    env: &mut FuncEnvironment<'_>,
     heap: &HeapData,
     // Dynamic operand indexing into the heap.
     index: ir::Value,
@@ -48,10 +48,7 @@ pub fn bounds_check_and_compute_addr<Env>(
     offset: u32,
     // Static size of the heap access.
     access_size: u8,
-) -> WasmResult<Reachability<ir::Value>>
-where
-    Env: FuncEnvironment + ?Sized,
-{
+) -> WasmResult<Reachability<ir::Value>> {
     let pointer_bit_width = u16::try_from(env.pointer_type().bits()).unwrap();
     let orig_index = index;
     let index = cast_index_to_pointer_ty(
@@ -325,7 +322,6 @@ where
                 can_use_virtual_memory,
                 "static memories require the ability to use virtual memory"
             );
-            env.before_unconditionally_trapping_memory_access(builder)?;
             builder.ins().trap(ir::TrapCode::HEAP_OUT_OF_BOUNDS);
             Unreachable
         }
@@ -437,14 +433,11 @@ where
 }
 
 /// Get the bound of a dynamic heap as an `ir::Value`.
-fn get_dynamic_heap_bound<Env>(
+fn get_dynamic_heap_bound(
     builder: &mut FunctionBuilder,
-    env: &mut Env,
+    env: &mut FuncEnvironment<'_>,
     heap: &HeapData,
-) -> ir::Value
-where
-    Env: FuncEnvironment + ?Sized,
-{
+) -> ir::Value {
     let enable_pcc = heap.memory_type.is_some();
 
     let (value, gv) = match (heap.max_size, &heap.style) {

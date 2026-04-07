@@ -7300,6 +7300,7 @@ dependencies = [
  "dynasm",
  "dynasmrt",
  "enumset",
+ "fixedbitset",
  "gimli 0.33.0",
  "hashbrown 0.16.1",
  "itertools 0.14.0",

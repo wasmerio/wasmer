@@ -18,10 +18,10 @@ pub trait ModuleMiddleware: Debug + Send + Sync {
     /// Here we generate a separate object for each function instead of executing directly on per-function operators,
     /// in order to enable concurrent middleware application. Takes immutable `&self` because this function can be called
     /// concurrently from multiple compilation threads.
-    fn generate_function_middleware(
+    fn generate_function_middleware<'a>(
         &self,
         local_function_index: LocalFunctionIndex,
-    ) -> Box<dyn FunctionMiddleware>;
+    ) -> Box<dyn FunctionMiddleware<'a> + 'a>;
 
     /// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.
     fn transform_module_info(&self, _: &mut ModuleInfo) -> Result<(), MiddlewareError> {
@@ -30,9 +30,12 @@ pub trait ModuleMiddleware: Debug + Send + Sync {
 }
 
 /// A function middleware specialized for a single function.
-pub trait FunctionMiddleware: Debug {
+pub trait FunctionMiddleware<'a>: Debug {
+    /// Provide info on the function's locals. This is called before feed.
+    fn locals_info(&mut self, _locals: &[ValType]) {}
+
     /// Processes the given operator.
-    fn feed<'a>(
+    fn feed(
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
@@ -48,7 +51,7 @@ pub struct MiddlewareBinaryReader<'a> {
     state: MiddlewareReaderState<'a>,
 
     /// The backing middleware chain for this reader.
-    chain: Vec<Box<dyn FunctionMiddleware>>,
+    chain: Vec<Box<dyn FunctionMiddleware<'a> + 'a>>,
 }
 
 enum MiddlewareInnerReader<'a> {
@@ -66,15 +69,24 @@ pub struct MiddlewareReaderState<'a> {
 
     /// The pending operations added by the middleware.
     pending_operations: VecDeque<Operator<'a>>,
+
+    /// Number of local declaration groups (each group is a count + type pair).
+    local_decls_group: u32,
+
+    /// Number of local declaration groups read so far.
+    local_decls_group_read: u32,
+
+    /// Locals read so far.
+    locals: Vec<ValType>,
 }
 
 /// Trait for generating middleware chains from "prototype" (generator) chains.
 pub trait ModuleMiddlewareChain {
     /// Generates a function middleware chain.
-    fn generate_function_middleware_chain(
+    fn generate_function_middleware_chain<'a>(
         &self,
         local_function_index: LocalFunctionIndex,
-    ) -> Vec<Box<dyn FunctionMiddleware>>;
+    ) -> Vec<Box<dyn FunctionMiddleware<'a> + 'a>>;
 
     /// Applies the chain on a `ModuleInfo` struct.
     fn apply_on_module_info(&self, module_info: &mut ModuleInfo) -> Result<(), MiddlewareError>;
@@ -82,10 +94,10 @@ pub trait ModuleMiddlewareChain {
 
 impl<T: Deref<Target = dyn ModuleMiddleware>> ModuleMiddlewareChain for [T] {
     /// Generates a function middleware chain.
-    fn generate_function_middleware_chain(
+    fn generate_function_middleware_chain<'a>(
         &self,
         local_function_index: LocalFunctionIndex,
-    ) -> Vec<Box<dyn FunctionMiddleware>> {
+    ) -> Vec<Box<dyn FunctionMiddleware<'a> + 'a>> {
         self.iter()
             .map(|x| x.generate_function_middleware(local_function_index))
             .collect()
@@ -130,20 +142,30 @@ impl<'a> MiddlewareBinaryReader<'a> {
                     reader: inner,
                 }),
                 pending_operations: VecDeque::new(),
+                local_decls_group: 0,
+                local_decls_group_read: 0,
+                locals: vec![],
             },
             chain: vec![],
         }
     }
 
     /// Replaces the middleware chain with a new one.
-    pub fn set_middleware_chain(&mut self, stages: Vec<Box<dyn FunctionMiddleware>>) {
+    pub fn set_middleware_chain(&mut self, stages: Vec<Box<dyn FunctionMiddleware<'a> + 'a>>) {
         self.chain = stages;
+    }
+
+    /// Pass info about the locals of a function to all middlewares
+    fn emit_locals_info(&mut self) {
+        for middleware in &mut self.chain {
+            middleware.locals_info(&self.state.locals)
+        }
     }
 }
 
 impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
     fn read_local_count(&mut self) -> WasmResult<u32> {
-        match self.state.inner.as_mut().expect("inner state must exist") {
+        let total = match self.state.inner.as_mut().expect("inner state must exist") {
             MiddlewareInnerReader::Binary { reader, .. } => reader
                 .read_var_u32()
                 .map_err(from_binaryreadererror_wasmerror),
@@ -151,11 +173,17 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
                 message: "locals must be read before the function body".to_string(),
                 offset: self.current_position(),
             }),
+        }?;
+        self.state.local_decls_group = total;
+        self.state.locals.reserve(total as usize);
+        if total == 0 {
+            self.emit_locals_info();
         }
+        Ok(total)
     }
 
     fn read_local_decl(&mut self) -> WasmResult<(u32, ValType)> {
-        match self.state.inner.as_mut().expect("inner state must exist") {
+        let (count, ty) = match self.state.inner.as_mut().expect("inner state must exist") {
             MiddlewareInnerReader::Binary { reader, .. } => {
                 let count = reader
                     .read_var_u32()
@@ -169,7 +197,16 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
                 message: "locals must be read before the function body".to_string(),
                 offset: self.current_position(),
             }),
+        }?;
+        for _ in 0..count {
+            self.state.locals.push(ty);
         }
+
+        self.state.local_decls_group_read += 1;
+        if self.state.local_decls_group_read == self.state.local_decls_group {
+            self.emit_locals_info();
+        }
+        Ok((count, ty))
     }
 
     fn read_operator(&mut self) -> WasmResult<Operator<'a>> {

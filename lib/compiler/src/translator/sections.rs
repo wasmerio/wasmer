@@ -179,6 +179,7 @@ pub fn parse_import_section<'data>(
                         ty: wpreftype_to_type(tab.element_type)?,
                         minimum: tab.initial as u32,
                         maximum: tab.maximum.map(|v| v as u32),
+                        readonly: false,
                     },
                     module_name,
                     field_name,
@@ -225,6 +226,7 @@ pub fn parse_table_section(
             ty: wpreftype_to_type(table.ty.element_type).unwrap(),
             minimum: table.ty.initial as u32,
             maximum: table.ty.maximum.map(|v| v as u32),
+            readonly: false,
         })?;
     }
 

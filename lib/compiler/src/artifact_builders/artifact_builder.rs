@@ -3,7 +3,8 @@
 
 #[cfg(feature = "compiler")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
-
+#[cfg(feature = "compiler")]
+use crate::translator::analyze_readonly_funcref_table;
 use crate::{
     ArtifactCreate, Features,
     serialize::{
@@ -78,6 +79,14 @@ impl ArtifactBuild {
         middlewares
             .apply_on_module_info(&mut module)
             .map_err(|err| CompileError::MiddlewareError(err.to_string()))?;
+        #[cfg(feature = "translator")]
+        if compiler.enable_readonly_funcref_table()
+            && let Some(table_index) =
+                analyze_readonly_funcref_table(&module, &translation.function_body_inputs)?
+        {
+            module.tables[table_index].readonly = true;
+        }
+
         module.hash = Some(ModuleHash::new(data));
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),

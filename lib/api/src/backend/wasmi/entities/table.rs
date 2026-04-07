@@ -30,11 +30,7 @@ impl PartialEq for Table {
 impl Eq for Table {}
 
 fn wasmi_table_type(ty: TableType) -> wasmi_native::TableType {
-    wasmi_native::TableType::new(
-        ty.ty.into_ct(),
-        ty.minimum,
-        ty.maximum,
-    )
+    wasmi_native::TableType::new(ty.ty.into_ct(), ty.minimum, ty.maximum)
 }
 
 impl Table {
@@ -65,12 +61,16 @@ impl Table {
             ty: ty.element().into_wt(),
             minimum: ty.minimum() as u32,
             maximum: ty.maximum().map(|v| v as u32),
+            readonly: false,
         }
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         self.handle
-            .get(&store.as_store_ref().inner.store.as_wasmi().inner, index as u64)
+            .get(
+                &store.as_store_ref().inner.store.as_wasmi().inner,
+                index as u64,
+            )
             .map(IntoWasmerValue::into_wv)
     }
 
