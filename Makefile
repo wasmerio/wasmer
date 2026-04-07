@@ -13,25 +13,13 @@ SHELL=/usr/bin/env bash
 # |------------|----------|--------------|-------|
 # | Cranelift  | Linux    | amd64        | glibc |
 # | LLVM       | Darwin   | aarch64      | musl  |
-# | Singlepass | Windows  | riscv        |       |
+# | Singlepass | Windows  | riscv64gc    |       |
+# |            |          | riscv32gc    |       |
+# |            |          | loongarch64  |       |
 # |------------|----------|--------------|-------|
 #
-# Here is what works and what doesn't:
-#
-# * Cranelift works everywhere except */`loongarch64`,
-#
-# * LLVM works on Linux+Darwin/`amd64`,
-#   and linux+`aarch64`, linux+`riscv`, linux+`loongarch64`
-#   but it doesn't work on Darwin/`aarch64` or Windows/`aarch64`.
-#
-# * Singlepass works on Linux+Darwin+Windows/`amd64`,
-#   and Linux+Darwin/`aarch64`
-#   it doesn't work on */`riscv` or */`loongarch64`.
-#
-# * Windows isn't tested on `aarch64`, that's why we consider it's not
-#   working, but it might possibly be.
-# * The Only target for `riscv` familly of processor is the RV64, with the `GC` extensions
-
+# The supported matrix can be seen here:
+# https://docs.wasmer.io/runtime/features#backend-support-by-chipset
 
 #####
 #

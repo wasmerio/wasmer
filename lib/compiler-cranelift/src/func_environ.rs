@@ -5,10 +5,7 @@ use crate::{
     HashMap,
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
-    translator::{
-        EXN_REF_TYPE, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, LandingPad, TAG_TYPE,
-        TargetEnvironment,
-    },
+    translator::{EXN_REF_TYPE, LandingPad, TAG_TYPE},
 };
 use cranelift_codegen::{
     cursor::FuncCursor,
@@ -27,8 +24,8 @@ use smallvec::SmallVec;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
-    ModuleInfo, SignatureIndex, TableIndex, TableStyle, TagIndex, Type as WasmerType,
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo,
+    SignatureHash, SignatureIndex, TableIndex, TableStyle, TagIndex, Type as WasmerType,
     VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
     entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
@@ -58,6 +55,28 @@ struct ExceptionTypeLayout {
     fields: SmallVec<[ExceptionFieldLayout; 4]>,
 }
 
+/// The value of a WebAssembly global variable.
+#[derive(Clone, Copy)]
+pub enum GlobalVariable {
+    #[allow(dead_code)]
+    /// This is a constant global with a value known at compile time.
+    Const(ir::Value),
+
+    /// This is a variable in memory that should be referenced through a `GlobalValue`.
+    Memory {
+        /// The address of the global variable storage.
+        gv: ir::GlobalValue,
+        /// An offset to add to the address.
+        offset: Offset32,
+        /// The global variable's type.
+        ty: ir::Type,
+    },
+
+    #[allow(dead_code)]
+    /// This is a global variable that needs to be handled by the environment.
+    Custom,
+}
+
 /// The `FuncEnvironment` implementation for use by the `ModuleEnvironment`.
 pub struct FuncEnvironment<'module_environment> {
     /// Target-specified configuration.
@@ -71,6 +90,9 @@ pub struct FuncEnvironment<'module_environment> {
 
     /// The module function signatures
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+
+    /// Cached stable hashes for module signatures.
+    signature_hashes: &'module_environment PrimaryMap<SignatureIndex, SignatureHash>,
 
     /// Heaps implementing WebAssembly linear memories.
     heaps: PrimaryMap<Heap, HeapData>,
@@ -167,6 +189,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         target_config: TargetFrontendConfig,
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
+        signature_hashes: &'module_environment PrimaryMap<SignatureIndex, SignatureHash>,
         memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
@@ -174,6 +197,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             target_config,
             module,
             signatures,
+            signature_hashes,
             type_stack: vec![],
             heaps: PrimaryMap::new(),
             vmctx: None,
@@ -209,7 +233,15 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         }
     }
 
-    fn pointer_type(&self) -> ir::Type {
+    pub(crate) fn target_config(&self) -> TargetFrontendConfig {
+        self.target_config
+    }
+
+    pub(crate) fn pointer_type(&self) -> ir::Type {
+        self.target_config.pointer_type()
+    }
+
+    pub(crate) fn reference_type(&self) -> ir::Type {
         self.target_config.pointer_type()
     }
 
@@ -1314,19 +1346,16 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     }
 }
 
-impl TargetEnvironment for FuncEnvironment<'_> {
-    fn target_config(&self) -> TargetFrontendConfig {
-        self.target_config
-    }
-}
-
-impl BaseFuncEnvironment for FuncEnvironment<'_> {
-    fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
+impl FuncEnvironment<'_> {
+    pub(crate) fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
         // The first parameter is the vmctx. The rest are the wasm parameters.
         index >= 1
     }
 
-    fn translate_unreachable(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()> {
+    pub(crate) fn translate_unreachable(
+        &mut self,
+        builder: &mut FunctionBuilder,
+    ) -> WasmResult<()> {
         let (func_sig, func_idx) = self.get_raise_trap_func(builder.func);
         let mut pos = builder.cursor();
         let (_, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
@@ -1342,7 +1371,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_table_grow(
+    pub(crate) fn translate_table_grow(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
         table_index: TableIndex,
@@ -1361,7 +1390,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    fn translate_table_get(
+    pub(crate) fn translate_table_get(
         &mut self,
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
@@ -1379,7 +1408,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    fn translate_table_set(
+    pub(crate) fn translate_table_set(
         &mut self,
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
@@ -1397,7 +1426,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_table_fill(
+    pub(crate) fn translate_table_fill(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
         table_index: TableIndex,
@@ -1419,7 +1448,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_ref_null(
+    pub(crate) fn translate_ref_null(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor,
         ty: HeapType,
@@ -1455,7 +1484,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         })
     }
 
-    fn translate_ref_is_null(
+    pub(crate) fn translate_ref_is_null(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor,
         value: ir::Value,
@@ -1466,7 +1495,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(pos.ins().uextend(ir::types::I32, bool_is_null))
     }
 
-    fn translate_ref_func(
+    pub(crate) fn translate_ref_func(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
         func_index: FunctionIndex,
@@ -1482,7 +1511,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    fn translate_custom_global_get(
+    pub(crate) fn translate_custom_global_get(
         &mut self,
         mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
         _index: GlobalIndex,
@@ -1490,7 +1519,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         unreachable!("we don't make any custom globals")
     }
 
-    fn translate_custom_global_set(
+    pub(crate) fn translate_custom_global_set(
         &mut self,
         mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
         _index: GlobalIndex,
@@ -1499,7 +1528,11 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         unreachable!("we don't make any custom globals")
     }
 
-    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> WasmResult<Heap> {
+    pub(crate) fn make_heap(
+        &mut self,
+        func: &mut ir::Function,
+        index: MemoryIndex,
+    ) -> WasmResult<Heap> {
         let pointer_type = self.pointer_type();
 
         let (ptr, base_offset, current_length_offset) = {
@@ -1580,7 +1613,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         }))
     }
 
-    fn make_global(
+    pub(crate) fn make_global(
         &mut self,
         func: &mut ir::Function,
         index: GlobalIndex,
@@ -1622,7 +1655,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         })
     }
 
-    fn make_indirect_sig(
+    pub(crate) fn make_indirect_sig(
         &mut self,
         func: &mut ir::Function,
         index: SignatureIndex,
@@ -1630,7 +1663,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(func.import_signature(self.signatures[index].clone()))
     }
 
-    fn make_direct_func(
+    pub(crate) fn make_direct_func(
         &mut self,
         func: &mut ir::Function,
         index: FunctionIndex,
@@ -1647,7 +1680,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         }))
     }
 
-    fn translate_call_indirect(
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn translate_call_indirect(
         &mut self,
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
@@ -1689,31 +1723,25 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         // If necessary, check the signature.
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
-                let sig_id_size = self.offsets.size_of_vmshared_signature_index();
-                let sig_id_type = ir::Type::int(u16::from(sig_id_size) * 8).unwrap();
-                let vmctx = self.vmctx(builder.func);
-                let base = builder.ins().global_value(pointer_type, vmctx);
-                let offset =
-                    i32::try_from(self.offsets.vmctx_vmshared_signature_id(sig_index)).unwrap();
-
-                // Load the caller ID.
-                let mut mem_flags = ir::MemFlags::trusted();
-                mem_flags.set_readonly();
-                let caller_sig_id = builder.ins().load(sig_id_type, mem_flags, base, offset);
+                let sig_hash_type = ir::types::I32;
+                let expected_sig_hash = builder.ins().iconst(
+                    sig_hash_type,
+                    i64::from(self.signature_hashes[sig_index].as_u32()),
+                );
 
                 // Load the callee ID.
                 let mem_flags = ir::MemFlags::trusted();
-                let callee_sig_id = builder.ins().load(
-                    sig_id_type,
+                let callee_sig_hash = builder.ins().load(
+                    sig_hash_type,
                     mem_flags,
                     anyfunc_ptr,
-                    i32::from(self.offsets.vmcaller_checked_anyfunc_type_index()),
+                    i32::from(self.offsets.vmcaller_checked_anyfunc_signature_hash()),
                 );
 
                 // Check that they match.
                 let cmp = builder
                     .ins()
-                    .icmp(IntCC::Equal, callee_sig_id, caller_sig_id);
+                    .icmp(IntCC::Equal, callee_sig_hash, expected_sig_hash);
                 builder.ins().trapz(cmp, crate::TRAP_BAD_SIGNATURE);
             }
         }
@@ -1744,7 +1772,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(results)
     }
 
-    fn translate_call(
+    pub(crate) fn translate_call(
         &mut self,
         builder: &mut FunctionBuilder,
         callee_index: FunctionIndex,
@@ -1818,13 +1846,13 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(results)
     }
 
-    fn tag_param_arity(&self, tag_index: TagIndex) -> usize {
+    pub(crate) fn tag_param_arity(&self, tag_index: TagIndex) -> usize {
         let sig_index = self.module.tags[tag_index];
         let signature = &self.module.signatures[sig_index];
         signature.params().len()
     }
 
-    fn translate_exn_pointer_to_ref(
+    pub(crate) fn translate_exn_pointer_to_ref(
         &mut self,
         builder: &mut FunctionBuilder,
         exn_ptr: ir::Value,
@@ -1836,7 +1864,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         builder.inst_results(read_call)[0]
     }
 
-    fn translate_exn_unbox(
+    pub(crate) fn translate_exn_unbox(
         &mut self,
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
@@ -1869,7 +1897,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(values)
     }
 
-    fn translate_exn_throw(
+    pub(crate) fn translate_exn_throw(
         &mut self,
         builder: &mut FunctionBuilder,
         tag_index: TagIndex,
@@ -1940,7 +1968,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_exn_throw_ref(
+    pub(crate) fn translate_exn_throw_ref(
         &mut self,
         builder: &mut FunctionBuilder,
         exnref: ir::Value,
@@ -1965,7 +1993,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_exn_personality_selector(
+    pub(crate) fn translate_exn_personality_selector(
         &mut self,
         builder: &mut FunctionBuilder,
         exn_ptr: ir::Value,
@@ -1989,7 +2017,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(builder.inst_results(call)[0])
     }
 
-    fn translate_exn_reraise_unmatched(
+    pub(crate) fn translate_exn_reraise_unmatched(
         &mut self,
         builder: &mut FunctionBuilder,
         exnref: ir::Value,
@@ -2005,7 +2033,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_memory_grow(
+    pub(crate) fn translate_memory_grow(
         &mut self,
         mut pos: FuncCursor<'_>,
         index: MemoryIndex,
@@ -2021,7 +2049,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    fn translate_memory_size(
+    pub(crate) fn translate_memory_size(
         &mut self,
         mut pos: FuncCursor<'_>,
         index: MemoryIndex,
@@ -2036,7 +2064,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    fn translate_memory_copy(
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn translate_memory_copy(
         &mut self,
         mut pos: FuncCursor,
         src_index: MemoryIndex,
@@ -2059,7 +2088,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_memory_fill(
+    pub(crate) fn translate_memory_fill(
         &mut self,
         mut pos: FuncCursor,
         memory_index: MemoryIndex,
@@ -2083,7 +2112,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_memory_init(
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn translate_memory_init(
         &mut self,
         mut pos: FuncCursor,
         memory_index: MemoryIndex,
@@ -2109,7 +2139,11 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_data_drop(&mut self, mut pos: FuncCursor, seg_index: u32) -> WasmResult<()> {
+    pub(crate) fn translate_data_drop(
+        &mut self,
+        mut pos: FuncCursor,
+        seg_index: u32,
+    ) -> WasmResult<()> {
         let (func_sig, func_idx) = self.get_data_drop_func(pos.func);
         let seg_index_arg = pos.ins().iconst(I32, seg_index as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
@@ -2118,7 +2152,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_table_size(
+    pub(crate) fn translate_table_size(
         &mut self,
         mut pos: FuncCursor,
         table_index: TableIndex,
@@ -2133,7 +2167,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    fn translate_table_copy(
+    pub(crate) fn translate_table_copy(
         &mut self,
         mut pos: FuncCursor,
         dst_table_index: TableIndex,
@@ -2168,7 +2202,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_table_init(
+    pub(crate) fn translate_table_init(
         &mut self,
         mut pos: FuncCursor,
         seg_index: u32,
@@ -2194,7 +2228,11 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_elem_drop(&mut self, mut pos: FuncCursor, elem_index: u32) -> WasmResult<()> {
+    pub(crate) fn translate_elem_drop(
+        &mut self,
+        mut pos: FuncCursor,
+        elem_index: u32,
+    ) -> WasmResult<()> {
         let (func_sig, func_idx) = self.get_elem_drop_func(pos.func);
 
         let elem_index_arg = pos.ins().iconst(I32, elem_index as i64);
@@ -2207,7 +2245,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(())
     }
 
-    fn translate_atomic_wait(
+    pub(crate) fn translate_atomic_wait(
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
@@ -2231,7 +2269,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    fn translate_atomic_notify(
+    pub(crate) fn translate_atomic_notify(
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
@@ -2248,15 +2286,11 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    fn get_global_type(&self, global_index: GlobalIndex) -> Option<WasmerType> {
-        Some(self.module.globals.get(global_index)?.ty)
-    }
-
-    fn push_local_decl_on_stack(&mut self, ty: WasmerType) {
+    pub(crate) fn push_local_decl_on_stack(&mut self, ty: WasmerType) {
         self.type_stack.push(ty);
     }
 
-    fn push_params_on_stack(&mut self, function_index: LocalFunctionIndex) {
+    pub(crate) fn push_params_on_stack(&mut self, function_index: LocalFunctionIndex) {
         let func_index = self.module.func_index(function_index);
         let sig_idx = self.module.functions[func_index];
         let signature = &self.module.signatures[sig_idx];
@@ -2265,32 +2299,19 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         }
     }
 
-    fn get_local_type(&self, local_index: u32) -> Option<WasmerType> {
-        self.type_stack.get(local_index as usize).cloned()
-    }
-
-    fn get_local_types(&self) -> &[WasmerType] {
-        &self.type_stack
-    }
-
-    fn get_function_type(&self, function_index: FunctionIndex) -> Option<&FunctionType> {
-        let sig_idx = self.module.functions.get(function_index)?;
-        Some(&self.module.signatures[*sig_idx])
-    }
-
-    fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType> {
-        self.module.signatures.get(sig_index)
-    }
-
-    fn heap_access_spectre_mitigation(&self) -> bool {
+    pub(crate) fn heap_access_spectre_mitigation(&self) -> bool {
         false
     }
 
-    fn proof_carrying_code(&self) -> bool {
+    pub(crate) fn proof_carrying_code(&self) -> bool {
         false
     }
 
-    fn heaps(&self) -> &PrimaryMap<Heap, HeapData> {
+    pub(crate) fn heaps(&self) -> &PrimaryMap<Heap, HeapData> {
         &self.heaps
+    }
+
+    pub(crate) fn is_wasm_return(&self, signature: &ir::Signature, index: usize) -> bool {
+        signature.returns[index].purpose == ir::ArgumentPurpose::Normal
     }
 }

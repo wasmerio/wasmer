@@ -16,6 +16,7 @@ macro_rules! gen_rt_ty {
             $(#[$meta])*
             #[derive(derive_more::Unwrap)]
             #[unwrap(owned, ref, ref_mut)]
+            #[allow(clippy::large_enum_variant)]
             $vis enum $id $(<$($lt,)* $($param,)*>)? {
                 #[cfg(feature = "sys")]
                 /// The implementation from the `sys` backend.

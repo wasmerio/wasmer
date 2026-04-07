@@ -7290,6 +7290,7 @@ dependencies = [
  "dynasm",
  "dynasmrt",
  "enumset",
+ "fixedbitset",
  "gimli 0.33.0",
  "hashbrown 0.16.1",
  "itertools 0.14.0",
@@ -7547,11 +7548,13 @@ name = "wasmer-types"
 version = "7.1.0"
 dependencies = [
  "bytecheck",
+ "crc32fast",
  "enum-iterator",
  "enumset",
  "getrandom 0.4.2",
  "hex",
  "indexmap",
+ "itertools 0.14.0",
  "loupe",
  "memoffset 0.9.1",
  "more-asserts",

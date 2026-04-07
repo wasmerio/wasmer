@@ -276,7 +276,7 @@ mod tests {
         let client = WasmerClient::new(Url::parse(&registry)?, "wasmer-cli-upload-test")?
             .with_auth_token(token);
         let pkg_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/old-tar-gz/cowsay-0.3.0.tar.gz");
+            .join("../../wasmer-test-files/legacy/coreutils-1.0.11.tar.gz");
         let package = Package::from_tarball_file(&pkg_path)?;
         let bytes = package.serialize()?;
         let hash_bytes: [u8; 32] = Sha256::digest(&bytes).into();
