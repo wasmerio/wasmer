@@ -9,7 +9,7 @@ use anyhow::{Context, Error};
 use futures::{StreamExt, TryStreamExt, future::BoxFuture};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
-use virtual_fs::{FileSystem, OverlayFileSystem, TmpFileSystem, WebcVolumeFileSystem};
+use virtual_fs::{FileSystem, WebcVolumeFileSystem};
 use wasmer_config::package::PackageId;
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
@@ -484,7 +484,7 @@ fn filesystem_v3(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let webc_vol = writable_package_mount(WebcVolumeFileSystem::new(volume.clone()));
+        let webc_vol = WebcVolumeFileSystem::new(volume.clone());
         if mount_path.as_path() == Path::new("/") {
             root_layer = Some(Arc::new(webc_vol) as Arc<dyn FileSystem + Send + Sync>);
         } else {
@@ -587,7 +587,7 @@ fn filesystem_v2(
             )
         };
 
-        let mounted_fs = Arc::new(writable_package_mount(fs)) as Arc<dyn FileSystem + Send + Sync>;
+        let mounted_fs = Arc::new(fs) as Arc<dyn FileSystem + Send + Sync>;
         if mount_path.as_path() == Path::new("/") {
             root_layer = Some(mounted_fs);
         } else {
@@ -604,13 +604,6 @@ fn filesystem_v2(
 
 fn strip_root_prefix(path: &Path) -> PathBuf {
     path.strip_prefix("/").unwrap_or(path).to_owned()
-}
-
-fn writable_package_mount<F>(fs: F) -> OverlayFileSystem<TmpFileSystem, [F; 1]>
-where
-    F: FileSystem + Send + Sync + 'static,
-{
-    OverlayFileSystem::new(TmpFileSystem::new(), [fs])
 }
 
 type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;

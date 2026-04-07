@@ -8,7 +8,7 @@ use anyhow::{Context, Error};
 use tokio::runtime::Handle;
 use virtual_fs::{
     ArcFileSystem, ExactMountConflictMode, FileSystem, MountFileSystem, OverlayFileSystem,
-    RootFileSystemBuilder,
+    RootFileSystemBuilder, TmpFileSystem, limiter::DynFsMemoryLimiter,
 };
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
@@ -85,6 +85,7 @@ impl CommonWasiOptions {
                 .root()
                 .filesystem_at(Path::new("/"))
                 .context("root fs is missing a / mount")?,
+            root_fs.memory_limiter(),
             &self.mounts,
             container_mounts,
             self.existing_mount_conflict_behavior,
@@ -206,6 +207,7 @@ fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
 
 fn prepare_filesystem(
     base_root: Arc<dyn FileSystem + Send + Sync>,
+    memory_limiter: Option<&DynFsMemoryLimiter>,
     mounted_dirs: &[MountedDirectory],
     container_mounts: Option<&BinaryPackageMounts>,
     conflict_behavior: ExistingMountConflictBehavior,
@@ -242,11 +244,16 @@ fn prepare_filesystem(
         };
         mount_fs.mount(Path::new("/"), root_mount)?;
 
-        return Ok(WasiFsRoot::from_mount_fs(mount_fs));
+        return Ok(
+            WasiFsRoot::from_mount_fs(mount_fs).with_memory_limiter_opt(memory_limiter.cloned())
+        );
     };
 
     if let Some(container_root) = &container.root_layer {
-        root_layers.push(container_root.clone());
+        root_layers.push(writable_package_mount(
+            container_root.clone(),
+            memory_limiter,
+        ));
     }
 
     let root_mount: Arc<dyn FileSystem + Send + Sync> = if root_layers.is_empty() {
@@ -275,7 +282,11 @@ fn prepare_filesystem(
         match import_mode {
             ExactMountConflictMode::Fail => {
                 mount_fs
-                    .mount_with_source(&mount.guest_path, &mount.source_path, mount.fs.clone())
+                    .mount_with_source(
+                        &mount.guest_path,
+                        &mount.source_path,
+                        writable_package_mount(mount.fs.clone(), memory_limiter),
+                    )
                     .with_context(|| {
                         format!(
                             "Unable to merge container mount \"{}\" into the prepared filesystem",
@@ -290,7 +301,11 @@ fn prepare_filesystem(
                 }
 
                 mount_fs
-                    .mount_with_source(&mount.guest_path, &mount.source_path, mount.fs.clone())
+                    .mount_with_source(
+                        &mount.guest_path,
+                        &mount.source_path,
+                        writable_package_mount(mount.fs.clone(), memory_limiter),
+                    )
                     .with_context(|| {
                         format!(
                             "Unable to merge container mount \"{}\" into the prepared filesystem",
@@ -302,7 +317,19 @@ fn prepare_filesystem(
         }
     }
 
-    Ok(WasiFsRoot::from_mount_fs(mount_fs))
+    Ok(WasiFsRoot::from_mount_fs(mount_fs).with_memory_limiter_opt(memory_limiter.cloned()))
+}
+
+fn writable_package_mount(
+    fs: Arc<dyn FileSystem + Send + Sync>,
+    memory_limiter: Option<&DynFsMemoryLimiter>,
+) -> Arc<dyn FileSystem + Send + Sync> {
+    let upper = TmpFileSystem::new();
+    if let Some(memory_limiter) = memory_limiter {
+        upper.set_memory_limiter(memory_limiter.clone());
+    }
+
+    Arc::new(OverlayFileSystem::new(upper, [ArcFileSystem::new(fs)]))
 }
 
 /// HACK: We need this so users can mount host directories at relative paths.
@@ -376,11 +403,17 @@ impl From<MappedDirectory> for MountedDirectory {
 
 #[cfg(test)]
 mod tests {
-    use std::time::SystemTime;
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+        time::SystemTime,
+    };
 
     use tempfile::TempDir;
     use virtual_fs::TmpFileSystem;
-    use virtual_fs::{DirEntry, FileType, Metadata};
+    use virtual_fs::{DirEntry, FileType, FsError, Metadata, limiter::FsMemoryLimiter};
 
     use super::*;
 
@@ -394,6 +427,37 @@ mod tests {
 
     const PYTHON: &[u8] =
         include_bytes!("../../../../wasmer-test-files/examples/python-0.1.0.wasmer");
+
+    #[derive(Debug)]
+    struct CountingLimiter {
+        used: AtomicUsize,
+        limit: usize,
+    }
+
+    impl CountingLimiter {
+        fn new(limit: usize) -> Self {
+            Self {
+                used: AtomicUsize::new(0),
+                limit,
+            }
+        }
+    }
+
+    impl FsMemoryLimiter for CountingLimiter {
+        fn on_grow(&self, grown_bytes: usize) -> Result<(), FsError> {
+            let new_total = self.used.fetch_add(grown_bytes, Ordering::SeqCst) + grown_bytes;
+            if new_total > self.limit {
+                self.used.fetch_sub(grown_bytes, Ordering::SeqCst);
+                return Err(FsError::StorageFull);
+            }
+
+            Ok(())
+        }
+
+        fn on_shrink(&self, shrunk_bytes: usize) {
+            self.used.fetch_sub(shrunk_bytes, Ordering::SeqCst);
+        }
+    }
 
     /// Fixes <https://github.com/wasmerio/wasmer/issues/3789>
     #[tokio::test]
@@ -477,6 +541,7 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
             base_root(&root_fs),
+            None,
             &mapping,
             Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
@@ -503,8 +568,7 @@ mod tests {
         use virtual_fs::FileSystem;
 
         let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
-        let lower = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
-        let pkg_mount = virtual_fs::OverlayFileSystem::new(TmpFileSystem::new(), [lower]);
+        let pkg_mount = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
 
         let mount_fs = MountFileSystem::new();
         mount_fs
@@ -514,6 +578,7 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
             base_root(&root_fs),
+            None,
             &[],
             Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
@@ -544,8 +609,7 @@ mod tests {
         use virtual_fs::FileSystem;
 
         let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
-        let lower = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
-        let pkg_mount = virtual_fs::OverlayFileSystem::new(TmpFileSystem::new(), [lower]);
+        let pkg_mount = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
 
         let mount_fs = MountFileSystem::new();
         mount_fs
@@ -555,6 +619,7 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
             base_root(&root_fs),
+            None,
             &[],
             Some(&package_mounts(mount_fs)),
             ExistingMountConflictBehavior::Override,
@@ -612,6 +677,7 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
             base_root(&root_fs),
+            None,
             &mounted_dirs,
             Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Override,
@@ -647,6 +713,7 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let error = prepare_filesystem(
             base_root(&root_fs),
+            None,
             &mounted_dirs,
             Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Fail,
@@ -693,6 +760,7 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
             base_root(&root_fs),
+            None,
             &mounted_dirs,
             Some(&package_mounts(container_mounts)),
             ExistingMountConflictBehavior::Fail,
@@ -737,6 +805,7 @@ mod tests {
         let root_fs = RootFileSystemBuilder::default().build();
         let fs = prepare_filesystem(
             base_root(&root_fs),
+            None,
             &mounted_dirs,
             None,
             ExistingMountConflictBehavior::Fail,
@@ -745,6 +814,29 @@ mod tests {
 
         assert!(fs.metadata(Path::new("/first.txt")).unwrap().is_file());
         assert!(fs.metadata(Path::new("/second.txt")).unwrap().is_file());
+    }
+
+    #[tokio::test]
+    async fn prepared_filesystem_preserves_root_memory_limiter() {
+        let limiter: virtual_fs::limiter::DynFsMemoryLimiter = Arc::new(CountingLimiter::new(1));
+
+        let package_mount = TmpFileSystem::new();
+        let container_mounts = MountFileSystem::new();
+        container_mounts
+            .mount(Path::new("/python"), Arc::new(package_mount))
+            .unwrap();
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(
+            base_root(&root_fs),
+            Some(&limiter),
+            &[],
+            Some(&package_mounts(container_mounts)),
+            ExistingMountConflictBehavior::Override,
+        )
+        .unwrap();
+
+        assert!(fs.memory_limiter().is_some());
     }
 
     #[test]

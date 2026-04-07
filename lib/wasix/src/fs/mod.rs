@@ -35,7 +35,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
-    VirtualFile,
+    TmpFileSystem, VirtualFile, limiter::DynFsMemoryLimiter,
 };
 use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
@@ -396,12 +396,14 @@ impl Default for WasiInodes {
 #[derive(Debug, Clone)]
 pub struct WasiFsRoot {
     root: Arc<MountFileSystem>,
+    memory_limiter: Option<DynFsMemoryLimiter>,
 }
 
 impl WasiFsRoot {
     pub fn from_mount_fs(root: MountFileSystem) -> Self {
         Self {
             root: Arc::new(root),
+            memory_limiter: None,
         }
     }
 
@@ -412,7 +414,17 @@ impl WasiFsRoot {
 
         Self {
             root: Arc::new(root),
+            memory_limiter: None,
         }
+    }
+
+    pub fn with_memory_limiter_opt(mut self, limiter: Option<DynFsMemoryLimiter>) -> Self {
+        self.memory_limiter = limiter;
+        self
+    }
+
+    pub(crate) fn memory_limiter(&self) -> Option<&DynFsMemoryLimiter> {
+        self.memory_limiter.as_ref()
     }
 
     pub(crate) fn root(&self) -> &Arc<MountFileSystem> {
@@ -505,6 +517,18 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
+    fn writable_package_mount(
+        fs: Arc<dyn FileSystem + Send + Sync>,
+        limiter: Option<&DynFsMemoryLimiter>,
+    ) -> Arc<dyn FileSystem + Send + Sync> {
+        let upper = TmpFileSystem::new();
+        if let Some(limiter) = limiter {
+            upper.set_memory_limiter(limiter.clone());
+        }
+
+        Arc::new(OverlayFileSystem::new(upper, [ArcFileSystem::new(fs)]))
+    }
+
     pub fn is_wasix(&self) -> bool {
         // NOTE: this will only be set once very early in the instance lifetime,
         // so Relaxed should be okay.
@@ -666,14 +690,17 @@ impl WasiFs {
         }
 
         if let Some(root_layer) = &package_mounts.root_layer {
-            self.root_fs.stack_root_filesystem(root_layer.clone())?;
+            self.root_fs.stack_root_filesystem(Self::writable_package_mount(
+                root_layer.clone(),
+                self.root_fs.memory_limiter(),
+            ))?;
         }
 
         for mount in &package_mounts.mounts {
             self.root_fs.root().mount_with_source(
                 &mount.guest_path,
                 &mount.source_path,
-                mount.fs.clone(),
+                Self::writable_package_mount(mount.fs.clone(), self.root_fs.memory_limiter()),
             )?;
         }
 

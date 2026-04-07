@@ -230,7 +230,10 @@ impl Console {
                 &wasi_opts,
                 PackageOrHash::Package(&pkg),
                 RuntimeOrEngine::Runtime(self.runtime.clone()),
-                Some(crate::fs::WasiFsRoot::from_mount_fs(root_fs)),
+                Some(
+                    crate::fs::WasiFsRoot::from_mount_fs(root_fs)
+                        .with_memory_limiter_opt(self.memfs_memory_limiter.clone()),
+                ),
             )
             // TODO: better error conversion
             .map_err(|err| SpawnError::Other(err.into()))?;
