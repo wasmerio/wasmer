@@ -103,7 +103,10 @@ pub async fn spawn_load_module(
     }
 }
 
-pub async fn import_package_mounts(env: &WasiEnv, binary: &BinaryPackage) -> Result<(), SpawnError> {
+pub async fn import_package_mounts(
+    env: &WasiEnv,
+    binary: &BinaryPackage,
+) -> Result<(), SpawnError> {
     // If the package mounts have not already been imported then do so.
     env.state
         .fs

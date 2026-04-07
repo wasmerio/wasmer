@@ -8,7 +8,9 @@ use std::{
 
 use rand::RngExt;
 use thiserror::Error;
-use virtual_fs::{ArcFile, FileSystem, FsError, MountFileSystem, RootFileSystemBuilder, VirtualFile};
+use virtual_fs::{
+    ArcFile, FileSystem, FsError, MountFileSystem, RootFileSystemBuilder, VirtualFile,
+};
 use wasmer::{AsStoreMut, Engine, Instance, Module};
 use wasmer_config::package::PackageId;
 
@@ -915,12 +917,9 @@ impl WasiEnvBuilder {
             .take()
             .unwrap_or_else(|| Box::new(ArcFile::new(Box::<super::Stdin>::default())));
 
-        let fs_backing = self
-            .fs
-            .take()
-            .unwrap_or_else(|| {
-                WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()))
-            });
+        let fs_backing = self.fs.take().unwrap_or_else(|| {
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()))
+        });
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {

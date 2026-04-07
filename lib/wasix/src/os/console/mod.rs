@@ -18,8 +18,8 @@ use tokio::sync::{RwLock, mpsc};
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 use virtual_fs::{
-    ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem,
-    Pipe, PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
+    ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
+    PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
 };
 use virtual_mio::block_on;
 #[cfg(feature = "sys")]

@@ -899,7 +899,12 @@ mod tests {
             .root_layer
             .as_ref()
             .expect("expected root layer mount");
-        assert!(root_layer.metadata(Path::new("/root.txt")).unwrap().is_file());
+        assert!(
+            root_layer
+                .metadata(Path::new("/root.txt"))
+                .unwrap()
+                .is_file()
+        );
         assert_eq!(mounts.mounts.len(), 1);
         assert_eq!(mounts.mounts[0].guest_path, Path::new("/public"));
     }

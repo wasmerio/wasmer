@@ -29,12 +29,12 @@ pub mod empty_fs;
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
 pub mod mem_fs;
+pub mod mount_fs;
 pub mod null_file;
 pub mod passthru_fs;
 pub mod random_file;
 pub mod special_file;
 pub mod tmp_fs;
-pub mod mount_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
 mod filesystems;
@@ -60,6 +60,7 @@ pub use cow_file::*;
 pub use dual_write_file::*;
 pub use empty_fs::*;
 pub use filesystems::FileSystems;
+pub use mount_fs::*;
 pub use null_file::*;
 pub use overlay_fs::OverlayFileSystem;
 pub use passthru_fs::*;
@@ -68,7 +69,6 @@ pub use special_file::*;
 pub use static_file::StaticFile;
 pub use tmp_fs::*;
 pub use trace_fs::TraceFileSystem;
-pub use mount_fs::*;
 #[cfg(feature = "webc-fs")]
 pub use webc_volume_fs::WebcVolumeFileSystem;
 pub use zero_file::*;
