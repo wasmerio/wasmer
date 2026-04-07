@@ -263,20 +263,12 @@ impl<'a> WasiTest<'a> {
 
                         let mount_fs = mount_fs::MountFileSystem::new();
 
-                        mount_fs.mount_with_source("mem_fs", "/test_fs", Arc::new(a))?;
-                        mount_fs.mount_with_source("mem_fs_2", "/snapshot1", Arc::new(b))?;
-                        mount_fs.mount_with_source("mem_fs_3", "/tests", Arc::new(c))?;
-                        mount_fs.mount_with_source(
-                            "mem_fs_4",
-                            "/nightly_2022_10_18",
-                            Arc::new(d),
-                        )?;
-                        mount_fs.mount_with_source("mem_fs_5", "/unstable", Arc::new(e))?;
-                        mount_fs.mount_with_source(
-                            "mem_fs_6",
-                            "/.tmp_wasmer_wast_0",
-                            Arc::new(f),
-                        )?;
+                        mount_fs.mount("/test_fs", Arc::new(a))?;
+                        mount_fs.mount("/snapshot1", Arc::new(b))?;
+                        mount_fs.mount("/tests", Arc::new(c))?;
+                        mount_fs.mount("/nightly_2022_10_18", Arc::new(d))?;
+                        mount_fs.mount("/unstable", Arc::new(e))?;
+                        mount_fs.mount("/.tmp_wasmer_wast_0", Arc::new(f))?;
 
                         Arc::new(mount_fs)
                     }
