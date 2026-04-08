@@ -3,13 +3,16 @@ use crate::{
     BackendEngine,
     backend::wasmi::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
 };
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use wasmer_types::{Features, target::Target};
 
 #[derive(Debug)]
 pub(crate) struct CApiEngine {
     pub(crate) engine: *mut wasm_engine_t,
 }
+
+unsafe impl Sync for CApiEngine {}
+unsafe impl Send for CApiEngine {}
 
 impl Default for CApiEngine {
     fn default() -> Self {
@@ -25,7 +28,7 @@ impl Drop for CApiEngine {
 }
 
 /// The engine for the Web Assembly Micro Runtime.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Engine {
     pub(crate) inner: Arc<CApiEngine>,
 }
@@ -47,8 +50,10 @@ impl Engine {
         features.bulk_memory(true);
         features.reference_types(true);
         features.multi_value(true);
-        features.simd(false);
-        features.threads(false);
+        features.simd(true);
+        // Thread support is likely only partial in Wasmi, but we still report
+        // it because threads are always enabled at the Wasmer feature level.
+        features.threads(true);
         features.exceptions(false);
         features
     }
@@ -56,6 +61,19 @@ impl Engine {
     /// Returns the default features for the WASMI engine.
     pub fn default_features() -> Features {
         Self::supported_features()
+    }
+}
+
+impl Default for Engine {
+    fn default() -> Self {
+        // Wasmi 1.x keeps a per-engine function-type registry and panics with:
+        // `encountered foreign entity in func type registry` if a module built on one engine
+        // is instantiated against a Store backed by a different engine.
+        static DEFAULT_ENGINE: OnceLock<Arc<CApiEngine>> = OnceLock::new();
+
+        Self {
+            inner: DEFAULT_ENGINE.get_or_init(Default::default).clone(),
+        }
     }
 }
 
