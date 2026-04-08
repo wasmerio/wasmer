@@ -3,6 +3,10 @@
 
 //! Translation skeleton that traverses the whole WebAssembly module and call helper functions
 //! to deal with each part of it.
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use crate::{FunctionBinaryReader, MiddlewareBinaryReader};
+
 use super::environ::ModuleEnvironment;
 use super::error::from_binaryreadererror_wasmerror;
 use super::sections::{
@@ -11,8 +15,122 @@ use super::sections::{
     parse_start_section, parse_table_section, parse_tag_section, parse_type_section,
 };
 use super::state::ModuleTranslationState;
-use wasmer_types::{WasmError, WasmResult};
+use itertools::Itertools;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{
+    InitExpr, InitExprOp, LocalFunctionIndex, ModuleInfo, TableIndex, WasmError, WasmResult,
+};
 use wasmparser::{BinaryReader, NameSectionReader, Parser, Payload};
+
+fn analyze_function_readonly_table(
+    function_body: &super::environ::FunctionBodyData<'_>,
+    table_index: TableIndex,
+) -> WasmResult<bool> {
+    let mut reader =
+        MiddlewareBinaryReader::new_with_offset(function_body.data, function_body.module_offset);
+
+    let local_count = reader.read_local_count()?;
+    for _ in 0..local_count {
+        reader.read_local_decl()?;
+    }
+
+    while !reader.eof() {
+        match reader.read_operator()? {
+            wasmparser::Operator::TableSet { table }
+            | wasmparser::Operator::TableFill { table }
+            | wasmparser::Operator::TableGrow { table } => {
+                if TableIndex::from_u32(table) == table_index {
+                    return Ok(false);
+                }
+            }
+            wasmparser::Operator::TableCopy { dst_table, .. } => {
+                if TableIndex::from_u32(dst_table) == table_index {
+                    return Ok(false);
+                }
+            }
+            wasmparser::Operator::TableInit { table, .. } => {
+                if TableIndex::from_u32(table) == table_index {
+                    return Ok(false);
+                }
+            }
+            wasmparser::Operator::ElemDrop { .. } => return Ok(false),
+            _ => {}
+        }
+    }
+
+    Ok(true)
+}
+
+pub(crate) fn analyze_readonly_funcref_table(
+    module: &ModuleInfo,
+    function_body_inputs: &PrimaryMap<LocalFunctionIndex, super::environ::FunctionBodyData<'_>>,
+) -> WasmResult<Option<TableIndex>> {
+    let Ok(table_index) = module
+        .tables
+        .iter()
+        .filter_map(|(index, table)| {
+            if module.local_table_index(index).is_some() && table.is_fixed_funcref_table() {
+                Some(index)
+            } else {
+                None
+            }
+        })
+        .exactly_one()
+    else {
+        return Ok(None);
+    };
+
+    let table = module.tables[table_index];
+    let Ok(table_initializer) = module
+        .table_initializers
+        .iter()
+        .filter(|initializer| initializer.table_index == table_index)
+        .exactly_one()
+    else {
+        return Ok(None);
+    };
+
+    // We're expecting all table elements are initialized except the first one (null pointer).
+    if table_initializer.offset_expr != InitExpr::new([InitExprOp::I32Const(1)])
+        || table_initializer.elements.len() as u32 != table.minimum.saturating_sub(1)
+    {
+        return Ok(None);
+    }
+
+    // Imported functions carry their own host environment / callee VMContext.
+    if table_initializer
+        .elements
+        .iter()
+        .any(|func_index| module.is_imported_function(*func_index))
+    {
+        return Ok(None);
+    }
+
+    let readonly = AtomicBool::new(true);
+    function_body_inputs
+        .iter()
+        .collect_vec()
+        .par_iter()
+        .map(|(_local_func_index, function_body)| {
+            if !readonly.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+
+            if !analyze_function_readonly_table(function_body, table_index)? {
+                readonly.store(false, Ordering::Relaxed);
+            }
+
+            Ok(())
+        })
+        .collect::<WasmResult<Vec<_>>>()?;
+
+    if !readonly.load(Ordering::Relaxed) {
+        return Ok(None);
+    }
+
+    Ok(Some(table_index))
+}
 
 /// Translate a sequence of bytes forming a valid Wasm binary into a
 /// parsed ModuleInfo `ModuleTranslationState`.

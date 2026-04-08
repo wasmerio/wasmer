@@ -79,7 +79,7 @@ jobs:
             enable_v8: false
             enable_wasmi: true
             enable_wamr: true
-          - build: macos-arm64
+          - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
@@ -361,8 +361,8 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  darwin_aarch64_jsc:
-    name: macos-arm64 (JSC)
+  macos-arm_jsc:
+    name: macos-arm (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: depot-macos-14
     steps:
@@ -398,7 +398,7 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  darwin_x86_64_jsc:
+  macos-x64_jsc:
     name: macos-x64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: macos-15-intel
@@ -431,7 +431,7 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  linux_riscv64:
+  linux-riscv64:
     name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
@@ -525,7 +525,7 @@ jobs:
           retention-days: 2
 
   release:
-    needs: [setup, build, windows_gnu, linux_riscv64, full_source_archive]
+    needs: [setup, build, windows_gnu, linux-riscv64, full_source_archive]
     runs-on: ubuntu-latest
     if: (needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != '') && github.event_name != 'pull_request'
     steps:

@@ -20,7 +20,8 @@ fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
         let deserialized_module =
             unsafe { Module::deserialize(&store, serialized_bytes.clone()) }.unwrap();
         let reserialized_bytes = deserialized_module.serialize().unwrap();
-        assert_eq!(serialized_bytes, reserialized_bytes);
+        // Do not use `assert_eq!`; it produces excessively long console output.
+        assert!(serialized_bytes == reserialized_bytes);
     }
     Ok(())
 }
@@ -74,6 +75,7 @@ fn artifact_deserialization_roundtrip() {
         let engine = wasmer::Engine::default();
         let module = unsafe { Module::deserialize(&engine, wasm_module_bytes.clone()) }.unwrap();
         let reserialized_bytes = module.serialize().unwrap();
-        assert_eq!(wasm_module_bytes.to_vec(), reserialized_bytes);
+        // Do not use `assert_eq!`; it produces excessively long console output.
+        assert!(wasm_module_bytes.to_vec() == reserialized_bytes);
     }
 }
