@@ -10413,11 +10413,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let v = err!(self.builder.build_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    ""
-                ));
+                let v =
+                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
                 let v = err!(
                     self.builder
                         .build_bit_cast(v, self.intrinsics.i8_ty.vec_type(8), "")
@@ -10443,11 +10440,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let v = err!(self.builder.build_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    ""
-                ));
+                let v =
+                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
                 let v = err!(
                     self.builder
                         .build_bit_cast(v, self.intrinsics.i8_ty.vec_type(8), "")
@@ -10473,11 +10467,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let v = err!(self.builder.build_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    ""
-                ));
+                let v =
+                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
                 let v = err!(self.builder.build_bit_cast(
                     v,
                     self.intrinsics.i16_ty.vec_type(4),
@@ -10504,11 +10495,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let v = err!(self.builder.build_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    ""
-                ));
+                let v =
+                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
                 let v = err!(self.builder.build_bit_cast(
                     v,
                     self.intrinsics.i16_ty.vec_type(4),
@@ -10535,11 +10523,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let v = err!(self.builder.build_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    ""
-                ));
+                let v =
+                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
                 let v = err!(self.builder.build_bit_cast(
                     v,
                     self.intrinsics.i32_ty.vec_type(2),
@@ -10566,11 +10551,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let v = err!(self.builder.build_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    ""
-                ));
+                let v =
+                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
                 let v = err!(self.builder.build_bit_cast(
                     v,
                     self.intrinsics.i32_ty.vec_type(2),
