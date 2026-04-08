@@ -11,6 +11,7 @@ pub(crate) struct CApiEngine {
     pub(crate) engine: *mut wasm_engine_t,
 }
 
+// SAFETY: it's a pointer to the WASM engine, safe to be shared across threads
 unsafe impl Sync for CApiEngine {}
 unsafe impl Send for CApiEngine {}
 
