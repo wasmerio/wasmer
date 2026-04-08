@@ -16,7 +16,7 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassBuilderOptions,
-    targets::{FileType, TargetMachine},
+    targets::{FileType, TargetData, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
@@ -322,6 +322,7 @@ impl FuncTranslator {
             builder,
             alloca_builder,
             intrinsics: &intrinsics,
+            target_data: &target_data,
             state,
             function: func,
             locals: params_locals,
@@ -1279,10 +1280,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     fn build_annotated_load<T: BasicType<'ctx>>(
         &mut self,
         pointee_ty: T,
-        effective_address: PointerValue<'ctx>,
+        offset: IntValue<'ctx>,
         memarg: &MemArg,
         alignment: u32,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let pointee_size = usize::try_from(self.target_data.get_store_size(&pointee_ty))
+            .map_err(|_| CompileError::Codegen("pointee type size does not fit in usize".into()))?;
+        let effective_address = self.resolve_memory_ptr(
+            memory_index,
+            memarg,
+            self.intrinsics.ptr_ty,
+            offset,
+            pointee_size,
+        )?;
         let result = err!(self.builder.build_load(pointee_ty, effective_address, ""));
         self.annotate_user_memaccess(
             MemoryIndex::from_u32(memarg.memory),
@@ -1296,15 +1307,26 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     fn build_annotated_store<T: BasicType<'ctx>>(
         &mut self,
         pointee_ty: T,
-        effective_address: PointerValue<'ctx>,
+        offset: IntValue<'ctx>,
         value: BasicValueEnum<'ctx>,
         memarg: &MemArg,
         alignment: u32,
     ) -> Result<(), CompileError> {
+        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let pointee_size = usize::try_from(self.target_data.get_store_size(&pointee_ty))
+            .map_err(|_| CompileError::Codegen("pointee type size does not fit in usize".into()))?;
+        let effective_address = self.resolve_memory_ptr(
+            memory_index,
+            memarg,
+            self.intrinsics.ptr_ty,
+            offset,
+            pointee_size,
+        )?;
+
         // Build a dead store (if non-volatile memory operations are enabled) in order to preserve
         // artifacts from a partial store operations.
         if !self.non_volatile_memory_ops {
-            self.build_annotated_load(pointee_ty, effective_address, memarg, alignment)?;
+            self.build_annotated_load(pointee_ty, offset, memarg, alignment)?;
         }
 
         let store = err!(self.builder.build_store(effective_address, value));
@@ -1986,6 +2008,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     builder: Builder<'ctx>,
     alloca_builder: Builder<'ctx>,
     intrinsics: &'a Intrinsics<'ctx>,
+    target_data: &'a TargetData,
     state: State<'ctx>,
     function: FunctionValue<'ctx>,
     locals: Vec<(BasicTypeEnum<'ctx>, PointerValue<'ctx>)>, // Contains params and locals
@@ -9335,108 +9358,39 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         match op {
             Operator::I32Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                let result = self.build_annotated_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let result =
+                    self.build_annotated_load(self.intrinsics.i32_ty, offset, memarg, 1)?;
                 self.state.push1(result);
             }
             Operator::I64Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let result = self.build_annotated_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let result =
+                    self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 self.state.push1(result);
             }
             Operator::F32Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                let result = self.build_annotated_load(
-                    self.intrinsics.f32_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let result =
+                    self.build_annotated_load(self.intrinsics.f32_ty, offset, memarg, 1)?;
                 self.state.push1(result);
             }
             Operator::F64Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let result = self.build_annotated_load(
-                    self.intrinsics.f64_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let result =
+                    self.build_annotated_load(self.intrinsics.f64_ty, offset, memarg, 1)?;
                 self.state.push1(result);
             }
             Operator::V128Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    16,
-                )?;
-                let result = self.build_annotated_load(
-                    self.intrinsics.i128_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let result =
+                    self.build_annotated_load(self.intrinsics.i128_ty, offset, memarg, 1)?;
                 self.state.push1(result);
             }
             Operator::V128Load8Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _i) = self.v128_into_i8x16(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
-                let element =
-                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
+                let element = self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
                 let res = err!(
@@ -9449,20 +9403,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, i) = self.v128_into_i16x8(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                let element = self.build_annotated_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i16_ty, offset, memarg, 1)?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
                 let res = err!(
@@ -9475,20 +9417,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, i) = self.v128_into_i32x4(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                let element = self.build_annotated_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i32_ty, offset, memarg, 1)?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
                 let res = err!(
@@ -9501,20 +9431,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, i) = self.v128_into_i64x2(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let element = self.build_annotated_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
                 let res = err!(
@@ -9527,205 +9445,67 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::I32Store { ref memarg } => {
                 let value = self.state.pop1()?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                self.build_annotated_store(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    value,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.i32_ty, offset, value, memarg, 1)?;
             }
             Operator::I64Store { ref memarg } => {
                 let value = self.state.pop1()?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                self.build_annotated_store(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    value,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.i64_ty, offset, value, memarg, 1)?;
             }
             Operator::F32Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                self.build_annotated_store(
-                    self.intrinsics.f32_ty,
-                    effective_address,
-                    v,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.f32_ty, offset, v, memarg, 1)?;
             }
             Operator::F64Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                self.build_annotated_store(
-                    self.intrinsics.f64_ty,
-                    effective_address,
-                    v,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.f64_ty, offset, v, memarg, 1)?;
             }
             Operator::V128Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    16,
-                )?;
-                self.build_annotated_store(
-                    self.intrinsics.i128_ty,
-                    effective_address,
-                    v,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.i128_ty, offset, v, memarg, 1)?;
             }
             Operator::V128Store8Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _i) = self.v128_into_i8x16(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let val = err!(self.builder.build_extract_element(v, idx, ""));
-                self.build_annotated_store(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    val,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.i8_ty, offset, val, memarg, 1)?;
             }
             Operator::V128Store16Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _i) = self.v128_into_i16x8(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let val = err!(self.builder.build_extract_element(v, idx, ""));
-                self.build_annotated_store(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    val,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.i16_ty, offset, val, memarg, 1)?;
             }
             Operator::V128Store32Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _i) = self.v128_into_i32x4(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let val = err!(self.builder.build_extract_element(v, idx, ""));
-                self.build_annotated_store(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    val,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.i32_ty, offset, val, memarg, 1)?;
             }
             Operator::V128Store64Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _i) = self.v128_into_i64x2(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let val = err!(self.builder.build_extract_element(v, idx, ""));
-                self.build_annotated_store(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    val,
-                    memarg,
-                    1,
-                )?;
+                self.build_annotated_store(self.intrinsics.i64_ty, offset, val, memarg, 1)?;
             }
             Operator::I32Load8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
                 let narrow_result =
-                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
+                    self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -9735,20 +9515,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I32Load16S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                let narrow_result = self.build_annotated_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i16_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -9758,16 +9526,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I64Load8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
                 let narrow_result =
-                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
+                    self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -9777,20 +9537,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I64Load16S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                let narrow_result = self.build_annotated_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i16_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -9800,20 +9548,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I64Load32S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                let narrow_result = self.build_annotated_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i32_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -9824,16 +9560,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             Operator::I32Load8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
                 let narrow_result =
-                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
+                    self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -9843,20 +9571,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I32Load16U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                let narrow_result = self.build_annotated_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i16_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -9866,16 +9582,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I64Load8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
                 let narrow_result =
-                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
+                    self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -9885,20 +9593,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I64Load16U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                let narrow_result = self.build_annotated_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i16_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -9908,20 +9604,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I64Load32U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                let narrow_result = self.build_annotated_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i32_ty, offset, memarg, 1)?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -9933,14 +9617,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::I32Store8 { ref memarg } | Operator::I64Store8 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
                 let narrow_value = err!(self.builder.build_int_truncate(
                     value,
                     self.intrinsics.i8_ty,
@@ -9948,7 +9624,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ));
                 self.build_annotated_store(
                     self.intrinsics.i8_ty,
-                    effective_address,
+                    offset,
                     narrow_value.into(),
                     memarg,
                     1,
@@ -9957,14 +9633,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
                 let narrow_value = err!(self.builder.build_int_truncate(
                     value,
                     self.intrinsics.i16_ty,
@@ -9972,7 +9640,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ));
                 self.build_annotated_store(
                     self.intrinsics.i16_ty,
-                    effective_address,
+                    offset,
                     narrow_value.into(),
                     memarg,
                     1,
@@ -9981,14 +9649,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::I64Store32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
                 let narrow_value = err!(self.builder.build_int_truncate(
                     value,
                     self.intrinsics.i32_ty,
@@ -9996,7 +9656,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ));
                 self.build_annotated_store(
                     self.intrinsics.i32_ty,
-                    effective_address,
+                    offset,
                     narrow_value.into(),
                     memarg,
                     1,
@@ -10405,16 +10065,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load8x8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let v =
-                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
+                let v = self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let v = err!(
                     self.builder
                         .build_bit_cast(v, self.intrinsics.i8_ty.vec_type(8), "")
@@ -10432,16 +10083,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load8x8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let v =
-                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
+                let v = self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let v = err!(
                     self.builder
                         .build_bit_cast(v, self.intrinsics.i8_ty.vec_type(8), "")
@@ -10459,16 +10101,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load16x4S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let v =
-                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
+                let v = self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let v = err!(self.builder.build_bit_cast(
                     v,
                     self.intrinsics.i16_ty.vec_type(4),
@@ -10487,16 +10120,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load16x4U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let v =
-                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
+                let v = self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let v = err!(self.builder.build_bit_cast(
                     v,
                     self.intrinsics.i16_ty.vec_type(4),
@@ -10515,16 +10139,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load32x2S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let v =
-                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
+                let v = self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let v = err!(self.builder.build_bit_cast(
                     v,
                     self.intrinsics.i32_ty.vec_type(2),
@@ -10543,16 +10158,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load32x2U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let v =
-                    self.build_annotated_load(self.intrinsics.i64_ty, effective_address, memarg, 1)?;
+                let v = self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let v = err!(self.builder.build_bit_cast(
                     v,
                     self.intrinsics.i32_ty.vec_type(2),
@@ -10571,20 +10177,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load32Zero { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                let element = self.build_annotated_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i32_ty, offset, memarg, 1)?;
                 let res = err!(self.builder.build_int_z_extend(
                     element.into_int_value(),
                     self.intrinsics.i128_ty,
@@ -10594,20 +10188,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load64Zero { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let element = self.build_annotated_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let res = err!(self.builder.build_int_z_extend(
                     element.into_int_value(),
                     self.intrinsics.i128_ty,
@@ -10617,16 +10199,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load8Splat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
-                let element =
-                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
+                let element = self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
                 let res = self.splat_vector(element, self.intrinsics.i8x16_ty)?;
                 let res = err!(
                     self.builder
@@ -10636,20 +10209,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load16Splat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                let element = self.build_annotated_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i16_ty, offset, memarg, 1)?;
                 let res = self.splat_vector(element, self.intrinsics.i16x8_ty)?;
                 let res = err!(
                     self.builder
@@ -10659,20 +10220,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load32Splat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                let element = self.build_annotated_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i32_ty, offset, memarg, 1)?;
                 let res = self.splat_vector(element, self.intrinsics.i32x4_ty)?;
                 let res = err!(
                     self.builder
@@ -10682,20 +10231,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load64Splat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                let element = self.build_annotated_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    memarg,
-                    1,
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i64_ty, offset, memarg, 1)?;
                 let res = self.splat_vector(element, self.intrinsics.i64x2_ty)?;
                 let res = err!(
                     self.builder
