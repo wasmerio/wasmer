@@ -75,7 +75,7 @@ impl Tag {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_tag: VMExternTag) -> Self {
         check_isolate(store);
         Self {
-            handle: vm_tag.into_v8(),
+            handle: vm_tag.unwrap_v_8(),
         }
     }
 

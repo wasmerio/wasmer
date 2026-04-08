@@ -164,11 +164,13 @@ fn is_table_compatible(
         ty: exported_ty,
         minimum: exported_minimum,
         maximum: exported_maximum,
+        ..
     } = exported;
     let TableType {
         ty: imported_ty,
         minimum: imported_minimum,
         maximum: imported_maximum,
+        ..
     } = imported;
 
     is_table_element_type_compatible(*exported_ty, *imported_ty)
@@ -285,6 +287,17 @@ impl FunctionType {
     /// Return types.
     pub fn results(&self) -> &[Type] {
         &self.results
+    }
+
+    /// Returns a stable 32-bit signature hash derived from the Wasm value types.
+    pub fn signature_hash(&self) -> u32 {
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(&self.results.len().to_le_bytes());
+        hasher.update(&self.params.len().to_le_bytes());
+        for ty in self.results.iter().chain(self.params.iter()) {
+            hasher.update(&[*ty as u8]);
+        }
+        hasher.finalize()
     }
 }
 
@@ -603,6 +616,8 @@ pub struct TableType {
     pub minimum: u32,
     /// The maximum number of elements in the table.
     pub maximum: Option<u32>,
+    /// Whether the table is known to be immutable at runtime.
+    pub readonly: bool,
 }
 
 impl TableType {
@@ -613,6 +628,7 @@ impl TableType {
             ty,
             minimum,
             maximum,
+            readonly: false,
         }
     }
 
@@ -792,5 +808,22 @@ mod tests {
         let ty: FunctionType = NINE_V128_TO_NINE_I32.into();
         assert_eq!(ty.params().len(), 9);
         assert_eq!(ty.results().len(), 9);
+    }
+
+    #[test]
+    fn signature_hash_is_stable() {
+        let ty: FunctionType = ([Type::I32, Type::F64], [Type::ExternRef]).into();
+        assert_eq!(ty.signature_hash(), ty.signature_hash());
+    }
+
+    #[test]
+    fn signature_hash_distinguishes() {
+        let left: FunctionType = ([Type::I32], [Type::I64]).into();
+        let right: FunctionType = ([Type::I64], [Type::I32]).into();
+        assert_ne!(left.signature_hash(), right.signature_hash());
+
+        let left: FunctionType = ([], [Type::I32, Type::I64]).into();
+        let right: FunctionType = ([Type::I32], [Type::I64]).into();
+        assert_ne!(left.signature_hash(), right.signature_hash());
     }
 }

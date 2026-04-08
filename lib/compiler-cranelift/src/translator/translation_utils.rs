@@ -1,8 +1,7 @@
 //! Helper functions and structures for the translation.
 
+use crate::func_environ::FuncEnvironment;
 use crate::translator::EXN_REF_TYPE;
-
-use super::func_environ::TargetEnvironment;
 use cranelift_codegen::{
     binemit::Reloc,
     ir::{self, AbiParam},
@@ -90,10 +89,10 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
 }
 
 /// Create a `Block` with the given Wasm parameters.
-pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
+pub fn block_with_params<'a>(
     builder: &mut FunctionBuilder,
     params: impl Iterator<Item = &'a wasmparser::ValType>,
-    environ: &PE,
+    environ: &FuncEnvironment<'_>,
 ) -> WasmResult<ir::Block> {
     let block = builder.create_block();
     for ty in params.into_iter() {

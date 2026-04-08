@@ -393,6 +393,7 @@ impl VMOwnedMemory {
     }
 }
 
+// TODO: why doesn't this support wait/notify? wait should block indefinitely if you ask me
 impl LinearMemory for VMOwnedMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {

@@ -190,7 +190,7 @@ impl Memory {
         internal: crate::vm::VMExternMemory,
     ) -> Self {
         Self {
-            handle: internal.into_jsc(),
+            handle: internal.unwrap_jsc(),
         }
     }
 

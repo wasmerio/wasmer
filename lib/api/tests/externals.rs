@@ -91,6 +91,7 @@ fn table_new() -> Result<(), String> {
         ty: Type::FuncRef,
         minimum: 0,
         maximum: None,
+        readonly: false,
     };
     let f = Function::new_typed(&mut store, || {});
     let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f)))
@@ -141,6 +142,7 @@ fn table_set() -> Result<(), String> {
             ty: Type::ExternRef,
             minimum: 1,
             maximum: None,
+            readonly: false,
         };
         let extern_ref = ExternRef::new(&mut store, 0u32);
         let table = Table::new(
@@ -217,6 +219,7 @@ fn table_grow() -> Result<(), String> {
             ty: Type::FuncRef,
             minimum: 0,
             maximum: Some(10),
+            readonly: false,
         };
         let f = Function::new_typed(&mut store, |num: i32| num + 1);
         let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f.clone())))

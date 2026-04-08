@@ -68,11 +68,12 @@ jobs:
         env:
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz
       - name: Install wasixcc
-        uses: wasix-org/wasixcc@v0.4.2
+        uses: wasix-org/wasixcc@v0.4.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
-          version: v0.4.2
+          version: v0.4.3
+
       - name: Install wasm-tools
         run: |
           cargo install --locked wasm-tools
