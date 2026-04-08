@@ -1276,6 +1276,23 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(())
     }
 
+    fn build_annotated_load<T: BasicType<'ctx>>(
+        &mut self,
+        pointee_ty: T,
+        effective_address: PointerValue<'ctx>,
+        memarg: &MemArg,
+        alignment: u32,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let result = err!(self.builder.build_load(pointee_ty, effective_address, ""));
+        self.annotate_user_memaccess(
+            MemoryIndex::from_u32(memarg.memory),
+            memarg,
+            alignment,
+            result.as_instruction_value().unwrap(),
+        )?;
+        Ok(result)
+    }
+
     fn resolve_memory_ptr(
         &mut self,
         memory_index: MemoryIndex,
@@ -9303,16 +9320,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let result = err!(self.builder.build_load(
+                let result = self.build_annotated_load(
                     self.intrinsics.i32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    result.as_instruction_value().unwrap(),
                 )?;
                 self.state.push1(result);
             }
@@ -9326,16 +9338,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let result = err!(self.builder.build_load(
+                let result = self.build_annotated_load(
                     self.intrinsics.i64_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    result.as_instruction_value().unwrap(),
                 )?;
                 self.state.push1(result);
             }
@@ -9349,16 +9356,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let result = err!(self.builder.build_load(
+                let result = self.build_annotated_load(
                     self.intrinsics.f32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    result.as_instruction_value().unwrap(),
                 )?;
                 self.state.push1(result);
             }
@@ -9372,16 +9374,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let result = err!(self.builder.build_load(
+                let result = self.build_annotated_load(
                     self.intrinsics.f64_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    result.as_instruction_value().unwrap(),
                 )?;
                 self.state.push1(result);
             }
@@ -9395,16 +9392,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     16,
                 )?;
-                let result = err!(self.builder.build_load(
+                let result = self.build_annotated_load(
                     self.intrinsics.i128_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    result.as_instruction_value().unwrap(),
                 )?;
                 self.state.push1(result);
             }
@@ -9420,17 +9412,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     1,
                 )?;
-                let element = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    element.as_instruction_value().unwrap(),
-                )?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
                 let res = err!(
@@ -9451,16 +9434,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     2,
                 )?;
-                let element = err!(self.builder.build_load(
+                let element = self.build_annotated_load(
                     self.intrinsics.i16_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    element.as_instruction_value().unwrap(),
                 )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
@@ -9482,16 +9460,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let element = err!(self.builder.build_load(
+                let element = self.build_annotated_load(
                     self.intrinsics.i32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    element.as_instruction_value().unwrap(),
                 )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
@@ -9513,16 +9486,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let element = err!(self.builder.build_load(
+                let element = self.build_annotated_load(
                     self.intrinsics.i64_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    element.as_instruction_value().unwrap(),
                 )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
@@ -9787,17 +9755,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     1,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    narrow_result.as_instruction_value().unwrap(),
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
                 let result = err!(self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -9815,16 +9774,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     2,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
+                let narrow_result = self.build_annotated_load(
                     self.intrinsics.i16_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    narrow_result.as_instruction_value().unwrap(),
                 )?;
                 let result = err!(self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
@@ -9843,20 +9797,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     1,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ))
-                .into_int_value();
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    narrow_result.as_instruction_value().unwrap(),
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
                 let result = err!(self.builder.build_int_s_extend(
-                    narrow_result,
+                    narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
                     ""
                 ));
@@ -9872,20 +9816,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     2,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
+                let narrow_result = self.build_annotated_load(
                     self.intrinsics.i16_ty,
                     effective_address,
-                    ""
-                ))
-                .into_int_value();
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    narrow_result.as_instruction_value().unwrap(),
                 )?;
                 let result = err!(self.builder.build_int_s_extend(
-                    narrow_result,
+                    narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
                     ""
                 ));
@@ -9901,16 +9839,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
+                let narrow_result = self.build_annotated_load(
                     self.intrinsics.i32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    narrow_result.as_instruction_value().unwrap(),
                 )?;
                 let result = err!(self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
@@ -9930,17 +9863,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     1,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    narrow_result.as_instruction_value().unwrap(),
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -9958,16 +9882,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     2,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
+                let narrow_result = self.build_annotated_load(
                     self.intrinsics.i16_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    narrow_result.as_instruction_value().unwrap(),
                 )?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
@@ -9986,17 +9905,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     1,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    narrow_result.as_instruction_value().unwrap(),
-                )?;
+                let narrow_result =
+                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -10014,16 +9924,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     2,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
+                let narrow_result = self.build_annotated_load(
                     self.intrinsics.i16_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    narrow_result.as_instruction_value().unwrap(),
                 )?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
@@ -10042,16 +9947,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let narrow_result = err!(self.builder.build_load(
+                let narrow_result = self.build_annotated_load(
                     self.intrinsics.i32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    narrow_result.as_instruction_value().unwrap(),
                 )?;
                 let result = err!(self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
@@ -10746,19 +10646,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let elem = err!(self.builder.build_load(
+                let element = self.build_annotated_load(
                     self.intrinsics.i32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    elem.as_instruction_value().unwrap(),
                 )?;
                 let res = err!(self.builder.build_int_z_extend(
-                    elem.into_int_value(),
+                    element.into_int_value(),
                     self.intrinsics.i128_ty,
                     "",
                 ));
@@ -10774,19 +10669,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let elem = err!(self.builder.build_load(
+                let element = self.build_annotated_load(
                     self.intrinsics.i64_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    elem.as_instruction_value().unwrap(),
                 )?;
                 let res = err!(self.builder.build_int_z_extend(
-                    elem.into_int_value(),
+                    element.into_int_value(),
                     self.intrinsics.i128_ty,
                     "",
                 ));
@@ -10802,18 +10692,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     1,
                 )?;
-                let elem = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    elem.as_instruction_value().unwrap(),
-                )?;
-                let res = self.splat_vector(elem, self.intrinsics.i8x16_ty)?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i8_ty, effective_address, memarg, 1)?;
+                let res = self.splat_vector(element, self.intrinsics.i8x16_ty)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -10830,18 +10711,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     2,
                 )?;
-                let elem = err!(self.builder.build_load(
+                let element = self.build_annotated_load(
                     self.intrinsics.i16_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    elem.as_instruction_value().unwrap(),
                 )?;
-                let res = self.splat_vector(elem, self.intrinsics.i16x8_ty)?;
+                let res = self.splat_vector(element, self.intrinsics.i16x8_ty)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -10858,18 +10734,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let elem = err!(self.builder.build_load(
+                let element = self.build_annotated_load(
                     self.intrinsics.i32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    elem.as_instruction_value().unwrap(),
                 )?;
-                let res = self.splat_vector(elem, self.intrinsics.i32x4_ty)?;
+                let res = self.splat_vector(element, self.intrinsics.i32x4_ty)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -10886,18 +10757,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let elem = err!(self.builder.build_load(
+                let element = self.build_annotated_load(
                     self.intrinsics.i64_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
                     memarg,
                     1,
-                    elem.as_instruction_value().unwrap(),
                 )?;
-                let res = self.splat_vector(elem, self.intrinsics.i64x2_ty)?;
+                let res = self.splat_vector(element, self.intrinsics.i64x2_ty)?;
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
