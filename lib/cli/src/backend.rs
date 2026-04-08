@@ -526,6 +526,7 @@ impl RuntimeOptions {
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
                 config.enable_non_volatile_memops();
+                config.enable_readonly_funcref_table();
 
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
@@ -688,6 +689,7 @@ impl BackendType {
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
                 config.enable_non_volatile_memops();
+                config.enable_readonly_funcref_table();
 
                 let supported_features = config.supported_features_for_target(target);
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {

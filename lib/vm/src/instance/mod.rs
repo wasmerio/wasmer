@@ -1597,18 +1597,20 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
             for (i, func_idx) in init.elements.iter().enumerate() {
                 let anyfunc = instance.func_ref(*func_idx);
                 table
-                    .set(
+                    .set_with_construction(
                         u32::try_from(start + i).unwrap(),
                         TableElement::FuncRef(anyfunc),
+                        true,
                     )
                     .unwrap();
             }
         } else {
             for i in 0..init.elements.len() {
                 table
-                    .set(
+                    .set_with_construction(
                         u32::try_from(start + i).unwrap(),
                         TableElement::ExternRef(None),
+                        true,
                     )
                     .unwrap();
             }

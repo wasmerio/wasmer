@@ -58,6 +58,10 @@ pub trait CompilerConfig {
     /// Available for Cranelift and Singlepass (RISC-V).
     fn enable_unaligned_memory_accesses(&mut self) {}
 
+    /// Enables treating eligible funcref tables as read-only so the backend can
+    /// place them in read-only data.
+    fn enable_readonly_funcref_table(&mut self) {}
+
     /// Enable NaN canonicalization.
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly
@@ -166,6 +170,11 @@ pub trait Compiler: Send + std::fmt::Debug {
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
+
+    /// Get whether translation-time readonly funcref table analysis should run.
+    fn enable_readonly_funcref_table(&self) -> bool {
+        false
+    }
 
     /// Get the CpuFeatues used by the compiler
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
