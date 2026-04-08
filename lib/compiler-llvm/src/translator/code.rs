@@ -1357,6 +1357,40 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
     }
 
+    fn build_annotated_store<T: BasicType<'ctx>>(
+        &mut self,
+        pointee_ty: T,
+        offset: IntValue<'ctx>,
+        value: BasicValueEnum<'ctx>,
+        memarg: &MemArg,
+        alignment: u32,
+    ) -> Result<(), CompileError> {
+        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let pointee_size = usize::try_from(self.target_data.get_store_size(&pointee_ty))
+            .map_err(|_| CompileError::Codegen("pointee type size does not fit in usize".into()))?;
+        let effective_address = self.resolve_memory_ptr(
+            memory_index,
+            memarg,
+            self.intrinsics.ptr_ty,
+            offset,
+            pointee_size,
+        )?;
+
+        // Build a dead store (if non-volatile memory operations are enabled) in order to preserve
+        // artifacts from a partial store operations.
+        if !self.non_volatile_memory_ops {
+            self.build_annotated_load(pointee_ty, offset, memarg, alignment)?;
+        }
+
+        let store = err!(self.builder.build_store(effective_address, value));
+        self.annotate_user_memaccess(
+            MemoryIndex::from_u32(memarg.memory),
+            memarg,
+            alignment,
+            store,
+        )
+    }
+
     fn build_annotated_atomic_store(
         &mut self,
         outer_ty: IntType<'ctx>,
@@ -1402,40 +1436,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
             .unwrap();
         Ok(())
-    }
-
-    fn build_annotated_store<T: BasicType<'ctx>>(
-        &mut self,
-        pointee_ty: T,
-        offset: IntValue<'ctx>,
-        value: BasicValueEnum<'ctx>,
-        memarg: &MemArg,
-        alignment: u32,
-    ) -> Result<(), CompileError> {
-        let memory_index = MemoryIndex::from_u32(memarg.memory);
-        let pointee_size = usize::try_from(self.target_data.get_store_size(&pointee_ty))
-            .map_err(|_| CompileError::Codegen("pointee type size does not fit in usize".into()))?;
-        let effective_address = self.resolve_memory_ptr(
-            memory_index,
-            memarg,
-            self.intrinsics.ptr_ty,
-            offset,
-            pointee_size,
-        )?;
-
-        // Build a dead store (if non-volatile memory operations are enabled) in order to preserve
-        // artifacts from a partial store operations.
-        if !self.non_volatile_memory_ops {
-            self.build_annotated_load(pointee_ty, offset, memarg, alignment)?;
-        }
-
-        let store = err!(self.builder.build_store(effective_address, value));
-        self.annotate_user_memaccess(
-            MemoryIndex::from_u32(memarg.memory),
-            memarg,
-            alignment,
-            store,
-        )
     }
 
     fn resolve_memory_ptr(
