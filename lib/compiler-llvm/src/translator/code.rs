@@ -1293,6 +1293,29 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(result)
     }
 
+    fn build_annotated_store<T: BasicType<'ctx>>(
+        &mut self,
+        pointee_ty: T,
+        effective_address: PointerValue<'ctx>,
+        value: BasicValueEnum<'ctx>,
+        memarg: &MemArg,
+        alignment: u32,
+    ) -> Result<(), CompileError> {
+        // Build a dead store (if non-volatile memory operations are enabled) in order to preserve
+        // artifacts from a partial store operations.
+        if !self.non_volatile_memory_ops {
+            self.build_annotated_load(pointee_ty, effective_address, memarg, alignment)?;
+        }
+
+        let store = err!(self.builder.build_store(effective_address, value));
+        self.annotate_user_memaccess(
+            MemoryIndex::from_u32(memarg.memory),
+            memarg,
+            alignment,
+            store,
+        )
+    }
+
     fn resolve_memory_ptr(
         &mut self,
         memory_index: MemoryIndex,
@@ -9512,19 +9535,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let dead_load = err!(self.builder.build_load(
+                self.build_annotated_store(
                     self.intrinsics.i32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
+                    value,
                     memarg,
                     1,
-                    dead_load.as_instruction_value().unwrap(),
                 )?;
-                let store = err!(self.builder.build_store(effective_address, value));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::I64Store { ref memarg } => {
                 let value = self.state.pop1()?;
