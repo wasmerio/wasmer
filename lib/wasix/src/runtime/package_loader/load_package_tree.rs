@@ -1,12 +1,11 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    fmt::Debug,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::{Context, Error};
-use futures::{StreamExt, TryStreamExt, future::BoxFuture};
+use futures::{StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
@@ -569,149 +568,25 @@ fn filesystem_v2(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        // MountFileSystem strips the mount point before forwarding paths to the
-        // mounted filesystem. That means paths are already relative to the
-        // mount root and shouldn't be stripped by mount_path.
-        let fs = if let Some(original) = original_path {
-            let original = PathBuf::from(original);
+        let mounted_fs = Arc::new(WebcVolumeFileSystem::new(volume.clone()))
+            as Arc<dyn FileSystem + Send + Sync>;
+        let source_path = original_path
+            .as_deref()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/"));
 
-            MappedPathFileSystem::new(
-                WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| Ok(original.join(strip_root_prefix(path))))
-                    as DynPathMapper,
-            )
-        } else {
-            MappedPathFileSystem::new(
-                WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| Ok(strip_root_prefix(path))) as DynPathMapper,
-            )
-        };
-
-        let mounted_fs = Arc::new(fs) as Arc<dyn FileSystem + Send + Sync>;
         if mount_path.as_path() == Path::new("/") {
             root_layer = Some(mounted_fs);
         } else {
             mounts.push(BinaryPackageMount {
                 guest_path: mount_path.clone(),
                 fs: mounted_fs,
-                source_path: PathBuf::from("/"),
+                source_path,
             });
         }
     }
 
     Ok(BinaryPackageMounts { root_layer, mounts })
-}
-
-fn strip_root_prefix(path: &Path) -> PathBuf {
-    path.strip_prefix("/").unwrap_or(path).to_owned()
-}
-
-type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;
-
-struct MappedPathFileSystem<F, M> {
-    inner: F,
-    map: M,
-}
-
-impl<F, M> MappedPathFileSystem<F, M>
-where
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn new(inner: F, map: M) -> Self {
-        MappedPathFileSystem { inner, map }
-    }
-
-    fn path(&self, path: &Path) -> Result<PathBuf, virtual_fs::FsError> {
-        let path = (self.map)(path)?;
-
-        // Don't forget to make the path absolute again.
-        Ok(Path::new("/").join(path))
-    }
-}
-
-impl<M, F> FileSystem for MappedPathFileSystem<F, M>
-where
-    F: FileSystem,
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
-        let path = self.path(path)?;
-        self.inner.readlink(&path)
-    }
-
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        let path = self.path(path)?;
-        self.inner.read_dir(&path)
-    }
-
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.create_dir(&path)
-    }
-
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.remove_dir(&path)
-    }
-
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
-        Box::pin(async move {
-            let from = self.path(&from)?;
-            let to = self.path(&to)?;
-            self.inner.rename(&from, &to).await
-        })
-    }
-
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        let path = self.path(path)?;
-        self.inner.metadata(&path)
-    }
-
-    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        let path = self.path(path)?;
-        self.inner.symlink_metadata(&path)
-    }
-
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.remove_file(&path)
-    }
-
-    fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
-        virtual_fs::OpenOptions::new(self)
-    }
-}
-
-impl<F, M> virtual_fs::FileOpener for MappedPathFileSystem<F, M>
-where
-    F: FileSystem,
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
-        let path = self.path(path)?;
-        self.inner
-            .new_open_options()
-            .options(conf.clone())
-            .open(path)
-    }
-}
-
-impl<F, M> Debug for MappedPathFileSystem<F, M>
-where
-    F: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MappedPathFileSystem")
-            .field("inner", &self.inner)
-            .field("map", &std::any::type_name::<M>())
-            .finish()
-    }
 }
 
 #[cfg(test)]
@@ -766,13 +641,8 @@ mod tests {
         let public_mount_dir = Directory {
             children: public_children,
         };
-        let mut public_root_children = BTreeMap::new();
-        public_root_children.insert("public".parse().unwrap(), DirEntry::Dir(public_mount_dir));
-        let public_dir = Directory {
-            children: public_root_children,
-        };
         let mut root_children = BTreeMap::new();
-        root_children.insert("public".parse().unwrap(), DirEntry::Dir(public_dir));
+        root_children.insert("public".parse().unwrap(), DirEntry::Dir(public_mount_dir));
         let atom_dir = Directory {
             children: root_children,
         };
