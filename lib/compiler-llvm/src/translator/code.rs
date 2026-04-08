@@ -2208,44 +2208,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
     }
 
-    fn translate_operator(&mut self, op: Operator, _source_loc: u32) -> Result<(), CompileError> {
-        // TODO: remove this vmctx by moving everything into CtxType. Values
-        // computed off vmctx usually benefit from caching.
-        let vmctx = &self.ctx.basic().into_pointer_value();
-
-        //let opcode_offset: Option<usize> = None;
-
-        if !self.state.reachable {
-            match op {
-                Operator::Block { blockty: _ }
-                | Operator::Loop { blockty: _ }
-                | Operator::If { blockty: _ }
-                | Operator::TryTable { .. } => {
-                    self.unreachable_depth += 1;
-                    return Ok(());
-                }
-                Operator::Else => {
-                    if self.unreachable_depth != 0 {
-                        return Ok(());
-                    }
-                }
-                Operator::End => {
-                    if self.unreachable_depth != 0 {
-                        self.unreachable_depth -= 1;
-                        return Ok(());
-                    }
-                }
-                _ => {
-                    return Ok(());
-                }
-            }
-        }
-
+    // Control Flow instructions.
+    // https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
+    fn translate_control_flow_operator(&mut self, op: Operator) -> Result<(), CompileError> {
         match op {
-            /***************************
-             * Control Flow instructions.
-             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
-             ***************************/
             Operator::Block { blockty } => {
                 let current_block = self
                     .builder
@@ -2660,11 +2626,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 self.state.reachable = false;
             }
+            _ => unreachable!(),
+        }
 
-            /***************************
-             * Basic instructions.
-             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#basic-instructions
-             ***************************/
+        Ok(())
+    }
+
+    // Basic instructions.
+    // https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#basic-instructions
+    fn translate_basic_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        let vmctx = &self.ctx.basic().into_pointer_value();
+
+        match op {
             Operator::Nop => {
                 // Do nothing.
             }
@@ -3469,11 +3442,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     self.state.reachable = false;
                 }
             }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
-            /***************************
-             * Integer Arithmetic instructions.
-             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#integer-arithmetic-instructions
-             ***************************/
+    // Integer Arithmetic instructions.
+    // https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#integer-arithmetic-instructions
+    fn translate_integer_arithmetic_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        match op {
             Operator::I32Add | Operator::I64Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let v1 = self.apply_pending_canonicalization(v1, i1)?;
@@ -5476,11 +5453,122 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
+            Operator::I64Add128 | Operator::I64Sub128 => {
+                let (rhs_hi, rhs_hi_info) = self.state.pop1_extra()?;
+                let (rhs_lo, rhs_lo_info) = self.state.pop1_extra()?;
+                let (lhs_hi, lhs_hi_info) = self.state.pop1_extra()?;
+                let (lhs_lo, lhs_lo_info) = self.state.pop1_extra()?;
 
-            /***************************
-             * Floating-Point Arithmetic instructions.
-             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#floating-point-arithmetic-instructions
-             ***************************/
+                let lhs_lo = self
+                    .apply_pending_canonicalization(lhs_lo, lhs_lo_info)?
+                    .into_int_value();
+                let lhs_hi = self
+                    .apply_pending_canonicalization(lhs_hi, lhs_hi_info)?
+                    .into_int_value();
+                let rhs_lo = self
+                    .apply_pending_canonicalization(rhs_lo, rhs_lo_info)?
+                    .into_int_value();
+                let rhs_hi = self
+                    .apply_pending_canonicalization(rhs_hi, rhs_hi_info)?
+                    .into_int_value();
+
+                let idx0 = self.intrinsics.i32_ty.const_zero();
+                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
+
+                let lhs = self.intrinsics.i64x2_ty.get_undef();
+                let lhs = err!(self.builder.build_insert_element(lhs, lhs_lo, idx0, ""));
+                let lhs = err!(self.builder.build_insert_element(lhs, lhs_hi, idx1, ""));
+                let lhs = err!(
+                    self.builder
+                        .build_bit_cast(lhs, self.intrinsics.i128_ty, "a")
+                )
+                .into_int_value();
+
+                let rhs = self.intrinsics.i64x2_ty.get_undef();
+                let rhs = err!(self.builder.build_insert_element(rhs, rhs_lo, idx0, ""));
+                let rhs = err!(self.builder.build_insert_element(rhs, rhs_hi, idx1, ""));
+                let rhs = err!(
+                    self.builder
+                        .build_bit_cast(rhs, self.intrinsics.i128_ty, "b")
+                )
+                .into_int_value();
+
+                let result = err!(match op {
+                    Operator::I64Add128 => self.builder.build_int_add(lhs, rhs, ""),
+                    Operator::I64Sub128 => self.builder.build_int_sub(lhs, rhs, ""),
+                    _ => unreachable!(),
+                });
+                let result = err!(self.builder.build_bit_cast(
+                    result,
+                    self.intrinsics.i64x2_ty,
+                    ""
+                ))
+                .into_vector_value();
+                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
+                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
+
+                self.state.push1(result_lo);
+                self.state.push1(result_hi);
+            }
+            Operator::I64MulWideS | Operator::I64MulWideU => {
+                let ((lhs, lhs_info), (rhs, rhs_info)) = self.state.pop2_extra()?;
+                let lhs = self
+                    .apply_pending_canonicalization(lhs, lhs_info)?
+                    .into_int_value();
+                let rhs = self
+                    .apply_pending_canonicalization(rhs, rhs_info)?
+                    .into_int_value();
+
+                let lhs = err!(match op {
+                    Operator::I64MulWideS => {
+                        self.builder
+                            .build_int_s_extend(lhs, self.intrinsics.i128_ty, "a")
+                    }
+                    Operator::I64MulWideU => {
+                        self.builder
+                            .build_int_z_extend(lhs, self.intrinsics.i128_ty, "a")
+                    }
+                    _ => unreachable!(),
+                });
+                let rhs = err!(match op {
+                    Operator::I64MulWideS => {
+                        self.builder
+                            .build_int_s_extend(rhs, self.intrinsics.i128_ty, "b")
+                    }
+                    Operator::I64MulWideU => {
+                        self.builder
+                            .build_int_z_extend(rhs, self.intrinsics.i128_ty, "b")
+                    }
+                    _ => unreachable!(),
+                });
+
+                let result = err!(self.builder.build_int_mul(lhs, rhs, ""));
+                let result = err!(self.builder.build_bit_cast(
+                    result,
+                    self.intrinsics.i64x2_ty,
+                    ""
+                ))
+                .into_vector_value();
+                let idx0 = self.intrinsics.i32_ty.const_zero();
+                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
+                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
+                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
+
+                self.state.push1(result_lo);
+                self.state.push1(result_hi);
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+
+    // Floating-Point Arithmetic instructions.
+    // https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#floating-point-arithmetic-instructions
+    fn translate_floating_point_arithmetic_operator(
+        &mut self,
+        op: Operator,
+    ) -> Result<(), CompileError> {
+        match op {
             Operator::F32Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let res = self
@@ -6773,11 +6861,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 // Do not adjust.
                 self.state.push1_extra(res, mag_info.strip_pending());
             }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
-            /***************************
-             * Integer Comparison instructions.
-             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#integer-comparison-instructions
-             ***************************/
+    // Integer Comparison instructions.
+    // https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#integer-comparison-instructions
+    fn translate_integer_comparison_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        match op {
             Operator::I32Eq | Operator::I64Eq => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let v1 = self.apply_pending_canonicalization(v1, i1)?;
@@ -7570,11 +7662,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
-            /***************************
-             * Floating-Point Comparison instructions.
-             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#floating-point-comparison-instructions
-             ***************************/
+    // Floating-Point Comparison instructions.
+    // https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#floating-point-comparison-instructions
+    fn translate_floating_point_comparison_operator(
+        &mut self,
+        op: Operator,
+    ) -> Result<(), CompileError> {
+        match op {
             Operator::F32Eq | Operator::F64Eq => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
@@ -7887,11 +7986,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
-            /***************************
-             * Conversion instructions.
-             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#conversion-instructions
-             ***************************/
+    // Conversion instructions.
+    // https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#conversion-instructions
+    fn translate_conversion_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        match op {
             Operator::I32WrapI64 => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
@@ -9100,11 +9203,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let ret = err!(self.builder.build_bit_cast(v, self.intrinsics.f64_ty, ""));
                 self.state.push1_extra(ret, i);
             }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
-            /***************************
-             * Sign-extension operators.
-             * https://github.com/WebAssembly/sign-extension-ops/blob/master/proposals/sign-extension-ops/Overview.md
-             ***************************/
+    // Sign-extension operators.
+    // https://github.com/WebAssembly/sign-extension-ops/blob/master/proposals/sign-extension-ops/Overview.md
+    fn translate_sign_extension_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        match op {
             Operator::I32Extend8S => {
                 let value = self.state.pop1()?.into_int_value();
                 let narrow_value = err!(self.builder.build_int_truncate(
@@ -9175,11 +9282,17 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ));
                 self.state.push1(extended_value);
             }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
-            /***************************
-             * Load and Store instructions.
-             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#load-and-store-instructions
-             ***************************/
+    // Load and Store instructions.
+    // https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#load-and-store-instructions
+    fn translate_memory_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        let vmctx = &self.ctx.basic().into_pointer_value();
+
+        match op {
             Operator::I32Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
                 let memory_index = MemoryIndex::from_u32(0);
@@ -10791,6 +10904,123 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 self.state.push1(res);
             }
+
+            Operator::MemoryGrow { mem } => {
+                let memory_index = MemoryIndex::from_u32(mem);
+                let delta = self.state.pop1()?;
+                let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics)?;
+                let grow = err!(self.builder.build_indirect_call(
+                    self.intrinsics.memory_grow_ty,
+                    grow_fn_ptr,
+                    &[
+                        vmctx.as_basic_value_enum().into(),
+                        delta.into(),
+                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
+                    ],
+                    "",
+                ));
+                self.state.push1(grow.try_as_basic_value().unwrap_basic());
+            }
+            Operator::MemorySize { mem } => {
+                let memory_index = MemoryIndex::from_u32(mem);
+                let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics)?;
+                let size = err!(self.builder.build_indirect_call(
+                    self.intrinsics.memory_size_ty,
+                    size_fn_ptr,
+                    &[
+                        vmctx.as_basic_value_enum().into(),
+                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
+                    ],
+                    "",
+                ));
+                //size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
+                self.state.push1(size.try_as_basic_value().unwrap_basic());
+            }
+            Operator::MemoryInit { data_index, mem } => {
+                let (dest, src, len) = self.state.pop3()?;
+                let mem = self.intrinsics.i32_ty.const_int(mem.into(), false);
+                let segment = self.intrinsics.i32_ty.const_int(data_index.into(), false);
+                self.build_call_with_param_attributes(
+                    self.intrinsics.memory_init,
+                    &[
+                        vmctx.as_basic_value_enum().into(),
+                        mem.into(),
+                        segment.into(),
+                        dest.into(),
+                        src.into(),
+                        len.into(),
+                    ],
+                    "",
+                )?;
+            }
+            Operator::DataDrop { data_index } => {
+                let segment = self.intrinsics.i32_ty.const_int(data_index.into(), false);
+                self.build_call_with_param_attributes(
+                    self.intrinsics.data_drop,
+                    &[vmctx.as_basic_value_enum().into(), segment.into()],
+                    "",
+                )?;
+            }
+            Operator::MemoryCopy { dst_mem, src_mem } => {
+                // ignored until we support multiple memories
+                let _dst = dst_mem;
+                let (memory_copy, src) = if let Some(local_memory_index) = self
+                    .wasm_module
+                    .local_memory_index(MemoryIndex::from_u32(src_mem))
+                {
+                    (self.intrinsics.memory_copy, local_memory_index.as_u32())
+                } else {
+                    (self.intrinsics.imported_memory_copy, src_mem)
+                };
+
+                let (dest_pos, src_pos, len) = self.state.pop3()?;
+                let src_index = self.intrinsics.i32_ty.const_int(src.into(), false);
+                self.build_call_with_param_attributes(
+                    memory_copy,
+                    &[
+                        vmctx.as_basic_value_enum().into(),
+                        src_index.into(),
+                        dest_pos.into(),
+                        src_pos.into(),
+                        len.into(),
+                    ],
+                    "",
+                )?;
+            }
+            Operator::MemoryFill { mem } => {
+                let (memory_fill, mem) = if let Some(local_memory_index) = self
+                    .wasm_module
+                    .local_memory_index(MemoryIndex::from_u32(mem))
+                {
+                    (self.intrinsics.memory_fill, local_memory_index.as_u32())
+                } else {
+                    (self.intrinsics.imported_memory_fill, mem)
+                };
+
+                let (dst, val, len) = self.state.pop3()?;
+                let mem_index = self.intrinsics.i32_ty.const_int(mem.into(), false);
+                self.build_call_with_param_attributes(
+                    memory_fill,
+                    &[
+                        vmctx.as_basic_value_enum().into(),
+                        mem_index.into(),
+                        dst.into(),
+                        val.into(),
+                        len.into(),
+                    ],
+                    "",
+                )?;
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+
+    // Atomic memory operations.
+    fn translate_atomic_memory_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        let vmctx = &self.ctx.basic().into_pointer_value();
+
+        match op {
             Operator::AtomicFence => {
                 // Fence is a nop.
                 //
@@ -12910,117 +13140,83 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let old = err!(self.builder.build_extract_value(old, 0, ""));
                 self.state.push1(old);
             }
+            Operator::MemoryAtomicWait32 { memarg } => {
+                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let (dst, val, timeout) = self.state.pop3()?;
+                let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics)?;
+                let ret = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_wait32_ty,
+                        wait32_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(memarg.memory as u64, false)
+                                .into(),
+                            dst.into(),
+                            val.into(),
+                            timeout.into(),
+                        ],
+                        "",
+                    )
+                );
+                self.state.push1(ret.try_as_basic_value().unwrap_basic());
+            }
+            Operator::MemoryAtomicWait64 { memarg } => {
+                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let (dst, val, timeout) = self.state.pop3()?;
+                let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics)?;
+                let ret = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_wait64_ty,
+                        wait64_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(memarg.memory as u64, false)
+                                .into(),
+                            dst.into(),
+                            val.into(),
+                            timeout.into(),
+                        ],
+                        "",
+                    )
+                );
+                self.state.push1(ret.try_as_basic_value().unwrap_basic());
+            }
+            Operator::MemoryAtomicNotify { memarg } => {
+                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let (dst, count) = self.state.pop2()?;
+                let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics)?;
+                let cnt = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_notify_ty,
+                        notify_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(memarg.memory as u64, false)
+                                .into(),
+                            dst.into(),
+                            count.into(),
+                        ],
+                        "",
+                    )
+                );
+                self.state.push1(cnt.try_as_basic_value().unwrap_basic());
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
-            Operator::MemoryGrow { mem } => {
-                let memory_index = MemoryIndex::from_u32(mem);
-                let delta = self.state.pop1()?;
-                let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics)?;
-                let grow = err!(self.builder.build_indirect_call(
-                    self.intrinsics.memory_grow_ty,
-                    grow_fn_ptr,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        delta.into(),
-                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
-                    ],
-                    "",
-                ));
-                self.state.push1(grow.try_as_basic_value().unwrap_basic());
-            }
-            Operator::MemorySize { mem } => {
-                let memory_index = MemoryIndex::from_u32(mem);
-                let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics)?;
-                let size = err!(self.builder.build_indirect_call(
-                    self.intrinsics.memory_size_ty,
-                    size_fn_ptr,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
-                    ],
-                    "",
-                ));
-                //size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
-                self.state.push1(size.try_as_basic_value().unwrap_basic());
-            }
-            Operator::MemoryInit { data_index, mem } => {
-                let (dest, src, len) = self.state.pop3()?;
-                let mem = self.intrinsics.i32_ty.const_int(mem.into(), false);
-                let segment = self.intrinsics.i32_ty.const_int(data_index.into(), false);
-                self.build_call_with_param_attributes(
-                    self.intrinsics.memory_init,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        mem.into(),
-                        segment.into(),
-                        dest.into(),
-                        src.into(),
-                        len.into(),
-                    ],
-                    "",
-                )?;
-            }
-            Operator::DataDrop { data_index } => {
-                let segment = self.intrinsics.i32_ty.const_int(data_index.into(), false);
-                self.build_call_with_param_attributes(
-                    self.intrinsics.data_drop,
-                    &[vmctx.as_basic_value_enum().into(), segment.into()],
-                    "",
-                )?;
-            }
-            Operator::MemoryCopy { dst_mem, src_mem } => {
-                // ignored until we support multiple memories
-                let _dst = dst_mem;
-                let (memory_copy, src) = if let Some(local_memory_index) = self
-                    .wasm_module
-                    .local_memory_index(MemoryIndex::from_u32(src_mem))
-                {
-                    (self.intrinsics.memory_copy, local_memory_index.as_u32())
-                } else {
-                    (self.intrinsics.imported_memory_copy, src_mem)
-                };
-
-                let (dest_pos, src_pos, len) = self.state.pop3()?;
-                let src_index = self.intrinsics.i32_ty.const_int(src.into(), false);
-                self.build_call_with_param_attributes(
-                    memory_copy,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        src_index.into(),
-                        dest_pos.into(),
-                        src_pos.into(),
-                        len.into(),
-                    ],
-                    "",
-                )?;
-            }
-            Operator::MemoryFill { mem } => {
-                let (memory_fill, mem) = if let Some(local_memory_index) = self
-                    .wasm_module
-                    .local_memory_index(MemoryIndex::from_u32(mem))
-                {
-                    (self.intrinsics.memory_fill, local_memory_index.as_u32())
-                } else {
-                    (self.intrinsics.imported_memory_fill, mem)
-                };
-
-                let (dst, val, len) = self.state.pop3()?;
-                let mem_index = self.intrinsics.i32_ty.const_int(mem.into(), false);
-                self.build_call_with_param_attributes(
-                    memory_fill,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        mem_index.into(),
-                        dst.into(),
-                        val.into(),
-                        len.into(),
-                    ],
-                    "",
-                )?;
-            }
-            /***************************
-             * Reference types.
-             * https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md
-             ***************************/
+    // Reference types.
+    // https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md
+    fn translate_reference_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        match op {
             Operator::RefNull { hty } => {
                 let ty = err!(wpheaptype_to_type(hty));
                 let ty = type_to_llvm(self.intrinsics, ty)?;
@@ -13051,6 +13247,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .unwrap_basic();
                 self.state.push1(value);
             }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+
+    // Table operators.
+    fn translate_table_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        match op {
             Operator::TableGet { table } => {
                 let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let elem = self.state.pop1()?;
@@ -13228,75 +13432,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .unwrap_basic();
                 self.state.push1(size);
             }
-            Operator::MemoryAtomicWait32 { memarg } => {
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-                let (dst, val, timeout) = self.state.pop3()?;
-                let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics)?;
-                let ret = err!(
-                    self.builder.build_indirect_call(
-                        self.intrinsics.memory_wait32_ty,
-                        wait32_fn_ptr,
-                        &[
-                            vmctx.as_basic_value_enum().into(),
-                            self.intrinsics
-                                .i32_ty
-                                .const_int(memarg.memory as u64, false)
-                                .into(),
-                            dst.into(),
-                            val.into(),
-                            timeout.into(),
-                        ],
-                        "",
-                    )
-                );
-                self.state.push1(ret.try_as_basic_value().unwrap_basic());
-            }
-            Operator::MemoryAtomicWait64 { memarg } => {
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-                let (dst, val, timeout) = self.state.pop3()?;
-                let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics)?;
-                let ret = err!(
-                    self.builder.build_indirect_call(
-                        self.intrinsics.memory_wait64_ty,
-                        wait64_fn_ptr,
-                        &[
-                            vmctx.as_basic_value_enum().into(),
-                            self.intrinsics
-                                .i32_ty
-                                .const_int(memarg.memory as u64, false)
-                                .into(),
-                            dst.into(),
-                            val.into(),
-                            timeout.into(),
-                        ],
-                        "",
-                    )
-                );
-                self.state.push1(ret.try_as_basic_value().unwrap_basic());
-            }
-            Operator::MemoryAtomicNotify { memarg } => {
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
-                let (dst, count) = self.state.pop2()?;
-                let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics)?;
-                let cnt = err!(
-                    self.builder.build_indirect_call(
-                        self.intrinsics.memory_notify_ty,
-                        notify_fn_ptr,
-                        &[
-                            vmctx.as_basic_value_enum().into(),
-                            self.intrinsics
-                                .i32_ty
-                                .const_int(memarg.memory as u64, false)
-                                .into(),
-                            dst.into(),
-                            count.into(),
-                        ],
-                        "",
-                    )
-                );
-                self.state.push1(cnt.try_as_basic_value().unwrap_basic());
-            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
+    // Exception handling.
+    // https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md
+    fn translate_eh_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        match op {
             Operator::TryTable { try_table } => {
                 let current_block = self
                     .builder
@@ -13875,109 +14019,577 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 self.state.reachable = false;
             }
-            Operator::I64Add128 | Operator::I64Sub128 => {
-                let (rhs_hi, rhs_hi_info) = self.state.pop1_extra()?;
-                let (rhs_lo, rhs_lo_info) = self.state.pop1_extra()?;
-                let (lhs_hi, lhs_hi_info) = self.state.pop1_extra()?;
-                let (lhs_lo, lhs_lo_info) = self.state.pop1_extra()?;
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
 
-                let lhs_lo = self
-                    .apply_pending_canonicalization(lhs_lo, lhs_lo_info)?
-                    .into_int_value();
-                let lhs_hi = self
-                    .apply_pending_canonicalization(lhs_hi, lhs_hi_info)?
-                    .into_int_value();
-                let rhs_lo = self
-                    .apply_pending_canonicalization(rhs_lo, rhs_lo_info)?
-                    .into_int_value();
-                let rhs_hi = self
-                    .apply_pending_canonicalization(rhs_hi, rhs_hi_info)?
-                    .into_int_value();
+    fn translate_operator(&mut self, op: Operator, _source_loc: u32) -> Result<(), CompileError> {
+        //let opcode_offset: Option<usize> = None;
 
-                let idx0 = self.intrinsics.i32_ty.const_zero();
-                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
-
-                let lhs = self.intrinsics.i64x2_ty.get_undef();
-                let lhs = err!(self.builder.build_insert_element(lhs, lhs_lo, idx0, ""));
-                let lhs = err!(self.builder.build_insert_element(lhs, lhs_hi, idx1, ""));
-                let lhs = err!(
-                    self.builder
-                        .build_bit_cast(lhs, self.intrinsics.i128_ty, "a")
-                )
-                .into_int_value();
-
-                let rhs = self.intrinsics.i64x2_ty.get_undef();
-                let rhs = err!(self.builder.build_insert_element(rhs, rhs_lo, idx0, ""));
-                let rhs = err!(self.builder.build_insert_element(rhs, rhs_hi, idx1, ""));
-                let rhs = err!(
-                    self.builder
-                        .build_bit_cast(rhs, self.intrinsics.i128_ty, "b")
-                )
-                .into_int_value();
-
-                let result = err!(match op {
-                    Operator::I64Add128 => self.builder.build_int_add(lhs, rhs, ""),
-                    Operator::I64Sub128 => self.builder.build_int_sub(lhs, rhs, ""),
-                    _ => unreachable!(),
-                });
-                let result = err!(self.builder.build_bit_cast(
-                    result,
-                    self.intrinsics.i64x2_ty,
-                    ""
-                ))
-                .into_vector_value();
-                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
-                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
-
-                self.state.push1(result_lo);
-                self.state.push1(result_hi);
+        if !self.state.reachable {
+            match op {
+                Operator::Block { blockty: _ }
+                | Operator::Loop { blockty: _ }
+                | Operator::If { blockty: _ }
+                | Operator::TryTable { .. } => {
+                    self.unreachable_depth += 1;
+                    return Ok(());
+                }
+                Operator::Else => {
+                    if self.unreachable_depth != 0 {
+                        return Ok(());
+                    }
+                }
+                Operator::End => {
+                    if self.unreachable_depth != 0 {
+                        self.unreachable_depth -= 1;
+                        return Ok(());
+                    }
+                }
+                _ => {
+                    return Ok(());
+                }
             }
-            Operator::I64MulWideS | Operator::I64MulWideU => {
-                let ((lhs, lhs_info), (rhs, rhs_info)) = self.state.pop2_extra()?;
-                let lhs = self
-                    .apply_pending_canonicalization(lhs, lhs_info)?
-                    .into_int_value();
-                let rhs = self
-                    .apply_pending_canonicalization(rhs, rhs_info)?
-                    .into_int_value();
+        }
 
-                let lhs = err!(match op {
-                    Operator::I64MulWideS => {
-                        self.builder
-                            .build_int_s_extend(lhs, self.intrinsics.i128_ty, "a")
-                    }
-                    Operator::I64MulWideU => {
-                        self.builder
-                            .build_int_z_extend(lhs, self.intrinsics.i128_ty, "a")
-                    }
-                    _ => unreachable!(),
-                });
-                let rhs = err!(match op {
-                    Operator::I64MulWideS => {
-                        self.builder
-                            .build_int_s_extend(rhs, self.intrinsics.i128_ty, "b")
-                    }
-                    Operator::I64MulWideU => {
-                        self.builder
-                            .build_int_z_extend(rhs, self.intrinsics.i128_ty, "b")
-                    }
-                    _ => unreachable!(),
-                });
-
-                let result = err!(self.builder.build_int_mul(lhs, rhs, ""));
-                let result = err!(self.builder.build_bit_cast(
-                    result,
-                    self.intrinsics.i64x2_ty,
-                    ""
-                ))
-                .into_vector_value();
-                let idx0 = self.intrinsics.i32_ty.const_zero();
-                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
-                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
-                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
-
-                self.state.push1(result_lo);
-                self.state.push1(result_hi);
+        match op {
+            Operator::Block { .. }
+            | Operator::Loop { .. }
+            | Operator::Br { .. }
+            | Operator::BrIf { .. }
+            | Operator::BrTable { .. }
+            | Operator::If { .. }
+            | Operator::Else
+            | Operator::End
+            | Operator::Return
+            | Operator::Unreachable => {
+                self.translate_control_flow_operator(op)?;
+            }
+            Operator::Nop
+            | Operator::Drop
+            | Operator::I32Const { .. }
+            | Operator::I64Const { .. }
+            | Operator::F32Const { .. }
+            | Operator::F64Const { .. }
+            | Operator::V128Const { .. }
+            | Operator::I8x16Splat
+            | Operator::I16x8Splat
+            | Operator::I32x4Splat
+            | Operator::I64x2Splat
+            | Operator::F32x4Splat
+            | Operator::F64x2Splat
+            | Operator::LocalGet { .. }
+            | Operator::LocalSet { .. }
+            | Operator::LocalTee { .. }
+            | Operator::GlobalGet { .. }
+            | Operator::GlobalSet { .. }
+            | Operator::Call { .. }
+            | Operator::ReturnCall { .. }
+            | Operator::CallIndirect { .. }
+            | Operator::ReturnCallIndirect { .. }
+            | Operator::TypedSelect { .. }
+            | Operator::Select => {
+                self.translate_basic_operator(op)?;
+            }
+            Operator::I32Add
+            | Operator::I64Add
+            | Operator::I8x16Add
+            | Operator::I16x8Add
+            | Operator::I16x8ExtAddPairwiseI8x16S
+            | Operator::I16x8ExtAddPairwiseI8x16U
+            | Operator::I32x4Add
+            | Operator::I32x4ExtAddPairwiseI16x8S
+            | Operator::I32x4ExtAddPairwiseI16x8U
+            | Operator::I64x2Add
+            | Operator::I8x16AddSatS
+            | Operator::I16x8AddSatS
+            | Operator::I8x16AddSatU
+            | Operator::I16x8AddSatU
+            | Operator::I32Sub
+            | Operator::I64Sub
+            | Operator::I8x16Sub
+            | Operator::I16x8Sub
+            | Operator::I32x4Sub
+            | Operator::I64x2Sub
+            | Operator::I8x16SubSatS
+            | Operator::I16x8SubSatS
+            | Operator::I8x16SubSatU
+            | Operator::I16x8SubSatU
+            | Operator::I32Mul
+            | Operator::I64Mul
+            | Operator::I16x8Mul
+            | Operator::I32x4Mul
+            | Operator::I64x2Mul
+            | Operator::I16x8RelaxedQ15mulrS
+            | Operator::I16x8Q15MulrSatS
+            | Operator::I16x8ExtMulLowI8x16S
+            | Operator::I16x8ExtMulLowI8x16U
+            | Operator::I16x8ExtMulHighI8x16S
+            | Operator::I16x8ExtMulHighI8x16U
+            | Operator::I32x4ExtMulLowI16x8S
+            | Operator::I32x4ExtMulLowI16x8U
+            | Operator::I32x4ExtMulHighI16x8S
+            | Operator::I32x4ExtMulHighI16x8U
+            | Operator::I64x2ExtMulLowI32x4S
+            | Operator::I64x2ExtMulLowI32x4U
+            | Operator::I64x2ExtMulHighI32x4S
+            | Operator::I64x2ExtMulHighI32x4U
+            | Operator::I32x4DotI16x8S
+            | Operator::I16x8RelaxedDotI8x16I7x16S
+            | Operator::I32x4RelaxedDotI8x16I7x16AddS
+            | Operator::I32DivS
+            | Operator::I64DivS
+            | Operator::I32DivU
+            | Operator::I64DivU
+            | Operator::I32RemS
+            | Operator::I64RemS
+            | Operator::I32RemU
+            | Operator::I64RemU
+            | Operator::I32And
+            | Operator::I64And
+            | Operator::V128And
+            | Operator::I32Or
+            | Operator::I64Or
+            | Operator::V128Or
+            | Operator::I32Xor
+            | Operator::I64Xor
+            | Operator::V128Xor
+            | Operator::V128AndNot
+            | Operator::I8x16RelaxedLaneselect
+            | Operator::I16x8RelaxedLaneselect
+            | Operator::I32x4RelaxedLaneselect
+            | Operator::I64x2RelaxedLaneselect
+            | Operator::V128Bitselect
+            | Operator::I8x16Bitmask
+            | Operator::I16x8Bitmask
+            | Operator::I32x4Bitmask
+            | Operator::I64x2Bitmask
+            | Operator::I32Shl
+            | Operator::I64Shl
+            | Operator::I8x16Shl
+            | Operator::I16x8Shl
+            | Operator::I32x4Shl
+            | Operator::I64x2Shl
+            | Operator::I32ShrS
+            | Operator::I64ShrS
+            | Operator::I8x16ShrS
+            | Operator::I16x8ShrS
+            | Operator::I32x4ShrS
+            | Operator::I64x2ShrS
+            | Operator::I32ShrU
+            | Operator::I64ShrU
+            | Operator::I8x16ShrU
+            | Operator::I16x8ShrU
+            | Operator::I32x4ShrU
+            | Operator::I64x2ShrU
+            | Operator::I32Rotl
+            | Operator::I64Rotl
+            | Operator::I32Rotr
+            | Operator::I64Rotr
+            | Operator::I32Clz
+            | Operator::I64Clz
+            | Operator::I32Ctz
+            | Operator::I64Ctz
+            | Operator::I8x16Popcnt
+            | Operator::I32Popcnt
+            | Operator::I64Popcnt
+            | Operator::I32Eqz
+            | Operator::I64Eqz
+            | Operator::I8x16Abs
+            | Operator::I16x8Abs
+            | Operator::I32x4Abs
+            | Operator::I64x2Abs
+            | Operator::I8x16MinS
+            | Operator::I8x16MinU
+            | Operator::I8x16MaxS
+            | Operator::I8x16MaxU
+            | Operator::I16x8MinS
+            | Operator::I16x8MinU
+            | Operator::I16x8MaxS
+            | Operator::I16x8MaxU
+            | Operator::I32x4MinS
+            | Operator::I32x4MinU
+            | Operator::I32x4MaxS
+            | Operator::I32x4MaxU
+            | Operator::I8x16AvgrU
+            | Operator::I16x8AvgrU
+            | Operator::I64Add128
+            | Operator::I64Sub128
+            | Operator::I64MulWideS
+            | Operator::I64MulWideU => self.translate_integer_arithmetic_operator(op)?,
+            Operator::F32Add
+            | Operator::F64Add
+            | Operator::F32x4Add
+            | Operator::F64x2Add
+            | Operator::F32Sub
+            | Operator::F64Sub
+            | Operator::F32x4Sub
+            | Operator::F64x2Sub
+            | Operator::F32Mul
+            | Operator::F64Mul
+            | Operator::F32x4Mul
+            | Operator::F32x4RelaxedMadd
+            | Operator::F32x4RelaxedNmadd
+            | Operator::F64x2Mul
+            | Operator::F64x2RelaxedMadd
+            | Operator::F64x2RelaxedNmadd
+            | Operator::F32Div
+            | Operator::F64Div
+            | Operator::F32x4Div
+            | Operator::F64x2Div
+            | Operator::F32Sqrt
+            | Operator::F64Sqrt
+            | Operator::F32x4Sqrt
+            | Operator::F64x2Sqrt
+            | Operator::F32Min
+            | Operator::F64Min
+            | Operator::F32x4RelaxedMin
+            | Operator::F32x4Min
+            | Operator::F32x4PMin
+            | Operator::F64x2RelaxedMin
+            | Operator::F64x2Min
+            | Operator::F64x2PMin
+            | Operator::F32Max
+            | Operator::F64Max
+            | Operator::F32x4RelaxedMax
+            | Operator::F32x4Max
+            | Operator::F32x4PMax
+            | Operator::F64x2RelaxedMax
+            | Operator::F64x2Max
+            | Operator::F64x2PMax
+            | Operator::F32Ceil
+            | Operator::F32x4Ceil
+            | Operator::F64Ceil
+            | Operator::F64x2Ceil
+            | Operator::F32Floor
+            | Operator::F32x4Floor
+            | Operator::F64Floor
+            | Operator::F64x2Floor
+            | Operator::F32Trunc
+            | Operator::F32x4Trunc
+            | Operator::F64Trunc
+            | Operator::F64x2Trunc
+            | Operator::F32Nearest
+            | Operator::F32x4Nearest
+            | Operator::F64Nearest
+            | Operator::F64x2Nearest
+            | Operator::F32Abs
+            | Operator::F64Abs
+            | Operator::F32x4Abs
+            | Operator::F64x2Abs
+            | Operator::F32x4Neg
+            | Operator::F64x2Neg
+            | Operator::F32Neg
+            | Operator::F64Neg
+            | Operator::F32Copysign
+            | Operator::F64Copysign => self.translate_floating_point_arithmetic_operator(op)?,
+            Operator::I32Eq
+            | Operator::I64Eq
+            | Operator::I8x16Eq
+            | Operator::I16x8Eq
+            | Operator::I32x4Eq
+            | Operator::I64x2Eq
+            | Operator::I32Ne
+            | Operator::I64Ne
+            | Operator::I8x16Ne
+            | Operator::I16x8Ne
+            | Operator::I32x4Ne
+            | Operator::I64x2Ne
+            | Operator::I32LtS
+            | Operator::I64LtS
+            | Operator::I8x16LtS
+            | Operator::I16x8LtS
+            | Operator::I32x4LtS
+            | Operator::I64x2LtS
+            | Operator::I32LtU
+            | Operator::I64LtU
+            | Operator::I8x16LtU
+            | Operator::I16x8LtU
+            | Operator::I32x4LtU
+            | Operator::I32LeS
+            | Operator::I64LeS
+            | Operator::I8x16LeS
+            | Operator::I16x8LeS
+            | Operator::I32x4LeS
+            | Operator::I64x2LeS
+            | Operator::I32LeU
+            | Operator::I64LeU
+            | Operator::I8x16LeU
+            | Operator::I16x8LeU
+            | Operator::I32x4LeU
+            | Operator::I32GtS
+            | Operator::I64GtS
+            | Operator::I8x16GtS
+            | Operator::I16x8GtS
+            | Operator::I32x4GtS
+            | Operator::I64x2GtS
+            | Operator::I32GtU
+            | Operator::I64GtU
+            | Operator::I8x16GtU
+            | Operator::I16x8GtU
+            | Operator::I32x4GtU
+            | Operator::I32GeS
+            | Operator::I64GeS
+            | Operator::I8x16GeS
+            | Operator::I16x8GeS
+            | Operator::I32x4GeS
+            | Operator::I64x2GeS
+            | Operator::I32GeU
+            | Operator::I64GeU
+            | Operator::I8x16GeU
+            | Operator::I16x8GeU
+            | Operator::I32x4GeU => self.translate_integer_comparison_operator(op)?,
+            Operator::F32Eq
+            | Operator::F64Eq
+            | Operator::F32x4Eq
+            | Operator::F64x2Eq
+            | Operator::F32Ne
+            | Operator::F64Ne
+            | Operator::F32x4Ne
+            | Operator::F64x2Ne
+            | Operator::F32Lt
+            | Operator::F64Lt
+            | Operator::F32x4Lt
+            | Operator::F64x2Lt
+            | Operator::F32Le
+            | Operator::F64Le
+            | Operator::F32x4Le
+            | Operator::F64x2Le
+            | Operator::F32Gt
+            | Operator::F64Gt
+            | Operator::F32x4Gt
+            | Operator::F64x2Gt
+            | Operator::F32Ge
+            | Operator::F64Ge
+            | Operator::F32x4Ge
+            | Operator::F64x2Ge => self.translate_floating_point_comparison_operator(op)?,
+            Operator::I32WrapI64
+            | Operator::I64ExtendI32S
+            | Operator::I64ExtendI32U
+            | Operator::I16x8ExtendLowI8x16S
+            | Operator::I16x8ExtendHighI8x16S
+            | Operator::I16x8ExtendLowI8x16U
+            | Operator::I16x8ExtendHighI8x16U
+            | Operator::I32x4ExtendLowI16x8S
+            | Operator::I32x4ExtendHighI16x8S
+            | Operator::I32x4ExtendLowI16x8U
+            | Operator::I32x4ExtendHighI16x8U
+            | Operator::I64x2ExtendLowI32x4U
+            | Operator::I64x2ExtendLowI32x4S
+            | Operator::I64x2ExtendHighI32x4U
+            | Operator::I64x2ExtendHighI32x4S
+            | Operator::I8x16NarrowI16x8S
+            | Operator::I8x16NarrowI16x8U
+            | Operator::I16x8NarrowI32x4S
+            | Operator::I16x8NarrowI32x4U
+            | Operator::I32x4RelaxedTruncF32x4S
+            | Operator::I32x4TruncSatF32x4S
+            | Operator::I32x4RelaxedTruncF32x4U
+            | Operator::I32x4TruncSatF32x4U
+            | Operator::I32x4RelaxedTruncF64x2SZero
+            | Operator::I32x4RelaxedTruncF64x2UZero
+            | Operator::I32x4TruncSatF64x2SZero
+            | Operator::I32x4TruncSatF64x2UZero
+            | Operator::I32TruncF32S
+            | Operator::I32TruncF64S
+            | Operator::I32TruncSatF32S
+            | Operator::I32TruncSatF64S
+            | Operator::I64TruncF32S
+            | Operator::I64TruncF64S
+            | Operator::I64TruncSatF32S
+            | Operator::I64TruncSatF64S
+            | Operator::I32TruncF32U
+            | Operator::I32TruncF64U
+            | Operator::I32TruncSatF32U
+            | Operator::I32TruncSatF64U
+            | Operator::I64TruncF32U
+            | Operator::I64TruncF64U
+            | Operator::I64TruncSatF32U
+            | Operator::I64TruncSatF64U
+            | Operator::F32DemoteF64
+            | Operator::F64PromoteF32
+            | Operator::F32ConvertI32S
+            | Operator::F32ConvertI64S
+            | Operator::F64ConvertI32S
+            | Operator::F64ConvertI64S
+            | Operator::F32ConvertI32U
+            | Operator::F32ConvertI64U
+            | Operator::F64ConvertI32U
+            | Operator::F64ConvertI64U
+            | Operator::F32x4ConvertI32x4S
+            | Operator::F32x4ConvertI32x4U
+            | Operator::F64x2ConvertLowI32x4S
+            | Operator::F64x2ConvertLowI32x4U
+            | Operator::F64x2PromoteLowF32x4
+            | Operator::F32x4DemoteF64x2Zero
+            | Operator::I32ReinterpretF32
+            | Operator::I64ReinterpretF64
+            | Operator::F32ReinterpretI32
+            | Operator::F64ReinterpretI64 => self.translate_conversion_operator(op)?,
+            Operator::I32Extend8S
+            | Operator::I32Extend16S
+            | Operator::I64Extend8S
+            | Operator::I64Extend16S
+            | Operator::I64Extend32S => self.translate_sign_extension_operator(op)?,
+            Operator::I32Load { .. }
+            | Operator::I64Load { .. }
+            | Operator::F32Load { .. }
+            | Operator::F64Load { .. }
+            | Operator::V128Load { .. }
+            | Operator::V128Load8Lane { .. }
+            | Operator::V128Load16Lane { .. }
+            | Operator::V128Load32Lane { .. }
+            | Operator::V128Load64Lane { .. }
+            | Operator::I32Store { .. }
+            | Operator::I64Store { .. }
+            | Operator::F32Store { .. }
+            | Operator::F64Store { .. }
+            | Operator::V128Store { .. }
+            | Operator::V128Store8Lane { .. }
+            | Operator::V128Store16Lane { .. }
+            | Operator::V128Store32Lane { .. }
+            | Operator::V128Store64Lane { .. }
+            | Operator::I32Load8S { .. }
+            | Operator::I32Load16S { .. }
+            | Operator::I64Load8S { .. }
+            | Operator::I64Load16S { .. }
+            | Operator::I64Load32S { .. }
+            | Operator::I32Load8U { .. }
+            | Operator::I32Load16U { .. }
+            | Operator::I64Load8U { .. }
+            | Operator::I64Load16U { .. }
+            | Operator::I64Load32U { .. }
+            | Operator::I32Store8 { .. }
+            | Operator::I64Store8 { .. }
+            | Operator::I32Store16 { .. }
+            | Operator::I64Store16 { .. }
+            | Operator::I64Store32 { .. }
+            | Operator::I8x16Neg
+            | Operator::I16x8Neg
+            | Operator::I32x4Neg
+            | Operator::I64x2Neg
+            | Operator::V128Not
+            | Operator::V128AnyTrue
+            | Operator::I8x16AllTrue
+            | Operator::I16x8AllTrue
+            | Operator::I32x4AllTrue
+            | Operator::I64x2AllTrue
+            | Operator::I8x16ExtractLaneS { .. }
+            | Operator::I8x16ExtractLaneU { .. }
+            | Operator::I16x8ExtractLaneS { .. }
+            | Operator::I16x8ExtractLaneU { .. }
+            | Operator::I32x4ExtractLane { .. }
+            | Operator::I64x2ExtractLane { .. }
+            | Operator::F32x4ExtractLane { .. }
+            | Operator::F64x2ExtractLane { .. }
+            | Operator::I8x16ReplaceLane { .. }
+            | Operator::I16x8ReplaceLane { .. }
+            | Operator::I32x4ReplaceLane { .. }
+            | Operator::I64x2ReplaceLane { .. }
+            | Operator::F32x4ReplaceLane { .. }
+            | Operator::F64x2ReplaceLane { .. }
+            | Operator::I8x16RelaxedSwizzle
+            | Operator::I8x16Swizzle
+            | Operator::I8x16Shuffle { .. }
+            | Operator::V128Load8x8S { .. }
+            | Operator::V128Load8x8U { .. }
+            | Operator::V128Load16x4S { .. }
+            | Operator::V128Load16x4U { .. }
+            | Operator::V128Load32x2S { .. }
+            | Operator::V128Load32x2U { .. }
+            | Operator::V128Load32Zero { .. }
+            | Operator::V128Load64Zero { .. }
+            | Operator::V128Load8Splat { .. }
+            | Operator::V128Load16Splat { .. }
+            | Operator::V128Load32Splat { .. }
+            | Operator::V128Load64Splat { .. }
+            | Operator::MemoryGrow { .. }
+            | Operator::MemorySize { .. }
+            | Operator::MemoryInit { .. }
+            | Operator::DataDrop { .. }
+            | Operator::MemoryCopy { .. }
+            | Operator::MemoryFill { .. } => self.translate_memory_operator(op)?,
+            Operator::AtomicFence { .. }
+            | Operator::I32AtomicLoad { .. }
+            | Operator::I64AtomicLoad { .. }
+            | Operator::I32AtomicLoad8U { .. }
+            | Operator::I32AtomicLoad16U { .. }
+            | Operator::I64AtomicLoad8U { .. }
+            | Operator::I64AtomicLoad16U { .. }
+            | Operator::I64AtomicLoad32U { .. }
+            | Operator::I32AtomicStore { .. }
+            | Operator::I64AtomicStore { .. }
+            | Operator::I32AtomicStore8 { .. }
+            | Operator::I64AtomicStore8 { .. }
+            | Operator::I32AtomicStore16 { .. }
+            | Operator::I64AtomicStore16 { .. }
+            | Operator::I64AtomicStore32 { .. }
+            | Operator::I32AtomicRmw8AddU { .. }
+            | Operator::I32AtomicRmw16AddU { .. }
+            | Operator::I32AtomicRmwAdd { .. }
+            | Operator::I64AtomicRmw8AddU { .. }
+            | Operator::I64AtomicRmw16AddU { .. }
+            | Operator::I64AtomicRmw32AddU { .. }
+            | Operator::I64AtomicRmwAdd { .. }
+            | Operator::I32AtomicRmw8SubU { .. }
+            | Operator::I32AtomicRmw16SubU { .. }
+            | Operator::I32AtomicRmwSub { .. }
+            | Operator::I64AtomicRmw8SubU { .. }
+            | Operator::I64AtomicRmw16SubU { .. }
+            | Operator::I64AtomicRmw32SubU { .. }
+            | Operator::I64AtomicRmwSub { .. }
+            | Operator::I32AtomicRmw8AndU { .. }
+            | Operator::I32AtomicRmw16AndU { .. }
+            | Operator::I32AtomicRmwAnd { .. }
+            | Operator::I64AtomicRmw8AndU { .. }
+            | Operator::I64AtomicRmw16AndU { .. }
+            | Operator::I64AtomicRmw32AndU { .. }
+            | Operator::I64AtomicRmwAnd { .. }
+            | Operator::I32AtomicRmw8OrU { .. }
+            | Operator::I32AtomicRmw16OrU { .. }
+            | Operator::I32AtomicRmwOr { .. }
+            | Operator::I64AtomicRmw8OrU { .. }
+            | Operator::I64AtomicRmw16OrU { .. }
+            | Operator::I64AtomicRmw32OrU { .. }
+            | Operator::I64AtomicRmwOr { .. }
+            | Operator::I32AtomicRmw8XorU { .. }
+            | Operator::I32AtomicRmw16XorU { .. }
+            | Operator::I32AtomicRmwXor { .. }
+            | Operator::I64AtomicRmw8XorU { .. }
+            | Operator::I64AtomicRmw16XorU { .. }
+            | Operator::I64AtomicRmw32XorU { .. }
+            | Operator::I64AtomicRmwXor { .. }
+            | Operator::I32AtomicRmw8XchgU { .. }
+            | Operator::I32AtomicRmw16XchgU { .. }
+            | Operator::I32AtomicRmwXchg { .. }
+            | Operator::I64AtomicRmw8XchgU { .. }
+            | Operator::I64AtomicRmw16XchgU { .. }
+            | Operator::I64AtomicRmw32XchgU { .. }
+            | Operator::I64AtomicRmwXchg { .. }
+            | Operator::I32AtomicRmw8CmpxchgU { .. }
+            | Operator::I32AtomicRmw16CmpxchgU { .. }
+            | Operator::I32AtomicRmwCmpxchg { .. }
+            | Operator::I64AtomicRmw8CmpxchgU { .. }
+            | Operator::I64AtomicRmw16CmpxchgU { .. }
+            | Operator::I64AtomicRmw32CmpxchgU { .. }
+            | Operator::I64AtomicRmwCmpxchg { .. }
+            | Operator::MemoryAtomicWait32 { .. }
+            | Operator::MemoryAtomicWait64 { .. }
+            | Operator::MemoryAtomicNotify { .. } => self.translate_atomic_memory_operator(op)?,
+            Operator::RefNull { .. } | Operator::RefIsNull | Operator::RefFunc { .. } => {
+                self.translate_reference_operator(op)?;
+            }
+            Operator::TableGet { .. }
+            | Operator::TableSet { .. }
+            | Operator::TableCopy { .. }
+            | Operator::TableInit { .. }
+            | Operator::ElemDrop { .. }
+            | Operator::TableFill { .. }
+            | Operator::TableGrow { .. }
+            | Operator::TableSize { .. } => self.translate_table_operator(op)?,
+            Operator::TryTable { .. } | Operator::Throw { .. } | Operator::ThrowRef => {
+                self.translate_eh_operator(op)?;
             }
             _ => {
                 return Err(CompileError::Codegen(format!(
