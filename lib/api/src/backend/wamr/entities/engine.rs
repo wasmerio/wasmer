@@ -47,8 +47,8 @@ impl Engine {
         features.bulk_memory(true);
         features.reference_types(true);
         features.multi_value(true);
-        features.simd(false);
-        features.threads(false);
+        features.simd(true);
+        features.threads(true);
         features.exceptions(false);
         features
     }
