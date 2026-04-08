@@ -9554,19 +9554,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let dead_load = err!(self.builder.build_load(
+                self.build_annotated_store(
                     self.intrinsics.i64_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
+                    value,
                     memarg,
                     1,
-                    dead_load.as_instruction_value().unwrap(),
                 )?;
-                let store = err!(self.builder.build_store(effective_address, value));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::F32Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -9580,19 +9574,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let dead_load = err!(self.builder.build_load(
+                self.build_annotated_store(
                     self.intrinsics.f32_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
+                    v,
                     memarg,
                     1,
-                    dead_load.as_instruction_value().unwrap(),
                 )?;
-                let store = err!(self.builder.build_store(effective_address, v));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::F64Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -9606,19 +9594,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let dead_load = err!(self.builder.build_load(
+                self.build_annotated_store(
                     self.intrinsics.f64_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
+                    v,
                     memarg,
                     1,
-                    dead_load.as_instruction_value().unwrap(),
                 )?;
-                let store = err!(self.builder.build_store(effective_address, v));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::V128Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -9632,19 +9614,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     16,
                 )?;
-                let dead_load = err!(self.builder.build_load(
+                self.build_annotated_store(
                     self.intrinsics.i128_ty,
                     effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
+                    v,
                     memarg,
                     1,
-                    dead_load.as_instruction_value().unwrap(),
                 )?;
-                let store = err!(self.builder.build_store(effective_address, v));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::V128Store8Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -9659,21 +9635,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     1,
                 )?;
-                let dead_load = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    dead_load.as_instruction_value().unwrap(),
-                )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let val = err!(self.builder.build_extract_element(v, idx, ""));
-                let store = err!(self.builder.build_store(effective_address, val));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
+                self.build_annotated_store(
+                    self.intrinsics.i8_ty,
+                    effective_address,
+                    val,
+                    memarg,
+                    1,
+                )?;
             }
             Operator::V128Store16Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -9688,21 +9658,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     2,
                 )?;
-                let dead_load = err!(self.builder.build_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    dead_load.as_instruction_value().unwrap(),
-                )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let val = err!(self.builder.build_extract_element(v, idx, ""));
-                let store = err!(self.builder.build_store(effective_address, val));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
+                self.build_annotated_store(
+                    self.intrinsics.i16_ty,
+                    effective_address,
+                    val,
+                    memarg,
+                    1,
+                )?;
             }
             Operator::V128Store32Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -9717,21 +9681,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let dead_load = err!(self.builder.build_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    dead_load.as_instruction_value().unwrap(),
-                )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let val = err!(self.builder.build_extract_element(v, idx, ""));
-                let store = err!(self.builder.build_store(effective_address, val));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
+                self.build_annotated_store(
+                    self.intrinsics.i32_ty,
+                    effective_address,
+                    val,
+                    memarg,
+                    1,
+                )?;
             }
             Operator::V128Store64Lane { ref memarg, lane } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -9746,21 +9704,15 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     8,
                 )?;
-                let dead_load = err!(self.builder.build_load(
-                    self.intrinsics.i64_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    dead_load.as_instruction_value().unwrap(),
-                )?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let val = err!(self.builder.build_extract_element(v, idx, ""));
-                let store = err!(self.builder.build_store(effective_address, val));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
+                self.build_annotated_store(
+                    self.intrinsics.i64_ty,
+                    effective_address,
+                    val,
+                    memarg,
+                    1,
+                )?;
             }
             Operator::I32Load8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
@@ -9989,24 +9941,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     1,
                 )?;
-                let dead_load = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    dead_load.as_instruction_value().unwrap(),
-                )?;
                 let narrow_value = err!(self.builder.build_int_truncate(
                     value,
                     self.intrinsics.i8_ty,
                     ""
                 ));
-                let store = err!(self.builder.build_store(effective_address, narrow_value));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
+                self.build_annotated_store(
+                    self.intrinsics.i8_ty,
+                    effective_address,
+                    narrow_value.into(),
+                    memarg,
+                    1,
+                )?;
             }
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -10019,24 +9965,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     2,
                 )?;
-                let dead_load = err!(self.builder.build_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    dead_load.as_instruction_value().unwrap(),
-                )?;
                 let narrow_value = err!(self.builder.build_int_truncate(
                     value,
                     self.intrinsics.i16_ty,
                     ""
                 ));
-                let store = err!(self.builder.build_store(effective_address, narrow_value));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
+                self.build_annotated_store(
+                    self.intrinsics.i16_ty,
+                    effective_address,
+                    narrow_value.into(),
+                    memarg,
+                    1,
+                )?;
             }
             Operator::I64Store32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -10049,24 +9989,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     offset,
                     4,
                 )?;
-                let dead_load = err!(self.builder.build_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    ""
-                ));
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    1,
-                    dead_load.as_instruction_value().unwrap(),
-                )?;
                 let narrow_value = err!(self.builder.build_int_truncate(
                     value,
                     self.intrinsics.i32_ty,
                     ""
                 ));
-                let store = err!(self.builder.build_store(effective_address, narrow_value));
-                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
+                self.build_annotated_store(
+                    self.intrinsics.i32_ty,
+                    effective_address,
+                    narrow_value.into(),
+                    memarg,
+                    1,
+                )?;
             }
             Operator::I8x16Neg => {
                 let (v, i) = self.state.pop1_extra()?;
