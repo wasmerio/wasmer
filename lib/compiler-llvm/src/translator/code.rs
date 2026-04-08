@@ -1501,6 +1501,78 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(value)
     }
 
+    fn build_annotated_atomic_rmw_cmpxchg(
+        &mut self,
+        outer_ty: IntType<'ctx>,
+        inner_ty: IntType<'ctx>,
+        offset: IntValue<'ctx>,
+        cmp: IntValue<'ctx>,
+        new: IntValue<'ctx>,
+        memarg: &MemArg,
+    ) -> Result<IntValue<'ctx>, CompileError> {
+        let alignment = 2u32.pow(memarg.align as u32);
+        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let inner_size =
+            usize::try_from(self.target_data.get_store_size(&inner_ty)).map_err(|_| {
+                CompileError::Codegen("atomic inner type size does not fit in usize".into())
+            })?;
+        let outer_size =
+            usize::try_from(self.target_data.get_store_size(&outer_ty)).map_err(|_| {
+                CompileError::Codegen("atomic outer type size does not fit in usize".into())
+            })?;
+
+        let effective_address = self.resolve_memory_ptr(
+            memory_index,
+            memarg,
+            self.intrinsics.ptr_ty,
+            offset,
+            inner_size,
+        )?;
+        self.trap_if_misaligned(
+            memarg,
+            effective_address,
+            u8::try_from(inner_size).map_err(|_| {
+                CompileError::Codegen("atomic inner type size does not fit in u8".into())
+            })?,
+        )?;
+        let (cmp, new) = if inner_size < outer_size {
+            (
+                err!(self.builder.build_int_truncate(cmp, inner_ty, "")),
+                err!(self.builder.build_int_truncate(new, inner_ty, "")),
+            )
+        } else {
+            (cmp, new)
+        };
+        let old = self
+            .builder
+            .build_cmpxchg(
+                effective_address,
+                cmp,
+                new,
+                AtomicOrdering::SequentiallyConsistent,
+                AtomicOrdering::SequentiallyConsistent,
+            )
+            .unwrap();
+        self.annotate_user_memaccess(
+            memory_index,
+            memarg,
+            alignment,
+            old.as_instruction_value().unwrap(),
+        )?;
+        let old = self
+            .builder
+            .build_extract_value(old, 0, "")
+            .unwrap()
+            .into_int_value();
+
+        let value = if inner_size < outer_size {
+            err!(self.builder.build_int_z_extend(old, outer_ty, ""))
+        } else {
+            old
+        };
+        Ok(value)
+    }
+
     fn translate_atomic_rmw(
         &mut self,
         outer_ty: IntType<'ctx>,
@@ -1512,6 +1584,31 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let value = self.state.pop1()?.into_int_value();
         let offset = self.state.pop1()?.into_int_value();
         let old = self.build_annotated_atomic_rmw(outer_ty, inner_ty, offset, value, memarg, op)?;
+        if let Some(extra_info) = extra_info {
+            self.state.push1_extra(old, extra_info);
+        } else {
+            self.state.push1(old);
+        }
+        Ok(())
+    }
+
+    fn translate_atomic_rmw_cmpxchg(
+        &mut self,
+        outer_ty: IntType<'ctx>,
+        inner_ty: IntType<'ctx>,
+        memarg: &MemArg,
+        extra_info: Option<ExtraInfo>,
+    ) -> Result<(), CompileError> {
+        let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
+        let cmp = self
+            .apply_pending_canonicalization(cmp, cmp_info)?
+            .into_int_value();
+        let new = self
+            .apply_pending_canonicalization(new, new_info)?
+            .into_int_value();
+        let offset = self.state.pop1()?.into_int_value();
+        let old =
+            self.build_annotated_atomic_rmw_cmpxchg(outer_ty, inner_ty, offset, cmp, new, memarg)?;
         if let Some(extra_info) = extra_info {
             self.state.push1_extra(old, extra_info);
         } else {
@@ -10970,334 +11067,48 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 AtomicRMWBinOp::Xchg,
                 None,
             )?,
-            Operator::I32AtomicRmw8CmpxchgU { ref memarg } => {
-                let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = self.apply_pending_canonicalization(cmp, cmp_info)?;
-                let new = self.apply_pending_canonicalization(new, new_info)?;
-                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
-                let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 1)?;
-                let narrow_cmp = err!(self.builder.build_int_truncate(
-                    cmp,
-                    self.intrinsics.i8_ty,
-                    ""
-                ));
-                let narrow_new = err!(self.builder.build_int_truncate(
-                    new,
-                    self.intrinsics.i8_ty,
-                    ""
-                ));
-                let old = self
-                    .builder
-                    .build_cmpxchg(
-                        effective_address,
-                        narrow_cmp,
-                        narrow_new,
-                        AtomicOrdering::SequentiallyConsistent,
-                        AtomicOrdering::SequentiallyConsistent,
-                    )
-                    .unwrap();
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    0,
-                    old.as_instruction_value().unwrap(),
-                )?;
-                let old = self
-                    .builder
-                    .build_extract_value(old, 0, "")
-                    .unwrap()
-                    .into_int_value();
-                let old = err!(
-                    self.builder
-                        .build_int_z_extend(old, self.intrinsics.i32_ty, "")
-                );
-                self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
-            }
-            Operator::I32AtomicRmw16CmpxchgU { ref memarg } => {
-                let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = self.apply_pending_canonicalization(cmp, cmp_info)?;
-                let new = self.apply_pending_canonicalization(new, new_info)?;
-                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
-                let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 2)?;
-                let narrow_cmp = err!(self.builder.build_int_truncate(
-                    cmp,
-                    self.intrinsics.i16_ty,
-                    ""
-                ));
-                let narrow_new = err!(self.builder.build_int_truncate(
-                    new,
-                    self.intrinsics.i16_ty,
-                    ""
-                ));
-                let old = self
-                    .builder
-                    .build_cmpxchg(
-                        effective_address,
-                        narrow_cmp,
-                        narrow_new,
-                        AtomicOrdering::SequentiallyConsistent,
-                        AtomicOrdering::SequentiallyConsistent,
-                    )
-                    .unwrap();
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    0,
-                    old.as_instruction_value().unwrap(),
-                )?;
-                let old = self
-                    .builder
-                    .build_extract_value(old, 0, "")
-                    .unwrap()
-                    .into_int_value();
-                let old = err!(
-                    self.builder
-                        .build_int_z_extend(old, self.intrinsics.i32_ty, "")
-                );
-                self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
-            }
-            Operator::I32AtomicRmwCmpxchg { ref memarg } => {
-                let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = self.apply_pending_canonicalization(cmp, cmp_info)?;
-                let new = self.apply_pending_canonicalization(new, new_info)?;
-                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
-                let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 4)?;
-                let old = self
-                    .builder
-                    .build_cmpxchg(
-                        effective_address,
-                        cmp,
-                        new,
-                        AtomicOrdering::SequentiallyConsistent,
-                        AtomicOrdering::SequentiallyConsistent,
-                    )
-                    .unwrap();
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    0,
-                    old.as_instruction_value().unwrap(),
-                )?;
-                let old = err!(self.builder.build_extract_value(old, 0, ""));
-                self.state.push1(old);
-            }
-            Operator::I64AtomicRmw8CmpxchgU { ref memarg } => {
-                let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = self.apply_pending_canonicalization(cmp, cmp_info)?;
-                let new = self.apply_pending_canonicalization(new, new_info)?;
-                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
-                let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 1)?;
-                let narrow_cmp = err!(self.builder.build_int_truncate(
-                    cmp,
-                    self.intrinsics.i8_ty,
-                    ""
-                ));
-                let narrow_new = err!(self.builder.build_int_truncate(
-                    new,
-                    self.intrinsics.i8_ty,
-                    ""
-                ));
-                let old = self
-                    .builder
-                    .build_cmpxchg(
-                        effective_address,
-                        narrow_cmp,
-                        narrow_new,
-                        AtomicOrdering::SequentiallyConsistent,
-                        AtomicOrdering::SequentiallyConsistent,
-                    )
-                    .unwrap();
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    0,
-                    old.as_instruction_value().unwrap(),
-                )?;
-                let old = self
-                    .builder
-                    .build_extract_value(old, 0, "")
-                    .unwrap()
-                    .into_int_value();
-                let old = err!(
-                    self.builder
-                        .build_int_z_extend(old, self.intrinsics.i64_ty, "")
-                );
-                self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
-            }
-            Operator::I64AtomicRmw16CmpxchgU { ref memarg } => {
-                let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = self.apply_pending_canonicalization(cmp, cmp_info)?;
-                let new = self.apply_pending_canonicalization(new, new_info)?;
-                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
-                let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 2)?;
-                let narrow_cmp = err!(self.builder.build_int_truncate(
-                    cmp,
-                    self.intrinsics.i16_ty,
-                    ""
-                ));
-                let narrow_new = err!(self.builder.build_int_truncate(
-                    new,
-                    self.intrinsics.i16_ty,
-                    ""
-                ));
-                let old = self
-                    .builder
-                    .build_cmpxchg(
-                        effective_address,
-                        narrow_cmp,
-                        narrow_new,
-                        AtomicOrdering::SequentiallyConsistent,
-                        AtomicOrdering::SequentiallyConsistent,
-                    )
-                    .unwrap();
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    0,
-                    old.as_instruction_value().unwrap(),
-                )?;
-                let old = self
-                    .builder
-                    .build_extract_value(old, 0, "")
-                    .unwrap()
-                    .into_int_value();
-                let old = err!(
-                    self.builder
-                        .build_int_z_extend(old, self.intrinsics.i64_ty, "")
-                );
-                self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
-            }
-            Operator::I64AtomicRmw32CmpxchgU { ref memarg } => {
-                let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = self.apply_pending_canonicalization(cmp, cmp_info)?;
-                let new = self.apply_pending_canonicalization(new, new_info)?;
-                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
-                let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 4)?;
-                let narrow_cmp = err!(self.builder.build_int_truncate(
-                    cmp,
-                    self.intrinsics.i32_ty,
-                    ""
-                ));
-                let narrow_new = err!(self.builder.build_int_truncate(
-                    new,
-                    self.intrinsics.i32_ty,
-                    ""
-                ));
-                let old = self
-                    .builder
-                    .build_cmpxchg(
-                        effective_address,
-                        narrow_cmp,
-                        narrow_new,
-                        AtomicOrdering::SequentiallyConsistent,
-                        AtomicOrdering::SequentiallyConsistent,
-                    )
-                    .unwrap();
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    0,
-                    old.as_instruction_value().unwrap(),
-                )?;
-                let old = self
-                    .builder
-                    .build_extract_value(old, 0, "")
-                    .unwrap()
-                    .into_int_value();
-                let old = err!(
-                    self.builder
-                        .build_int_z_extend(old, self.intrinsics.i64_ty, "")
-                );
-                self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
-            }
-            Operator::I64AtomicRmwCmpxchg { ref memarg } => {
-                let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = self.apply_pending_canonicalization(cmp, cmp_info)?;
-                let new = self.apply_pending_canonicalization(new, new_info)?;
-                let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
-                let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 8)?;
-                let old = self
-                    .builder
-                    .build_cmpxchg(
-                        effective_address,
-                        cmp,
-                        new,
-                        AtomicOrdering::SequentiallyConsistent,
-                        AtomicOrdering::SequentiallyConsistent,
-                    )
-                    .unwrap();
-                self.annotate_user_memaccess(
-                    memory_index,
-                    memarg,
-                    0,
-                    old.as_instruction_value().unwrap(),
-                )?;
-                let old = err!(self.builder.build_extract_value(old, 0, ""));
-                self.state.push1(old);
-            }
+            Operator::I32AtomicRmw8CmpxchgU { ref memarg } => self.translate_atomic_rmw_cmpxchg(
+                self.intrinsics.i32_ty,
+                self.intrinsics.i8_ty,
+                memarg,
+                Some(ExtraInfo::arithmetic_f32()),
+            )?,
+            Operator::I32AtomicRmw16CmpxchgU { ref memarg } => self.translate_atomic_rmw_cmpxchg(
+                self.intrinsics.i32_ty,
+                self.intrinsics.i16_ty,
+                memarg,
+                Some(ExtraInfo::arithmetic_f32()),
+            )?,
+            Operator::I32AtomicRmwCmpxchg { ref memarg } => self.translate_atomic_rmw_cmpxchg(
+                self.intrinsics.i32_ty,
+                self.intrinsics.i32_ty,
+                memarg,
+                None,
+            )?,
+            Operator::I64AtomicRmw8CmpxchgU { ref memarg } => self.translate_atomic_rmw_cmpxchg(
+                self.intrinsics.i64_ty,
+                self.intrinsics.i8_ty,
+                memarg,
+                Some(ExtraInfo::arithmetic_f64()),
+            )?,
+            Operator::I64AtomicRmw16CmpxchgU { ref memarg } => self.translate_atomic_rmw_cmpxchg(
+                self.intrinsics.i64_ty,
+                self.intrinsics.i16_ty,
+                memarg,
+                Some(ExtraInfo::arithmetic_f64()),
+            )?,
+            Operator::I64AtomicRmw32CmpxchgU { ref memarg } => self.translate_atomic_rmw_cmpxchg(
+                self.intrinsics.i64_ty,
+                self.intrinsics.i32_ty,
+                memarg,
+                Some(ExtraInfo::arithmetic_f64()),
+            )?,
+            Operator::I64AtomicRmwCmpxchg { ref memarg } => self.translate_atomic_rmw_cmpxchg(
+                self.intrinsics.i64_ty,
+                self.intrinsics.i64_ty,
+                memarg,
+                None,
+            )?,
             Operator::MemoryAtomicWait32 { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
                 let (dst, val, timeout) = self.state.pop3()?;
