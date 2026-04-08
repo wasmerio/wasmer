@@ -1304,6 +1304,58 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(result)
     }
 
+    fn build_annotated_atomic_load(
+        &mut self,
+        outer_ty: IntType<'ctx>,
+        inner_ty: IntType<'ctx>,
+        offset: IntValue<'ctx>,
+        memarg: &MemArg,
+    ) -> Result<IntValue<'ctx>, CompileError> {
+        let alignment = 2u32.pow(memarg.align as u32);
+        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let inner_size =
+            usize::try_from(self.target_data.get_store_size(&inner_ty)).map_err(|_| {
+                CompileError::Codegen("atomic inner type size does not fit in usize".into())
+            })?;
+        let outer_size =
+            usize::try_from(self.target_data.get_store_size(&outer_ty)).map_err(|_| {
+                CompileError::Codegen("atomic outer type size does not fit in usize".into())
+            })?;
+        let effective_address = self.resolve_memory_ptr(
+            memory_index,
+            memarg,
+            self.intrinsics.ptr_ty,
+            offset,
+            inner_size,
+        )?;
+        self.trap_if_misaligned(
+            memarg,
+            effective_address,
+            u8::try_from(inner_size).map_err(|_| {
+                CompileError::Codegen("atomic inner type size does not fit in u8".into())
+            })?,
+        )?;
+
+        let result = err!(
+            self.builder
+                .build_load(inner_ty, effective_address, "atomic_load")
+        );
+        let load = result.into_int_value();
+        let load_inst = load.as_instruction_value().unwrap();
+        self.annotate_user_memaccess(memory_index, memarg, alignment, load_inst)?;
+        load_inst
+            .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
+            .unwrap();
+
+        if inner_size < outer_size {
+            Ok(err_nt!(
+                self.builder.build_int_z_extend(load, outer_ty, "")
+            )?)
+        } else {
+            Ok(load)
+        }
+    }
+
     fn build_annotated_store<T: BasicType<'ctx>>(
         &mut self,
         pointee_ty: T,
@@ -9390,7 +9442,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _i) = self.v128_into_i8x16(v, i)?;
                 let offset = self.state.pop1()?.into_int_value();
-                let element = self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
                 let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
                 let res = err!(self.builder.build_insert_element(v, element, idx, ""));
                 let res = err!(
@@ -10199,7 +10252,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::V128Load8Splat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let element = self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
+                let element =
+                    self.build_annotated_load(self.intrinsics.i8_ty, offset, memarg, 1)?;
                 let res = self.splat_vector(element, self.intrinsics.i8x16_ty)?;
                 let res = err!(
                     self.builder
@@ -10368,186 +10422,72 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::I32AtomicLoad { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 4)?;
-                let result = err!(self.builder.build_load(
+                let result = self.build_annotated_atomic_load(
                     self.intrinsics.i32_ty,
-                    effective_address,
-                    "atomic_load"
-                ));
-                let load = result.as_instruction_value().unwrap();
-                self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
-                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
-                    .unwrap();
+                    self.intrinsics.i32_ty,
+                    offset,
+                    memarg,
+                )?;
                 self.state.push1(result);
             }
             Operator::I64AtomicLoad { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    8,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 8)?;
-                let result = err!(self.builder.build_load(
+                let result = self.build_annotated_atomic_load(
                     self.intrinsics.i64_ty,
-                    effective_address,
-                    ""
-                ));
-                let load = result.as_instruction_value().unwrap();
-                self.annotate_user_memaccess(memory_index, memarg, 8, load)?;
-                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
-                    .unwrap();
+                    self.intrinsics.i64_ty,
+                    offset,
+                    memarg,
+                )?;
                 self.state.push1(result);
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 1)?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ))
-                .into_int_value();
-                let load = narrow_result.as_instruction_value().unwrap();
-                self.annotate_user_memaccess(memory_index, memarg, 1, load)?;
-                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
-                    .unwrap();
-                let result = err!(self.builder.build_int_z_extend(
-                    narrow_result,
+                let result = self.build_annotated_atomic_load(
                     self.intrinsics.i32_ty,
-                    ""
-                ));
+                    self.intrinsics.i8_ty,
+                    offset,
+                    memarg,
+                )?;
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicLoad16U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 2)?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    ""
-                ))
-                .into_int_value();
-                let load = narrow_result.as_instruction_value().unwrap();
-                self.annotate_user_memaccess(memory_index, memarg, 2, load)?;
-                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
-                    .unwrap();
-                let result = err!(self.builder.build_int_z_extend(
-                    narrow_result,
+                let result = self.build_annotated_atomic_load(
                     self.intrinsics.i32_ty,
-                    ""
-                ));
+                    self.intrinsics.i16_ty,
+                    offset,
+                    memarg,
+                )?;
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f32());
             }
             Operator::I64AtomicLoad8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    1,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 1)?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i8_ty,
-                    effective_address,
-                    ""
-                ))
-                .into_int_value();
-                let load = narrow_result.as_instruction_value().unwrap();
-                self.annotate_user_memaccess(memory_index, memarg, 1, load)?;
-                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
-                    .unwrap();
-                let result = err!(self.builder.build_int_z_extend(
-                    narrow_result,
+                let result = self.build_annotated_atomic_load(
                     self.intrinsics.i64_ty,
-                    ""
-                ));
+                    self.intrinsics.i8_ty,
+                    offset,
+                    memarg,
+                )?;
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicLoad16U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    2,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 2)?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i16_ty,
-                    effective_address,
-                    ""
-                ))
-                .into_int_value();
-                let load = narrow_result.as_instruction_value().unwrap();
-                self.annotate_user_memaccess(memory_index, memarg, 2, load)?;
-                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
-                    .unwrap();
-                let result = err!(self.builder.build_int_z_extend(
-                    narrow_result,
+                let result = self.build_annotated_atomic_load(
                     self.intrinsics.i64_ty,
-                    ""
-                ));
+                    self.intrinsics.i16_ty,
+                    offset,
+                    memarg,
+                )?;
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicLoad32U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let memory_index = MemoryIndex::from_u32(0);
-                let effective_address = self.resolve_memory_ptr(
-                    memory_index,
-                    memarg,
-                    self.intrinsics.ptr_ty,
-                    offset,
-                    4,
-                )?;
-                self.trap_if_misaligned(memarg, effective_address, 4)?;
-                let narrow_result = err!(self.builder.build_load(
-                    self.intrinsics.i32_ty,
-                    effective_address,
-                    ""
-                ))
-                .into_int_value();
-                let load = narrow_result.as_instruction_value().unwrap();
-                self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
-                load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
-                    .unwrap();
-                let result = err!(self.builder.build_int_z_extend(
-                    narrow_result,
+                let result = self.build_annotated_atomic_load(
                     self.intrinsics.i64_ty,
-                    ""
-                ));
+                    self.intrinsics.i32_ty,
+                    offset,
+                    memarg,
+                )?;
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
             }
             Operator::I32AtomicStore { ref memarg } => {
