@@ -219,7 +219,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
           version: v0.4.3
-
       - name: Install build-scripts sysroot
         uses: wasix-org/build-scripts@main
         with:
@@ -872,7 +871,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sysroot-tag: v2026-02-16.1
           version: v0.4.3
-
       - name: Install build-scripts sysroot
         if: matrix.metadata.build != 'windows-x64'
         uses: wasix-org/build-scripts@main

@@ -354,7 +354,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   macos-arm_jsc:
     name: macos-arm (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -391,7 +390,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   macos-x64_jsc:
     name: macos-x64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -424,7 +422,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   linux-riscv64:
     name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -494,7 +491,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   full_source_archive:
     name: full-source-archive
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -517,7 +513,6 @@ jobs:
           path: /tmp/dist
           if-no-files-found: error
           retention-days: 2
-
   release:
     needs: [setup, build, windows_gnu, linux-riscv64, full_source_archive]
     runs-on: ubuntu-latest
