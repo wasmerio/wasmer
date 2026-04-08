@@ -1229,29 +1229,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
     }
 
-    // If this memory access must trap when out of bounds (i.e. it is a memory
-    // access written in the user program as opposed to one used by our VM)
-    // then mark that it can't be delete.
-    fn mark_memaccess_nodelete(
-        &mut self,
-        memory_index: MemoryIndex,
-        memaccess: InstructionValue<'ctx>,
-    ) -> Result<(), CompileError> {
-        if let MemoryCache::Static { base_ptr: _ } = self.ctx.memory(
-            memory_index,
-            self.intrinsics,
-            self.module,
-            self.memory_styles,
-        )? {
-            // The best we've got is `volatile`.
-            memaccess.set_volatile(true).map_err(|err| {
-                CompileError::Codegen(format!("could not set volatile on memory operation: {err}"))
-            })
-        } else {
-            Ok(())
-        }
-    }
-
     fn annotate_user_memaccess(
         &mut self,
         memory_index: MemoryIndex,
@@ -1266,7 +1243,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             _ => {}
         };
         if !self.non_volatile_memory_ops {
-            self.mark_memaccess_nodelete(memory_index, memaccess)?;
+            // If this memory access must trap when out of bounds (i.e. it is a memory
+            // access written in the user program as opposed to one used by our VM)
+            // then mark that it can't be delete.
+            if let MemoryCache::Static { base_ptr: _ } = self.ctx.memory(
+                memory_index,
+                self.intrinsics,
+                self.module,
+                self.memory_styles,
+            )? {
+                // The best we've got is `volatile`.
+                memaccess.set_volatile(true).map_err(|err| {
+                    CompileError::Codegen(format!(
+                        "could not set volatile on memory operation: {err}"
+                    ))
+                })?;
+            }
         }
         tbaa_label(
             self.module,
@@ -1383,12 +1375,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
 
         let store = err!(self.builder.build_store(effective_address, value));
-        self.annotate_user_memaccess(
-            MemoryIndex::from_u32(memarg.memory),
-            memarg,
-            alignment,
-            store,
-        )
+        self.annotate_user_memaccess(memory_index, memarg, alignment, store)
     }
 
     fn build_annotated_atomic_store(
