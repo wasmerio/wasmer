@@ -28,7 +28,7 @@ impl Drop for CApiEngine {
     }
 }
 
-/// The engine for the Web Assembly Micro Runtime.
+/// The engine for the Wasmi WebAssembly runtime.
 #[derive(Clone, Debug)]
 pub struct Engine {
     pub(crate) inner: Arc<CApiEngine>,
