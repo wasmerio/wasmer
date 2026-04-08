@@ -547,7 +547,15 @@ impl FileSystem for MountFileSystem {
                         .rename(&from_mount.delegated_path, &to_mount.delegated_path)
                         .await
                 }
-                (Some(_), Some(_)) => Err(FsError::InvalidInput),
+                (Some(from_mount), Some(to_mount)) => {
+                    ops::move_across_filesystems(
+                        from_mount.fs.as_ref(),
+                        to_mount.fs.as_ref(),
+                        &from_mount.delegated_path,
+                        &to_mount.delegated_path,
+                    )
+                    .await
+                }
                 _ => Err(FsError::EntryNotFound),
             }
         })
@@ -675,7 +683,7 @@ mod tests {
 
     use tokio::io::AsyncWriteExt;
 
-    use crate::{FileSystem as FileSystemTrait, FsError, MountFileSystem, mem_fs};
+    use crate::{FileSystem as FileSystemTrait, FsError, MountFileSystem, TmpFileSystem, mem_fs};
 
     use super::{FileOpener, OpenOptionsConfig};
 
@@ -1834,6 +1842,32 @@ mod tests {
         );
 
         let _ = fs_extra::remove_items(&["/test_rename"]);
+    }
+
+    #[tokio::test]
+    async fn cross_mount_file_rename_copies_and_removes_source() {
+        let fs = MountFileSystem::new();
+        let left = TmpFileSystem::new();
+        let right = TmpFileSystem::new();
+
+        left.new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/from.txt"))
+            .unwrap();
+
+        fs.mount(Path::new("/left"), Arc::new(left.clone())).unwrap();
+        fs.mount(Path::new("/right"), Arc::new(right.clone())).unwrap();
+
+        fs.rename(Path::new("/left/from.txt"), Path::new("/right/to.txt"))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            left.metadata(Path::new("/from.txt")),
+            Err(FsError::EntryNotFound)
+        );
+        assert!(right.metadata(Path::new("/to.txt")).unwrap().is_file());
     }
 
     #[tokio::test]

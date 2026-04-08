@@ -662,22 +662,7 @@ impl crate::FileSystem for FileSystem {
 
                 // Rename across file systems; we need to do a create and a delete
                 _ => {
-                    let mut from_file = self.new_open_options().read(true).open(from)?;
-                    let mut to_file = self
-                        .new_open_options()
-                        .create_new(true)
-                        .write(true)
-                        .open(to)?;
-                    tokio::io::copy(from_file.as_mut(), to_file.as_mut()).await?;
-                    if let Err(error) = self.remove_file(from) {
-                        tracing::warn!(
-                            ?from,
-                            ?to,
-                            ?error,
-                            "Failed to remove file after cross-FS rename"
-                        );
-                    }
-                    Ok(())
+                    crate::ops::move_across_filesystems(self, self, from, to).await
                 }
             }
         })
