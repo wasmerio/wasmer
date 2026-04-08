@@ -1,9 +1,7 @@
 name: Builds
-
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-
 on:
   push:
     branches:
@@ -18,7 +16,6 @@ on:
     inputs:
       release:
         description: "Make release"
-
 jobs:
   setup:
     name: Set up
@@ -37,7 +34,6 @@ jobs:
           echo "DOING_RELEASE=${DOING_RELEASE}" >> $GITHUB_OUTPUT
           echo $VERSION
           echo $DOING_RELEASE
-
   build:
     name: ${{ matrix.build }}
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -109,7 +105,6 @@ jobs:
             #  enable_v8: false
             #  enable_wasmi: true
             #  enable_wamr: false
-
     env:
       TARGET: ${{ matrix.target }}
     steps:
@@ -158,7 +153,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
-          target: ${{ matrix.target }}      
+          target: ${{ matrix.target }}
       - name: Install LLVM (macOS Intel)
         if: matrix.os == 'macos-15-intel' && !matrix.llvm_url
         run: |
@@ -287,7 +282,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   windows_gnu:
     name: windows-gnu
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -360,7 +354,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   macos-arm_jsc:
     name: macos-arm (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -397,7 +390,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   macos-x64_jsc:
     name: macos-x64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -430,7 +422,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   linux-riscv64:
     name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -500,7 +491,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   full_source_archive:
     name: full-source-archive
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -523,7 +513,6 @@ jobs:
           path: /tmp/dist
           if-no-files-found: error
           retention-days: 2
-
   release:
     needs: [setup, build, windows_gnu, linux-riscv64, full_source_archive]
     runs-on: ubuntu-latest
