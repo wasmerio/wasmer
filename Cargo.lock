@@ -3210,9 +3210,9 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "llvm-sys"
-version = "211.0.0"
+version = "211.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "108b3ad2b2eaf2a561fc74196273b20e3436e4a688b8b44e250d83974dc1b2e2"
+checksum = "44007a7a44b73bdd877fa9c9ccef256036511220e90f65b4d50e7a15773c0ee3"
 dependencies = [
  "anyhow",
  "cc",
@@ -3365,7 +3365,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5336,9 +5336,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "symbolic-common"
-version = "12.17.3"
+version = "12.17.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52ca086c1eb5c7ee74b151ba83c6487d5d33f8c08ad991b86f3f58f6629e68d5"
+checksum = "803d14d7cb9c6fa5b95a6f3de8af95b356a528d391998fa45a07d320a5573e51"
 dependencies = [
  "debugid",
  "memmap2 0.9.10",
@@ -5348,9 +5348,9 @@ dependencies = [
 
 [[package]]
 name = "symbolic-demangle"
-version = "12.17.3"
+version = "12.17.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baa911a28a62823aaf2cc2e074212492a3ee69d0d926cc8f5b12b4a108ff5c0c"
+checksum = "39505731ae891b2dde47b0e4ae2ec40a7ced3476ab1129f1bf829e3fba62bb83"
 dependencies = [
  "cpp_demangle",
  "msvc-demangler",
@@ -5655,9 +5655,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.51.0"
+version = "1.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bd1c4c0fc4a7ab90fc15ef6daaa3ec3b893f004f915f2392557ed23237820cd"
+checksum = "f66bf9585cda4b724d3e78ab34b73fb2bbaba9011b9bfdf69dc836382ea13b8c"
 dependencies = [
  "bytes",
  "libc",
@@ -5812,9 +5812,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.25.10+spec-1.1.0"
+version = "0.25.11+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a82418ca169e235e6c399a84e395ab6debeb3bc90edc959bf0f48647c6a32d1b"
+checksum = "0b59c4d22ed448339746c59b905d24568fcbb3ab65a500494f7b8c3e97739f2b"
 dependencies = [
  "indexmap",
  "toml_datetime 1.1.1+spec-1.1.0",
@@ -6452,7 +6452,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6486,7 +6486,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6501,7 +6501,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6606,7 +6606,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6685,7 +6685,7 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasi-test-generator"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "glob",
  "gumdrop",
@@ -6902,7 +6902,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -6953,7 +6953,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-argus"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6978,7 +6978,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-backend-api"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -7023,7 +7023,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "cbindgen",
  "cfg-if",
@@ -7052,7 +7052,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "cc",
  "regex",
@@ -7062,7 +7062,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "blake3",
  "clap",
@@ -7080,7 +7080,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "cc",
  "regex",
@@ -7090,7 +7090,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.0",
@@ -7187,7 +7187,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "backtrace",
  "bytes",
@@ -7225,7 +7225,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -7246,7 +7246,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -7272,7 +7272,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -7293,7 +7293,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7316,7 +7316,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error2",
@@ -7356,7 +7356,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.0",
@@ -7383,11 +7383,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7415,7 +7415,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -7424,7 +7424,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-napi"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "cc",
@@ -7446,7 +7446,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7477,7 +7477,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sdk"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7505,7 +7505,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "thiserror 2.0.18",
  "tokio",
@@ -7519,7 +7519,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "libc",
  "region",
@@ -7533,7 +7533,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "bytecheck",
  "crc32fast",
@@ -7557,7 +7557,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "backtrace",
  "bytesize",
@@ -7590,7 +7590,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "assert-panic",
@@ -7686,7 +7686,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.701.0"
+version = "0.702.0-alpha.1"
 dependencies = [
  "anyhow",
  "bitflags 2.11.0",
@@ -7709,7 +7709,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "anyhow",
  "fs_extra",
@@ -7727,7 +7727,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "7.1.0"
+version = "7.2.0-alpha.1"
 dependencies = [
  "anyhow",
  "build-deps",
@@ -8597,9 +8597,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "8.5.0"
+version = "8.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2726508a48f38dceb22b35ecbbd2430efe34ff05c62bd3285f965d7911b33464"
+checksum = "dcab981e19633ebcf0b001ddd37dd802996098bc1864f90b7c5d970ce76c1d59"
 dependencies = [
  "crc32fast",
  "flate2",
