@@ -51,6 +51,7 @@ jobs:
             build_wasm: true
             enable_llvm: true
             enable_v8: false
+            enable_napi_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: linux-x64
@@ -62,6 +63,7 @@ jobs:
             enable_llvm: true
             # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
             enable_v8: false
+            enable_napi_v8: true
             enable_wasmi: true
             enable_wamr: true
           - build: macos-x64
@@ -73,6 +75,7 @@ jobs:
             enable_llvm: true
             # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
             enable_v8: false
+            enable_napi_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: macos-arm
@@ -84,6 +87,7 @@ jobs:
             enable_llvm: true
             # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
             enable_v8: false
+            enable_napi_v8: true
             enable_wasmi: true
             enable_wamr: true
           - build: windows-x64
@@ -94,6 +98,7 @@ jobs:
             build_wasm: false
             enable_llvm: true
             enable_v8: false
+            enable_napi_v8: false
             enable_wasmi: true
             enable_wamr: false
             #- build: linux-musl-x64
@@ -217,6 +222,7 @@ jobs:
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
+          ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
       - name: Build Wasmer on linux-x64
@@ -226,6 +232,7 @@ jobs:
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
+          ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
       - name: Build Wasmer on linux-musl
@@ -243,6 +250,7 @@ jobs:
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
+          ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
       #- name: Build Wasmer binary on Wasm32-WASI without LLVM
