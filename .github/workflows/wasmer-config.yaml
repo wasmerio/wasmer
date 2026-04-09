@@ -1,20 +1,16 @@
 # Dedicated workflow just for the wasmer-config crate
 name: wasmer-config
-
 on:
   push:
     branches:
-    - main
+      - main
   pull_request:
-
 # Automatically cancel previous workflow runs when a new commit is pushed.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 env:
   DEFAULT_CRATE_NAME: wasmer_toml
-
 jobs:
   check:
     name: Compile and Test
@@ -38,7 +34,6 @@ jobs:
       - name: Test
         run: |
           cd lib/config && cargo nextest run --verbose --locked
-
   lints:
     name: Linting and Formatting
     runs-on: ubuntu-latest

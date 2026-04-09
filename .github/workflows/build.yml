@@ -1,9 +1,7 @@
 name: Builds
-
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-
 on:
   push:
     branches:
@@ -18,7 +16,6 @@ on:
     inputs:
       release:
         description: "Make release"
-
 jobs:
   setup:
     name: Set up
@@ -37,7 +34,6 @@ jobs:
           echo "DOING_RELEASE=${DOING_RELEASE}" >> $GITHUB_OUTPUT
           echo $VERSION
           echo $DOING_RELEASE
-
   build:
     name: ${{ matrix.build }}
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -79,7 +75,7 @@ jobs:
             enable_v8: false
             enable_wasmi: true
             enable_wamr: true
-          - build: macos-arm64
+          - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
@@ -109,7 +105,6 @@ jobs:
             #  enable_v8: false
             #  enable_wasmi: true
             #  enable_wamr: false
-
     env:
       TARGET: ${{ matrix.target }}
     steps:
@@ -158,7 +153,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
-          target: ${{ matrix.target }}      
+          target: ${{ matrix.target }}
       - name: Install LLVM (macOS Intel)
         if: matrix.os == 'macos-15-intel' && !matrix.llvm_url
         run: |
@@ -183,10 +178,6 @@ jobs:
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-      - name: Add `brew` libraries (Apple Silicon)
-        run: |
-          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-        if: matrix.os == 'macos-14' || matrix.os == 'depot-macos-14'
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -291,7 +282,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   windows_gnu:
     name: windows-gnu
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -364,9 +354,8 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
-  darwin_aarch64_jsc:
-    name: macos-arm64 (JSC)
+  macos-arm_jsc:
+    name: macos-arm (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: depot-macos-14
     steps:
@@ -401,8 +390,7 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
-  darwin_x86_64_jsc:
+  macos-x64_jsc:
     name: macos-x64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: macos-15-intel
@@ -434,8 +422,7 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
-  linux_riscv64:
+  linux-riscv64:
     name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
@@ -504,12 +491,36 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
+  full_source_archive:
+    name: full-source-archive
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Package full source archive
+        shell: bash
+        run: |
+          mkdir -p /tmp/dist
+          git ls-files --recurse-submodules -z \
+            | tar --null -T - --transform="s,^,wasmer/," -czf "/tmp/dist/wasmer-full-source.tar.gz"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasmer-full-source
+          path: /tmp/dist
+          if-no-files-found: error
+          retention-days: 2
   release:
-    needs: [setup, build, windows_gnu, linux_riscv64]
+    needs: [setup, build, windows_gnu, linux-riscv64, full_source_archive]
     runs-on: ubuntu-latest
     if: (needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != '') && github.event_name != 'pull_request'
     steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Download the Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -533,6 +544,15 @@ jobs:
           asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
           asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset Full Source
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-full-source/wasmer-full-source.tar.gz
+          asset_name: wasmer-full-source.tar.gz
+          asset_content_type: application/gzip
       - name: Upload Release Asset Windows
         uses: actions/upload-release-asset@v1
         env:

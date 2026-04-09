@@ -112,9 +112,9 @@ impl Global {
         vm_global: crate::vm::VMExternGlobal,
     ) -> Self {
         crate::backend::jsc::vm::VMGlobal::list_mut(store.objects_mut().as_jsc_mut())
-            .push(vm_global.as_jsc().clone());
+            .push(vm_global.unwrap_jsc_ref().clone());
         Self {
-            handle: vm_global.into_jsc(),
+            handle: vm_global.unwrap_jsc(),
         }
     }
 

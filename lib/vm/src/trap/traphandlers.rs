@@ -6,11 +6,14 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+use crate::interrupt_registry;
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
+use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
-use corosensei::stack::DefaultStack;
+use corosensei::stack::{DefaultStack, Stack};
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
 use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
 use scopeguard::defer;
@@ -26,6 +29,15 @@ use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
 use std::sync::{LazyLock, Once};
 use wasmer_types::TrapCode;
 
+/// Convenience extension for [`Stack`] that exposes the total mapped size.
+trait StackExt: Stack {
+    /// Returns the total size of the stack mapping (including guard page).
+    fn size(&self) -> usize {
+        self.base().get() - self.limit().get()
+    }
+}
+impl<T: Stack> StackExt for T {}
+
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub struct VMConfig {
@@ -38,7 +50,11 @@ pub struct VMConfig {
 // On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 static MAGIC: u8 = 0xc0;
 
-static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
+static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(ByteSize::mib(1).as_u64() as usize);
+
+/// Maximum allowed default stack size (100 MiB) for the process-wide
+/// configuration set via `set_stack_size`.
+pub const MAX_STACK_SIZE: usize = ByteSize::mib(100).as_u64() as usize;
 
 // Current definition of `ucontext_t` in the `libc` crate is incorrect
 // on aarch64-apple-drawin so it's defined here with a more accurate definition.
@@ -57,9 +73,38 @@ struct ucontext_t {
 #[cfg(all(unix, not(all(target_arch = "aarch64", target_os = "macos"))))]
 use libc::ucontext_t;
 
-/// Default stack size is 1MB.
+/// Sets the process-wide default stack size for new Wasmer coroutines.
+/// The value is clamped to [8 KiB, MAX_STACK_SIZE].
 pub fn set_stack_size(size: usize) {
-    DEFAULT_STACK_SIZE.store(size.clamp(8 * 1024, 100 * 1024 * 1024), Ordering::Relaxed);
+    DEFAULT_STACK_SIZE.store(
+        size.clamp(ByteSize::kib(8).as_u64() as usize, MAX_STACK_SIZE),
+        Ordering::Relaxed,
+    );
+}
+
+/// Returns the process-wide default stack size in bytes.
+pub fn get_stack_size() -> usize {
+    DEFAULT_STACK_SIZE.load(Ordering::Relaxed)
+}
+
+/// Pool of pre-allocated coroutine stacks to avoid repeated mmap syscalls.
+static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
+    LazyLock::new(crossbeam_queue::SegQueue::new);
+
+/// Drains the coroutine stack pool at the moment it runs.
+///
+/// This is intended to be called before retrying with a larger stack size so
+/// that the pool does not keep serving cached undersized stacks.
+///
+/// Note that `STACK_POOL` is a global, concurrently used queue. Other threads
+/// may push stacks back into the pool (for example, when their Wasm execution
+/// finishes) while or after this function is running. As a result, this
+/// function provides only a best-effort drain of the pool: there is no
+/// guarantee that no undersized stacks exist immediately after it returns
+/// unless the caller ensures, via external synchronization, that no other
+/// Wasm executions can return stacks to the pool while this function runs.
+pub fn drain_stack_pool() {
+    while STACK_POOL.pop().is_some() {}
 }
 
 cfg_if::cfg_if! {
@@ -150,8 +195,11 @@ cfg_if::cfg_if! {
         static mut PREV_SIGILL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGFPE: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 
+        #[cfg(feature = "experimental-host-interrupt")]
+        static mut PREV_SIGUSR1: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
+
         unsafe fn platform_init() { unsafe {
-            let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32| {
+            let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32, nodefer: bool| {
                 let mut handler: libc::sigaction = mem::zeroed();
                 // The flags here are relatively careful, and they are...
                 //
@@ -166,7 +214,10 @@ cfg_if::cfg_if! {
                 // SA_NODEFER allows us to reenter the signal handler if we
                 // crash while handling the signal, and fall through to the
                 // Breakpad handler by testing handlingSegFault.
-                handler.sa_flags = libc::SA_SIGINFO | libc::SA_NODEFER | libc::SA_ONSTACK;
+                handler.sa_flags = libc::SA_SIGINFO | libc::SA_ONSTACK;
+                if nodefer {
+                    handler.sa_flags |= libc::SA_NODEFER;
+                }
                 handler.sa_sigaction = trap_handler as *const () as usize;
                 libc::sigemptyset(&mut handler.sa_mask);
                 if libc::sigaction(signal, &handler, slot.as_mut_ptr()) != 0 {
@@ -178,20 +229,27 @@ cfg_if::cfg_if! {
             };
 
             // Allow handling OOB with signals on all architectures
-            register(&mut PREV_SIGSEGV, libc::SIGSEGV);
+            register(&mut PREV_SIGSEGV, libc::SIGSEGV, true);
 
             // Handle `unreachable` instructions which execute `ud2` right now
-            register(&mut PREV_SIGILL, libc::SIGILL);
+            register(&mut PREV_SIGILL, libc::SIGILL, true);
+
+            // SIGUSR1 is used to interrupt long-running WASM code.
+            // It doesn't use NODEFER since, if a second interruption
+            // request comes in while one is already being processed,
+            // there's nothing meaningful we can do.
+            #[cfg(feature = "experimental-host-interrupt")]
+            register(&mut PREV_SIGUSR1, libc::SIGUSR1, false);
 
             // x86 uses SIGFPE to report division by zero
             if cfg!(target_arch = "x86") || cfg!(target_arch = "x86_64") {
-                register(&mut PREV_SIGFPE, libc::SIGFPE);
+                register(&mut PREV_SIGFPE, libc::SIGFPE, true);
             }
 
             // On ARM, handle Unaligned Accesses.
             // On Darwin, guard page accesses are raised as SIGBUS.
             if cfg!(target_arch = "arm") || cfg!(target_vendor = "apple") {
-                register(&mut PREV_SIGBUS, libc::SIGBUS);
+                register(&mut PREV_SIGBUS, libc::SIGBUS, true);
             }
 
             // This is necessary to support debugging under LLDB on Darwin.
@@ -242,6 +300,8 @@ cfg_if::cfg_if! {
                 libc::SIGBUS => &PREV_SIGBUS,
                 libc::SIGFPE => &PREV_SIGFPE,
                 libc::SIGILL => &PREV_SIGILL,
+                #[cfg(feature = "experimental-host-interrupt")]
+                libc::SIGUSR1 => &PREV_SIGUSR1,
                 _ => panic!("unknown signal: {signum}"),
             };
             // We try to get the fault address associated to this signal
@@ -257,6 +317,15 @@ cfg_if::cfg_if! {
                     let addr = (*siginfo).si_addr() as usize;
                     process_illegal_op(addr)
                 }
+                #[cfg(feature = "experimental-host-interrupt")]
+                libc::SIGUSR1 => {
+                    // If we're not running WASM code from the specific store for which
+                    // an interrupt was requested, there's nothing to do.
+                    if !interrupt_registry::on_interrupted() {
+                        return;
+                    }
+                    Some(TrapCode::HostInterrupt)
+                }
                 _ => None,
             };
             let ucontext = &mut *(context as *mut ucontext_t);
@@ -271,6 +340,13 @@ cfg_if::cfg_if! {
             );
 
             if handled {
+                return;
+            }
+
+            // If we're not running WASM code at all, there's nothing to
+            // do for an interrupt.
+            #[cfg(feature = "experimental-host-interrupt")]
+            if signum == libc::SIGUSR1 {
                 return;
             }
 
@@ -971,15 +1047,15 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
-    // Allocating a new stack is pretty expensive since it involves several
-    // system calls. We therefore keep a cache of pre-allocated stacks which
-    // allows them to be reused multiple times.
-    // FIXME(Amanieu): We should refactor this to avoid the lock.
-    static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
-        LazyLock::new(crossbeam_queue::SegQueue::new);
-
+    // Reuse a cached stack from the pool if it is large enough, otherwise
+    // allocate a fresh one. The size check prevents using undersized stacks
+    // that were returned by threads still running at the old size after
+    // `drain_stack_pool()` was called. `base() - limit()` is the full mmap
+    // region (including guard page), which is always >= the requested size
+    // for stacks allocated with that size.
     let stack = STACK_POOL
         .pop()
+        .filter(|s| s.size() >= stack_size)
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
@@ -1083,7 +1159,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
 
     /// The size of the sigaltstack (not including the guard, which will be
     /// added). Make this large enough to run our signal handlers.
-    const MIN_STACK_SIZE: usize = 16 * 4096;
+    const MIN_STACK_SIZE: usize = ByteSize::kib(64).as_u64() as usize;
 
     enum Tls {
         OutOfMemory,
@@ -1172,5 +1248,144 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
                 debug_assert_eq!(r, 0, "munmap failed during thread shutdown");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    // Guards tests that mutate global state (DEFAULT_STACK_SIZE, STACK_POOL).
+    // Rust runs tests in parallel by default; this mutex serializes them so
+    // they don't step on each other.
+    static GLOBAL_STATE: Mutex<()> = Mutex::new(());
+
+    /// Saves the current stack size and restores it on drop (even on panic).
+    struct RestoreStackSize(usize);
+    impl Drop for RestoreStackSize {
+        fn drop(&mut self) {
+            set_stack_size(self.0);
+        }
+    }
+
+    #[test]
+    fn max_stack_size_is_100mb() {
+        assert_eq!(MAX_STACK_SIZE, ByteSize::mib(100).as_u64() as usize);
+    }
+
+    #[test]
+    fn get_set_stack_size_roundtrip() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        let new_size = ByteSize::mib(4).as_u64() as usize;
+        set_stack_size(new_size);
+        assert_eq!(get_stack_size(), new_size);
+    }
+
+    #[test]
+    fn set_stack_size_clamps_to_min() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        set_stack_size(1); // way below 8 KiB minimum
+        assert_eq!(get_stack_size(), ByteSize::kib(8).as_u64() as usize);
+    }
+
+    #[test]
+    fn set_stack_size_clamps_to_max() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        set_stack_size(usize::MAX);
+        assert_eq!(get_stack_size(), MAX_STACK_SIZE);
+    }
+
+    #[test]
+    fn drain_stack_pool_empties_pool() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let stack = DefaultStack::new(ByteSize::mib(1).as_u64() as usize).unwrap();
+        STACK_POOL.push(stack);
+        assert!(!STACK_POOL.is_empty());
+        drain_stack_pool();
+        assert!(STACK_POOL.is_empty());
+    }
+
+    #[test]
+    fn drain_stack_pool_is_idempotent() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        drain_stack_pool();
+        drain_stack_pool(); // second call on empty pool should not panic
+        assert!(STACK_POOL.is_empty());
+    }
+
+    /// The stack pool is not size-aware, so after a stack size increase it keeps
+    /// serving cached undersized stacks. `drain_stack_pool()` breaks the cycle.
+    ///
+    /// 1. A call fills the pool with 500 KiB stacks (simulating normal execution).
+    /// 2. The caller doubles the default to 1 MiB (simulating overflow retry).
+    /// 3. WITHOUT draining, the pool still hands back a 500 KiB stack — the
+    ///    retry would overflow again, creating an infinite loop.
+    /// 4. After `drain_stack_pool()`, the pool is empty and the next allocation
+    ///    must use the new, larger size.
+    #[test]
+    fn pool_returns_stale_stack_without_drain() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+
+        // --- Phase 1: simulate normal execution that returns a 500 KiB stack ---
+        let small_size = ByteSize::kib(500).as_u64() as usize;
+        let small_stack = DefaultStack::new(small_size).unwrap();
+        STACK_POOL.push(small_stack);
+
+        // --- Phase 2: "overflow detected" — caller doubles the default ---
+        let big_size = ByteSize::mib(1).as_u64() as usize;
+        set_stack_size(big_size);
+        assert_eq!(get_stack_size(), big_size);
+
+        // --- Phase 3: WITHOUT drain, pool still returns the old small stack ---
+        // This is the bug: the caller asked for a bigger stack but the pool
+        // serves a cached undersized one, causing the retry to overflow again.
+        let stale = STACK_POOL.pop();
+        assert!(
+            stale.is_some(),
+            "pool should still contain the old stack (the bug scenario)"
+        );
+
+        // --- Phase 4: with drain, pool is empty — next alloc uses new size ---
+        STACK_POOL.push(stale.unwrap());
+        drain_stack_pool();
+        assert!(
+            STACK_POOL.pop().is_none(),
+            "after drain, pool must be empty so a fresh stack is allocated at the new size"
+        );
+    }
+
+    /// `on_wasm_stack` discards undersized stacks from the pool and allocates
+    /// a fresh one instead of blindly reusing whatever the pool returns.
+    #[test]
+    fn on_wasm_stack_discards_undersized_stack() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+
+        // Push an undersized stack into the pool.
+        let small_size = ByteSize::kib(500).as_u64() as usize;
+        let small_stack = DefaultStack::new(small_size).unwrap();
+        STACK_POOL.push(small_stack);
+
+        // Request a larger stack via on_wasm_stack.
+        let big_size = ByteSize::mib(1).as_u64() as usize;
+        let result = on_wasm_stack(big_size, None, || 42);
+
+        assert_eq!(result.ok().expect("on_wasm_stack should succeed"), 42);
+        // The undersized stack was discarded; the pool should now contain
+        // the correctly-sized stack that was allocated for this call.
+        let returned = STACK_POOL
+            .pop()
+            .expect("stack should have been returned to pool");
+        assert!(
+            returned.size() >= big_size,
+            "returned stack must be at least as large as the requested size"
+        );
     }
 }

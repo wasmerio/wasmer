@@ -62,8 +62,6 @@ pub struct FuncGen<'a, M: Machine> {
     // // Memory plans.
     memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
 
-    // // Table plans.
-    // table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     /// Function signature.
     signature: FunctionType,
 
@@ -736,13 +734,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.extend_stack(stack_offset as u32)?;
 
         #[allow(clippy::type_complexity)]
-        let mut call_movs: Vec<(Location<M::GPR, M::SIMD>, M::GPR)> = vec![];
+        let mut call_movs = Vec::new();
         // Prepare register & stack parameters.
-        for (i, (param, _)) in params.iter().enumerate().rev() {
+        for (i, ((param, _), param_size)) in
+            (params.iter().zip(param_sizes.iter())).enumerate().rev()
+        {
             let loc = args[i];
             match loc {
                 Location::GPR(x) => {
-                    call_movs.push((*param, x));
+                    call_movs.push((*param, x, *param_size));
                 }
                 Location::Memory(_, _) => {
                     self.machine
@@ -760,11 +760,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Self::sort_call_movs(&mut call_movs);
 
         // Emit register moves.
-        for (loc, gpr) in call_movs {
+        for (loc, gpr, size) in call_movs {
             if loc != Location::GPR(gpr) {
                 self.machine
                     .move_location(Size::S64, loc, Location::GPR(gpr))?;
             }
+            // Adjust the argument if required by ABI
+            self.machine.adjust_gpr_param_location(gpr, size)?;
         }
 
         if matches!(call_type, NativeCallType::IncludeVMCtxArgument) {
@@ -1093,20 +1095,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let loc = self.acquire_location(&ty)?;
                 self.value_stack.push((loc, CanonicalizeType::None));
 
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-
-                let src = if let Some(local_global_index) =
+                let (src, tmp) = if let Some(local_global_index) =
                     self.module.local_global_index(global_index)
                 {
                     let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                    self.machine.emit_relaxed_mov(
-                        Size::S64,
+                    (
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
-                        Location::GPR(tmp),
-                    )?;
-                    Location::Memory(tmp, 0)
+                        None,
+                    )
                 } else {
                     // Imported globals require one level of indirection.
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
                     let offset = self
                         .vmoffsets
                         .vmctx_vmglobal_import_definition(global_index);
@@ -1115,28 +1114,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
                         Location::GPR(tmp),
                     )?;
-                    Location::Memory(tmp, 0)
+                    (Location::Memory(tmp, 0), Some(tmp))
                 };
 
                 self.machine.emit_relaxed_mov(Size::S64, src, loc)?;
 
-                self.machine.release_gpr(tmp);
+                if let Some(tmp) = tmp {
+                    self.machine.release_gpr(tmp);
+                }
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                let dst = if let Some(local_global_index) =
+                let (dst, tmp) = if let Some(local_global_index) =
                     self.module.local_global_index(global_index)
                 {
                     let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                    self.machine.emit_relaxed_mov(
-                        Size::S64,
+                    (
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
-                        Location::GPR(tmp),
-                    )?;
-                    Location::Memory(tmp, 0)
+                        None,
+                    )
                 } else {
                     // Imported globals require one level of indirection.
+                    let tmp = self.machine.acquire_temp_gpr().unwrap();
                     let offset = self
                         .vmoffsets
                         .vmctx_vmglobal_import_definition(global_index);
@@ -1145,7 +1144,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Memory(self.machine.get_vmctx_reg(), offset as i32),
                         Location::GPR(tmp),
                     )?;
-                    Location::Memory(tmp, 0)
+                    (Location::Memory(tmp, 0), Some(tmp))
                 };
                 let (loc, canonicalize) = self.pop_value_released()?;
                 if let Some(canonicalize_size) = canonicalize.to_size() {
@@ -1157,7 +1156,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 } else {
                     self.machine.emit_relaxed_mov(Size::S64, loc, dst)?;
                 }
-                self.machine.release_gpr(tmp);
+                if let Some(tmp) = tmp {
+                    self.machine.release_gpr(tmp);
+                }
             }
             Operator::LocalGet { local_index } => {
                 let local_index = local_index as usize;
@@ -2235,6 +2236,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(table_index as _);
                 let index = SignatureIndex::new(type_index as usize);
                 let sig = self.module.signatures.get(index).unwrap();
+                let expected_sig_hash = self.module.signature_hashes.get(index).unwrap();
+                let table = self.module.tables.get(table_index).unwrap();
+                let local_fixed_funcref_table = self
+                    .module
+                    .local_table_index(table_index)
+                    .filter(|_| table.is_fixed_funcref_table());
                 let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
@@ -2261,9 +2268,30 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let table_base = self.machine.acquire_temp_gpr().unwrap();
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
-                let sigidx = self.machine.acquire_temp_gpr().unwrap();
+                let sig_hash = self.machine.acquire_temp_gpr().unwrap();
 
-                if let Some(local_table_index) = self.module.local_table_index(table_index) {
+                if let Some(local_table_index) = local_fixed_funcref_table {
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::GPR(self.machine.get_vmctx_reg()),
+                        Location::GPR(table_base),
+                    )?;
+                    self.machine.location_add(
+                        Size::S64,
+                        Location::Imm32(
+                            self.vmoffsets
+                                .vmctx_fixed_funcref_table_anyfuncs(local_table_index)
+                                .expect("fixed funcref table must have inline VMContext storage"),
+                        ),
+                        Location::GPR(table_base),
+                        false,
+                    )?;
+                    self.machine.move_location(
+                        Size::S32,
+                        Location::Imm32(table.minimum),
+                        Location::GPR(table_count),
+                    )?;
+                } else if let Some(local_table_index) = self.module.local_table_index(table_index) {
                     let (vmctx_offset_base, vmctx_offset_len) = (
                         self.vmoffsets.vmctx_vmtable_definition(local_table_index),
                         self.vmoffsets
@@ -2317,7 +2345,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .move_location(Size::S32, func_index, Location::GPR(table_count))?;
                 self.machine.emit_imul_imm32(
                     Size::S64,
-                    self.vmoffsets.size_of_vm_funcref() as u32,
+                    if local_fixed_funcref_table.is_some() {
+                        self.vmoffsets.size_of_vmcaller_checked_anyfunc() as u32
+                    } else {
+                        self.vmoffsets.size_of_vm_funcref() as u32
+                    },
                     table_count,
                 )?;
                 self.machine.location_add(
@@ -2327,41 +2359,59 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     false,
                 )?;
 
-                // deref the table to get a VMFuncRef
-                self.machine.move_location(
-                    Size::S64,
-                    Location::Memory(table_count, self.vmoffsets.vm_funcref_anyfunc_ptr() as i32),
-                    Location::GPR(table_count),
-                )?;
-                // Trap if the FuncRef is null
-                self.machine.jmp_on_condition(
-                    UnsignedCondition::Equal,
-                    Size::S64,
-                    Location::GPR(table_count),
-                    Location::Imm32(0),
-                    self.special_labels.indirect_call_null,
-                )?;
+                if local_fixed_funcref_table.is_some() {
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::Memory(
+                            table_count,
+                            self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as i32,
+                        ),
+                        Location::GPR(table_base),
+                    )?;
+                    self.machine.jmp_on_condition(
+                        UnsignedCondition::Equal,
+                        Size::S64,
+                        Location::GPR(table_base),
+                        Location::Imm32(0),
+                        self.special_labels.indirect_call_null,
+                    )?;
+                } else {
+                    // deref the table to get a VMFuncRef
+                    self.machine.move_location(
+                        Size::S64,
+                        Location::Memory(
+                            table_count,
+                            self.vmoffsets.vm_funcref_anyfunc_ptr() as i32,
+                        ),
+                        Location::GPR(table_count),
+                    )?;
+                    // Trap if the FuncRef is null
+                    self.machine.jmp_on_condition(
+                        UnsignedCondition::Equal,
+                        Size::S64,
+                        Location::GPR(table_count),
+                        Location::Imm32(0),
+                        self.special_labels.indirect_call_null,
+                    )?;
+                }
                 self.machine.move_location(
                     Size::S32,
-                    Location::Memory(
-                        self.machine.get_vmctx_reg(),
-                        self.vmoffsets.vmctx_vmshared_signature_id(index) as i32,
-                    ),
-                    Location::GPR(sigidx),
+                    Location::Imm32(expected_sig_hash.as_u32()),
+                    Location::GPR(sig_hash),
                 )?;
 
                 // Trap if signature mismatches.
                 self.machine.jmp_on_condition(
                     UnsignedCondition::NotEqual,
                     Size::S32,
-                    Location::GPR(sigidx),
+                    Location::GPR(sig_hash),
                     Location::Memory(
                         table_count,
-                        (self.vmoffsets.vmcaller_checked_anyfunc_type_index() as usize) as i32,
+                        (self.vmoffsets.vmcaller_checked_anyfunc_signature_hash() as usize) as i32,
                     ),
                     self.special_labels.bad_signature,
                 )?;
-                self.machine.release_gpr(sigidx);
+                self.machine.release_gpr(sig_hash);
                 self.machine.release_gpr(table_count);
                 self.machine.release_gpr(table_base);
 
@@ -2637,8 +2687,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Imm32(memory_index.index() as u32),
                         CanonicalizeType::None,
                     )),
-                    iter::once(WpType::I64),
-                    iter::once(WpType::I64),
+                    iter::once(WpType::I32),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
@@ -2674,11 +2724,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .iter()
                     .cloned(),
                     [
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
                     ]
                     .iter()
                     .cloned(),
@@ -2705,7 +2755,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, data_index]
                     iter::once((Location::Imm32(data_index), CanonicalizeType::None)),
-                    iter::once(WpType::I64),
+                    iter::once(WpType::I32),
                     iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -2756,7 +2806,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                    [WpType::I32, WpType::I32, WpType::I32, WpType::I32]
                         .iter()
                         .cloned(),
                     iter::empty(),
@@ -2808,7 +2858,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                    [WpType::I32, WpType::I32, WpType::I32, WpType::I32]
                         .iter()
                         .cloned(),
                     iter::empty(),
@@ -2849,8 +2899,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I64, WpType::I64].iter().cloned(),
-                    iter::once(WpType::I64),
+                    [WpType::I32, WpType::I32].iter().cloned(),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
@@ -5277,7 +5327,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Imm32(function_index as u32),
                         CanonicalizeType::None,
                     )),
-                    iter::once(WpType::I64),
+                    iter::once(WpType::I32),
                     iter::once(WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap())),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -5324,7 +5374,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64, WpType::I64].iter().cloned(),
+                    [WpType::I32, WpType::I32, WpType::I64].iter().cloned(),
                     iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -5363,7 +5413,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64].iter().cloned(),
+                    [WpType::I32, WpType::I32].iter().cloned(),
                     iter::once(WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap())),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -5437,7 +5487,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I64, WpType::I64, WpType::I64].iter().cloned(),
+                    [WpType::I64, WpType::I32, WpType::I32].iter().cloned(),
                     iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -5479,9 +5529,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [
                         WpType::I32,
                         WpType::I32,
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
                     ]
                     .iter()
                     .cloned(),
@@ -5520,7 +5570,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                    [WpType::I32, WpType::I32, WpType::I64, WpType::I32]
                         .iter()
                         .cloned(),
                     iter::empty(),
@@ -5561,9 +5611,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [
                         WpType::I32,
                         WpType::I32,
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
                     ]
                     .iter()
                     .cloned(),
@@ -5868,7 +5918,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.
     #[allow(clippy::type_complexity)]
-    fn sort_call_movs(movs: &mut [(Location<M::GPR, M::SIMD>, M::GPR)]) {
+    fn sort_call_movs(movs: &mut [(Location<M::GPR, M::SIMD>, M::GPR, Size)]) {
         for i in 0..movs.len() {
             for j in (i + 1)..movs.len() {
                 if let Location::GPR(src_gpr) = movs[j].0
