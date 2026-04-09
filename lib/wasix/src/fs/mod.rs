@@ -1199,6 +1199,17 @@ impl WasiFs {
                             entries.get(component.as_os_str().to_string_lossy().as_ref())
                         {
                             cur_inode = entry.clone();
+                            // A cached entry that is a symlink must still be followed when
+                            // follow_symlinks is set.  Without this, the Kind::Symlink inode
+                            // is returned directly and callers get stale "exists" results
+                            // (e.g. os.path.exists returns True for a dangling symlink).
+                            if follow_symlinks
+                                && matches!(cur_inode.read().deref(), Kind::Symlink { .. })
+                            {
+                                symlink_count += 1;
+                                drop(guard);
+                                continue 'symlink_resolution;
+                            }
                         } else {
                             let file = {
                                 let mut cd = path.clone();
