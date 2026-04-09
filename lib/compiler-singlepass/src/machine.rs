@@ -234,6 +234,12 @@ pub trait Machine {
         idx: usize,
         calling_convention: CallingConvention,
     ) -> Self::GPR;
+    /// Adjust GPR param for calling convention ABI purpose.
+    fn adjust_gpr_param_location(
+        &mut self,
+        register: Self::GPR,
+        size: Size,
+    ) -> Result<(), CompileError>;
     /// Get return value location (to build a call, using SP for stack return values).
     fn get_return_value_location(
         &self,
