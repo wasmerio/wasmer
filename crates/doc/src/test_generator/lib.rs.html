@@ -27,7 +27,7 @@
 <a href=#27 id=27 data-nosnippet>27</a>    out: <span class="kw-2">&amp;mut </span>Testsuite,
 <a href=#28 id=28 data-nosnippet>28</a>    path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
 <a href=#29 id=29 data-nosnippet>29</a>    processor: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;mut </span>Testsuite, PathBuf) -&gt; <span class="prelude-ty">Option</span>&lt;Test&gt;,
-<a href=#30 id=30 data-nosnippet>30</a>) -&gt; anyhow::Result&lt;usize&gt; {
+<a href=#30 id=30 data-nosnippet>30</a>) -&gt; anyhow::Result&lt;()&gt; {
 <a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">let </span>path = path.as_ref();
 <a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">let </span>testsuite = <span class="kw-2">&amp;</span>extract_name(path);
 <a href=#33 id=33 data-nosnippet>33</a>    with_test_module(out, testsuite, |out| test_directory(out, path, processor))
@@ -54,7 +54,7 @@
 <a href=#54 id=54 data-nosnippet>54</a>    out: <span class="kw-2">&amp;mut </span>Testsuite,
 <a href=#55 id=55 data-nosnippet>55</a>    path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
 <a href=#56 id=56 data-nosnippet>56</a>    processor: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;mut </span>Testsuite, PathBuf) -&gt; <span class="prelude-ty">Option</span>&lt;Test&gt;,
-<a href=#57 id=57 data-nosnippet>57</a>) -&gt; anyhow::Result&lt;usize&gt; {
+<a href=#57 id=57 data-nosnippet>57</a>) -&gt; anyhow::Result&lt;()&gt; {
 <a href=#58 id=58 data-nosnippet>58</a>    <span class="kw">let </span>path = path.as_ref();
 <a href=#59 id=59 data-nosnippet>59</a>    <span class="kw">let </span><span class="kw-2">mut </span>dir_entries: Vec&lt;<span class="kw">_</span>&gt; = path
 <a href=#60 id=60 data-nosnippet>60</a>        .read_dir()
@@ -75,7 +75,7 @@
 <a href=#75 id=75 data-nosnippet>75</a>        out.path.pop().unwrap();
 <a href=#76 id=76 data-nosnippet>76</a>    }
 <a href=#77 id=77 data-nosnippet>77</a>
-<a href=#78 id=78 data-nosnippet>78</a>    <span class="prelude-val">Ok</span>(dir_entries.len())
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="prelude-val">Ok</span>(())
 <a href=#79 id=79 data-nosnippet>79</a>}
 <a href=#80 id=80 data-nosnippet>80</a>
 <a href=#81 id=81 data-nosnippet>81</a><span class="doccomment">/// Extract a valid Rust identifier from the stem of a path.
@@ -88,19 +88,19 @@
 <a href=#88 id=88 data-nosnippet>88</a>        .replace([<span class="string">'-'</span>, <span class="string">'/'</span>], <span class="string">"_"</span>)
 <a href=#89 id=89 data-nosnippet>89</a>}
 <a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a><span class="kw">pub fn </span>with_test_module&lt;T&gt;(
+<a href=#91 id=91 data-nosnippet>91</a><span class="kw">pub fn </span>with_test_module(
 <a href=#92 id=92 data-nosnippet>92</a>    out: <span class="kw-2">&amp;mut </span>Testsuite,
 <a href=#93 id=93 data-nosnippet>93</a>    testsuite: <span class="kw-2">&amp;</span>str,
-<a href=#94 id=94 data-nosnippet>94</a>    f: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>Testsuite) -&gt; anyhow::Result&lt;T&gt;,
-<a href=#95 id=95 data-nosnippet>95</a>) -&gt; anyhow::Result&lt;T&gt; {
+<a href=#94 id=94 data-nosnippet>94</a>    f: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>Testsuite) -&gt; anyhow::Result&lt;()&gt;,
+<a href=#95 id=95 data-nosnippet>95</a>) -&gt; anyhow::Result&lt;()&gt; {
 <a href=#96 id=96 data-nosnippet>96</a>    out.path.push(testsuite.to_string());
 <a href=#97 id=97 data-nosnippet>97</a>    out.buffer.push_str(<span class="string">"mod "</span>);
 <a href=#98 id=98 data-nosnippet>98</a>    out.buffer.push_str(testsuite);
 <a href=#99 id=99 data-nosnippet>99</a>    out.buffer.push_str(<span class="string">" {\n"</span>);
 <a href=#100 id=100 data-nosnippet>100</a>
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">let </span>result = f(out)<span class="question-mark">?</span>;
+<a href=#101 id=101 data-nosnippet>101</a>    f(out)<span class="question-mark">?</span>;
 <a href=#102 id=102 data-nosnippet>102</a>
 <a href=#103 id=103 data-nosnippet>103</a>    out.buffer.push_str(<span class="string">"}\n"</span>);
 <a href=#104 id=104 data-nosnippet>104</a>    out.path.pop().unwrap();
-<a href=#105 id=105 data-nosnippet>105</a>    <span class="prelude-val">Ok</span>(result)
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="prelude-val">Ok</span>(())
 <a href=#106 id=106 data-nosnippet>106</a>}</code></pre></div></section></main></body></html>
