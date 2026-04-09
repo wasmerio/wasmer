@@ -1150,6 +1150,7 @@ fn issue_6334_foldable_comparison_expressions(mut config: crate::Config) -> Resu
     Ok(())
 }
 
+#[cfg(feature = "llvm")]
 #[test]
 fn issue_6401_llvm_v128_load16x4_s_oob() -> Result<()> {
     use wasmer_compiler::CompilerConfig;
