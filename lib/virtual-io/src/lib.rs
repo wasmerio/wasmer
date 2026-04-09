@@ -13,4 +13,3 @@ pub use guard::*;
 pub use interest::*;
 #[cfg(feature = "sys")]
 pub use selector::*;
-pub use waker::*;
