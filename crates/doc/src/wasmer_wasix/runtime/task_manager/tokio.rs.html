@@ -332,12 +332,12 @@
 <a href=#332 id=332 data-nosnippet>332</a>
 <a href=#333 id=333 data-nosnippet>333</a><span class="comment">// Used by [`VirtualTaskManager::sleep_now`] to abort a sleep task when drop.
 <a href=#334 id=334 data-nosnippet>334</a></span><span class="attr">#[derive(Default)]
-<a href=#335 id=335 data-nosnippet>335</a></span><span class="kw">struct </span>SleepNow {
+<a href=#335 id=335 data-nosnippet>335</a></span><span class="kw">pub struct </span>SleepNow {
 <a href=#336 id=336 data-nosnippet>336</a>    abort_handle: <span class="prelude-ty">Option</span>&lt;tokio::task::AbortHandle&gt;,
 <a href=#337 id=337 data-nosnippet>337</a>}
 <a href=#338 id=338 data-nosnippet>338</a>
 <a href=#339 id=339 data-nosnippet>339</a><span class="kw">impl </span>SleepNow {
-<a href=#340 id=340 data-nosnippet>340</a>    <span class="kw">async fn </span>enter(
+<a href=#340 id=340 data-nosnippet>340</a>    <span class="kw">pub async fn </span>enter(
 <a href=#341 id=341 data-nosnippet>341</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#342 id=342 data-nosnippet>342</a>        handle: tokio::runtime::Handle,
 <a href=#343 id=343 data-nosnippet>343</a>        time: Duration,
