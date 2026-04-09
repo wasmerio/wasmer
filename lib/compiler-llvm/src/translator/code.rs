@@ -1245,7 +1245,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         if !self.non_volatile_memory_ops {
             // If this memory access must trap when out of bounds (i.e. it is a memory
             // access written in the user program as opposed to one used by our VM)
-            // then mark that it can't be delete.
+            // then mark that it can't be deleted.
             if let MemoryCache::Static { base_ptr: _ } = self.ctx.memory(
                 memory_index,
                 self.intrinsics,
@@ -1368,8 +1368,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             pointee_size,
         )?;
 
-        // Build a dead store (if non-volatile memory operations are enabled) in order to preserve
-        // artifacts from a partial store operations.
+        // Build a dead load (if non-volatile memory operations are disabled) to preserve
+        // artifacts from partial store operations.
         if !self.non_volatile_memory_ops {
             self.build_annotated_load(pointee_ty, offset, memarg, alignment)?;
         }
