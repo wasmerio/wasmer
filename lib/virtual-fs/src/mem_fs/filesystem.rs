@@ -661,9 +661,7 @@ impl crate::FileSystem for FileSystem {
                 }
 
                 // Rename across file systems; we need to do a create and a delete
-                _ => {
-                    crate::ops::move_across_filesystems(self, self, from, to).await
-                }
+                _ => crate::ops::move_across_filesystems(self, self, from, to).await,
             }
         })
     }

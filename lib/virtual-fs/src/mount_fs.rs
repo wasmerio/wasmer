@@ -1856,8 +1856,10 @@ mod tests {
             .open(Path::new("/from.txt"))
             .unwrap();
 
-        fs.mount(Path::new("/left"), Arc::new(left.clone())).unwrap();
-        fs.mount(Path::new("/right"), Arc::new(right.clone())).unwrap();
+        fs.mount(Path::new("/left"), Arc::new(left.clone()))
+            .unwrap();
+        fs.mount(Path::new("/right"), Arc::new(right.clone()))
+            .unwrap();
 
         fs.rename(Path::new("/left/from.txt"), Path::new("/right/to.txt"))
             .await
