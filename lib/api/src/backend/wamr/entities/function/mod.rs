@@ -204,7 +204,10 @@ impl Function {
         let inner = store.inner.store.as_wamr().inner;
 
         let callback: CCallback = unsafe {
-            std::mem::transmute(func.function_callback(crate::BackendKind::Wamr).unwrap_wamr())
+            std::mem::transmute(
+                func.function_callback(crate::BackendKind::Wamr)
+                    .unwrap_wamr(),
+            )
         };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
@@ -287,7 +290,10 @@ impl Function {
         let inner = store.inner.store.as_wamr().inner;
 
         let callback: CCallback = unsafe {
-            std::mem::transmute(func.function_callback(crate::BackendKind::Wamr).unwrap_wamr())
+            std::mem::transmute(
+                func.function_callback(crate::BackendKind::Wamr)
+                    .unwrap_wamr(),
+            )
         };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
@@ -408,7 +414,12 @@ impl Function {
             return Err(Into::<Trap>::into(trap).into());
         }
 
-        let results_slice = unsafe { std::slice::from_raw_parts(results.data, results.size) };
+        let results_slice: &[_] = if results.size == 0 {
+            &[]
+        } else {
+            // SAFETY: the data is non-null only if the size is nonzero.
+            unsafe { std::slice::from_raw_parts(results.data, results.size) }
+        };
         Ok(results_slice
             .iter()
             .map(|v| IntoWasmerValue::into_wv(*v))

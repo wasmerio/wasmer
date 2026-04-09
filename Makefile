@@ -13,25 +13,13 @@ SHELL=/usr/bin/env bash
 # |------------|----------|--------------|-------|
 # | Cranelift  | Linux    | amd64        | glibc |
 # | LLVM       | Darwin   | aarch64      | musl  |
-# | Singlepass | Windows  | riscv        |       |
+# | Singlepass | Windows  | riscv64gc    |       |
+# |            |          | riscv32gc    |       |
+# |            |          | loongarch64  |       |
 # |------------|----------|--------------|-------|
 #
-# Here is what works and what doesn't:
-#
-# * Cranelift works everywhere except */`loongarch64`,
-#
-# * LLVM works on Linux+Darwin/`amd64`,
-#   and linux+`aarch64`, linux+`riscv`, linux+`loongarch64`
-#   but it doesn't work on Darwin/`aarch64` or Windows/`aarch64`.
-#
-# * Singlepass works on Linux+Darwin+Windows/`amd64`,
-#   and Linux+Darwin/`aarch64`
-#   it doesn't work on */`riscv` or */`loongarch64`.
-#
-# * Windows isn't tested on `aarch64`, that's why we consider it's not
-#   working, but it might possibly be.
-# * The Only target for `riscv` familly of processor is the RV64, with the `GC` extensions
-
+# The supported matrix can be seen here:
+# https://docs.wasmer.io/runtime/features#backend-support-by-chipset
 
 #####
 #
@@ -1006,6 +994,8 @@ lint-packages:
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 lint-clang-format:
 	find . \( -path './lib/napi' -o -path './target' \) -prune -o -type f \( -name '*.c' -o -name '*.cpp' \) -exec clang-format --dry-run --color -Werror {} +
+lint-yamlfmt:
+	yamlfmt -lint .github
 
 lint-wasmi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="wasmi-default" --locked -- -D clippy::all
@@ -1026,7 +1016,7 @@ lint-formatting:
 	cargo fmt --all -- --check
 	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
-lint: lint-clang-format lint-formatting lint-packages
+lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages
 
 lint-all: lint-formatting lint-packages lint-wasmi lint-wamr lint-v8 lint-jsc lint-capi-ci lint-package-crate
 
