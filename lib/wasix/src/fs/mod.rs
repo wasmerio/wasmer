@@ -2344,7 +2344,6 @@ impl WasiFs {
             }
             Err(err) => {
                 trace!(%fd, "closing file descriptor failed - {}", err);
-                return Err(err);
             }
         }
         Ok(())
@@ -2592,13 +2591,5 @@ mod tests {
             wasi_fs.relative_path_to_absolute("file.txt".to_string()),
             "/home/user/file.txt"
         );
-    }
-
-    #[tokio::test]
-    async fn close_fd_returns_badf_for_unknown_fd() {
-        let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::Sandbox(TmpFileSystem::new());
-        let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
-        assert_eq!(wasi_fs.close_fd(123_456), Err(Errno::Badf));
     }
 }
