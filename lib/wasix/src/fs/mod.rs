@@ -2048,7 +2048,6 @@ impl WasiFs {
 
         for PreopenedDir {
             path,
-            source_path: _,
             alias,
             read,
             write,
@@ -2588,6 +2587,36 @@ mod tests {
         };
 
         assert_eq!(path, std::path::Path::new("/hamlet"));
+    }
+
+    #[tokio::test]
+    async fn dot_mapped_preopen_uses_guest_current_dir() {
+        let root_dir = tempdir().unwrap();
+        let hamlet_dir = root_dir.path().join("hamlet");
+        std::fs::create_dir_all(&hamlet_dir).unwrap();
+
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(Engine::default())
+            .current_dir("/work")
+            .map_dir(".", &hamlet_dir)
+            .unwrap()
+            .build_init()
+            .unwrap();
+
+        let preopen_inode = {
+            let guard = init.state.fs.root_inode.read();
+            let Kind::Root { entries } = guard.deref() else {
+                panic!("expected root inode");
+            };
+            entries.get(".").unwrap().clone()
+        };
+        let guard = preopen_inode.read();
+
+        let Kind::Dir { path, .. } = guard.deref() else {
+            panic!("expected preopen inode to be a directory");
+        };
+
+        assert_eq!(path, std::path::Path::new("/work"));
     }
 
     #[tokio::test]

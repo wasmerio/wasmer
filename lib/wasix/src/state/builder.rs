@@ -59,6 +59,8 @@ pub struct WasiEnvBuilder {
     pub(super) signals: Vec<SignalDisposition>,
     /// Pre-opened directories that will be accessible from WASI.
     pub(super) preopens: Vec<PreopenedDir>,
+    /// Host directories that should be mounted into the guest and then preopened.
+    mapped_dirs: Vec<MappedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
     vfs_preopens: Vec<String>,
     #[allow(clippy::type_complexity)]
@@ -657,22 +659,13 @@ impl WasiEnvBuilder {
         P: AsRef<Path>,
     {
         validate_mapped_dir_alias(alias)?;
-        let source_path = po_dir.as_ref().to_path_buf();
-        let path = if alias == "." {
-            source_path.clone()
-        } else {
-            Path::new("/").join(alias.trim_start_matches('/'))
-        };
-        let preopen = PreopenedDir {
-            path,
-            source_path: Some(source_path),
-            alias: Some(alias.trim_start_matches('/').to_string()),
+        self.mapped_dirs.push(MappedDir {
+            alias: alias.trim_start_matches('/').to_string(),
+            host_path: po_dir.as_ref().to_path_buf(),
             read: true,
             write: true,
             create: true,
-        };
-
-        self.preopens.push(preopen);
+        });
 
         Ok(())
     }
@@ -950,36 +943,79 @@ impl WasiEnvBuilder {
             }
         }
 
-        if let Some(root_fs) = fs_backing.root().filesystem_at(Path::new("/")) {
-            for preopen in &self.preopens {
-                let Some(source_path) = &preopen.source_path else {
-                    continue;
-                };
+        let mut resolved_preopens = self.preopens.clone();
 
-                if preopen.path == *source_path {
-                    continue;
-                }
+        for mapped_dir in &self.mapped_dirs {
+            let guest_path = mapped_dir.guest_path(self.current_dir.as_deref());
 
+            #[cfg(feature = "host-fs")]
+            let mapped_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(
+                virtual_fs::host_fs::FileSystem::new(
+                    tokio::runtime::Handle::current(),
+                    &mapped_dir.host_path,
+                )
+                .map_err(|err| {
+                    WasiStateCreationError::WasiFsSetupError(format!(
+                        "Could not prepare mapped directory '{}' from '{}': {err}",
+                        guest_path.display(),
+                        mapped_dir.host_path.display()
+                    ))
+                })?,
+            );
+
+            #[cfg(not(feature = "host-fs"))]
+            let mapped_fs: Arc<dyn FileSystem + Send + Sync> = {
+                return Err(WasiStateCreationError::WasiFsSetupError(format!(
+                    "Could not prepare mapped directory '{}' from '{}': host-fs support is not enabled",
+                    guest_path.display(),
+                    mapped_dir.host_path.display()
+                )));
+            };
+
+            if guest_path == Path::new("/") {
                 fs_backing
                     .root()
-                    .mount_with_source(&preopen.path, source_path, root_fs.clone())
+                    .set_mount(Path::new("/"), mapped_fs.clone())
                     .map_err(|err| {
                         WasiStateCreationError::WasiFsSetupError(format!(
-                            "Could not map preopened directory '{}' to '{}': {err}",
-                            preopen.path.display(),
-                            source_path.display()
+                            "Could not mount mapped directory '{}' at '{}': {err}",
+                            mapped_dir.host_path.display(),
+                            guest_path.display()
+                        ))
+                    })?;
+            } else {
+                fs_backing
+                    .root()
+                    .mount(&guest_path, mapped_fs.clone())
+                    .map_err(|err| {
+                        WasiStateCreationError::WasiFsSetupError(format!(
+                            "Could not mount mapped directory '{}' at '{}': {err}",
+                            mapped_dir.host_path.display(),
+                            guest_path.display()
                         ))
                     })?;
             }
+
+            resolved_preopens.push(PreopenedDir {
+                path: guest_path,
+                alias: Some(mapped_dir.alias.clone()),
+                read: mapped_dir.read,
+                write: mapped_dir.write,
+                create: mapped_dir.create,
+            });
         }
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let inodes = crate::state::WasiInodes::new();
         let wasi_fs = {
             // self.preopens are checked in [`PreopenDirBuilder::build`]
-            let mut wasi_fs =
-                WasiFs::new_with_preopen(&inodes, &self.preopens, &self.vfs_preopens, fs_backing)
-                    .map_err(WasiStateCreationError::WasiFsCreationError)?;
+            let mut wasi_fs = WasiFs::new_with_preopen(
+                &inodes,
+                &resolved_preopens,
+                &self.vfs_preopens,
+                fs_backing,
+            )
+            .map_err(WasiStateCreationError::WasiFsCreationError)?;
 
             // set up the file system, overriding base files and calling the setup function
             wasi_fs
@@ -1203,11 +1239,31 @@ pub struct PreopenDirBuilder {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct PreopenedDir {
     pub(crate) path: PathBuf,
-    pub(crate) source_path: Option<PathBuf>,
     pub(crate) alias: Option<String>,
     pub(crate) read: bool,
     pub(crate) write: bool,
     pub(crate) create: bool,
+}
+
+#[derive(Debug, Clone)]
+struct MappedDir {
+    alias: String,
+    host_path: PathBuf,
+    read: bool,
+    write: bool,
+    create: bool,
+}
+
+impl MappedDir {
+    fn guest_path(&self, current_dir: Option<&Path>) -> PathBuf {
+        if self.alias == "." {
+            current_dir
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| PathBuf::from("/"))
+        } else {
+            Path::new("/").join(&self.alias)
+        }
+    }
 }
 
 impl PreopenDirBuilder {
@@ -1288,7 +1344,6 @@ impl PreopenDirBuilder {
 
         Ok(PreopenedDir {
             path,
-            source_path: None,
             alias: self.alias.clone(),
             read: self.read,
             write: self.write,

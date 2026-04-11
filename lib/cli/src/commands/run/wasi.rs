@@ -387,11 +387,19 @@ impl Wasi {
                 .preopen_dir(Path::new("/"))
                 .unwrap();
 
-            if have_current_dir {
-                builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+            let dot_path = if have_current_dir {
+                PathBuf::from(MAPPED_CURRENT_DIR_DEFAULT_PATH)
             } else {
-                builder.map_dir(".", "/")?
-            }
+                PathBuf::from("/")
+            };
+
+            builder.add_preopen_build(|p| {
+                p.directory(&dot_path)
+                    .alias(".")
+                    .read(true)
+                    .write(true)
+                    .create(true)
+            })?;
         };
 
         *builder.capabilities_mut() = self.capabilities();
