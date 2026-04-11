@@ -1,9 +1,7 @@
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 use super::{run_build_script, run_wasm};
 
-// macOS is currently disabled, because cranelift does not
-// support exception handling on that platform yet.
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_simple_switching() {
     let wasm_path = run_build_script(file!(), "simple_switching").unwrap();
@@ -11,7 +9,7 @@ fn test_simple_switching() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_switching_with_main() {
     let wasm_path = run_build_script(file!(), "switching_with_main").unwrap();
@@ -19,7 +17,7 @@ fn test_switching_with_main() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_switching_to_a_deleted_context() {
     let wasm_path = run_build_script(file!(), "switching_to_a_deleted_context").unwrap();
@@ -27,7 +25,7 @@ fn test_switching_to_a_deleted_context() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_switching_threads() {
     let wasm_path = run_build_script(file!(), "switching_in_threads").unwrap();
@@ -35,7 +33,7 @@ fn test_switching_threads() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_multiple_contexts() {
     let wasm_path = run_build_script(file!(), "multiple_contexts").unwrap();
@@ -43,7 +41,7 @@ fn test_multiple_contexts() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_error_handling() {
     let wasm_path = run_build_script(file!(), "error_handling").unwrap();
@@ -51,7 +49,7 @@ fn test_error_handling() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_nested_switches() {
     let wasm_path = run_build_script(file!(), "nested_switches").unwrap();
@@ -59,7 +57,7 @@ fn test_nested_switches() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_mutexes() {
     let wasm_path = run_build_script(file!(), "contexts_with_mutexes").unwrap();
@@ -67,7 +65,7 @@ fn test_contexts_with_mutexes() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_env_vars() {
     let wasm_path = run_build_script(file!(), "contexts_with_env_vars").unwrap();
@@ -75,7 +73,7 @@ fn test_contexts_with_env_vars() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_signals() {
     let wasm_path = run_build_script(file!(), "contexts_with_signals").unwrap();
@@ -83,7 +81,7 @@ fn test_contexts_with_signals() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_timers() {
     let wasm_path = run_build_script(file!(), "contexts_with_timers").unwrap();
@@ -91,7 +89,7 @@ fn test_contexts_with_timers() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_pipes() {
     let wasm_path = run_build_script(file!(), "contexts_with_pipes").unwrap();
@@ -99,7 +97,7 @@ fn test_contexts_with_pipes() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_pending_file_operations() {
     let wasm_path = run_build_script(file!(), "pending_file_operations").unwrap();
@@ -107,7 +105,7 @@ fn test_pending_file_operations() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_recursive_host_calls() {
     let wasm_path = run_build_script(file!(), "recursive_host_calls").unwrap();
@@ -115,7 +113,7 @@ fn test_recursive_host_calls() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_malloc_during_switch() {
     let wasm_path = run_build_script(file!(), "malloc_during_switch").unwrap();
@@ -123,7 +121,7 @@ fn test_malloc_during_switch() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_nested_host_call_switch() {
     let wasm_path = run_build_script(file!(), "nested_host_call_switch").unwrap();
@@ -131,7 +129,7 @@ fn test_nested_host_call_switch() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_switch_to_never_resumed() {
     let wasm_path = run_build_script(file!(), "switch_to_never_resumed").unwrap();
@@ -139,7 +137,7 @@ fn test_switch_to_never_resumed() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_three_way_recursion() {
     let wasm_path = run_build_script(file!(), "three_way_recursion").unwrap();
@@ -147,7 +145,7 @@ fn test_three_way_recursion() {
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 #[test]
 fn test_contexts_with_setjmp() {
     let wasm_path = run_build_script(file!(), "contexts_with_setjmp").unwrap();

@@ -1,4 +1,8 @@
 mod basic_tests;
+mod call_dynamic;
+mod closure_free;
+mod context_destroy;
+mod context_switch;
 mod context_switching;
 mod dynamic_library_tests;
 mod edge_case_tests;
@@ -11,6 +15,7 @@ mod lifecycle_tests;
 mod longjmp_tests;
 mod path_tests;
 mod poll_tests;
+mod reflect_signature;
 mod reflection_tests;
 mod semaphore_tests;
 mod shared_library_tests;
@@ -310,11 +315,11 @@ fn create_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
 
         let compiler = wasmer::sys::LLVM::default();
 
-        return EngineBuilder::new(compiler)
+        EngineBuilder::new(compiler)
             .set_features(Some(features))
             .set_target(Some(target))
             .engine()
-            .into();
+            .into()
     }
 
     #[cfg(not(target_os = "macos"))]
