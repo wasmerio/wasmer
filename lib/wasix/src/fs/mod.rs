@@ -2048,6 +2048,7 @@ impl WasiFs {
 
         for PreopenedDir {
             path,
+            source_path: _,
             alias,
             read,
             write,
@@ -2461,9 +2462,12 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
 mod tests {
     use super::*;
     use once_cell::sync::OnceCell;
-    use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
+    use tempfile::tempdir;
+    use virtual_fs::{RootFileSystemBuilder, TmpFileSystem, host_fs};
+    use wasmer::Engine;
     use wasmer_config::package::PackageId;
 
+    use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
 
     #[tokio::test]
@@ -2551,6 +2555,39 @@ mod tests {
             wasi_fs.relative_path_to_absolute("file.txt".to_string()),
             "/home/user/file.txt"
         );
+    }
+
+    #[tokio::test]
+    async fn mapped_preopen_inode_paths_should_stay_in_guest_space() {
+        let root_dir = tempdir().unwrap();
+        let hamlet_dir = root_dir.path().join("hamlet");
+        std::fs::create_dir_all(&hamlet_dir).unwrap();
+
+        let host_fs =
+            host_fs::FileSystem::new(tokio::runtime::Handle::current(), root_dir.path()).unwrap();
+
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(Engine::default())
+            .fs(Arc::new(host_fs) as Arc<dyn FileSystem + Send + Sync>)
+            .map_dir("hamlet", &hamlet_dir)
+            .unwrap()
+            .build_init()
+            .unwrap();
+
+        let preopen_inode = {
+            let guard = init.state.fs.root_inode.read();
+            let Kind::Root { entries } = guard.deref() else {
+                panic!("expected root inode");
+            };
+            entries.get("hamlet").unwrap().clone()
+        };
+        let guard = preopen_inode.read();
+
+        let Kind::Dir { path, .. } = guard.deref() else {
+            panic!("expected preopen inode to be a directory");
+        };
+
+        assert_eq!(path, std::path::Path::new("/hamlet"));
     }
 
     #[tokio::test]

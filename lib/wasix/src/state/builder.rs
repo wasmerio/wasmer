@@ -656,14 +656,21 @@ impl WasiEnvBuilder {
     where
         P: AsRef<Path>,
     {
-        let mut pdb = PreopenDirBuilder::new();
-        let path = po_dir.as_ref();
-        pdb.directory(path)
-            .alias(alias)
-            .read(true)
-            .write(true)
-            .create(true);
-        let preopen = pdb.build()?;
+        validate_mapped_dir_alias(alias)?;
+        let source_path = po_dir.as_ref().to_path_buf();
+        let path = if alias == "." {
+            source_path.clone()
+        } else {
+            Path::new("/").join(alias.trim_start_matches('/'))
+        };
+        let preopen = PreopenedDir {
+            path,
+            source_path: Some(source_path),
+            alias: Some(alias.trim_start_matches('/').to_string()),
+            read: true,
+            write: true,
+            create: true,
+        };
 
         self.preopens.push(preopen);
 
@@ -943,6 +950,29 @@ impl WasiEnvBuilder {
             }
         }
 
+        if let Some(root_fs) = fs_backing.root().filesystem_at(Path::new("/")) {
+            for preopen in &self.preopens {
+                let Some(source_path) = &preopen.source_path else {
+                    continue;
+                };
+
+                if preopen.path == *source_path {
+                    continue;
+                }
+
+                fs_backing
+                    .root()
+                    .mount_with_source(&preopen.path, source_path, root_fs.clone())
+                    .map_err(|err| {
+                        WasiStateCreationError::WasiFsSetupError(format!(
+                            "Could not map preopened directory '{}' to '{}': {err}",
+                            preopen.path.display(),
+                            source_path.display()
+                        ))
+                    })?;
+            }
+        }
+
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let inodes = crate::state::WasiInodes::new();
         let wasi_fs = {
@@ -1173,6 +1203,7 @@ pub struct PreopenDirBuilder {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct PreopenedDir {
     pub(crate) path: PathBuf,
+    pub(crate) source_path: Option<PathBuf>,
     pub(crate) alias: Option<String>,
     pub(crate) read: bool,
     pub(crate) write: bool,
@@ -1257,6 +1288,7 @@ impl PreopenDirBuilder {
 
         Ok(PreopenedDir {
             path,
+            source_path: None,
             alias: self.alias.clone(),
             read: self.read,
             write: self.write,
