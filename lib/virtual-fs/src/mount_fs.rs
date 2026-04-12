@@ -261,7 +261,7 @@ impl MountFileSystem {
             };
             node = child;
 
-            if let Some(mount) = Self::mounted(&node) {
+            if let Some(mount) = Self::mounted(node) {
                 best = Some(ResolvedMount {
                     mount_path: Self::absolute_path(&components[..=index]),
                     delegated_path: mount.source_path.join(
