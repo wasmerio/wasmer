@@ -2462,7 +2462,7 @@ mod tests {
     use super::*;
     use once_cell::sync::OnceCell;
     use tempfile::tempdir;
-    use virtual_fs::{RootFileSystemBuilder, TmpFileSystem, host_fs};
+    use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
     use wasmer::Engine;
     use wasmer_config::package::PackageId;
 
@@ -2556,14 +2556,18 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "host-fs")]
     #[tokio::test]
     async fn mapped_preopen_inode_paths_should_stay_in_guest_space() {
         let root_dir = tempdir().unwrap();
         let hamlet_dir = root_dir.path().join("hamlet");
         std::fs::create_dir_all(&hamlet_dir).unwrap();
 
-        let host_fs =
-            host_fs::FileSystem::new(tokio::runtime::Handle::current(), root_dir.path()).unwrap();
+        let host_fs = virtual_fs::host_fs::FileSystem::new(
+            tokio::runtime::Handle::current(),
+            root_dir.path(),
+        )
+        .unwrap();
 
         let init = WasiEnvBuilder::new("test_prog")
             .engine(Engine::default())
