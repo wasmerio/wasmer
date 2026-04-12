@@ -256,9 +256,11 @@ impl FileSystem {
             file: Mutex::new(file),
             metadata: {
                 let time = time();
+                let is_char_device = path.starts_with("/dev");
                 Metadata {
                     ft: FileType {
-                        file: true,
+                        file: !is_char_device,
+                        char_device: is_char_device,
                         ..Default::default()
                     },
                     accessed: time,
