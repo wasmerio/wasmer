@@ -159,12 +159,11 @@ impl<'a> WasiTest<'a> {
                 } else {
                     let stdout_str = get_stdio_output(&stdout_rx)?;
                     let stderr_str = get_stdio_output(&stderr_rx)?;
-                    Err(e).with_context(|| {
+                    return Err(e).with_context(|| {
                         format!(
                             "failed to run WASI `_start` function: failed with stdout: \"{stdout_str}\"\nstderr: \"{stderr_str}\"",
                         )
-                    })?;
-                    unreachable!();
+                    });
                 }
             }
         };
