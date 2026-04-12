@@ -15,6 +15,10 @@ mod reflection_tests;
 mod semaphore_tests;
 mod shared_library_tests;
 mod socket_tests;
+mod thread_exit;
+mod thread_id;
+mod thread_parallelism;
+mod thread_spawn;
 mod threadlocal_tests;
 
 use std::borrow::Cow;
