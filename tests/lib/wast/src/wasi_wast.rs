@@ -21,7 +21,7 @@ use wasmer_types::ModuleHash;
 use wasmer_wasix::runtime::task_manager::{block_on, tokio::TokioTaskManager};
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
-    FsError, PluggableRuntime, VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
+    FsError, PluggableRuntime, VirtualFile, WasiEnv, WasiEnvBuilder, WasiError, WasiVersion,
     generate_import_object_from_env, get_wasi_version,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
@@ -151,18 +151,26 @@ impl<'a> WasiTest<'a> {
             std::mem::drop(stdin_tx);
         }
 
-        // TODO: handle errors here when the error fix gets shipped
-        match start.call(&mut store, &[]) {
-            Ok(_) => {}
+        let exit_code = match start.call(&mut store, &[]) {
+            Ok(_) => 0,
             Err(e) => {
-                let stdout_str = get_stdio_output(&stdout_rx)?;
-                let stderr_str = get_stdio_output(&stderr_rx)?;
-                Err(e).with_context(|| {
-                    format!(
-                        "failed to run WASI `_start` function: failed with stdout: \"{stdout_str}\"\nstderr: \"{stderr_str}\"",
-                    )
-                })?;
+                if let Some(WasiError::Exit(code)) = e.downcast_ref::<WasiError>() {
+                    code.raw() as i64
+                } else {
+                    let stdout_str = get_stdio_output(&stdout_rx)?;
+                    let stderr_str = get_stdio_output(&stderr_rx)?;
+                    Err(e).with_context(|| {
+                        format!(
+                            "failed to run WASI `_start` function: failed with stdout: \"{stdout_str}\"\nstderr: \"{stderr_str}\"",
+                        )
+                    })?;
+                    unreachable!();
+                }
             }
+        };
+
+        if let Some(expected) = &self.assert_return {
+            assert_eq!(exit_code, expected.return_value);
         }
 
         if let Some(expected_stdout) = &self.assert_stdout {
