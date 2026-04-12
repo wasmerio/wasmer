@@ -11,6 +11,8 @@ mod lifecycle_tests;
 mod longjmp_tests;
 mod path_tests;
 mod poll_tests;
+mod proc_exec;
+mod proc_exec2;
 mod reflection_tests;
 mod semaphore_tests;
 mod shared_library_tests;
