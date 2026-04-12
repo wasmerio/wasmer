@@ -221,21 +221,23 @@ impl<'a> WasiTest<'a> {
                 let fs = host_fs::FileSystem::new(Handle::current(), base_dir.clone()).unwrap();
 
                 for (alias, real_dir) in &self.mapped_dirs {
-                    let mut dir = base_dir.clone();
-                    dir.push(real_dir);
-                    builder.add_map_dir(alias, dir)?;
+                    let mut guest_dir = PathBuf::from("/");
+                    guest_dir.push(real_dir);
+                    builder.add_map_dir(alias, guest_dir)?;
                 }
 
                 // due to the structure of our code, all preopen dirs must be mapped now
                 for dir in &self.dirs {
-                    let mut new_dir = base_dir.clone();
+                    let mut new_dir = PathBuf::from("/");
                     new_dir.push(dir);
                     builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
                     let temp_dir = tempfile::tempdir_in(&base_dir)?;
-                    builder.add_map_dir(alias, temp_dir.path())?;
+                    let guest_temp_dir =
+                        Path::new("/").join(temp_dir.path().strip_prefix(&base_dir).unwrap());
+                    builder.add_map_dir(alias, guest_temp_dir)?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
 

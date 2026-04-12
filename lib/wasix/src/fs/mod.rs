@@ -2572,7 +2572,7 @@ mod tests {
         let init = WasiEnvBuilder::new("test_prog")
             .engine(Engine::default())
             .fs(Arc::new(host_fs) as Arc<dyn FileSystem + Send + Sync>)
-            .map_dir("hamlet", &hamlet_dir)
+            .map_dir("hamlet", "/hamlet")
             .unwrap()
             .build_init()
             .unwrap();
@@ -2595,14 +2595,10 @@ mod tests {
 
     #[tokio::test]
     async fn dot_mapped_preopen_uses_guest_current_dir() {
-        let root_dir = tempdir().unwrap();
-        let hamlet_dir = root_dir.path().join("hamlet");
-        std::fs::create_dir_all(&hamlet_dir).unwrap();
-
         let init = WasiEnvBuilder::new("test_prog")
             .engine(Engine::default())
             .current_dir("/work")
-            .map_dir(".", &hamlet_dir)
+            .map_dir(".", "/work")
             .unwrap()
             .build_init()
             .unwrap();
