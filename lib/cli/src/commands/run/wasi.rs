@@ -400,6 +400,8 @@ impl Wasi {
                     .write(true)
                     .create(true)
             })?;
+
+            builder
         };
 
         *builder.capabilities_mut() = self.capabilities();
