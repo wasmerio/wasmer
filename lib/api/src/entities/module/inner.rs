@@ -80,7 +80,7 @@ impl BackendModule {
         let mut module = Self::new(engine, wasm_bytes)?;
         // Set the module name to the absolute path of the filename.
         // This is useful for debugging the stack traces.
-        module.set_name(canonical.to_string_lossy());
+        module.set_name(canonical.to_string_lossy().into_owned());
         Ok(module)
     }
 
