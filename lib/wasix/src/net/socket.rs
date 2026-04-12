@@ -13,13 +13,13 @@ use std::{
 use serde_derive::{Deserialize, Serialize};
 use virtual_mio::InterestHandler;
 use virtual_net::{
-    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
-    VirtualTcpSocket, VirtualUdpSocket, net_error_into_io_err,
+    net_error_into_io_err, NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
+    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
 
-use crate::{VirtualTaskManager, net::net_error_into_wasi_err};
+use crate::{net::net_error_into_wasi_err, VirtualTaskManager};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -1227,6 +1227,7 @@ impl InodeSocket {
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
                         InodeSocketKind::Icmp(socket) => socket.try_send_to(self.data, self.addr),
+                        InodeSocketKind::TcpStream { socket, .. } => socket.try_send(self.data),
                         InodeSocketKind::UdpSocket { socket, .. } => {
                             socket.try_send_to(self.data, self.addr)
                         }
