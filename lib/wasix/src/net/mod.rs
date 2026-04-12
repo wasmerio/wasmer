@@ -29,10 +29,7 @@ pub(crate) fn read_ip<M: MemorySize>(
     let o = addr.u.octs;
     Ok(match addr.tag {
         Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
-        Addressfamily::Inet6 => {
-            let [a, b, c, d, e, f, g, h] = unsafe { transmute::<[u8; 16], [u16; 8]>(o) };
-            IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
-        }
+        Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::from(o))
         _ => return Err(Errno::Inval),
     })
 }
@@ -55,8 +52,7 @@ pub(crate) fn read_ip_v6<M: MemorySize>(
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
-    let [a, b, c, d, e, f, g, h] = unsafe { transmute::<[u8; 16], [u16; 8]>(addr.segs) };
-    Ok(Ipv6Addr::new(a, b, c, d, e, f, g, h))
+    Ok(Ipv6Addr::from(addr.segs))
 }
 
 pub fn write_ip<M: MemorySize>(
@@ -105,15 +101,9 @@ pub(crate) fn read_cidr<M: MemorySize>(
             prefix: o[4],
         },
         Addressfamily::Inet6 => {
-            let [a, b, c, d, e, f, g, h] = {
-                let o = [
-                    o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11],
-                    o[12], o[13], o[14], o[15],
-                ];
-                unsafe { transmute::<[u8; 16], [u16; 8]>(o) }
-            };
+            let octets = o[0..16].try_into().unwrap();
             IpCidr {
-                ip: IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
+                ip: IpAddr::V6(Ipv6Addr::from(octets)),
                 prefix: o[16],
             }
         }
@@ -245,15 +235,9 @@ pub(crate) fn read_route<M: MemorySize>(
                     prefix: o[4],
                 },
                 Addressfamily::Inet6 => {
-                    let [a, b, c, d, e, f, g, h] = {
-                        let o = [
-                            o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
-                            o[11], o[12], o[13], o[14], o[15],
-                        ];
-                        unsafe { transmute::<[u8; 16], [u16; 8]>(o) }
-                    };
+                    let octets = o[0..16].try_into().unwrap();
                     IpCidr {
-                        ip: IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
+                        ip: IpAddr::V6(Ipv6Addr::from(octets)),
                         prefix: o[16],
                     }
                 }
@@ -264,10 +248,7 @@ pub(crate) fn read_route<M: MemorySize>(
             let o = route.via_router.u.octs;
             match route.via_router.tag {
                 Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
-                Addressfamily::Inet6 => {
-                    let [a, b, c, d, e, f, g, h] = unsafe { transmute::<[u8; 16], [u16; 8]>(o) };
-                    IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
-                }
+                Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::from(o))
                 _ => return Err(Errno::Inval),
             }
         },
