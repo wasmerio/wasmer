@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BinaryPackage","BinaryPackageCommand"]};
+window.SIDEBAR_ITEMS = {"struct":["BinaryPackage","BinaryPackageCommand","BinaryPackageMount","BinaryPackageMounts"]};

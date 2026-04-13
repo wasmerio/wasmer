@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAPPED_CURRENT_DIR_DEFAULT_PATH"],"fn":["apply_relative_path_mounting_hack","build_directory_mappings","create_dir_all","prepare_filesystem"],"struct":["CommonWasiOptions","MappedCommand","MappedDirectory","MountedDirectory"]};
+window.SIDEBAR_ITEMS = {"constant":["MAPPED_CURRENT_DIR_DEFAULT_PATH"],"enum":["ExistingMountConflictBehavior"],"fn":["apply_relative_path_mounting_hack","normalized_mount_path","prepare_filesystem","writable_package_mount"],"struct":["CommonWasiOptions","MappedCommand","MappedDirectory","MountedDirectory"]};

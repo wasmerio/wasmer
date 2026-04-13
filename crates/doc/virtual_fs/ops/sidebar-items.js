@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["copy_reference","copy_reference_ext","create_dir_all","create_white_out","exists","has_white_out","is_dir","is_file","is_white_out","read","read_to_string","remove_white_out","touch","walk","write"],"static":["WHITEOUT_PREFIX"]};
+window.SIDEBAR_ITEMS = {"fn":["copy_reference","copy_reference_ext","create_dir_all","create_white_out","exists","has_white_out","is_dir","is_file","is_white_out","move_across_filesystems","read","read_to_string","remove_white_out","touch","walk","write"],"static":["WHITEOUT_PREFIX"]};

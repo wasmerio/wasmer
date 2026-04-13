@@ -161,171 +161,204 @@
 <a href=#161 id=161 data-nosnippet>161</a>    })
 <a href=#162 id=162 data-nosnippet>162</a>}
 <a href=#163 id=163 data-nosnippet>163</a>
-<a href=#164 id=164 data-nosnippet>164</a><span class="doccomment">/// Asynchronously write some bytes to a file.
-<a href=#165 id=165 data-nosnippet>165</a>///
-<a href=#166 id=166 data-nosnippet>166</a>/// This is analogous to [`std::fs::write()`].
-<a href=#167 id=167 data-nosnippet>167</a></span><span class="kw">pub async fn </span>write&lt;F&gt;(
-<a href=#168 id=168 data-nosnippet>168</a>    fs: <span class="kw-2">&amp;</span>F,
-<a href=#169 id=169 data-nosnippet>169</a>    path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send,
-<a href=#170 id=170 data-nosnippet>170</a>    data: <span class="kw">impl </span>AsRef&lt;[u8]&gt; + Send,
-<a href=#171 id=171 data-nosnippet>171</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt;
-<a href=#172 id=172 data-nosnippet>172</a><span class="kw">where
-<a href=#173 id=173 data-nosnippet>173</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
-<a href=#174 id=174 data-nosnippet>174</a>{
-<a href=#175 id=175 data-nosnippet>175</a>    <span class="kw">let </span>path = path.as_ref();
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="kw">let </span>data = data.as_ref();
-<a href=#177 id=177 data-nosnippet>177</a>
-<a href=#178 id=178 data-nosnippet>178</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = fs
-<a href=#179 id=179 data-nosnippet>179</a>        .new_open_options()
-<a href=#180 id=180 data-nosnippet>180</a>        .create(<span class="bool-val">true</span>)
-<a href=#181 id=181 data-nosnippet>181</a>        .truncate(<span class="bool-val">true</span>)
-<a href=#182 id=182 data-nosnippet>182</a>        .write(<span class="bool-val">true</span>)
-<a href=#183 id=183 data-nosnippet>183</a>        .open(path)<span class="question-mark">?</span>;
-<a href=#184 id=184 data-nosnippet>184</a>
-<a href=#185 id=185 data-nosnippet>185</a>    f.write_all(data).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#186 id=186 data-nosnippet>186</a>    f.flush().<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a>    <span class="prelude-val">Ok</span>(())
-<a href=#189 id=189 data-nosnippet>189</a>}
-<a href=#190 id=190 data-nosnippet>190</a>
-<a href=#191 id=191 data-nosnippet>191</a><span class="doccomment">/// Asynchronously read a file's contents into memory.
-<a href=#192 id=192 data-nosnippet>192</a>///
-<a href=#193 id=193 data-nosnippet>193</a>/// This is analogous to [`std::fs::read()`].
-<a href=#194 id=194 data-nosnippet>194</a></span><span class="kw">pub async fn </span>read&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, FsError&gt;
-<a href=#195 id=195 data-nosnippet>195</a><span class="kw">where
-<a href=#196 id=196 data-nosnippet>196</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
-<a href=#197 id=197 data-nosnippet>197</a>{
-<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = fs.new_open_options().read(<span class="bool-val">true</span>).open(path.as_ref())<span class="question-mark">?</span>;
-<a href=#199 id=199 data-nosnippet>199</a>    <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
-<a href=#200 id=200 data-nosnippet>200</a>    f.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#201 id=201 data-nosnippet>201</a>
-<a href=#202 id=202 data-nosnippet>202</a>    <span class="prelude-val">Ok</span>(buffer)
-<a href=#203 id=203 data-nosnippet>203</a>}
-<a href=#204 id=204 data-nosnippet>204</a>
-<a href=#205 id=205 data-nosnippet>205</a><span class="doccomment">/// Asynchronously read a file's contents into memory as a string.
-<a href=#206 id=206 data-nosnippet>206</a>///
-<a href=#207 id=207 data-nosnippet>207</a>/// This is analogous to [`std::fs::read_to_string()`].
-<a href=#208 id=208 data-nosnippet>208</a></span><span class="kw">pub async fn </span>read_to_string&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;String, FsError&gt;
-<a href=#209 id=209 data-nosnippet>209</a><span class="kw">where
-<a href=#210 id=210 data-nosnippet>210</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
-<a href=#211 id=211 data-nosnippet>211</a>{
-<a href=#212 id=212 data-nosnippet>212</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = fs.new_open_options().read(<span class="bool-val">true</span>).open(path.as_ref())<span class="question-mark">?</span>;
-<a href=#213 id=213 data-nosnippet>213</a>    <span class="kw">let </span><span class="kw-2">mut </span>buffer = String::new();
-<a href=#214 id=214 data-nosnippet>214</a>    f.read_to_string(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#215 id=215 data-nosnippet>215</a>
-<a href=#216 id=216 data-nosnippet>216</a>    <span class="prelude-val">Ok</span>(buffer)
-<a href=#217 id=217 data-nosnippet>217</a>}
-<a href=#218 id=218 data-nosnippet>218</a>
-<a href=#219 id=219 data-nosnippet>219</a><span class="doccomment">/// Update a file's modification and access times, creating the file if it
-<a href=#220 id=220 data-nosnippet>220</a>/// doesn't already exist.
-<a href=#221 id=221 data-nosnippet>221</a></span><span class="kw">pub fn </span>touch&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt;
-<a href=#222 id=222 data-nosnippet>222</a><span class="kw">where
-<a href=#223 id=223 data-nosnippet>223</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
-<a href=#224 id=224 data-nosnippet>224</a>{
-<a href=#225 id=225 data-nosnippet>225</a>    <span class="kw">let _ </span>= fs.new_open_options().create(<span class="bool-val">true</span>).write(<span class="bool-val">true</span>).open(path)<span class="question-mark">?</span>;
-<a href=#226 id=226 data-nosnippet>226</a>
-<a href=#227 id=227 data-nosnippet>227</a>    <span class="prelude-val">Ok</span>(())
-<a href=#228 id=228 data-nosnippet>228</a>}
-<a href=#229 id=229 data-nosnippet>229</a>
-<a href=#230 id=230 data-nosnippet>230</a><span class="doccomment">/// Recursively iterate over all paths inside a directory, ignoring any
-<a href=#231 id=231 data-nosnippet>231</a>/// errors that may occur along the way.
-<a href=#232 id=232 data-nosnippet>232</a></span><span class="kw">pub fn </span>walk&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = DirEntry&gt; + <span class="lifetime">'_</span>&gt;
-<a href=#233 id=233 data-nosnippet>233</a><span class="kw">where
-<a href=#234 id=234 data-nosnippet>234</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
-<a href=#235 id=235 data-nosnippet>235</a>{
-<a href=#236 id=236 data-nosnippet>236</a>    <span class="kw">let </span>path = path.as_ref();
-<a href=#237 id=237 data-nosnippet>237</a>    <span class="kw">let </span><span class="kw-2">mut </span>dirs_to_visit: VecDeque&lt;<span class="kw">_</span>&gt; = fs
-<a href=#238 id=238 data-nosnippet>238</a>        .read_dir(path)
-<a href=#239 id=239 data-nosnippet>239</a>        .ok()
-<a href=#240 id=240 data-nosnippet>240</a>        .into_iter()
-<a href=#241 id=241 data-nosnippet>241</a>        .flatten()
-<a href=#242 id=242 data-nosnippet>242</a>        .filter_map(|result| result.ok())
-<a href=#243 id=243 data-nosnippet>243</a>        .collect();
-<a href=#244 id=244 data-nosnippet>244</a>
-<a href=#245 id=245 data-nosnippet>245</a>    Box::new(std::iter::from_fn(<span class="kw">move </span>|| {
-<a href=#246 id=246 data-nosnippet>246</a>        <span class="kw">let </span>next = dirs_to_visit.pop_back()<span class="question-mark">?</span>;
-<a href=#247 id=247 data-nosnippet>247</a>
-<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(children) = fs.read_dir(<span class="kw-2">&amp;</span>next.path) {
-<a href=#249 id=249 data-nosnippet>249</a>            dirs_to_visit.extend(children.flatten());
-<a href=#250 id=250 data-nosnippet>250</a>        }
+<a href=#164 id=164 data-nosnippet>164</a><span class="doccomment">/// Move a file across filesystem boundaries by copying it into the destination
+<a href=#165 id=165 data-nosnippet>165</a>/// and then removing the original.
+<a href=#166 id=166 data-nosnippet>166</a></span><span class="kw">pub fn </span>move_across_filesystems&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#167 id=167 data-nosnippet>167</a>    source: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+<a href=#168 id=168 data-nosnippet>168</a>    destination: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+<a href=#169 id=169 data-nosnippet>169</a>    from: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path,
+<a href=#170 id=170 data-nosnippet>170</a>    to: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path,
+<a href=#171 id=171 data-nosnippet>171</a>) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="kw">crate</span>::Result&lt;()&gt;&gt; {
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="kw">let </span>from = from.to_owned();
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="kw">let </span>to = to.to_owned();
+<a href=#174 id=174 data-nosnippet>174</a>    Box::pin(<span class="kw">async move </span>{
+<a href=#175 id=175 data-nosnippet>175</a>        <span class="kw">let </span>metadata = source.metadata(<span class="kw-2">&amp;</span>from)<span class="question-mark">?</span>;
+<a href=#176 id=176 data-nosnippet>176</a>        <span class="kw">if </span>metadata.is_dir() {
+<a href=#177 id=177 data-nosnippet>177</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
+<a href=#178 id=178 data-nosnippet>178</a>        }
+<a href=#179 id=179 data-nosnippet>179</a>
+<a href=#180 id=180 data-nosnippet>180</a>        copy_reference_ext(source, destination, <span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to)
+<a href=#181 id=181 data-nosnippet>181</a>            .<span class="kw">await
+<a href=#182 id=182 data-nosnippet>182</a>            </span>.map_err(FsError::from)<span class="question-mark">?</span>;
+<a href=#183 id=183 data-nosnippet>183</a>
+<a href=#184 id=184 data-nosnippet>184</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = source.remove_file(<span class="kw-2">&amp;</span>from) {
+<a href=#185 id=185 data-nosnippet>185</a>            <span class="macro">tracing::warn!</span>(
+<a href=#186 id=186 data-nosnippet>186</a>                <span class="question-mark">?</span>from,
+<a href=#187 id=187 data-nosnippet>187</a>                <span class="question-mark">?</span>to,
+<a href=#188 id=188 data-nosnippet>188</a>                <span class="question-mark">?</span>error,
+<a href=#189 id=189 data-nosnippet>189</a>                <span class="string">"Failed to remove file after cross-filesystem rename"
+<a href=#190 id=190 data-nosnippet>190</a>            </span>);
+<a href=#191 id=191 data-nosnippet>191</a>        }
+<a href=#192 id=192 data-nosnippet>192</a>
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="prelude-val">Ok</span>(())
+<a href=#194 id=194 data-nosnippet>194</a>    })
+<a href=#195 id=195 data-nosnippet>195</a>}
+<a href=#196 id=196 data-nosnippet>196</a>
+<a href=#197 id=197 data-nosnippet>197</a><span class="doccomment">/// Asynchronously write some bytes to a file.
+<a href=#198 id=198 data-nosnippet>198</a>///
+<a href=#199 id=199 data-nosnippet>199</a>/// This is analogous to [`std::fs::write()`].
+<a href=#200 id=200 data-nosnippet>200</a></span><span class="kw">pub async fn </span>write&lt;F&gt;(
+<a href=#201 id=201 data-nosnippet>201</a>    fs: <span class="kw-2">&amp;</span>F,
+<a href=#202 id=202 data-nosnippet>202</a>    path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send,
+<a href=#203 id=203 data-nosnippet>203</a>    data: <span class="kw">impl </span>AsRef&lt;[u8]&gt; + Send,
+<a href=#204 id=204 data-nosnippet>204</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt;
+<a href=#205 id=205 data-nosnippet>205</a><span class="kw">where
+<a href=#206 id=206 data-nosnippet>206</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
+<a href=#207 id=207 data-nosnippet>207</a>{
+<a href=#208 id=208 data-nosnippet>208</a>    <span class="kw">let </span>path = path.as_ref();
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="kw">let </span>data = data.as_ref();
+<a href=#210 id=210 data-nosnippet>210</a>
+<a href=#211 id=211 data-nosnippet>211</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = fs
+<a href=#212 id=212 data-nosnippet>212</a>        .new_open_options()
+<a href=#213 id=213 data-nosnippet>213</a>        .create(<span class="bool-val">true</span>)
+<a href=#214 id=214 data-nosnippet>214</a>        .truncate(<span class="bool-val">true</span>)
+<a href=#215 id=215 data-nosnippet>215</a>        .write(<span class="bool-val">true</span>)
+<a href=#216 id=216 data-nosnippet>216</a>        .open(path)<span class="question-mark">?</span>;
+<a href=#217 id=217 data-nosnippet>217</a>
+<a href=#218 id=218 data-nosnippet>218</a>    f.write_all(data).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#219 id=219 data-nosnippet>219</a>    f.flush().<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#220 id=220 data-nosnippet>220</a>
+<a href=#221 id=221 data-nosnippet>221</a>    <span class="prelude-val">Ok</span>(())
+<a href=#222 id=222 data-nosnippet>222</a>}
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a><span class="doccomment">/// Asynchronously read a file's contents into memory.
+<a href=#225 id=225 data-nosnippet>225</a>///
+<a href=#226 id=226 data-nosnippet>226</a>/// This is analogous to [`std::fs::read()`].
+<a href=#227 id=227 data-nosnippet>227</a></span><span class="kw">pub async fn </span>read&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, FsError&gt;
+<a href=#228 id=228 data-nosnippet>228</a><span class="kw">where
+<a href=#229 id=229 data-nosnippet>229</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
+<a href=#230 id=230 data-nosnippet>230</a>{
+<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = fs.new_open_options().read(<span class="bool-val">true</span>).open(path.as_ref())<span class="question-mark">?</span>;
+<a href=#232 id=232 data-nosnippet>232</a>    <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
+<a href=#233 id=233 data-nosnippet>233</a>    f.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#234 id=234 data-nosnippet>234</a>
+<a href=#235 id=235 data-nosnippet>235</a>    <span class="prelude-val">Ok</span>(buffer)
+<a href=#236 id=236 data-nosnippet>236</a>}
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a><span class="doccomment">/// Asynchronously read a file's contents into memory as a string.
+<a href=#239 id=239 data-nosnippet>239</a>///
+<a href=#240 id=240 data-nosnippet>240</a>/// This is analogous to [`std::fs::read_to_string()`].
+<a href=#241 id=241 data-nosnippet>241</a></span><span class="kw">pub async fn </span>read_to_string&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;String, FsError&gt;
+<a href=#242 id=242 data-nosnippet>242</a><span class="kw">where
+<a href=#243 id=243 data-nosnippet>243</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
+<a href=#244 id=244 data-nosnippet>244</a>{
+<a href=#245 id=245 data-nosnippet>245</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = fs.new_open_options().read(<span class="bool-val">true</span>).open(path.as_ref())<span class="question-mark">?</span>;
+<a href=#246 id=246 data-nosnippet>246</a>    <span class="kw">let </span><span class="kw-2">mut </span>buffer = String::new();
+<a href=#247 id=247 data-nosnippet>247</a>    f.read_to_string(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#248 id=248 data-nosnippet>248</a>
+<a href=#249 id=249 data-nosnippet>249</a>    <span class="prelude-val">Ok</span>(buffer)
+<a href=#250 id=250 data-nosnippet>250</a>}
 <a href=#251 id=251 data-nosnippet>251</a>
-<a href=#252 id=252 data-nosnippet>252</a>        <span class="prelude-val">Some</span>(next)
-<a href=#253 id=253 data-nosnippet>253</a>    }))
-<a href=#254 id=254 data-nosnippet>254</a>}
-<a href=#255 id=255 data-nosnippet>255</a>
-<a href=#256 id=256 data-nosnippet>256</a><span class="attr">#[cfg(test)]
-<a href=#257 id=257 data-nosnippet>257</a></span><span class="kw">mod </span>tests {
-<a href=#258 id=258 data-nosnippet>258</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#259 id=259 data-nosnippet>259</a>    <span class="kw">use </span><span class="kw">crate</span>::mem_fs::FileSystem <span class="kw">as </span>MemFS;
-<a href=#260 id=260 data-nosnippet>260</a>    <span class="kw">use </span>tokio::io::AsyncReadExt;
-<a href=#261 id=261 data-nosnippet>261</a>
-<a href=#262 id=262 data-nosnippet>262</a>    <span class="attr">#[tokio::test]
-<a href=#263 id=263 data-nosnippet>263</a>    </span><span class="kw">async fn </span>write() {
-<a href=#264 id=264 data-nosnippet>264</a>        <span class="kw">let </span>fs = MemFS::default();
-<a href=#265 id=265 data-nosnippet>265</a>
-<a href=#266 id=266 data-nosnippet>266</a>        <span class="kw">super</span>::write(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
-<a href=#267 id=267 data-nosnippet>267</a>            .<span class="kw">await
-<a href=#268 id=268 data-nosnippet>268</a>            </span>.unwrap();
-<a href=#269 id=269 data-nosnippet>269</a>
-<a href=#270 id=270 data-nosnippet>270</a>        <span class="kw">let </span><span class="kw-2">mut </span>contents = String::new();
-<a href=#271 id=271 data-nosnippet>271</a>        fs.new_open_options()
-<a href=#272 id=272 data-nosnippet>272</a>            .read(<span class="bool-val">true</span>)
-<a href=#273 id=273 data-nosnippet>273</a>            .open(<span class="string">"/file.txt"</span>)
-<a href=#274 id=274 data-nosnippet>274</a>            .unwrap()
-<a href=#275 id=275 data-nosnippet>275</a>            .read_to_string(<span class="kw-2">&amp;mut </span>contents)
-<a href=#276 id=276 data-nosnippet>276</a>            .<span class="kw">await
-<a href=#277 id=277 data-nosnippet>277</a>            </span>.unwrap();
-<a href=#278 id=278 data-nosnippet>278</a>        <span class="macro">assert_eq!</span>(contents, <span class="string">"Hello, World!"</span>);
-<a href=#279 id=279 data-nosnippet>279</a>    }
+<a href=#252 id=252 data-nosnippet>252</a><span class="doccomment">/// Update a file's modification and access times, creating the file if it
+<a href=#253 id=253 data-nosnippet>253</a>/// doesn't already exist.
+<a href=#254 id=254 data-nosnippet>254</a></span><span class="kw">pub fn </span>touch&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt;
+<a href=#255 id=255 data-nosnippet>255</a><span class="kw">where
+<a href=#256 id=256 data-nosnippet>256</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
+<a href=#257 id=257 data-nosnippet>257</a>{
+<a href=#258 id=258 data-nosnippet>258</a>    <span class="kw">let _ </span>= fs.new_open_options().create(<span class="bool-val">true</span>).write(<span class="bool-val">true</span>).open(path)<span class="question-mark">?</span>;
+<a href=#259 id=259 data-nosnippet>259</a>
+<a href=#260 id=260 data-nosnippet>260</a>    <span class="prelude-val">Ok</span>(())
+<a href=#261 id=261 data-nosnippet>261</a>}
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a><span class="doccomment">/// Recursively iterate over all paths inside a directory, ignoring any
+<a href=#264 id=264 data-nosnippet>264</a>/// errors that may occur along the way.
+<a href=#265 id=265 data-nosnippet>265</a></span><span class="kw">pub fn </span>walk&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = DirEntry&gt; + <span class="lifetime">'_</span>&gt;
+<a href=#266 id=266 data-nosnippet>266</a><span class="kw">where
+<a href=#267 id=267 data-nosnippet>267</a>    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
+<a href=#268 id=268 data-nosnippet>268</a>{
+<a href=#269 id=269 data-nosnippet>269</a>    <span class="kw">let </span>path = path.as_ref();
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">let </span><span class="kw-2">mut </span>dirs_to_visit: VecDeque&lt;<span class="kw">_</span>&gt; = fs
+<a href=#271 id=271 data-nosnippet>271</a>        .read_dir(path)
+<a href=#272 id=272 data-nosnippet>272</a>        .ok()
+<a href=#273 id=273 data-nosnippet>273</a>        .into_iter()
+<a href=#274 id=274 data-nosnippet>274</a>        .flatten()
+<a href=#275 id=275 data-nosnippet>275</a>        .filter_map(|result| result.ok())
+<a href=#276 id=276 data-nosnippet>276</a>        .collect();
+<a href=#277 id=277 data-nosnippet>277</a>
+<a href=#278 id=278 data-nosnippet>278</a>    Box::new(std::iter::from_fn(<span class="kw">move </span>|| {
+<a href=#279 id=279 data-nosnippet>279</a>        <span class="kw">let </span>next = dirs_to_visit.pop_back()<span class="question-mark">?</span>;
 <a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>    <span class="attr">#[tokio::test]
-<a href=#282 id=282 data-nosnippet>282</a>    </span><span class="kw">async fn </span>read() {
-<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">let </span>fs = MemFS::default();
-<a href=#284 id=284 data-nosnippet>284</a>        fs.new_open_options()
-<a href=#285 id=285 data-nosnippet>285</a>            .create(<span class="bool-val">true</span>)
-<a href=#286 id=286 data-nosnippet>286</a>            .write(<span class="bool-val">true</span>)
-<a href=#287 id=287 data-nosnippet>287</a>            .open(<span class="string">"/file.txt"</span>)
-<a href=#288 id=288 data-nosnippet>288</a>            .unwrap()
-<a href=#289 id=289 data-nosnippet>289</a>            .write_all(<span class="string">b"Hello, World!"</span>)
-<a href=#290 id=290 data-nosnippet>290</a>            .<span class="kw">await
-<a href=#291 id=291 data-nosnippet>291</a>            </span>.unwrap();
-<a href=#292 id=292 data-nosnippet>292</a>
-<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">let </span>contents = <span class="kw">super</span>::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap();
-<a href=#294 id=294 data-nosnippet>294</a>        <span class="macro">assert_eq!</span>(contents, <span class="string">"Hello, World!"</span>);
-<a href=#295 id=295 data-nosnippet>295</a>
-<a href=#296 id=296 data-nosnippet>296</a>        <span class="kw">let </span>contents = <span class="kw">super</span>::read(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap();
-<a href=#297 id=297 data-nosnippet>297</a>        <span class="macro">assert_eq!</span>(contents, <span class="string">b"Hello, World!"</span>);
-<a href=#298 id=298 data-nosnippet>298</a>    }
-<a href=#299 id=299 data-nosnippet>299</a>
-<a href=#300 id=300 data-nosnippet>300</a>    <span class="attr">#[tokio::test]
-<a href=#301 id=301 data-nosnippet>301</a>    </span><span class="kw">async fn </span>create_dir_all() {
-<a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">let </span>fs = MemFS::default();
-<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">super</span>::write(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>, <span class="string">b""</span>).<span class="kw">await</span>.unwrap();
-<a href=#304 id=304 data-nosnippet>304</a>
-<a href=#305 id=305 data-nosnippet>305</a>        <span class="macro">assert!</span>(!<span class="kw">super</span>::exists(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>));
-<a href=#306 id=306 data-nosnippet>306</a>        <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>).unwrap();
-<a href=#307 id=307 data-nosnippet>307</a>        <span class="macro">assert!</span>(<span class="kw">super</span>::exists(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>));
-<a href=#308 id=308 data-nosnippet>308</a>
-<a href=#309 id=309 data-nosnippet>309</a>        <span class="comment">// It's okay to create the same directory multiple times
-<a href=#310 id=310 data-nosnippet>310</a>        </span><span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>).unwrap();
-<a href=#311 id=311 data-nosnippet>311</a>
-<a href=#312 id=312 data-nosnippet>312</a>        <span class="comment">// You can't create a directory on top of a file
-<a href=#313 id=313 data-nosnippet>313</a>        </span><span class="macro">assert_eq!</span>(
-<a href=#314 id=314 data-nosnippet>314</a>            <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).unwrap_err(),
-<a href=#315 id=315 data-nosnippet>315</a>            FsError::BaseNotDirectory
-<a href=#316 id=316 data-nosnippet>316</a>        );
-<a href=#317 id=317 data-nosnippet>317</a>        <span class="macro">assert_eq!</span>(
-<a href=#318 id=318 data-nosnippet>318</a>            <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt/invalid/path"</span>).unwrap_err(),
-<a href=#319 id=319 data-nosnippet>319</a>            FsError::BaseNotDirectory
-<a href=#320 id=320 data-nosnippet>320</a>        );
-<a href=#321 id=321 data-nosnippet>321</a>    }
-<a href=#322 id=322 data-nosnippet>322</a>
-<a href=#323 id=323 data-nosnippet>323</a>    <span class="attr">#[tokio::test]
-<a href=#324 id=324 data-nosnippet>324</a>    </span><span class="kw">async fn </span>touch() {
-<a href=#325 id=325 data-nosnippet>325</a>        <span class="kw">let </span>fs = MemFS::default();
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">super</span>::touch(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).unwrap();
+<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(children) = fs.read_dir(<span class="kw-2">&amp;</span>next.path) {
+<a href=#282 id=282 data-nosnippet>282</a>            dirs_to_visit.extend(children.flatten());
+<a href=#283 id=283 data-nosnippet>283</a>        }
+<a href=#284 id=284 data-nosnippet>284</a>
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="prelude-val">Some</span>(next)
+<a href=#286 id=286 data-nosnippet>286</a>    }))
+<a href=#287 id=287 data-nosnippet>287</a>}
+<a href=#288 id=288 data-nosnippet>288</a>
+<a href=#289 id=289 data-nosnippet>289</a><span class="attr">#[cfg(test)]
+<a href=#290 id=290 data-nosnippet>290</a></span><span class="kw">mod </span>tests {
+<a href=#291 id=291 data-nosnippet>291</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#292 id=292 data-nosnippet>292</a>    <span class="kw">use </span><span class="kw">crate</span>::mem_fs::FileSystem <span class="kw">as </span>MemFS;
+<a href=#293 id=293 data-nosnippet>293</a>    <span class="kw">use </span>tokio::io::AsyncReadExt;
+<a href=#294 id=294 data-nosnippet>294</a>
+<a href=#295 id=295 data-nosnippet>295</a>    <span class="attr">#[tokio::test]
+<a href=#296 id=296 data-nosnippet>296</a>    </span><span class="kw">async fn </span>write() {
+<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">let </span>fs = MemFS::default();
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">super</span>::write(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
+<a href=#300 id=300 data-nosnippet>300</a>            .<span class="kw">await
+<a href=#301 id=301 data-nosnippet>301</a>            </span>.unwrap();
+<a href=#302 id=302 data-nosnippet>302</a>
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">let </span><span class="kw-2">mut </span>contents = String::new();
+<a href=#304 id=304 data-nosnippet>304</a>        fs.new_open_options()
+<a href=#305 id=305 data-nosnippet>305</a>            .read(<span class="bool-val">true</span>)
+<a href=#306 id=306 data-nosnippet>306</a>            .open(<span class="string">"/file.txt"</span>)
+<a href=#307 id=307 data-nosnippet>307</a>            .unwrap()
+<a href=#308 id=308 data-nosnippet>308</a>            .read_to_string(<span class="kw-2">&amp;mut </span>contents)
+<a href=#309 id=309 data-nosnippet>309</a>            .<span class="kw">await
+<a href=#310 id=310 data-nosnippet>310</a>            </span>.unwrap();
+<a href=#311 id=311 data-nosnippet>311</a>        <span class="macro">assert_eq!</span>(contents, <span class="string">"Hello, World!"</span>);
+<a href=#312 id=312 data-nosnippet>312</a>    }
+<a href=#313 id=313 data-nosnippet>313</a>
+<a href=#314 id=314 data-nosnippet>314</a>    <span class="attr">#[tokio::test]
+<a href=#315 id=315 data-nosnippet>315</a>    </span><span class="kw">async fn </span>read() {
+<a href=#316 id=316 data-nosnippet>316</a>        <span class="kw">let </span>fs = MemFS::default();
+<a href=#317 id=317 data-nosnippet>317</a>        fs.new_open_options()
+<a href=#318 id=318 data-nosnippet>318</a>            .create(<span class="bool-val">true</span>)
+<a href=#319 id=319 data-nosnippet>319</a>            .write(<span class="bool-val">true</span>)
+<a href=#320 id=320 data-nosnippet>320</a>            .open(<span class="string">"/file.txt"</span>)
+<a href=#321 id=321 data-nosnippet>321</a>            .unwrap()
+<a href=#322 id=322 data-nosnippet>322</a>            .write_all(<span class="string">b"Hello, World!"</span>)
+<a href=#323 id=323 data-nosnippet>323</a>            .<span class="kw">await
+<a href=#324 id=324 data-nosnippet>324</a>            </span>.unwrap();
+<a href=#325 id=325 data-nosnippet>325</a>
+<a href=#326 id=326 data-nosnippet>326</a>        <span class="kw">let </span>contents = <span class="kw">super</span>::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap();
+<a href=#327 id=327 data-nosnippet>327</a>        <span class="macro">assert_eq!</span>(contents, <span class="string">"Hello, World!"</span>);
 <a href=#328 id=328 data-nosnippet>328</a>
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="macro">assert_eq!</span>(<span class="kw">super</span>::read(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap(), <span class="string">b""</span>);
-<a href=#330 id=330 data-nosnippet>330</a>    }
-<a href=#331 id=331 data-nosnippet>331</a>}</code></pre></div></section></main></body></html>
+<a href=#329 id=329 data-nosnippet>329</a>        <span class="kw">let </span>contents = <span class="kw">super</span>::read(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap();
+<a href=#330 id=330 data-nosnippet>330</a>        <span class="macro">assert_eq!</span>(contents, <span class="string">b"Hello, World!"</span>);
+<a href=#331 id=331 data-nosnippet>331</a>    }
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>    <span class="attr">#[tokio::test]
+<a href=#334 id=334 data-nosnippet>334</a>    </span><span class="kw">async fn </span>create_dir_all() {
+<a href=#335 id=335 data-nosnippet>335</a>        <span class="kw">let </span>fs = MemFS::default();
+<a href=#336 id=336 data-nosnippet>336</a>        <span class="kw">super</span>::write(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>, <span class="string">b""</span>).<span class="kw">await</span>.unwrap();
+<a href=#337 id=337 data-nosnippet>337</a>
+<a href=#338 id=338 data-nosnippet>338</a>        <span class="macro">assert!</span>(!<span class="kw">super</span>::exists(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>));
+<a href=#339 id=339 data-nosnippet>339</a>        <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>).unwrap();
+<a href=#340 id=340 data-nosnippet>340</a>        <span class="macro">assert!</span>(<span class="kw">super</span>::exists(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>));
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>        <span class="comment">// It's okay to create the same directory multiple times
+<a href=#343 id=343 data-nosnippet>343</a>        </span><span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>).unwrap();
+<a href=#344 id=344 data-nosnippet>344</a>
+<a href=#345 id=345 data-nosnippet>345</a>        <span class="comment">// You can't create a directory on top of a file
+<a href=#346 id=346 data-nosnippet>346</a>        </span><span class="macro">assert_eq!</span>(
+<a href=#347 id=347 data-nosnippet>347</a>            <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).unwrap_err(),
+<a href=#348 id=348 data-nosnippet>348</a>            FsError::BaseNotDirectory
+<a href=#349 id=349 data-nosnippet>349</a>        );
+<a href=#350 id=350 data-nosnippet>350</a>        <span class="macro">assert_eq!</span>(
+<a href=#351 id=351 data-nosnippet>351</a>            <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt/invalid/path"</span>).unwrap_err(),
+<a href=#352 id=352 data-nosnippet>352</a>            FsError::BaseNotDirectory
+<a href=#353 id=353 data-nosnippet>353</a>        );
+<a href=#354 id=354 data-nosnippet>354</a>    }
+<a href=#355 id=355 data-nosnippet>355</a>
+<a href=#356 id=356 data-nosnippet>356</a>    <span class="attr">#[tokio::test]
+<a href=#357 id=357 data-nosnippet>357</a>    </span><span class="kw">async fn </span>touch() {
+<a href=#358 id=358 data-nosnippet>358</a>        <span class="kw">let </span>fs = MemFS::default();
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a>        <span class="kw">super</span>::touch(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).unwrap();
+<a href=#361 id=361 data-nosnippet>361</a>
+<a href=#362 id=362 data-nosnippet>362</a>        <span class="macro">assert_eq!</span>(<span class="kw">super</span>::read(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap(), <span class="string">b""</span>);
+<a href=#363 id=363 data-nosnippet>363</a>    }
+<a href=#364 id=364 data-nosnippet>364</a>}</code></pre></div></section></main></body></html>
