@@ -23,7 +23,7 @@ use wasmer_types::{
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 
 /// The InkWell MemoryBuffer type
-pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
+pub type InkwellMemoryBuffer<'a> = inkwell::memory_buffer::MemoryBuffer<'a>;
 
 /// Callbacks to the different LLVM compilation phases.
 #[derive(Debug, Clone)]

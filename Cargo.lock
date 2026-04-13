@@ -2870,22 +2870,22 @@ dependencies = [
 
 [[package]]
 name = "inkwell"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1def4112dfb2ce2993db7027f7acdb43c1f4ee1c70a082a2eef306ed5d0df365"
+checksum = "7decbc9dfa45a4a827a6ff7b822c113b1285678a937e84213417d4ca8a095782"
 dependencies = [
+ "bitflags 2.11.0",
  "inkwell_internals",
  "libc",
  "llvm-sys",
- "once_cell",
  "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "inkwell_internals"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63736175c9a30ea123f7018de9f26163e0b39cd6978990ae486b510c4f3bad69"
+checksum = "6cfe97ee860815a90ed17e09639513269e39420a7440f3f4c996f238c514cf8d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3210,9 +3210,9 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "llvm-sys"
-version = "211.0.1"
+version = "221.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44007a7a44b73bdd877fa9c9ccef256036511220e90f65b4d50e7a15773c0ee3"
+checksum = "2abcc34a3b190f03c2a61b555f218f529589ff13657bdd2ff8ac3e85f2abe6bb"
 dependencies = [
  "anyhow",
  "cc",
@@ -5436,7 +5436,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.2",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
