@@ -51,6 +51,7 @@ impl FileSystem {
                             len: file_len,
                         }
                     },
+                    lifecycle: Arc::default(),
                 }));
 
                 assert_eq!(
@@ -121,6 +122,7 @@ impl FileSystem {
                     fs,
                     path: source_path,
                     metadata: meta,
+                    lifecycle: Arc::default(),
                 }));
 
                 assert_eq!(
@@ -267,6 +269,7 @@ impl FileSystem {
                     len: 0,
                 }
             },
+            lifecycle: Arc::default(),
         }));
 
         assert_eq!(
@@ -367,6 +370,27 @@ impl crate::FileOpener for FileSystem {
         };
 
         let mut cursor = 0u64;
+        let handle_lifecycle = match maybe_inode_of_file {
+            Some(ref inode_of_file) => {
+                let inode_of_file = match inode_of_file {
+                    InodeResolution::Found(a) => *a,
+                    InodeResolution::Redirect(..) => unreachable!("redirects are handled below"),
+                };
+                let fs = self.inner.read().map_err(|_| FsError::Lock)?;
+                match fs.storage.get(inode_of_file) {
+                    Some(
+                        node @ (Node::File(_)
+                        | Node::OffloadedFile(_)
+                        | Node::ReadOnlyFile(_)
+                        | Node::CustomFile(_)
+                        | Node::ArcFile(_)),
+                    ) => node.file_lifecycle().cloned().ok_or(FsError::NotAFile)?,
+                    Some(_) => return Err(FsError::NotAFile),
+                    None => return Err(FsError::EntryNotFound),
+                }
+            }
+            None => Arc::default(),
+        };
         let inode_of_file = match maybe_inode_of_file {
             // The file already exists, and a _new_ one _must_ be
             // created; it's not OK.
@@ -510,6 +534,7 @@ impl crate::FileOpener for FileSystem {
                             name: name_of_file,
                             file,
                             metadata,
+                            lifecycle: handle_lifecycle.clone(),
                         })
                     }
                     _ => {
@@ -519,6 +544,7 @@ impl crate::FileOpener for FileSystem {
                             name: name_of_file,
                             file,
                             metadata,
+                            lifecycle: handle_lifecycle.clone(),
                         })
                     }
                 };
@@ -545,6 +571,7 @@ impl crate::FileOpener for FileSystem {
         Ok(Box::new(FileHandle::new(
             inode_of_file,
             self.clone(),
+            handle_lifecycle,
             read,
             write || append || truncate,
             append,
