@@ -1144,10 +1144,10 @@ impl WasiFs {
         // other operations can construct correct absolute host paths.
         if path_str == "/" {
             let guard = base_inode.read();
-            if let Kind::Root { entries } = guard.deref() {
-                if let Some(root_entry) = entries.get("/") {
-                    return Ok(root_entry.clone());
-                }
+            if let Kind::Root { entries } = guard.deref()
+                && let Some(root_entry) = entries.get("/")
+            {
+                return Ok(root_entry.clone());
             }
         }
 
