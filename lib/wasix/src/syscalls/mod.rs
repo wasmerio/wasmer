@@ -114,7 +114,7 @@ use crate::{
     DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
     WasiResult, WasiRuntimeError,
     fs::{
-        Fd, FdInner, InodeVal, Kind, MAX_SYMLINKS, fs_error_into_wasi_err,
+        Fd, FdInner, InodeVal, Kind, fs_error_into_wasi_err,
         virtual_file_type_to_wasi_file_type,
     },
     journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
