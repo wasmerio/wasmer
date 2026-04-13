@@ -17,6 +17,139 @@ use crate::{
     ReadDir, VirtualFile, ops,
 };
 
+fn unlink_overlay_path<P>(primary: &Arc<P>, path: &Path) -> Result<(), FsError>
+where
+    P: FileSystem + ?Sized,
+{
+    let created_whiteout = ops::create_white_out(primary, path).is_ok();
+
+    match primary.remove_file(path) {
+        Err(e) if should_continue(e) => {
+            if created_whiteout {
+                Ok(())
+            } else {
+                Err(FsError::PermissionDenied)
+            }
+        }
+        other => other,
+    }
+}
+
+struct SecondaryFile<P> {
+    path: PathBuf,
+    primary: Arc<P>,
+    inner: Box<dyn VirtualFile + Send + Sync>,
+}
+
+impl<P> Debug for SecondaryFile<P>
+where
+    P: FileSystem + 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SecondaryFile").finish()
+    }
+}
+
+impl<P> VirtualFile for SecondaryFile<P>
+where
+    P: FileSystem + 'static,
+{
+    fn last_accessed(&self) -> u64 {
+        self.inner.last_accessed()
+    }
+
+    fn last_modified(&self) -> u64 {
+        self.inner.last_modified()
+    }
+
+    fn created_time(&self) -> u64 {
+        self.inner.created_time()
+    }
+
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        self.inner.set_times(atime, mtime)
+    }
+
+    fn size(&self) -> u64 {
+        self.inner.size()
+    }
+
+    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+        self.inner.set_len(new_size)
+    }
+
+    fn unlink(&mut self) -> crate::Result<()> {
+        unlink_overlay_path(&self.primary, &self.path)
+    }
+
+    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Pin::new(self.inner.as_mut()).poll_read_ready(cx)
+    }
+
+    fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Pin::new(self.inner.as_mut()).poll_write_ready(cx)
+    }
+}
+
+impl<P> AsyncRead for SecondaryFile<P>
+where
+    P: FileSystem + 'static,
+{
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        Pin::new(self.inner.as_mut()).poll_read(cx, buf)
+    }
+}
+
+impl<P> AsyncWrite for SecondaryFile<P>
+where
+    P: FileSystem + 'static,
+{
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(self.inner.as_mut()).poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.inner.as_mut()).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.inner.as_mut()).poll_shutdown(cx)
+    }
+
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[io::IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(self.inner.as_mut()).poll_write_vectored(cx, bufs)
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        self.inner.is_write_vectored()
+    }
+}
+
+impl<P> AsyncSeek for SecondaryFile<P>
+where
+    P: FileSystem + 'static,
+{
+    fn start_seek(mut self: Pin<&mut Self>, position: SeekFrom) -> io::Result<()> {
+        Pin::new(self.inner.as_mut()).start_seek(position)
+    }
+
+    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Pin::new(self.inner.as_mut()).poll_complete(cx)
+    }
+}
+
 /// A primary filesystem and chain of secondary filesystems that are overlayed
 /// on top of each other.
 ///
@@ -525,7 +658,14 @@ where
                         // it is edited
                         return open_copy_on_write(path, conf, &self.primary, file);
                     }
-                    other => return other,
+                    Ok(file) => {
+                        return Ok(Box::new(SecondaryFile {
+                            path: path.to_path_buf(),
+                            primary: Arc::clone(&self.primary),
+                            inner: file,
+                        }));
+                    }
+                    Err(err) => return Err(err),
                 }
             }
         }
@@ -569,6 +709,7 @@ where
         readable: bool,
         append: bool,
         new_size: Option<u64>,
+        unlinked: bool,
     }
     enum CowState {
         // The original file is still open and can be accessed for all
@@ -673,6 +814,17 @@ where
                     } => {
                         match Pin::new(src.as_mut()).poll_complete(cx).map_ok(|_| ()) {
                             Poll::Ready(Ok(())) => {
+                                if self.unlinked {
+                                    again = true;
+                                    return CowState::Copying {
+                                        original_offset,
+                                        buf: Vec::new(),
+                                        buf_pos: 0,
+                                        dst: Box::new(crate::BufferFile::default()),
+                                        src,
+                                    };
+                                }
+
                                 // Remove the whiteout, create the parent structure and open
                                 // the new file on the primary
                                 if let Some(parent) = self.path.parent() {
@@ -876,6 +1028,13 @@ where
                     CowState::Copied(file)
                 }
                 state => {
+                    if self.unlinked {
+                        return match state {
+                            CowState::ReadOnly(inner) => CowState::SeekingGet(inner),
+                            state => state,
+                        };
+                    }
+
                     // in the scenario where the length is set but the file is not
                     // polled then we need to make sure we create a file properly
                     if let Some(parent) = self.path.parent() {
@@ -897,25 +1056,9 @@ where
         }
 
         fn unlink(&mut self) -> crate::Result<()> {
-            let primary = self.primary.clone();
-            let path = self.path.clone();
-
-            // Create the whiteout file in the primary
-            let mut had_at_least_one_success = false;
-            if ops::create_white_out(&primary, &path).is_ok() {
-                had_at_least_one_success = true;
-            }
-
-            // Attempt to remove it from the primary first
-            match primary.remove_file(&path) {
-                Err(e) if should_continue(e) => {}
-                other => return other,
-            }
-
-            if had_at_least_one_success {
-                return Ok(());
-            }
-            Err(FsError::PermissionDenied)
+            unlink_overlay_path(&self.primary, &self.path)?;
+            self.unlinked = true;
+            Ok(())
         }
 
         fn poll_read_ready(
@@ -1090,6 +1233,7 @@ where
         readable: conf.read,
         append: conf.append,
         new_size: None,
+        unlinked: false,
     }))
 }
 
@@ -1410,6 +1554,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn unlink_open_secondary_fs_without_cow_keeps_handle_alive() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
+            .await
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        let mut f = fs
+            .new_open_options()
+            .read(true)
+            .open(Path::new("/secondary/file.txt"))
+            .unwrap();
+
+        f.unlink().unwrap();
+        assert_eq!(
+            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
+            FsError::EntryNotFound
+        );
+        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+
+        let mut buf = String::new();
+        f.read_to_string(&mut buf).await.unwrap();
+        assert_eq!(buf, "Hello, World!");
+    }
+
+    #[tokio::test]
     async fn create_and_append_secondary_fs_with_cow() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
@@ -1461,6 +1636,49 @@ mod tests {
         assert!(ops::is_dir(&fs.primary, "/secondary"));
         assert!(ops::is_file(&fs.primary, "/secondary/file.txt"));
         assert!(ops::is_dir(&fs.secondaries[0], "/secondary"));
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+    }
+
+    #[tokio::test]
+    async fn unlink_open_secondary_fs_with_cow_does_not_recreate_path() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
+            .await
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        let mut f = fs
+            .new_open_options()
+            .append(true)
+            .read(true)
+            .open(Path::new("/secondary/file.txt"))
+            .unwrap();
+
+        f.unlink().unwrap();
+        assert_eq!(
+            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
+            FsError::EntryNotFound
+        );
+        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+
+        f.write_all(b"asdf").await.unwrap();
+        f.seek(SeekFrom::Start(0)).await.unwrap();
+
+        let mut buf = String::new();
+        f.read_to_string(&mut buf).await.unwrap();
+        assert_eq!(buf, "Hello, World!asdf");
+
+        assert_eq!(
+            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
+            FsError::EntryNotFound
+        );
+        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
         assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
     }
 
