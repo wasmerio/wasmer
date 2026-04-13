@@ -15,21 +15,21 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static const char *TARGET = "tmp_target";
-static const char *LINK = "tmp_link";
+static const char* TARGET = "tmp_target";
+static const char* LINK = "tmp_link";
 
-static int do_islink(const char *path) {
+static int do_islink(const char* path) {
   struct stat st;
   if (lstat(path, &st) != 0) return 0;
   return S_ISLNK(st.st_mode) ? 1 : 0;
 }
 
-static int do_exists(const char *path) {
+static int do_exists(const char* path) {
   struct stat st;
   return stat(path, &st) == 0 ? 1 : 0;
 }
 
-static int do_lexists(const char *path) {
+static int do_lexists(const char* path) {
   struct stat st;
   return lstat(path, &st) == 0 ? 1 : 0;
 }
