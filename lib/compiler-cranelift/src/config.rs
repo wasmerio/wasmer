@@ -106,6 +106,7 @@ pub enum CraneliftOptLevel {
 #[derive(Debug, Clone)]
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
+    pub(crate) allow_unaligned_memory_accesses: bool,
     enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     enable_pic: bool,
@@ -123,6 +124,7 @@ impl Cranelift {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: false,
+            allow_unaligned_memory_accesses: false,
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
@@ -139,6 +141,14 @@ impl Cranelift {
     /// deterministically across different architectures.
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// Enable run-time handling of potentially unaligned memory accesses.
+    /// Unaligned memory accesses occur when you try to read N bytes of data starting
+    /// from an address that is not evenly divisible by N.
+    pub fn allow_unaligned_memory_accesses(&mut self, enable: bool) -> &mut Self {
+        self.allow_unaligned_memory_accesses = enable;
         self
     }
 
@@ -284,6 +294,10 @@ impl CompilerConfig for Cranelift {
 
     fn enable_perfmap(&mut self) {
         self.enable_perfmap = true;
+    }
+
+    fn enable_unaligned_memory_accesses(&mut self) {
+        self.allow_unaligned_memory_accesses = true;
     }
 
     fn canonicalize_nans(&mut self, enable: bool) {

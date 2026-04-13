@@ -74,6 +74,7 @@ impl DerefMut for AssemblerRiscv {
 /// The RISC-V machine state and code emitter.
 pub struct MachineRiscv {
     assembler: AssemblerRiscv,
+    allow_unaligned_memory_accesses: bool,
     used_gprs: FixedBitSet,
     used_fprs: FixedBitSet,
     trap_table: TrapTable,
@@ -90,10 +91,14 @@ const SCRATCH_REG: GPR = GPR::X28;
 
 impl MachineRiscv {
     /// Creates a new RISC-V machine for code generation.
-    pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
+    pub fn new(
+        target: Option<Target>,
+        allow_unaligned_memory_accesses: bool,
+    ) -> Result<Self, CompileError> {
         // TODO: for now always require FPU
         Ok(MachineRiscv {
             assembler: AssemblerRiscv::new(0, target)?,
+            allow_unaligned_memory_accesses,
             used_gprs: FixedBitSet::with_capacity(32),
             used_fprs: FixedBitSet::with_capacity(32),
             trap_table: TrapTable::default(),
@@ -1105,6 +1110,10 @@ impl MachineRiscv {
         dst: Location,
         src: GPR,
     ) -> Result<(), CompileError> {
+        if !self.allow_unaligned_memory_accesses {
+            return self.emit_relaxed_load(sz, signed, dst, Location::Memory(src, 0));
+        }
+
         if let Size::S8 = sz {
             return self.emit_relaxed_load(sz, signed, dst, Location::Memory(src, 0));
         }
@@ -1213,6 +1222,10 @@ impl MachineRiscv {
         src: Location,
         dst: GPR,
     ) -> Result<(), CompileError> {
+        if !self.allow_unaligned_memory_accesses {
+            return self.emit_relaxed_store(sz, src, Location::Memory(dst, 0));
+        }
+
         if let Size::S8 = sz {
             // `emit_relaxed_store` uses wrong order of src and dst.
             // The `src` parameter of `emit_relaxed_store` actually stores
