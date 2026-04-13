@@ -1173,8 +1173,14 @@ impl WasiFs {
                 #[derive(Debug)]
                 enum Scenrio {
                     ParentDir(InodeWeakGuard), // ".."
-                    DirEntry { path: PathBuf },
-                    Symlink { relative_path: PathBuf },
+                    DirEntry {
+                        path: PathBuf,
+                    },
+                    Symlink {
+                        base_po_dir: WasiFd,
+                        path_to_symlink: PathBuf,
+                        relative_path: PathBuf,
+                    },
                 }
                 let scenario = {
                     let guard = cur_inode.read();
@@ -1195,13 +1201,20 @@ impl WasiFs {
                         (Component::Normal(_), Kind::Root { .. }) => Scenrio::DirEntry {
                             path: PathBuf::from("/"),
                         },
-                        (Component::Normal(_), Kind::Symlink { relative_path, .. }) => {
-                            Scenrio::Symlink {
-                                relative_path: relative_path.clone(),
-                            }
-                        }
+                        (
+                            Component::Normal(_),
+                            Kind::Symlink {
+                                base_po_dir,
+                                path_to_symlink,
+                                relative_path,
+                            },
+                        ) => Scenrio::Symlink {
+                            base_po_dir: *base_po_dir,
+                            path_to_symlink: path_to_symlink.clone(),
+                            relative_path: relative_path.clone(),
+                        },
 
-                        (Component::ParentDir, Kind::Root { .. }) => return Err(Errno::Access),
+                        (Component::ParentDir, Kind::Root { .. }) => continue, // cd /; cd .. -> noop
                         _ => return Err(Errno::Notdir),
                     }
                 };
@@ -1213,7 +1226,11 @@ impl WasiFs {
                     Scenrio::DirEntry { path, .. } => {
                         self.resolve_dir_entry(inodes, cur_inode, &path, component.as_os_str())?
                     }
-                    Scenrio::Symlink { relative_path } => {
+                    Scenrio::Symlink {
+                        base_po_dir,
+                        path_to_symlink,
+                        relative_path,
+                    } => {
                         if !follow_symlinks {
                             return Err(Errno::Notdir);
                         }
@@ -1222,19 +1239,25 @@ impl WasiFs {
                             return Err(Errno::Mlink);
                         }
 
-                        let mut components_osstr_new: VecDeque<_> = relative_path
-                            .components()
-                            // `relative_path` can be absolute, duh, so don't filter out the leading `/` for now
-                            .filter(|&c| !matches!(c, Component::CurDir))
-                            // convert Component to OsStr to avoid lifetime issues
-                            .map(|c| c.as_os_str().to_owned())
-                            .collect();
+                        let mut components_osstr_new: VecDeque<_>;
 
                         if relative_path.is_absolute() {
-                            // Absolute symlink target: restart traversal from the virtual root,
-                            // discarding the RootDir sentinel (it's now encoded in cur_inode)
                             cur_inode = self.get_fd_inode(VIRTUAL_ROOT_FD)?;
-                            components_osstr_new.retain(|c| c != "/");
+                            components_osstr_new = relative_path
+                                .components()
+                                .filter(|&c| !matches!(c, Component::CurDir | Component::RootDir))
+                                .map(|c| c.as_os_str().to_owned())
+                                .collect();
+                        } else {
+                            cur_inode = self.get_fd_inode(base_po_dir)?;
+                            let mut full_path = path_to_symlink.clone();
+                            full_path.pop(); // strip the symlink filename, leaving its parent dir
+                            full_path.push(&relative_path);
+                            components_osstr_new = full_path
+                                .components()
+                                .filter(|&c| !matches!(c, Component::CurDir))
+                                .map(|c| c.as_os_str().to_owned())
+                                .collect();
                         }
 
                         // Prepend [symlink_target..., current_component, remaining...].
@@ -1325,8 +1348,9 @@ impl WasiFs {
         name: &std::ffi::OsStr, // from `std::path::Component::Normal`
     ) -> Result<InodeGuard, Errno> {
         let mut guard = cur_inode.write();
-        let cur_inode_entries = match &mut *guard {
-            Kind::Dir { entries, .. } | Kind::Root { entries } => entries,
+        let (cur_inode_entries, is_root) = match &mut *guard {
+            Kind::Dir { entries, .. } => (entries, false),
+            Kind::Root { entries } => (entries, true),
             _ => return Err(Errno::Notdir),
         };
 
@@ -1334,6 +1358,22 @@ impl WasiFs {
         let name_string = name.to_string_lossy().to_string();
         if let Some(entry) = cur_inode_entries.get(&name_string) {
             return Ok(entry.clone());
+        }
+
+        // Could not find it, but there is a root mount
+        // Recursion depth is 1 because
+        // - we can recurse only if cur_inode is Kind::Root
+        // - the cur_inode in the recursive call is Kind::Dir
+        if is_root && let Some(root_mounted_dir) = cur_inode_entries.get("/").cloned() {
+            drop(guard);
+            let root_dir_path = {
+                let g = root_mounted_dir.read();
+                match g.deref() {
+                    Kind::Dir { path, .. } => path.clone(),
+                    _ => return Err(Errno::Notdir),
+                }
+            };
+            return self.resolve_dir_entry(inodes, root_mounted_dir, &root_dir_path, name);
         }
 
         // Compute real FS path
