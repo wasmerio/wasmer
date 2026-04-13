@@ -1,4 +1,5 @@
 use crate::compiler::LLVMCompiler;
+use enum_iterator::Sequence;
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
@@ -104,6 +105,7 @@ impl LLVMCallbacks {
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_non_volatile_memops: bool,
+    pub(crate) enable_readonly_funcref_table: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) opt_level: LLVMOptLevel,
@@ -116,6 +118,13 @@ pub struct LLVM {
     pub(crate) verbose_asm: bool,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Sequence)]
+pub(crate) enum OptimizationStyle {
+    ForSpeed,
+    ForSize,
+    Disabled,
+}
+
 impl LLVM {
     /// Creates a new configuration object with the default configuration
     /// specified.
@@ -123,6 +132,7 @@ impl LLVM {
         Self {
             enable_nan_canonicalization: false,
             enable_non_volatile_memops: false,
+            enable_readonly_funcref_table: false,
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
@@ -161,6 +171,13 @@ impl LLVM {
     /// (but are not 100% SPEC compliant).
     pub fn non_volatile_memops(&mut self, enable_non_volatile_memops: bool) -> &mut Self {
         self.enable_non_volatile_memops = enable_non_volatile_memops;
+        self
+    }
+
+    /// Enables treating eligible funcref tables as read-only so the backend can
+    /// place them in read-only data.
+    pub fn readonly_funcref_table(&mut self, enable_readonly_funcref_table: bool) -> &mut Self {
+        self.enable_readonly_funcref_table = enable_readonly_funcref_table;
         self
     }
 
@@ -250,13 +267,13 @@ impl LLVM {
 
     /// Generates the target machine for the current target
     pub fn target_machine(&self, target: &Target) -> TargetMachine {
-        self.target_machine_with_opt(target, true)
+        self.target_machine_with_opt(target, OptimizationStyle::ForSpeed)
     }
 
     pub(crate) fn target_machine_with_opt(
         &self,
         target: &Target,
-        enable_optimization: bool,
+        opt_style: OptimizationStyle,
     ) -> TargetMachine {
         let triple = target.triple();
         let cpu_features = &target.cpu_features();
@@ -326,10 +343,10 @@ impl LLVM {
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
-            .set_level(if enable_optimization {
-                self.opt_level
-            } else {
-                LLVMOptLevel::None
+            .set_level(match opt_style {
+                OptimizationStyle::ForSpeed => self.opt_level,
+                OptimizationStyle::ForSize => LLVMOptLevel::Less,
+                OptimizationStyle::Disabled => LLVMOptLevel::None,
             })
             .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
             .set_code_model(match triple.architecture {
@@ -372,6 +389,12 @@ impl CompilerConfig for LLVM {
         self.enable_non_volatile_memops = true;
     }
 
+    /// Enables treating eligible funcref tables as read-only so the backend can
+    /// place them in read-only data.
+    fn enable_readonly_funcref_table(&mut self) {
+        self.enable_readonly_funcref_table = true;
+    }
+
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
     }
@@ -391,6 +414,7 @@ impl CompilerConfig for LLVM {
         feats.exceptions(true);
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
+        feats.tail_call(true);
         feats
     }
 }

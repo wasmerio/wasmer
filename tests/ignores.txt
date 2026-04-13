@@ -21,6 +21,14 @@ singlepass wide_arithmetic
 singlepass spec::linking
 cranelift spec::linking
 llvm spec::linking
+singlepass spec::threads::imports
+cranelift spec::threads::imports
+llvm spec::threads::imports
+
+
+# Tail-call
+singlepass return_call
+cranelift return_call
 
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass

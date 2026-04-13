@@ -1,12 +1,10 @@
 name: Documentation
-
 on:
   push:
     branches:
       - "main"
     paths:
       - "lib/**"
-
 jobs:
   documentation:
     name: Documentation

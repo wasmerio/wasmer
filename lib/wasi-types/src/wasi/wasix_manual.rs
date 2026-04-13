@@ -166,7 +166,7 @@ pub struct Snapshot0Event {
     pub userdata: Userdata,
     /// If non-zero, an error that occurred while processing the subscription request.
     pub error: Errno,
-    /// The type of event that occured
+    /// The type of event that occurred
     pub type_: Eventtype,
     /// The contents of the event, if it is an `eventtype::fd_read` or
     /// `eventtype::fd_write`. `eventtype::clock` events ignore this field.

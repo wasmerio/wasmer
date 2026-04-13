@@ -12,17 +12,17 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=7.1.0-rc.1", path = "lib/api", default-features = false }
-wasmer-cache = { version = "=7.1.0-rc.1", path = "lib/cache", optional = true }
-wasmer-compiler = { version = "=7.1.0-rc.1", path = "lib/compiler", features = [
+wasmer = { version = "=7.2.0-alpha.1", path = "lib/api", default-features = false }
+wasmer-cache = { version = "=7.2.0-alpha.1", path = "lib/cache", optional = true }
+wasmer-compiler = { version = "=7.2.0-alpha.1", path = "lib/compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=7.1.0-rc.1", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=7.1.0-rc.1", path = "lib/compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=7.1.0-rc.1", path = "lib/compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=7.1.0-rc.1", path = "lib/middlewares", optional = true }
-wasmer-types = { version = "=7.1.0-rc.1", path = "lib/types" }
-wasmer-wast = { version = "=7.1.0-rc.1", path = "tests/lib/wast", optional = true }
+wasmer-compiler-cranelift = { version = "=7.2.0-alpha.1", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=7.2.0-alpha.1", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=7.2.0-alpha.1", path = "lib/compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=7.2.0-alpha.1", path = "lib/middlewares", optional = true }
+wasmer-types = { version = "=7.2.0-alpha.1", path = "lib/types" }
+wasmer-wast = { version = "=7.2.0-alpha.1", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
@@ -82,11 +82,11 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.91"
-version = "7.1.0-rc.1"
+version = "7.2.0-alpha.1"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.701.0-rc.1", path = "lib/package" }
+wasmer-package = { version = "0.702.0-alpha.1", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
@@ -99,14 +99,14 @@ loupe = "0.2.0"
 # Third-party crates
 anyhow = "1.0"
 assert-panic = "1.0.1"
-assert_cmd = "2.1.1"
+assert_cmd = "2.2.0"
 async-trait = "0.1.68"
 async-tungstenite = "0.33.0"
 axum = { version = "=0.6.9", default-features = false }
 backtrace = "0.3"
 base64 = "0.22.1"
 bincode = "2.0.1"
-bindgen = { version = "0.72.1", default-features = false }
+bindgen = "0.72.1"
 bitflags = "2.11.0"
 blake3 = "1.0"
 build-deps = "0.1.4"
@@ -126,7 +126,7 @@ clap_builder = { version = "4.5.53" }
 clap_complete = "4.5.61"
 clap_derive = { version = "4.5.49" }
 clap_lex = { version = "1" }
-clap_mangen = "0.2.31"
+clap_mangen = "0.3.0"
 cmake = "0.1.50"
 colored = "3.0.0"
 comfy-table = "7.2.1"
@@ -135,9 +135,10 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.129.1", default-features = false }
-cranelift-entity = { version = "=0.129.1", default-features = false }
-cranelift-frontend = { version = "=0.129.1", default-features = false }
+cranelift-codegen = { version = "=0.130.0", default-features = false }
+cranelift-entity = { version = "=0.130.0", default-features = false }
+cranelift-frontend = { version = "=0.130.0", default-features = false }
+crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
 crossbeam-queue = "0.3.8"
@@ -156,6 +157,7 @@ enumset = "1.1.0"
 env_logger = { version = "0.11.5", default-features = false }
 field-offset = "0.3.3"
 filetime = "0.2.18"
+fixedbitset = "0.5.7"
 flate2 = "1.0.34"
 zstd = "0.13.2"
 fnv = "1.0.3"
@@ -166,7 +168,7 @@ getrandom = "0.4.1"
 gimli = { version = "0.33.0" }
 git-version = "0.3.9"
 glob = "0.3"
-graphql-ws-client = "0.12.0"
+graphql-ws-client = "0.13.0"
 gumdrop = "0.8"
 harsh = "0.2.2"
 hashbrown = "0.16.1"
@@ -183,7 +185,7 @@ ignore = "0.4"
 indicatif = "0.18.3"
 indexmap = "2"
 inline-c = "0.1.7"
-inkwell = { git = "https://github.com/TheDan64/inkwell.git", rev = "d20c58f320d1eee62911ce1a274ed32a6aa99861", default-features = false }
+inkwell = { version = "0.9.0", default-features = false }
 insta = "1.45.0"
 interfaces = "0.0.9"
 ipnet = "2.10.1"
@@ -196,7 +198,7 @@ libfuzzer-sys = "0.4.0"
 libunwind = "1.3.3"
 linked_hash_set = "0.1.6"
 log = "0.4.22"
-lz4_flex = "0.12.0"
+lz4_flex = "0.13.0"
 lzma-rs = "0.3.0"
 mac_address = "1.1.5"
 mach2 = "0.6.0"
@@ -209,7 +211,7 @@ mio = "1"
 more-asserts = "0.3.1"
 normpath = "1.5.0"
 num_enum = "0.7.3"
-object = "0.38.1"
+object = "0.39.0"
 once_cell = "1.17.1"
 opener = "0.8.3"
 parking = "2.2"
@@ -227,7 +229,7 @@ pretty_assertions = "1.4.0"
 proc-macro-error2 = "2.0.1"
 proc-macro2 = "1"
 quote = "1.0.20"
-rand = "0.10"
+rand = "0.10.1"
 rangemap = "1.7.1"
 rayon = "1.7.0"
 regex = "1.11"
@@ -235,7 +237,7 @@ region = "3.0"
 replace_with = "0.1.7"
 reqwest = { version = "0.13.0", default-features = false }
 rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
-rustc-demangle = "0.1"
+symbolic-demangle = { version = "12", default-features = false, features = ["rust", "cpp", "msvc"] }
 rustc_version = "0.4"
 rusty_jsc = "0.1.0"
 rusty_pool = "0.7.0"
@@ -253,10 +255,10 @@ serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
 serde_yaml = { version = "0.9.34" }
 serial_test = { version = "3.2.0", default-features = false }
-sha2 = "0.11.0-rc.5"
+sha2 = "0.11.0"
 slab = "0.4"
 smallvec = "1.6"
-smoltcp = { version = "0.12.0", default-features = false }
+smoltcp = { version = "0.13.0", default-features = false }
 socket2 = { version = "0.6.1", features = ["all"] }
 syn = { version = "2", default-features = false }
 tar = "0.4.40"
@@ -273,7 +275,7 @@ tokio-serde = "0.9"
 tokio-stream = "0.1"
 tokio-tungstenite = { version = "0.28.0" }
 tokio-util = "0.7.8"
-toml = { version = "1.0.3", features = ["preserve_order"] }
+toml = { version = "1.1.0", features = ["preserve_order"] }
 tower = "0.5.2"
 tower-http = "0.6.7"
 tracing = { version = "0.1", default-features = false }
@@ -284,7 +286,7 @@ trybuild = "1.0.11"
 typetag = "0.2.21"
 uniffi = "0.31.0"
 unix_mode = "0.1.3"
-ureq = "3.1.4"
+ureq = "3.3.0"
 url = "2.5"
 urlencoding = "2"
 uuid = { version = "1", default-features = false }
@@ -300,20 +302,20 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.37"
 wasm-bindgen-test = "0.3.0"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.245.0", default-features = false, features = [
+wasm-encoder = { version = "0.246.2", default-features = false, features = [
 	"std",
 ] }
-wasm-smith = "0.245.0"
+wasm-smith = "0.246.2"
 wasmi_c_api_impl = "1.0.4"
-wasmparser = { version = "0.245.0", default-features = false, features = [
+wasmparser = { version = "0.246.2", default-features = false, features = [
 	"validate",
 	"features",
 	"simd",
 ] }
-wasmprinter = "0.245.0"
+wasmprinter = "0.246.2"
 wasmer-inline-c = "0.1.1"
-wast = "245.0.0"
-wat = "1.245.0"
+wast = "246.0.2"
+wat = "1.246.2"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
@@ -333,7 +335,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=7.1.0-rc.1", path = "lib/api", features = [
+wasmer = { version = "=7.2.0-alpha.1", path = "lib/api", features = [
 	"compiler",
 	"singlepass",
 	"sys",

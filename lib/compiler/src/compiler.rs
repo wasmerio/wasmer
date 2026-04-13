@@ -4,7 +4,7 @@
 use std::cmp::Reverse;
 
 use crate::progress::ProgressContext;
-use crate::types::{module::CompileModuleInfo, symbols::SymbolRegistry};
+use crate::types::module::CompileModuleInfo;
 use crate::{
     FunctionBodyData, ModuleTranslationState,
     lib::std::{boxed::Box, sync::Arc},
@@ -53,6 +53,10 @@ pub trait CompilerConfig {
     /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
     /// (but are not 100% SPEC compliant).
     fn enable_non_volatile_memops(&mut self) {}
+
+    /// Enables treating eligible funcref tables as read-only so the backend can
+    /// place them in read-only data.
+    fn enable_readonly_funcref_table(&mut self) {}
 
     /// Enable NaN canonicalization.
     ///
@@ -133,6 +137,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         wasm_features.set(WasmFeatures::EXTENDED_CONST, features.extended_const);
         wasm_features.set(WasmFeatures::RELAXED_SIMD, features.relaxed_simd);
         wasm_features.set(WasmFeatures::WIDE_ARITHMETIC, features.wide_arithmetic);
+        wasm_features.set(WasmFeatures::TAIL_CALL, features.tail_call);
         wasm_features.set(WasmFeatures::MUTABLE_GLOBAL, true);
         wasm_features.set(WasmFeatures::SATURATING_FLOAT_TO_INT, true);
         wasm_features.set(WasmFeatures::FLOATS, true);
@@ -159,25 +164,13 @@ pub trait Compiler: Send + std::fmt::Debug {
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError>;
 
-    /// Compiles a module into a native object file.
-    ///
-    /// It returns the bytes as a `&[u8]` or a [`CompileError`].
-    fn experimental_native_compile_module(
-        &self,
-        _target: &Target,
-        _module: &CompileModuleInfo,
-        _module_translation: &ModuleTranslationState,
-        // The list of function bodies
-        _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
-        _symbol_registry: &dyn SymbolRegistry,
-        // The metadata to inject into the wasmer_metadata section of the object file.
-        _wasmer_metadata: &[u8],
-    ) -> Option<Result<Vec<u8>, CompileError>> {
-        None
-    }
-
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
+
+    /// Get whether translation-time readonly funcref table analysis should run.
+    fn enable_readonly_funcref_table(&self) -> bool {
+        false
+    }
 
     /// Get the CpuFeatues used by the compiler
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {

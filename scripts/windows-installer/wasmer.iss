@@ -1,6 +1,6 @@
 [Setup]
 AppName=Wasmer
-AppVersion=7.1.0-rc.1
+AppVersion=7.2.0-alpha.1
 DefaultDirName={pf}\Wasmer
 DefaultGroupName=Wasmer
 Compression=lzma2
@@ -9,8 +9,8 @@ OutputDir=.\
 DisableProgramGroupPage=yes
 ChangesEnvironment=yes
 OutputBaseFilename=WasmerInstaller
-WizardImageFile=media\wizard_logo_2.bmp
-WizardSmallImageFile=media\wizard_logo_small.bmp
+WizardImageFile=media\wizard_logo_2.png
+WizardSmallImageFile=media\wizard_logo_small.png
 SetupIconFile=media\wizard_logo.ico
 DisableWelcomePage=no
 

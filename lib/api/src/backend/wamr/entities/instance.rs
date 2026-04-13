@@ -30,7 +30,7 @@ impl InstanceHandle {
         //}
 
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
-        let externs: Vec<_> = externs.into_iter().map(|v| v.into_wamr()).collect();
+        let externs: Vec<_> = externs.into_iter().map(|v| v.unwrap_wamr()).collect();
 
         let instance = unsafe {
             let mut imports = unsafe {

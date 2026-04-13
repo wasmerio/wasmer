@@ -2,7 +2,7 @@
 //!
 //! These tests verify dynamic library loading and unloading functionality using dlopen/dlsym/dlclose.
 
-use super::{run_build_script, run_wasm_with_result};
+use super::{run_build_script, run_wasm, run_wasm_with_result};
 
 #[test]
 fn test_simple_dynamic_lib() {
@@ -46,6 +46,18 @@ fn test_duplicate_dynamic_lib() {
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0], "Module A returned: A");
     assert_eq!(lines[1], "Module B returned: B");
+}
+
+#[test]
+fn test_dlopen_exports() {
+    let wasm = run_build_script(file!(), "dlopen-exports").unwrap();
+    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn test_dylink_needed() {
+    let wasm = run_build_script(file!(), "dylink-needed").unwrap();
+    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
 }
 
 #[test]

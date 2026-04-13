@@ -6,13 +6,13 @@
 #include <wasix/context.h>
 
 #ifndef NULL
-#define NULL ((void *)0)
+#define NULL ((void*)0)
 #endif
 
 wasix_context_id_t context1;
 wasix_context_id_t context2;
 
-char *message = "Uninitialized\n";
+char* message = "Uninitialized\n";
 int stop = 0;
 int counter = 0;
 
@@ -48,7 +48,7 @@ void test2(void) {
   exit(50);
 }
 
-void *abort_in_thread(void *arg) {
+void* abort_in_thread(void* arg) {
   wasix_context_create(&context1, test1);
   wasix_context_create(&context2, test2);
   wasix_context_switch(context1);

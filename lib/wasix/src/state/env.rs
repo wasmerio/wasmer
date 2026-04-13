@@ -509,6 +509,9 @@ impl WasiEnv {
         // Let's instantiate the module with the imports.
         let mut import_object =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
+        if let Some(memory) = memory.clone() {
+            import_object.define("env", "memory", memory);
+        }
         let runtime = func_env.data(&store).runtime.clone();
         let additional_imports = runtime
             .additional_imports(&module, &mut store)
@@ -527,19 +530,12 @@ impl WasiEnv {
             }
         }
 
-        let imported_memory = if let Some(existing_memory) = import_object
+        let imported_memory = import_object
             .get_export("env", "memory")
             .and_then(|ext| match ext {
                 wasmer::Extern::Memory(memory) => Some(memory),
                 _ => None,
-            }) {
-            Some(existing_memory)
-        } else if let Some(memory) = memory {
-            import_object.define("env", "memory", memory.clone());
-            Some(memory)
-        } else {
-            None
-        };
+            });
 
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {
@@ -558,7 +554,7 @@ impl WasiEnv {
         };
 
         runtime
-            .configure_new_instance(&module, &mut store, &instance)
+            .configure_new_instance(&module, &mut store, &instance, imported_memory.as_ref())
             .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
         let handles = match imported_memory {

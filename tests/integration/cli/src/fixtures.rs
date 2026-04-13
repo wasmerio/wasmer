@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::{asset_path, c_asset_path};
+use crate::{asset_path, c_asset_path, integration_wasm_path, integration_webc_path};
 
 pub fn resources() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("resources")
@@ -15,10 +15,9 @@ pub fn packages() -> PathBuf {
 }
 
 pub fn php() -> (PathBuf, PathBuf, PathBuf) {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let resources = resources().join("php");
     (
-        root.join("tests").join("wasm").join("php.wasm"),
+        integration_wasm_path().join("php.wasm"),
         resources.clone(),
         resources.join("db"),
     )
@@ -31,10 +30,7 @@ pub fn python() -> PathBuf {
 
 /// A WEBC file containing bash.
 pub fn bash() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("webc")
-        .join("bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc")
+    integration_webc_path().join("bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc")
 }
 
 /// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful

@@ -6,6 +6,146 @@
 
 ## **Unreleased**
 
+## 7.2.0-alpha.1 - 09/04/2026
+
+## Added
+
+  - [#6371](https://github.com/wasmerio/wasmer/pull/6371) chore: disable flaky test, address clippy warning
+  - [#1591](https://github.com/wasmerio/wasmer/pull/1591) Add release workflow
+  - [#6373](https://github.com/wasmerio/wasmer/pull/6373) feat(runtime): Add cache eviction method to BuiltinPackageLoader
+
+## Changed
+
+  - [#6075](https://github.com/wasmerio/wasmer/pull/6075) Experimental support for interruptable wasm computation
+  - [#6389](https://github.com/wasmerio/wasmer/pull/6389) feat(Singlepass): correct wasmer_vm_x function types, use RISC-V calling conv
+  - [#6415](https://github.com/wasmerio/wasmer/pull/6415) test: recover tests under threads proposal
+  - [#6394](https://github.com/wasmerio/wasmer/pull/6394) chore: split 12K LOC function translate_operator
+  - [#6361](https://github.com/wasmerio/wasmer/pull/6361) ci: start using yamlfmt
+  - [#6369](https://github.com/wasmerio/wasmer/pull/6369) deps: update dependencies
+  - [#6379](https://github.com/wasmerio/wasmer/pull/6379) ci: unify job name nomenclature
+  - [#6390](https://github.com/wasmerio/wasmer/pull/6390) chore(Singlepass): smaller refactoring changes
+  - [#1645](https://github.com/wasmerio/wasmer/pull/1645) Remove install script from wasmer repo
+  - [#6386](https://github.com/wasmerio/wasmer/pull/6386) build: drop dependency on homebrew
+  - [#6385](https://github.com/wasmerio/wasmer/pull/6385) chore(Cranelift): drop FuncEnvironment trait
+  - [#6383](https://github.com/wasmerio/wasmer/pull/6383) ci: include full source tarball
+  - [#6363](https://github.com/wasmerio/wasmer/pull/6363) chore: use Linux/macOS newline style
+  - [#6375](https://github.com/wasmerio/wasmer/pull/6375) build: move binary blobs to a separate git repository
+  - [#1622](https://github.com/wasmerio/wasmer/pull/1622) Prepare for 1.0.0-alpha3 release
+  - [#6377](https://github.com/wasmerio/wasmer/pull/6377) size-check pooled stacks on pop to prevent undersized reuse
+  - [#6380](https://github.com/wasmerio/wasmer/pull/6380) feat(runtime): Allow disabling automatic in-memory cache in BuiltinPackageLoader
+  - [#6293](https://github.com/wasmerio/wasmer/pull/6293) feat: use hash-based signature checks for indirect calls
+  - [#6372](https://github.com/wasmerio/wasmer/pull/6372) ci: use latest wasixcc job action
+  - [#6374](https://github.com/wasmerio/wasmer/pull/6374) Expose stack pool drain and stack size getters
+  - [#6348](https://github.com/wasmerio/wasmer/pull/6348) feat(Cranelift): use call to wasmer_vm_raise_trap for Unreachable
+  - [#6295](https://github.com/wasmerio/wasmer/pull/6295) Simplify and generalize runtime macros
+  - [#6356](https://github.com/wasmerio/wasmer/pull/6356) chore: replace rustc-demangle with symbolic-demangle
+  - [#6137](https://github.com/wasmerio/wasmer/pull/6137) chore: use WASMER_REPRODUCIBLE_BUILD for reproducible builds
+  - [#6290](https://github.com/wasmerio/wasmer/pull/6290) feat: embed local `Globals` and funcref `Table` in `VMContext` (v2)
+  - [#6342](https://github.com/wasmerio/wasmer/pull/6342) chore: lint C and C++ source files by clang-format
+  - [#6332](https://github.com/wasmerio/wasmer/pull/6332) deps: bump Cranelift to 0.130.0
+
+## Fixed
+
+  - [#6365](https://github.com/wasmerio/wasmer/pull/6365) ci: make napi-v8 opt-in + fix header file installation
+  - [#6413](https://github.com/wasmerio/wasmer/pull/6413) fix(Wasmi): keep one Engine for all Stores/Instances
+  - [#6393](https://github.com/wasmerio/wasmer/pull/6393) fix(WAMR): do not call from_raw_parts for null pointer
+  - [#6370](https://github.com/wasmerio/wasmer/pull/6370) feat: readonly fixed funcref Table
+  - [#6376](https://github.com/wasmerio/wasmer/pull/6376) Fix Global borrow conflicts, middleware lifetimes, and error routing
+  - [#6382](https://github.com/wasmerio/wasmer/pull/6382) fix(c-api): use Option types for nullable C-API parameters (v2)
+  - [#6378](https://github.com/wasmerio/wasmer/pull/6378) fix(macOS): port the code to macOS
+  - [#6362](https://github.com/wasmerio/wasmer/pull/6362) ci: fix clang-format for NAPI
+
+
+
+## 7.1.0 - 27/03/2026
+
+This release includes:
+- A new N-API interface supporting [Edge.js](https://edgejs.org/).
+- Better CPU scaling for the Cranelift and LLVM compilers on larger modules such as PHP and Python workloads.
+- A substantial overhaul of WASIX TTY support.
+- A complete rewrite of WASIX epoll.
+- [Tail Call](https://github.com/WebAssembly/tail-call) support in the LLVM compiler.
+- [Extended Constant Expression](https://github.com/WebAssembly/extended-const) support across all compilers.
+- [Relaxed SIMD](https://github.com/WebAssembly/relaxed-simd) support in the LLVM and Cranelift compilers.
+- [Wide Arithmetic](https://github.com/WebAssembly/wide-arithmetic) support in LLVM and Cranelift.
+- A redesigned `--enable-pass-params-opt` optimization for LLVM, now enabled by default.
+- A new [perf annotate](https://github.com/wasmerio/wasmer/blob/main/scripts/wasmer-perf-record.py)-style script for improved profiling.
+- Easier reproducible distribution builds through the `WASMER_REPRODUCIBLE_BUILD=1` environment variable.
+- A new `secret export` and `secret import` subcommands were introduced for easier manipulation with secrets.
+- Added `run --enable-nan-canonicalization`.
+
+## Added
+
+
+## Changed
+
+  - [#6357](https://github.com/wasmerio/wasmer/pull/6357) build: adapt `make-release.py` for the napi crate as a submodule
+
+## Fixed
+
+
+
+
+## 7.1.0-rc.3 - 26/03/2026
+
+## Added
+
+  - [#6341](https://github.com/wasmerio/wasmer/pull/6341) chore: address cargo build warnings
+  - [#6245](https://github.com/wasmerio/wasmer/pull/6245) fix(c-api): add null safety to wasi_filesystem_delete
+  - [#6323](https://github.com/wasmerio/wasmer/pull/6323) Add app secrets import and export commands
+  - [#6319](https://github.com/wasmerio/wasmer/pull/6319) chore: add progress to publish.py script
+  - [#6317](https://github.com/wasmerio/wasmer/pull/6317) feat(cli): add --enable-nan-canonicalization option
+  - [#6318](https://github.com/wasmerio/wasmer/pull/6318) chore: address cargo clippy issues
+
+## Changed
+
+  - [#6267](https://github.com/wasmerio/wasmer/pull/6267) feat(wasix): make builtin commands pluggable
+  - [#6337](https://github.com/wasmerio/wasmer/pull/6337) CI: include test for constant folding on x64
+  - [#6352](https://github.com/wasmerio/wasmer/pull/6352) feat(LLVM): disable opts for __wasm_apply_data_relocs
+  - [#6347](https://github.com/wasmerio/wasmer/pull/6347) ci: run tests on edge branch
+  - [#6345](https://github.com/wasmerio/wasmer/pull/6345) chore: bump artifact version
+  - [#6338](https://github.com/wasmerio/wasmer/pull/6338) deps: cargo update (RUSTSEC-2026-0048)
+  - [#6330](https://github.com/wasmerio/wasmer/pull/6330) CI: if 'macos' tag is set, PR will run macOS tests
+  - [#6269](https://github.com/wasmerio/wasmer/pull/6269) Migrate c-wasi-tests/WASI tests to the new test runner
+  - [#6272](https://github.com/wasmerio/wasmer/pull/6272) feat(LLVM): support tail-call WA feature
+  - [#6321](https://github.com/wasmerio/wasmer/pull/6321) chore: drop unused `experimental_native_compile_module`
+  - [#6328](https://github.com/wasmerio/wasmer/pull/6328) docs: document WASMER_REPRODUCIBLE_BUILD=1
+  - [#6322](https://github.com/wasmerio/wasmer/pull/6322) ci: sync WASM spec tests
+  - [#6316](https://github.com/wasmerio/wasmer/pull/6316) chore: update option help output + hide ignored --enable-pass-params-opt
+  - [#6320](https://github.com/wasmerio/wasmer/pull/6320) CI: ignore some heavy integration tests on Windows and macOS
+  - [#6198](https://github.com/wasmerio/wasmer/pull/6198) Enable publishing pre-built .webc packages
+  - [#6310](https://github.com/wasmerio/wasmer/pull/6310) deps: bump lz4_flex and assert_cmd
+
+## Fixed
+
+  - [#6353](https://github.com/wasmerio/wasmer/pull/6353) Fixed napi integration by using submodule
+  - [#6346](https://github.com/wasmerio/wasmer/pull/6346) fix(cli): --quiet blocks some operations
+  - [#6336](https://github.com/wasmerio/wasmer/pull/6336) Fix typos: occured -> occurred, overriden -> overridden
+  - [#6339](https://github.com/wasmerio/wasmer/pull/6339) fix(Singlepass): fix multi-value loops with no return type
+  - [#6340](https://github.com/wasmerio/wasmer/pull/6340) fix(build): unify bindgen features to default
+  - [#6327](https://github.com/wasmerio/wasmer/pull/6327) CI: enable fixed integration tests
+  - [#6325](https://github.com/wasmerio/wasmer/pull/6325) fix(wasix): make sock_send/sock_recv handle PipeTx/PipeRx like pipe-backed sockets
+  - [#6315](https://github.com/wasmerio/wasmer/pull/6315) fix(LLVM): use -O1 for large functions
+
+
+
+## 7.1.0-rc.2 - 17/03/2026
+
+## Added
+
+  - [#6308](https://github.com/wasmerio/wasmer/pull/6308) build(napi): add missing info for `cargo publish` + exclude large blobs from `wasmer-c-api` crate
+
+## Changed
+
+  - [#6312](https://github.com/wasmerio/wasmer/pull/6312) feat: include enabled features in --version -v
+
+## Fixed
+
+  - [#6311](https://github.com/wasmerio/wasmer/pull/6311) NAPI + WASIX fixes
+  - [#6306](https://github.com/wasmerio/wasmer/pull/6306) fix(macOS): Try to fix MacOS build by excluding CPATH env variable
+
+
+
 ## 7.1.0-rc.1 - 16/03/2026
 
 ## Added

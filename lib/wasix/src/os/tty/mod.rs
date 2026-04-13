@@ -940,6 +940,7 @@ mod tests {
         String::from_utf8(buffer.lock().unwrap().clone()).unwrap()
     }
 
+    #[allow(clippy::type_complexity)]
     fn new_tty(
         echo: bool,
         line_buffering: bool,
@@ -947,6 +948,7 @@ mod tests {
         new_tty_with_mobile(echo, line_buffering, false)
     }
 
+    #[allow(clippy::type_complexity)]
     fn new_tty_with_mobile(
         echo: bool,
         line_buffering: bool,

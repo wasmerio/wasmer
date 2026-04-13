@@ -31,8 +31,8 @@ pub fn sock_send<M: MemorySize>(
     let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
     let enable_journal = env.enable_journal;
     let guard = fd_entry.inode.read();
-    // We need this hack because we use a pipe to back socket pairs
-    let use_write = matches!(guard.deref(), Kind::DuplexPipe { .. });
+    // Some guests route socket-like wakeups through pipe-backed fds.
+    let use_write = matches!(guard.deref(), Kind::DuplexPipe { .. } | Kind::PipeTx { .. });
     drop(guard);
 
     let bytes_written = if use_write {
