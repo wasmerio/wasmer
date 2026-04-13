@@ -8,7 +8,10 @@ assert_output() {
     grep -Fx "open succeeded" "$output_file" >/dev/null
     grep -Fx "unlink succeeded" "$output_file" >/dev/null
     grep -Fx "fdopen succeeded" "$output_file" >/dev/null
-    grep -Fx "writing succeeded" "$output_file" >/dev/null
+    grep -Fx "recreate succeeded" "$output_file" >/dev/null
+    grep -Fx "first file write succeeded" "$output_file" >/dev/null
+    grep -Fx "second file write succeeded" "$output_file" >/dev/null
+    grep -Fx "verification succeeded" "$output_file" >/dev/null
 }
 
 $WASMER_RUN main.wasm > output
