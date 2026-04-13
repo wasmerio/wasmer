@@ -23,7 +23,7 @@
 <a href=#23 id=23 data-nosnippet>23</a></span><span class="kw">pub type </span>InkwellModule&lt;<span class="lifetime">'ctx</span>&gt; = inkwell::module::Module&lt;<span class="lifetime">'ctx</span>&gt;;
 <a href=#24 id=24 data-nosnippet>24</a>
 <a href=#25 id=25 data-nosnippet>25</a><span class="doccomment">/// The InkWell MemoryBuffer type
-<a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">pub type </span>InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
+<a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">pub type </span>InkwellMemoryBuffer&lt;<span class="lifetime">'a</span>&gt; = inkwell::memory_buffer::MemoryBuffer&lt;<span class="lifetime">'a</span>&gt;;
 <a href=#27 id=27 data-nosnippet>27</a>
 <a href=#28 id=28 data-nosnippet>28</a><span class="doccomment">/// Callbacks to the different LLVM compilation phases.
 <a href=#29 id=29 data-nosnippet>29</a></span><span class="attr">#[derive(Debug, Clone)]
