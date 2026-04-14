@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sock_connect","sock_connect_internal"]};
+window.SIDEBAR_ITEMS = {"fn":["nonblocking_connect_result","sock_connect","sock_connect_internal"]};
