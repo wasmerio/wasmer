@@ -292,10 +292,17 @@ impl MountFileSystem {
     fn read_dir_from_exact_node(&self, node: &ExactNode) -> Result<ReadDir> {
         let mut entries = Vec::new();
 
-        if let Some(fs) = &node.fs {
-            match fs.read_dir(&node.source_path) {
+        let backing = if let Some(fs) = &node.fs {
+            Some((fs.clone(), node.source_path.clone()))
+        } else {
+            self.resolve_mount(node.path.clone())
+                .map(|resolved| (resolved.fs, resolved.delegated_path))
+        };
+
+        if let Some((fs, source_path)) = backing {
+            match fs.read_dir(&source_path) {
                 Ok(mut base_entries) => {
-                    Self::rebase_entries(&mut base_entries, &node.source_path, &node.path);
+                    Self::rebase_entries(&mut base_entries, &source_path, &node.path);
                     entries.extend(base_entries.data.into_iter().filter(|entry| {
                         entry
                             .path
@@ -304,6 +311,7 @@ impl MountFileSystem {
                             .unwrap_or(true)
                     }));
                 }
+                Err(FsError::EntryNotFound) if node.has_children() => {}
                 Err(error)
                     if node.has_children() && Self::should_fallback_to_synthetic_dir(&error) => {}
                 Err(error) => return Err(error),
@@ -1490,6 +1498,82 @@ mod tests {
 
         assert!(fs.metadata(Path::new("/runtime/lib.py")).unwrap().is_file());
         assert_eq!(read_dir_names(&fs, "/runtime"), vec!["lib.py".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_nested_mount_inside_tree_preserves_sibling_files() {
+        let fs = MountFileSystem::new();
+
+        let python = mem_fs::FileSystem::default();
+        python.create_dir(Path::new("/usr")).unwrap();
+        python.create_dir(Path::new("/usr/local")).unwrap();
+        python.create_dir(Path::new("/usr/local/lib")).unwrap();
+        python
+            .create_dir(Path::new("/usr/local/lib/python3.13"))
+            .unwrap();
+        python
+            .create_dir(Path::new("/usr/local/lib/python3.13/encodings"))
+            .unwrap();
+        python
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+            .unwrap();
+
+        let host = mem_fs::FileSystem::default();
+        host.new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/marker.txt"))
+            .unwrap();
+
+        fs.mount(Path::new("/"), Arc::new(python)).unwrap();
+        fs.mount(Path::new("/usr/local/lib/python3.13/test"), Arc::new(host))
+            .unwrap();
+
+        assert!(
+            fs.metadata(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+                .unwrap()
+                .is_file()
+        );
+        assert!(
+            fs.metadata(Path::new("/usr/local/lib/python3.13/test/marker.txt"))
+                .unwrap()
+                .is_file()
+        );
+
+        fs.new_open_options()
+            .read(true)
+            .open(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+            .unwrap();
+        fs.new_open_options()
+            .read(true)
+            .open(Path::new("/usr/local/lib/python3.13/test/marker.txt"))
+            .unwrap();
+
+        let mut entries = read_dir_names(&fs, "/usr/local/lib/python3.13");
+        entries.sort();
+        assert_eq!(entries, vec!["encodings".to_string(), "test".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_synthetic_parent_without_backing_dir_lists_child_mount() {
+        let fs = MountFileSystem::new();
+        fs.mount(Path::new("/"), Arc::new(mem_fs::FileSystem::default()))
+            .unwrap();
+
+        let child = mem_fs::FileSystem::default();
+        child
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/marker.txt"))
+            .unwrap();
+        fs.mount(Path::new("/foo/bar"), Arc::new(child)).unwrap();
+
+        let entries = read_dir_names(&fs, "/foo");
+        assert_eq!(entries, vec!["bar".to_string()]);
     }
 
     #[tokio::test]
