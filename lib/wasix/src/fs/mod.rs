@@ -11,8 +11,8 @@ mod inode_guard;
 mod notification;
 
 use std::{
-    borrow::{Borrow, Cow},
-    collections::{HashMap, HashSet},
+    borrow::Cow,
+    collections::{HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     pin::Pin,
