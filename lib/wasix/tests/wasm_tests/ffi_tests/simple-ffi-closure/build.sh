@@ -1,4 +1,3 @@
 #!/usr/bin/env bash
 set -e
-$CC -c -DFFI_CLOSURES=1 main.c -o main.o
-$CC main.o -lffi -o main
+$CC -sPIC=1 -sWASM_EXCEPTIONS=yes main.c -o main

@@ -1,91 +1,67 @@
 #include <assert.h>
-#include <ffi.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+#include <wasix/closure.h>
 
-// Callback function for closure
-static void closure_callback(ffi_cif* cif, void* ret, void* args[],
-                             void* user_data) {
-  // Get the call counter from user data
-  int* count = (int*)user_data;
+typedef struct {
+  int call_count;
+} ClosureState;
 
-  // Get the function arguments
-  int a = *(int*)args[0];
-  int b = *(int*)args[1];
+static void write_i32(uint8_t *buffer, int32_t value) {
+  memcpy(buffer, &value, sizeof(value));
+}
 
-  // Print debug information
-  printf("Inside closure callback: %d + %d (called %d times)\n", a, b, *count);
+static int32_t read_i32(const uint8_t *buffer) {
+  int32_t value = 0;
+  memcpy(&value, buffer, sizeof(value));
+  return value;
+}
 
-  // Calculate result: a + b + call_count
-  *(int*)ret = a + b + (*count)++;
+static void closure_backing_function(uint8_t *values, uint8_t *results,
+                                     void *user_data_ptr) {
+  ClosureState *state = (ClosureState *)user_data_ptr;
+  int a = read_i32(values);
+  int b = read_i32(values + sizeof(int32_t));
+
+  printf("Inside closure callback: %d + %d (called %d times)\n", a, b,
+         state->call_count);
+
+  write_i32(results, a + b + state->call_count);
+  state->call_count += 1;
 }
 
 int main() {
-  ffi_status status;
+  printf("=== Testing direct wasix closures ===\n");
 
-  printf("=== Testing libffi closures ===\n");
+  wasix_function_pointer_t closure_pointer = 0;
+  wasix_value_type_t argument_types[2] = {WASIX_VALUE_TYPE_I32,
+                                          WASIX_VALUE_TYPE_I32};
+  wasix_value_type_t result_types[1] = {WASIX_VALUE_TYPE_I32};
+  ClosureState initial_state = {.call_count = 0};
 
-  // Initialize the call interface
-  ffi_cif cif;
-  ffi_type* arg_types[2];
-  ffi_closure* closure;
+  int error = wasix_closure_allocate(&closure_pointer);
+  assert(error == 0);
 
-  // This will hold our callable function pointer
-  int (*closure_func)(int, int);
+  error = wasix_closure_prepare((wasix_function_pointer_t)closure_backing_function,
+                                closure_pointer, argument_types, 2,
+                                result_types, 1, &initial_state);
+  assert(error == 0);
 
-  // This will count how many times the closure is called
-  int call_count = 0;
+  int (*closure_func)(int, int) = (int (*)(int, int))closure_pointer;
+  assert(closure_func(10, 20) == 30);
+  assert(closure_func(5, 7) == 13);
+  assert(closure_func(100, 200) == 302);
 
-  // Allocate a closure
-  closure = ffi_closure_alloc(sizeof(ffi_closure), (void**)&closure_func);
-  if (!closure) {
-    fprintf(stderr, "Failed to allocate closure\n");
-    return 1;
-  }
+  ClosureState redefined_state = {.call_count = 100};
+  error = wasix_closure_prepare((wasix_function_pointer_t)closure_backing_function,
+                                closure_pointer, argument_types, 2,
+                                result_types, 1, &redefined_state);
+  assert(error == 0);
+  assert(closure_func(1, 2) == 103);
 
-  // Set up argument and return types
-  ffi_type* ret_type = &ffi_type_sint32;
-  arg_types[0] = &ffi_type_sint32;  // First argument (int)
-  arg_types[1] = &ffi_type_sint32;  // Second argument (int)
-
-  // Prepare the call interface
-  status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 2, ret_type, arg_types);
-  if (status != FFI_OK) {
-    fprintf(stderr, "Failed to prepare CIF\n");
-    return 1;
-  }
-
-  // Initialize the closure
-  status = ffi_prep_closure_loc(closure,           // The closure
-                                &cif,              // The call interface
-                                closure_callback,  // The callback function
-                                &call_count,  // User data (passed to callback)
-                                closure_func  // The function pointer to call
-  );
-
-  if (status != FFI_OK) {
-    fprintf(stderr, "Failed to prepare closure\n");
-    return 1;
-  }
-
-  printf("Testing closure...\n");
-
-  // First call
-  int result1 = closure_func(10, 20);
-  printf("Closure result 1: %d\n", result1);
-  assert(result1 == 30);  // 10 + 20 + 0
-
-  // Second call (should increment the counter)
-  int result2 = closure_func(5, 7);
-  printf("Closure result 2: %d\n", result2);
-  assert(result2 == 13);  // 5 + 7 + 1
-
-  // Third call (should increment the counter again)
-  int result3 = closure_func(100, 200);
-  printf("Closure result 3: %d\n", result3);
-  assert(result3 == 302);  // 100 + 200 + 2
-
-  // Clean up
-  ffi_closure_free(closure);
+  error = wasix_closure_free(closure_pointer);
+  assert(error == 0);
 
   printf("Closure test completed\n");
   return 0;

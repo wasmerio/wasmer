@@ -3,9 +3,9 @@
 //! These tests verify various exit scenarios:
 //! - exit-zero/exit-nonzero: Basic exit with status codes
 //! - exit-*-in-thread: Exit from a pthread
-//! - exit-*-in-fficall: Exit from an FFI callback
+//! - exit-*-in-fficall: Exit from a closure callback
 //! - exit-*-in-dyncall-thread: Exit from dynamically called thread
-//! - exit-*-in-fficall-thread: Exit from FFI callback in thread
+//! - exit-*-in-fficall-thread: Exit from a closure callback in thread
 
 use super::{run_build_script, run_wasm};
 
@@ -47,14 +47,14 @@ fn test_exit_nonzero_in_thread() {
 }
 
 #[test]
-fn test_exit_zero_in_fficall() {
+fn test_exit_zero_in_closure_call() {
     let wasm_path = run_build_script(file!(), "exit-zero-in-fficall").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
 #[test]
-fn test_exit_nonzero_in_fficall() {
+fn test_exit_nonzero_in_closure_call() {
     let wasm_path = run_build_script(file!(), "exit-nonzero-in-fficall").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     let result = run_wasm(&wasm_path, test_dir);
@@ -65,14 +65,14 @@ fn test_exit_nonzero_in_fficall() {
 }
 
 #[test]
-fn test_exit_zero_in_fficall_thread() {
+fn test_exit_zero_in_closure_call_thread() {
     let wasm_path = run_build_script(file!(), "exit-zero-in-fficall-thread").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
 #[test]
-fn test_exit_nonzero_in_fficall_thread() {
+fn test_exit_nonzero_in_closure_call_thread() {
     let wasm_path = run_build_script(file!(), "exit-nonzero-in-fficall-thread").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     let result = run_wasm(&wasm_path, test_dir);

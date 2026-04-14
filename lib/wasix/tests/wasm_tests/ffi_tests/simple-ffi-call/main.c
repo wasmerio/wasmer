@@ -1,50 +1,77 @@
 #include <assert.h>
-#include <ffi.h>
+#include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
-int fib(int n) {
+#if defined __has_include
+#if __has_include(<wasix/call_dynamic.h>)
+#include <wasix/call_dynamic.h>
+#define HAVE_WASIX_CALL_DYNAMIC 1
+#endif
+#endif
+
+static int fib(int n) {
   if (n <= 1) {
     return n;
   }
+
   return fib(n - 1) + fib(n - 2);
 }
 
-// If you forgot the type
-// Of your function pointer
-// How you gonna call?
-// (libffi!)
-void* opaque_fib = &fib;
+static void write_i32(uint8_t *buffer, int32_t value) {
+  memcpy(buffer, &value, sizeof(value));
+}
+
+static int32_t read_i32(const uint8_t *buffer) {
+  int32_t value = 0;
+  memcpy(&value, buffer, sizeof(value));
+  return value;
+}
 
 int main() {
-  ffi_cif cif;
+  printf("=== Testing direct wasix_call_dynamic ===\n");
 
-  ffi_type* arg_types[1];
-  ffi_type* ret_type;
-  arg_types[0] = &ffi_type_sint32;
-  ret_type = &ffi_type_sint32;
+#ifdef HAVE_WASIX_CALL_DYNAMIC
+  uint8_t argument_bytes[4] = {0};
+  uint8_t result_bytes[4] = {0};
 
-  // To define a type
-  // For your void*
-  // Who you gonna call?
-  // (ffi_prep_cif!)
-  ffi_status cif_result =
-      ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 1, ret_type, arg_types);
-  if (cif_result != FFI_OK) {
-    fprintf(stderr, "ffi_prep_cif failed with status %d\n", cif_result);
-    return 1;
-  }
+  write_i32(argument_bytes, 11);
+  int error = wasix_call_dynamic((wasix_function_pointer_t)fib, argument_bytes,
+                                 sizeof(argument_bytes), result_bytes,
+                                 sizeof(result_bytes), true);
+  assert(error == 0);
+  assert(read_i32(result_bytes) == 89);
 
-  int argument;
-  int result;
-  void* arg_values[1];
-  void* ret_value;
-  arg_values[0] = &argument;
-  ret_value = &result;
+  errno = 0;
+  error = wasix_call_dynamic((wasix_function_pointer_t)fib, NULL, 0,
+                             result_bytes, sizeof(result_bytes), true);
+  assert(error == -1);
+  assert(errno == EINVAL);
 
-  argument = 11;
-  ffi_call(&cif, (void (*)(void))opaque_fib, ret_value, arg_values);
+  memset(result_bytes, 0, sizeof(result_bytes));
+  errno = 0;
+  error = wasix_call_dynamic((wasix_function_pointer_t)fib, NULL, 0,
+                             result_bytes, sizeof(result_bytes), false);
+  assert(error == 0);
+  assert(read_i32(result_bytes) == 0);
 
-  printf("ffi_call returned %d\n", result);
-  assert(result == 89);
+  uint8_t oversized_argument_bytes[5] = {0};
+  write_i32(oversized_argument_bytes, 11);
+  oversized_argument_bytes[4] = 0x5a;
+
+  memset(result_bytes, 0, sizeof(result_bytes));
+  errno = 0;
+  error = wasix_call_dynamic((wasix_function_pointer_t)fib,
+                             oversized_argument_bytes,
+                             sizeof(oversized_argument_bytes), result_bytes,
+                             sizeof(result_bytes), false);
+  assert(error == 0);
+  assert(read_i32(result_bytes) == 89);
+#else
+  assert(fib(11) == 89);
+#endif
+
+  printf("Direct dynamic call test completed\n");
   return 0;
 }

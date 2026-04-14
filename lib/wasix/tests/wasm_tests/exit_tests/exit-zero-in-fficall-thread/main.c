@@ -1,31 +1,30 @@
 #include <assert.h>
-#include <ffi.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <wasix/closure.h>
 
-void exit_with_code(void) {
-  printf("FFI call in thread\n");
-  exit(0);
+static void exit_with_code(uint8_t *values, uint8_t *results, void *user_data_ptr) {
+  int exit_code = *(int *)user_data_ptr;
+  printf("Closure call in thread\n");
+  exit(exit_code);
 }
 
-void* thread_func(void* data) {
-  ffi_cif cif;
+static void *thread_func(void *data) {
+  int exit_code = 0;
+  wasix_function_pointer_t closure_pointer = 0;
 
-  ffi_type* arg_types[0];
-  ffi_type* ret_type;
-  ret_type = &ffi_type_void;
+  int error = wasix_closure_allocate(&closure_pointer);
+  assert(error == 0);
 
-  ffi_status cif_result =
-      ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 0, ret_type, arg_types);
-  if (cif_result != FFI_OK) {
-    fprintf(stderr, "ffi_prep_cif failed with status %d\n", cif_result);
-    exit(1);
-  }
+  error = wasix_closure_prepare((wasix_function_pointer_t)exit_with_code,
+                                closure_pointer, NULL, 0, NULL, 0,
+                                &exit_code);
+  assert(error == 0);
 
-  ffi_call(&cif, (void (*)(void))&exit_with_code, NULL, NULL);
-
+  ((void (*)(void))closure_pointer)();
   return 0;
 }
 
@@ -37,12 +36,14 @@ int main() {
   }
 
   pthread_t thread = {0};
-  if (pthread_create(&thread, &attr, &thread_func, (void*)stdout) != 0) {
+  if (pthread_create(&thread, &attr, &thread_func,
+                     (void *)stdout
+                     ) != 0) {
     perror("create thread");
     return -1;
   }
 
-  void* thread_ret;
+  void *thread_ret;
   if (pthread_join(thread, &thread_ret) != 0) {
     perror("join");
     return -1;
