@@ -40,7 +40,13 @@ impl FileLifecycle {
     }
 
     fn closed(&self) -> usize {
-        self.open_handles.fetch_sub(1, Ordering::AcqRel) - 1
+        let previous = self
+            .open_handles
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+                count.checked_sub(1)
+            })
+            .expect("FileLifecycle::closed called with zero open handles");
+        previous - 1
     }
 
     fn open_handle_count(&self) -> usize {

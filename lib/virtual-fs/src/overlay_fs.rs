@@ -82,6 +82,22 @@ where
         unlink_overlay_path(&self.primary, &self.path)
     }
 
+    fn is_open(&self) -> bool {
+        self.inner.is_open()
+    }
+
+    fn get_special_fd(&self) -> Option<u32> {
+        self.inner.get_special_fd()
+    }
+
+    fn write_from_mmap(&mut self, offset: u64, len: u64) -> std::io::Result<()> {
+        self.inner.write_from_mmap(offset, len)
+    }
+
+    fn as_owned_buffer(&self) -> Option<shared_buffer::OwnedBuffer> {
+        self.inner.as_owned_buffer()
+    }
+
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Pin::new(self.inner.as_mut()).poll_read_ready(cx)
     }
@@ -1406,6 +1422,29 @@ mod tests {
         // Files on the primary should always shadow the secondary
         let content = ops::read_to_string(&fs, "/primary/read.txt").await.unwrap();
         assert_ne!(content, "This is shadowed");
+    }
+
+    #[tokio::test]
+    async fn open_secondary_file_preserves_owned_buffer_access() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        secondary
+            .insert_ro_file("/secondary/buffer.txt".as_ref(), b"overlay-buffer".to_vec().into())
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        let file = fs
+            .new_open_options()
+            .read(true)
+            .open("/secondary/buffer.txt")
+            .unwrap();
+
+        let buffer = file
+            .as_owned_buffer()
+            .expect("secondary wrapper should preserve inner owned-buffer access");
+        assert_eq!(buffer.as_slice(), b"overlay-buffer");
     }
 
     #[tokio::test]
