@@ -187,7 +187,9 @@ Goal: preserve dynamic-calling and closure coverage without depending on `libffi
    - closure redefinition
    - reflection behavior for allocated closures via `reflect_signature`
 5. Use `../libffi/src/wasm32/ffi.c` as the ABI reference when constructing test buffers and closure callbacks.
-6. Prefer minimal C or raw wasm fixtures that import the WASIX functions directly over fixtures that depend on helper libraries.
+6. Keep the replacement fixtures as raw C sources compiled through `wasixcc`.
+   - Do not introduce raw wasm fixtures for this coverage.
+   - The goal is to test WASIX syscall behavior through normal C-level sources, while removing the `libffi` dependency.
 
 Exit criterion: the current `libffi`-based test coverage is preserved by direct syscall tests, and no test fixture needs `<ffi.h>`.
 
@@ -235,7 +237,7 @@ Goal: make the replacement tests easier to reason about than the old libffi-back
    - signature/reflection tests
    - exit-propagation tests
 2. Add labels or lightweight metadata so CI can run these focused subsets.
-3. Keep one or two high-signal end-to-end fixtures if they still add value, but avoid rebuilding a second abstraction layer on top of the syscalls.
+3. Keep one or two high-signal end-to-end fixtures if they still add value, but keep them as C sources compiled by `wasixcc` and avoid rebuilding a second abstraction layer on top of the syscalls.
 
 This keeps the suite aligned with the actual WASIX features being implemented.
 
