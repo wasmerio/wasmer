@@ -1,11 +1,7 @@
 //! Wraps the memory file system implementation - this has been
-//! enhanced to support mounting file systems, shared static files,
-//! readonly files, etc...
+//! enhanced to support shared static files, readonly files, etc...
 
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
 
 use crate::{
     BoxFuture, FileSystem, Metadata, OpenOptions, ReadDir, Result, limiter::DynFsMemoryLimiter,
@@ -30,28 +26,8 @@ impl TmpFileSystem {
         self.fs.new_open_options_ext()
     }
 
-    pub fn union(&self, other: &Arc<dyn FileSystem + Send + Sync>) {
+    pub fn union(&self, other: &std::sync::Arc<dyn FileSystem + Send + Sync>) {
         self.fs.union(other)
-    }
-
-    /// See [`mem_fs::FileSystem::mount_directory_entries`].
-    pub fn mount_directory_entries(
-        &self,
-        target_path: &Path,
-        other: &Arc<dyn crate::FileSystem + Send + Sync>,
-        source_path: &Path,
-    ) -> Result<()> {
-        self.fs
-            .mount_directory_entries(target_path, other, source_path)
-    }
-
-    pub fn mount(
-        &self,
-        src_path: PathBuf,
-        other: &Arc<dyn FileSystem + Send + Sync>,
-        dst_path: PathBuf,
-    ) -> Result<()> {
-        self.fs.mount(src_path, other, dst_path)
     }
 
     /// Canonicalize a path without validating that it actually exists.
@@ -77,6 +53,10 @@ impl FileSystem for TmpFileSystem {
         self.fs.create_dir(path)
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        self.fs.create_symlink(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         self.fs.remove_dir(path)
     }
@@ -99,14 +79,5 @@ impl FileSystem for TmpFileSystem {
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         self.fs.new_open_options()
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        FileSystem::mount(&self.fs, name, path, fs)
     }
 }

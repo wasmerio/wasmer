@@ -143,19 +143,16 @@ else ifneq ($(filter 1 true,$(ENABLE_LLVM)),)
 	LLVM_VERSION := $(shell llvm-config --version)
 	compilers += llvm
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
-else ifneq (, $(shell which llvm-config-21 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config-21 --version)
+else ifneq (, $(shell which llvm-config-22 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-22 --version)
 	compilers += llvm
-	# need force LLVM_SYS_211_PREFIX, or llvm_sys will not build in the case
-	export LLVM_SYS_211_PREFIX = $(shell llvm-config-21 --prefix)
+	# need force LLVM_SYS_221_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_221_PREFIX = $(shell llvm-config-22 --prefix)
 else ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
-	ifneq (, $(findstring 21,$(LLVM_VERSION)))
+	ifneq (, $(findstring 22,$(LLVM_VERSION)))
 		compilers += llvm
-		export LLVM_SYS_211_PREFIX = $(shell llvm-config --prefix)
-	else ifneq (, $(findstring 21,$(LLVM_VERSION)))
-		compilers += llvm
-		export LLVM_SYS_211_PREFIX = $(shell llvm-config --prefix)
+		export LLVM_SYS_221_PREFIX = $(shell llvm-config --prefix)
 	endif
 endif
 
@@ -323,6 +320,11 @@ compilers_engines := $(strip $(compilers_engines))
 #
 #####
 
+build_wasmer_extra_features :=
+ifneq (,$(filter 1 true,$(ENABLE_NAPI_V8)))
+       build_wasmer_extra_features += napi-v8
+endif
+
 # Small trick to define a space and a comma.
 space := $() $()
 comma := ,
@@ -359,11 +361,6 @@ endif
 
 HOST_TARGET=$(shell rustc -Vv | grep 'host: ' | cut -d':' -f2 | tr -d ' ')
 BUILD_WASMER_TARGET := $(if $(CARGO_TARGET),$(CARGO_TARGET),$(HOST_TARGET))
-
-build_wasmer_extra_features :=
-ifneq (, $(filter x86_64-unknown-linux-gnu aarch64-apple-darwin,$(BUILD_WASMER_TARGET)))
-	build_wasmer_extra_features += napi-v8
-endif
 
 workspace_doc_excludes := --exclude wasmer-c-api --exclude wasmer-swift --exclude wasmer-napi
 
@@ -942,7 +939,10 @@ install-wasmer:
 	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer
 
 install-capi-headers:
-	for header in lib/c-api/*.h; do install -Dm644 "$$header" $(DESTDIR)/include/$$(basename $$header); done
+	install -Dm644 lib/c-api/wasmer.h $(DESTDIR)/include/wasmer.h
+	install -Dm644 lib/c-api/wasmer_wasm.h $(DESTDIR)/include/wasmer_wasm.h
+	install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.h $(DESTDIR)/include/wasm.h
+	install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.hh $(DESTDIR)/include/wasm.hh
 	install -Dm644 lib/c-api/README.md $(DESTDIR)/include/wasmer-README.md
 
 # Currently implemented for linux only. TODO
