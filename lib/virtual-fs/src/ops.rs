@@ -161,6 +161,39 @@ pub fn copy_reference_ext<'a>(
     })
 }
 
+/// Move a file across filesystem boundaries by copying it into the destination
+/// and then removing the original.
+pub fn move_across_filesystems<'a>(
+    source: &'a (impl FileSystem + ?Sized),
+    destination: &'a (impl FileSystem + ?Sized),
+    from: &'a Path,
+    to: &'a Path,
+) -> BoxFuture<'a, crate::Result<()>> {
+    let from = from.to_owned();
+    let to = to.to_owned();
+    Box::pin(async move {
+        let metadata = source.metadata(&from)?;
+        if metadata.is_dir() {
+            return Err(FsError::InvalidInput);
+        }
+
+        copy_reference_ext(source, destination, &from, &to)
+            .await
+            .map_err(FsError::from)?;
+
+        if let Err(error) = source.remove_file(&from) {
+            tracing::warn!(
+                ?from,
+                ?to,
+                ?error,
+                "Failed to remove file after cross-filesystem rename"
+            );
+        }
+
+        Ok(())
+    })
+}
+
 /// Asynchronously write some bytes to a file.
 ///
 /// This is analogous to [`std::fs::write()`].
