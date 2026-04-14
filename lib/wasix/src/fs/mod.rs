@@ -2335,7 +2335,7 @@ impl WasiFs {
                         return Ok(Filestat {
                             st_filetype: Filetype::SymbolicLink,
                             ..Filestat::default()
-                        })
+                        });
                     }
                 }
             }
