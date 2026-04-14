@@ -67,7 +67,7 @@ Fixture counts by suite:
 | `exception_tests` | 12 |
 | `exit_tests` | 10 |
 | `fd_tests` | 1 |
-| `ffi_tests` | 4 |
+| `dynamic_call_and_closure_tests` | 4 |
 | `libc_tests` | 4 |
 | `lifecycle_tests` | 7 |
 | `longjmp_tests` | 4 |
@@ -85,14 +85,14 @@ In practical terms, the entire `lib/wasix/tests/wasm_tests` tree depends on havi
 
 These fixture directories explicitly include `<ffi.h>`, so they are the remaining tests that still need something `wasixcc` does not already provide:
 
-- `lib/wasix/tests/wasm_tests/ffi_tests/simple-ffi-call`
-- `lib/wasix/tests/wasm_tests/ffi_tests/complex-ffi-call`
-- `lib/wasix/tests/wasm_tests/ffi_tests/longdouble-ffi-call`
-- `lib/wasix/tests/wasm_tests/ffi_tests/simple-ffi-closure`
-- `lib/wasix/tests/wasm_tests/exit_tests/exit-zero-in-fficall`
-- `lib/wasix/tests/wasm_tests/exit_tests/exit-nonzero-in-fficall`
-- `lib/wasix/tests/wasm_tests/exit_tests/exit-zero-in-fficall-thread`
-- `lib/wasix/tests/wasm_tests/exit_tests/exit-nonzero-in-fficall-thread`
+- `lib/wasix/tests/wasm_tests/dynamic_call_and_closure_tests/call-dynamic-strict-and-nonstrict`
+- `lib/wasix/tests/wasm_tests/dynamic_call_and_closure_tests/call-dynamic-complex-abi`
+- `lib/wasix/tests/wasm_tests/dynamic_call_and_closure_tests/call-dynamic-buffer-modes`
+- `lib/wasix/tests/wasm_tests/dynamic_call_and_closure_tests/closure-lifecycle`
+- `lib/wasix/tests/wasm_tests/exit_tests/exit-zero-in-closure-call`
+- `lib/wasix/tests/wasm_tests/exit_tests/exit-nonzero-in-closure-call`
+- `lib/wasix/tests/wasm_tests/exit_tests/exit-zero-in-closure-call-thread`
+- `lib/wasix/tests/wasm_tests/exit_tests/exit-nonzero-in-closure-call-thread`
 
 These tests are really covering WASIX dynamic-calling and closure behavior, not libffi behavior as such. Today they happen to reach that functionality through libffi.
 
@@ -167,10 +167,10 @@ Exit criterion: all non-libffi WASIX fixture tests build from the `wasixcc` sysr
 
 Goal: preserve dynamic-calling and closure coverage without depending on `libffi`.
 
-1. Replace the current `ffi_tests` fixtures with tests that import and invoke WASIX syscalls directly.
-   - `simple-ffi-call` and related cases should become direct `call_dynamic` coverage.
-   - `simple-ffi-closure` should become direct `closure_allocate` / `closure_prepare` / `closure_free` coverage.
-2. Replace the `exit_*_fficall*` fixtures with direct dynamic-call tests that trigger the same exit behavior through WASIX, without `libffi`.
+1. Replace the current dynamic-call and closure fixtures with tests that import and invoke WASIX syscalls directly.
+   - `call-dynamic-*` cases should cover strict/non-strict behavior and ABI-sensitive `call_dynamic` paths directly.
+   - `closure-lifecycle` should cover direct `closure_allocate` / `closure_prepare` / `closure_free` behavior.
+2. Replace the `exit_*_closure-call*` fixtures with direct closure tests that trigger the same exit behavior through WASIX, without `libffi`.
 3. Keep the behavioral intent of the current tests, but stop using libffi as the adapter layer.
    - integer argument passing
    - multi-argument calls

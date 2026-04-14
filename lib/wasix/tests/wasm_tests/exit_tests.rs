@@ -3,9 +3,9 @@
 //! These tests verify various exit scenarios:
 //! - exit-zero/exit-nonzero: Basic exit with status codes
 //! - exit-*-in-thread: Exit from a pthread
-//! - exit-*-in-fficall: Exit from a closure callback
-//! - exit-*-in-dyncall-thread: Exit from dynamically called thread
-//! - exit-*-in-fficall-thread: Exit from a closure callback in thread
+//! - exit-*-in-closure-call: Exit from a closure callback
+//! - exit-*-in-call-dynamic-thread: Exit from dynamically called thread
+//! - exit-*-in-closure-call-thread: Exit from a closure callback in thread
 
 use super::{run_build_script, run_wasm};
 
@@ -48,54 +48,54 @@ fn test_exit_nonzero_in_thread() {
 
 #[test]
 fn test_exit_zero_in_closure_call() {
-    let wasm_path = run_build_script(file!(), "exit-zero-in-fficall").unwrap();
+    let wasm_path = run_build_script(file!(), "exit-zero-in-closure-call").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
 #[test]
 fn test_exit_nonzero_in_closure_call() {
-    let wasm_path = run_build_script(file!(), "exit-nonzero-in-fficall").unwrap();
+    let wasm_path = run_build_script(file!(), "exit-nonzero-in-closure-call").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     let result = run_wasm(&wasm_path, test_dir);
     assert!(
         result.is_err(),
-        "exit-nonzero-in-fficall should fail with non-zero exit code"
+        "exit-nonzero-in-closure-call should fail with non-zero exit code"
     );
 }
 
 #[test]
 fn test_exit_zero_in_closure_call_thread() {
-    let wasm_path = run_build_script(file!(), "exit-zero-in-fficall-thread").unwrap();
+    let wasm_path = run_build_script(file!(), "exit-zero-in-closure-call-thread").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
 #[test]
 fn test_exit_nonzero_in_closure_call_thread() {
-    let wasm_path = run_build_script(file!(), "exit-nonzero-in-fficall-thread").unwrap();
+    let wasm_path = run_build_script(file!(), "exit-nonzero-in-closure-call-thread").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     let result = run_wasm(&wasm_path, test_dir);
     assert!(
         result.is_err(),
-        "exit-nonzero-in-fficall-thread should fail with non-zero exit code"
+        "exit-nonzero-in-closure-call-thread should fail with non-zero exit code"
     );
 }
 
 #[test]
-fn test_exit_zero_in_dyncall_thread() {
-    let wasm_path = run_build_script(file!(), "exit-zero-in-dyncall-thread").unwrap();
+fn test_exit_zero_in_call_dynamic_thread() {
+    let wasm_path = run_build_script(file!(), "exit-zero-in-call-dynamic-thread").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     run_wasm(&wasm_path, test_dir).unwrap();
 }
 
 #[test]
-fn test_exit_nonzero_in_dyncall_thread() {
-    let wasm_path = run_build_script(file!(), "exit-nonzero-in-dyncall-thread").unwrap();
+fn test_exit_nonzero_in_call_dynamic_thread() {
+    let wasm_path = run_build_script(file!(), "exit-nonzero-in-call-dynamic-thread").unwrap();
     let test_dir = wasm_path.parent().unwrap();
     let result = run_wasm(&wasm_path, test_dir);
     assert!(
         result.is_err(),
-        "exit-nonzero-in-dyncall-thread should fail with non-zero exit code"
+        "exit-nonzero-in-call-dynamic-thread should fail with non-zero exit code"
     );
 }

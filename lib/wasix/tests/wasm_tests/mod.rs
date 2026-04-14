@@ -5,7 +5,7 @@ mod edge_case_tests;
 mod exception_tests;
 mod exit_tests;
 mod fd_tests;
-mod ffi_tests;
+mod dynamic_call_and_closure_tests;
 mod libc_tests;
 mod lifecycle_tests;
 mod longjmp_tests;
