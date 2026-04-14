@@ -54,7 +54,7 @@ impl Clone for FileHandle {
 }
 
 impl FileHandle {
-    pub(super) fn new(
+    pub(super) fn new_opened(
         inode: Inode,
         filesystem: FileSystem,
         lifecycle: Arc<FileLifecycle>,
@@ -63,7 +63,6 @@ impl FileHandle {
         append_mode: bool,
         cursor: u64,
     ) -> Self {
-        lifecycle.opened();
         Self {
             inode,
             filesystem,
