@@ -21,16 +21,13 @@ fn unlink_overlay_path<P>(primary: &Arc<P>, path: &Path) -> Result<(), FsError>
 where
     P: FileSystem + ?Sized,
 {
-    let created_whiteout = ops::create_white_out(primary, path).is_ok();
+    let whiteout_result = ops::create_white_out(primary, path);
 
     match primary.remove_file(path) {
-        Err(e) if should_continue(e) => {
-            if created_whiteout {
-                Ok(())
-            } else {
-                Err(FsError::PermissionDenied)
-            }
-        }
+        Err(e) if should_continue(e) => match whiteout_result {
+            Ok(()) | Err(FsError::AlreadyExists) => Ok(()),
+            Err(whiteout_err) => Err(whiteout_err),
+        },
         other => other,
     }
 }
@@ -1624,6 +1621,54 @@ mod tests {
         let mut buf = String::new();
         f.read_to_string(&mut buf).await.unwrap();
         assert_eq!(buf, "Hello, World!");
+    }
+
+    #[tokio::test]
+    async fn unlink_open_secondary_fs_without_cow_succeeds_when_whiteout_already_exists() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
+            .await
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        let mut f = fs
+            .new_open_options()
+            .read(true)
+            .open(Path::new("/secondary/file.txt"))
+            .unwrap();
+
+        ops::create_white_out(&fs.primary, "/secondary/file.txt").unwrap();
+        assert_eq!(f.unlink(), Ok(()));
+        assert_eq!(
+            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
+            FsError::EntryNotFound
+        );
+    }
+
+    #[tokio::test]
+    async fn unlink_open_secondary_fs_without_cow_preserves_whiteout_creation_error() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::write(&primary, "/secondary", b"not a directory")
+            .await
+            .unwrap();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
+            .await
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        let mut f = fs
+            .new_open_options()
+            .read(true)
+            .open(Path::new("/secondary/file.txt"))
+            .unwrap();
+
+        assert_eq!(f.unlink(), Err(FsError::BaseNotDirectory));
     }
 
     #[tokio::test]
