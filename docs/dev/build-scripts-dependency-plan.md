@@ -29,6 +29,12 @@ The important nuance is that the Rust WASIX test harness does **not** prefer `bu
 
 That means `build-scripts` is already a fallback provider, not the canonical sysroot source. In practice, the only remaining test gap to close before removing it is the `libffi`-based dynamic-calling / closure coverage.
 
+The desired end state is stricter than the current fallback chain:
+
+- a working `wasixcc` install is sufficient to run the relevant tests
+- no test setup depends on `build-scripts` being unpacked under `~/`
+- no test setup depends on any other repo-specific home-directory convention
+
 ## Usage Inventory
 
 ### Direct references to the remote repo
@@ -152,6 +158,7 @@ Goal: stop relying on an implicit fallback path.
 2. In CI, rely on `wasixcc`'s built-in sysroot discovery instead of re-exporting the sysroot path.
    - `wasixccenv -sPIC=1 print-sysroot` should be used as a validation/debugging check, not as a required setup step.
    - Do not depend on auto-discovery of `~/.build-scripts/pkgs`.
+   - Do not depend on any other pre-populated `~/...` sysroot location.
 3. Update the local failure message in `lib/wasix/tests/wasm_tests/mod.rs`.
    - Replace the `curl ... wasix-org/build-scripts ...` guidance with instructions for installing `wasixcc` or setting `WASIXCC_SYSROOT`.
 
@@ -200,11 +207,14 @@ Exit criterion: CI is green with no `build-scripts` action usage.
 
 ### Phase 4: Remove the fallback from the Rust harness
 
-Goal: eliminate the repo-specific behavior from test code.
+Goal: eliminate repo-specific path assumptions from test code.
 
 1. Delete the `~/.build-scripts/pkgs` probe from `find_compatible_sysroot()`.
-2. Keep only explicit env vars and tool-driven discovery.
-3. Tighten the error text so it names supported setup methods only.
+2. Delete the `~/.wasix-clang/wasix-sysroot` probe as well.
+3. Keep only:
+   - optional explicit env var overrides for advanced/debug use
+   - tool-driven discovery via `wasixccenv -sPIC=1 print-sysroot`
+4. Tighten the error text so it names supported setup methods only.
 
 Suggested end state:
 
@@ -213,7 +223,7 @@ Suggested end state:
 - otherwise `wasixccenv print-sysroot`
 - otherwise fail with a message that tells the user to install `wasixcc`
 
-This is cleaner than probing multiple historical layouts, and it removes the only in-repo code path that still hardcodes `build-scripts`.
+This is cleaner than probing multiple historical layouts, and it removes the current dependency on odd home-directory conventions.
 
 ### Phase 5: Clean up test taxonomy around dynamic calling and closures
 
@@ -234,7 +244,7 @@ This keeps the suite aligned with the actual WASIX features being implemented.
 1. Switch CI and local guidance to rely on the `wasixcc` sysroot directly.
 2. Rewrite the `libffi` fixtures into direct WASIX syscall tests.
 3. Once those replacement tests are green, remove `wasix-org/build-scripts@main` from CI.
-4. Remove the `~/.build-scripts/pkgs` fallback and the `curl` instructions from the Rust harness.
+4. Remove the `~/.build-scripts/pkgs` fallback, the `~/.wasix-clang/wasix-sysroot` fallback, and the `curl` instructions from the Rust harness.
 5. Optionally reorganize the new tests by WASIX capability.
 
 ## Expected Outcome
@@ -244,5 +254,7 @@ After this change:
 - no workflow in this repo fetches `wasix-org/build-scripts`
 - no test fixture depends on `<ffi.h>` or `libffi`
 - no test code mentions `~/.build-scripts/pkgs`
-- local setup instructions point to `wasixcc` or an explicit sysroot path
+- no test setup depends on files being preinstalled under `~/`
+- a working `wasixcc` install is enough to run the relevant tests
+- local setup instructions point to `wasixcc`, with env vars documented only as optional overrides
 - dynamic-calling and closure coverage is exercised directly against WASIX syscalls instead of through libffi
