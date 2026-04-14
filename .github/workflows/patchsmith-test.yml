@@ -1,0 +1,53 @@
+name: patchsmith-test
+on:
+  issue_comment:
+    types:
+      - created
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to test"
+        required: true
+        type: string
+permissions:
+  contents: read
+# Serialize /patchsmith test runs per PR.
+concurrency:
+  group: patchsmith-test-pr-${{ github.event.issue.number || github.event.inputs.pr_number }}
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/patchsmith test') && contains('OWNER,MEMBER,COLLABORATOR', github.event.comment.author_association)) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve PR metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.issue.number }}
+        run: |
+          pr_json=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          head_repo=$(printf '%s' "$pr_json" | jq -r '.head.repo.full_name')
+          head_ref=$(printf '%s' "$pr_json" | jq -r '.head.ref')
+          head_sha=$(printf '%s' "$pr_json" | jq -r '.head.sha')
+
+          if [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "Fork PRs are not supported yet for /patchsmith test." >&2
+            exit 1
+          fi
+
+          {
+            echo "PR_NUMBER=${PR_NUMBER}"
+            echo "HEAD_REF=${head_ref}"
+            echo "HEAD_SHA=${head_sha}"
+          } >> "$GITHUB_ENV"
+      - name: Dispatch compat-tests workflow
+        env:
+          GH_TOKEN: ${{ secrets.COMPAT_TESTS_GH_TOKEN }}
+        run: |
+          gh workflow run python-upstream.yml \
+            --repo wasmerio/compat-tests \
+            --field "wasmer_ref=${HEAD_REF}" \
+            --field "compare_ref=origin/main" \
+            --field "comment_repo=${GITHUB_REPOSITORY}" \
+            --field "comment_pr_number=${PR_NUMBER}" \
+            --field "expected_wasmer_sha=${HEAD_SHA}"

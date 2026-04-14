@@ -460,6 +460,10 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        self.create_symlink(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         let (inode_of_parent, position, inode_of_directory) = {
             // Read lock.
@@ -657,24 +661,7 @@ impl crate::FileSystem for FileSystem {
                 }
 
                 // Rename across file systems; we need to do a create and a delete
-                _ => {
-                    let mut from_file = self.new_open_options().read(true).open(from)?;
-                    let mut to_file = self
-                        .new_open_options()
-                        .create_new(true)
-                        .write(true)
-                        .open(to)?;
-                    tokio::io::copy(from_file.as_mut(), to_file.as_mut()).await?;
-                    if let Err(error) = self.remove_file(from) {
-                        tracing::warn!(
-                            ?from,
-                            ?to,
-                            ?error,
-                            "Failed to remove file after cross-FS rename"
-                        );
-                    }
-                    Ok(())
-                }
+                _ => crate::ops::move_across_filesystems(self, self, from, to).await,
             }
         })
     }
@@ -772,16 +759,6 @@ impl crate::FileSystem for FileSystem {
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
-    }
-
-    fn mount(
-        &self,
-        _name: String,
-        path: &Path,
-        fs: Box<dyn crate::FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        let fs: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(fs);
-        self.mount(path.to_owned(), &fs, PathBuf::from("/"))
     }
 }
 
