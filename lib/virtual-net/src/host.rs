@@ -19,7 +19,7 @@ use std::os::fd::RawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawSocket;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 use tokio::runtime::Handle;
@@ -175,16 +175,7 @@ impl VirtualNetworking for LocalNetworking {
             return Err(NetworkError::PermissionDenied);
         }
 
-        // This future may be polled outside Tokio's executor context, so run
-        // the connect itself on the stored runtime handle to guarantee a reactor.
-        let stream = self
-            .handle
-            .spawn(tokio::net::TcpStream::connect(peer))
-            .await
-            .map_err(|_| NetworkError::IOError)?
-            .map_err(io_err_into_net_error)?;
-        let stream = stream.into_std().map_err(io_err_into_net_error)?;
-        let stream = mio::net::TcpStream::from_std(stream);
+        let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
 
         if let Ok(p) = stream.peer_addr() {
             peer = p;
@@ -387,6 +378,13 @@ impl VirtualIoSource for LocalTcpListener {
 }
 
 #[derive(Debug)]
+enum ConnectState {
+    Unknown,
+    Opened,
+    Failed,
+}
+
+#[derive(Debug)]
 pub struct LocalTcpStream {
     stream: mio::net::TcpStream,
     addr: SocketAddr,
@@ -394,6 +392,7 @@ pub struct LocalTcpStream {
     selector: Arc<Selector>,
     handler_guard: HandlerGuardState,
     buffer: BytesMut,
+    connect_state: Mutex<ConnectState>,
 }
 
 impl LocalTcpStream {
@@ -406,6 +405,7 @@ impl LocalTcpStream {
             selector,
             handler_guard: HandlerGuardState::None,
             buffer: BytesMut::new(),
+            connect_state: Mutex::new(ConnectState::Unknown),
         };
 
         // In windows we can not poll the socket as it is not supported and hence
@@ -614,7 +614,41 @@ impl VirtualSocket for LocalTcpStream {
     }
 
     fn status(&self) -> Result<SocketStatus> {
-        Ok(SocketStatus::Opened)
+        // `take_error()` consumes the latched socket error, so once the
+        // connect resolves we cache the terminal state to keep status() stable.
+        let mut connect_state = self.connect_state.lock().unwrap();
+        match *connect_state {
+            ConnectState::Opened => return Ok(SocketStatus::Opened),
+            ConnectState::Failed => return Ok(SocketStatus::Failed),
+            ConnectState::Unknown => {}
+        }
+
+        if self
+            .with_sock_ref(|sockref| sockref.take_error())
+            .map_err(io_err_into_net_error)?
+            .is_some()
+        {
+            *connect_state = ConnectState::Failed;
+            return Ok(SocketStatus::Failed); // connect error on the socket
+        }
+        match self.stream.peer_addr() {
+            Ok(_) => {
+                *connect_state = ConnectState::Opened;
+                Ok(SocketStatus::Opened) // TCP handshake completed.
+            }
+            Err(err) => {
+                if matches!(
+                    err.kind(),
+                    io::ErrorKind::NotConnected | io::ErrorKind::WouldBlock
+                ) {
+                    Ok(SocketStatus::Opening) // The connect is still in progress
+                } else {
+                    // TODO: Store the concrete err so we can return it later on
+                    *connect_state = ConnectState::Failed;
+                    Ok(SocketStatus::Failed) // Any other error means the socket is unusable
+                }
+            }
+        }
     }
 
     fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
