@@ -149,8 +149,8 @@ That means:
 Goal: stop relying on an implicit fallback path.
 
 1. Standardize on the `wasixcc` sysroot as the supported sysroot provider for tests.
-2. In CI, export `WASIXCC_SYSROOT` explicitly before any WASIX fixture build.
-   - Use `wasixccenv -sPIC=1 print-sysroot` or the known `wasixcc` install path.
+2. In CI, rely on `wasixcc`'s built-in sysroot discovery instead of re-exporting the sysroot path.
+   - `wasixccenv -sPIC=1 print-sysroot` should be used as a validation/debugging check, not as a required setup step.
    - Do not depend on auto-discovery of `~/.build-scripts/pkgs`.
 3. Update the local failure message in `lib/wasix/tests/wasm_tests/mod.rs`.
    - Replace the `curl ... wasix-org/build-scripts ...` guidance with instructions for installing `wasixcc` or setting `WASIXCC_SYSROOT`.
@@ -190,7 +190,7 @@ Goal: delete the remote repo from GitHub Actions once the test suite no longer n
 
 1. Remove `uses: wasix-org/build-scripts@main` from `test_wasix`.
 2. Remove `uses: wasix-org/build-scripts@main` from the `test` matrix job.
-3. If needed, scope explicit `WASIXCC_SYSROOT` setup only to the stage that actually reaches `lib/wasix/tests/wasm_tests`, instead of every non-Windows matrix entry.
+3. If any stage still needs sysroot-related setup, keep it limited to the stage that actually reaches `lib/wasix/tests/wasm_tests`, instead of every non-Windows matrix entry.
 4. Run at least:
    - `make test-wasix`
    - the workspace test stage that covers `lib/wasix/tests/wasm_tests`
@@ -231,7 +231,7 @@ This keeps the suite aligned with the actual WASIX features being implemented.
 
 ## Recommended Execution Order
 
-1. Switch CI and local guidance to the `wasixcc` sysroot explicitly.
+1. Switch CI and local guidance to rely on the `wasixcc` sysroot directly.
 2. Rewrite the `libffi` fixtures into direct WASIX syscall tests.
 3. Once those replacement tests are green, remove `wasix-org/build-scripts@main` from CI.
 4. Remove the `~/.build-scripts/pkgs` fallback and the `curl` instructions from the Rust harness.
