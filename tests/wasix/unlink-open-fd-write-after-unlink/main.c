@@ -8,7 +8,7 @@
 
 #define PAYLOAD_SIZE 1025
 
-static int write_pattern(FILE *fp, char fill, const char *label) {
+static int write_pattern(FILE* fp, char fill, const char* label) {
   char buffer[PAYLOAD_SIZE];
   memset(buffer, fill, sizeof(buffer));
 
@@ -29,7 +29,7 @@ static int write_pattern(FILE *fp, char fill, const char *label) {
   return 0;
 }
 
-static int verify_fp_pattern(FILE *fp, char fill, const char *label) {
+static int verify_fp_pattern(FILE* fp, char fill, const char* label) {
   char expected[PAYLOAD_SIZE];
   char actual[PAYLOAD_SIZE];
   memset(expected, fill, sizeof(expected));
@@ -52,7 +52,7 @@ static int verify_fp_pattern(FILE *fp, char fill, const char *label) {
   return 0;
 }
 
-static int verify_path_pattern(const char *path, char fill, const char *label) {
+static int verify_path_pattern(const char* path, char fill, const char* label) {
   char expected[PAYLOAD_SIZE];
   char actual[PAYLOAD_SIZE];
   memset(expected, fill, sizeof(expected));
@@ -108,7 +108,7 @@ int main() {
   }
   printf("unlink succeeded\n");
 
-  FILE *first = fdopen(fd1, "w+");
+  FILE* first = fdopen(fd1, "w+");
   if (first == NULL) {
     perror("fdopen first");
     return 1;
@@ -121,7 +121,7 @@ int main() {
     return 1;
   }
 
-  FILE *second = fdopen(fd2, "w+");
+  FILE* second = fdopen(fd2, "w+");
   if (second == NULL) {
     perror("fdopen second");
     return 1;
