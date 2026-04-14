@@ -1430,7 +1430,10 @@ mod tests {
         let secondary = MemFS::default();
         ops::create_dir_all(&secondary, "/secondary").unwrap();
         secondary
-            .insert_ro_file("/secondary/buffer.txt".as_ref(), b"overlay-buffer".to_vec().into())
+            .insert_ro_file(
+                "/secondary/buffer.txt".as_ref(),
+                b"overlay-buffer".to_vec().into(),
+            )
             .unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
