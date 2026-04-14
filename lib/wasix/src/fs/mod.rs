@@ -2339,31 +2339,42 @@ impl WasiFs {
                 path_to_symlink,
                 ..
             } => {
-                let guard = self.fd_map.read().unwrap();
-                let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
-                let guard = base_po_inode.read();
-                match guard.deref() {
-                    Kind::Root { .. } => self
-                        .root_fs
-                        .symlink_metadata(path_to_symlink)
-                        .map_err(fs_error_into_wasi_err)?,
-                    Kind::Dir { path, .. } => {
-                        let mut real_path = path.clone();
-                        // PHASE 1: ignore all possible symlinks in `relative_path`
-                        // TODO: walk the segments of `relative_path` via the entries of the Dir
-                        //       use helper function to avoid duplicating this logic (walking this will require
-                        //       &self to be &mut sel
-                        // TODO: adjust size of symlink, too
-                        //      for all paths adjusted think about this
-                        real_path.push(path_to_symlink);
-                        self.root_fs
-                            .symlink_metadata(&real_path)
-                            .map_err(fs_error_into_wasi_err)?
+                let result = {
+                    let guard = self.fd_map.read().unwrap();
+                    let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
+                    let guard = base_po_inode.read();
+                    match guard.deref() {
+                        Kind::Root { .. } => self.root_fs.symlink_metadata(path_to_symlink),
+                        Kind::Dir { path, .. } => {
+                            let mut real_path = path.clone();
+                            // PHASE 1: ignore all possible symlinks in `relative_path`
+                            // TODO: walk the segments of `relative_path` via the entries of the Dir
+                            //       use helper function to avoid duplicating this logic (walking this will require
+                            //       &self to be &mut sel
+                            // TODO: adjust size of symlink, too
+                            //      for all paths adjusted think about this
+                            real_path.push(path_to_symlink);
+                            self.root_fs.symlink_metadata(&real_path)
+                        }
+                        // if this triggers, there's a bug in the symlink code
+                        _ => unreachable!(
+                            "Symlink pointing to something that's not a directory as its base preopened directory"
+                        ),
                     }
-                    // if this triggers, there's a bug in the symlink code
-                    _ => unreachable!(
-                        "Symlink pointing to something that's not a directory as its base preopened directory"
-                    ),
+                };
+                // Ephemeral symlinks (created at runtime on a backing FS that doesn't support
+                // create_symlink) are stored in the virtual-FS cache but never written to the
+                // real filesystem, so symlink_metadata will return an error for them.
+                // We know the inode IS a symlink, so synthesize a minimal stat rather than
+                // surfacing a spurious ENOENT to callers such as lstat().
+                match result {
+                    Ok(md) => md,
+                    Err(_) => {
+                        return Ok(Filestat {
+                            st_filetype: Filetype::SymbolicLink,
+                            ..Filestat::default()
+                        })
+                    }
                 }
             }
             _ => return Err(Errno::Io),
