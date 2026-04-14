@@ -1,11 +1,11 @@
 mod basic_tests;
 mod context_switching;
+mod dynamic_call_and_closure_tests;
 mod dynamic_library_tests;
 mod edge_case_tests;
 mod exception_tests;
 mod exit_tests;
 mod fd_tests;
-mod dynamic_call_and_closure_tests;
 mod libc_tests;
 mod lifecycle_tests;
 mod longjmp_tests;
