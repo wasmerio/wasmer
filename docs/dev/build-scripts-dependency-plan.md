@@ -22,10 +22,9 @@ The direct references are:
 The important nuance is that the Rust WASIX test harness does **not** prefer `build-scripts`. In `find_compatible_sysroot()` it checks, in order:
 
 1. `WASIXCC_SYSROOT`
-2. `WASIXCC_PYTHON_SYSROOT`
-3. `~/.wasix-clang/wasix-sysroot`
-4. `~/.build-scripts/pkgs`
-5. `wasixccenv -sPIC=1 print-sysroot`
+2. `~/.wasix-clang/wasix-sysroot`
+3. `~/.build-scripts/pkgs`
+4. `wasixccenv -sPIC=1 print-sysroot`
 
 That means `build-scripts` is already a fallback provider, not the canonical sysroot source. In practice, the only remaining test gap to close before removing it is the `libffi`-based dynamic-calling / closure coverage.
 
@@ -221,7 +220,6 @@ Goal: eliminate repo-specific path assumptions from test code.
 Suggested end state:
 
 - `WASIXCC_SYSROOT` if set
-- otherwise `WASIXCC_PYTHON_SYSROOT` if set
 - otherwise `wasixccenv print-sysroot`
 - otherwise fail with a message that tells the user to install `wasixcc`
 

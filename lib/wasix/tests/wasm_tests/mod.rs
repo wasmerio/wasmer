@@ -161,16 +161,6 @@ fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
         return Ok(sysroot);
     }
 
-    if let Ok(sysroot) = std::env::var("WASIXCC_PYTHON_SYSROOT") {
-        if !Path::new(&sysroot).exists() {
-            anyhow::bail!(
-                "WASIXCC_PYTHON_SYSROOT is set but does not exist: {}",
-                sysroot
-            );
-        }
-        return Ok(sysroot);
-    }
-
     // Try to find a build-scripts style sysroot in common locations
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
 
