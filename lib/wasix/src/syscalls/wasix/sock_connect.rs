@@ -48,6 +48,15 @@ pub fn sock_connect<M: MemorySize>(
     Ok(Errno::Success)
 }
 
+fn nonblocking_connect_result(status: crate::net::socket::WasiSocketStatus) -> Result<(), Errno> {
+    match status {
+        crate::net::socket::WasiSocketStatus::Opening => Err(Errno::Inprogress),
+        crate::net::socket::WasiSocketStatus::Opened => Ok(()),
+        crate::net::socket::WasiSocketStatus::Closed
+        | crate::net::socket::WasiSocketStatus::Failed => Err(Errno::Notconn),
+    }
+}
+
 pub(crate) fn sock_connect_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -56,6 +65,10 @@ pub(crate) fn sock_connect_internal(
     let env = ctx.data();
     let net = env.net().clone();
     let tasks = ctx.data().tasks().clone();
+    let nonblocking = match env.state.fs.get_fd(sock) {
+        Ok(fd_entry) => fd_entry.inner.flags.contains(Fdflags::NONBLOCK),
+        Err(err) => return Ok(Err(err)),
+    };
     wasi_try_ok_ok!(__sock_upgrade(
         ctx,
         sock,
@@ -78,5 +91,37 @@ pub(crate) fn sock_connect_internal(
         }
     ));
 
+    if nonblocking {
+        let status = match __sock_actor(ctx, sock, Rights::empty(), |socket, _| socket.status()) {
+            Ok(status) => status,
+            Err(err) => return Ok(Err(err)),
+        };
+        return Ok(nonblocking_connect_result(status));
+    }
+
     Ok(Ok(()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::nonblocking_connect_result;
+    use crate::net::socket::WasiSocketStatus;
+    use wasmer_wasix_types::wasi::Errno;
+
+    #[test]
+    fn nonblocking_connect_result_maps_socket_states() {
+        assert_eq!(
+            nonblocking_connect_result(WasiSocketStatus::Opening),
+            Err(Errno::Inprogress)
+        );
+        assert_eq!(nonblocking_connect_result(WasiSocketStatus::Opened), Ok(()));
+        assert_eq!(
+            nonblocking_connect_result(WasiSocketStatus::Failed),
+            Err(Errno::Notconn)
+        );
+        assert_eq!(
+            nonblocking_connect_result(WasiSocketStatus::Closed),
+            Err(Errno::Notconn)
+        );
+    }
 }

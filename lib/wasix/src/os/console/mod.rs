@@ -215,11 +215,8 @@ impl Console {
                 Box::new(self.stdout.clone()),
                 Box::new(self.stdin.clone()),
             )))
+            .with_memory_limiter_opt(self.memfs_memory_limiter.clone())
             .build();
-
-        if let Some(limiter) = &self.memfs_memory_limiter {
-            root_fs.set_memory_limiter(limiter.clone());
-        }
 
         let builder = crate::runners::wasi::WasiRunner::new()
             .with_envs(self.env.clone())
@@ -233,7 +230,10 @@ impl Console {
                 &wasi_opts,
                 PackageOrHash::Package(&pkg),
                 RuntimeOrEngine::Runtime(self.runtime.clone()),
-                Some(root_fs),
+                Some(
+                    crate::fs::WasiFsRoot::from_mount_fs(root_fs)
+                        .with_memory_limiter_opt(self.memfs_memory_limiter.clone()),
+                ),
             )
             // TODO: better error conversion
             .map_err(|err| SpawnError::Other(err.into()))?;
