@@ -3,31 +3,7 @@ use super::*;
 use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use shared_buffer::OwnedBuffer;
 use std::path::Path;
-#[cfg(test)]
-use std::sync::{Mutex, OnceLock};
 use tracing::*;
-
-#[cfg(test)]
-type OpenBeforeHandleHook = Box<dyn FnOnce() + Send + 'static>;
-
-#[cfg(test)]
-fn open_before_handle_hook() -> &'static Mutex<Option<OpenBeforeHandleHook>> {
-    static HOOK: OnceLock<Mutex<Option<OpenBeforeHandleHook>>> = OnceLock::new();
-    HOOK.get_or_init(|| Mutex::new(None))
-}
-
-#[cfg(test)]
-fn set_open_before_handle_hook(hook: OpenBeforeHandleHook) {
-    *open_before_handle_hook().lock().unwrap() = Some(hook);
-}
-
-#[cfg(test)]
-fn run_open_before_handle_hook() {
-    let hook = open_before_handle_hook().lock().unwrap().take();
-    if let Some(hook) = hook {
-        hook();
-    }
-}
 
 impl FileSystem {
     /// Inserts a readonly file into the file system that uses copy-on-write
@@ -594,7 +570,7 @@ impl crate::FileOpener for FileSystem {
         };
 
         #[cfg(test)]
-        run_open_before_handle_hook();
+        test_file_opener::run_open_before_handle_hook();
 
         Ok(Box::new(FileHandle::new_opened(
             inode_of_file,
@@ -610,6 +586,7 @@ impl crate::FileOpener for FileSystem {
 
 #[cfg(test)]
 mod test_file_opener {
+    use std::cell::RefCell;
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     use crate::{FileSystem as FS, FsError, mem_fs::*};
@@ -620,6 +597,43 @@ mod test_file_opener {
         ($path:expr) => {
             std::path::Path::new($path)
         };
+    }
+
+    type OpenBeforeHandleHook = Box<dyn FnOnce() + 'static>;
+
+    thread_local! {
+        static OPEN_BEFORE_HANDLE_HOOK: RefCell<Option<OpenBeforeHandleHook>> = RefCell::new(None);
+    }
+
+    struct OpenBeforeHandleHookGuard;
+
+    impl OpenBeforeHandleHookGuard {
+        fn install(hook: OpenBeforeHandleHook) -> Self {
+            OPEN_BEFORE_HANDLE_HOOK.with(|slot| {
+                let previous = slot.borrow_mut().replace(hook);
+                assert!(
+                    previous.is_none(),
+                    "open-before-handle test hook should not already be installed"
+                );
+            });
+            Self
+        }
+    }
+
+    impl Drop for OpenBeforeHandleHookGuard {
+        fn drop(&mut self) {
+            OPEN_BEFORE_HANDLE_HOOK.with(|slot| {
+                slot.borrow_mut().take();
+            });
+        }
+    }
+
+    pub(super) fn run_open_before_handle_hook() {
+        OPEN_BEFORE_HANDLE_HOOK.with(|slot| {
+            if let Some(hook) = slot.borrow_mut().take() {
+                hook();
+            }
+        });
     }
 
     #[tokio::test]
@@ -893,7 +907,7 @@ mod test_file_opener {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_open_keeps_unlinked_inode_alive_before_returning_handle() {
         let fs = FileSystem::default();
 
@@ -903,7 +917,7 @@ mod test_file_opener {
             .open(path!("/foo.txt"))
             .expect("create /foo.txt");
 
-        super::set_open_before_handle_hook(Box::new({
+        let _hook = OpenBeforeHandleHookGuard::install(Box::new({
             let fs = fs.clone();
             move || {
                 assert_eq!(
