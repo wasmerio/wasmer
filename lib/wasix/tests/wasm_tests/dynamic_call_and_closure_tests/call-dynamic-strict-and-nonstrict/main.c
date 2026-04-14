@@ -3,13 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#if defined __has_include
-#if __has_include(<wasix/call_dynamic.h>)
 #include <wasix/call_dynamic.h>
-#define HAVE_WASIX_CALL_DYNAMIC 1
-#endif
-#endif
 
 static int fib(int n) {
   if (n <= 1) {
@@ -31,8 +25,6 @@ static int32_t read_i32(const uint8_t* buffer) {
 
 int main() {
   printf("=== Testing direct wasix_call_dynamic ===\n");
-
-#ifdef HAVE_WASIX_CALL_DYNAMIC
   uint8_t argument_bytes[4] = {0};
   uint8_t result_bytes[4] = {0};
 
@@ -68,9 +60,6 @@ int main() {
                              sizeof(result_bytes), false);
   assert(error == 0);
   assert(read_i32(result_bytes) == 89);
-#else
-  assert(fib(11) == 89);
-#endif
 
   printf("Direct dynamic call test completed\n");
   return 0;

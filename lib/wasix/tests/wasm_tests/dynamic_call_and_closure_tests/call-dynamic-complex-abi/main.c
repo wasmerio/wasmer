@@ -2,14 +2,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#if defined __has_include
-#if __has_include(<wasix/call_dynamic.h>) && __has_include(<wasix/reflection.h>)
 #include <wasix/call_dynamic.h>
 #include <wasix/reflection.h>
-#define HAVE_WASIX_DYNAMIC_APIS 1
-#endif
-#endif
 
 typedef struct {
   int x;
@@ -59,7 +53,6 @@ static int32_t read_i32(const uint8_t* buffer) {
   return value;
 }
 
-#ifdef HAVE_WASIX_DYNAMIC_APIS
 static void assert_signature(wasix_function_pointer_t function,
                              const wasix_value_type_t* expected_args,
                              uint16_t expected_arg_count,
@@ -83,12 +76,9 @@ static void assert_signature(wasix_function_pointer_t function,
     assert(actual_results[i] == expected_results[i]);
   }
 }
-#endif
 
 int main() {
   printf("=== Testing complex direct wasix_call_dynamic cases ===\n");
-
-#ifdef HAVE_WASIX_DYNAMIC_APIS
   {
     wasix_value_type_t expected_args[10] = {
         WASIX_VALUE_TYPE_I32, WASIX_VALUE_TYPE_I32, WASIX_VALUE_TYPE_I32,
@@ -165,12 +155,6 @@ int main() {
     assert(output.y > 3.14158 && output.y < 3.14160);
     assert(strcmp(output.z, "created_by_call_dynamic") == 0);
   }
-#else
-  assert(sum_ten(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) == 55);
-  TestStruct updated = update_struct((TestStruct){42, 3.14, "test_string"});
-  assert(updated.x == 43);
-  assert(strcmp(updated.z, "test_string_updated") == 0);
-#endif
 
   printf("Complex direct dynamic call test completed\n");
   return 0;

@@ -3,13 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#if defined __has_include
-#if __has_include(<wasix/call_dynamic.h>)
 #include <wasix/call_dynamic.h>
-#define HAVE_WASIX_DYNAMIC_APIS 1
-#endif
-#endif
 
 static int weighted_sum(int a, int b, int c) { return a + 10 * b + 100 * c; }
 
@@ -24,7 +18,6 @@ static int32_t read_i32(const uint8_t* buffer) {
 }
 
 int main() {
-#ifdef HAVE_WASIX_DYNAMIC_APIS
   uint8_t full_arguments[3 * sizeof(int32_t)] = {0};
   write_i32(full_arguments, 1);
   write_i32(full_arguments + sizeof(int32_t), 2);
@@ -74,10 +67,6 @@ int main() {
   assert(error == 0);
   assert(read_i32(oversized_result) == 321);
   assert(read_i32(oversized_result + sizeof(int32_t)) == 0x7a7a7a7a);
-#else
-  assert(weighted_sum(1, 2, 3) == 321);
-  assert(weighted_sum(1, 2, 0) == 21);
-#endif
 
   printf("Strict vs non-strict dynamic call test completed\n");
   return 0;
