@@ -19,11 +19,11 @@ static int fib(int n) {
   return fib(n - 1) + fib(n - 2);
 }
 
-static void write_i32(uint8_t *buffer, int32_t value) {
+static void write_i32(uint8_t* buffer, int32_t value) {
   memcpy(buffer, &value, sizeof(value));
 }
 
-static int32_t read_i32(const uint8_t *buffer) {
+static int32_t read_i32(const uint8_t* buffer) {
   int32_t value = 0;
   memcpy(&value, buffer, sizeof(value));
   return value;

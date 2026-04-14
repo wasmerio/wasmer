@@ -8,19 +8,19 @@ typedef struct {
   int call_count;
 } ClosureState;
 
-static void write_i32(uint8_t *buffer, int32_t value) {
+static void write_i32(uint8_t* buffer, int32_t value) {
   memcpy(buffer, &value, sizeof(value));
 }
 
-static int32_t read_i32(const uint8_t *buffer) {
+static int32_t read_i32(const uint8_t* buffer) {
   int32_t value = 0;
   memcpy(&value, buffer, sizeof(value));
   return value;
 }
 
-static void closure_backing_function(uint8_t *values, uint8_t *results,
-                                     void *user_data_ptr) {
-  ClosureState *state = (ClosureState *)user_data_ptr;
+static void closure_backing_function(uint8_t* values, uint8_t* results,
+                                     void* user_data_ptr) {
+  ClosureState* state = (ClosureState*)user_data_ptr;
   int a = read_i32(values);
   int b = read_i32(values + sizeof(int32_t));
 
@@ -43,9 +43,9 @@ int main() {
   int error = wasix_closure_allocate(&closure_pointer);
   assert(error == 0);
 
-  error = wasix_closure_prepare((wasix_function_pointer_t)closure_backing_function,
-                                closure_pointer, argument_types, 2,
-                                result_types, 1, &initial_state);
+  error = wasix_closure_prepare(
+      (wasix_function_pointer_t)closure_backing_function, closure_pointer,
+      argument_types, 2, result_types, 1, &initial_state);
   assert(error == 0);
 
   int (*closure_func)(int, int) = (int (*)(int, int))closure_pointer;
@@ -54,9 +54,9 @@ int main() {
   assert(closure_func(100, 200) == 302);
 
   ClosureState redefined_state = {.call_count = 100};
-  error = wasix_closure_prepare((wasix_function_pointer_t)closure_backing_function,
-                                closure_pointer, argument_types, 2,
-                                result_types, 1, &redefined_state);
+  error = wasix_closure_prepare(
+      (wasix_function_pointer_t)closure_backing_function, closure_pointer,
+      argument_types, 2, result_types, 1, &redefined_state);
   assert(error == 0);
   assert(closure_func(1, 2) == 103);
 

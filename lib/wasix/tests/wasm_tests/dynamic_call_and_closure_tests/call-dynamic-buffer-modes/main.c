@@ -11,15 +11,13 @@
 #endif
 #endif
 
-static int weighted_sum(int a, int b, int c) {
-  return a + 10 * b + 100 * c;
-}
+static int weighted_sum(int a, int b, int c) { return a + 10 * b + 100 * c; }
 
-static void write_i32(uint8_t *buffer, int32_t value) {
+static void write_i32(uint8_t* buffer, int32_t value) {
   memcpy(buffer, &value, sizeof(value));
 }
 
-static int32_t read_i32(const uint8_t *buffer) {
+static int32_t read_i32(const uint8_t* buffer) {
   int32_t value = 0;
   memcpy(&value, buffer, sizeof(value));
   return value;
