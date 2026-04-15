@@ -1096,7 +1096,7 @@ impl WasiFs {
         path_str: &str,
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
-        // A completely aribtrary "big enough" number used as the upper limit for
+        // A completely arbitrary "big enough" number used as the upper limit for
         // the number of symlinks that can be traversed when resolving a path
         const MAX_SYMLINKS: u32 = 128;
 
