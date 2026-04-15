@@ -5,6 +5,7 @@
 use crate::*;
 
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     ffi::OsString,
     path::{Path, PathBuf},
@@ -240,8 +241,8 @@ impl MountFileSystem {
         })
     }
 
-    fn resolve_mount(&self, path: PathBuf) -> Option<ResolvedMount> {
-        let path = self.prepare_path(&path).ok()?;
+    fn resolve_mount(&self, path: impl AsRef<Path>) -> Option<ResolvedMount> {
+        let path = self.prepare_path(path.as_ref()).ok()?;
         let components = Self::path_components(&path);
         let root = self.root.read().unwrap();
         let mut node = &*root;
@@ -293,14 +294,21 @@ impl MountFileSystem {
         let mut entries = Vec::new();
 
         let backing = if let Some(fs) = &node.fs {
-            Some((fs.clone(), node.source_path.clone()))
+            Some((
+                fs.read_dir(&node.source_path),
+                Cow::Borrowed(node.source_path.as_path()),
+            ))
         } else {
-            self.resolve_mount(node.path.clone())
-                .map(|resolved| (resolved.fs, resolved.delegated_path))
+            self.resolve_mount(&node.path).map(|resolved| {
+                (
+                    resolved.fs.read_dir(&resolved.delegated_path),
+                    Cow::Owned(resolved.delegated_path),
+                )
+            })
         };
 
-        if let Some((fs, source_path)) = backing {
-            match fs.read_dir(&source_path) {
+        if let Some((base_entries, source_path)) = backing {
+            match base_entries {
                 Ok(mut base_entries) => {
                     Self::rebase_entries(&mut base_entries, &source_path, &node.path);
                     entries.extend(base_entries.data.into_iter().filter(|entry| {
@@ -1505,15 +1513,7 @@ mod tests {
         let fs = MountFileSystem::new();
 
         let python = mem_fs::FileSystem::default();
-        python.create_dir(Path::new("/usr")).unwrap();
-        python.create_dir(Path::new("/usr/local")).unwrap();
-        python.create_dir(Path::new("/usr/local/lib")).unwrap();
-        python
-            .create_dir(Path::new("/usr/local/lib/python3.13"))
-            .unwrap();
-        python
-            .create_dir(Path::new("/usr/local/lib/python3.13/encodings"))
-            .unwrap();
+        create_dir_all(&python, Path::new("/usr/local/lib/python3.13/encodings"));
         python
             .new_open_options()
             .write(true)
@@ -1766,6 +1766,18 @@ mod tests {
             .unwrap()
             .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
             .collect::<Vec<_>>()
+    }
+
+    fn create_dir_all(fs: &mem_fs::FileSystem, path: &Path) {
+        let mut current = PathBuf::from("/");
+
+        for component in path.iter().skip(1) {
+            current.push(component);
+
+            if fs.metadata(&current).is_err() {
+                fs.create_dir(&current).unwrap();
+            }
+        }
     }
 
     #[tokio::test]
