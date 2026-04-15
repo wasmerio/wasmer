@@ -1147,7 +1147,7 @@ impl WasiFs {
                 let scenario = {
                     let guard = cur_inode.read();
                     match (&component, guard.deref()) {
-			(Component::Prefix(prefix), _) => {
+                        (Component::Prefix(prefix), _) => {
                             tracing::warn!(
                                 ?prefix,
                                 path = %path_str,
