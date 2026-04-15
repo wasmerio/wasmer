@@ -1315,25 +1315,30 @@ impl WasiFs {
         cur_inode_dir_path: &Path,
         name: &std::ffi::OsStr, // from `std::path::Component::Normal`
     ) -> Result<InodeGuard, Errno> {
-        let mut guard = cur_inode.write();
-        let (cur_inode_entries, is_root) = match &mut *guard {
-            Kind::Dir { entries, .. } => (entries, false),
-            Kind::Root { entries } => (entries, true),
-            _ => return Err(Errno::Notdir),
-        };
-
-        // Cache hit
         let name_string = name.to_string_lossy().to_string();
-        if let Some(entry) = cur_inode_entries.get(&name_string) {
-            return Ok(entry.clone());
-        }
+        let (is_root, root_mounted_dir) = {
+            let guard = cur_inode.read();
+            let (entries, is_root) = match guard.deref() {
+                Kind::Dir { entries, .. } => (entries, false),
+                Kind::Root { entries } => (entries, true),
+                _ => return Err(Errno::Notdir),
+            };
+            if let Some(entry) = entries.get(&name_string) {
+                return Ok(entry.clone());
+            }
+            let root_mounted_dir = if is_root {
+                entries.get("/").cloned()
+            } else {
+                None
+            };
+            (is_root, root_mounted_dir)
+        };
 
         // Could not find it, but there is a root mount
         // Recursion depth is 1 because
         // - we can recurse only if cur_inode is Kind::Root
         // - the cur_inode in the recursive call is Kind::Dir
-        if is_root && let Some(root_mounted_dir) = cur_inode_entries.get("/").cloned() {
-            drop(guard);
+        if is_root && let Some(root_mounted_dir) = root_mounted_dir {
             let root_dir_path = {
                 let g = root_mounted_dir.read();
                 match g.deref() {
@@ -1438,7 +1443,23 @@ impl WasiFs {
                         ..Filestat::default()
                     },
                 );
-                cur_inode_entries.insert(name_string, new_inode.clone());
+                {
+                    // get write guard
+                    let mut guard = cur_inode.write();
+                    let entries = match &mut *guard {
+                        Kind::Dir { entries, .. } => entries,
+                        Kind::Root { entries } => entries,
+                        _ => return Err(Errno::Notdir),
+                    };
+                    match entries.entry(name_string) {
+                        std::collections::hash_map::Entry::Occupied(e) => {
+                            return Ok(e.get().clone());
+                        }
+                        std::collections::hash_map::Entry::Vacant(e) => {
+                            e.insert(new_inode.clone());
+                        }
+                    }
+                } // drop guard
                 return Ok(new_inode);
             }
             #[cfg(not(unix))]
@@ -1449,7 +1470,18 @@ impl WasiFs {
 
         let new_inode = self.create_inode(inodes, kind, false, file_string)?;
         if should_insert {
-            cur_inode_entries.insert(name_string, new_inode.clone());
+            let mut guard = cur_inode.write();
+            let entries = match &mut *guard {
+                Kind::Dir { entries, .. } => entries,
+                Kind::Root { entries } => entries,
+                _ => return Err(Errno::Notdir),
+            };
+            match entries.entry(name_string) {
+                std::collections::hash_map::Entry::Occupied(e) => return Ok(e.get().clone()),
+                std::collections::hash_map::Entry::Vacant(e) => {
+                    e.insert(new_inode.clone());
+                }
+            }
         }
         Ok(new_inode)
     }
