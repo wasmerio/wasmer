@@ -1114,7 +1114,7 @@ impl WasiFs {
         }
 
         // Filter out leading `/` and '.' because
-        // 1. No absulte path resolution is performed
+        // 1. No absolute path resolution is performed
         // 2. `.` is nop
         let mut components_osstr: VecDeque<_> = Path::new(path_str)
             .components()
