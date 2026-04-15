@@ -1532,12 +1532,25 @@ impl WasiFs {
         Ok((fd, rel_path.to_owned()))
     }
 
-    /// gets a host file from a base directory and a path
-    /// this function ensures the fs remains sandboxed
-    // NOTE: follow symlinks is super weird right now
-    // even if it's false, it still follows symlinks, just not the last
-    // symlink so
-    // This will be resolved when we have tests asserting the correct behavior
+    /// Get host file inode from a base directory and a path.
+    /// This function ensures the fs remains sandboxed.
+    /// 
+    /// Args:
+    /// - `inodes`: WasiInodes - all vfs inodes. Get it with `WasiState::inodes`
+    /// - `base`: WasiFd - the base directory file descriptor to resolve from
+    /// - `path`: &str - the path to resolve, relative to `base`
+    /// - `follow_symlinks`: bool - whether to follow symlinks
+    /// 
+    /// Returns:
+    /// - `Result<InodeGuard, Errno>` - the inode of the resolved path, or an error if resolution fails
+    /// 
+    /// Todo:
+    /// - clarify and test the behavior of `follow_symlinks`, especially in edge cases like trailing symlinks
+    /// - overall extensive testing of fs resolution is missing at the moment
+    /// - WASI paths are considered POSIX-like, so no prefixes (like C:\) are expected,
+    ///   but where found to be slip in somwhere during symlink resolution.
+    ///   At the moment they are ignored, but this could a problem on Windows,
+    ///   and should be looked into. This should not happen.
     pub(crate) fn get_inode_at_path(
         &self,
         inodes: &WasiInodes,
