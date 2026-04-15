@@ -1133,7 +1133,7 @@ impl WasiFs {
                 // Figure out what scenario we are dealing with
                 // and extract anything we need from the inode as owned values
                 #[derive(Debug)]
-                enum Scenrio {
+                enum Scenario {
                     ParentDir(InodeWeakGuard), // ".."
                     DirEntry {
                         path: PathBuf,
@@ -1161,12 +1161,12 @@ impl WasiFs {
                         }
 
                         (Component::ParentDir, Kind::Dir { parent, .. }) => {
-                            Scenrio::ParentDir(parent.clone())
+                            Scenario::ParentDir(parent.clone())
                         }
                         (Component::Normal(_), Kind::Dir { path, .. }) => {
-                            Scenrio::DirEntry { path: path.clone() }
+                            Scenario::DirEntry { path: path.clone() }
                         }
-                        (Component::Normal(_), Kind::Root { .. }) => Scenrio::DirEntry {
+                        (Component::Normal(_), Kind::Root { .. }) => Scenario::DirEntry {
                             path: PathBuf::from("/"),
                         },
                         (
@@ -1176,7 +1176,7 @@ impl WasiFs {
                                 path_to_symlink,
                                 relative_path,
                             },
-                        ) => Scenrio::Symlink {
+                        ) => Scenario::Symlink {
                             base_po_dir: *base_po_dir,
                             path_to_symlink: path_to_symlink.clone(),
                             relative_path: relative_path.clone(),
@@ -1188,13 +1188,13 @@ impl WasiFs {
                 };
 
                 let next_inode = match scenario {
-                    Scenrio::ParentDir(parent_inode) => {
+                    Scenario::ParentDir(parent_inode) => {
                         parent_inode.upgrade().ok_or(Errno::Access)?
                     }
-                    Scenrio::DirEntry { path, .. } => {
+                    Scenario::DirEntry { path, .. } => {
                         self.resolve_dir_entry(inodes, cur_inode, &path, component.as_os_str())?
                     }
-                    Scenrio::Symlink {
+                    Scenario::Symlink {
                         base_po_dir,
                         path_to_symlink,
                         relative_path,
