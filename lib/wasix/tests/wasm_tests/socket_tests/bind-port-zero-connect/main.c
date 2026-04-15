@@ -27,7 +27,8 @@ int main(void) {
     return 1;
   }
 
-  if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+  if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) <
+      0) {
     perror("bind(server)");
     close(server_fd);
     return 1;
@@ -64,7 +65,8 @@ int main(void) {
     return 1;
   }
 
-  if (bind(client_fd, (struct sockaddr*)&client_bind_addr, sizeof(client_bind_addr)) < 0) {
+  if (bind(client_fd, (struct sockaddr*)&client_bind_addr,
+           sizeof(client_bind_addr)) < 0) {
     perror("bind(client)");
     close(client_fd);
     close(server_fd);
@@ -87,7 +89,8 @@ int main(void) {
     return 1;
   }
 
-  if (connect(client_fd, (struct sockaddr*)&server_bound_addr, sizeof(server_bound_addr)) < 0) {
+  if (connect(client_fd, (struct sockaddr*)&server_bound_addr,
+              sizeof(server_bound_addr)) < 0) {
     perror("connect(client)");
     close(client_fd);
     close(server_fd);
@@ -104,9 +107,10 @@ int main(void) {
 
   int connect_port = ntohs(client_after_connect.sin_port);
   if (connect_port != bind_port) {
-    fprintf(stderr,
-            "expected client port to stay stable across connect, got %d then %d\n",
-            bind_port, connect_port);
+    fprintf(
+        stderr,
+        "expected client port to stay stable across connect, got %d then %d\n",
+        bind_port, connect_port);
     close(client_fd);
     close(server_fd);
     return 1;

@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::net::SocketAddr;
 use std::sync::Mutex;
 use std::task::{Context, Poll, Waker};
@@ -7,7 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 use crate::tcp_pair::TcpSocketHalf;
 use crate::{
     InterestHandler, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError, VirtualIoSource,
-    VirtualNetworking, VirtualTcpBoundSocket, VirtualTcpListener, VirtualTcpSocket,
+    VirtualNetworking, VirtualSocket, VirtualTcpBoundSocket, VirtualTcpListener, VirtualTcpSocket,
 };
 use virtual_mio::InterestType;
 
@@ -17,6 +17,7 @@ const LOOPBACK_EPHEMERAL_PORT_START: u16 = 49152;
 #[derive(Debug)]
 struct LoopbackNetworkingState {
     tcp_listeners: HashMap<SocketAddr, LoopbackTcpListener>,
+    tcp_bound: HashSet<SocketAddr>,
     ip_addresses: Vec<IpCidr>,
     next_ephemeral_port: u16,
 }
@@ -25,6 +26,7 @@ impl Default for LoopbackNetworkingState {
     fn default() -> Self {
         Self {
             tcp_listeners: HashMap::new(),
+            tcp_bound: HashSet::new(),
             ip_addresses: Vec::new(),
             next_ephemeral_port: LOOPBACK_EPHEMERAL_PORT_START,
         }
@@ -75,20 +77,29 @@ impl LoopbackNetworking {
         }
     }
 
-    fn allocate_tcp_bind_addr(state: &mut LoopbackNetworkingState, mut addr: SocketAddr) -> SocketAddr {
+    fn allocate_tcp_bind_addr(
+        state: &mut LoopbackNetworkingState,
+        mut addr: SocketAddr,
+    ) -> crate::Result<SocketAddr> {
+        let is_available = |candidate: SocketAddr, state: &LoopbackNetworkingState| {
+            let key = Self::normalize_listener_addr(candidate);
+            !state.tcp_listeners.contains_key(&key) && !state.tcp_bound.contains(&key)
+        };
+
         if addr.port() == 0 {
             let start = state.next_ephemeral_port;
             let mut candidate = start;
             loop {
                 let candidate_addr = SocketAddr::new(addr.ip(), candidate);
-                if !state.tcp_listeners.contains_key(&candidate_addr) {
+                if is_available(candidate_addr, state) {
                     addr.set_port(candidate);
+                    state.tcp_bound.insert(Self::normalize_listener_addr(addr));
                     state.next_ephemeral_port = if candidate == u16::MAX {
                         LOOPBACK_EPHEMERAL_PORT_START
                     } else {
                         candidate + 1
                     };
-                    break;
+                    return Ok(addr);
                 }
 
                 candidate = if candidate == u16::MAX {
@@ -97,11 +108,19 @@ impl LoopbackNetworking {
                     candidate + 1
                 };
                 if candidate == start {
-                    break;
+                    return Err(NetworkError::AddressInUse);
                 }
             }
         }
-        addr
+
+        let reservation_key = Self::normalize_listener_addr(addr);
+        if state.tcp_listeners.contains_key(&reservation_key)
+            || state.tcp_bound.contains(&reservation_key)
+        {
+            return Err(NetworkError::AddressInUse);
+        }
+        state.tcp_bound.insert(reservation_key);
+        Ok(addr)
     }
 
     fn normalize_listener_addr(mut addr: SocketAddr) -> SocketAddr {
@@ -181,11 +200,27 @@ impl VirtualNetworking for LoopbackNetworking {
         _reuse_addr: bool,
     ) -> crate::Result<Box<dyn VirtualTcpBoundSocket + Sync>> {
         let mut state = self.state.lock().unwrap();
-        let addr = Self::allocate_tcp_bind_addr(&mut state, addr);
+        let addr = Self::allocate_tcp_bind_addr(&mut state, addr)?;
         Ok(Box::new(LoopbackTcpBoundSocket {
             networking: self.clone(),
             local_addr: addr,
+            reservation_key: Some(Self::normalize_listener_addr(addr)),
+            ttl: 64,
         }))
+    }
+}
+
+#[cfg(test)]
+impl LoopbackNetworking {
+    pub(crate) fn exhaust_tcp_ephemeral_ports_for_test(&self, ip: IpAddr) {
+        let mut state = self.state.lock().unwrap();
+        for port in LOOPBACK_EPHEMERAL_PORT_START..=u16::MAX {
+            let addr = SocketAddr::new(ip, port);
+            state
+                .tcp_listeners
+                .insert(addr, LoopbackTcpListener::new(addr, 64));
+        }
+        state.next_ephemeral_port = LOOPBACK_EPHEMERAL_PORT_START;
     }
 }
 
@@ -193,6 +228,7 @@ impl VirtualNetworking for LoopbackNetworking {
 struct LoopbackTcpListenerState {
     handler: Option<Box<dyn InterestHandler + Send + Sync>>,
     addr_local: SocketAddr,
+    ttl: u8,
     backlog: VecDeque<TcpSocketHalf>,
     wakers: Vec<Waker>,
 }
@@ -203,11 +239,12 @@ pub struct LoopbackTcpListener {
 }
 
 impl LoopbackTcpListener {
-    pub fn new(addr_local: SocketAddr) -> Self {
+    pub fn new(addr_local: SocketAddr, ttl: u8) -> Self {
         Self {
             state: Arc::new(Mutex::new(LoopbackTcpListenerState {
                 handler: None,
                 addr_local,
+                ttl,
                 backlog: Default::default(),
                 wakers: Default::default(),
             })),
@@ -216,8 +253,9 @@ impl LoopbackTcpListener {
 
     pub fn connect_to(&self, addr_local: SocketAddr) -> TcpSocketHalf {
         let mut state = self.state.lock().unwrap();
-        let (half1, half2) =
+        let (mut half1, half2) =
             TcpSocketHalf::channel(DEFAULT_MAX_BUFFER_SIZE, state.addr_local, addr_local);
+        half1.set_ttl(u32::from(state.ttl)).ok();
 
         state.backlog.push_back(half1);
         if let Some(handler) = state.handler.as_mut() {
@@ -281,19 +319,44 @@ impl VirtualTcpListener for LoopbackTcpListener {
         Ok(state.addr_local)
     }
 
-    fn set_ttl(&mut self, _ttl: u8) -> crate::Result<()> {
+    fn set_ttl(&mut self, ttl: u8) -> crate::Result<()> {
+        let mut state = self.state.lock().unwrap();
+        state.ttl = ttl;
         Ok(())
     }
 
     fn ttl(&self) -> crate::Result<u8> {
-        Ok(64)
+        let state = self.state.lock().unwrap();
+        Ok(state.ttl)
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct LoopbackTcpBoundSocket {
     networking: LoopbackNetworking,
     local_addr: SocketAddr,
+    reservation_key: Option<SocketAddr>,
+    ttl: u32,
+}
+
+impl LoopbackTcpBoundSocket {
+    fn release_reservation(&mut self) -> crate::Result<()> {
+        let reservation_key = self.reservation_key.take().ok_or(NetworkError::InvalidFd)?;
+        let mut state = self.networking.state.lock().unwrap();
+        if !state.tcp_bound.remove(&reservation_key) {
+            return Err(NetworkError::InvalidFd);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for LoopbackTcpBoundSocket {
+    fn drop(&mut self) {
+        if let Some(reservation_key) = self.reservation_key.take() {
+            let mut state = self.networking.state.lock().unwrap();
+            state.tcp_bound.remove(&reservation_key);
+        }
+    }
 }
 
 impl VirtualTcpBoundSocket for LoopbackTcpBoundSocket {
@@ -302,28 +365,40 @@ impl VirtualTcpBoundSocket for LoopbackTcpBoundSocket {
     }
 
     fn listen(&mut self) -> crate::Result<Box<dyn VirtualTcpListener + Sync>> {
-        let listener = LoopbackTcpListener::new(self.local_addr);
+        let listener =
+            LoopbackTcpListener::new(self.local_addr, u8::try_from(self.ttl).unwrap_or(u8::MAX));
         let mut state = self.networking.state.lock().unwrap();
-        state.tcp_listeners.insert(
-            LoopbackNetworking::normalize_listener_addr(self.local_addr),
-            listener.clone(),
-        );
+        let reservation_key = self.reservation_key.ok_or(NetworkError::InvalidFd)?;
+        if !state.tcp_bound.remove(&reservation_key) {
+            return Err(NetworkError::InvalidFd);
+        }
+        if state.tcp_listeners.contains_key(&reservation_key) {
+            state.tcp_bound.insert(reservation_key);
+            return Err(NetworkError::AddressInUse);
+        }
+        state
+            .tcp_listeners
+            .insert(reservation_key, listener.clone());
+        self.reservation_key = None;
         Ok(Box::new(listener))
     }
 
     fn connect(&mut self, peer: SocketAddr) -> crate::Result<Box<dyn VirtualTcpSocket + Sync>> {
-        let socket = self
+        let mut socket = self
             .networking
             .loopback_connect_to(self.local_addr, peer)
             .ok_or(NetworkError::ConnectionRefused)?;
+        self.release_reservation()?;
+        socket.set_ttl(self.ttl)?;
         Ok(Box::new(socket))
     }
 
-    fn set_ttl(&mut self, _ttl: u32) -> crate::Result<()> {
-        Err(NetworkError::Unsupported)
+    fn set_ttl(&mut self, ttl: u32) -> crate::Result<()> {
+        self.ttl = ttl;
+        Ok(())
     }
 
     fn ttl(&self) -> crate::Result<u32> {
-        Err(NetworkError::Unsupported)
+        Ok(self.ttl)
     }
 }

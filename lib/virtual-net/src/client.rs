@@ -922,6 +922,14 @@ impl Drop for RemoteSocket {
         if !self.owns_socket_bindings {
             return;
         }
+        let _ = self.io_socket_fire_and_forget(RequestType::Close);
+        self.release_socket_bindings();
+    }
+}
+
+impl RemoteSocket {
+    fn release_socket_bindings(&mut self) {
+        self.owns_socket_bindings = false;
         self.common.recv_tx.lock().unwrap().remove(&self.socket_id);
         self.common
             .recv_with_addr_tx
@@ -929,9 +937,7 @@ impl Drop for RemoteSocket {
             .unwrap()
             .remove(&self.socket_id);
     }
-}
 
-impl RemoteSocket {
     async fn io_socket(&self, req: RequestType) -> ResponseType {
         let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
         let mut req_rx = {
@@ -1536,7 +1542,11 @@ impl VirtualConnectedSocket for RemoteSocket {
     }
 
     fn close(&mut self) -> Result<()> {
-        self.io_socket_fire_and_forget(RequestType::Close)
+        let ret = self.io_socket_fire_and_forget(RequestType::Close);
+        if ret.is_ok() {
+            self.release_socket_bindings();
+        }
+        ret
     }
 
     fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>], peek: bool) -> Result<usize> {

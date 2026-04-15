@@ -188,6 +188,11 @@ impl RemoteNetworkingServer {
         let rx = RemoteRx::HyperWebSocket { rx, format };
         Self::new(tx, rx, rx_work, inner)
     }
+
+    #[cfg(test)]
+    pub(crate) fn socket_count_for_test(&self) -> usize {
+        self.common.sockets.lock().unwrap().len()
+    }
 }
 
 #[async_trait::async_trait]
@@ -868,14 +873,26 @@ impl RemoteNetworkingServerDriver {
                 socket_id,
                 req_id,
             ),
-            RequestType::Close => self.process_inner_noop(
-                move |socket| match socket {
-                    RemoteAdapterSocket::TcpSocket(s) => s.close(),
-                    _ => Err(NetworkError::Unsupported),
-                },
-                socket_id,
-                req_id,
-            ),
+            RequestType::Close => {
+                let res = {
+                    let mut guard = self.common.sockets.lock().unwrap();
+                    self.common.socket_accept.lock().unwrap().remove(&socket_id);
+                    match guard.remove(&socket_id) {
+                        Some(RemoteAdapterSocket::TcpSocket(mut socket)) => socket.close(),
+                        Some(_) => Ok(()),
+                        None => Err(NetworkError::InvalidFd),
+                    }
+                };
+                req_id.and_then(|req_id| {
+                    self.common.send(MessageResponse::ResponseToRequest {
+                        req_id,
+                        res: match res {
+                            Ok(()) => ResponseType::None,
+                            Err(err) => ResponseType::Err(err),
+                        },
+                    })
+                })
+            }
             RequestType::ListenBound => {
                 let res = {
                     let mut guard = self.common.sockets.lock().unwrap();

@@ -79,13 +79,19 @@ fn tcp_socket_domain(addr: SocketAddr) -> socket2::Domain {
 }
 
 fn tcp_connect_in_progress(err: &io::Error) -> bool {
-    if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) {
+    if matches!(
+        err.kind(),
+        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+    ) {
         return true;
     }
 
     #[cfg(all(target_family = "unix", feature = "libc"))]
     {
-        return matches!(err.raw_os_error(), Some(libc::EINPROGRESS | libc::EALREADY));
+        return matches!(
+            err.raw_os_error(),
+            Some(raw) if raw == libc::EINPROGRESS || raw == libc::EALREADY
+        );
     }
 
     #[cfg(not(all(target_family = "unix", feature = "libc")))]
@@ -132,7 +138,9 @@ impl VirtualNetworking for LocalNetworking {
 
         let socket = socket2::Socket::new(tcp_socket_domain(addr), socket2::Type::STREAM, None)
             .map_err(io_err_into_net_error)?;
-        socket.set_nonblocking(true).map_err(io_err_into_net_error)?;
+        socket
+            .set_nonblocking(true)
+            .map_err(io_err_into_net_error)?;
         if addr.is_ipv6() {
             socket.set_only_v6(only_v6).map_err(io_err_into_net_error)?;
         }
@@ -485,12 +493,21 @@ impl VirtualTcpBoundSocket for LocalTcpBoundSocket {
     }
 
     fn set_ttl(&mut self, ttl: u32) -> Result<()> {
-        let _ = ttl;
-        Err(NetworkError::Unsupported)
+        let socket = self.socket.as_ref().ok_or(NetworkError::InvalidFd)?;
+        match self.addr_local()?.ip() {
+            IpAddr::V4(_) => socket.set_ttl_v4(ttl).map_err(io_err_into_net_error),
+            IpAddr::V6(_) => socket
+                .set_unicast_hops_v6(ttl)
+                .map_err(io_err_into_net_error),
+        }
     }
 
     fn ttl(&self) -> Result<u32> {
-        Err(NetworkError::Unsupported)
+        let socket = self.socket.as_ref().ok_or(NetworkError::InvalidFd)?;
+        match self.addr_local()?.ip() {
+            IpAddr::V4(_) => socket.ttl_v4().map_err(io_err_into_net_error),
+            IpAddr::V6(_) => socket.unicast_hops_v6().map_err(io_err_into_net_error),
+        }
     }
 }
 
