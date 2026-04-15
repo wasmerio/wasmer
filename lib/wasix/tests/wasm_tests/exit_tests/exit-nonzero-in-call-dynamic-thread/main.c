@@ -3,26 +3,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#if __has_include(<wasix/call_dynamic.h>)
 #include <wasix/call_dynamic.h>
 
 void dynamically_called() {
   printf("Dyncall in thread\n");
-  exit(0);
+  exit(99);
 }
 
 void* thread_func(void* data) {
   wasix_call_dynamic((wasix_function_pointer_t)dynamically_called, NULL, 0,
                      NULL, 0, true);
 }
-#else
-// Mock so the tests compiles on other platforms
-// TODO: Remove once our test runner can have platform-specific tests
-void* thread_func(void* data) {
-  printf("Dyncall in thread\n");
-  exit(0);
-}
-#endif
 
 int main() {
   pthread_attr_t attr = {0};

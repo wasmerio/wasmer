@@ -1,32 +1,18 @@
-#include <assert.h>
-#include <ffi.h>
+#include <dlfcn.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <wasix/call_dynamic.h>
 
-void exit_with_code(void) {
-  printf("FFI call in thread\n");
-  exit(99);
+void dynamically_called() {
+  printf("Dyncall in thread\n");
+  exit(0);
 }
 
 void* thread_func(void* data) {
-  ffi_cif cif;
-
-  ffi_type* arg_types[0];
-  ffi_type* ret_type;
-  ret_type = &ffi_type_void;
-
-  ffi_status cif_result =
-      ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 0, ret_type, arg_types);
-  if (cif_result != FFI_OK) {
-    fprintf(stderr, "ffi_prep_cif failed with status %d\n", cif_result);
-    exit(1);
-  }
-
-  ffi_call(&cif, (void (*)(void))&exit_with_code, NULL, NULL);
-
-  return 0;
+  wasix_call_dynamic((wasix_function_pointer_t)dynamically_called, NULL, 0,
+                     NULL, 0, true);
 }
 
 int main() {
