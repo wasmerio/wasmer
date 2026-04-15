@@ -88,10 +88,10 @@ fn tcp_connect_in_progress(err: &io::Error) -> bool {
 
     #[cfg(all(target_family = "unix", feature = "libc"))]
     {
-        return matches!(
+        matches!(
             err.raw_os_error(),
             Some(raw) if raw == libc::EINPROGRESS || raw == libc::EALREADY
-        );
+        )
     }
 
     #[cfg(not(all(target_family = "unix", feature = "libc")))]
@@ -475,10 +475,10 @@ impl VirtualTcpBoundSocket for LocalTcpBoundSocket {
         }
 
         let socket = self.socket.take().ok_or(NetworkError::InvalidFd)?;
-        if let Err(err) = socket.connect(&peer.into()) {
-            if !tcp_connect_in_progress(&err) {
-                return Err(io_err_into_net_error(err));
-            }
+        if let Err(err) = socket.connect(&peer.into())
+            && !tcp_connect_in_progress(&err)
+        {
+            return Err(io_err_into_net_error(err));
         }
 
         let stream = mio::net::TcpStream::from_std(socket.into());
