@@ -1170,7 +1170,7 @@ impl WasiFs {
                             path: PathBuf::from("/"),
                         },
                         (
-                            Component::Normal(_),
+                            _,
                             Kind::Symlink {
                                 base_po_dir,
                                 path_to_symlink,
@@ -1534,16 +1534,16 @@ impl WasiFs {
 
     /// Get host file inode from a base directory and a path.
     /// This function ensures the fs remains sandboxed.
-    /// 
+    ///
     /// Args:
     /// - `inodes`: WasiInodes - all vfs inodes. Get it with `WasiState::inodes`
     /// - `base`: WasiFd - the base directory file descriptor to resolve from
     /// - `path`: &str - the path to resolve, relative to `base`
     /// - `follow_symlinks`: bool - whether to follow symlinks
-    /// 
+    ///
     /// Returns:
     /// - `Result<InodeGuard, Errno>` - the inode of the resolved path, or an error if resolution fails
-    /// 
+    ///
     /// Todo:
     /// - clarify and test the behavior of `follow_symlinks`, especially in edge cases like trailing symlinks
     /// - overall extensive testing of fs resolution is missing at the moment
