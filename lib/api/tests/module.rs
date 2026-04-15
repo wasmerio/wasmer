@@ -4,6 +4,11 @@ use wasm_bindgen_test::*;
 
 use wasmer::*;
 
+#[cfg(unix)]
+use std::ffi::OsStr;
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
+
 #[universal_test]
 fn module_get_name() -> Result<(), String> {
     let store = Store::default();
@@ -290,5 +295,29 @@ fn module_custom_sections() -> Result<(), String> {
         sections_vec[0],
         vec![2, 2, 36, 105, 1, 0, 0, 0].into_boxed_slice()
     );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn module_from_file_non_utf8_path() -> Result<(), String> {
+    let store = Store::default();
+    // Minimal valid wasm module: magic number + version
+    let wasm_bytes: &[u8] = b"\x00asm\x01\x00\x00\x00";
+
+    let dir = tempfile::tempdir().map_err(|e| format!("{e:?}"))?;
+    let non_utf8_name = OsStr::from_bytes(b"module_\xff\xfe.wasm");
+    let path = dir.path().join(non_utf8_name);
+
+    // Some filesystems (e.g. macOS APFS/HFS+) reject non-UTF-8 filenames.
+    // Skip the test on those platforms instead of failing.
+    match std::fs::write(&path, wasm_bytes) {
+        Err(e) if e.raw_os_error() == Some(92) => return Ok(()),
+        Err(e) => return Err(format!("{e:?}")),
+        Ok(()) => {}
+    }
+
+    let module = Module::from_file(&store, &path).map_err(|e| format!("{e:?}"))?;
+    assert!(module.name().is_some());
     Ok(())
 }

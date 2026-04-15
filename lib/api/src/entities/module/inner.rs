@@ -81,7 +81,7 @@ impl BackendModule {
         // Set the module name to the absolute canonical path as a lossy UTF-8 string.
         // This is useful for debugging stack traces, and lossy conversion is necessary
         // because filesystem paths are not always valid UTF-8.
-        module.set_name(canonical.to_string_lossy().into_owned());
+        module.set_name(&canonical.to_string_lossy());
         Ok(module)
     }
 
