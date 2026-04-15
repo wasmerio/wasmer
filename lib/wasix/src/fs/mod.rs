@@ -1147,8 +1147,14 @@ impl WasiFs {
                 let scenario = {
                     let guard = cur_inode.read();
                     match (&component, guard.deref()) {
-                        (Component::Prefix(_), _) => {
-                            unimplemented!("state::get_inode_at_path for prefix path components")
+			(Component::Prefix(prefix), _) => {
+                            tracing::warn!(
+                                ?prefix,
+                                path = %path_str,
+                                "Windows path prefix detected in WASI path resolution — \
+                                this indicates a host path leaked into the virtual filesystem"
+                            );
+                            continue;
                         }
                         (_, Kind::Buffer { .. }) => {
                             unimplemented!("state::get_inode_at_path for buffers")
