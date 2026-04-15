@@ -1,11 +1,11 @@
 mod basic_tests;
 mod context_switching;
+mod dynamic_call_and_closure_tests;
 mod dynamic_library_tests;
 mod edge_case_tests;
 mod exception_tests;
 mod exit_tests;
 mod fd_tests;
-mod ffi_tests;
 mod libc_tests;
 mod lifecycle_tests;
 mod longjmp_tests;
@@ -161,30 +161,6 @@ fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
         return Ok(sysroot);
     }
 
-    if let Ok(sysroot) = std::env::var("WASIXCC_PYTHON_SYSROOT") {
-        if !Path::new(&sysroot).exists() {
-            anyhow::bail!(
-                "WASIXCC_PYTHON_SYSROOT is set but does not exist: {}",
-                sysroot
-            );
-        }
-        return Ok(sysroot);
-    }
-
-    // Try to find a build-scripts style sysroot in common locations
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-
-    // A wasix-clang sysroot should
-    let sysroot = format!("{home}/.wasix-clang/wasix-sysroot");
-    if Path::new(&sysroot).exists() {
-        return Ok(sysroot);
-    }
-
-    let sysroot = format!("{home}/.build-scripts/pkgs");
-    if Path::new(&sysroot).exists() {
-        return Ok(sysroot);
-    }
-
     if let Ok(output) = Command::new("wasixccenv")
         .arg("-sPIC=1")
         .arg("print-sysroot")
@@ -204,7 +180,7 @@ fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
     }
 
     anyhow::bail!(
-        "Could not find a sysroot compatible with the wasix tests. Use the following command to download a compatible sysroot from build-scripts into the correct location:\ncurl -sSfL https://raw.githubusercontent.com/wasix-org/build-scripts/refs/heads/main/assemble-pkgs.sh | bash -s -- -i wasix-libc -i libcxx -i compiler-rt -i libffi -o ~/.build-scripts/pkgs"
+        "Could not find a sysroot compatible with the wasix tests. Install wasixcc and run `wasixccenv aio-install`, or set WASIXCC_SYSROOT to an existing sysroot."
     );
 }
 
