@@ -83,20 +83,20 @@ fn tcp_connect_in_progress(err: &io::Error) -> bool {
         err.kind(),
         io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
     ) {
-        return true;
-    }
+        true
+    } else {
+        #[cfg(all(target_family = "unix", feature = "libc"))]
+        {
+            matches!(
+                err.raw_os_error(),
+                Some(raw) if raw == libc::EINPROGRESS || raw == libc::EALREADY
+            )
+        }
 
-    #[cfg(all(target_family = "unix", feature = "libc"))]
-    {
-        matches!(
-            err.raw_os_error(),
-            Some(raw) if raw == libc::EINPROGRESS || raw == libc::EALREADY
-        )
-    }
-
-    #[cfg(not(all(target_family = "unix", feature = "libc")))]
-    {
-        false
+        #[cfg(not(all(target_family = "unix", feature = "libc")))]
+        {
+            false
+        }
     }
 }
 

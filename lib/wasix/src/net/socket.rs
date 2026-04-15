@@ -32,6 +32,9 @@ pub enum InodeHttpSocketType {
     Headers,
 }
 
+type TcpConnectFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<Box<dyn VirtualTcpSocket + Sync>, Errno>> + 'a>>;
+
 #[derive(Debug)]
 pub struct SocketProperties {
     pub family: Addressfamily,
@@ -275,19 +278,26 @@ impl InodeSocket {
             .ok()
             .flatten()
             .unwrap_or(Duration::from_secs(30));
-        let inner = self.inner.protected.read().unwrap();
-        match &inner.kind {
-            InodeSocketKind::PreSocket { props, .. } if props.ty == Socktype::Dgram => {
-                let addr = match props.family {
-                    Addressfamily::Inet4 => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
-                    Addressfamily::Inet6 => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
-                    _ => return Err(Errno::Notsup),
-                };
-                drop(inner);
-                self.bind_internal(tasks, net, addr, timeout).await
+        let family = {
+            let inner = self.inner.protected.read().unwrap();
+            match &inner.kind {
+                InodeSocketKind::PreSocket { props, .. } if props.ty == Socktype::Dgram => {
+                    Some(props.family)
+                }
+                _ => None,
             }
-            _ => Ok(None),
-        }
+        };
+        let Some(family) = family else {
+            return Ok(None);
+        };
+
+        let addr = match family {
+            Addressfamily::Inet4 => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+            Addressfamily::Inet6 => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+            _ => return Err(Errno::Notsup),
+        };
+
+        self.bind_internal(tasks, net, addr, timeout).await
     }
 
     pub async fn bind(
@@ -668,9 +678,7 @@ impl InodeSocket {
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
 
         let handler;
-        let connect: Pin<
-            Box<dyn Future<Output = Result<Box<dyn VirtualTcpSocket + Sync>, Errno>> + '_>,
-        > = {
+        let connect: TcpConnectFuture<'_> = {
             let mut inner = self.inner.protected.write().unwrap();
             match &mut inner.kind {
                 InodeSocketKind::PreSocket { props, addr, .. } => {
