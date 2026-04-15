@@ -1088,7 +1088,7 @@ impl WasiFs {
     /// - Errno::Access if a permission denied error occurs
     ///
     /// Notes:
-    /// - No absulte path resolution is performed. The leading `/` is discarded.
+    /// - No absolute path resolution is performed. The leading `/` is discarded.
     fn get_inode_at_path_inner(
         &self,
         inodes: &WasiInodes,
