@@ -123,6 +123,33 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
 }
 
 #[cfg(feature = "remote")]
+async fn test_bound_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServer) {
+    let mut bound = client
+        .bind_tcp(
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+
+    let addr_after_bind = bound.addr_local().unwrap();
+    assert_ne!(
+        addr_after_bind.port(),
+        0,
+        "remote bind_tcp should allocate a real ephemeral port before listen"
+    );
+
+    let listener = bound.listen().unwrap();
+    let addr_after_listen = listener.addr_local().unwrap();
+    assert_eq!(
+        addr_after_listen, addr_after_bind,
+        "remote listen should preserve the already-bound local address"
+    );
+}
+
+#[cfg(feature = "remote")]
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
@@ -130,6 +157,16 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
 async fn test_tcp_with_mpsc() {
     let (client, server) = setup_mpsc().await;
     test_tcp(client, server).await
+}
+
+#[cfg(feature = "remote")]
+#[cfg_attr(windows, ignore)]
+#[traced_test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
+async fn test_bound_tcp_with_mpsc() {
+    let (client, server) = setup_mpsc().await;
+    test_bound_tcp(client, server).await
 }
 
 // Disabled on musl due to flakiness.
@@ -547,4 +584,80 @@ async fn test_failed_connect_status_stays_failed() {
     }
 
     assert!(matches!(socket.status().unwrap(), SocketStatus::Failed));
+}
+
+#[cfg(not(target_os = "windows"))]
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_bind_tcp_assigns_ephemeral_port_before_listen() {
+    let networking = LocalNetworking::new();
+    let mut bound = networking
+        .bind_tcp(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), false, false, false)
+        .await
+        .unwrap();
+
+    let addr_after_bind = bound.addr_local().unwrap();
+    assert_ne!(
+        addr_after_bind.port(),
+        0,
+        "bind_tcp should allocate a real ephemeral port before listen"
+    );
+
+    let listener = bound.listen().unwrap();
+    let addr_after_listen = listener.addr_local().unwrap();
+    assert_eq!(
+        addr_after_listen, addr_after_bind,
+        "listen should preserve the already-bound local address"
+    );
+}
+
+#[cfg(not(target_os = "windows"))]
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_bind_tcp_keeps_same_port_across_connect() {
+    let probe = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let peer = probe.local_addr().unwrap();
+
+    let networking = LocalNetworking::new();
+    let mut bound = networking
+        .bind_tcp(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), false, false, false)
+        .await
+        .unwrap();
+
+    let addr_after_bind = bound.addr_local().unwrap();
+    assert_ne!(addr_after_bind.port(), 0);
+
+    let socket = bound.connect(peer).unwrap();
+    let addr_after_connect = socket.addr_local().unwrap();
+    assert_eq!(
+        addr_after_connect, addr_after_bind,
+        "connect should preserve the already-bound local address"
+    );
+}
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_loopback_bind_tcp_assigns_ephemeral_port_before_listen() {
+    let networking = LoopbackNetworking::new();
+    let mut bound = networking
+        .bind_tcp(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), false, false, false)
+        .await
+        .unwrap();
+
+    let addr_after_bind = bound.addr_local().unwrap();
+    assert_ne!(
+        addr_after_bind.port(),
+        0,
+        "loopback bind_tcp should allocate a real ephemeral port before listen"
+    );
+
+    let listener = bound.listen().unwrap();
+    let addr_after_listen = listener.addr_local().unwrap();
+    assert_eq!(
+        addr_after_listen, addr_after_bind,
+        "loopback listen should preserve the already-bound local address"
+    );
 }

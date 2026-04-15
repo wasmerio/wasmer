@@ -13,8 +13,8 @@ use std::{
 use serde_derive::{Deserialize, Serialize};
 use virtual_mio::InterestHandler;
 use virtual_net::{
-    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
-    VirtualTcpSocket, VirtualUdpSocket, net_error_into_io_err,
+    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpBoundSocket,
+    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, net_error_into_io_err,
 };
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
@@ -52,6 +52,29 @@ pub struct SocketProperties {
     pub handler: Option<Box<dyn InterestHandler + Send + Sync>>,
 }
 
+impl SocketProperties {
+    fn placeholder_from(existing: &Self) -> Self {
+        Self {
+            family: existing.family,
+            ty: existing.ty,
+            pt: existing.pt,
+            only_v6: false,
+            reuse_port: false,
+            reuse_addr: false,
+            no_delay: None,
+            keep_alive: None,
+            dont_route: None,
+            send_buf_size: None,
+            recv_buf_size: None,
+            write_timeout: None,
+            read_timeout: None,
+            accept_timeout: None,
+            connect_timeout: None,
+            handler: None,
+        }
+    }
+}
+
 #[derive(Debug)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeSocketKind {
@@ -69,6 +92,10 @@ pub enum InodeSocketKind {
         socket: Box<dyn VirtualTcpSocket + Sync>,
         write_timeout: Option<Duration>,
         read_timeout: Option<Duration>,
+    },
+    BoundTcp {
+        socket: Box<dyn VirtualTcpBoundSocket + Sync>,
+        props: SocketProperties,
     },
     UdpSocket {
         socket: Box<dyn VirtualUdpSocket + Sync>,
@@ -319,9 +346,25 @@ impl InodeSocket {
 
                     match props.ty {
                         Socktype::Stream => {
-                            // we already set the socket address - next we need a listen or connect so nothing
-                            // more to do at this time
-                            return Ok(None);
+                            let only_v6 = props.only_v6;
+                            let reuse_port = props.reuse_port;
+                            let reuse_addr = props.reuse_addr;
+                            match net.bind_tcp(addr, only_v6, reuse_port, reuse_addr).await {
+                                Ok(socket) => {
+                                    let placeholder = SocketProperties::placeholder_from(props);
+                                    let props = std::mem::replace(props, placeholder);
+                                    return Ok(Some(InodeSocket::new(InodeSocketKind::BoundTcp {
+                                        socket,
+                                        props,
+                                    })));
+                                }
+                                Err(NetworkError::Unsupported) => {
+                                    // Fallback for backends that still only materialize TCP state at
+                                    // listen/connect time.
+                                    return Ok(None);
+                                }
+                                Err(err) => return Err(net_error_into_wasi_err(err)),
+                            }
                         }
                         Socktype::Dgram => {
                             let reuse_port = props.reuse_port;
@@ -377,6 +420,7 @@ impl InodeSocket {
                         _ => return Err(Errno::Inval),
                     }
                 }
+                InodeSocketKind::BoundTcp { .. } => return Err(Errno::Inval),
                 _ => return Err(Errno::Notsup),
             }
         };
@@ -405,8 +449,8 @@ impl InodeSocket {
             .unwrap_or(Duration::from_secs(30));
 
         let socket = {
-            let inner = self.inner.protected.read().unwrap();
-            match &inner.kind {
+            let mut inner = self.inner.protected.write().unwrap();
+            match &mut inner.kind {
                 InodeSocketKind::PreSocket { props, addr, .. } => match props.ty {
                     Socktype::Stream => {
                         if addr.is_none() {
@@ -451,6 +495,12 @@ impl InodeSocket {
                         return Err(Errno::Notsup);
                     }
                 },
+                InodeSocketKind::BoundTcp { socket, .. } => {
+                    return Ok(Some(InodeSocket::new(InodeSocketKind::TcpListener {
+                        socket: socket.listen().map_err(net_error_into_wasi_err)?,
+                        accept_timeout: Some(timeout),
+                    })));
+                }
                 InodeSocketKind::Icmp(_) => {
                     tracing::warn!("wasi[?]::sock_listen - failed - not supported(icmp)");
                     return Err(Errno::Notsup);
@@ -562,6 +612,7 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.close().map_err(net_error_into_wasi_err)?;
             }
+            InodeSocketKind::BoundTcp { .. } => {}
             InodeSocketKind::Icmp(_) => {}
             InodeSocketKind::UdpSocket { .. } => {}
             InodeSocketKind::Raw(_) => {}
@@ -585,7 +636,9 @@ impl InodeSocket {
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
 
         let handler;
-        let connect = {
+        let connect: Pin<
+            Box<dyn Future<Output = Result<Box<dyn VirtualTcpSocket + Sync>, Errno>> + '_>,
+        > = {
             let mut inner = self.inner.protected.write().unwrap();
             match &mut inner.kind {
                 InodeSocketKind::PreSocket { props, addr, .. } => {
@@ -608,7 +661,10 @@ impl InodeSocket {
                                 }
                             };
                             Box::pin(async move {
-                                let mut ret = net.connect_tcp(addr, peer).await?;
+                                let mut ret = net
+                                    .connect_tcp(addr, peer)
+                                    .await
+                                    .map_err(net_error_into_wasi_err)?;
                                 if let Some(no_delay) = no_delay {
                                     ret.set_nodelay(no_delay).ok();
                                 }
@@ -619,7 +675,42 @@ impl InodeSocket {
                                     ret.set_dontroute(dont_route).ok();
                                 }
                                 if !nonblocking {
-                                    futures::future::poll_fn(|cx| ret.poll_write_ready(cx)).await?;
+                                    futures::future::poll_fn(|cx| ret.poll_write_ready(cx))
+                                        .await
+                                        .map_err(net_error_into_wasi_err)?;
+                                }
+                                Ok(ret)
+                            })
+                        }
+                        Socktype::Dgram => return Err(Errno::Inval),
+                        _ => return Err(Errno::Notsup),
+                    }
+                }
+                InodeSocketKind::BoundTcp { socket, props } => {
+                    handler = props.handler.take();
+                    new_write_timeout = props.write_timeout;
+                    new_read_timeout = props.read_timeout;
+                    match props.ty {
+                        Socktype::Stream => {
+                            let no_delay = props.no_delay;
+                            let keep_alive = props.keep_alive;
+                            let dont_route = props.dont_route;
+                            let mut ret =
+                                socket.connect(peer).map_err(net_error_into_wasi_err)?;
+                            if let Some(no_delay) = no_delay {
+                                ret.set_nodelay(no_delay).ok();
+                            }
+                            if let Some(keep_alive) = keep_alive {
+                                ret.set_keepalive(keep_alive).ok();
+                            }
+                            if let Some(dont_route) = dont_route {
+                                ret.set_dontroute(dont_route).ok();
+                            }
+                            Box::pin(async move {
+                                if !nonblocking {
+                                    futures::future::poll_fn(|cx| ret.poll_write_ready(cx))
+                                        .await
+                                        .map_err(net_error_into_wasi_err)?;
                                 }
                                 Ok(ret)
                             })
@@ -643,7 +734,7 @@ impl InodeSocket {
         };
 
         let mut socket = tokio::select! {
-            res = connect => res.map_err(net_error_into_wasi_err)?,
+            res = connect => res?,
             _ = tasks.sleep_now(timeout) => return Err(Errno::Timedout)
         };
 
@@ -666,6 +757,7 @@ impl InodeSocket {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { .. } => WasiSocketStatus::Opening,
+            InodeSocketKind::BoundTcp { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::TcpListener { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::TcpStream { socket, .. } => match socket.status() {
                 Ok(virtual_net::SocketStatus::Opening) => WasiSocketStatus::Opening,
@@ -707,6 +799,9 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.addr_local().map_err(net_error_into_wasi_err)?
             }
+            InodeSocketKind::BoundTcp { socket, .. } => {
+                socket.addr_local().map_err(net_error_into_wasi_err)?
+            }
             InodeSocketKind::UdpSocket { socket, .. } => {
                 socket.addr_local().map_err(net_error_into_wasi_err)?
             }
@@ -721,6 +816,14 @@ impl InodeSocket {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { props, .. } => SocketAddr::new(
+                match props.family {
+                    Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                    Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                    _ => return Err(Errno::Inval),
+                },
+                0,
+            ),
+            InodeSocketKind::BoundTcp { props, .. } => SocketAddr::new(
                 match props.family {
                     Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                     Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
@@ -758,6 +861,7 @@ impl InodeSocket {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => {
                 match option {
                     WasiSocketOption::OnlyV6 => props.only_v6 = val,
@@ -809,6 +913,7 @@ impl InodeSocket {
         let mut inner = self.inner.protected.write().unwrap();
         Ok(match &mut inner.kind {
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => match option {
                 WasiSocketOption::OnlyV6 => props.only_v6,
                 WasiSocketOption::ReusePort => props.reuse_port,
@@ -853,6 +958,7 @@ impl InodeSocket {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => {
                 props.send_buf_size = Some(size);
             }
@@ -870,6 +976,7 @@ impl InodeSocket {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => {
                 Ok(props.send_buf_size.unwrap_or_default())
             }
@@ -884,6 +991,7 @@ impl InodeSocket {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => {
                 props.recv_buf_size = Some(size);
             }
@@ -901,6 +1009,7 @@ impl InodeSocket {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => {
                 Ok(props.recv_buf_size.unwrap_or_default())
             }
@@ -918,6 +1027,7 @@ impl InodeSocket {
                 socket.set_linger(linger).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::RemoteSocket { .. } => Ok(()),
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Io),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -929,6 +1039,7 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.linger().map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Io),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -961,6 +1072,7 @@ impl InodeSocket {
                 Ok(())
             }
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => {
                 match ty {
                     TimeType::ConnectTimeout => props.connect_timeout = timeout,
@@ -992,6 +1104,7 @@ impl InodeSocket {
                 _ => return Err(Errno::Inval),
             }),
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => match ty {
                 TimeType::ConnectTimeout => Ok(props.connect_timeout),
                 TimeType::AcceptTimeout => Ok(props.accept_timeout),
@@ -1006,6 +1119,9 @@ impl InodeSocket {
     pub fn set_ttl(&self, ttl: u32) -> Result<(), Errno> {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
+            InodeSocketKind::BoundTcp { socket, .. } => {
+                socket.set_ttl(ttl).map_err(net_error_into_wasi_err)
+            }
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.set_ttl(ttl).map_err(net_error_into_wasi_err)
             }
@@ -1024,6 +1140,9 @@ impl InodeSocket {
     pub fn ttl(&self) -> Result<u32, Errno> {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
+            InodeSocketKind::BoundTcp { socket, .. } => {
+                socket.ttl().map_err(net_error_into_wasi_err)
+            }
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.ttl().map_err(net_error_into_wasi_err)
             }
@@ -1049,6 +1168,7 @@ impl InodeSocket {
                 *set_ttl = ttl;
                 Ok(())
             }
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Io),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -1061,6 +1181,7 @@ impl InodeSocket {
                 socket.multicast_ttl_v4().map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::RemoteSocket { multicast_ttl, .. } => Ok(*multicast_ttl),
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Io),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -1073,6 +1194,7 @@ impl InodeSocket {
                 .join_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::RemoteSocket { .. } => Ok(()),
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Io),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -1085,6 +1207,7 @@ impl InodeSocket {
                 .leave_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::RemoteSocket { .. } => Ok(()),
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Io),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -1097,6 +1220,7 @@ impl InodeSocket {
                 .join_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::RemoteSocket { .. } => Ok(()),
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Io),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -1109,6 +1233,7 @@ impl InodeSocket {
                 .leave_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::RemoteSocket { .. } => Ok(()),
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Io),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -1477,6 +1602,7 @@ impl InodeSocket {
                 socket.shutdown(how).map_err(net_error_into_wasi_err)?;
             }
             InodeSocketKind::RemoteSocket { .. } => return Ok(()),
+            InodeSocketKind::BoundTcp { .. } => return Err(Errno::Notconn),
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
             _ => return Err(Errno::Notsup),
         }
@@ -1488,6 +1614,7 @@ impl InodeSocket {
             #[allow(clippy::match_like_matches_macro)]
             match &mut guard.kind {
                 InodeSocketKind::TcpStream { .. }
+                | InodeSocketKind::BoundTcp { .. }
                 | InodeSocketKind::UdpSocket { .. }
                 | InodeSocketKind::Raw(..) => true,
                 InodeSocketKind::RemoteSocket { is_dead, .. } => !(*is_dead),
@@ -1510,6 +1637,9 @@ impl InodeSocketProtected {
             InodeSocketKind::PreSocket { props, .. } => {
                 props.handler.take();
             }
+            InodeSocketKind::BoundTcp { props, .. } => {
+                props.handler.take();
+            }
             InodeSocketKind::RemoteSocket { props, .. } => {
                 props.handler.take();
             }
@@ -1523,6 +1653,7 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.poll_read_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
+            InodeSocketKind::BoundTcp { .. } => Poll::Pending,
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
             InodeSocketKind::RemoteSocket { is_dead, .. } => match is_dead {
                 true => Poll::Ready(Ok(0)),
@@ -1539,6 +1670,7 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.poll_write_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
+            InodeSocketKind::BoundTcp { .. } => Poll::Pending,
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
             InodeSocketKind::RemoteSocket { is_dead, .. } => match is_dead {
                 true => Poll::Ready(Ok(0)),
@@ -1559,6 +1691,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.set_handler(handler),
             InodeSocketKind::Icmp(socket) => socket.set_handler(handler),
             InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::BoundTcp { props, .. }
             | InodeSocketKind::RemoteSocket { props, .. } => {
                 props.handler.replace(handler);
                 Ok(())

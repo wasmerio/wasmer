@@ -7,16 +7,28 @@ use std::{collections::HashMap, sync::Arc};
 use crate::tcp_pair::TcpSocketHalf;
 use crate::{
     InterestHandler, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError, VirtualIoSource,
-    VirtualNetworking, VirtualTcpListener, VirtualTcpSocket,
+    VirtualNetworking, VirtualTcpBoundSocket, VirtualTcpListener, VirtualTcpSocket,
 };
 use virtual_mio::InterestType;
 
 const DEFAULT_MAX_BUFFER_SIZE: usize = 1_048_576;
+const LOOPBACK_EPHEMERAL_PORT_START: u16 = 49152;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct LoopbackNetworkingState {
     tcp_listeners: HashMap<SocketAddr, LoopbackTcpListener>,
     ip_addresses: Vec<IpCidr>,
+    next_ephemeral_port: u16,
+}
+
+impl Default for LoopbackNetworkingState {
+    fn default() -> Self {
+        Self {
+            tcp_listeners: HashMap::new(),
+            ip_addresses: Vec::new(),
+            next_ephemeral_port: LOOPBACK_EPHEMERAL_PORT_START,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +73,44 @@ impl LoopbackNetworking {
                 .next()
                 .map(|listener| listener.1.connect_to(local_addr))
         }
+    }
+
+    fn allocate_tcp_bind_addr(state: &mut LoopbackNetworkingState, mut addr: SocketAddr) -> SocketAddr {
+        if addr.port() == 0 {
+            let start = state.next_ephemeral_port;
+            let mut candidate = start;
+            loop {
+                let candidate_addr = SocketAddr::new(addr.ip(), candidate);
+                if !state.tcp_listeners.contains_key(&candidate_addr) {
+                    addr.set_port(candidate);
+                    state.next_ephemeral_port = if candidate == u16::MAX {
+                        LOOPBACK_EPHEMERAL_PORT_START
+                    } else {
+                        candidate + 1
+                    };
+                    break;
+                }
+
+                candidate = if candidate == u16::MAX {
+                    LOOPBACK_EPHEMERAL_PORT_START
+                } else {
+                    candidate + 1
+                };
+                if candidate == start {
+                    break;
+                }
+            }
+        }
+        addr
+    }
+
+    fn normalize_listener_addr(mut addr: SocketAddr) -> SocketAddr {
+        if addr.ip() == IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
+            addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), addr.port());
+        } else if addr.ip() == IpAddr::V6(Ipv6Addr::UNSPECIFIED) {
+            addr = SocketAddr::new(Ipv6Addr::LOCALHOST.into(), addr.port());
+        }
+        addr
     }
 }
 
@@ -115,23 +165,27 @@ impl VirtualNetworking for LoopbackNetworking {
 
     async fn listen_tcp(
         &self,
-        mut addr: SocketAddr,
+        addr: SocketAddr,
         _only_v6: bool,
         _reuse_port: bool,
         _reuse_addr: bool,
     ) -> crate::Result<Box<dyn VirtualTcpListener + Sync>> {
-        let listener = LoopbackTcpListener::new(addr);
+        self.bind_tcp(addr, false, false, false).await?.listen()
+    }
 
-        if addr.ip() == IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
-            addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), addr.port());
-        } else if addr.ip() == IpAddr::V6(Ipv6Addr::UNSPECIFIED) {
-            addr = SocketAddr::new(Ipv6Addr::LOCALHOST.into(), addr.port());
-        }
-
+    async fn bind_tcp(
+        &self,
+        addr: SocketAddr,
+        _only_v6: bool,
+        _reuse_port: bool,
+        _reuse_addr: bool,
+    ) -> crate::Result<Box<dyn VirtualTcpBoundSocket + Sync>> {
         let mut state = self.state.lock().unwrap();
-        state.tcp_listeners.insert(addr, listener.clone());
-
-        Ok(Box::new(listener))
+        let addr = Self::allocate_tcp_bind_addr(&mut state, addr);
+        Ok(Box::new(LoopbackTcpBoundSocket {
+            networking: self.clone(),
+            local_addr: addr,
+        }))
     }
 }
 
@@ -233,5 +287,43 @@ impl VirtualTcpListener for LoopbackTcpListener {
 
     fn ttl(&self) -> crate::Result<u8> {
         Ok(64)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LoopbackTcpBoundSocket {
+    networking: LoopbackNetworking,
+    local_addr: SocketAddr,
+}
+
+impl VirtualTcpBoundSocket for LoopbackTcpBoundSocket {
+    fn addr_local(&self) -> crate::Result<SocketAddr> {
+        Ok(self.local_addr)
+    }
+
+    fn listen(&mut self) -> crate::Result<Box<dyn VirtualTcpListener + Sync>> {
+        let listener = LoopbackTcpListener::new(self.local_addr);
+        let mut state = self.networking.state.lock().unwrap();
+        state.tcp_listeners.insert(
+            LoopbackNetworking::normalize_listener_addr(self.local_addr),
+            listener.clone(),
+        );
+        Ok(Box::new(listener))
+    }
+
+    fn connect(&mut self, peer: SocketAddr) -> crate::Result<Box<dyn VirtualTcpSocket + Sync>> {
+        let socket = self
+            .networking
+            .loopback_connect_to(self.local_addr, peer)
+            .ok_or(NetworkError::ConnectionRefused)?;
+        Ok(Box::new(socket))
+    }
+
+    fn set_ttl(&mut self, _ttl: u32) -> crate::Result<()> {
+        Err(NetworkError::Unsupported)
+    }
+
+    fn ttl(&self) -> crate::Result<u32> {
+        Err(NetworkError::Unsupported)
     }
 }

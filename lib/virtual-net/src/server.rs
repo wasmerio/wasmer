@@ -1,8 +1,9 @@
 use crate::meta::{FrameSerializationFormat, ResponseType};
 use crate::rx_tx::{RemoteRx, RemoteTx, RemoteTxWakers};
-use crate::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
+use crate::{IpCidr, IpRoute, NetworkError, SocketStatus, StreamSecurity, VirtualIcmpSocket};
 use crate::{
-    VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+    VirtualNetworking, VirtualRawSocket, VirtualTcpBoundSocket, VirtualTcpListener,
+    VirtualTcpSocket, VirtualUdpSocket,
     meta::{MessageRequest, MessageResponse, RequestType, SocketId},
 };
 use futures_util::stream::FuturesOrdered;
@@ -534,6 +535,7 @@ impl RemoteNetworkingServerDriver {
                             // a child ID we can actually use
                             Ok(())
                         }
+                        RemoteAdapterSocket::BoundTcp(_) => Ok(()),
                         RemoteAdapterSocket::TcpSocket(s) => s.set_handler(handler),
                         RemoteAdapterSocket::UdpSocket(s) => s.set_handler(handler),
                         RemoteAdapterSocket::IcmpSocket(s) => s.set_handler(handler),
@@ -756,6 +758,23 @@ impl RemoteNetworkingServerDriver {
                 socket_id,
                 req_id,
             ),
+            RequestType::BindTcp {
+                socket_id,
+                addr,
+                only_v6,
+                reuse_port,
+                reuse_addr,
+            } => self.process_async_new_socket(
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
+                    Ok(RemoteAdapterSocket::BoundTcp(
+                        inner
+                            .bind_tcp(addr, only_v6, reuse_port, reuse_addr)
+                            .await?,
+                    ))
+                },
+                socket_id,
+                req_id,
+            ),
             RequestType::ListenTcp {
                 socket_id,
                 addr,
@@ -857,11 +876,69 @@ impl RemoteNetworkingServerDriver {
                 socket_id,
                 req_id,
             ),
+            RequestType::ListenBound => {
+                let res = {
+                    let mut guard = self.common.sockets.lock().unwrap();
+                    match guard.get_mut(&socket_id) {
+                        Some(socket) => match socket {
+                            RemoteAdapterSocket::BoundTcp(bound) => match bound.listen() {
+                                Ok(listener) => {
+                                    *socket = RemoteAdapterSocket::TcpListener {
+                                        socket: listener,
+                                        next_accept: None,
+                                    };
+                                    Ok(())
+                                }
+                                Err(err) => Err(err),
+                            },
+                            _ => Err(NetworkError::Unsupported),
+                        },
+                        _ => Err(NetworkError::Unsupported),
+                    }
+                };
+                req_id.and_then(|req_id| {
+                    self.common.send(MessageResponse::ResponseToRequest {
+                        req_id,
+                        res: match res {
+                            Ok(()) => ResponseType::None,
+                            Err(err) => ResponseType::Err(err),
+                        },
+                    })
+                })
+            }
+            RequestType::ConnectBound { peer } => {
+                let res = {
+                    let mut guard = self.common.sockets.lock().unwrap();
+                    match guard.get_mut(&socket_id) {
+                        Some(socket) => match socket {
+                            RemoteAdapterSocket::BoundTcp(bound) => match bound.connect(peer) {
+                                Ok(connected) => {
+                                    *socket = RemoteAdapterSocket::TcpSocket(connected);
+                                    Ok(())
+                                }
+                                Err(err) => Err(err),
+                            },
+                            _ => Err(NetworkError::Unsupported),
+                        },
+                        _ => Err(NetworkError::Unsupported),
+                    }
+                };
+                req_id.and_then(|req_id| {
+                    self.common.send(MessageResponse::ResponseToRequest {
+                        req_id,
+                        res: match res {
+                            Ok(()) => ResponseType::None,
+                            Err(err) => ResponseType::Err(err),
+                        },
+                    })
+                })
+            }
             RequestType::BeginAccept(child_id) => {
                 self.process_inner_begin_accept(socket_id, child_id, req_id)
             }
             RequestType::GetAddrLocal => self.process_inner(
                 move |socket| match socket {
+                    RemoteAdapterSocket::BoundTcp(s) => s.addr_local(),
                     RemoteAdapterSocket::TcpSocket(s) => s.addr_local(),
                     RemoteAdapterSocket::TcpListener { socket: s, .. } => s.addr_local(),
                     RemoteAdapterSocket::UdpSocket(s) => s.addr_local(),
@@ -877,6 +954,7 @@ impl RemoteNetworkingServerDriver {
             ),
             RequestType::GetAddrPeer => self.process_inner(
                 move |socket| match socket {
+                    RemoteAdapterSocket::BoundTcp(_) => Err(NetworkError::Unsupported),
                     RemoteAdapterSocket::TcpSocket(s) => s.addr_peer().map(Some),
                     RemoteAdapterSocket::TcpListener { .. } => Err(NetworkError::Unsupported),
                     RemoteAdapterSocket::UdpSocket(s) => s.addr_peer(),
@@ -893,6 +971,7 @@ impl RemoteNetworkingServerDriver {
             ),
             RequestType::SetTtl(ttl) => self.process_inner_noop(
                 move |socket| match socket {
+                    RemoteAdapterSocket::BoundTcp(s) => s.set_ttl(ttl),
                     RemoteAdapterSocket::TcpSocket(s) => s.set_ttl(ttl),
                     RemoteAdapterSocket::TcpListener { socket: s, .. } => {
                         s.set_ttl(ttl.try_into().unwrap_or_default())
@@ -906,6 +985,7 @@ impl RemoteNetworkingServerDriver {
             ),
             RequestType::GetTtl => self.process_inner(
                 move |socket| match socket {
+                    RemoteAdapterSocket::BoundTcp(s) => s.ttl(),
                     RemoteAdapterSocket::TcpSocket(s) => s.ttl(),
                     RemoteAdapterSocket::TcpListener { socket: s, .. } => s.ttl().map(|t| t as u32),
                     RemoteAdapterSocket::UdpSocket(s) => s.ttl(),
@@ -921,6 +1001,7 @@ impl RemoteNetworkingServerDriver {
             ),
             RequestType::GetStatus => self.process_inner(
                 move |socket| match socket {
+                    RemoteAdapterSocket::BoundTcp(_) => Ok(SocketStatus::Opened),
                     RemoteAdapterSocket::TcpSocket(s) => s.status(),
                     RemoteAdapterSocket::TcpListener { .. } => Err(NetworkError::Unsupported),
                     RemoteAdapterSocket::UdpSocket(s) => s.status(),
@@ -1227,6 +1308,7 @@ impl RemoteNetworkingServerDriver {
 
 #[derive(Debug)]
 enum RemoteAdapterSocket {
+    BoundTcp(Box<dyn VirtualTcpBoundSocket + Sync + 'static>),
     TcpListener {
         socket: Box<dyn VirtualTcpListener + Sync + 'static>,
         next_accept: Option<SocketId>,
@@ -1414,6 +1496,7 @@ impl RemoteAdapterSocket {
         let mut ret: FuturesOrdered<BoxFuture<'static, ()>> = Default::default();
         loop {
             break match self {
+                Self::BoundTcp(_) => {}
                 Self::TcpListener {
                     socket,
                     next_accept,
