@@ -2350,12 +2350,13 @@ impl WasiFs {
                 // surfacing a spurious ENOENT to callers such as lstat().
                 match result {
                     Ok(md) => md,
-                    Err(_) => {
+                    Err(FsError::EntryNotFound) => {
                         return Ok(Filestat {
                             st_filetype: Filetype::SymbolicLink,
                             ..Filestat::default()
                         });
                     }
+                    Err(err) => return Err(fs_error_into_wasi_err(err)),
                 }
             }
             _ => return Err(Errno::Io),
