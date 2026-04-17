@@ -132,29 +132,66 @@ pub(crate) fn fd_read_internal_handler<M: MemorySize>(
 }
 
 /// Extracts validated iov buffer specs from WASM memory as raw host pointers,
-/// releasing the `MemoryView` borrow before returning so that `ctx` can be
-/// passed exclusively to `__asyncify`.
+/// Raw iov buffer specs extracted from WASM memory before entering `__asyncify`.
+///
+/// `mem_base` points to the start of WASM linear memory. Each entry in `bufs`
+/// is a `(offset_into_memory, length)` pair describing one iov slice.
 ///
 /// # Safety
-/// The returned `*mut u8` base pointer points into WASM linear memory.
-/// It remains valid as long as the memory is not grown. Callers must only use
-/// the returned pointers while the calling thread is blocked inside
-/// `__asyncify` / `block_on`, where WASM execution (and thus `memory.grow`)
-/// cannot occur on this thread.
+/// `mem_base` remains valid only while the calling thread is blocked inside
+/// `__asyncify` / `block_on`. WASM cannot execute `memory.grow` while the
+/// thread is parked there, so the base pointer is stable for the duration.
+struct IovBufs {
+    mem_base: *mut u8,
+    bufs: Vec<(usize, usize)>,
+}
+
+impl IovBufs {
+    /// Yields a mutable byte slice for each iov entry.
+    ///
+    /// # Safety
+    /// Must only be called while `mem_base` is still valid (i.e. inside
+    /// `__asyncify`).
+    unsafe fn iter_slices_mut(&self) -> impl Iterator<Item = &mut [u8]> {
+        self.bufs.iter().map(|&(offset, len)| unsafe {
+            std::slice::from_raw_parts_mut(self.mem_base.add(offset), len)
+        })
+    }
+
+    /// Yields a mutable `MaybeUninit<u8>` slice for each iov entry (for
+    /// socket `recv`, which writes via uninitialized bytes).
+    ///
+    /// # Safety
+    /// Must only be called while `mem_base` is still valid.
+    unsafe fn iter_uninit_slices_mut(
+        &self,
+    ) -> impl Iterator<Item = &mut [std::mem::MaybeUninit<u8>]> {
+        self.bufs.iter().map(|&(offset, len)| unsafe {
+            std::slice::from_raw_parts_mut(
+                self.mem_base.add(offset) as *mut std::mem::MaybeUninit<u8>,
+                len,
+            )
+        })
+    }
+}
+
+/// Extracts validated iov buffer specs from WASM memory as an [`IovBufs`],
+/// releasing the `MemoryView` borrow before returning so that `ctx` can be
+/// passed exclusively to `__asyncify`.
 unsafe fn extract_iov_bufs<M: MemorySize>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
-) -> Result<(*mut u8, Vec<(usize, usize)>), Errno> {
+) -> Result<IovBufs, Errno> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(ctx) };
-    let base = memory.data_ptr();
+    let mem_base = memory.data_ptr();
     let mem_size = memory.data_size() as usize;
 
     let iovs_arr = iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
     let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
 
-    let specs = iovs_arr
+    let bufs = iovs_arr
         .iter()
         .map(|iov| {
             let buf_offset: usize = iov.buf.try_into().map_err(|_| Errno::Overflow)?;
@@ -167,7 +204,7 @@ unsafe fn extract_iov_bufs<M: MemorySize>(
         .collect::<Result<Vec<_>, _>>()?;
 
     // `iovs_arr` and `memory` drop here, releasing the borrow on `ctx`.
-    Ok((base, specs))
+    Ok(IovBufs { mem_base, bufs })
 }
 
 #[allow(clippy::await_holding_lock)]
@@ -204,8 +241,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     // Safety: we only use these pointers inside `__asyncify`, which drives the
     // future synchronously via `block_on`, parking this thread. While parked,
     // WASM cannot execute `memory.grow`, so the base pointer is stable.
-    let (mem_base, iov_specs) =
-        wasi_try_ok_ok!(unsafe { extract_iov_bufs::<M>(ctx, iovs, iovs_len) });
+    let iov_bufs = wasi_try_ok_ok!(unsafe { extract_iov_bufs::<M>(ctx, iovs, iovs_len) });
 
     let (bytes_read, can_update_cursor) = {
         let mut guard = inode.write();
@@ -228,10 +264,8 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                     }
 
                     let mut total_read = 0usize;
-                    for (buf_offset, buf_len) in iov_specs {
-                        let buf = unsafe {
-                            std::slice::from_raw_parts_mut(mem_base.add(buf_offset), buf_len)
-                        };
+                    for buf in unsafe { iov_bufs.iter_slices_mut() } {
+                        let buf_len = buf.len();
                         let local_read =
                             handle.read(buf).await.map_err(
                                 |err| match From::<std::io::Error>::from(err) {
@@ -270,13 +304,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                 let res = __asyncify(ctx, asyncify_timeout, async move {
                     let mut total_read = 0usize;
-                    for (buf_offset, buf_len) in iov_specs {
-                        let buf = unsafe {
-                            std::slice::from_raw_parts_mut(
-                                mem_base.add(buf_offset) as *mut std::mem::MaybeUninit<u8>,
-                                buf_len,
-                            )
-                        };
+                    for buf in unsafe { iov_bufs.iter_uninit_slices_mut() } {
                         let local_read = socket
                             .recv(tasks.deref(), buf, Some(timeout), nonblocking, false)
                             .await?;
@@ -309,10 +337,8 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                 let res = __asyncify(ctx, asyncify_timeout, async move {
                     let mut total_read = 0usize;
-                    for (buf_offset, buf_len) in iov_specs {
-                        let buf = unsafe {
-                            std::slice::from_raw_parts_mut(mem_base.add(buf_offset), buf_len)
-                        };
+                    for buf in unsafe { iov_bufs.iter_slices_mut() } {
+                        let buf_len = buf.len();
                         let local_read = if nonblocking {
                             rx.try_read(buf).ok_or(Errno::Again)?
                         } else {
@@ -337,10 +363,8 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                 let res = __asyncify(ctx, asyncify_timeout, async move {
                     let mut total_read = 0usize;
-                    for (buf_offset, buf_len) in iov_specs {
-                        let buf = unsafe {
-                            std::slice::from_raw_parts_mut(mem_base.add(buf_offset), buf_len)
-                        };
+                    for buf in unsafe { iov_bufs.iter_slices_mut() } {
+                        let buf_len = buf.len();
                         let local_read = if nonblocking {
                             pipe.try_read(buf).ok_or(Errno::Again)?
                         } else {
