@@ -12,6 +12,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+const DEFAULT_METADATE_TIME: u64 = 1_000_000_000; // 1 second in nano seconds
+
 type DynFileSystem = Arc<dyn FileSystem + Send + Sync>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -175,9 +177,9 @@ impl MountFileSystem {
     fn directory_metadata() -> Metadata {
         Metadata {
             ft: FileType::new_dir(),
-            accessed: 0,
-            created: 0,
-            modified: 0,
+            accessed: DEFAULT_METADATE_TIME,
+            created: DEFAULT_METADATE_TIME,
+            modified: DEFAULT_METADATE_TIME,
             len: 0,
         }
     }
