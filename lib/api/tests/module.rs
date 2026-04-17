@@ -315,9 +315,6 @@ fn module_from_file_non_utf8_path() -> Result<(), String> {
 
     let module = Module::from_file(&store, &path).map_err(|e| format!("{e:?}"))?;
     let canonical = path.canonicalize().map_err(|e| format!("{e:?}"))?;
-    assert_eq!(
-        module.name(),
-        Some(canonical.to_string_lossy().as_ref()),
-    );
+    assert_eq!(module.name(), Some(canonical.to_string_lossy().as_ref()),);
     Ok(())
 }
