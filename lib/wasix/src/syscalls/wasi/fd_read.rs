@@ -131,6 +131,45 @@ pub(crate) fn fd_read_internal_handler<M: MemorySize>(
     Ok(ret)
 }
 
+/// Extracts validated iov buffer specs from WASM memory as raw host pointers,
+/// releasing the `MemoryView` borrow before returning so that `ctx` can be
+/// passed exclusively to `__asyncify`.
+///
+/// # Safety
+/// The returned `*mut u8` base pointer points into WASM linear memory.
+/// It remains valid as long as the memory is not grown. Callers must only use
+/// the returned pointers while the calling thread is blocked inside
+/// `__asyncify` / `block_on`, where WASM execution (and thus `memory.grow`)
+/// cannot occur on this thread.
+unsafe fn extract_iov_bufs<M: MemorySize>(
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    iovs: WasmPtr<__wasi_iovec_t<M>, M>,
+    iovs_len: M::Offset,
+) -> Result<(*mut u8, Vec<(usize, usize)>), Errno> {
+    let env = ctx.data();
+    let memory = unsafe { env.memory_view(ctx) };
+    let base = memory.data_ptr();
+    let mem_size = memory.data_size() as usize;
+
+    let iovs_arr = iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+    let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+
+    let specs = iovs_arr
+        .iter()
+        .map(|iov| {
+            let buf_offset: usize = iov.buf.try_into().map_err(|_| Errno::Overflow)?;
+            let buf_len: usize = iov.buf_len.try_into().map_err(|_| Errno::Overflow)?;
+            if buf_offset.saturating_add(buf_len) > mem_size {
+                return Err(Errno::Fault);
+            }
+            Ok((buf_offset, buf_len))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // `iovs_arr` and `memory` drop here, releasing the borrow on `ctx`.
+    Ok((base, specs))
+}
+
 #[allow(clippy::await_holding_lock)]
 pub(crate) fn fd_read_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
@@ -142,331 +181,242 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     nread: WasmPtr<M::Offset, M>,
     should_update_cursor: bool,
 ) -> WasiResult<usize> {
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-    let state = env.state();
     let is_stdio = fd_entry.is_stdio;
 
-    let bytes_read = {
-        if !is_stdio && !fd_entry.inner.rights.contains(Rights::FD_READ) {
-            // TODO: figure out the error to return when lacking rights
-            return Ok(Err(Errno::Access));
-        }
+    if !is_stdio && !fd_entry.inner.rights.contains(Rights::FD_READ) {
+        // TODO: figure out the error to return when lacking rights
+        return Ok(Err(Errno::Access));
+    }
 
-        let inode = fd_entry.inode;
-        let fd_flags = fd_entry.inner.flags;
+    let inode = fd_entry.inode;
+    let fd_flags = fd_entry.inner.flags;
+    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+    let asyncify_timeout = if nonblocking {
+        Some(Duration::ZERO)
+    } else {
+        None
+    };
 
-        let (bytes_read, can_update_cursor) = {
-            let mut guard = inode.write();
-            match guard.deref_mut() {
-                Kind::File { handle, .. } => {
-                    let Some(handle) = handle else {
-                        tracing::warn!("fd_read: file handle is None");
-                        return Ok(Err(Errno::Badf));
-                    };
-                    let handle = handle.clone();
+    // Extract iov buffer specs (as raw pointers + lengths) from WASM memory
+    // before releasing the memory borrow. This allows `ctx` to be passed
+    // exclusively into `__asyncify`, which provides signal and DL-op handling.
+    //
+    // Safety: we only use these pointers inside `__asyncify`, which drives the
+    // future synchronously via `block_on`, parking this thread. While parked,
+    // WASM cannot execute `memory.grow`, so the base pointer is stable.
+    let (mem_base, iov_specs) =
+        wasi_try_ok_ok!(unsafe { extract_iov_bufs::<M>(ctx, iovs, iovs_len) });
 
-                    drop(guard);
+    let (bytes_read, can_update_cursor) = {
+        let mut guard = inode.write();
+        match guard.deref_mut() {
+            Kind::File { handle, .. } => {
+                let Some(handle) = handle else {
+                    tracing::warn!("fd_read: file handle is None");
+                    return Ok(Err(Errno::Badf));
+                };
+                let handle = handle.clone();
+                drop(guard);
 
-                    let res = __asyncify_light(
-                        env,
-                        if fd_flags.contains(Fdflags::NONBLOCK) {
-                            Some(Duration::ZERO)
-                        } else {
-                            None
-                        },
-                        async move {
-                            let mut handle = match handle.write() {
-                                Ok(a) => a,
-                                Err(_) => return Err(Errno::Fault),
-                            };
-                            if !is_stdio {
-                                handle
-                                    .seek(std::io::SeekFrom::Start(offset as u64))
-                                    .await
-                                    .map_err(map_io_err)?;
-                            }
+                let res = __asyncify(ctx, asyncify_timeout, async move {
+                    let mut handle = handle.write().map_err(|_| Errno::Fault)?;
+                    if !is_stdio {
+                        handle
+                            .seek(std::io::SeekFrom::Start(offset as u64))
+                            .await
+                            .map_err(map_io_err)?;
+                    }
 
-                            let mut total_read = 0usize;
-
-                            let iovs_arr =
-                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-                            for iovs in iovs_arr.iter() {
-                                let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
-                                    .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi)?
-                                    .access()
-                                    .map_err(mem_error_to_wasi)?;
-                                let r = handle.read(buf.as_mut()).await.map_err(|err| {
-                                    let err = From::<std::io::Error>::from(err);
-                                    match err {
-                                        Errno::Again => {
-                                            if is_stdio {
-                                                Errno::Badf
-                                            } else {
-                                                Errno::Again
-                                            }
-                                        }
-                                        a => a,
-                                    }
-                                });
-                                let local_read = match r {
-                                    Ok(s) => s,
-                                    Err(_) if total_read > 0 => break,
-                                    Err(err) => return Err(err),
-                                };
-                                total_read += local_read;
-                                if local_read != buf.len() {
-                                    break;
-                                }
-                            }
-                            Ok(total_read)
-                        },
-                    );
-                    let read = wasi_try_ok_ok!(res?.map_err(|err| match err {
-                        Errno::Timedout => Errno::Again,
-                        a => a,
-                    }));
-                    (read, true)
-                }
-                Kind::Socket { socket } => {
-                    let socket = socket.clone();
-
-                    drop(guard);
-
-                    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-                    let timeout = socket
-                        .opt_time(TimeType::ReadTimeout)
-                        .ok()
-                        .flatten()
-                        .unwrap_or(Duration::from_secs(30));
-
-                    let tasks = env.tasks().clone();
-                    let res = __asyncify_light(
-                        env,
-                        if fd_flags.contains(Fdflags::NONBLOCK) {
-                            Some(Duration::ZERO)
-                        } else {
-                            None
-                        },
-                        async move {
-                            let mut total_read = 0usize;
-
-                            let iovs_arr =
-                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-                            for iovs in iovs_arr.iter() {
-                                let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
-                                    .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi)?
-                                    .access()
-                                    .map_err(mem_error_to_wasi)?;
-
-                                let local_read = socket
-                                    .recv(
-                                        tasks.deref(),
-                                        buf.as_mut_uninit(),
-                                        Some(timeout),
-                                        nonblocking,
-                                        false,
-                                    )
-                                    .await?;
-                                total_read += local_read;
-                                if total_read != buf.len() {
-                                    break;
-                                }
-                            }
-                            Ok(total_read)
-                        },
-                    );
-                    let res = res?.map_err(|err| match err {
-                        Errno::Timedout => Errno::Again,
-                        a => a,
-                    });
-                    match res {
-                        Err(Errno::Connaborted) | Err(Errno::Connreset) => (0, false),
-                        res => {
-                            let bytes_read = wasi_try_ok_ok!(res);
-                            (bytes_read, false)
+                    let mut total_read = 0usize;
+                    for (buf_offset, buf_len) in iov_specs {
+                        let buf = unsafe {
+                            std::slice::from_raw_parts_mut(mem_base.add(buf_offset), buf_len)
+                        };
+                        let local_read =
+                            handle.read(buf).await.map_err(
+                                |err| match From::<std::io::Error>::from(err) {
+                                    Errno::Again if is_stdio => Errno::Badf,
+                                    e => e,
+                                },
+                            );
+                        let local_read = match local_read {
+                            Ok(n) => n,
+                            Err(_) if total_read > 0 => break,
+                            Err(err) => return Err(err),
+                        };
+                        total_read += local_read;
+                        if local_read < buf_len {
+                            break;
                         }
                     }
-                }
-                Kind::PipeTx { .. } => return Ok(Err(Errno::Badf)),
-                Kind::PipeRx { rx } => {
-                    let mut rx = rx.clone();
-                    drop(guard);
+                    Ok(total_read)
+                });
+                let read = wasi_try_ok_ok!(res?.map_err(|err| match err {
+                    Errno::Timedout => Errno::Again,
+                    a => a,
+                }));
+                (read, true)
+            }
+            Kind::Socket { socket } => {
+                let socket = socket.clone();
+                drop(guard);
 
-                    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+                let timeout = socket
+                    .opt_time(TimeType::ReadTimeout)
+                    .ok()
+                    .flatten()
+                    .unwrap_or(Duration::from_secs(30));
+                let tasks = ctx.data().tasks().clone();
 
-                    let res = __asyncify_light(
-                        env,
-                        if fd_flags.contains(Fdflags::NONBLOCK) {
-                            Some(Duration::ZERO)
-                        } else {
-                            None
-                        },
-                        async move {
-                            let mut total_read = 0usize;
-
-                            let iovs_arr =
-                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-                            for iovs in iovs_arr.iter() {
-                                let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
-                                    .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi)?
-                                    .access()
-                                    .map_err(mem_error_to_wasi)?;
-
-                                let local_read = match nonblocking {
-                                    true => match rx.try_read(buf.as_mut()) {
-                                        Some(amt) => amt,
-                                        None => {
-                                            return Err(Errno::Again);
-                                        }
-                                    },
-                                    false => {
-                                        virtual_fs::AsyncReadExt::read(&mut rx, buf.as_mut())
-                                            .await?
-                                    }
-                                };
-                                total_read += local_read;
-                                if local_read != buf.len() {
-                                    break;
-                                }
-                            }
-                            Ok(total_read)
-                        },
-                    );
-
-                    let bytes_read = wasi_try_ok_ok!(res?.map_err(|err| match err {
-                        Errno::Timedout => Errno::Again,
-                        a => a,
-                    }));
-
-                    (bytes_read, false)
-                }
-                Kind::DuplexPipe { pipe } => {
-                    let mut pipe = pipe.clone();
-                    drop(guard);
-
-                    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-
-                    let res = __asyncify_light(
-                        env,
-                        if fd_flags.contains(Fdflags::NONBLOCK) {
-                            Some(Duration::ZERO)
-                        } else {
-                            None
-                        },
-                        async move {
-                            let mut total_read = 0usize;
-
-                            let iovs_arr =
-                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
-                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-                            for iovs in iovs_arr.iter() {
-                                let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
-                                    .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi)?
-                                    .access()
-                                    .map_err(mem_error_to_wasi)?;
-
-                                let local_read = match nonblocking {
-                                    true => match pipe.try_read(buf.as_mut()) {
-                                        Some(amt) => amt,
-                                        None => {
-                                            return Err(Errno::Again);
-                                        }
-                                    },
-                                    false => {
-                                        virtual_fs::AsyncReadExt::read(&mut pipe, buf.as_mut())
-                                            .await?
-                                    }
-                                };
-                                total_read += local_read;
-                                if local_read != buf.len() {
-                                    break;
-                                }
-                            }
-                            Ok(total_read)
-                        },
-                    );
-
-                    let bytes_read = wasi_try_ok_ok!(res?.map_err(|err| match err {
-                        Errno::Timedout => Errno::Again,
-                        a => a,
-                    }));
-
-                    (bytes_read, false)
-                }
-                Kind::Dir { .. } | Kind::Root { .. } => {
-                    // TODO: verify
-                    return Ok(Err(Errno::Isdir));
-                }
-                Kind::EventNotifications { inner } => {
-                    // Create a poller
-                    struct NotifyPoller {
-                        inner: Arc<NotificationInner>,
-                        non_blocking: bool,
-                    }
-                    let poller = NotifyPoller {
-                        inner: inner.clone(),
-                        non_blocking: fd_flags.contains(Fdflags::NONBLOCK),
-                    };
-
-                    drop(guard);
-
-                    // The poller will register itself for notifications and wait for the
-                    // counter to drop
-                    impl Future for NotifyPoller {
-                        type Output = Result<u64, Errno>;
-                        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                            if self.non_blocking {
-                                Poll::Ready(self.inner.try_read().ok_or(Errno::Again))
-                            } else {
-                                self.inner.read(cx.waker()).map(Ok)
-                            }
+                let res = __asyncify(ctx, asyncify_timeout, async move {
+                    let mut total_read = 0usize;
+                    for (buf_offset, buf_len) in iov_specs {
+                        let buf = unsafe {
+                            std::slice::from_raw_parts_mut(
+                                mem_base.add(buf_offset) as *mut std::mem::MaybeUninit<u8>,
+                                buf_len,
+                            )
+                        };
+                        let local_read = socket
+                            .recv(tasks.deref(), buf, Some(timeout), nonblocking, false)
+                            .await?;
+                        total_read += local_read;
+                        // A zero-byte return signals connection closed (EOF);
+                        // a short read is normal for stream sockets and does NOT
+                        // indicate end-of-stream.
+                        if local_read == 0 {
+                            break;
                         }
                     }
-
-                    // Yield until the notifications are triggered
-                    let tasks_inner = env.tasks().clone();
-
-                    let res = __asyncify_light(env, None, poller)?.map_err(|err| match err {
-                        Errno::Timedout => Errno::Again,
-                        a => a,
-                    });
-                    let val = wasi_try_ok_ok!(res);
-
-                    let mut memory = unsafe { env.memory_view(ctx) };
-                    let reader = val.to_ne_bytes();
-                    let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
-                    let ret = wasi_try_ok_ok!(read_bytes(&reader[..], &memory, iovs_arr));
-                    (ret, false)
-                }
-                Kind::Symlink { .. } | Kind::Epoll { .. } => {
-                    return Ok(Err(Errno::Notsup));
-                }
-                Kind::Buffer { buffer } => {
-                    let memory = unsafe { env.memory_view(ctx) };
-                    let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
-                    let read = wasi_try_ok_ok!(read_bytes(&buffer[offset..], &memory, iovs_arr));
-                    (read, true)
+                    Ok(total_read)
+                });
+                let res = res?.map_err(|err| match err {
+                    Errno::Timedout => Errno::Again,
+                    a => a,
+                });
+                match res {
+                    Err(Errno::Connaborted) | Err(Errno::Connreset) => (0, false),
+                    res => {
+                        let bytes_read = wasi_try_ok_ok!(res);
+                        (bytes_read, false)
+                    }
                 }
             }
-        };
+            Kind::PipeTx { .. } => return Ok(Err(Errno::Badf)),
+            Kind::PipeRx { rx } => {
+                let mut rx = rx.clone();
+                drop(guard);
 
-        if !is_stdio && should_update_cursor && can_update_cursor {
-            fd_entry
-                .inner
-                .offset
-                .fetch_add(bytes_read as u64, Ordering::AcqRel);
+                let res = __asyncify(ctx, asyncify_timeout, async move {
+                    let mut total_read = 0usize;
+                    for (buf_offset, buf_len) in iov_specs {
+                        let buf = unsafe {
+                            std::slice::from_raw_parts_mut(mem_base.add(buf_offset), buf_len)
+                        };
+                        let local_read = if nonblocking {
+                            rx.try_read(buf).ok_or(Errno::Again)?
+                        } else {
+                            virtual_fs::AsyncReadExt::read(&mut rx, buf).await?
+                        };
+                        total_read += local_read;
+                        if local_read < buf_len {
+                            break;
+                        }
+                    }
+                    Ok(total_read)
+                });
+                let bytes_read = wasi_try_ok_ok!(res?.map_err(|err| match err {
+                    Errno::Timedout => Errno::Again,
+                    a => a,
+                }));
+                (bytes_read, false)
+            }
+            Kind::DuplexPipe { pipe } => {
+                let mut pipe = pipe.clone();
+                drop(guard);
+
+                let res = __asyncify(ctx, asyncify_timeout, async move {
+                    let mut total_read = 0usize;
+                    for (buf_offset, buf_len) in iov_specs {
+                        let buf = unsafe {
+                            std::slice::from_raw_parts_mut(mem_base.add(buf_offset), buf_len)
+                        };
+                        let local_read = if nonblocking {
+                            pipe.try_read(buf).ok_or(Errno::Again)?
+                        } else {
+                            virtual_fs::AsyncReadExt::read(&mut pipe, buf).await?
+                        };
+                        total_read += local_read;
+                        if local_read < buf_len {
+                            break;
+                        }
+                    }
+                    Ok(total_read)
+                });
+                let bytes_read = wasi_try_ok_ok!(res?.map_err(|err| match err {
+                    Errno::Timedout => Errno::Again,
+                    a => a,
+                }));
+                (bytes_read, false)
+            }
+            Kind::Dir { .. } | Kind::Root { .. } => {
+                // TODO: verify
+                return Ok(Err(Errno::Isdir));
+            }
+            Kind::EventNotifications { inner } => {
+                struct NotifyPoller {
+                    inner: Arc<NotificationInner>,
+                    non_blocking: bool,
+                }
+                impl Future for NotifyPoller {
+                    type Output = Result<u64, Errno>;
+                    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                        if self.non_blocking {
+                            Poll::Ready(self.inner.try_read().ok_or(Errno::Again))
+                        } else {
+                            self.inner.read(cx.waker()).map(Ok)
+                        }
+                    }
+                }
+
+                let poller = NotifyPoller {
+                    inner: inner.clone(),
+                    non_blocking: nonblocking,
+                };
+                drop(guard);
+
+                let res = __asyncify(ctx, None, poller)?.map_err(|err| match err {
+                    Errno::Timedout => Errno::Again,
+                    a => a,
+                });
+                let val = wasi_try_ok_ok!(res);
+
+                let env = ctx.data();
+                let memory = unsafe { env.memory_view(ctx) };
+                let reader = val.to_ne_bytes();
+                let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
+                let ret = wasi_try_ok_ok!(read_bytes(&reader[..], &memory, iovs_arr));
+                (ret, false)
+            }
+            Kind::Symlink { .. } | Kind::Epoll { .. } => {
+                return Ok(Err(Errno::Notsup));
+            }
+            Kind::Buffer { buffer } => {
+                let env = ctx.data();
+                let memory = unsafe { env.memory_view(ctx) };
+                let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
+                let read = wasi_try_ok_ok!(read_bytes(&buffer[offset..], &memory, iovs_arr));
+                (read, true)
+            }
         }
-
-        bytes_read
     };
+
+    if !is_stdio && should_update_cursor && can_update_cursor {
+        fd_entry
+            .inner
+            .offset
+            .fetch_add(bytes_read as u64, Ordering::AcqRel);
+    }
 
     Ok(Ok(bytes_read))
 }
