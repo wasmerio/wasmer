@@ -78,10 +78,10 @@
 <a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">let </span>canonical = file_ref.canonicalize()<span class="question-mark">?</span>;
 <a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">let </span>wasm_bytes = std::fs::read(file_ref)<span class="question-mark">?</span>;
 <a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">let </span><span class="kw-2">mut </span>module = <span class="self">Self</span>::new(engine, wasm_bytes)<span class="question-mark">?</span>;
-<a href=#81 id=81 data-nosnippet>81</a>        <span class="comment">// Set the module name to the absolute path of the filename.
-<a href=#82 id=82 data-nosnippet>82</a>        // This is useful for debugging the stack traces.
-<a href=#83 id=83 data-nosnippet>83</a>        </span><span class="kw">let </span>filename = canonical.as_path().to_str().unwrap();
-<a href=#84 id=84 data-nosnippet>84</a>        module.set_name(filename);
+<a href=#81 id=81 data-nosnippet>81</a>        <span class="comment">// Set the module name to the absolute canonical path as a lossy UTF-8 string.
+<a href=#82 id=82 data-nosnippet>82</a>        // This is useful for debugging stack traces, and lossy conversion is necessary
+<a href=#83 id=83 data-nosnippet>83</a>        // because filesystem paths are not always valid UTF-8.
+<a href=#84 id=84 data-nosnippet>84</a>        </span>module.set_name(canonical.to_string_lossy().as_ref());
 <a href=#85 id=85 data-nosnippet>85</a>        <span class="prelude-val">Ok</span>(module)
 <a href=#86 id=86 data-nosnippet>86</a>    }
 <a href=#87 id=87 data-nosnippet>87</a>
