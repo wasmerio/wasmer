@@ -90,7 +90,7 @@
 <a href=#90 id=90 data-nosnippet>90</a>            String::from(<span class="string">"wasmer_cli"</span>),
 <a href=#91 id=91 data-nosnippet>91</a>            version,
 <a href=#92 id=92 data-nosnippet>92</a>            <span class="self">self</span>.config.compiler_backend.to_string(),
-<a href=#93 id=93 data-nosnippet>93</a>            start_time - Instant::now(),
+<a href=#93 id=93 data-nosnippet>93</a>            start_time.elapsed(),
 <a href=#94 id=94 data-nosnippet>94</a>            <span class="prelude-val">Ok</span>(String::from(<span class="string">"test passed"</span>)),
 <a href=#95 id=95 data-nosnippet>95</a>        ))
 <a href=#96 id=96 data-nosnippet>96</a>    }
@@ -106,7 +106,7 @@
 <a href=#106 id=106 data-nosnippet>106</a>            String::from(<span class="string">"wasmer_cli"</span>),
 <a href=#107 id=107 data-nosnippet>107</a>            version,
 <a href=#108 id=108 data-nosnippet>108</a>            <span class="self">self</span>.config.compiler_backend.to_string(),
-<a href=#109 id=109 data-nosnippet>109</a>            start_time - Instant::now(),
+<a href=#109 id=109 data-nosnippet>109</a>            start_time.elapsed(),
 <a href=#110 id=110 data-nosnippet>110</a>            <span class="prelude-val">Err</span>(message),
 <a href=#111 id=111 data-nosnippet>111</a>        ))
 <a href=#112 id=112 data-nosnippet>112</a>    }
