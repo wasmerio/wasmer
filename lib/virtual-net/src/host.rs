@@ -78,6 +78,7 @@ fn tcp_socket_domain(addr: SocketAddr) -> socket2::Domain {
     }
 }
 
+#[allow(clippy::needless_bool)]
 fn tcp_connect_in_progress(err: &io::Error) -> bool {
     if matches!(
         err.kind(),

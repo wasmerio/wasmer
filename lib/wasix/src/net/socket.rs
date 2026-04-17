@@ -1763,7 +1763,6 @@ pub(crate) fn all_socket_rights() -> Rights {
 #[cfg(test)]
 mod tests {
     use super::{InodeSocket, InodeSocketKind, SocketProperties, WasiSocketStatus};
-    use crate::runtime::task_manager::tokio::TokioTaskManager;
     use std::{
         future::pending,
         mem::MaybeUninit,
@@ -2040,6 +2039,7 @@ mod tests {
         assert_eq!(ttl.load(Ordering::Relaxed), 42);
     }
 
+    #[cfg(feature = "sys")]
     #[tokio::test(flavor = "current_thread")]
     async fn inode_socket_tcp_bind_respects_bind_timeout() {
         let inode = InodeSocket::new(InodeSocketKind::PreSocket {
@@ -2063,7 +2063,7 @@ mod tests {
             },
             addr: None,
         });
-        let tasks = TokioTaskManager::default();
+        let tasks = crate::runtime::task_manager::tokio::TokioTaskManager::default();
         let net = PendingBindNetworking;
 
         let err = inode
