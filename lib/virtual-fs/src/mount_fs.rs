@@ -43,7 +43,9 @@ struct ExactNode {
     fs: Option<DynFileSystem>,
     source_path: PathBuf,
     child_names: BTreeSet<OsString>,
-    /// Creation timestamp in nanoseconds since the Unix epoch.
+    /// Timestamp reported for this node in nanoseconds since the Unix epoch.
+    /// For synthetic non-mounted nodes, this may be generated at lookup time
+    /// rather than representing an original creation event.
     created_at: u64,
 }
 
