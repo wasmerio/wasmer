@@ -13,8 +13,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-const DEFAULT_METADATE_TIME: u64 = 1_000_000_000; // 1 second in nano seconds
-
 type DynFileSystem = Arc<dyn FileSystem + Send + Sync>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,11 +26,13 @@ pub enum ExactMountConflictMode {
 struct MountedFileSystem {
     fs: DynFileSystem,
     source_path: PathBuf,
-    created_at: u64,
 }
 
 #[derive(Debug, Default)]
 struct MountNode {
+    /// Creation timestamp in nanoseconds since the Unix epoch.
+    /// Set once when the node is first inserted into the tree.
+    created_at: u64,
     mount: Option<MountedFileSystem>,
     children: BTreeMap<OsString, MountNode>,
 }
@@ -93,14 +93,26 @@ impl MountPoint {
 
 /// Allows different filesystems of different types
 /// to be mounted at various mount points
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MountFileSystem {
     root: RwLock<MountNode>,
 }
 
+impl Default for MountFileSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MountFileSystem {
     pub fn new() -> Self {
-        Self::default()
+        let ts = Self::now_nanos();
+        Self {
+            root: RwLock::new(MountNode {
+                created_at: ts,
+                ..MountNode::default()
+            }),
+        }
     }
 
     pub fn mount(
@@ -119,17 +131,14 @@ impl MountFileSystem {
     ) -> Result<()> {
         let path = self.prepare_path(path.as_ref())?;
         let source_path = Self::normalize_source_path(source_path.as_ref());
+        let ts = Self::now_nanos();
         let mut root = self.root.write().unwrap();
-        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path));
+        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path), ts);
 
         if node.mount.is_some() {
             Err(FsError::AlreadyExists)
         } else {
-            node.mount = Some(MountedFileSystem {
-                fs,
-                source_path,
-                created_at: Self::now_nanos(),
-            });
+            node.mount = Some(MountedFileSystem { fs, source_path });
             Ok(())
         }
     }
@@ -142,7 +151,10 @@ impl MountFileSystem {
     }
 
     pub fn clear(&mut self) {
-        *self.root.write().unwrap() = MountNode::default();
+        *self.root.write().unwrap() = MountNode {
+            created_at: Self::now_nanos(),
+            ..MountNode::default()
+        };
     }
 
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
@@ -207,10 +219,10 @@ impl MountFileSystem {
         )
     }
 
-    fn synthetic_entry(name: OsString, base: &Path) -> DirEntry {
+    fn synthetic_entry(name: OsString, base: &Path, ts: u64) -> DirEntry {
         DirEntry {
             path: base.join(PathBuf::from(name)),
-            metadata: Ok(Self::directory_metadata_at(Self::now_nanos())),
+            metadata: Ok(Self::directory_metadata_at(ts)),
         }
     }
 
@@ -252,10 +264,7 @@ impl MountFileSystem {
         Some(ExactNode {
             path: visible_path.clone(),
             fs: mounted.as_ref().map(|mount| mount.fs.clone()),
-            created_at: mounted
-                .as_ref()
-                .map(|mount| mount.created_at)
-                .unwrap_or_else(Self::now_nanos),
+            created_at: node.created_at,
             source_path: mounted
                 .map(|mount| mount.source_path)
                 .unwrap_or_else(|| PathBuf::from("/")),
@@ -352,16 +361,26 @@ impl MountFileSystem {
             node.child_names
                 .iter()
                 .cloned()
-                .map(|name| Self::synthetic_entry(name, &node.path)),
+                .map(|name| Self::synthetic_entry(name, &node.path, node.created_at)),
         );
 
         Ok(ReadDir::new(entries))
     }
 
-    fn mount_node_mut<'a>(node: &'a mut MountNode, components: &[OsString]) -> &'a mut MountNode {
+    fn mount_node_mut<'a>(
+        node: &'a mut MountNode,
+        components: &[OsString],
+        ts: u64,
+    ) -> &'a mut MountNode {
         let mut node = node;
         for component in components {
-            node = node.children.entry(component.clone()).or_default();
+            node = node
+                .children
+                .entry(component.clone())
+                .or_insert_with(|| MountNode {
+                    created_at: ts,
+                    ..MountNode::default()
+                });
         }
 
         node
@@ -378,12 +397,12 @@ impl MountFileSystem {
         fs: Arc<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
         let path = self.prepare_path(path.as_ref())?;
+        let ts = Self::now_nanos();
         let mut root = self.root.write().unwrap();
-        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path));
+        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path), ts);
         node.mount = Some(MountedFileSystem {
             fs,
             source_path: PathBuf::from("/"),
-            created_at: Self::now_nanos(),
         });
         Ok(())
     }
@@ -412,16 +431,17 @@ impl MountFileSystem {
                         continue;
                     }
                     ExactMountConflictMode::ReplaceExisting => {
+                        let ts = Self::now_nanos();
                         let mut root = self.root.write().unwrap();
                         let node = Self::mount_node_mut(
                             &mut root,
                             &Self::path_components(&self.prepare_path(&entry.path)?),
+                            ts,
                         );
                         Self::clear_descendants(node);
                         node.mount = Some(MountedFileSystem {
                             fs: entry.fs,
                             source_path: entry.source_path,
-                            created_at: Self::now_nanos(),
                         });
                         continue;
                     }
