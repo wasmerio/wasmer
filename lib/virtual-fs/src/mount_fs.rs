@@ -10,6 +10,7 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 const DEFAULT_METADATE_TIME: u64 = 1_000_000_000; // 1 second in nano seconds
@@ -27,6 +28,7 @@ pub enum ExactMountConflictMode {
 struct MountedFileSystem {
     fs: DynFileSystem,
     source_path: PathBuf,
+    created_at: u64,
 }
 
 #[derive(Debug, Default)]
@@ -41,6 +43,8 @@ struct ExactNode {
     fs: Option<DynFileSystem>,
     source_path: PathBuf,
     child_names: BTreeSet<OsString>,
+    /// Creation timestamp in nanoseconds since the Unix epoch.
+    created_at: u64,
 }
 
 impl ExactNode {
@@ -119,7 +123,11 @@ impl MountFileSystem {
         if node.mount.is_some() {
             Err(FsError::AlreadyExists)
         } else {
-            node.mount = Some(MountedFileSystem { fs, source_path });
+            node.mount = Some(MountedFileSystem {
+                fs,
+                source_path,
+                created_at: Self::now_nanos(),
+            });
             Ok(())
         }
     }
@@ -174,12 +182,18 @@ impl MountFileSystem {
         normalized
     }
 
-    fn directory_metadata() -> Metadata {
+    fn now_nanos() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos() as u64)
+    }
+
+    fn directory_metadata_at(ts: u64) -> Metadata {
         Metadata {
             ft: FileType::new_dir(),
-            accessed: DEFAULT_METADATE_TIME,
-            created: DEFAULT_METADATE_TIME,
-            modified: DEFAULT_METADATE_TIME,
+            accessed: ts,
+            created: ts,
+            modified: ts,
             len: 0,
         }
     }
@@ -194,7 +208,7 @@ impl MountFileSystem {
     fn synthetic_entry(name: OsString, base: &Path) -> DirEntry {
         DirEntry {
             path: base.join(PathBuf::from(name)),
-            metadata: Ok(Self::directory_metadata()),
+            metadata: Ok(Self::directory_metadata_at(Self::now_nanos())),
         }
     }
 
@@ -236,6 +250,10 @@ impl MountFileSystem {
         Some(ExactNode {
             path: visible_path.clone(),
             fs: mounted.as_ref().map(|mount| mount.fs.clone()),
+            created_at: mounted
+                .as_ref()
+                .map(|mount| mount.created_at)
+                .unwrap_or_else(Self::now_nanos),
             source_path: mounted
                 .map(|mount| mount.source_path)
                 .unwrap_or_else(|| PathBuf::from("/")),
@@ -363,6 +381,7 @@ impl MountFileSystem {
         node.mount = Some(MountedFileSystem {
             fs,
             source_path: PathBuf::from("/"),
+            created_at: Self::now_nanos(),
         });
         Ok(())
     }
@@ -400,6 +419,7 @@ impl MountFileSystem {
                         node.mount = Some(MountedFileSystem {
                             fs: entry.fs,
                             source_path: entry.source_path,
+                            created_at: Self::now_nanos(),
                         });
                         continue;
                     }
@@ -586,13 +606,13 @@ impl FileSystem for MountFileSystem {
             return if let Some(fs) = node.fs {
                 fs.metadata(&node.source_path).or_else(|error| {
                     if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata())
+                        Ok(Self::directory_metadata_at(node.created_at))
                     } else {
                         Err(error)
                     }
                 })
             } else if node.has_children() {
-                Ok(Self::directory_metadata())
+                Ok(Self::directory_metadata_at(node.created_at))
             } else {
                 Err(FsError::EntryNotFound)
             };
@@ -611,13 +631,13 @@ impl FileSystem for MountFileSystem {
             return if let Some(fs) = node.fs {
                 fs.symlink_metadata(&node.source_path).or_else(|error| {
                     if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata())
+                        Ok(Self::directory_metadata_at(node.created_at))
                     } else {
                         Err(error)
                     }
                 })
             } else if node.has_children() {
-                Ok(Self::directory_metadata())
+                Ok(Self::directory_metadata_at(node.created_at))
             } else {
                 Err(FsError::EntryNotFound)
             };
