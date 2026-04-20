@@ -103,8 +103,6 @@ ENABLE_CRANELIFT ?=
 ENABLE_LLVM ?=
 ENABLE_SINGLEPASS ?=
 ENABLE_V8 ?=
-ENABLE_WAMR ?=
-ENABLE_WASMI ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers :=
@@ -214,41 +212,6 @@ endif
 ifneq (, $(findstring v8,$(build_compilers)))
 	ENABLE_V8 := 1
 endif
-
-##
-# WAMR 
-##
-
-# If the user didn't disable the WAMR backend…
-ifneq ($(ENABLE_WAMR), 0)
-	# … then maybe the user forced to enable the WAMR compiler.
-	ifneq ($(filter 1 true,$(ENABLE_WAMR)),)
-		build_compilers += wamr
-	# we don't check automatically for now  
-	endif
-endif
-
-ifneq (, $(findstring wamr,$(build_compilers)))
-	ENABLE_WAMR := 1
-endif
-
-##
-# wasmi 
-##
-
-# If the user didn't disable the wasmi backend…
-ifneq ($(ENABLE_WASMI), 0)
-	# … then maybe the user forced to enable the wasmi compiler.
-	ifneq ($(filter 1 true,$(ENABLE_WASMI)),)
-		build_compilers += wasmi
-	# we don't check automatically for now  
-	endif
-endif
-
-ifneq (, $(findstring wasmi,$(build_compilers)))
-	ENABLE_WASMI := 1
-endif
-
 
 ##
 # Clean the `compilers` variable.
@@ -634,11 +597,6 @@ test-v8: test-v8-api
 test-v8-api:
 	cargo nextest run --package=wasmer --release --features="v8-default" --no-default-features
 
-test-wamr: test-wamr-api
-
-test-wamr-api:
-	cargo nextest run --package=wasmer --release --features="wamr-default" --no-default-features
-
 test-js: test-js-api test-js-wasi
 
 # TODO: disabled because the no-std / core feature doesn't actually work at the moment.
@@ -721,15 +679,6 @@ test-wasix: build-wasmer
 test-integration-cli-ci: require-nextest build-wasmer
 	rustup target add wasm32-wasip1
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
-
-test-integration-cli-wamr-ci: require-nextest build-wasmer-wamr
-	rustup target add wasm32-wasip1
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -E "not (test(deploy) | test(snapshot) | test(login) | test(init) | test(gen_c_header) | test(up_to_date) | test(publish) | test(create) | test(whoami) | test(config) | test(c_flags))"
-
-test-integration-cli-wasmi-ci: require-nextest
-	rustup target add wasm32-wasip1
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -E "not (test(deploy) | test(snapshot) | test(login) | test(init) | test(gen_c_header) | test(up_to_date) | test(publish) | test(create) | test(whoami) | test(config) | test(c_flags))"
-
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios --locked
@@ -963,9 +912,6 @@ lint-clang-format:
 lint-yamlfmt:
 	yamlfmt -lint .github
 
-lint-wamr:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="wamr-default" --locked -- -D clippy::all
-
 lint-v8:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="v8-default" --locked -- -D clippy::all
 
@@ -981,7 +927,7 @@ lint-formatting:
 
 lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages
 
-lint-all: lint-formatting lint-packages lint-wasmi lint-wamr lint-v8 lint-jsc lint-capi-ci lint-package-crate
+lint-all: lint-formatting lint-packages lint-v8 lint-jsc lint-capi-ci lint-package-crate
 
 install-local: package
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz
