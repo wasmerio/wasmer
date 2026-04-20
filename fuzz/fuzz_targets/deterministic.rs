@@ -32,7 +32,7 @@ fn compile_and_compare(name: &str, engine: Engine, wasm_bytes: &[u8]) {
     let second = module.serialize().unwrap();
 
     if first != second {
-        panic!("non-deterministic compilation from {}", name);
+        panic!("non-deterministic compilation from {name}");
     }
 }
 
