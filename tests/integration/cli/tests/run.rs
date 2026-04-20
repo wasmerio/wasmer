@@ -44,7 +44,6 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
 });
 
 #[test]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn list_cwd() {
     let package = packages().join("list-cwd");
 
@@ -74,7 +73,6 @@ usr
 }
 
 #[test]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn nested_mounted_paths() {
     let package = packages().join("nested-mounted-paths");
 
@@ -263,9 +261,6 @@ fn test_wasmer_run_works_with_dir() {
         .assert()
         .success();
 }
-
-// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
-// #[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 
 #[test]
 // The test would be very slow on Windows and macOS
@@ -682,9 +677,7 @@ fn wasi_runner_on_disk_with_env_vars() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
-/// See https://github.com/wasmerio/wasmer/issues/3794
 #[test]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn issue_3794_unable_to_mount_relative_paths() {
     let temp = TempDir::new().unwrap();
     std::fs::write(temp.path().join("message.txt"), b"Hello, World!").unwrap();
@@ -766,7 +759,7 @@ fn error_if_no_start_function_found() {
 
 #[test]
 #[cfg_attr(
-    any(feature = "wamr", feature = "v8", feature = "wasmi"),
+    feature = "v8",
     ignore = "wasmer using a c_api backend only may not have the 'compile' command"
 )]
 fn run_a_pre_compiled_wasm_file() {
@@ -846,12 +839,6 @@ fn run_quickjs_via_url() {
 }
 
 #[test]
-#[allow(unused_attributes)]
-#[cfg_attr(
-    feature = "wamr",
-    ignore = "FIXME(xdoardo): Bash is currently not working in wamr"
-)]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn run_bash_using_coreutils() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -898,8 +885,6 @@ fn run_a_package_that_uses_an_atom_from_a_dependency() {
 
     assert.success().stdout(contains("Hello, World!"));
 }
-
-//#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 
 // The test would be very slow on Windows and macOS
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]

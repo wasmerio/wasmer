@@ -561,12 +561,6 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     if cfg!(feature = "llvm") {
         runtimes.push("LLVM");
     }
-    if cfg!(feature = "wamr") {
-        runtimes.push("WAMR");
-    }
-    if cfg!(feature = "wasmi") {
-        runtimes.push("Wasmi");
-    }
     if cfg!(feature = "v8") {
         runtimes.push("V8");
     }
