@@ -1,4 +1,4 @@
-use macro_wasmer_universal_test::universal_test;
+use macro_wasmer_engine_test::engine_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
 
@@ -9,7 +9,7 @@ use std::ffi::OsStr;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 
-#[universal_test]
+#[engine_test]
 fn module_get_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module)"#;
@@ -19,7 +19,7 @@ fn module_get_name() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn module_set_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module $name)"#;
@@ -32,7 +32,7 @@ fn module_set_name() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn imports() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module
@@ -165,7 +165,7 @@ fn exports() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -279,7 +279,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[allow(unused_attributes)]
 #[cfg_attr(feature = "wamr", ignore = "wamr does not support custom sections")]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support custom sections")]

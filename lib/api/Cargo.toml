@@ -81,7 +81,7 @@ windows-sys.workspace = true
 wat.workspace = true
 tempfile.workspace = true
 anyhow.workspace = true
-macro-wasmer-universal-test = { version = "7.2.0-alpha.1", path = "./macro-wasmer-universal-test" }
+macro-wasmer-engine-test = { version = "7.2.0-alpha.1", path = "./macro-wasmer-engine-test" }
 futures = "0.3"
 tokio = { workspace = true, features = ["full"] }
 crossbeam-channel.workspace = true
@@ -108,7 +108,7 @@ target-lexicon.workspace = true
 wat.workspace = true
 anyhow.workspace = true
 wasm-bindgen-test.workspace = true
-macro-wasmer-universal-test = { version = "7.2.0-alpha.1", path = "./macro-wasmer-universal-test" }
+macro-wasmer-engine-test = { version = "7.2.0-alpha.1", path = "./macro-wasmer-engine-test" }
 
 # Specific to `js`.
 #
