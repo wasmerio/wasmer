@@ -1,6 +1,11 @@
 #![no_main]
 #![deny(unused_variables)]
 
+#[cfg(not(any(feature = "cranelift", feature = "llvm", feature = "singlepass")))]
+compile_error!(
+    "the `equivalence` fuzzer requires at least one of: `cranelift`, `llvm`, `singlepass`"
+);
+
 use anyhow::Result;
 use libfuzzer_sys::fuzz_target;
 use wasmer::{Instance, Module, Store, Value, imports};
