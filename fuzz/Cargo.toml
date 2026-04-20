@@ -32,28 +32,34 @@ static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 [[bin]]
 name = "equivalence"
 path = "fuzz_targets/equivalence.rs"
+test = false
 
 [[bin]]
 name = "cranelift"
 path = "fuzz_targets/cranelift.rs"
 required-features = ["cranelift"]
+test = false
 
 [[bin]]
 name = "llvm"
 path = "fuzz_targets/llvm.rs"
 required-features = ["llvm"]
+test = false
 
 [[bin]]
 name = "singlepass"
 path = "fuzz_targets/singlepass.rs"
 required-features = ["singlepass"]
+test = false
 
 [[bin]]
 name = "metering"
 path = "fuzz_targets/metering.rs"
 required-features = ["cranelift"]
+test = false
 
 [[bin]]
 name = "deterministic"
 path = "fuzz_targets/deterministic.rs"
 required-features = ["cranelift", "llvm", "singlepass"]
+test = false
