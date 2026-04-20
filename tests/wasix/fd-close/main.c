@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +14,16 @@ int main() {
 
   if (close(fd) < 0) {
     perror("socket close");
+    return 1;
+  }
+
+  errno = 0;
+  if (close(fd) == 0) {
+    fprintf(stderr, "expected second socket close to fail\n");
+    return 1;
+  }
+  if (errno != EBADF) {
+    fprintf(stderr, "expected EBADF from second socket close, got %d\n", errno);
     return 1;
   }
 
