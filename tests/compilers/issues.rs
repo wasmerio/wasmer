@@ -1150,6 +1150,9 @@ fn issue_6334_foldable_comparison_expressions(mut config: crate::Config) -> Resu
     Ok(())
 }
 
+/// Regression test for LLVM `v128.load16x4_s` near memory end.
+/// Default config must trap (`HeapAccessOutOfBounds`); non-volatile memops currently do not
+/// as it's a dead load.
 #[cfg(feature = "llvm")]
 #[test]
 fn issue_6401_llvm_v128_load16x4_s_oob() -> Result<()> {
