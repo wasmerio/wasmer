@@ -211,6 +211,10 @@ impl BackendTable {
 mod test {
     /// Check the example from <https://github.com/wasmerio/wasmer/issues/3197>.
     #[test]
+    #[cfg_attr(
+        feature = "v8",
+        ignore = "growing tables in v8 is not currently supported"
+    )]
     fn table_grow_issue_3197() {
         use crate::{Instance, Module, Store, Table, TableType, Type, Value, imports};
 

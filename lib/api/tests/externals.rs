@@ -244,7 +244,7 @@ fn table_copy() -> Result<(), String> {
 fn memory_new() -> Result<(), String> {
     let mut store = Store::default();
     let memory_type = MemoryType {
-        shared: true,
+        shared: false,
         minimum: Pages(0),
         maximum: Some(Pages(10)),
     };
