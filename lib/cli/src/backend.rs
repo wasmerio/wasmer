@@ -170,6 +170,13 @@ pub struct RuntimeOptions {
     #[clap(long = "enable-nan-canonicalization")]
     enable_nan_canonicalization: bool,
 
+    /// Disable LLVM non-volatile memory operations.
+    ///
+    /// Available for LLVM.
+    #[cfg(feature = "llvm")]
+    #[clap(long = "disable-non-volatile-memops")]
+    disable_non_volatile_memops: bool,
+
     #[clap(flatten)]
     features: WasmFeatures,
 }
@@ -451,7 +458,9 @@ impl RuntimeOptions {
                 use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
-                config.enable_non_volatile_memops();
+                if !self.disable_non_volatile_memops {
+                    config.enable_non_volatile_memops();
+                }
                 config.enable_readonly_funcref_table();
 
                 if let Some(num_threads) = self.compiler_threads {
@@ -598,7 +607,9 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
-                config.enable_non_volatile_memops();
+                if !runtime_opts.disable_non_volatile_memops {
+                    config.enable_non_volatile_memops();
+                }
                 config.enable_readonly_funcref_table();
 
                 let supported_features = config.supported_features_for_target(target);
