@@ -855,10 +855,10 @@ fn run_quickjs_via_url() {
 fn run_bash_using_coreutils() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("sharrattj/bash")
+        .arg("wasmer/bash")
         .arg("--cranelift")
         .arg("--entrypoint=bash")
-        .arg("--use=sharrattj/coreutils")
+        .arg("--use=wasmer/coreutils")
         .arg("--registry=wasmer.io")
         .arg("--")
         .arg("-c")
