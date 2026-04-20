@@ -94,7 +94,7 @@
 <a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">let </span>construct_compiler_test =
 <a href=#95 id=95 data-nosnippet>95</a>        |func: <span class="kw-2">&amp;</span>::syn::ItemFn, compiler_name: <span class="kw-2">&amp;</span>str| -&gt; ::proc_macro2::TokenStream {
 <a href=#96 id=96 data-nosnippet>96</a>            <span class="kw">let </span>mod_name = <span class="macro">::quote::format_ident!</span>(<span class="string">"{}"</span>, compiler_name.to_lowercase());
-<a href=#97 id=97 data-nosnippet>97</a>            <span class="kw">let </span>universal_engine_test = construct_engine_test(
+<a href=#97 id=97 data-nosnippet>97</a>            <span class="kw">let </span>engine_test = construct_engine_test(
 <a href=#98 id=98 data-nosnippet>98</a>                func,
 <a href=#99 id=99 data-nosnippet>99</a>                compiler_name,
 <a href=#100 id=100 data-nosnippet>100</a>                compiler_name,
@@ -107,7 +107,7 @@
 <a href=#107 id=107 data-nosnippet>107</a>                </span><span class="kw">mod </span>#mod_name {
 <a href=#108 id=108 data-nosnippet>108</a>                    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a>                    #universal_engine_test
+<a href=#110 id=110 data-nosnippet>110</a>                    #engine_test
 <a href=#111 id=111 data-nosnippet>111</a>                }
 <a href=#112 id=112 data-nosnippet>112</a>            }
 <a href=#113 id=113 data-nosnippet>113</a>        };

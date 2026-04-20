@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["cranelift",[["impl Arbitrary&lt;'_&gt; for <a class=\"struct\" href=\"cranelift/misc/struct.SinglePassFuzzModule.html\" title=\"struct cranelift::misc::SinglePassFuzzModule\">SinglePassFuzzModule</a>"],["impl Arbitrary&lt;'_&gt; for <a class=\"struct\" href=\"cranelift/struct.CraneliftPassFuzzModule.html\" title=\"struct cranelift::CraneliftPassFuzzModule\">CraneliftPassFuzzModule</a>"]]],["deterministic",[["impl Arbitrary&lt;'_&gt; for <a class=\"struct\" href=\"deterministic/misc/struct.SinglePassFuzzModule.html\" title=\"struct deterministic::misc::SinglePassFuzzModule\">SinglePassFuzzModule</a>"]]],["llvm",[["impl Arbitrary&lt;'_&gt; for <a class=\"struct\" href=\"llvm/misc/struct.SinglePassFuzzModule.html\" title=\"struct llvm::misc::SinglePassFuzzModule\">SinglePassFuzzModule</a>"],["impl Arbitrary&lt;'_&gt; for <a class=\"struct\" href=\"llvm/struct.LLVMPassFuzzModule.html\" title=\"struct llvm::LLVMPassFuzzModule\">LLVMPassFuzzModule</a>"]]],["metering",[["impl Arbitrary&lt;'_&gt; for <a class=\"struct\" href=\"metering/misc/struct.SinglePassFuzzModule.html\" title=\"struct metering::misc::SinglePassFuzzModule\">SinglePassFuzzModule</a>"]]],["singlepass",[["impl Arbitrary&lt;'_&gt; for <a class=\"struct\" href=\"singlepass/misc/struct.SinglePassFuzzModule.html\" title=\"struct singlepass::misc::SinglePassFuzzModule\">SinglePassFuzzModule</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[393,218,354,203,209]}

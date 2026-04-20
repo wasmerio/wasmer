@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["ignore_compilation_error","ignore_runtime_error","save_wasm_file"],"struct":["SinglePassFuzzModule"]};

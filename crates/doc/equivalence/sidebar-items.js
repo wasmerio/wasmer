@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FunctionResult","InstanceResult"],"fn":["evaluate_instance","maybe_instantiate_cranelift","maybe_instantiate_llvm","maybe_instantiate_singlepass"]};
