@@ -1,5 +1,3 @@
-//! Universal compilation.
-
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 

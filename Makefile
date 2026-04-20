@@ -274,7 +274,7 @@ compilers_engines :=
 ##
 
 ifeq ($(ENABLE_CRANELIFT), 1)
-	compilers_engines += cranelift-universal
+	compilers_engines += cranelift
 endif
 
 ##
@@ -284,13 +284,13 @@ endif
 ifeq ($(ENABLE_LLVM), 1)
 	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
-			compilers_engines += llvm-universal
+			compilers_engines += llvm
 		else ifeq ($(IS_AARCH64), 1)
-			compilers_engines += llvm-universal
+			compilers_engines += llvm
 		else ifeq ($(IS_RISCV64), 1)
-			compilers_engines += llvm-universal
+			compilers_engines += llvm
 		else ifeq ($(IS_LOONGARCH64), 1)
-			compilers_engines += llvm-universal
+			compilers_engines += llvm
 		endif
 	endif
 endif
@@ -302,10 +302,10 @@ endif
 ifeq ($(ENABLE_SINGLEPASS), 1)
 	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
-			compilers_engines += singlepass-universal
+			compilers_engines += singlepass
 		endif
 		ifeq ($(IS_AARCH64), 1)
-			compilers_engines += singlepass-universal
+			compilers_engines += singlepass
 		endif
 	endif
 endif
@@ -339,10 +339,10 @@ capi_compilers_engines_exclude :=
 # LLVM for the moment because it causes the linker to fail since LLVM is not statically linked.
 # TODO: Reenable LLVM in C-API
 capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers))),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
-capi_compilers_engines_exclude += llvm-universal
+capi_compilers_engines_exclude += llvm
 
-# We exclude singlepass-universal because it doesn't support multivalue (required in wasm-c-api tests)
-capi_compilers_engines_exclude += singlepass-universal
+# We exclude singlepass because it doesn't support multivalue (required in wasm-c-api tests)
+capi_compilers_engines_exclude += singlepass
 
 capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compilers_engines))
 
@@ -563,7 +563,7 @@ build-capi-singlepass:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,singlepass,wasi,middlewares,webc_runner --locked
 
-build-capi-singlepass-universal:
+build-capi-singlepass:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,singlepass,wasi,middlewares,webc_runner --locked
 
@@ -571,7 +571,7 @@ build-capi-cranelift:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,cranelift,wasi,middlewares,webc_runner --locked
 
-build-capi-cranelift-universal:
+build-capi-cranelift:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,cranelift,wasi,middlewares,webc_runner --locked
 
@@ -579,7 +579,7 @@ build-capi-llvm:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner --locked
 
-build-capi-llvm-universal:
+build-capi-llvm:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner --locked
 
@@ -694,14 +694,14 @@ test-js-wasi:
 
 test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
-test-singlepass-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- singlepass::universal
+test-singlepass:
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- singlepass
 
-test-cranelift-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- cranelift::universal
+test-cranelift:
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- cranelift
 
-test-llvm-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- llvm::universal
+test-llvm:
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- llvm
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 

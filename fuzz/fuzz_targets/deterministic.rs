@@ -43,7 +43,7 @@ fuzz_target!(|module: SinglePassFuzzModule| {
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
     compile_and_compare(
-        "universal-cranelift",
+        "cranelift",
         EngineBuilder::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
@@ -52,14 +52,14 @@ fuzz_target!(|module: SinglePassFuzzModule| {
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
     compile_and_compare(
-        "universal-llvm",
+        "llvm",
         EngineBuilder::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
 
     let compiler = Singlepass::default();
     compile_and_compare(
-        "universal-singlepass",
+        "singlepass",
         EngineBuilder::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
