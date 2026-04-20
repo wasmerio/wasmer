@@ -2288,6 +2288,29 @@ impl Machine for MachineRiscv {
         self.get_param_registers(calling_convention)[idx]
     }
 
+    fn adjust_gpr_param_location(
+        &mut self,
+        register: Self::GPR,
+        size: Size,
+    ) -> Result<(), CompileError> {
+        // https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
+        // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
+        // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
+        // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
+        match size {
+            Size::S64 => Ok(()),
+            Size::S32 => self.assembler.emit_extend(
+                Size::S32,
+                true,
+                Location::GPR(register),
+                Location::GPR(register),
+            ),
+            Size::S8 | Size::S16 => {
+                codegen_error!("singlepass adjust_gpr_param_location unreachable")
+            }
+        }
+    }
+
     fn get_return_value_location(
         &self,
         idx: usize,
@@ -3472,7 +3495,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S8, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_relaxed_load(Size::S8, false, ret, Location::Memory(addr, 0)),
         )
     }
 
@@ -3496,7 +3519,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S16, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_relaxed_load(Size::S16, false, ret, Location::Memory(addr, 0)),
         )
     }
 

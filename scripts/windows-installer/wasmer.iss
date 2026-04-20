@@ -1,6 +1,6 @@
 [Setup]
 AppName=Wasmer
-AppVersion=7.1.0
+AppVersion=7.2.0-alpha.1
 DefaultDirName={pf}\Wasmer
 DefaultGroupName=Wasmer
 Compression=lzma2
@@ -90,6 +90,6 @@ begin
     if CurUninstallStep = usPostUninstall
     then begin 
     EnvRemovePath(ExpandConstant('{app}') +'\bin');
-    EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
+    EnvRemovePath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
     end
 end;

@@ -225,6 +225,22 @@ where
         self.permission_error_or_not_found(path)
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<(), FsError> {
+        if ops::is_white_out(target).is_some() {
+            return Err(FsError::InvalidInput);
+        }
+
+        ops::remove_white_out(self.primary.as_ref(), target);
+
+        if let Some(parent) = target.parent()
+            && self.read_dir(parent).is_ok()
+        {
+            ops::create_dir_all(&self.primary, parent).ok();
+        }
+
+        self.primary.create_symlink(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         // Whiteout files can not be removed, instead the original directory
         // must be removed or recreated.
@@ -413,15 +429,6 @@ where
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
-    }
-
-    fn mount(
-        &self,
-        _name: String,
-        _path: &Path,
-        _fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> Result<(), FsError> {
-        Err(FsError::Unsupported)
     }
 }
 
@@ -1131,12 +1138,12 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::{TmpFileSystem, mem_fs::FileSystem as MemFS};
+    use crate::mem_fs::FileSystem as MemFS;
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     #[test]
     fn overlay_read_dir_rebases_mounted_entries() {
-        let primary = TmpFileSystem::new();
+        let primary = MemFS::default();
         ops::create_dir_all(&primary, "/app").unwrap();
 
         let volume = MemFS::default();

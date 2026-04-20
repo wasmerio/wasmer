@@ -78,10 +78,10 @@ impl BackendModule {
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
         let mut module = Self::new(engine, wasm_bytes)?;
-        // Set the module name to the absolute path of the filename.
-        // This is useful for debugging the stack traces.
-        let filename = canonical.as_path().to_str().unwrap();
-        module.set_name(filename);
+        // Set the module name to the absolute canonical path as a lossy UTF-8 string.
+        // This is useful for debugging stack traces, and lossy conversion is necessary
+        // because filesystem paths are not always valid UTF-8.
+        module.set_name(canonical.to_string_lossy().as_ref());
         Ok(module)
     }
 

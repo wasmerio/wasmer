@@ -143,19 +143,16 @@ else ifneq ($(filter 1 true,$(ENABLE_LLVM)),)
 	LLVM_VERSION := $(shell llvm-config --version)
 	compilers += llvm
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
-else ifneq (, $(shell which llvm-config-21 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config-21 --version)
+else ifneq (, $(shell which llvm-config-22 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-22 --version)
 	compilers += llvm
-	# need force LLVM_SYS_211_PREFIX, or llvm_sys will not build in the case
-	export LLVM_SYS_211_PREFIX = $(shell llvm-config-21 --prefix)
+	# need force LLVM_SYS_221_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_221_PREFIX = $(shell llvm-config-22 --prefix)
 else ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
-	ifneq (, $(findstring 21,$(LLVM_VERSION)))
+	ifneq (, $(findstring 22,$(LLVM_VERSION)))
 		compilers += llvm
-		export LLVM_SYS_211_PREFIX = $(shell llvm-config --prefix)
-	else ifneq (, $(findstring 21,$(LLVM_VERSION)))
-		compilers += llvm
-		export LLVM_SYS_211_PREFIX = $(shell llvm-config --prefix)
+		export LLVM_SYS_221_PREFIX = $(shell llvm-config --prefix)
 	endif
 endif
 
@@ -277,7 +274,7 @@ compilers_engines :=
 ##
 
 ifeq ($(ENABLE_CRANELIFT), 1)
-	compilers_engines += cranelift-universal
+	compilers_engines += cranelift
 endif
 
 ##
@@ -287,13 +284,13 @@ endif
 ifeq ($(ENABLE_LLVM), 1)
 	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
-			compilers_engines += llvm-universal
+			compilers_engines += llvm
 		else ifeq ($(IS_AARCH64), 1)
-			compilers_engines += llvm-universal
+			compilers_engines += llvm
 		else ifeq ($(IS_RISCV64), 1)
-			compilers_engines += llvm-universal
+			compilers_engines += llvm
 		else ifeq ($(IS_LOONGARCH64), 1)
-			compilers_engines += llvm-universal
+			compilers_engines += llvm
 		endif
 	endif
 endif
@@ -305,10 +302,10 @@ endif
 ifeq ($(ENABLE_SINGLEPASS), 1)
 	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
-			compilers_engines += singlepass-universal
+			compilers_engines += singlepass
 		endif
 		ifeq ($(IS_AARCH64), 1)
-			compilers_engines += singlepass-universal
+			compilers_engines += singlepass
 		endif
 	endif
 endif
@@ -322,6 +319,11 @@ compilers_engines := $(strip $(compilers_engines))
 # Cargo features.
 #
 #####
+
+build_wasmer_extra_features :=
+ifneq (,$(filter 1 true,$(ENABLE_NAPI_V8)))
+       build_wasmer_extra_features += napi-v8
+endif
 
 # Small trick to define a space and a comma.
 space := $() $()
@@ -337,10 +339,10 @@ capi_compilers_engines_exclude :=
 # LLVM for the moment because it causes the linker to fail since LLVM is not statically linked.
 # TODO: Reenable LLVM in C-API
 capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers))),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
-capi_compilers_engines_exclude += llvm-universal
+capi_compilers_engines_exclude += llvm
 
-# We exclude singlepass-universal because it doesn't support multivalue (required in wasm-c-api tests)
-capi_compilers_engines_exclude += singlepass-universal
+# We exclude singlepass because it doesn't support multivalue (required in wasm-c-api tests)
+capi_compilers_engines_exclude += singlepass
 
 capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compilers_engines))
 
@@ -359,11 +361,6 @@ endif
 
 HOST_TARGET=$(shell rustc -Vv | grep 'host: ' | cut -d':' -f2 | tr -d ' ')
 BUILD_WASMER_TARGET := $(if $(CARGO_TARGET),$(CARGO_TARGET),$(HOST_TARGET))
-
-build_wasmer_extra_features :=
-ifneq (, $(filter x86_64-unknown-linux-gnu aarch64-apple-darwin,$(BUILD_WASMER_TARGET)))
-	build_wasmer_extra_features += napi-v8
-endif
 
 workspace_doc_excludes := --exclude wasmer-c-api --exclude wasmer-swift --exclude wasmer-napi
 
@@ -566,23 +563,11 @@ build-capi-singlepass:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,singlepass,wasi,middlewares,webc_runner --locked
 
-build-capi-singlepass-universal:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,singlepass,wasi,middlewares,webc_runner --locked
-
 build-capi-cranelift:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,cranelift,wasi,middlewares,webc_runner --locked
 
-build-capi-cranelift-universal:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,cranelift,wasi,middlewares,webc_runner --locked
-
 build-capi-llvm:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner --locked
-
-build-capi-llvm-universal:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner --locked
 
@@ -697,14 +682,14 @@ test-js-wasi:
 
 test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
-test-singlepass-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- singlepass::universal
+test-singlepass:
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- singlepass
 
-test-cranelift-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- cranelift::universal
+test-cranelift:
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- cranelift
 
-test-llvm-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- llvm::universal
+test-llvm:
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- llvm
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
@@ -942,7 +927,10 @@ install-wasmer:
 	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer
 
 install-capi-headers:
-	for header in lib/c-api/*.h; do install -Dm644 "$$header" $(DESTDIR)/include/$$(basename $$header); done
+	install -Dm644 lib/c-api/wasmer.h $(DESTDIR)/include/wasmer.h
+	install -Dm644 lib/c-api/wasmer_wasm.h $(DESTDIR)/include/wasmer_wasm.h
+	install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.h $(DESTDIR)/include/wasm.h
+	install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.hh $(DESTDIR)/include/wasm.hh
 	install -Dm644 lib/c-api/README.md $(DESTDIR)/include/wasmer-README.md
 
 # Currently implemented for linux only. TODO

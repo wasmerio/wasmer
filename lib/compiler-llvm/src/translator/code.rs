@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::NonZero;
 
 use super::{
     intrinsics::{
@@ -10007,7 +10008,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 };
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?.into_int_value();
-                let lane_int_ty = self.context.custom_width_int_type(vec_ty.get_size());
+                let lane_int_ty = self
+                    .context
+                    .custom_width_int_type(NonZero::new(vec_ty.get_size()).unwrap())
+                    .unwrap();
                 let vec = err!(self.builder.build_bit_cast(v, vec_ty, "vec")).into_vector_value();
                 let mask = err!(self.builder.build_int_compare(
                     IntPredicate::NE,
