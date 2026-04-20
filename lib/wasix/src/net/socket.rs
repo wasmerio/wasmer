@@ -581,8 +581,7 @@ impl InodeSocket {
     ) -> Result<Option<InodeSocket>, Errno> {
         let new_write_timeout;
         let new_read_timeout;
-
-        let timeout = timeout.unwrap_or(Duration::from_secs(30));
+        let socket_connect_timeout;
 
         let handler;
         let connect = {
@@ -592,6 +591,7 @@ impl InodeSocket {
                     handler = props.handler.take();
                     new_write_timeout = props.write_timeout;
                     new_read_timeout = props.read_timeout;
+                    socket_connect_timeout = props.connect_timeout;
                     match props.ty {
                         Socktype::Stream => {
                             let no_delay = props.no_delay;
@@ -641,6 +641,10 @@ impl InodeSocket {
                 _ => return Err(Errno::Notsup),
             }
         };
+
+        let timeout = timeout
+            .or(socket_connect_timeout)
+            .unwrap_or(Duration::from_secs(30));
 
         let mut socket = tokio::select! {
             res = connect => res.map_err(net_error_into_wasi_err)?,
