@@ -13,6 +13,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+const MIN_METADATA_TIMESTAMP: u64 = 1_000_000_000; // 1 second in nano seconds
+
 type DynFileSystem = Arc<dyn FileSystem + Send + Sync>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,6 +202,7 @@ impl MountFileSystem {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_nanos() as u64)
+            .max(MIN_METADATA_TIMESTAMP)
     }
 
     fn directory_metadata_at(ts: u64) -> Metadata {
