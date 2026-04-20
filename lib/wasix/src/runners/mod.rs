@@ -36,7 +36,8 @@ pub use self::body::*;
 pub use self::{
     runner::Runner,
     wasi_common::{
-        MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand, MappedDirectory, MountedDirectory,
+        ExistingMountConflictBehavior, MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand,
+        MappedDirectory, MountedDirectory,
     },
 };
 
