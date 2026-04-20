@@ -20,6 +20,8 @@ mod lifecycle_tests;
 mod longjmp_tests;
 mod path_tests;
 mod poll_tests;
+mod proc_exec;
+mod proc_exec2;
 mod reflect_signature;
 mod reflection_tests;
 mod sched_yield;
