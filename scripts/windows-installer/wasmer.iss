@@ -90,6 +90,6 @@ begin
     if CurUninstallStep = usPostUninstall
     then begin 
     EnvRemovePath(ExpandConstant('{app}') +'\bin');
-    EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
+    EnvRemovePath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
     end
 end;
