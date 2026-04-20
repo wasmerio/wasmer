@@ -316,7 +316,7 @@ impl Wast {
                 anyhow::bail!("`assert invalid custom` directive not implemented yet!")
             }
             AssertMalformedCustom { .. } => {
-                anyhow::bail!("`assert malformedC custom` directive not implemented yet!")
+                anyhow::bail!("`assert malformed custom` directive not implemented yet!")
             }
         }
 
