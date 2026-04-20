@@ -343,75 +343,7 @@ jobs:
           name: "wasmer-windows-gnu64"
           path: dist
           if-no-files-found: error
-          retention-days: 2
-  macos-arm_jsc:
-    name: macos-arm (JSC)
-    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: depot-macos-14
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: aarch64-apple-darwin
-      - name: Install Darwin-aarch64 target
-        shell: bash
-        run: |
-          rustup target add aarch64-apple-darwin
-      - name: Build C API (JSC)
-        shell: bash
-        run: |
-          make build-capi-jsc
-          make package-capi
-        env:
-          RUSTFLAGS: -Cpanic=abort
-          CARGO_TARGET: aarch64-apple-darwin
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_TARGET: aarch64-apple-darwin
-          TARGET_DIR: target/aarch64-apple-darwin/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: "aarch64-apple-darwin-jsc"
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-  macos-x64_jsc:
-    name: macos-x64 (JSC)
-    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: macos-15-intel
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: x86_64-apple-darwin
-      - name: Build C API (JSC)
-        shell: bash
-        run: |
-          make build-capi-jsc
-          make package-capi
-        env:
-          RUSTFLAGS: -Cpanic=abort
-          CARGO_TARGET: x86_64-apple-darwin
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_TARGET: x86_64-apple-darwin
-          TARGET_DIR: target/x86_64-apple-darwin/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: "x86_64-apple-darwin-jsc"
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
+          retention-days: 2 
   linux-riscv64:
     name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')

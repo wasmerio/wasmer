@@ -110,9 +110,6 @@ compiler-headless = [
 	"wasmer-compiler/compiler",
 ]
 
-# Enable the `jsc` backend.
-jsc = ["wasmer-api/jsc", "wasmer-api/std"]
-
 # Enable the `v8` backend.
 v8 = ["wasmer-api/v8"]
 
@@ -120,9 +117,6 @@ v8 = ["wasmer-api/v8"]
 # enable a default compiler, and users should therefore add one (or more) of
 # the `singlepass`, `cranelift` and `llvm` features.
 sys-default = ["sys", "wasmer-api/sys-default"]
-
-# Enable the `jsc` backend and use it as default.
-jsc-default = ["jsc", "wasmer-api/jsc-default"]
 
 # Enable the `v8` backend and use it as default.
 v8-default = ["v8", "wasmer-api/v8-default"]

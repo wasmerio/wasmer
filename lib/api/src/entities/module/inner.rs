@@ -107,11 +107,6 @@ impl BackendModule {
             crate::BackendEngine::Js(_) => Ok(Self::Js(
                 crate::backend::js::entities::module::Module::from_binary(engine, binary)?,
             )),
-
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::module::Module::from_binary(engine, binary)?,
-            )),
         }
     }
 
@@ -157,15 +152,6 @@ impl BackendModule {
                 };
                 Ok(Self::Js(module))
             }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::from_binary_unchecked(
-                        engine, binary,
-                    )?
-                };
-                Ok(Self::Jsc(module))
-            }
         }
     }
 
@@ -189,10 +175,6 @@ impl BackendModule {
             #[cfg(feature = "js")]
             crate::BackendEngine::Js(_) => {
                 crate::backend::js::entities::module::Module::validate(engine, binary)?
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                crate::backend::jsc::entities::module::Module::validate(engine, binary)?
             }
         }
         Ok(())
@@ -309,15 +291,6 @@ impl BackendModule {
                 };
                 Ok(Self::Js(module))
             }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::deserialize_unchecked(
-                        engine, bytes,
-                    )?
-                };
-                Ok(Self::Jsc(module))
-            }
         }
     }
 
@@ -373,13 +346,6 @@ impl BackendModule {
                 };
                 Ok(Self::Js(module))
             }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::deserialize(engine, bytes)?
-                };
-                Ok(Self::Jsc(module))
-            }
         }
     }
 
@@ -432,15 +398,6 @@ impl BackendModule {
                     )?
                 };
                 Ok(Self::Js(module))
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::deserialize_from_file(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Jsc(module))
             }
         }
     }
@@ -496,15 +453,6 @@ impl BackendModule {
                     )?
                 };
                 Ok(Self::Js(module))
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::deserialize_from_file_unchecked(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Jsc(module))
             }
         }
     }

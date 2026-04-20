@@ -29,10 +29,6 @@ macro_rules! gen_rt_ty {
                 #[cfg(feature = "js")]
                 /// The implementation from the `js` backend.
                 Js(crate::backend::js::$path),
-
-                #[cfg(feature = "jsc")]
-                /// The implementation from the `jsc` backend.
-                Jsc(crate::backend::jsc::$path),
             }
         }
     };
@@ -49,8 +45,6 @@ macro_rules! match_rt {
             Self::V8($var) => $stmt,
             #[cfg(feature = "js")]
             Self::Js($var) => $stmt,
-            #[cfg(feature = "jsc")]
-            Self::Jsc($var) => $stmt,
         }
     };
 
@@ -62,8 +56,6 @@ macro_rules! match_rt {
             Self::V8($var) => $stmt,
             #[cfg(feature = "js")]
             Self::Js($var) => $stmt,
-            #[cfg(feature = "jsc")]
-            Self::Jsc($var) => $stmt,
         }
     };
 }
