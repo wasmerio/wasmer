@@ -581,7 +581,7 @@ impl InodeSocket {
     ) -> Result<Option<InodeSocket>, Errno> {
         let new_write_timeout;
         let new_read_timeout;
-        let socket_connect_timeout;
+        let mut socket_connect_timeout = None;
 
         let handler;
         let connect = {
