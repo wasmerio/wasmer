@@ -17,10 +17,6 @@ version.workspace = true
 #
 # - `sys`, where `wasmer` will be compiled to a native executable
 #    which provides compilers, engines, a full VM etc.
-# - `wamr`, where `wasmer` will be compiled to a native executable
-#    which provides an interpreter using WAMR as a backend.
-# - `wasmi`, where `wasmer` will be compiled to a native executable
-#    which provides an interpreter using `wasmi` as a backend.
 # - `v8`, where `wasmer` will be compiled to a native executable
 #    using `v8` as a backend.
 # - `js`, where `wasmer` will be compiled to WebAssembly to run in a
@@ -40,10 +36,6 @@ tracing = { workspace = true, default-features = true }
 wat = { workspace = true, optional = true }
 symbolic-demangle.workspace = true
 shared-buffer.workspace = true
-
-wasmi_c_api_impl = { workspace = true, optional = true, features = [
-	"prefix-symbols",
-] }
 
 loupe = { workspace = true, optional = true, features = [
 	"indexmap",

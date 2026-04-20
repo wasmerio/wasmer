@@ -306,7 +306,6 @@ wasm-encoder = { version = "0.247.0", default-features = false, features = [
 	"std",
 ] }
 wasm-smith = "0.247.0"
-wasmi_c_api_impl = "1.0.4"
 wasmparser = { version = "0.247.0", default-features = false, features = [
 	"validate",
 	"features",
