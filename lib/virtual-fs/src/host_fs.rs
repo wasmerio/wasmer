@@ -83,6 +83,14 @@ impl FileSystem {
             return Err(FsError::InvalidInput);
         }
 
+        // Resolve symlinks so the root check below sees through aliases, example `/var` -> `/private/var`
+        // on macOS. Skip relative paths to avoid resolving against the process CWD.
+        let path = if path.is_absolute() {
+            dunce::canonicalize(&path).unwrap_or(path)
+        } else {
+            path
+        };
+
         if self.root != Path::new("/") && path.starts_with(&self.root) {
             return Err(FsError::InvalidInput);
         }
