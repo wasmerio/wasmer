@@ -126,20 +126,6 @@ impl Value {
                     unsafe { crate::backend::sys::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys) }
                         .map(|f| unsafe { Function::from_vm_funcref(store, f) })
                 }),
-                #[cfg(feature = "wamr")]
-                crate::BackendStore::Wamr(_) => Self::FuncRef({
-                    unsafe {
-                        crate::backend::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
-                    }
-                    .map(|f| unsafe { Function::from_vm_funcref(store, f) })
-                }),
-                #[cfg(feature = "wasmi")]
-                crate::BackendStore::Wasmi(_) => Self::FuncRef({
-                    unsafe {
-                        crate::backend::wasmi::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wasmi)
-                    }
-                    .map(|f| unsafe { Function::from_vm_funcref(store, f) })
-                }),
 
                 #[cfg(feature = "v8")]
                 crate::BackendStore::V8(_) => Self::FuncRef({
@@ -162,21 +148,6 @@ impl Value {
                 crate::BackendStore::Sys(_) => Self::ExternRef({
                     unsafe {
                         crate::backend::sys::vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
-                    }
-                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
-                }),
-                #[cfg(feature = "wamr")]
-                crate::BackendStore::Wamr(_) => Self::ExternRef({
-                    unsafe {
-                        crate::backend::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
-                    }
-                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
-                }),
-                #[cfg(feature = "wasmi")]
-                crate::BackendStore::Wasmi(_) => Self::ExternRef({
-                    unsafe {
-                        crate::backend::wasmi::vm::VMExternRef::from_raw(raw)
-                            .map(VMExternRef::Wasmi)
                     }
                     .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
                 }),
@@ -214,18 +185,6 @@ impl Value {
                     }
                     .map(VMExceptionRef::Sys)
                     .map(Exception::from_vm_exceptionref),
-                ),
-                #[cfg(feature = "wamr")]
-                crate::BackendStore::Wamr(_) => Self::ExceptionRef(
-                    unsafe { crate::backend::wamr::vm::VMExceptionRef::from_raw(raw) }
-                        .map(VMExceptionRef::Wamr)
-                        .map(Exception::from_vm_exceptionref),
-                ),
-                #[cfg(feature = "wasmi")]
-                crate::BackendStore::Wasmi(_) => Self::ExceptionRef(
-                    unsafe { crate::backend::wasmi::vm::VMExceptionRef::from_raw(raw) }
-                        .map(VMExceptionRef::Wasmi)
-                        .map(Exception::from_vm_exceptionref),
                 ),
 
                 #[cfg(feature = "v8")]

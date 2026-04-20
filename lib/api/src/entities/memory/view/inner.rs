@@ -30,20 +30,6 @@ impl<'a> BackendMemoryView<'a> {
                     store,
                 ),
             ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(s) => Self::Wamr(
-                crate::backend::wamr::entities::memory::view::MemoryView::new(
-                    memory.as_wamr(),
-                    store,
-                ),
-            ),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(s) => Self::Wasmi(
-                crate::backend::wasmi::entities::memory::view::MemoryView::new(
-                    memory.as_wasmi(),
-                    store,
-                ),
-            ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(s) => Self::V8(
                 crate::backend::v8::entities::memory::view::MemoryView::new(memory.as_v8(), store),
@@ -139,10 +125,6 @@ impl<'a> BackendMemoryView<'a> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => MemoryBuffer(BackendMemoryBuffer::Sys(s.buffer())),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => MemoryBuffer(BackendMemoryBuffer::Wamr(s.buffer())),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(s) => MemoryBuffer(BackendMemoryBuffer::Wasmi(s.buffer())),
             #[cfg(feature = "v8")]
             Self::V8(s) => MemoryBuffer(BackendMemoryBuffer::V8(s.buffer())),
             #[cfg(feature = "js")]

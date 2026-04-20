@@ -65,16 +65,6 @@ impl Default for BackendKind {
             return Self::Headless;
         }
 
-        #[cfg(feature = "wamr-default")]
-        {
-            return Self::Wamr;
-        }
-
-        #[cfg(feature = "wasmi-default")]
-        {
-            return Self::Wasmi;
-        }
-
         #[cfg(feature = "v8-default")]
         {
             return Self::V8;

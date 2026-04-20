@@ -270,13 +270,7 @@
 //!   where `wasmer` will be compiled to a native executable
 //!   where the `v8` runtime is used for execution.
 //!
-//! 3. `wamr`
-#![cfg_attr(feature = "wamr", doc = "(enabled),")]
-#![cfg_attr(not(feature = "wamr"), doc = "(disabled),")]
-//!   where `wasmer` will be compiled to a native executable
-//!   where `wamr` (in interpreter mode) is used for execution.
-//!
-//! 4. `js`
+//! 3. `js`
 #![cfg_attr(feature = "js", doc = "(enabled),")]
 #![cfg_attr(not(feature = "js"), doc = "(disabled),")]
 //!    where `wasmer` will be compiled to WebAssembly to run in a
@@ -501,9 +495,7 @@ pub use wasmer_derive::ValueType;
         any(
             feature = "js-default",
             feature = "jsc-default",
-            feature = "wamr-default",
             feature = "v8-default",
-            feature = "wasmi-default"
         )
     ),
     all(
@@ -511,9 +503,7 @@ pub use wasmer_derive::ValueType;
         any(
             feature = "sys-default",
             feature = "jsc-default",
-            feature = "wamr-default",
             feature = "v8-default",
-            feature = "wasmi-default"
         )
     ),
     all(
@@ -521,19 +511,7 @@ pub use wasmer_derive::ValueType;
         any(
             feature = "sys-default",
             feature = "js-default",
-            feature = "wamr-default",
             feature = "v8-default",
-            feature = "wasmi-default"
-        )
-    ),
-    all(
-        feature = "wamr-default",
-        any(
-            feature = "sys-default",
-            feature = "js-default",
-            feature = "jsc-default",
-            feature = "v8-default",
-            feature = "wasmi-default"
         )
     ),
     all(
@@ -542,19 +520,7 @@ pub use wasmer_derive::ValueType;
             feature = "sys-default",
             feature = "js-default",
             feature = "jsc-default",
-            feature = "wasmi-default",
-            feature = "wasmi-default"
         )
     ),
-    all(
-        feature = "wasmi-default",
-        any(
-            feature = "sys-default",
-            feature = "js-default",
-            feature = "jsc-default",
-            feature = "v8-default",
-            feature = "wamr-default"
-        )
-    )
 ))]
 compile_error!("Multiple *-default features selected. Please, pick one only!");

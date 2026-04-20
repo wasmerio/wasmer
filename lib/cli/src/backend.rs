@@ -98,11 +98,7 @@ pub struct RuntimeOptions {
         #[cfg(feature = "v8")]
         "v8", 
         #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
+        "cranelift",         
     ]))]
     singlepass: bool,
 
@@ -115,10 +111,6 @@ pub struct RuntimeOptions {
         "v8", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     cranelift: bool,
 
@@ -131,10 +123,6 @@ pub struct RuntimeOptions {
         "v8", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     llvm: bool,
 
@@ -147,44 +135,8 @@ pub struct RuntimeOptions {
         "llvm", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     v8: bool,
-
-    /// Use the WAMR runtime.
-    #[cfg(feature = "wamr")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
-        #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "llvm")]
-        "llvm", 
-        #[cfg(feature = "singlepass")]
-        "singlepass", 
-        #[cfg(feature = "v8")]
-        "v8", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
-    ]))]
-    wamr: bool,
-
-    /// Use the Wasmi runtime.
-    #[cfg(feature = "wasmi")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
-        #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "llvm")]
-        "llvm", 
-        #[cfg(feature = "singlepass")]
-        "singlepass", 
-        #[cfg(feature = "v8")]
-        "v8", 
-        #[cfg(feature = "wamr")]
-        "wamr"
-    ]))]
-    wasmi: bool,
 
     /// Enable compiler internal verification.
     ///
@@ -263,24 +215,10 @@ impl RuntimeOptions {
             }
         }
 
-        #[cfg(feature = "wamr")]
-        {
-            if self.wamr {
-                return Ok(vec![BackendType::Wamr]);
-            }
-        }
-
         #[cfg(feature = "v8")]
         {
             if self.v8 {
                 return Ok(vec![BackendType::V8]);
-            }
-        }
-
-        #[cfg(feature = "wasmi")]
-        {
-            if self.wasmi {
-                return Ok(vec![BackendType::Wasmi]);
             }
         }
 
@@ -539,7 +477,7 @@ impl RuntimeOptions {
 
                 Box::new(config)
             }
-            BackendType::V8 | BackendType::Wamr | BackendType::Wasmi => unreachable!(),
+            BackendType::V8 => unreachable!(),
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
                 bail!("The `{compiler}` compiler is not included in this binary.")
@@ -567,12 +505,6 @@ pub enum BackendType {
     /// V8 runtime
     V8,
 
-    /// Wamr runtime
-    Wamr,
-
-    /// Wasmi runtime
-    Wasmi,
-
     /// Headless compiler
     #[allow(dead_code)]
     Headless,
@@ -590,10 +522,6 @@ impl BackendType {
             Self::Singlepass,
             #[cfg(feature = "v8")]
             Self::V8,
-            #[cfg(feature = "wamr")]
-            Self::Wamr,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi,
         ]
     }
 
@@ -705,10 +633,6 @@ impl BackendType {
             }
             #[cfg(feature = "v8")]
             Self::V8 => Ok(wasmer::v8::V8::new().into()),
-            #[cfg(feature = "wamr")]
-            Self::Wamr => Ok(wasmer::wamr::Wamr::new().into()),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi => Ok(wasmer::wasmi::Wasmi::new().into()),
             Self::Headless => bail!("Headless is not a valid runtime to instantiate directly"),
             #[allow(unreachable_patterns)]
             _ => bail!("Unsupported backend type"),
@@ -728,10 +652,6 @@ impl BackendType {
             Self::LLVM => wasmer::BackendKind::LLVM,
             #[cfg(feature = "v8")]
             Self::V8 => wasmer::BackendKind::V8,
-            #[cfg(feature = "wamr")]
-            Self::Wamr => wasmer::BackendKind::Wamr,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi => wasmer::BackendKind::Wasmi,
             Self::Headless => return false, // Headless can't compile
             #[allow(unreachable_patterns)]
             _ => return false,
@@ -760,10 +680,6 @@ impl From<&BackendType> for wasmer::BackendKind {
             BackendType::LLVM => wasmer::BackendKind::LLVM,
             #[cfg(feature = "v8")]
             BackendType::V8 => wasmer::BackendKind::V8,
-            #[cfg(feature = "wamr")]
-            BackendType::Wamr => wasmer::BackendKind::Wamr,
-            #[cfg(feature = "wasmi")]
-            BackendType::Wasmi => wasmer::BackendKind::Wasmi,
             _ => {
                 #[cfg(feature = "sys")]
                 {
@@ -788,8 +704,6 @@ impl std::fmt::Display for BackendType {
                 Self::Cranelift => "cranelift",
                 Self::LLVM => "llvm",
                 Self::V8 => "v8",
-                Self::Wamr => "wamr",
-                Self::Wasmi => "wasmi",
                 Self::Headless => "headless",
             }
         )

@@ -144,12 +144,7 @@ fn run_python_create_temp_dir_in_subprocess() {
         .output()
         .unwrap();
 
-    if cfg!(not(feature = "wamr")) {
-        assert_eq!(output.stdout, "0".as_bytes().to_vec());
-    } else {
-        // WAMR can print spurious warnings to stdout when running python, so we can't assert that it's exactly `[48]`.
-        assert!(output.status.success())
-    }
+    assert_eq!(output.stdout, "0".as_bytes().to_vec());
 }
 
 #[test]
@@ -169,12 +164,7 @@ fn run_php_with_sqlite() {
         .output()
         .unwrap();
 
-    if cfg!(not(feature = "wamr")) {
-        assert_eq!(output.stdout, "0".as_bytes().to_vec());
-    } else {
-        // WAMR can print spurious warnings to stdout when running php, so we can't assert that it's exactly `[48]`.
-        assert!(output.status.success())
-    }
+    assert_eq!(output.stdout, "0".as_bytes().to_vec());
 }
 
 #[test]
@@ -273,13 +263,7 @@ fn test_wasmer_run_works() {
         .assert()
         .success();
 
-    if cfg!(not(feature = "wamr")) {
-        assert.stdout("hello\n");
-    } else {
-        // WAMR can print spurious warnings to stdout when running python, so it's better to use
-        // `contains` rather than asserting that stdout *is exactly* that
-        assert.stdout(contains("hello\n"));
-    }
+    assert.stdout("hello\n");
 
     // same test again, but this time with "wasmer run ..."
     let assert = Command::new(get_wasmer_path())
@@ -290,12 +274,7 @@ fn test_wasmer_run_works() {
         .assert()
         .success();
 
-    if cfg!(not(feature = "wamr")) {
-        assert.stdout("hello\n");
-    } else {
-        // See above
-        assert.stdout(contains("hello\n"));
-    }
+    assert.stdout("hello\n");
 
     // same test again, but this time without specifying the registry in the URL
     let assert = Command::new(get_wasmer_path())
@@ -307,12 +286,7 @@ fn test_wasmer_run_works() {
         .assert()
         .success();
 
-    if cfg!(not(feature = "wamr")) {
-        assert.stdout("hello\n");
-    } else {
-        // See above
-        assert.stdout(contains("hello\n"));
-    }
+    assert.stdout("hello\n");
 }
 
 #[test]
@@ -620,7 +594,6 @@ fn wasi_runner_on_disk_with_mounted_directories_and_webc_volumes() {
 #[test]
 // For some reason the port forwarding does not work on macOS
 #[cfg_attr(target_os = "macos", ignore)]
-#[cfg_attr(feature = "wamr", ignore = "wamr does not support multiple memories")]
 fn wasi_runner_on_disk_with_dependencies() {
     let port = random_port();
     let mut cmd = Command::new(get_wasmer_path());
@@ -696,10 +669,6 @@ fn issue_3794_unable_to_mount_relative_paths() {
 }
 
 #[test]
-#[cfg_attr(
-    feature = "wamr",
-    ignore = "FIXME(xdoardo): Bash is currently not working in wamr"
-)]
 fn merged_filesystem_contains_all_files() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")

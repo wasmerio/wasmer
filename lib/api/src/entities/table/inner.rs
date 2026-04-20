@@ -39,14 +39,6 @@ impl BackendTable {
             BackendStore::Sys(_) => Ok(Self::Sys(
                 crate::backend::sys::entities::table::Table::new(store, ty, init)?,
             )),
-            #[cfg(feature = "wamr")]
-            BackendStore::Wamr(_) => Ok(Self::Wamr(
-                crate::backend::wamr::entities::table::Table::new(store, ty, init)?,
-            )),
-            #[cfg(feature = "wasmi")]
-            BackendStore::Wasmi(_) => Ok(Self::Wasmi(
-                crate::backend::wasmi::entities::table::Table::new(store, ty, init)?,
-            )),
             #[cfg(feature = "v8")]
             BackendStore::V8(_) => Ok(Self::V8(crate::backend::v8::entities::table::Table::new(
                 store, ty, init,
@@ -146,24 +138,6 @@ impl BackendTable {
                 src_index,
                 len,
             ),
-            #[cfg(feature = "wamr")]
-            BackendStore::Wamr(_) => crate::backend::wamr::entities::table::Table::copy(
-                store,
-                dst_table.as_wamr(),
-                dst_index,
-                src_table.as_wamr(),
-                src_index,
-                len,
-            ),
-            #[cfg(feature = "wasmi")]
-            BackendStore::Wasmi(_) => crate::backend::wasmi::entities::table::Table::copy(
-                store,
-                dst_table.as_wasmi(),
-                dst_index,
-                src_table.as_wasmi(),
-                src_index,
-                len,
-            ),
 
             #[cfg(feature = "v8")]
             BackendStore::V8(_) => crate::backend::v8::entities::table::Table::copy(
@@ -202,14 +176,6 @@ impl BackendTable {
             BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::table::Table::from_vm_extern(store, ext),
             ),
-            #[cfg(feature = "wamr")]
-            BackendStore::Wamr(_) => {
-                Self::Wamr(crate::backend::wamr::entities::table::Table::from_vm_extern(store, ext))
-            }
-            #[cfg(feature = "wasmi")]
-            BackendStore::Wasmi(_) => Self::Wasmi(
-                crate::backend::wasmi::entities::table::Table::from_vm_extern(store, ext),
-            ),
             #[cfg(feature = "v8")]
             BackendStore::V8(_) => Self::V8(
                 crate::backend::v8::entities::table::Table::from_vm_extern(store, ext),
@@ -245,15 +211,6 @@ impl BackendTable {
 mod test {
     /// Check the example from <https://github.com/wasmerio/wasmer/issues/3197>.
     #[test]
-    #[cfg_attr(
-        feature = "wamr",
-        ignore = "wamr does not support direct calls to grow table"
-    )]
-    #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support funcrefs")]
-    #[cfg_attr(
-        feature = "v8",
-        ignore = "growing tables in v8 is not currently supported"
-    )]
     fn table_grow_issue_3197() {
         use crate::{Instance, Module, Store, Table, TableType, Type, Value, imports};
 

@@ -569,14 +569,6 @@ build-capi-v8:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,v8-default,wasi --locked
 
-build-capi-wamr:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,wamr-default,wasi --locked
-
-build-capi-wasmi:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,wasmi-default,wasi --locked
-
 build-capi-jsc:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jsc-default,wasi --locked
@@ -646,11 +638,6 @@ test-wamr: test-wamr-api
 
 test-wamr-api:
 	cargo nextest run --package=wasmer --release --features="wamr-default" --no-default-features
-
-test-wasmi: test-wasmi-api
-
-test-wasmi-api:
-	cargo nextest run --package=wasmer --release --features="wasmi-default" --no-default-features
 
 test-js: test-js-api test-js-wasi
 
@@ -975,9 +962,6 @@ lint-clang-format:
 	find . \( -path './lib/napi' -o -path './target' \) -prune -o -type f \( -name '*.c' -o -name '*.cpp' \) -exec clang-format --dry-run --color -Werror {} +
 lint-yamlfmt:
 	yamlfmt -lint .github
-
-lint-wasmi:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="wasmi-default" --locked -- -D clippy::all
 
 lint-wamr:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="wamr-default" --locked -- -D clippy::all

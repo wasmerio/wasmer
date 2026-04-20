@@ -5,10 +5,6 @@ use wasm_bindgen_test::wasm_bindgen_test;
 use wasmer::*;
 
 #[engine_test]
-#[cfg_attr(
-    feature = "wamr",
-    ignore = "wamr does not support globals without an instance"
-)]
 fn data_and_store_mut() -> Result<(), String> {
     let mut store = Store::default();
     let global_mut = Global::new_mut(&mut store, Value::I32(10));
