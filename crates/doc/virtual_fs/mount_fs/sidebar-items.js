@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_METADATE_TIME"],"enum":["ExactMountConflictMode"],"struct":["ExactNode","MountEntry","MountFileSystem","MountNode","MountPoint","MountPointRef","MountedFileSystem","ResolvedMount"],"type":["DynFileSystem"]};
+window.SIDEBAR_ITEMS = {"constant":["MIN_METADATA_TIMESTAMP"],"enum":["ExactMountConflictMode"],"struct":["ExactNode","MountEntry","MountFileSystem","MountNode","MountPoint","MountPointRef","MountedFileSystem","ResolvedMount"],"type":["DynFileSystem"]};
