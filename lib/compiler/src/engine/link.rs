@@ -1,4 +1,4 @@
-//! Linking for Universal-compiled code.
+//! Linking for compiled code.
 
 use crate::{
     FunctionExtent, get_libcall_trampoline,
