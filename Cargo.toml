@@ -38,7 +38,7 @@ tokio = { workspace = true, features = [
 members = [
 	"fuzz",
 	"lib/api",
-	"lib/api/macro-wasmer-universal-test",
+	"lib/api/macro-wasmer-engine-test",
 	"lib/backend-api",
 	"lib/c-api",
 	"lib/c-api/examples/wasmer-capi-examples-runner",
@@ -378,8 +378,7 @@ v8 = ["wasmer/v8"]
 # Enable the wasmi backend (using it as default only if it is the only backend enabled)
 wasmi = ["wasmer/wasmi"]
 
-engine = ["universal"]
-universal = []
+engine = []
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasix", "tokio"]
@@ -400,7 +399,7 @@ test-singlepass = ["singlepass"]
 test-cranelift = ["cranelift"]
 test-llvm = ["llvm"]
 
-test-universal = ["test-generator/test-universal"]
+test-engine = ["test-generator/test-engine"]
 
 # Specifies that we're running in coverage testing mode. This disables tests
 # that raise signals because that interferes with tarpaulin.

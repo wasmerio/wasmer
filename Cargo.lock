@@ -3372,7 +3372,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "macro-wasmer-universal-test"
+name = "macro-wasmer-engine-test"
 version = "7.2.0-alpha.1"
 dependencies = [
  "proc-macro2",
@@ -6936,7 +6936,7 @@ dependencies = [
  "indexmap",
  "js-sys",
  "loupe",
- "macro-wasmer-universal-test",
+ "macro-wasmer-engine-test",
  "more-asserts",
  "paste",
  "rusty_jsc",
