@@ -362,7 +362,7 @@ pub(crate) fn path_open_internal(
                         new_path.push(&new_entity_name);
                         new_path
                     }
-                    _ => return Ok(Err(Errno::Inval)),
+                    _ => return Ok(Err(Errno::Notdir)),
                 }
             };
             // once we got the data we need from the parent, we lookup the host file
