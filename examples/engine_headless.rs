@@ -92,8 +92,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Second step, deserialize the compiled Wasm module, and execute
     // it, for example with Wasmer without a compiler.
     {
-        println!("Creating headless Universal engine...");
-        // We create a headless Universal engine.
+        println!("Creating headless engine...");
+        // We create a headless engine.
         let engine = EngineBuilder::headless();
         let mut store = Store::new(engine);
 
