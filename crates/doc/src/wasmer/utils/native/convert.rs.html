@@ -201,889 +201,853 @@
 <a href=#201 id=201 data-nosnippet>201</a>            </span><span class="kw">crate</span>::BackendStore::Sys(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
 <a href=#202 id=202 data-nosnippet>202</a>                wasmer_vm::VMExternRef::from_raw(RawValue { externref: abi }).map(VMExternRef::Sys)
 <a href=#203 id=203 data-nosnippet>203</a>            },
-<a href=#204 id=204 data-nosnippet>204</a>            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-<a href=#205 id=205 data-nosnippet>205</a>            </span><span class="kw">crate</span>::BackendStore::Wamr(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#206 id=206 data-nosnippet>206</a>                <span class="kw">crate</span>::backend::wamr::vm::VMExternRef::from_raw(RawValue { externref: abi })
-<a href=#207 id=207 data-nosnippet>207</a>                    .map(VMExternRef::Wamr)
+<a href=#204 id=204 data-nosnippet>204</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+<a href=#205 id=205 data-nosnippet>205</a>            </span><span class="kw">crate</span>::BackendStore::V8(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#206 id=206 data-nosnippet>206</a>                <span class="kw">crate</span>::backend::v8::vm::VMExternRef::from_raw(RawValue { externref: abi })
+<a href=#207 id=207 data-nosnippet>207</a>                    .map(VMExternRef::V8)
 <a href=#208 id=208 data-nosnippet>208</a>            },
-<a href=#209 id=209 data-nosnippet>209</a>            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-<a href=#210 id=210 data-nosnippet>210</a>            </span><span class="kw">crate</span>::BackendStore::Wasmi(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#211 id=211 data-nosnippet>211</a>                <span class="kw">crate</span>::backend::wasmi::vm::VMExternRef::from_raw(RawValue { externref: abi })
-<a href=#212 id=212 data-nosnippet>212</a>                    .map(VMExternRef::Wasmi)
+<a href=#209 id=209 data-nosnippet>209</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+<a href=#210 id=210 data-nosnippet>210</a>            </span><span class="kw">crate</span>::BackendStore::Js(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#211 id=211 data-nosnippet>211</a>                <span class="kw">crate</span>::backend::js::vm::VMExternRef::from_raw(RawValue { externref: abi })
+<a href=#212 id=212 data-nosnippet>212</a>                    .map(VMExternRef::Js)
 <a href=#213 id=213 data-nosnippet>213</a>            },
-<a href=#214 id=214 data-nosnippet>214</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#215 id=215 data-nosnippet>215</a>            </span><span class="kw">crate</span>::BackendStore::V8(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#216 id=216 data-nosnippet>216</a>                <span class="kw">crate</span>::backend::v8::vm::VMExternRef::from_raw(RawValue { externref: abi })
-<a href=#217 id=217 data-nosnippet>217</a>                    .map(VMExternRef::V8)
+<a href=#214 id=214 data-nosnippet>214</a>            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+<a href=#215 id=215 data-nosnippet>215</a>            </span><span class="kw">crate</span>::BackendStore::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#216 id=216 data-nosnippet>216</a>                <span class="kw">crate</span>::backend::jsc::vm::VMExternRef::from_raw(RawValue { externref: abi })
+<a href=#217 id=217 data-nosnippet>217</a>                    .map(VMExternRef::Jsc)
 <a href=#218 id=218 data-nosnippet>218</a>            },
-<a href=#219 id=219 data-nosnippet>219</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#220 id=220 data-nosnippet>220</a>            </span><span class="kw">crate</span>::BackendStore::Js(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#221 id=221 data-nosnippet>221</a>                <span class="kw">crate</span>::backend::js::vm::VMExternRef::from_raw(RawValue { externref: abi })
-<a href=#222 id=222 data-nosnippet>222</a>                    .map(VMExternRef::Js)
-<a href=#223 id=223 data-nosnippet>223</a>            },
-<a href=#224 id=224 data-nosnippet>224</a>            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-<a href=#225 id=225 data-nosnippet>225</a>            </span><span class="kw">crate</span>::BackendStore::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#226 id=226 data-nosnippet>226</a>                <span class="kw">crate</span>::backend::jsc::vm::VMExternRef::from_raw(RawValue { externref: abi })
-<a href=#227 id=227 data-nosnippet>227</a>                    .map(VMExternRef::Jsc)
-<a href=#228 id=228 data-nosnippet>228</a>            },
-<a href=#229 id=229 data-nosnippet>229</a>        }
-<a href=#230 id=230 data-nosnippet>230</a>        .map(|e| <span class="kw">unsafe </span>{ ExternRef::from_vm_externref(store, e) })
+<a href=#219 id=219 data-nosnippet>219</a>        }
+<a href=#220 id=220 data-nosnippet>220</a>        .map(|e| <span class="kw">unsafe </span>{ ExternRef::from_vm_externref(store, e) })
+<a href=#221 id=221 data-nosnippet>221</a>    }
+<a href=#222 id=222 data-nosnippet>222</a>
+<a href=#223 id=223 data-nosnippet>223</a>    <span class="attr">#[inline]
+<a href=#224 id=224 data-nosnippet>224</a>    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="self">self</span>.map_or(<span class="number">0</span>, |e| <span class="kw">unsafe </span>{ e.vm_externref().into_raw().externref })
+<a href=#226 id=226 data-nosnippet>226</a>    }
+<a href=#227 id=227 data-nosnippet>227</a>
+<a href=#228 id=228 data-nosnippet>228</a>    <span class="attr">#[inline]
+<a href=#229 id=229 data-nosnippet>229</a>    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+<a href=#230 id=230 data-nosnippet>230</a>        <span class="self">self</span>.map_or(RawValue { externref: <span class="number">0 </span>}, |e| e.vm_externref().into_raw())
 <a href=#231 id=231 data-nosnippet>231</a>    }
 <a href=#232 id=232 data-nosnippet>232</a>
 <a href=#233 id=233 data-nosnippet>233</a>    <span class="attr">#[inline]
-<a href=#234 id=234 data-nosnippet>234</a>    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
-<a href=#235 id=235 data-nosnippet>235</a>        <span class="self">self</span>.map_or(<span class="number">0</span>, |e| <span class="kw">unsafe </span>{ e.vm_externref().into_raw().externref })
-<a href=#236 id=236 data-nosnippet>236</a>    }
-<a href=#237 id=237 data-nosnippet>237</a>
-<a href=#238 id=238 data-nosnippet>238</a>    <span class="attr">#[inline]
-<a href=#239 id=239 data-nosnippet>239</a>    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
-<a href=#240 id=240 data-nosnippet>240</a>        <span class="self">self</span>.map_or(RawValue { externref: <span class="number">0 </span>}, |e| e.vm_externref().into_raw())
-<a href=#241 id=241 data-nosnippet>241</a>    }
-<a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a>    <span class="attr">#[inline]
-<a href=#244 id=244 data-nosnippet>244</a>    </span><span class="kw">unsafe fn </span>from_raw(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
-<a href=#245 id=245 data-nosnippet>245</a>        <span class="kw">match </span>store.as_store_ref().inner.store {
-<a href=#246 id=246 data-nosnippet>246</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#247 id=247 data-nosnippet>247</a>            </span><span class="kw">crate</span>::BackendStore::Sys(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#248 id=248 data-nosnippet>248</a>                wasmer_vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
-<a href=#249 id=249 data-nosnippet>249</a>            },
-<a href=#250 id=250 data-nosnippet>250</a>            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-<a href=#251 id=251 data-nosnippet>251</a>            </span><span class="kw">crate</span>::BackendStore::Wamr(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#252 id=252 data-nosnippet>252</a>                <span class="kw">crate</span>::backend::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
-<a href=#253 id=253 data-nosnippet>253</a>            },
-<a href=#254 id=254 data-nosnippet>254</a>            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-<a href=#255 id=255 data-nosnippet>255</a>            </span><span class="kw">crate</span>::BackendStore::Wasmi(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#256 id=256 data-nosnippet>256</a>                <span class="kw">crate</span>::backend::wasmi::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wasmi)
-<a href=#257 id=257 data-nosnippet>257</a>            },
-<a href=#258 id=258 data-nosnippet>258</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#259 id=259 data-nosnippet>259</a>            </span><span class="kw">crate</span>::BackendStore::V8(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#260 id=260 data-nosnippet>260</a>                <span class="kw">crate</span>::backend::v8::vm::VMExternRef::from_raw(raw).map(VMExternRef::V8)
-<a href=#261 id=261 data-nosnippet>261</a>            },
-<a href=#262 id=262 data-nosnippet>262</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#263 id=263 data-nosnippet>263</a>            </span><span class="kw">crate</span>::BackendStore::Js(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#264 id=264 data-nosnippet>264</a>                <span class="kw">crate</span>::backend::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
-<a href=#265 id=265 data-nosnippet>265</a>            },
-<a href=#266 id=266 data-nosnippet>266</a>            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-<a href=#267 id=267 data-nosnippet>267</a>            </span><span class="kw">crate</span>::BackendStore::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#268 id=268 data-nosnippet>268</a>                <span class="kw">crate</span>::backend::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
-<a href=#269 id=269 data-nosnippet>269</a>            },
-<a href=#270 id=270 data-nosnippet>270</a>        }
-<a href=#271 id=271 data-nosnippet>271</a>        .map(|e| <span class="kw">unsafe </span>{ ExternRef::from_vm_externref(store, e) })
-<a href=#272 id=272 data-nosnippet>272</a>    }
-<a href=#273 id=273 data-nosnippet>273</a>}
-<a href=#274 id=274 data-nosnippet>274</a>
-<a href=#275 id=275 data-nosnippet>275</a><span class="kw">impl</span>&lt;Args, Rets&gt; From&lt;TypedFunction&lt;Args, Rets&gt;&gt; <span class="kw">for </span>Function
-<a href=#276 id=276 data-nosnippet>276</a><span class="kw">where
-<a href=#277 id=277 data-nosnippet>277</a>    </span>Args: WasmTypeList,
-<a href=#278 id=278 data-nosnippet>278</a>    Rets: WasmTypeList,
-<a href=#279 id=279 data-nosnippet>279</a>{
-<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">fn </span>from(other: TypedFunction&lt;Args, Rets&gt;) -&gt; <span class="self">Self </span>{
-<a href=#281 id=281 data-nosnippet>281</a>        other.into_function()
-<a href=#282 id=282 data-nosnippet>282</a>    }
-<a href=#283 id=283 data-nosnippet>283</a>}
-<a href=#284 id=284 data-nosnippet>284</a>
-<a href=#285 id=285 data-nosnippet>285</a><span class="kw">impl </span>NativeWasmType <span class="kw">for </span>Function {
-<a href=#286 id=286 data-nosnippet>286</a>    <span class="kw">const </span>WASM_TYPE: Type = Type::FuncRef;
-<a href=#287 id=287 data-nosnippet>287</a>    <span class="kw">type </span>Abi = usize;
-<a href=#288 id=288 data-nosnippet>288</a>}
-<a href=#289 id=289 data-nosnippet>289</a>
-<a href=#290 id=290 data-nosnippet>290</a><span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;Function&gt; {
-<a href=#291 id=291 data-nosnippet>291</a>    <span class="attr">#[inline]
-<a href=#292 id=292 data-nosnippet>292</a>    </span><span class="kw">unsafe fn </span>from_abi(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
-<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">match </span>store.as_store_ref().inner.store {
-<a href=#294 id=294 data-nosnippet>294</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#295 id=295 data-nosnippet>295</a>            </span><span class="kw">crate</span>::BackendStore::Sys(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#296 id=296 data-nosnippet>296</a>                wasmer_vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Sys)
-<a href=#297 id=297 data-nosnippet>297</a>            },
-<a href=#298 id=298 data-nosnippet>298</a>            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-<a href=#299 id=299 data-nosnippet>299</a>            </span><span class="kw">crate</span>::BackendStore::Wamr(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#300 id=300 data-nosnippet>300</a>                <span class="kw">crate</span>::backend::wamr::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
-<a href=#301 id=301 data-nosnippet>301</a>                    .map(VMFuncRef::Wamr)
-<a href=#302 id=302 data-nosnippet>302</a>            },
-<a href=#303 id=303 data-nosnippet>303</a>            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-<a href=#304 id=304 data-nosnippet>304</a>            </span><span class="kw">crate</span>::BackendStore::Wasmi(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#305 id=305 data-nosnippet>305</a>                <span class="kw">crate</span>::backend::wasmi::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
-<a href=#306 id=306 data-nosnippet>306</a>                    .map(VMFuncRef::Wasmi)
-<a href=#307 id=307 data-nosnippet>307</a>            },
-<a href=#308 id=308 data-nosnippet>308</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#309 id=309 data-nosnippet>309</a>            </span><span class="kw">crate</span>::BackendStore::V8(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#310 id=310 data-nosnippet>310</a>                <span class="kw">crate</span>::backend::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
-<a href=#311 id=311 data-nosnippet>311</a>                    .map(VMFuncRef::V8)
-<a href=#312 id=312 data-nosnippet>312</a>            },
-<a href=#313 id=313 data-nosnippet>313</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#314 id=314 data-nosnippet>314</a>            </span><span class="kw">crate</span>::BackendStore::Js(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#315 id=315 data-nosnippet>315</a>                <span class="kw">crate</span>::backend::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
-<a href=#316 id=316 data-nosnippet>316</a>                    .map(VMFuncRef::Js)
+<a href=#234 id=234 data-nosnippet>234</a>    </span><span class="kw">unsafe fn </span>from_raw(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+<a href=#235 id=235 data-nosnippet>235</a>        <span class="kw">match </span>store.as_store_ref().inner.store {
+<a href=#236 id=236 data-nosnippet>236</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<a href=#237 id=237 data-nosnippet>237</a>            </span><span class="kw">crate</span>::BackendStore::Sys(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#238 id=238 data-nosnippet>238</a>                wasmer_vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
+<a href=#239 id=239 data-nosnippet>239</a>            },
+<a href=#240 id=240 data-nosnippet>240</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+<a href=#241 id=241 data-nosnippet>241</a>            </span><span class="kw">crate</span>::BackendStore::V8(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#242 id=242 data-nosnippet>242</a>                <span class="kw">crate</span>::backend::v8::vm::VMExternRef::from_raw(raw).map(VMExternRef::V8)
+<a href=#243 id=243 data-nosnippet>243</a>            },
+<a href=#244 id=244 data-nosnippet>244</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+<a href=#245 id=245 data-nosnippet>245</a>            </span><span class="kw">crate</span>::BackendStore::Js(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#246 id=246 data-nosnippet>246</a>                <span class="kw">crate</span>::backend::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
+<a href=#247 id=247 data-nosnippet>247</a>            },
+<a href=#248 id=248 data-nosnippet>248</a>            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+<a href=#249 id=249 data-nosnippet>249</a>            </span><span class="kw">crate</span>::BackendStore::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#250 id=250 data-nosnippet>250</a>                <span class="kw">crate</span>::backend::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
+<a href=#251 id=251 data-nosnippet>251</a>            },
+<a href=#252 id=252 data-nosnippet>252</a>        }
+<a href=#253 id=253 data-nosnippet>253</a>        .map(|e| <span class="kw">unsafe </span>{ ExternRef::from_vm_externref(store, e) })
+<a href=#254 id=254 data-nosnippet>254</a>    }
+<a href=#255 id=255 data-nosnippet>255</a>}
+<a href=#256 id=256 data-nosnippet>256</a>
+<a href=#257 id=257 data-nosnippet>257</a><span class="kw">impl</span>&lt;Args, Rets&gt; From&lt;TypedFunction&lt;Args, Rets&gt;&gt; <span class="kw">for </span>Function
+<a href=#258 id=258 data-nosnippet>258</a><span class="kw">where
+<a href=#259 id=259 data-nosnippet>259</a>    </span>Args: WasmTypeList,
+<a href=#260 id=260 data-nosnippet>260</a>    Rets: WasmTypeList,
+<a href=#261 id=261 data-nosnippet>261</a>{
+<a href=#262 id=262 data-nosnippet>262</a>    <span class="kw">fn </span>from(other: TypedFunction&lt;Args, Rets&gt;) -&gt; <span class="self">Self </span>{
+<a href=#263 id=263 data-nosnippet>263</a>        other.into_function()
+<a href=#264 id=264 data-nosnippet>264</a>    }
+<a href=#265 id=265 data-nosnippet>265</a>}
+<a href=#266 id=266 data-nosnippet>266</a>
+<a href=#267 id=267 data-nosnippet>267</a><span class="kw">impl </span>NativeWasmType <span class="kw">for </span>Function {
+<a href=#268 id=268 data-nosnippet>268</a>    <span class="kw">const </span>WASM_TYPE: Type = Type::FuncRef;
+<a href=#269 id=269 data-nosnippet>269</a>    <span class="kw">type </span>Abi = usize;
+<a href=#270 id=270 data-nosnippet>270</a>}
+<a href=#271 id=271 data-nosnippet>271</a>
+<a href=#272 id=272 data-nosnippet>272</a><span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;Function&gt; {
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="attr">#[inline]
+<a href=#274 id=274 data-nosnippet>274</a>    </span><span class="kw">unsafe fn </span>from_abi(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+<a href=#275 id=275 data-nosnippet>275</a>        <span class="kw">match </span>store.as_store_ref().inner.store {
+<a href=#276 id=276 data-nosnippet>276</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<a href=#277 id=277 data-nosnippet>277</a>            </span><span class="kw">crate</span>::BackendStore::Sys(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#278 id=278 data-nosnippet>278</a>                wasmer_vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Sys)
+<a href=#279 id=279 data-nosnippet>279</a>            },
+<a href=#280 id=280 data-nosnippet>280</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+<a href=#281 id=281 data-nosnippet>281</a>            </span><span class="kw">crate</span>::BackendStore::V8(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#282 id=282 data-nosnippet>282</a>                <span class="kw">crate</span>::backend::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+<a href=#283 id=283 data-nosnippet>283</a>                    .map(VMFuncRef::V8)
+<a href=#284 id=284 data-nosnippet>284</a>            },
+<a href=#285 id=285 data-nosnippet>285</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+<a href=#286 id=286 data-nosnippet>286</a>            </span><span class="kw">crate</span>::BackendStore::Js(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#287 id=287 data-nosnippet>287</a>                <span class="kw">crate</span>::backend::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+<a href=#288 id=288 data-nosnippet>288</a>                    .map(VMFuncRef::Js)
+<a href=#289 id=289 data-nosnippet>289</a>            },
+<a href=#290 id=290 data-nosnippet>290</a>            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+<a href=#291 id=291 data-nosnippet>291</a>            </span><span class="kw">crate</span>::BackendStore::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#292 id=292 data-nosnippet>292</a>                <span class="kw">crate</span>::backend::jsc::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+<a href=#293 id=293 data-nosnippet>293</a>                    .map(VMFuncRef::Jsc)
+<a href=#294 id=294 data-nosnippet>294</a>            },
+<a href=#295 id=295 data-nosnippet>295</a>        }
+<a href=#296 id=296 data-nosnippet>296</a>        .map(|f| <span class="kw">unsafe </span>{ Function::from_vm_funcref(store, f) })
+<a href=#297 id=297 data-nosnippet>297</a>    }
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a>    <span class="attr">#[inline]
+<a href=#300 id=300 data-nosnippet>300</a>    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+<a href=#301 id=301 data-nosnippet>301</a>        <span class="self">self</span>.map_or(<span class="number">0</span>, |f| <span class="kw">unsafe </span>{ f.vm_funcref(store).into_raw().externref })
+<a href=#302 id=302 data-nosnippet>302</a>    }
+<a href=#303 id=303 data-nosnippet>303</a>
+<a href=#304 id=304 data-nosnippet>304</a>    <span class="attr">#[inline]
+<a href=#305 id=305 data-nosnippet>305</a>    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+<a href=#306 id=306 data-nosnippet>306</a>        <span class="self">self</span>.map_or(RawValue { externref: <span class="number">0 </span>}, |e| {
+<a href=#307 id=307 data-nosnippet>307</a>            e.vm_funcref(store).into_raw()
+<a href=#308 id=308 data-nosnippet>308</a>        })
+<a href=#309 id=309 data-nosnippet>309</a>    }
+<a href=#310 id=310 data-nosnippet>310</a>
+<a href=#311 id=311 data-nosnippet>311</a>    <span class="attr">#[inline]
+<a href=#312 id=312 data-nosnippet>312</a>    </span><span class="kw">unsafe fn </span>from_raw(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+<a href=#313 id=313 data-nosnippet>313</a>        <span class="kw">match </span>store.as_store_ref().inner.store {
+<a href=#314 id=314 data-nosnippet>314</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<a href=#315 id=315 data-nosnippet>315</a>            </span><span class="kw">crate</span>::BackendStore::Sys(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#316 id=316 data-nosnippet>316</a>                wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys)
 <a href=#317 id=317 data-nosnippet>317</a>            },
-<a href=#318 id=318 data-nosnippet>318</a>            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-<a href=#319 id=319 data-nosnippet>319</a>            </span><span class="kw">crate</span>::BackendStore::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#320 id=320 data-nosnippet>320</a>                <span class="kw">crate</span>::backend::jsc::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
-<a href=#321 id=321 data-nosnippet>321</a>                    .map(VMFuncRef::Jsc)
-<a href=#322 id=322 data-nosnippet>322</a>            },
-<a href=#323 id=323 data-nosnippet>323</a>        }
-<a href=#324 id=324 data-nosnippet>324</a>        .map(|f| <span class="kw">unsafe </span>{ Function::from_vm_funcref(store, f) })
-<a href=#325 id=325 data-nosnippet>325</a>    }
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>    <span class="attr">#[inline]
-<a href=#328 id=328 data-nosnippet>328</a>    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="self">self</span>.map_or(<span class="number">0</span>, |f| <span class="kw">unsafe </span>{ f.vm_funcref(store).into_raw().externref })
-<a href=#330 id=330 data-nosnippet>330</a>    }
-<a href=#331 id=331 data-nosnippet>331</a>
-<a href=#332 id=332 data-nosnippet>332</a>    <span class="attr">#[inline]
-<a href=#333 id=333 data-nosnippet>333</a>    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
-<a href=#334 id=334 data-nosnippet>334</a>        <span class="self">self</span>.map_or(RawValue { externref: <span class="number">0 </span>}, |e| {
-<a href=#335 id=335 data-nosnippet>335</a>            e.vm_funcref(store).into_raw()
-<a href=#336 id=336 data-nosnippet>336</a>        })
-<a href=#337 id=337 data-nosnippet>337</a>    }
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a>    <span class="attr">#[inline]
-<a href=#340 id=340 data-nosnippet>340</a>    </span><span class="kw">unsafe fn </span>from_raw(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
-<a href=#341 id=341 data-nosnippet>341</a>        <span class="kw">match </span>store.as_store_ref().inner.store {
-<a href=#342 id=342 data-nosnippet>342</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#343 id=343 data-nosnippet>343</a>            </span><span class="kw">crate</span>::BackendStore::Sys(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#344 id=344 data-nosnippet>344</a>                wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys)
-<a href=#345 id=345 data-nosnippet>345</a>            },
-<a href=#346 id=346 data-nosnippet>346</a>            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-<a href=#347 id=347 data-nosnippet>347</a>            </span><span class="kw">crate</span>::BackendStore::Wamr(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#348 id=348 data-nosnippet>348</a>                <span class="kw">crate</span>::backend::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
-<a href=#349 id=349 data-nosnippet>349</a>            },
-<a href=#350 id=350 data-nosnippet>350</a>            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-<a href=#351 id=351 data-nosnippet>351</a>            </span><span class="kw">crate</span>::BackendStore::Wasmi(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#352 id=352 data-nosnippet>352</a>                <span class="kw">crate</span>::backend::wasmi::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wasmi)
-<a href=#353 id=353 data-nosnippet>353</a>            },
-<a href=#354 id=354 data-nosnippet>354</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#355 id=355 data-nosnippet>355</a>            </span><span class="kw">crate</span>::BackendStore::V8(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#356 id=356 data-nosnippet>356</a>                <span class="kw">crate</span>::backend::v8::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::V8)
-<a href=#357 id=357 data-nosnippet>357</a>            },
-<a href=#358 id=358 data-nosnippet>358</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#359 id=359 data-nosnippet>359</a>            </span><span class="kw">crate</span>::BackendStore::Js(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#360 id=360 data-nosnippet>360</a>                <span class="kw">crate</span>::backend::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js)
-<a href=#361 id=361 data-nosnippet>361</a>            },
-<a href=#362 id=362 data-nosnippet>362</a>            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-<a href=#363 id=363 data-nosnippet>363</a>            </span><span class="kw">crate</span>::BackendStore::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
-<a href=#364 id=364 data-nosnippet>364</a>                <span class="kw">crate</span>::backend::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc)
-<a href=#365 id=365 data-nosnippet>365</a>            },
-<a href=#366 id=366 data-nosnippet>366</a>        }
-<a href=#367 id=367 data-nosnippet>367</a>        .map(|f| <span class="kw">unsafe </span>{ Function::from_vm_funcref(store, f) })
-<a href=#368 id=368 data-nosnippet>368</a>    }
-<a href=#369 id=369 data-nosnippet>369</a>}
-<a href=#370 id=370 data-nosnippet>370</a>
-<a href=#371 id=371 data-nosnippet>371</a><span class="doccomment">/// A trait to convert a Rust value to a `WasmNativeType` value,
-<a href=#372 id=372 data-nosnippet>372</a>/// or to convert `WasmNativeType` value to a Rust value.
-<a href=#373 id=373 data-nosnippet>373</a>///
-<a href=#374 id=374 data-nosnippet>374</a>/// This trait should ideally be split into two traits:
-<a href=#375 id=375 data-nosnippet>375</a>/// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
-<a href=#376 id=376 data-nosnippet>376</a>/// non-negligible complexity in the `WasmTypeList`
-<a href=#377 id=377 data-nosnippet>377</a>/// implementation.
-<a href=#378 id=378 data-nosnippet>378</a>///
-<a href=#379 id=379 data-nosnippet>379</a>/// # Safety
-<a href=#380 id=380 data-nosnippet>380</a>/// This trait is unsafe given the nature of how values are written and read from the native
-<a href=#381 id=381 data-nosnippet>381</a>/// stack
-<a href=#382 id=382 data-nosnippet>382</a></span><span class="kw">pub unsafe trait </span>FromToNativeWasmType
-<a href=#383 id=383 data-nosnippet>383</a><span class="kw">where
-<a href=#384 id=384 data-nosnippet>384</a>    </span><span class="self">Self</span>: Sized,
-<a href=#385 id=385 data-nosnippet>385</a>{
-<a href=#386 id=386 data-nosnippet>386</a>    <span class="doccomment">/// Native Wasm type.
-<a href=#387 id=387 data-nosnippet>387</a>    </span><span class="kw">type </span>Native: NativeWasmTypeInto;
-<a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a>    <span class="doccomment">/// Convert a value of kind `Self::Native` to `Self`.
-<a href=#390 id=390 data-nosnippet>390</a>    ///
-<a href=#391 id=391 data-nosnippet>391</a>    /// # Panics
-<a href=#392 id=392 data-nosnippet>392</a>    ///
-<a href=#393 id=393 data-nosnippet>393</a>    /// This method panics if `native` cannot fit in the `Self`
-<a href=#394 id=394 data-nosnippet>394</a>    /// type`.
-<a href=#395 id=395 data-nosnippet>395</a>    </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self</span>;
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a>    <span class="doccomment">/// Convert self to `Self::Native`.
-<a href=#398 id=398 data-nosnippet>398</a>    ///
-<a href=#399 id=399 data-nosnippet>399</a>    /// # Panics
-<a href=#400 id=400 data-nosnippet>400</a>    ///
-<a href=#401 id=401 data-nosnippet>401</a>    /// This method panics if `self` cannot fit in the
-<a href=#402 id=402 data-nosnippet>402</a>    /// `Self::Native` type.
-<a href=#403 id=403 data-nosnippet>403</a>    </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native;
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>    <span class="doccomment">/// Returns whether the given value is from the given store.
-<a href=#406 id=406 data-nosnippet>406</a>    ///
-<a href=#407 id=407 data-nosnippet>407</a>    /// This always returns true for primitive types that can be used with
-<a href=#408 id=408 data-nosnippet>408</a>    /// any context.
-<a href=#409 id=409 data-nosnippet>409</a>    </span><span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, _store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
-<a href=#410 id=410 data-nosnippet>410</a>        <span class="bool-val">true
-<a href=#411 id=411 data-nosnippet>411</a>    </span>}
-<a href=#412 id=412 data-nosnippet>412</a>}
-<a href=#413 id=413 data-nosnippet>413</a>
-<a href=#414 id=414 data-nosnippet>414</a><span class="macro">macro_rules!</span> from_to_native_wasm_type {
-<a href=#415 id=415 data-nosnippet>415</a>    ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty </span>=&gt; <span class="macro-nonterminal">$native_type</span>:ty ),* ) =&gt; {
-<a href=#416 id=416 data-nosnippet>416</a>        $(
-<a href=#417 id=417 data-nosnippet>417</a>            <span class="attr">#[allow(clippy::use_self)]
-<a href=#418 id=418 data-nosnippet>418</a>            </span><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
-<a href=#419 id=419 data-nosnippet>419</a>                <span class="kw">type </span><span class="macro-nonterminal">Native </span>= <span class="macro-nonterminal">$native_type</span>;
-<a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a>                <span class="attr">#[inline]
-<a href=#422 id=422 data-nosnippet>422</a>                </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
-<a href=#423 id=423 data-nosnippet>423</a>                    native <span class="kw">as </span><span class="self">Self
-<a href=#424 id=424 data-nosnippet>424</a>                </span>}
-<a href=#425 id=425 data-nosnippet>425</a>
-<a href=#426 id=426 data-nosnippet>426</a>                <span class="attr">#[inline]
-<a href=#427 id=427 data-nosnippet>427</a>                </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
-<a href=#428 id=428 data-nosnippet>428</a>                    <span class="self">self </span><span class="kw">as </span><span class="self">Self</span>::Native
-<a href=#429 id=429 data-nosnippet>429</a>                }
-<a href=#430 id=430 data-nosnippet>430</a>            }
-<a href=#431 id=431 data-nosnippet>431</a>        )*
-<a href=#432 id=432 data-nosnippet>432</a>    };
-<a href=#433 id=433 data-nosnippet>433</a>}
-<a href=#434 id=434 data-nosnippet>434</a>
-<a href=#435 id=435 data-nosnippet>435</a><span class="macro">macro_rules!</span> from_to_native_wasm_type_same_size {
-<a href=#436 id=436 data-nosnippet>436</a>    ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty </span>=&gt; <span class="macro-nonterminal">$native_type</span>:ty ),* ) =&gt; {
-<a href=#437 id=437 data-nosnippet>437</a>        $(
-<a href=#438 id=438 data-nosnippet>438</a>            <span class="attr">#[allow(clippy::use_self)]
-<a href=#439 id=439 data-nosnippet>439</a>            </span><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
-<a href=#440 id=440 data-nosnippet>440</a>                <span class="kw">type </span><span class="macro-nonterminal">Native </span>= <span class="macro-nonterminal">$native_type</span>;
-<a href=#441 id=441 data-nosnippet>441</a>
-<a href=#442 id=442 data-nosnippet>442</a>                <span class="attr">#[inline]
-<a href=#443 id=443 data-nosnippet>443</a>                </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
-<a href=#444 id=444 data-nosnippet>444</a>                    <span class="self">Self</span>::from_ne_bytes(<span class="self">Self</span>::Native::to_ne_bytes(native))
-<a href=#445 id=445 data-nosnippet>445</a>                }
-<a href=#446 id=446 data-nosnippet>446</a>
-<a href=#447 id=447 data-nosnippet>447</a>                <span class="attr">#[inline]
-<a href=#448 id=448 data-nosnippet>448</a>                </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
-<a href=#449 id=449 data-nosnippet>449</a>                    <span class="self">Self</span>::Native::from_ne_bytes(<span class="self">Self</span>::to_ne_bytes(<span class="self">self</span>))
-<a href=#450 id=450 data-nosnippet>450</a>                }
-<a href=#451 id=451 data-nosnippet>451</a>            }
-<a href=#452 id=452 data-nosnippet>452</a>        )*
-<a href=#453 id=453 data-nosnippet>453</a>    };
-<a href=#454 id=454 data-nosnippet>454</a>}
-<a href=#455 id=455 data-nosnippet>455</a>
-<a href=#456 id=456 data-nosnippet>456</a><span class="macro">from_to_native_wasm_type!</span>(
-<a href=#457 id=457 data-nosnippet>457</a>    i8 =&gt; i32,
-<a href=#458 id=458 data-nosnippet>458</a>    u8 =&gt; i32,
-<a href=#459 id=459 data-nosnippet>459</a>    i16 =&gt; i32,
-<a href=#460 id=460 data-nosnippet>460</a>    u16 =&gt; i32
-<a href=#461 id=461 data-nosnippet>461</a>);
-<a href=#462 id=462 data-nosnippet>462</a>
-<a href=#463 id=463 data-nosnippet>463</a><span class="macro">from_to_native_wasm_type_same_size!</span>(
-<a href=#464 id=464 data-nosnippet>464</a>    i32 =&gt; i32,
-<a href=#465 id=465 data-nosnippet>465</a>    u32 =&gt; i32,
-<a href=#466 id=466 data-nosnippet>466</a>    i64 =&gt; i64,
-<a href=#467 id=467 data-nosnippet>467</a>    u64 =&gt; i64,
-<a href=#468 id=468 data-nosnippet>468</a>    f32 =&gt; f32,
-<a href=#469 id=469 data-nosnippet>469</a>    f64 =&gt; f64
-<a href=#470 id=470 data-nosnippet>470</a>);
-<a href=#471 id=471 data-nosnippet>471</a>
-<a href=#472 id=472 data-nosnippet>472</a><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;ExternRef&gt; {
-<a href=#473 id=473 data-nosnippet>473</a>    <span class="kw">type </span>Native = <span class="self">Self</span>;
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a>    <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
-<a href=#476 id=476 data-nosnippet>476</a>        <span class="self">self
-<a href=#477 id=477 data-nosnippet>477</a>    </span>}
-<a href=#478 id=478 data-nosnippet>478</a>    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
-<a href=#479 id=479 data-nosnippet>479</a>        n
-<a href=#480 id=480 data-nosnippet>480</a>    }
-<a href=#481 id=481 data-nosnippet>481</a>    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
-<a href=#482 id=482 data-nosnippet>482</a>        <span class="self">self</span>.as_ref().is_none_or(|e| e.is_from_store(store))
-<a href=#483 id=483 data-nosnippet>483</a>    }
-<a href=#484 id=484 data-nosnippet>484</a>}
-<a href=#485 id=485 data-nosnippet>485</a>
-<a href=#486 id=486 data-nosnippet>486</a><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;Function&gt; {
-<a href=#487 id=487 data-nosnippet>487</a>    <span class="kw">type </span>Native = <span class="self">Self</span>;
-<a href=#488 id=488 data-nosnippet>488</a>
-<a href=#489 id=489 data-nosnippet>489</a>    <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
-<a href=#490 id=490 data-nosnippet>490</a>        <span class="self">self
-<a href=#491 id=491 data-nosnippet>491</a>    </span>}
-<a href=#492 id=492 data-nosnippet>492</a>    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
-<a href=#493 id=493 data-nosnippet>493</a>        n
-<a href=#494 id=494 data-nosnippet>494</a>    }
-<a href=#495 id=495 data-nosnippet>495</a>    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
-<a href=#496 id=496 data-nosnippet>496</a>        <span class="self">self</span>.as_ref().is_none_or(|f| f.is_from_store(store))
-<a href=#497 id=497 data-nosnippet>497</a>    }
-<a href=#498 id=498 data-nosnippet>498</a>}
-<a href=#499 id=499 data-nosnippet>499</a>
-<a href=#500 id=500 data-nosnippet>500</a><span class="attr">#[cfg(test)]
-<a href=#501 id=501 data-nosnippet>501</a></span><span class="kw">mod </span>test_from_to_native_wasm_type {
-<a href=#502 id=502 data-nosnippet>502</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#318 id=318 data-nosnippet>318</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+<a href=#319 id=319 data-nosnippet>319</a>            </span><span class="kw">crate</span>::BackendStore::V8(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#320 id=320 data-nosnippet>320</a>                <span class="kw">crate</span>::backend::v8::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::V8)
+<a href=#321 id=321 data-nosnippet>321</a>            },
+<a href=#322 id=322 data-nosnippet>322</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+<a href=#323 id=323 data-nosnippet>323</a>            </span><span class="kw">crate</span>::BackendStore::Js(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#324 id=324 data-nosnippet>324</a>                <span class="kw">crate</span>::backend::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js)
+<a href=#325 id=325 data-nosnippet>325</a>            },
+<a href=#326 id=326 data-nosnippet>326</a>            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+<a href=#327 id=327 data-nosnippet>327</a>            </span><span class="kw">crate</span>::BackendStore::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">unsafe </span>{
+<a href=#328 id=328 data-nosnippet>328</a>                <span class="kw">crate</span>::backend::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc)
+<a href=#329 id=329 data-nosnippet>329</a>            },
+<a href=#330 id=330 data-nosnippet>330</a>        }
+<a href=#331 id=331 data-nosnippet>331</a>        .map(|f| <span class="kw">unsafe </span>{ Function::from_vm_funcref(store, f) })
+<a href=#332 id=332 data-nosnippet>332</a>    }
+<a href=#333 id=333 data-nosnippet>333</a>}
+<a href=#334 id=334 data-nosnippet>334</a>
+<a href=#335 id=335 data-nosnippet>335</a><span class="doccomment">/// A trait to convert a Rust value to a `WasmNativeType` value,
+<a href=#336 id=336 data-nosnippet>336</a>/// or to convert `WasmNativeType` value to a Rust value.
+<a href=#337 id=337 data-nosnippet>337</a>///
+<a href=#338 id=338 data-nosnippet>338</a>/// This trait should ideally be split into two traits:
+<a href=#339 id=339 data-nosnippet>339</a>/// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
+<a href=#340 id=340 data-nosnippet>340</a>/// non-negligible complexity in the `WasmTypeList`
+<a href=#341 id=341 data-nosnippet>341</a>/// implementation.
+<a href=#342 id=342 data-nosnippet>342</a>///
+<a href=#343 id=343 data-nosnippet>343</a>/// # Safety
+<a href=#344 id=344 data-nosnippet>344</a>/// This trait is unsafe given the nature of how values are written and read from the native
+<a href=#345 id=345 data-nosnippet>345</a>/// stack
+<a href=#346 id=346 data-nosnippet>346</a></span><span class="kw">pub unsafe trait </span>FromToNativeWasmType
+<a href=#347 id=347 data-nosnippet>347</a><span class="kw">where
+<a href=#348 id=348 data-nosnippet>348</a>    </span><span class="self">Self</span>: Sized,
+<a href=#349 id=349 data-nosnippet>349</a>{
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="doccomment">/// Native Wasm type.
+<a href=#351 id=351 data-nosnippet>351</a>    </span><span class="kw">type </span>Native: NativeWasmTypeInto;
+<a href=#352 id=352 data-nosnippet>352</a>
+<a href=#353 id=353 data-nosnippet>353</a>    <span class="doccomment">/// Convert a value of kind `Self::Native` to `Self`.
+<a href=#354 id=354 data-nosnippet>354</a>    ///
+<a href=#355 id=355 data-nosnippet>355</a>    /// # Panics
+<a href=#356 id=356 data-nosnippet>356</a>    ///
+<a href=#357 id=357 data-nosnippet>357</a>    /// This method panics if `native` cannot fit in the `Self`
+<a href=#358 id=358 data-nosnippet>358</a>    /// type`.
+<a href=#359 id=359 data-nosnippet>359</a>    </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self</span>;
+<a href=#360 id=360 data-nosnippet>360</a>
+<a href=#361 id=361 data-nosnippet>361</a>    <span class="doccomment">/// Convert self to `Self::Native`.
+<a href=#362 id=362 data-nosnippet>362</a>    ///
+<a href=#363 id=363 data-nosnippet>363</a>    /// # Panics
+<a href=#364 id=364 data-nosnippet>364</a>    ///
+<a href=#365 id=365 data-nosnippet>365</a>    /// This method panics if `self` cannot fit in the
+<a href=#366 id=366 data-nosnippet>366</a>    /// `Self::Native` type.
+<a href=#367 id=367 data-nosnippet>367</a>    </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native;
+<a href=#368 id=368 data-nosnippet>368</a>
+<a href=#369 id=369 data-nosnippet>369</a>    <span class="doccomment">/// Returns whether the given value is from the given store.
+<a href=#370 id=370 data-nosnippet>370</a>    ///
+<a href=#371 id=371 data-nosnippet>371</a>    /// This always returns true for primitive types that can be used with
+<a href=#372 id=372 data-nosnippet>372</a>    /// any context.
+<a href=#373 id=373 data-nosnippet>373</a>    </span><span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, _store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+<a href=#374 id=374 data-nosnippet>374</a>        <span class="bool-val">true
+<a href=#375 id=375 data-nosnippet>375</a>    </span>}
+<a href=#376 id=376 data-nosnippet>376</a>}
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a><span class="macro">macro_rules!</span> from_to_native_wasm_type {
+<a href=#379 id=379 data-nosnippet>379</a>    ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty </span>=&gt; <span class="macro-nonterminal">$native_type</span>:ty ),* ) =&gt; {
+<a href=#380 id=380 data-nosnippet>380</a>        $(
+<a href=#381 id=381 data-nosnippet>381</a>            <span class="attr">#[allow(clippy::use_self)]
+<a href=#382 id=382 data-nosnippet>382</a>            </span><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
+<a href=#383 id=383 data-nosnippet>383</a>                <span class="kw">type </span><span class="macro-nonterminal">Native </span>= <span class="macro-nonterminal">$native_type</span>;
+<a href=#384 id=384 data-nosnippet>384</a>
+<a href=#385 id=385 data-nosnippet>385</a>                <span class="attr">#[inline]
+<a href=#386 id=386 data-nosnippet>386</a>                </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+<a href=#387 id=387 data-nosnippet>387</a>                    native <span class="kw">as </span><span class="self">Self
+<a href=#388 id=388 data-nosnippet>388</a>                </span>}
+<a href=#389 id=389 data-nosnippet>389</a>
+<a href=#390 id=390 data-nosnippet>390</a>                <span class="attr">#[inline]
+<a href=#391 id=391 data-nosnippet>391</a>                </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+<a href=#392 id=392 data-nosnippet>392</a>                    <span class="self">self </span><span class="kw">as </span><span class="self">Self</span>::Native
+<a href=#393 id=393 data-nosnippet>393</a>                }
+<a href=#394 id=394 data-nosnippet>394</a>            }
+<a href=#395 id=395 data-nosnippet>395</a>        )*
+<a href=#396 id=396 data-nosnippet>396</a>    };
+<a href=#397 id=397 data-nosnippet>397</a>}
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a><span class="macro">macro_rules!</span> from_to_native_wasm_type_same_size {
+<a href=#400 id=400 data-nosnippet>400</a>    ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty </span>=&gt; <span class="macro-nonterminal">$native_type</span>:ty ),* ) =&gt; {
+<a href=#401 id=401 data-nosnippet>401</a>        $(
+<a href=#402 id=402 data-nosnippet>402</a>            <span class="attr">#[allow(clippy::use_self)]
+<a href=#403 id=403 data-nosnippet>403</a>            </span><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
+<a href=#404 id=404 data-nosnippet>404</a>                <span class="kw">type </span><span class="macro-nonterminal">Native </span>= <span class="macro-nonterminal">$native_type</span>;
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>                <span class="attr">#[inline]
+<a href=#407 id=407 data-nosnippet>407</a>                </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+<a href=#408 id=408 data-nosnippet>408</a>                    <span class="self">Self</span>::from_ne_bytes(<span class="self">Self</span>::Native::to_ne_bytes(native))
+<a href=#409 id=409 data-nosnippet>409</a>                }
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a>                <span class="attr">#[inline]
+<a href=#412 id=412 data-nosnippet>412</a>                </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+<a href=#413 id=413 data-nosnippet>413</a>                    <span class="self">Self</span>::Native::from_ne_bytes(<span class="self">Self</span>::to_ne_bytes(<span class="self">self</span>))
+<a href=#414 id=414 data-nosnippet>414</a>                }
+<a href=#415 id=415 data-nosnippet>415</a>            }
+<a href=#416 id=416 data-nosnippet>416</a>        )*
+<a href=#417 id=417 data-nosnippet>417</a>    };
+<a href=#418 id=418 data-nosnippet>418</a>}
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a><span class="macro">from_to_native_wasm_type!</span>(
+<a href=#421 id=421 data-nosnippet>421</a>    i8 =&gt; i32,
+<a href=#422 id=422 data-nosnippet>422</a>    u8 =&gt; i32,
+<a href=#423 id=423 data-nosnippet>423</a>    i16 =&gt; i32,
+<a href=#424 id=424 data-nosnippet>424</a>    u16 =&gt; i32
+<a href=#425 id=425 data-nosnippet>425</a>);
+<a href=#426 id=426 data-nosnippet>426</a>
+<a href=#427 id=427 data-nosnippet>427</a><span class="macro">from_to_native_wasm_type_same_size!</span>(
+<a href=#428 id=428 data-nosnippet>428</a>    i32 =&gt; i32,
+<a href=#429 id=429 data-nosnippet>429</a>    u32 =&gt; i32,
+<a href=#430 id=430 data-nosnippet>430</a>    i64 =&gt; i64,
+<a href=#431 id=431 data-nosnippet>431</a>    u64 =&gt; i64,
+<a href=#432 id=432 data-nosnippet>432</a>    f32 =&gt; f32,
+<a href=#433 id=433 data-nosnippet>433</a>    f64 =&gt; f64
+<a href=#434 id=434 data-nosnippet>434</a>);
+<a href=#435 id=435 data-nosnippet>435</a>
+<a href=#436 id=436 data-nosnippet>436</a><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;ExternRef&gt; {
+<a href=#437 id=437 data-nosnippet>437</a>    <span class="kw">type </span>Native = <span class="self">Self</span>;
+<a href=#438 id=438 data-nosnippet>438</a>
+<a href=#439 id=439 data-nosnippet>439</a>    <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+<a href=#440 id=440 data-nosnippet>440</a>        <span class="self">self
+<a href=#441 id=441 data-nosnippet>441</a>    </span>}
+<a href=#442 id=442 data-nosnippet>442</a>    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+<a href=#443 id=443 data-nosnippet>443</a>        n
+<a href=#444 id=444 data-nosnippet>444</a>    }
+<a href=#445 id=445 data-nosnippet>445</a>    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+<a href=#446 id=446 data-nosnippet>446</a>        <span class="self">self</span>.as_ref().is_none_or(|e| e.is_from_store(store))
+<a href=#447 id=447 data-nosnippet>447</a>    }
+<a href=#448 id=448 data-nosnippet>448</a>}
+<a href=#449 id=449 data-nosnippet>449</a>
+<a href=#450 id=450 data-nosnippet>450</a><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;Function&gt; {
+<a href=#451 id=451 data-nosnippet>451</a>    <span class="kw">type </span>Native = <span class="self">Self</span>;
+<a href=#452 id=452 data-nosnippet>452</a>
+<a href=#453 id=453 data-nosnippet>453</a>    <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+<a href=#454 id=454 data-nosnippet>454</a>        <span class="self">self
+<a href=#455 id=455 data-nosnippet>455</a>    </span>}
+<a href=#456 id=456 data-nosnippet>456</a>    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+<a href=#457 id=457 data-nosnippet>457</a>        n
+<a href=#458 id=458 data-nosnippet>458</a>    }
+<a href=#459 id=459 data-nosnippet>459</a>    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+<a href=#460 id=460 data-nosnippet>460</a>        <span class="self">self</span>.as_ref().is_none_or(|f| f.is_from_store(store))
+<a href=#461 id=461 data-nosnippet>461</a>    }
+<a href=#462 id=462 data-nosnippet>462</a>}
+<a href=#463 id=463 data-nosnippet>463</a>
+<a href=#464 id=464 data-nosnippet>464</a><span class="attr">#[cfg(test)]
+<a href=#465 id=465 data-nosnippet>465</a></span><span class="kw">mod </span>test_from_to_native_wasm_type {
+<a href=#466 id=466 data-nosnippet>466</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#467 id=467 data-nosnippet>467</a>
+<a href=#468 id=468 data-nosnippet>468</a>    <span class="attr">#[test]
+<a href=#469 id=469 data-nosnippet>469</a>    </span><span class="kw">fn </span>test_to_native() {
+<a href=#470 id=470 data-nosnippet>470</a>        <span class="macro">assert_eq!</span>(<span class="number">7i8</span>.to_native(), <span class="number">7i32</span>);
+<a href=#471 id=471 data-nosnippet>471</a>        <span class="macro">assert_eq!</span>(<span class="number">7u8</span>.to_native(), <span class="number">7i32</span>);
+<a href=#472 id=472 data-nosnippet>472</a>        <span class="macro">assert_eq!</span>(<span class="number">7i16</span>.to_native(), <span class="number">7i32</span>);
+<a href=#473 id=473 data-nosnippet>473</a>        <span class="macro">assert_eq!</span>(<span class="number">7u16</span>.to_native(), <span class="number">7i32</span>);
+<a href=#474 id=474 data-nosnippet>474</a>        <span class="macro">assert_eq!</span>(u32::MAX.to_native(), -<span class="number">1</span>);
+<a href=#475 id=475 data-nosnippet>475</a>    }
+<a href=#476 id=476 data-nosnippet>476</a>
+<a href=#477 id=477 data-nosnippet>477</a>    <span class="attr">#[test]
+<a href=#478 id=478 data-nosnippet>478</a>    </span><span class="kw">fn </span>test_to_native_same_size() {
+<a href=#479 id=479 data-nosnippet>479</a>        <span class="macro">assert_eq!</span>(<span class="number">7i32</span>.to_native(), <span class="number">7i32</span>);
+<a href=#480 id=480 data-nosnippet>480</a>        <span class="macro">assert_eq!</span>(<span class="number">7u32</span>.to_native(), <span class="number">7i32</span>);
+<a href=#481 id=481 data-nosnippet>481</a>        <span class="macro">assert_eq!</span>(<span class="number">7i64</span>.to_native(), <span class="number">7i64</span>);
+<a href=#482 id=482 data-nosnippet>482</a>        <span class="macro">assert_eq!</span>(<span class="number">7u64</span>.to_native(), <span class="number">7i64</span>);
+<a href=#483 id=483 data-nosnippet>483</a>        <span class="macro">assert_eq!</span>(<span class="number">7f32</span>.to_native(), <span class="number">7f32</span>);
+<a href=#484 id=484 data-nosnippet>484</a>        <span class="macro">assert_eq!</span>(<span class="number">7f64</span>.to_native(), <span class="number">7f64</span>);
+<a href=#485 id=485 data-nosnippet>485</a>    }
+<a href=#486 id=486 data-nosnippet>486</a>}
+<a href=#487 id=487 data-nosnippet>487</a>
+<a href=#488 id=488 data-nosnippet>488</a><span class="doccomment">/// The `WasmTypeList` trait represents a tuple (list) of Wasm
+<a href=#489 id=489 data-nosnippet>489</a>/// typed values. It is used to get low-level representation of
+<a href=#490 id=490 data-nosnippet>490</a>/// such a tuple.
+<a href=#491 id=491 data-nosnippet>491</a></span><span class="kw">pub trait </span>WasmTypeList
+<a href=#492 id=492 data-nosnippet>492</a><span class="kw">where
+<a href=#493 id=493 data-nosnippet>493</a>    </span><span class="self">Self</span>: Sized,
+<a href=#494 id=494 data-nosnippet>494</a>{
+<a href=#495 id=495 data-nosnippet>495</a>    <span class="doccomment">/// The C type (a struct) that can hold/represent all the
+<a href=#496 id=496 data-nosnippet>496</a>    /// represented values.
+<a href=#497 id=497 data-nosnippet>497</a>    </span><span class="kw">type </span>CStruct;
+<a href=#498 id=498 data-nosnippet>498</a>
+<a href=#499 id=499 data-nosnippet>499</a>    <span class="doccomment">/// The array type that can hold all the represented values.
+<a href=#500 id=500 data-nosnippet>500</a>    ///
+<a href=#501 id=501 data-nosnippet>501</a>    /// Note that all values are stored in their binary form.
+<a href=#502 id=502 data-nosnippet>502</a>    </span><span class="kw">type </span>Array: AsMut&lt;[RawValue]&gt;;
 <a href=#503 id=503 data-nosnippet>503</a>
-<a href=#504 id=504 data-nosnippet>504</a>    <span class="attr">#[test]
-<a href=#505 id=505 data-nosnippet>505</a>    </span><span class="kw">fn </span>test_to_native() {
-<a href=#506 id=506 data-nosnippet>506</a>        <span class="macro">assert_eq!</span>(<span class="number">7i8</span>.to_native(), <span class="number">7i32</span>);
-<a href=#507 id=507 data-nosnippet>507</a>        <span class="macro">assert_eq!</span>(<span class="number">7u8</span>.to_native(), <span class="number">7i32</span>);
-<a href=#508 id=508 data-nosnippet>508</a>        <span class="macro">assert_eq!</span>(<span class="number">7i16</span>.to_native(), <span class="number">7i32</span>);
-<a href=#509 id=509 data-nosnippet>509</a>        <span class="macro">assert_eq!</span>(<span class="number">7u16</span>.to_native(), <span class="number">7i32</span>);
-<a href=#510 id=510 data-nosnippet>510</a>        <span class="macro">assert_eq!</span>(u32::MAX.to_native(), -<span class="number">1</span>);
-<a href=#511 id=511 data-nosnippet>511</a>    }
-<a href=#512 id=512 data-nosnippet>512</a>
-<a href=#513 id=513 data-nosnippet>513</a>    <span class="attr">#[test]
-<a href=#514 id=514 data-nosnippet>514</a>    </span><span class="kw">fn </span>test_to_native_same_size() {
-<a href=#515 id=515 data-nosnippet>515</a>        <span class="macro">assert_eq!</span>(<span class="number">7i32</span>.to_native(), <span class="number">7i32</span>);
-<a href=#516 id=516 data-nosnippet>516</a>        <span class="macro">assert_eq!</span>(<span class="number">7u32</span>.to_native(), <span class="number">7i32</span>);
-<a href=#517 id=517 data-nosnippet>517</a>        <span class="macro">assert_eq!</span>(<span class="number">7i64</span>.to_native(), <span class="number">7i64</span>);
-<a href=#518 id=518 data-nosnippet>518</a>        <span class="macro">assert_eq!</span>(<span class="number">7u64</span>.to_native(), <span class="number">7i64</span>);
-<a href=#519 id=519 data-nosnippet>519</a>        <span class="macro">assert_eq!</span>(<span class="number">7f32</span>.to_native(), <span class="number">7f32</span>);
-<a href=#520 id=520 data-nosnippet>520</a>        <span class="macro">assert_eq!</span>(<span class="number">7f64</span>.to_native(), <span class="number">7f64</span>);
-<a href=#521 id=521 data-nosnippet>521</a>    }
-<a href=#522 id=522 data-nosnippet>522</a>}
-<a href=#523 id=523 data-nosnippet>523</a>
-<a href=#524 id=524 data-nosnippet>524</a><span class="doccomment">/// The `WasmTypeList` trait represents a tuple (list) of Wasm
-<a href=#525 id=525 data-nosnippet>525</a>/// typed values. It is used to get low-level representation of
-<a href=#526 id=526 data-nosnippet>526</a>/// such a tuple.
-<a href=#527 id=527 data-nosnippet>527</a></span><span class="kw">pub trait </span>WasmTypeList
-<a href=#528 id=528 data-nosnippet>528</a><span class="kw">where
-<a href=#529 id=529 data-nosnippet>529</a>    </span><span class="self">Self</span>: Sized,
-<a href=#530 id=530 data-nosnippet>530</a>{
-<a href=#531 id=531 data-nosnippet>531</a>    <span class="doccomment">/// The C type (a struct) that can hold/represent all the
-<a href=#532 id=532 data-nosnippet>532</a>    /// represented values.
-<a href=#533 id=533 data-nosnippet>533</a>    </span><span class="kw">type </span>CStruct;
-<a href=#534 id=534 data-nosnippet>534</a>
-<a href=#535 id=535 data-nosnippet>535</a>    <span class="doccomment">/// The array type that can hold all the represented values.
-<a href=#536 id=536 data-nosnippet>536</a>    ///
-<a href=#537 id=537 data-nosnippet>537</a>    /// Note that all values are stored in their binary form.
-<a href=#538 id=538 data-nosnippet>538</a>    </span><span class="kw">type </span>Array: AsMut&lt;[RawValue]&gt;;
-<a href=#539 id=539 data-nosnippet>539</a>
-<a href=#540 id=540 data-nosnippet>540</a>    <span class="doccomment">/// The size of the array
-<a href=#541 id=541 data-nosnippet>541</a>    </span><span class="kw">fn </span>size() -&gt; u32;
-<a href=#542 id=542 data-nosnippet>542</a>
-<a href=#543 id=543 data-nosnippet>543</a>    <span class="doccomment">/// Constructs `Self` based on an array of values.
+<a href=#504 id=504 data-nosnippet>504</a>    <span class="doccomment">/// The size of the array
+<a href=#505 id=505 data-nosnippet>505</a>    </span><span class="kw">fn </span>size() -&gt; u32;
+<a href=#506 id=506 data-nosnippet>506</a>
+<a href=#507 id=507 data-nosnippet>507</a>    <span class="doccomment">/// Constructs `Self` based on an array of values.
+<a href=#508 id=508 data-nosnippet>508</a>    ///
+<a href=#509 id=509 data-nosnippet>509</a>    /// # Safety
+<a href=#510 id=510 data-nosnippet>510</a>    </span><span class="kw">unsafe fn </span>from_array(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, array: <span class="self">Self</span>::Array) -&gt; <span class="self">Self</span>;
+<a href=#511 id=511 data-nosnippet>511</a>
+<a href=#512 id=512 data-nosnippet>512</a>    <span class="doccomment">/// Constructs `Self` based on a slice of values.
+<a href=#513 id=513 data-nosnippet>513</a>    ///
+<a href=#514 id=514 data-nosnippet>514</a>    /// `from_slice` returns a `Result` because it is possible
+<a href=#515 id=515 data-nosnippet>515</a>    /// that the slice doesn't have the same size than
+<a href=#516 id=516 data-nosnippet>516</a>    /// `Self::Array`, in which circumstance an error of kind
+<a href=#517 id=517 data-nosnippet>517</a>    /// `TryFromSliceError` will be returned.
+<a href=#518 id=518 data-nosnippet>518</a>    ///
+<a href=#519 id=519 data-nosnippet>519</a>    /// # Safety
+<a href=#520 id=520 data-nosnippet>520</a>    </span><span class="kw">unsafe fn </span>from_slice(
+<a href=#521 id=521 data-nosnippet>521</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#522 id=522 data-nosnippet>522</a>        slice: <span class="kw-2">&amp;</span>[RawValue],
+<a href=#523 id=523 data-nosnippet>523</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt;;
+<a href=#524 id=524 data-nosnippet>524</a>
+<a href=#525 id=525 data-nosnippet>525</a>    <span class="doccomment">/// Builds and returns an array of type `Array` from a tuple
+<a href=#526 id=526 data-nosnippet>526</a>    /// (list) of values.
+<a href=#527 id=527 data-nosnippet>527</a>    ///
+<a href=#528 id=528 data-nosnippet>528</a>    /// # Safety
+<a href=#529 id=529 data-nosnippet>529</a>    </span><span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array;
+<a href=#530 id=530 data-nosnippet>530</a>
+<a href=#531 id=531 data-nosnippet>531</a>    <span class="doccomment">/// Allocates and return an empty array of type `Array` that
+<a href=#532 id=532 data-nosnippet>532</a>    /// will hold a tuple (list) of values, usually to hold the
+<a href=#533 id=533 data-nosnippet>533</a>    /// returned values of a WebAssembly function call.
+<a href=#534 id=534 data-nosnippet>534</a>    </span><span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array;
+<a href=#535 id=535 data-nosnippet>535</a>
+<a href=#536 id=536 data-nosnippet>536</a>    <span class="doccomment">/// Builds a tuple (list) of values from a C struct of type
+<a href=#537 id=537 data-nosnippet>537</a>    /// `CStruct`.
+<a href=#538 id=538 data-nosnippet>538</a>    ///
+<a href=#539 id=539 data-nosnippet>539</a>    /// # Safety
+<a href=#540 id=540 data-nosnippet>540</a>    </span><span class="kw">unsafe fn </span>from_c_struct(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, c_struct: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self</span>;
+<a href=#541 id=541 data-nosnippet>541</a>
+<a href=#542 id=542 data-nosnippet>542</a>    <span class="doccomment">/// Builds and returns a C struct of type `CStruct` from a
+<a href=#543 id=543 data-nosnippet>543</a>    /// tuple (list) of values.
 <a href=#544 id=544 data-nosnippet>544</a>    ///
 <a href=#545 id=545 data-nosnippet>545</a>    /// # Safety
-<a href=#546 id=546 data-nosnippet>546</a>    </span><span class="kw">unsafe fn </span>from_array(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, array: <span class="self">Self</span>::Array) -&gt; <span class="self">Self</span>;
+<a href=#546 id=546 data-nosnippet>546</a>    </span><span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct;
 <a href=#547 id=547 data-nosnippet>547</a>
-<a href=#548 id=548 data-nosnippet>548</a>    <span class="doccomment">/// Constructs `Self` based on a slice of values.
+<a href=#548 id=548 data-nosnippet>548</a>    <span class="doccomment">/// Writes the contents of a C struct to an array of `RawValue`.
 <a href=#549 id=549 data-nosnippet>549</a>    ///
-<a href=#550 id=550 data-nosnippet>550</a>    /// `from_slice` returns a `Result` because it is possible
-<a href=#551 id=551 data-nosnippet>551</a>    /// that the slice doesn't have the same size than
-<a href=#552 id=552 data-nosnippet>552</a>    /// `Self::Array`, in which circumstance an error of kind
-<a href=#553 id=553 data-nosnippet>553</a>    /// `TryFromSliceError` will be returned.
-<a href=#554 id=554 data-nosnippet>554</a>    ///
-<a href=#555 id=555 data-nosnippet>555</a>    /// # Safety
-<a href=#556 id=556 data-nosnippet>556</a>    </span><span class="kw">unsafe fn </span>from_slice(
-<a href=#557 id=557 data-nosnippet>557</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#558 id=558 data-nosnippet>558</a>        slice: <span class="kw-2">&amp;</span>[RawValue],
-<a href=#559 id=559 data-nosnippet>559</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt;;
-<a href=#560 id=560 data-nosnippet>560</a>
-<a href=#561 id=561 data-nosnippet>561</a>    <span class="doccomment">/// Builds and returns an array of type `Array` from a tuple
-<a href=#562 id=562 data-nosnippet>562</a>    /// (list) of values.
-<a href=#563 id=563 data-nosnippet>563</a>    ///
-<a href=#564 id=564 data-nosnippet>564</a>    /// # Safety
-<a href=#565 id=565 data-nosnippet>565</a>    </span><span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array;
-<a href=#566 id=566 data-nosnippet>566</a>
-<a href=#567 id=567 data-nosnippet>567</a>    <span class="doccomment">/// Allocates and return an empty array of type `Array` that
-<a href=#568 id=568 data-nosnippet>568</a>    /// will hold a tuple (list) of values, usually to hold the
-<a href=#569 id=569 data-nosnippet>569</a>    /// returned values of a WebAssembly function call.
-<a href=#570 id=570 data-nosnippet>570</a>    </span><span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array;
-<a href=#571 id=571 data-nosnippet>571</a>
-<a href=#572 id=572 data-nosnippet>572</a>    <span class="doccomment">/// Builds a tuple (list) of values from a C struct of type
-<a href=#573 id=573 data-nosnippet>573</a>    /// `CStruct`.
-<a href=#574 id=574 data-nosnippet>574</a>    ///
-<a href=#575 id=575 data-nosnippet>575</a>    /// # Safety
-<a href=#576 id=576 data-nosnippet>576</a>    </span><span class="kw">unsafe fn </span>from_c_struct(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, c_struct: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self</span>;
-<a href=#577 id=577 data-nosnippet>577</a>
-<a href=#578 id=578 data-nosnippet>578</a>    <span class="doccomment">/// Builds and returns a C struct of type `CStruct` from a
-<a href=#579 id=579 data-nosnippet>579</a>    /// tuple (list) of values.
-<a href=#580 id=580 data-nosnippet>580</a>    ///
-<a href=#581 id=581 data-nosnippet>581</a>    /// # Safety
-<a href=#582 id=582 data-nosnippet>582</a>    </span><span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct;
-<a href=#583 id=583 data-nosnippet>583</a>
-<a href=#584 id=584 data-nosnippet>584</a>    <span class="doccomment">/// Writes the contents of a C struct to an array of `RawValue`.
-<a href=#585 id=585 data-nosnippet>585</a>    ///
-<a href=#586 id=586 data-nosnippet>586</a>    /// # Safety
-<a href=#587 id=587 data-nosnippet>587</a>    </span><span class="kw">unsafe fn </span>write_c_struct_to_ptr(c_struct: <span class="self">Self</span>::CStruct, ptr: <span class="kw-2">*mut </span>RawValue);
-<a href=#588 id=588 data-nosnippet>588</a>
-<a href=#589 id=589 data-nosnippet>589</a>    <span class="doccomment">/// Get the Wasm types for the tuple (list) of currently
-<a href=#590 id=590 data-nosnippet>590</a>    /// represented values.
-<a href=#591 id=591 data-nosnippet>591</a>    </span><span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[Type];
-<a href=#592 id=592 data-nosnippet>592</a>}
+<a href=#550 id=550 data-nosnippet>550</a>    /// # Safety
+<a href=#551 id=551 data-nosnippet>551</a>    </span><span class="kw">unsafe fn </span>write_c_struct_to_ptr(c_struct: <span class="self">Self</span>::CStruct, ptr: <span class="kw-2">*mut </span>RawValue);
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a>    <span class="doccomment">/// Get the Wasm types for the tuple (list) of currently
+<a href=#554 id=554 data-nosnippet>554</a>    /// represented values.
+<a href=#555 id=555 data-nosnippet>555</a>    </span><span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[Type];
+<a href=#556 id=556 data-nosnippet>556</a>}
+<a href=#557 id=557 data-nosnippet>557</a>
+<a href=#558 id=558 data-nosnippet>558</a><span class="doccomment">/// The `IntoResult` trait turns a `WasmTypeList` into a
+<a href=#559 id=559 data-nosnippet>559</a>/// `Result&lt;WasmTypeList, Self::Error&gt;`.
+<a href=#560 id=560 data-nosnippet>560</a>///
+<a href=#561 id=561 data-nosnippet>561</a>/// It is mostly used to turn result values of a Wasm function
+<a href=#562 id=562 data-nosnippet>562</a>/// call into a `Result`.
+<a href=#563 id=563 data-nosnippet>563</a></span><span class="kw">pub trait </span>IntoResult&lt;T&gt;
+<a href=#564 id=564 data-nosnippet>564</a><span class="kw">where
+<a href=#565 id=565 data-nosnippet>565</a>    </span>T: WasmTypeList,
+<a href=#566 id=566 data-nosnippet>566</a>{
+<a href=#567 id=567 data-nosnippet>567</a>    <span class="doccomment">/// The error type for this trait.
+<a href=#568 id=568 data-nosnippet>568</a>    </span><span class="kw">type </span>Error: Error + Sync + Send + <span class="lifetime">'static</span>;
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a>    <span class="doccomment">/// Transforms `Self` into a `Result`.
+<a href=#571 id=571 data-nosnippet>571</a>    </span><span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, <span class="self">Self</span>::Error&gt;;
+<a href=#572 id=572 data-nosnippet>572</a>}
+<a href=#573 id=573 data-nosnippet>573</a>
+<a href=#574 id=574 data-nosnippet>574</a><span class="kw">impl</span>&lt;T&gt; IntoResult&lt;T&gt; <span class="kw">for </span>T
+<a href=#575 id=575 data-nosnippet>575</a><span class="kw">where
+<a href=#576 id=576 data-nosnippet>576</a>    </span>T: WasmTypeList,
+<a href=#577 id=577 data-nosnippet>577</a>{
+<a href=#578 id=578 data-nosnippet>578</a>    <span class="comment">// `T` is not a `Result`, it's already a value, so no error
+<a href=#579 id=579 data-nosnippet>579</a>    // can be built.
+<a href=#580 id=580 data-nosnippet>580</a>    </span><span class="kw">type </span>Error = Infallible;
+<a href=#581 id=581 data-nosnippet>581</a>
+<a href=#582 id=582 data-nosnippet>582</a>    <span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Infallible&gt; {
+<a href=#583 id=583 data-nosnippet>583</a>        <span class="prelude-val">Ok</span>(<span class="self">self</span>)
+<a href=#584 id=584 data-nosnippet>584</a>    }
+<a href=#585 id=585 data-nosnippet>585</a>}
+<a href=#586 id=586 data-nosnippet>586</a>
+<a href=#587 id=587 data-nosnippet>587</a><span class="kw">impl</span>&lt;T, E&gt; IntoResult&lt;T&gt; <span class="kw">for </span><span class="prelude-ty">Result</span>&lt;T, E&gt;
+<a href=#588 id=588 data-nosnippet>588</a><span class="kw">where
+<a href=#589 id=589 data-nosnippet>589</a>    </span>T: WasmTypeList,
+<a href=#590 id=590 data-nosnippet>590</a>    E: Error + Sync + Send + <span class="lifetime">'static</span>,
+<a href=#591 id=591 data-nosnippet>591</a>{
+<a href=#592 id=592 data-nosnippet>592</a>    <span class="kw">type </span>Error = E;
 <a href=#593 id=593 data-nosnippet>593</a>
-<a href=#594 id=594 data-nosnippet>594</a><span class="doccomment">/// The `IntoResult` trait turns a `WasmTypeList` into a
-<a href=#595 id=595 data-nosnippet>595</a>/// `Result&lt;WasmTypeList, Self::Error&gt;`.
-<a href=#596 id=596 data-nosnippet>596</a>///
-<a href=#597 id=597 data-nosnippet>597</a>/// It is mostly used to turn result values of a Wasm function
-<a href=#598 id=598 data-nosnippet>598</a>/// call into a `Result`.
-<a href=#599 id=599 data-nosnippet>599</a></span><span class="kw">pub trait </span>IntoResult&lt;T&gt;
-<a href=#600 id=600 data-nosnippet>600</a><span class="kw">where
-<a href=#601 id=601 data-nosnippet>601</a>    </span>T: WasmTypeList,
-<a href=#602 id=602 data-nosnippet>602</a>{
-<a href=#603 id=603 data-nosnippet>603</a>    <span class="doccomment">/// The error type for this trait.
-<a href=#604 id=604 data-nosnippet>604</a>    </span><span class="kw">type </span>Error: Error + Sync + Send + <span class="lifetime">'static</span>;
-<a href=#605 id=605 data-nosnippet>605</a>
-<a href=#606 id=606 data-nosnippet>606</a>    <span class="doccomment">/// Transforms `Self` into a `Result`.
-<a href=#607 id=607 data-nosnippet>607</a>    </span><span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, <span class="self">Self</span>::Error&gt;;
-<a href=#608 id=608 data-nosnippet>608</a>}
-<a href=#609 id=609 data-nosnippet>609</a>
-<a href=#610 id=610 data-nosnippet>610</a><span class="kw">impl</span>&lt;T&gt; IntoResult&lt;T&gt; <span class="kw">for </span>T
-<a href=#611 id=611 data-nosnippet>611</a><span class="kw">where
-<a href=#612 id=612 data-nosnippet>612</a>    </span>T: WasmTypeList,
-<a href=#613 id=613 data-nosnippet>613</a>{
-<a href=#614 id=614 data-nosnippet>614</a>    <span class="comment">// `T` is not a `Result`, it's already a value, so no error
-<a href=#615 id=615 data-nosnippet>615</a>    // can be built.
-<a href=#616 id=616 data-nosnippet>616</a>    </span><span class="kw">type </span>Error = Infallible;
+<a href=#594 id=594 data-nosnippet>594</a>    <span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#595 id=595 data-nosnippet>595</a>        <span class="self">self
+<a href=#596 id=596 data-nosnippet>596</a>    </span>}
+<a href=#597 id=597 data-nosnippet>597</a>}
+<a href=#598 id=598 data-nosnippet>598</a>
+<a href=#599 id=599 data-nosnippet>599</a><span class="attr">#[cfg(test)]
+<a href=#600 id=600 data-nosnippet>600</a></span><span class="kw">mod </span>test_into_result {
+<a href=#601 id=601 data-nosnippet>601</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#602 id=602 data-nosnippet>602</a>    <span class="kw">use </span>std::convert::Infallible;
+<a href=#603 id=603 data-nosnippet>603</a>
+<a href=#604 id=604 data-nosnippet>604</a>    <span class="attr">#[test]
+<a href=#605 id=605 data-nosnippet>605</a>    </span><span class="kw">fn </span>test_into_result_over_t() {
+<a href=#606 id=606 data-nosnippet>606</a>        <span class="kw">let </span>x: i32 = <span class="number">42</span>;
+<a href=#607 id=607 data-nosnippet>607</a>        <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = x.into_result();
+<a href=#608 id=608 data-nosnippet>608</a>
+<a href=#609 id=609 data-nosnippet>609</a>        <span class="macro">assert_eq!</span>(result_of_x.unwrap(), x);
+<a href=#610 id=610 data-nosnippet>610</a>    }
+<a href=#611 id=611 data-nosnippet>611</a>
+<a href=#612 id=612 data-nosnippet>612</a>    <span class="attr">#[test]
+<a href=#613 id=613 data-nosnippet>613</a>    </span><span class="kw">fn </span>test_into_result_over_result() {
+<a href=#614 id=614 data-nosnippet>614</a>        {
+<a href=#615 id=615 data-nosnippet>615</a>            <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = <span class="prelude-val">Ok</span>(<span class="number">42</span>);
+<a href=#616 id=616 data-nosnippet>616</a>            <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = x.into_result();
 <a href=#617 id=617 data-nosnippet>617</a>
-<a href=#618 id=618 data-nosnippet>618</a>    <span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Infallible&gt; {
-<a href=#619 id=619 data-nosnippet>619</a>        <span class="prelude-val">Ok</span>(<span class="self">self</span>)
-<a href=#620 id=620 data-nosnippet>620</a>    }
-<a href=#621 id=621 data-nosnippet>621</a>}
-<a href=#622 id=622 data-nosnippet>622</a>
-<a href=#623 id=623 data-nosnippet>623</a><span class="kw">impl</span>&lt;T, E&gt; IntoResult&lt;T&gt; <span class="kw">for </span><span class="prelude-ty">Result</span>&lt;T, E&gt;
-<a href=#624 id=624 data-nosnippet>624</a><span class="kw">where
-<a href=#625 id=625 data-nosnippet>625</a>    </span>T: WasmTypeList,
-<a href=#626 id=626 data-nosnippet>626</a>    E: Error + Sync + Send + <span class="lifetime">'static</span>,
-<a href=#627 id=627 data-nosnippet>627</a>{
-<a href=#628 id=628 data-nosnippet>628</a>    <span class="kw">type </span>Error = E;
-<a href=#629 id=629 data-nosnippet>629</a>
-<a href=#630 id=630 data-nosnippet>630</a>    <span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
-<a href=#631 id=631 data-nosnippet>631</a>        <span class="self">self
-<a href=#632 id=632 data-nosnippet>632</a>    </span>}
-<a href=#633 id=633 data-nosnippet>633</a>}
+<a href=#618 id=618 data-nosnippet>618</a>            <span class="macro">assert_eq!</span>(result_of_x, x);
+<a href=#619 id=619 data-nosnippet>619</a>        }
+<a href=#620 id=620 data-nosnippet>620</a>
+<a href=#621 id=621 data-nosnippet>621</a>        {
+<a href=#622 id=622 data-nosnippet>622</a>            <span class="kw">use </span>std::{error, fmt};
+<a href=#623 id=623 data-nosnippet>623</a>
+<a href=#624 id=624 data-nosnippet>624</a>            <span class="attr">#[derive(Debug, PartialEq)]
+<a href=#625 id=625 data-nosnippet>625</a>            </span><span class="kw">struct </span>E;
+<a href=#626 id=626 data-nosnippet>626</a>
+<a href=#627 id=627 data-nosnippet>627</a>            <span class="kw">impl </span>fmt::Display <span class="kw">for </span>E {
+<a href=#628 id=628 data-nosnippet>628</a>                <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+<a href=#629 id=629 data-nosnippet>629</a>                    <span class="macro">write!</span>(formatter, <span class="string">"E"</span>)
+<a href=#630 id=630 data-nosnippet>630</a>                }
+<a href=#631 id=631 data-nosnippet>631</a>            }
+<a href=#632 id=632 data-nosnippet>632</a>
+<a href=#633 id=633 data-nosnippet>633</a>            <span class="kw">impl </span>error::Error <span class="kw">for </span>E {}
 <a href=#634 id=634 data-nosnippet>634</a>
-<a href=#635 id=635 data-nosnippet>635</a><span class="attr">#[cfg(test)]
-<a href=#636 id=636 data-nosnippet>636</a></span><span class="kw">mod </span>test_into_result {
-<a href=#637 id=637 data-nosnippet>637</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#638 id=638 data-nosnippet>638</a>    <span class="kw">use </span>std::convert::Infallible;
-<a href=#639 id=639 data-nosnippet>639</a>
-<a href=#640 id=640 data-nosnippet>640</a>    <span class="attr">#[test]
-<a href=#641 id=641 data-nosnippet>641</a>    </span><span class="kw">fn </span>test_into_result_over_t() {
-<a href=#642 id=642 data-nosnippet>642</a>        <span class="kw">let </span>x: i32 = <span class="number">42</span>;
-<a href=#643 id=643 data-nosnippet>643</a>        <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = x.into_result();
-<a href=#644 id=644 data-nosnippet>644</a>
-<a href=#645 id=645 data-nosnippet>645</a>        <span class="macro">assert_eq!</span>(result_of_x.unwrap(), x);
-<a href=#646 id=646 data-nosnippet>646</a>    }
-<a href=#647 id=647 data-nosnippet>647</a>
-<a href=#648 id=648 data-nosnippet>648</a>    <span class="attr">#[test]
-<a href=#649 id=649 data-nosnippet>649</a>    </span><span class="kw">fn </span>test_into_result_over_result() {
-<a href=#650 id=650 data-nosnippet>650</a>        {
-<a href=#651 id=651 data-nosnippet>651</a>            <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = <span class="prelude-val">Ok</span>(<span class="number">42</span>);
-<a href=#652 id=652 data-nosnippet>652</a>            <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = x.into_result();
-<a href=#653 id=653 data-nosnippet>653</a>
-<a href=#654 id=654 data-nosnippet>654</a>            <span class="macro">assert_eq!</span>(result_of_x, x);
-<a href=#655 id=655 data-nosnippet>655</a>        }
-<a href=#656 id=656 data-nosnippet>656</a>
-<a href=#657 id=657 data-nosnippet>657</a>        {
-<a href=#658 id=658 data-nosnippet>658</a>            <span class="kw">use </span>std::{error, fmt};
-<a href=#659 id=659 data-nosnippet>659</a>
-<a href=#660 id=660 data-nosnippet>660</a>            <span class="attr">#[derive(Debug, PartialEq)]
-<a href=#661 id=661 data-nosnippet>661</a>            </span><span class="kw">struct </span>E;
-<a href=#662 id=662 data-nosnippet>662</a>
-<a href=#663 id=663 data-nosnippet>663</a>            <span class="kw">impl </span>fmt::Display <span class="kw">for </span>E {
-<a href=#664 id=664 data-nosnippet>664</a>                <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-<a href=#665 id=665 data-nosnippet>665</a>                    <span class="macro">write!</span>(formatter, <span class="string">"E"</span>)
-<a href=#666 id=666 data-nosnippet>666</a>                }
-<a href=#667 id=667 data-nosnippet>667</a>            }
-<a href=#668 id=668 data-nosnippet>668</a>
-<a href=#669 id=669 data-nosnippet>669</a>            <span class="kw">impl </span>error::Error <span class="kw">for </span>E {}
-<a href=#670 id=670 data-nosnippet>670</a>
-<a href=#671 id=671 data-nosnippet>671</a>            <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;Infallible, E&gt; = <span class="prelude-val">Err</span>(E);
-<a href=#672 id=672 data-nosnippet>672</a>            <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;Infallible, E&gt; = x.into_result();
+<a href=#635 id=635 data-nosnippet>635</a>            <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;Infallible, E&gt; = <span class="prelude-val">Err</span>(E);
+<a href=#636 id=636 data-nosnippet>636</a>            <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;Infallible, E&gt; = x.into_result();
+<a href=#637 id=637 data-nosnippet>637</a>
+<a href=#638 id=638 data-nosnippet>638</a>            <span class="macro">assert_eq!</span>(result_of_x.unwrap_err(), E);
+<a href=#639 id=639 data-nosnippet>639</a>        }
+<a href=#640 id=640 data-nosnippet>640</a>    }
+<a href=#641 id=641 data-nosnippet>641</a>}
+<a href=#642 id=642 data-nosnippet>642</a>
+<a href=#643 id=643 data-nosnippet>643</a><span class="comment">// Implement `WasmTypeList` on `Infallible`, which means that
+<a href=#644 id=644 data-nosnippet>644</a>// `Infallible` can be used as a returned type of a host function
+<a href=#645 id=645 data-nosnippet>645</a>// to express that it doesn't return, or to express that it cannot
+<a href=#646 id=646 data-nosnippet>646</a>// fail (with `Result&lt;_, Infallible&gt;`).
+<a href=#647 id=647 data-nosnippet>647</a></span><span class="kw">impl </span>WasmTypeList <span class="kw">for </span>Infallible {
+<a href=#648 id=648 data-nosnippet>648</a>    <span class="kw">type </span>CStruct = <span class="self">Self</span>;
+<a href=#649 id=649 data-nosnippet>649</a>    <span class="kw">type </span>Array = [RawValue; <span class="number">0</span>];
+<a href=#650 id=650 data-nosnippet>650</a>
+<a href=#651 id=651 data-nosnippet>651</a>    <span class="kw">fn </span>size() -&gt; u32 {
+<a href=#652 id=652 data-nosnippet>652</a>        <span class="number">0
+<a href=#653 id=653 data-nosnippet>653</a>    </span>}
+<a href=#654 id=654 data-nosnippet>654</a>
+<a href=#655 id=655 data-nosnippet>655</a>    <span class="kw">unsafe fn </span>from_array(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, <span class="kw">_</span>: <span class="self">Self</span>::Array) -&gt; <span class="self">Self </span>{
+<a href=#656 id=656 data-nosnippet>656</a>        <span class="macro">unreachable!</span>()
+<a href=#657 id=657 data-nosnippet>657</a>    }
+<a href=#658 id=658 data-nosnippet>658</a>
+<a href=#659 id=659 data-nosnippet>659</a>    <span class="kw">unsafe fn </span>from_slice(
+<a href=#660 id=660 data-nosnippet>660</a>        <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#661 id=661 data-nosnippet>661</a>        <span class="kw">_</span>: <span class="kw-2">&amp;</span>[RawValue],
+<a href=#662 id=662 data-nosnippet>662</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt; {
+<a href=#663 id=663 data-nosnippet>663</a>        <span class="macro">unreachable!</span>()
+<a href=#664 id=664 data-nosnippet>664</a>    }
+<a href=#665 id=665 data-nosnippet>665</a>
+<a href=#666 id=666 data-nosnippet>666</a>    <span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array {
+<a href=#667 id=667 data-nosnippet>667</a>        []
+<a href=#668 id=668 data-nosnippet>668</a>    }
+<a href=#669 id=669 data-nosnippet>669</a>
+<a href=#670 id=670 data-nosnippet>670</a>    <span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array {
+<a href=#671 id=671 data-nosnippet>671</a>        []
+<a href=#672 id=672 data-nosnippet>672</a>    }
 <a href=#673 id=673 data-nosnippet>673</a>
-<a href=#674 id=674 data-nosnippet>674</a>            <span class="macro">assert_eq!</span>(result_of_x.unwrap_err(), E);
-<a href=#675 id=675 data-nosnippet>675</a>        }
+<a href=#674 id=674 data-nosnippet>674</a>    <span class="kw">unsafe fn </span>from_c_struct(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, self_: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self </span>{
+<a href=#675 id=675 data-nosnippet>675</a>        self_
 <a href=#676 id=676 data-nosnippet>676</a>    }
-<a href=#677 id=677 data-nosnippet>677</a>}
-<a href=#678 id=678 data-nosnippet>678</a>
-<a href=#679 id=679 data-nosnippet>679</a><span class="comment">// Implement `WasmTypeList` on `Infallible`, which means that
-<a href=#680 id=680 data-nosnippet>680</a>// `Infallible` can be used as a returned type of a host function
-<a href=#681 id=681 data-nosnippet>681</a>// to express that it doesn't return, or to express that it cannot
-<a href=#682 id=682 data-nosnippet>682</a>// fail (with `Result&lt;_, Infallible&gt;`).
-<a href=#683 id=683 data-nosnippet>683</a></span><span class="kw">impl </span>WasmTypeList <span class="kw">for </span>Infallible {
-<a href=#684 id=684 data-nosnippet>684</a>    <span class="kw">type </span>CStruct = <span class="self">Self</span>;
-<a href=#685 id=685 data-nosnippet>685</a>    <span class="kw">type </span>Array = [RawValue; <span class="number">0</span>];
-<a href=#686 id=686 data-nosnippet>686</a>
-<a href=#687 id=687 data-nosnippet>687</a>    <span class="kw">fn </span>size() -&gt; u32 {
-<a href=#688 id=688 data-nosnippet>688</a>        <span class="number">0
-<a href=#689 id=689 data-nosnippet>689</a>    </span>}
-<a href=#690 id=690 data-nosnippet>690</a>
-<a href=#691 id=691 data-nosnippet>691</a>    <span class="kw">unsafe fn </span>from_array(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, <span class="kw">_</span>: <span class="self">Self</span>::Array) -&gt; <span class="self">Self </span>{
-<a href=#692 id=692 data-nosnippet>692</a>        <span class="macro">unreachable!</span>()
-<a href=#693 id=693 data-nosnippet>693</a>    }
-<a href=#694 id=694 data-nosnippet>694</a>
-<a href=#695 id=695 data-nosnippet>695</a>    <span class="kw">unsafe fn </span>from_slice(
-<a href=#696 id=696 data-nosnippet>696</a>        <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#697 id=697 data-nosnippet>697</a>        <span class="kw">_</span>: <span class="kw-2">&amp;</span>[RawValue],
-<a href=#698 id=698 data-nosnippet>698</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt; {
-<a href=#699 id=699 data-nosnippet>699</a>        <span class="macro">unreachable!</span>()
-<a href=#700 id=700 data-nosnippet>700</a>    }
-<a href=#701 id=701 data-nosnippet>701</a>
-<a href=#702 id=702 data-nosnippet>702</a>    <span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array {
-<a href=#703 id=703 data-nosnippet>703</a>        []
-<a href=#704 id=704 data-nosnippet>704</a>    }
-<a href=#705 id=705 data-nosnippet>705</a>
-<a href=#706 id=706 data-nosnippet>706</a>    <span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array {
-<a href=#707 id=707 data-nosnippet>707</a>        []
-<a href=#708 id=708 data-nosnippet>708</a>    }
-<a href=#709 id=709 data-nosnippet>709</a>
-<a href=#710 id=710 data-nosnippet>710</a>    <span class="kw">unsafe fn </span>from_c_struct(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, self_: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self </span>{
-<a href=#711 id=711 data-nosnippet>711</a>        self_
-<a href=#712 id=712 data-nosnippet>712</a>    }
+<a href=#677 id=677 data-nosnippet>677</a>
+<a href=#678 id=678 data-nosnippet>678</a>    <span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct {
+<a href=#679 id=679 data-nosnippet>679</a>        <span class="self">self
+<a href=#680 id=680 data-nosnippet>680</a>    </span>}
+<a href=#681 id=681 data-nosnippet>681</a>
+<a href=#682 id=682 data-nosnippet>682</a>    <span class="kw">unsafe fn </span>write_c_struct_to_ptr(<span class="kw">_</span>: <span class="self">Self</span>::CStruct, <span class="kw">_</span>: <span class="kw-2">*mut </span>RawValue) {}
+<a href=#683 id=683 data-nosnippet>683</a>
+<a href=#684 id=684 data-nosnippet>684</a>    <span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[Type] {
+<a href=#685 id=685 data-nosnippet>685</a>        <span class="kw-2">&amp;</span>[]
+<a href=#686 id=686 data-nosnippet>686</a>    }
+<a href=#687 id=687 data-nosnippet>687</a>}
+<a href=#688 id=688 data-nosnippet>688</a>
+<a href=#689 id=689 data-nosnippet>689</a><span class="macro">macro_rules!</span> impl_wasmtypelist {
+<a href=#690 id=690 data-nosnippet>690</a>    ( [<span class="macro-nonterminal">$c_struct_representation</span>:ident]
+<a href=#691 id=691 data-nosnippet>691</a>       <span class="macro-nonterminal">$c_struct_name</span>:ident,
+<a href=#692 id=692 data-nosnippet>692</a>       $( <span class="macro-nonterminal">$x</span>:ident ),* ) =&gt; {
+<a href=#693 id=693 data-nosnippet>693</a>
+<a href=#694 id=694 data-nosnippet>694</a>        <span class="doccomment">/// A structure with a C-compatible representation that can hold a set of Wasm values.
+<a href=#695 id=695 data-nosnippet>695</a>        /// This type is used by `WasmTypeList::CStruct`.
+<a href=#696 id=696 data-nosnippet>696</a>        </span><span class="attr">#[repr(<span class="macro-nonterminal">$c_struct_representation</span>)]
+<a href=#697 id=697 data-nosnippet>697</a>        </span><span class="kw">pub struct </span><span class="macro-nonterminal">$c_struct_name</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt; ( $( &lt;&lt;<span class="macro-nonterminal">$x </span><span class="kw">as </span>FromToNativeWasmType&gt;::Native <span class="kw">as </span>NativeWasmType&gt;::Abi ),* )
+<a href=#698 id=698 data-nosnippet>698</a>        <span class="kw">where
+<a href=#699 id=699 data-nosnippet>699</a>            </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType ),<span class="kw-2">*</span>;
+<a href=#700 id=700 data-nosnippet>700</a>
+<a href=#701 id=701 data-nosnippet>701</a>        <span class="comment">// Implement `WasmTypeList` for a specific tuple.
+<a href=#702 id=702 data-nosnippet>702</a>        </span><span class="attr">#[allow(unused_parens, dead_code)]
+<a href=#703 id=703 data-nosnippet>703</a>        </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt;
+<a href=#704 id=704 data-nosnippet>704</a>            WasmTypeList
+<a href=#705 id=705 data-nosnippet>705</a>        <span class="kw">for
+<a href=#706 id=706 data-nosnippet>706</a>            </span>( $( <span class="macro-nonterminal">$x </span>),* )
+<a href=#707 id=707 data-nosnippet>707</a>        <span class="kw">where
+<a href=#708 id=708 data-nosnippet>708</a>            </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType ),*
+<a href=#709 id=709 data-nosnippet>709</a>        {
+<a href=#710 id=710 data-nosnippet>710</a>            <span class="kw">type </span>CStruct = <span class="macro-nonterminal">$c_struct_name</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt;;
+<a href=#711 id=711 data-nosnippet>711</a>
+<a href=#712 id=712 data-nosnippet>712</a>            <span class="kw">type </span>Array = [RawValue; <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* )];
 <a href=#713 id=713 data-nosnippet>713</a>
-<a href=#714 id=714 data-nosnippet>714</a>    <span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct {
-<a href=#715 id=715 data-nosnippet>715</a>        <span class="self">self
-<a href=#716 id=716 data-nosnippet>716</a>    </span>}
+<a href=#714 id=714 data-nosnippet>714</a>            <span class="kw">fn </span>size() -&gt; u32 {
+<a href=#715 id=715 data-nosnippet>715</a>                <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* ) <span class="kw">as _
+<a href=#716 id=716 data-nosnippet>716</a>            </span>}
 <a href=#717 id=717 data-nosnippet>717</a>
-<a href=#718 id=718 data-nosnippet>718</a>    <span class="kw">unsafe fn </span>write_c_struct_to_ptr(<span class="kw">_</span>: <span class="self">Self</span>::CStruct, <span class="kw">_</span>: <span class="kw-2">*mut </span>RawValue) {}
-<a href=#719 id=719 data-nosnippet>719</a>
-<a href=#720 id=720 data-nosnippet>720</a>    <span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[Type] {
-<a href=#721 id=721 data-nosnippet>721</a>        <span class="kw-2">&amp;</span>[]
-<a href=#722 id=722 data-nosnippet>722</a>    }
-<a href=#723 id=723 data-nosnippet>723</a>}
-<a href=#724 id=724 data-nosnippet>724</a>
-<a href=#725 id=725 data-nosnippet>725</a><span class="macro">macro_rules!</span> impl_wasmtypelist {
-<a href=#726 id=726 data-nosnippet>726</a>    ( [<span class="macro-nonterminal">$c_struct_representation</span>:ident]
-<a href=#727 id=727 data-nosnippet>727</a>       <span class="macro-nonterminal">$c_struct_name</span>:ident,
-<a href=#728 id=728 data-nosnippet>728</a>       $( <span class="macro-nonterminal">$x</span>:ident ),* ) =&gt; {
-<a href=#729 id=729 data-nosnippet>729</a>
-<a href=#730 id=730 data-nosnippet>730</a>        <span class="doccomment">/// A structure with a C-compatible representation that can hold a set of Wasm values.
-<a href=#731 id=731 data-nosnippet>731</a>        /// This type is used by `WasmTypeList::CStruct`.
-<a href=#732 id=732 data-nosnippet>732</a>        </span><span class="attr">#[repr(<span class="macro-nonterminal">$c_struct_representation</span>)]
-<a href=#733 id=733 data-nosnippet>733</a>        </span><span class="kw">pub struct </span><span class="macro-nonterminal">$c_struct_name</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt; ( $( &lt;&lt;<span class="macro-nonterminal">$x </span><span class="kw">as </span>FromToNativeWasmType&gt;::Native <span class="kw">as </span>NativeWasmType&gt;::Abi ),* )
-<a href=#734 id=734 data-nosnippet>734</a>        <span class="kw">where
-<a href=#735 id=735 data-nosnippet>735</a>            </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType ),<span class="kw-2">*</span>;
+<a href=#718 id=718 data-nosnippet>718</a>            <span class="attr">#[allow(unused_mut)]
+<a href=#719 id=719 data-nosnippet>719</a>            #[allow(clippy::unused_unit)]
+<a href=#720 id=720 data-nosnippet>720</a>            #[allow(clippy::missing_safety_doc)]
+<a href=#721 id=721 data-nosnippet>721</a>            </span><span class="kw">unsafe fn </span>from_array(<span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, array: <span class="self">Self</span>::Array) -&gt; <span class="self">Self </span>{
+<a href=#722 id=722 data-nosnippet>722</a>                <span class="comment">// Unpack items of the array.
+<a href=#723 id=723 data-nosnippet>723</a>                </span><span class="attr">#[allow(non_snake_case)]
+<a href=#724 id=724 data-nosnippet>724</a>                </span><span class="kw">let </span>[ $( <span class="macro-nonterminal">$x </span>),* ] = array;
+<a href=#725 id=725 data-nosnippet>725</a>
+<a href=#726 id=726 data-nosnippet>726</a>                <span class="comment">// Build the tuple.
+<a href=#727 id=727 data-nosnippet>727</a>                </span>(
+<a href=#728 id=728 data-nosnippet>728</a>                    $(
+<a href=#729 id=729 data-nosnippet>729</a>                        {
+<a href=#730 id=730 data-nosnippet>730</a>                            <span class="kw">let </span>native = <span class="kw">unsafe </span>{ NativeWasmTypeInto::from_raw(_store, <span class="macro-nonterminal">$x</span>) };
+<a href=#731 id=731 data-nosnippet>731</a>                            FromToNativeWasmType::from_native(native)
+<a href=#732 id=732 data-nosnippet>732</a>                        }
+<a href=#733 id=733 data-nosnippet>733</a>                    ),*
+<a href=#734 id=734 data-nosnippet>734</a>                )
+<a href=#735 id=735 data-nosnippet>735</a>            }
 <a href=#736 id=736 data-nosnippet>736</a>
-<a href=#737 id=737 data-nosnippet>737</a>        <span class="comment">// Implement `WasmTypeList` for a specific tuple.
-<a href=#738 id=738 data-nosnippet>738</a>        </span><span class="attr">#[allow(unused_parens, dead_code)]
-<a href=#739 id=739 data-nosnippet>739</a>        </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt;
-<a href=#740 id=740 data-nosnippet>740</a>            WasmTypeList
-<a href=#741 id=741 data-nosnippet>741</a>        <span class="kw">for
-<a href=#742 id=742 data-nosnippet>742</a>            </span>( $( <span class="macro-nonterminal">$x </span>),* )
-<a href=#743 id=743 data-nosnippet>743</a>        <span class="kw">where
-<a href=#744 id=744 data-nosnippet>744</a>            </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType ),*
-<a href=#745 id=745 data-nosnippet>745</a>        {
-<a href=#746 id=746 data-nosnippet>746</a>            <span class="kw">type </span>CStruct = <span class="macro-nonterminal">$c_struct_name</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt;;
-<a href=#747 id=747 data-nosnippet>747</a>
-<a href=#748 id=748 data-nosnippet>748</a>            <span class="kw">type </span>Array = [RawValue; <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* )];
+<a href=#737 id=737 data-nosnippet>737</a>            <span class="attr">#[allow(clippy::missing_safety_doc)]
+<a href=#738 id=738 data-nosnippet>738</a>            </span><span class="kw">unsafe fn </span>from_slice(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, slice: <span class="kw-2">&amp;</span>[RawValue]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt; {
+<a href=#739 id=739 data-nosnippet>739</a>                <span class="kw">let </span>array = slice.try_into()<span class="question-mark">?</span>;
+<a href=#740 id=740 data-nosnippet>740</a>                <span class="prelude-val">Ok</span>(<span class="kw">unsafe </span>{ <span class="self">Self</span>::from_array(store, array) })
+<a href=#741 id=741 data-nosnippet>741</a>            }
+<a href=#742 id=742 data-nosnippet>742</a>
+<a href=#743 id=743 data-nosnippet>743</a>            <span class="attr">#[allow(unused_mut)]
+<a href=#744 id=744 data-nosnippet>744</a>            #[allow(clippy::missing_safety_doc)]
+<a href=#745 id=745 data-nosnippet>745</a>            </span><span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, <span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array {
+<a href=#746 id=746 data-nosnippet>746</a>                <span class="comment">// Unpack items of the tuple.
+<a href=#747 id=747 data-nosnippet>747</a>                </span><span class="attr">#[allow(non_snake_case)]
+<a href=#748 id=748 data-nosnippet>748</a>                </span><span class="kw">let </span>( $( <span class="macro-nonterminal">$x </span>),* ) = <span class="self">self</span>;
 <a href=#749 id=749 data-nosnippet>749</a>
-<a href=#750 id=750 data-nosnippet>750</a>            <span class="kw">fn </span>size() -&gt; u32 {
-<a href=#751 id=751 data-nosnippet>751</a>                <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* ) <span class="kw">as _
-<a href=#752 id=752 data-nosnippet>752</a>            </span>}
-<a href=#753 id=753 data-nosnippet>753</a>
-<a href=#754 id=754 data-nosnippet>754</a>            <span class="attr">#[allow(unused_mut)]
-<a href=#755 id=755 data-nosnippet>755</a>            #[allow(clippy::unused_unit)]
-<a href=#756 id=756 data-nosnippet>756</a>            #[allow(clippy::missing_safety_doc)]
-<a href=#757 id=757 data-nosnippet>757</a>            </span><span class="kw">unsafe fn </span>from_array(<span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, array: <span class="self">Self</span>::Array) -&gt; <span class="self">Self </span>{
-<a href=#758 id=758 data-nosnippet>758</a>                <span class="comment">// Unpack items of the array.
-<a href=#759 id=759 data-nosnippet>759</a>                </span><span class="attr">#[allow(non_snake_case)]
-<a href=#760 id=760 data-nosnippet>760</a>                </span><span class="kw">let </span>[ $( <span class="macro-nonterminal">$x </span>),* ] = array;
-<a href=#761 id=761 data-nosnippet>761</a>
-<a href=#762 id=762 data-nosnippet>762</a>                <span class="comment">// Build the tuple.
-<a href=#763 id=763 data-nosnippet>763</a>                </span>(
-<a href=#764 id=764 data-nosnippet>764</a>                    $(
-<a href=#765 id=765 data-nosnippet>765</a>                        {
-<a href=#766 id=766 data-nosnippet>766</a>                            <span class="kw">let </span>native = <span class="kw">unsafe </span>{ NativeWasmTypeInto::from_raw(_store, <span class="macro-nonterminal">$x</span>) };
-<a href=#767 id=767 data-nosnippet>767</a>                            FromToNativeWasmType::from_native(native)
-<a href=#768 id=768 data-nosnippet>768</a>                        }
-<a href=#769 id=769 data-nosnippet>769</a>                    ),*
-<a href=#770 id=770 data-nosnippet>770</a>                )
-<a href=#771 id=771 data-nosnippet>771</a>            }
-<a href=#772 id=772 data-nosnippet>772</a>
-<a href=#773 id=773 data-nosnippet>773</a>            <span class="attr">#[allow(clippy::missing_safety_doc)]
-<a href=#774 id=774 data-nosnippet>774</a>            </span><span class="kw">unsafe fn </span>from_slice(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, slice: <span class="kw-2">&amp;</span>[RawValue]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt; {
-<a href=#775 id=775 data-nosnippet>775</a>                <span class="kw">let </span>array = slice.try_into()<span class="question-mark">?</span>;
-<a href=#776 id=776 data-nosnippet>776</a>                <span class="prelude-val">Ok</span>(<span class="kw">unsafe </span>{ <span class="self">Self</span>::from_array(store, array) })
-<a href=#777 id=777 data-nosnippet>777</a>            }
-<a href=#778 id=778 data-nosnippet>778</a>
-<a href=#779 id=779 data-nosnippet>779</a>            <span class="attr">#[allow(unused_mut)]
-<a href=#780 id=780 data-nosnippet>780</a>            #[allow(clippy::missing_safety_doc)]
-<a href=#781 id=781 data-nosnippet>781</a>            </span><span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, <span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array {
-<a href=#782 id=782 data-nosnippet>782</a>                <span class="comment">// Unpack items of the tuple.
-<a href=#783 id=783 data-nosnippet>783</a>                </span><span class="attr">#[allow(non_snake_case)]
-<a href=#784 id=784 data-nosnippet>784</a>                </span><span class="kw">let </span>( $( <span class="macro-nonterminal">$x </span>),* ) = <span class="self">self</span>;
-<a href=#785 id=785 data-nosnippet>785</a>
-<a href=#786 id=786 data-nosnippet>786</a>                <span class="comment">// Build the array.
-<a href=#787 id=787 data-nosnippet>787</a>                </span>[
-<a href=#788 id=788 data-nosnippet>788</a>                    $(
-<a href=#789 id=789 data-nosnippet>789</a>                        FromToNativeWasmType::to_native(<span class="macro-nonterminal">$x</span>).into_raw(_store)
-<a href=#790 id=790 data-nosnippet>790</a>                    ),*
-<a href=#791 id=791 data-nosnippet>791</a>                ]
-<a href=#792 id=792 data-nosnippet>792</a>            }
-<a href=#793 id=793 data-nosnippet>793</a>
-<a href=#794 id=794 data-nosnippet>794</a>            <span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array {
-<a href=#795 id=795 data-nosnippet>795</a>                <span class="comment">// Build an array initialized with `0`.
-<a href=#796 id=796 data-nosnippet>796</a>                </span>[RawValue { i32: <span class="number">0 </span>}; <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* )]
-<a href=#797 id=797 data-nosnippet>797</a>            }
-<a href=#798 id=798 data-nosnippet>798</a>
-<a href=#799 id=799 data-nosnippet>799</a>            <span class="attr">#[allow(unused_mut)]
-<a href=#800 id=800 data-nosnippet>800</a>            #[allow(clippy::unused_unit)]
-<a href=#801 id=801 data-nosnippet>801</a>            #[allow(clippy::missing_safety_doc)]
-<a href=#802 id=802 data-nosnippet>802</a>            </span><span class="kw">unsafe fn </span>from_c_struct(<span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, c_struct: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self </span>{
-<a href=#803 id=803 data-nosnippet>803</a>                <span class="comment">// Unpack items of the C structure.
-<a href=#804 id=804 data-nosnippet>804</a>                </span><span class="attr">#[allow(non_snake_case)]
-<a href=#805 id=805 data-nosnippet>805</a>                </span><span class="kw">let </span><span class="macro-nonterminal">$c_struct_name</span>( $( <span class="macro-nonterminal">$x </span>),* ) = c_struct;
-<a href=#806 id=806 data-nosnippet>806</a>
-<a href=#807 id=807 data-nosnippet>807</a>                (
-<a href=#808 id=808 data-nosnippet>808</a>                    $(
-<a href=#809 id=809 data-nosnippet>809</a>                        {
-<a href=#810 id=810 data-nosnippet>810</a>                            <span class="kw">let </span>native = <span class="kw">unsafe </span>{ NativeWasmTypeInto::from_abi(_store, <span class="macro-nonterminal">$x</span>) };
-<a href=#811 id=811 data-nosnippet>811</a>                            FromToNativeWasmType::from_native(native)
-<a href=#812 id=812 data-nosnippet>812</a>                        }
-<a href=#813 id=813 data-nosnippet>813</a>                    ),*
-<a href=#814 id=814 data-nosnippet>814</a>                )
+<a href=#750 id=750 data-nosnippet>750</a>                <span class="comment">// Build the array.
+<a href=#751 id=751 data-nosnippet>751</a>                </span>[
+<a href=#752 id=752 data-nosnippet>752</a>                    $(
+<a href=#753 id=753 data-nosnippet>753</a>                        FromToNativeWasmType::to_native(<span class="macro-nonterminal">$x</span>).into_raw(_store)
+<a href=#754 id=754 data-nosnippet>754</a>                    ),*
+<a href=#755 id=755 data-nosnippet>755</a>                ]
+<a href=#756 id=756 data-nosnippet>756</a>            }
+<a href=#757 id=757 data-nosnippet>757</a>
+<a href=#758 id=758 data-nosnippet>758</a>            <span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array {
+<a href=#759 id=759 data-nosnippet>759</a>                <span class="comment">// Build an array initialized with `0`.
+<a href=#760 id=760 data-nosnippet>760</a>                </span>[RawValue { i32: <span class="number">0 </span>}; <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* )]
+<a href=#761 id=761 data-nosnippet>761</a>            }
+<a href=#762 id=762 data-nosnippet>762</a>
+<a href=#763 id=763 data-nosnippet>763</a>            <span class="attr">#[allow(unused_mut)]
+<a href=#764 id=764 data-nosnippet>764</a>            #[allow(clippy::unused_unit)]
+<a href=#765 id=765 data-nosnippet>765</a>            #[allow(clippy::missing_safety_doc)]
+<a href=#766 id=766 data-nosnippet>766</a>            </span><span class="kw">unsafe fn </span>from_c_struct(<span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, c_struct: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self </span>{
+<a href=#767 id=767 data-nosnippet>767</a>                <span class="comment">// Unpack items of the C structure.
+<a href=#768 id=768 data-nosnippet>768</a>                </span><span class="attr">#[allow(non_snake_case)]
+<a href=#769 id=769 data-nosnippet>769</a>                </span><span class="kw">let </span><span class="macro-nonterminal">$c_struct_name</span>( $( <span class="macro-nonterminal">$x </span>),* ) = c_struct;
+<a href=#770 id=770 data-nosnippet>770</a>
+<a href=#771 id=771 data-nosnippet>771</a>                (
+<a href=#772 id=772 data-nosnippet>772</a>                    $(
+<a href=#773 id=773 data-nosnippet>773</a>                        {
+<a href=#774 id=774 data-nosnippet>774</a>                            <span class="kw">let </span>native = <span class="kw">unsafe </span>{ NativeWasmTypeInto::from_abi(_store, <span class="macro-nonterminal">$x</span>) };
+<a href=#775 id=775 data-nosnippet>775</a>                            FromToNativeWasmType::from_native(native)
+<a href=#776 id=776 data-nosnippet>776</a>                        }
+<a href=#777 id=777 data-nosnippet>777</a>                    ),*
+<a href=#778 id=778 data-nosnippet>778</a>                )
+<a href=#779 id=779 data-nosnippet>779</a>            }
+<a href=#780 id=780 data-nosnippet>780</a>
+<a href=#781 id=781 data-nosnippet>781</a>            <span class="attr">#[allow(unused_parens, non_snake_case, unused_mut)]
+<a href=#782 id=782 data-nosnippet>782</a>            #[allow(clippy::missing_safety_doc)]
+<a href=#783 id=783 data-nosnippet>783</a>            </span><span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, <span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct {
+<a href=#784 id=784 data-nosnippet>784</a>                <span class="comment">// Unpack items of the tuple.
+<a href=#785 id=785 data-nosnippet>785</a>                </span><span class="kw">let </span>( $( <span class="macro-nonterminal">$x </span>),* ) = <span class="self">self</span>;
+<a href=#786 id=786 data-nosnippet>786</a>
+<a href=#787 id=787 data-nosnippet>787</a>                <span class="comment">// Build the C structure.
+<a href=#788 id=788 data-nosnippet>788</a>                </span><span class="macro-nonterminal">$c_struct_name</span>(
+<a href=#789 id=789 data-nosnippet>789</a>                    $(
+<a href=#790 id=790 data-nosnippet>790</a>                        FromToNativeWasmType::to_native(<span class="macro-nonterminal">$x</span>).into_abi(_store)
+<a href=#791 id=791 data-nosnippet>791</a>                    ),*
+<a href=#792 id=792 data-nosnippet>792</a>                )
+<a href=#793 id=793 data-nosnippet>793</a>            }
+<a href=#794 id=794 data-nosnippet>794</a>
+<a href=#795 id=795 data-nosnippet>795</a>            <span class="attr">#[allow(non_snake_case)]
+<a href=#796 id=796 data-nosnippet>796</a>            </span><span class="kw">unsafe fn </span>write_c_struct_to_ptr(c_struct: <span class="self">Self</span>::CStruct, _ptr: <span class="kw-2">*mut </span>RawValue) {
+<a href=#797 id=797 data-nosnippet>797</a>                <span class="comment">// Unpack items of the tuple.
+<a href=#798 id=798 data-nosnippet>798</a>                </span><span class="kw">let </span><span class="macro-nonterminal">$c_struct_name</span>( $( <span class="macro-nonterminal">$x </span>),* ) = c_struct;
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a>                <span class="kw">let </span><span class="kw-2">mut </span>_n = <span class="number">0</span>;
+<a href=#801 id=801 data-nosnippet>801</a>                $(
+<a href=#802 id=802 data-nosnippet>802</a>                    <span class="kw">unsafe </span>{
+<a href=#803 id=803 data-nosnippet>803</a>                        <span class="kw-2">*</span>_ptr.add(_n).cast() = <span class="macro-nonterminal">$x</span>;
+<a href=#804 id=804 data-nosnippet>804</a>                    }
+<a href=#805 id=805 data-nosnippet>805</a>                    _n += <span class="number">1</span>;
+<a href=#806 id=806 data-nosnippet>806</a>                )*
+<a href=#807 id=807 data-nosnippet>807</a>            }
+<a href=#808 id=808 data-nosnippet>808</a>
+<a href=#809 id=809 data-nosnippet>809</a>            <span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[Type] {
+<a href=#810 id=810 data-nosnippet>810</a>                <span class="kw-2">&amp;</span>[
+<a href=#811 id=811 data-nosnippet>811</a>                    $(
+<a href=#812 id=812 data-nosnippet>812</a>                        <span class="macro-nonterminal">$x::Native::WASM_TYPE
+<a href=#813 id=813 data-nosnippet>813</a>                    </span>),*
+<a href=#814 id=814 data-nosnippet>814</a>                ]
 <a href=#815 id=815 data-nosnippet>815</a>            }
-<a href=#816 id=816 data-nosnippet>816</a>
-<a href=#817 id=817 data-nosnippet>817</a>            <span class="attr">#[allow(unused_parens, non_snake_case, unused_mut)]
-<a href=#818 id=818 data-nosnippet>818</a>            #[allow(clippy::missing_safety_doc)]
-<a href=#819 id=819 data-nosnippet>819</a>            </span><span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, <span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct {
-<a href=#820 id=820 data-nosnippet>820</a>                <span class="comment">// Unpack items of the tuple.
-<a href=#821 id=821 data-nosnippet>821</a>                </span><span class="kw">let </span>( $( <span class="macro-nonterminal">$x </span>),* ) = <span class="self">self</span>;
-<a href=#822 id=822 data-nosnippet>822</a>
-<a href=#823 id=823 data-nosnippet>823</a>                <span class="comment">// Build the C structure.
-<a href=#824 id=824 data-nosnippet>824</a>                </span><span class="macro-nonterminal">$c_struct_name</span>(
-<a href=#825 id=825 data-nosnippet>825</a>                    $(
-<a href=#826 id=826 data-nosnippet>826</a>                        FromToNativeWasmType::to_native(<span class="macro-nonterminal">$x</span>).into_abi(_store)
-<a href=#827 id=827 data-nosnippet>827</a>                    ),*
-<a href=#828 id=828 data-nosnippet>828</a>                )
-<a href=#829 id=829 data-nosnippet>829</a>            }
-<a href=#830 id=830 data-nosnippet>830</a>
-<a href=#831 id=831 data-nosnippet>831</a>            <span class="attr">#[allow(non_snake_case)]
-<a href=#832 id=832 data-nosnippet>832</a>            </span><span class="kw">unsafe fn </span>write_c_struct_to_ptr(c_struct: <span class="self">Self</span>::CStruct, _ptr: <span class="kw-2">*mut </span>RawValue) {
-<a href=#833 id=833 data-nosnippet>833</a>                <span class="comment">// Unpack items of the tuple.
-<a href=#834 id=834 data-nosnippet>834</a>                </span><span class="kw">let </span><span class="macro-nonterminal">$c_struct_name</span>( $( <span class="macro-nonterminal">$x </span>),* ) = c_struct;
-<a href=#835 id=835 data-nosnippet>835</a>
-<a href=#836 id=836 data-nosnippet>836</a>                <span class="kw">let </span><span class="kw-2">mut </span>_n = <span class="number">0</span>;
-<a href=#837 id=837 data-nosnippet>837</a>                $(
-<a href=#838 id=838 data-nosnippet>838</a>                    <span class="kw">unsafe </span>{
-<a href=#839 id=839 data-nosnippet>839</a>                        <span class="kw-2">*</span>_ptr.add(_n).cast() = <span class="macro-nonterminal">$x</span>;
-<a href=#840 id=840 data-nosnippet>840</a>                    }
-<a href=#841 id=841 data-nosnippet>841</a>                    _n += <span class="number">1</span>;
-<a href=#842 id=842 data-nosnippet>842</a>                )*
-<a href=#843 id=843 data-nosnippet>843</a>            }
-<a href=#844 id=844 data-nosnippet>844</a>
-<a href=#845 id=845 data-nosnippet>845</a>            <span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[Type] {
-<a href=#846 id=846 data-nosnippet>846</a>                <span class="kw-2">&amp;</span>[
-<a href=#847 id=847 data-nosnippet>847</a>                    $(
-<a href=#848 id=848 data-nosnippet>848</a>                        <span class="macro-nonterminal">$x::Native::WASM_TYPE
-<a href=#849 id=849 data-nosnippet>849</a>                    </span>),*
-<a href=#850 id=850 data-nosnippet>850</a>                ]
-<a href=#851 id=851 data-nosnippet>851</a>            }
-<a href=#852 id=852 data-nosnippet>852</a>        }
-<a href=#853 id=853 data-nosnippet>853</a>
-<a href=#854 id=854 data-nosnippet>854</a>    };
-<a href=#855 id=855 data-nosnippet>855</a>}
-<a href=#856 id=856 data-nosnippet>856</a>
-<a href=#857 id=857 data-nosnippet>857</a><span class="comment">// Black-magic to count the number of identifiers at compile-time.
-<a href=#858 id=858 data-nosnippet>858</a></span><span class="macro">macro_rules!</span> count_idents {
-<a href=#859 id=859 data-nosnippet>859</a>    ( $(<span class="macro-nonterminal">$idents</span>:ident),* ) =&gt; {
-<a href=#860 id=860 data-nosnippet>860</a>        {
-<a href=#861 id=861 data-nosnippet>861</a>            <span class="attr">#[allow(dead_code, non_camel_case_types)]
-<a href=#862 id=862 data-nosnippet>862</a>            </span><span class="kw">enum </span>Idents { $( <span class="macro-nonterminal">$idents</span>, )* __CountIdentsLast }
-<a href=#863 id=863 data-nosnippet>863</a>            <span class="kw">const </span>COUNT: usize = Idents::__CountIdentsLast <span class="kw">as </span>usize;
-<a href=#864 id=864 data-nosnippet>864</a>            COUNT
-<a href=#865 id=865 data-nosnippet>865</a>        }
-<a href=#866 id=866 data-nosnippet>866</a>    };
-<a href=#867 id=867 data-nosnippet>867</a>}
-<a href=#868 id=868 data-nosnippet>868</a>
-<a href=#869 id=869 data-nosnippet>869</a><span class="comment">// Here we go! Let's generate all the C struct and `WasmTypeList`
-<a href=#870 id=870 data-nosnippet>870</a>// implementations.
-<a href=#871 id=871 data-nosnippet>871</a></span><span class="macro">impl_wasmtypelist!</span>([C] S0,);
-<a href=#872 id=872 data-nosnippet>872</a><span class="macro">impl_wasmtypelist!</span>([transparent] S1, A1);
-<a href=#873 id=873 data-nosnippet>873</a><span class="macro">impl_wasmtypelist!</span>([C] S2, A1, A2);
-<a href=#874 id=874 data-nosnippet>874</a><span class="macro">impl_wasmtypelist!</span>([C] S3, A1, A2, A3);
-<a href=#875 id=875 data-nosnippet>875</a><span class="macro">impl_wasmtypelist!</span>([C] S4, A1, A2, A3, A4);
-<a href=#876 id=876 data-nosnippet>876</a><span class="macro">impl_wasmtypelist!</span>([C] S5, A1, A2, A3, A4, A5);
-<a href=#877 id=877 data-nosnippet>877</a><span class="macro">impl_wasmtypelist!</span>([C] S6, A1, A2, A3, A4, A5, A6);
-<a href=#878 id=878 data-nosnippet>878</a><span class="macro">impl_wasmtypelist!</span>([C] S7, A1, A2, A3, A4, A5, A6, A7);
-<a href=#879 id=879 data-nosnippet>879</a><span class="macro">impl_wasmtypelist!</span>([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
-<a href=#880 id=880 data-nosnippet>880</a><span class="macro">impl_wasmtypelist!</span>([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
-<a href=#881 id=881 data-nosnippet>881</a><span class="macro">impl_wasmtypelist!</span>([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
-<a href=#882 id=882 data-nosnippet>882</a><span class="macro">impl_wasmtypelist!</span>([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
-<a href=#883 id=883 data-nosnippet>883</a><span class="macro">impl_wasmtypelist!</span>([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
-<a href=#884 id=884 data-nosnippet>884</a><span class="macro">impl_wasmtypelist!</span>([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
-<a href=#885 id=885 data-nosnippet>885</a><span class="macro">impl_wasmtypelist!</span>([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-<a href=#886 id=886 data-nosnippet>886</a><span class="macro">impl_wasmtypelist!</span>([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
-<a href=#887 id=887 data-nosnippet>887</a><span class="macro">impl_wasmtypelist!</span>([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
-<a href=#888 id=888 data-nosnippet>888</a><span class="macro">impl_wasmtypelist!</span>([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
-<a href=#889 id=889 data-nosnippet>889</a><span class="macro">impl_wasmtypelist!</span>([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
-<a href=#890 id=890 data-nosnippet>890</a><span class="macro">impl_wasmtypelist!</span>([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
-<a href=#891 id=891 data-nosnippet>891</a><span class="macro">impl_wasmtypelist!</span>([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
-<a href=#892 id=892 data-nosnippet>892</a><span class="macro">impl_wasmtypelist!</span>([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
-<a href=#893 id=893 data-nosnippet>893</a><span class="macro">impl_wasmtypelist!</span>([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
-<a href=#894 id=894 data-nosnippet>894</a><span class="macro">impl_wasmtypelist!</span>([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
-<a href=#895 id=895 data-nosnippet>895</a><span class="macro">impl_wasmtypelist!</span>([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
-<a href=#896 id=896 data-nosnippet>896</a><span class="macro">impl_wasmtypelist!</span>([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
-<a href=#897 id=897 data-nosnippet>897</a><span class="macro">impl_wasmtypelist!</span>([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);
-<a href=#898 id=898 data-nosnippet>898</a>
-<a href=#899 id=899 data-nosnippet>899</a><span class="attr">#[cfg(test)]
-<a href=#900 id=900 data-nosnippet>900</a></span><span class="kw">mod </span>test_wasm_type_list {
-<a href=#901 id=901 data-nosnippet>901</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#902 id=902 data-nosnippet>902</a>    <span class="kw">use </span>wasmer_types::Type;
-<a href=#903 id=903 data-nosnippet>903</a>    <span class="comment">/*
-<a href=#904 id=904 data-nosnippet>904</a>    #[test]
-<a href=#905 id=905 data-nosnippet>905</a>    fn test_from_array() {
-<a href=#906 id=906 data-nosnippet>906</a>        let mut store = Store::default();
-<a href=#907 id=907 data-nosnippet>907</a>        let env = FunctionEnv::new(&amp;mut store, ());
-<a href=#908 id=908 data-nosnippet>908</a>        assert_eq!(&lt;()&gt;::from_array(&amp;mut env, []), ());
-<a href=#909 id=909 data-nosnippet>909</a>        assert_eq!(&lt;i32&gt;::from_array(&amp;mut env, [RawValue{i32: 1}]), (1i32));
-<a href=#910 id=910 data-nosnippet>910</a>        assert_eq!(&lt;(i32, i64)&gt;::from_array(&amp;mut env, [RawValue{i32:1}, RawValue{i64:2}]), (1i32, 2i64));
-<a href=#911 id=911 data-nosnippet>911</a>        assert_eq!(
-<a href=#912 id=912 data-nosnippet>912</a>            &lt;(i32, i64, f32, f64)&gt;::from_array(&amp;mut env, [
-<a href=#913 id=913 data-nosnippet>913</a>                RawValue{i32:1},
-<a href=#914 id=914 data-nosnippet>914</a>                RawValue{i64:2},
-<a href=#915 id=915 data-nosnippet>915</a>                RawValue{f32: 3.1f32},
-<a href=#916 id=916 data-nosnippet>916</a>                RawValue{f64: 4.2f64}
-<a href=#917 id=917 data-nosnippet>917</a>            ]),
-<a href=#918 id=918 data-nosnippet>918</a>            (1, 2, 3.1f32, 4.2f64)
-<a href=#919 id=919 data-nosnippet>919</a>        );
-<a href=#920 id=920 data-nosnippet>920</a>    }
-<a href=#921 id=921 data-nosnippet>921</a>
-<a href=#922 id=922 data-nosnippet>922</a>    #[test]
-<a href=#923 id=923 data-nosnippet>923</a>    fn test_into_array() {
-<a href=#924 id=924 data-nosnippet>924</a>        let mut store = Store::default();
-<a href=#925 id=925 data-nosnippet>925</a>        let env = FunctionEnv::new(&amp;mut store, ());
-<a href=#926 id=926 data-nosnippet>926</a>        assert_eq!(().into_array(&amp;mut store), [0i128; 0]);
-<a href=#927 id=927 data-nosnippet>927</a>        assert_eq!((1i32).into_array(&amp;mut store), [1i32]);
-<a href=#928 id=928 data-nosnippet>928</a>        assert_eq!((1i32, 2i64).into_array(&amp;mut store), [RawValue{i32: 1}, RawValue{i64: 2}]);
-<a href=#929 id=929 data-nosnippet>929</a>        assert_eq!(
-<a href=#930 id=930 data-nosnippet>930</a>            (1i32, 2i32, 3.1f32, 4.2f64).into_array(&amp;mut store),
-<a href=#931 id=931 data-nosnippet>931</a>            [RawValue{i32: 1}, RawValue{i32: 2}, RawValue{ f32: 3.1f32}, RawValue{f64: 4.2f64}]
-<a href=#932 id=932 data-nosnippet>932</a>        );
-<a href=#933 id=933 data-nosnippet>933</a>    }
-<a href=#934 id=934 data-nosnippet>934</a>    */
-<a href=#935 id=935 data-nosnippet>935</a>    </span><span class="attr">#[test]
-<a href=#936 id=936 data-nosnippet>936</a>    </span><span class="kw">fn </span>test_empty_array() {
-<a href=#937 id=937 data-nosnippet>937</a>        <span class="macro">assert_eq!</span>(&lt;()&gt;::empty_array().len(), <span class="number">0</span>);
-<a href=#938 id=938 data-nosnippet>938</a>        <span class="macro">assert_eq!</span>(&lt;i32&gt;::empty_array().len(), <span class="number">1</span>);
-<a href=#939 id=939 data-nosnippet>939</a>        <span class="macro">assert_eq!</span>(&lt;(i32, i64)&gt;::empty_array().len(), <span class="number">2</span>);
-<a href=#940 id=940 data-nosnippet>940</a>    }
-<a href=#941 id=941 data-nosnippet>941</a>    <span class="comment">/*
-<a href=#942 id=942 data-nosnippet>942</a>    #[test]
-<a href=#943 id=943 data-nosnippet>943</a>    fn test_from_c_struct() {
-<a href=#944 id=944 data-nosnippet>944</a>        let mut store = Store::default();
-<a href=#945 id=945 data-nosnippet>945</a>        let env = FunctionEnv::new(&amp;mut store, ());
-<a href=#946 id=946 data-nosnippet>946</a>        assert_eq!(&lt;()&gt;::from_c_struct(&amp;mut store, S0()), ());
-<a href=#947 id=947 data-nosnippet>947</a>        assert_eq!(&lt;i32&gt;::from_c_struct(&amp;mut store, S1(1)), (1i32));
-<a href=#948 id=948 data-nosnippet>948</a>        assert_eq!(&lt;(i32, i64)&gt;::from_c_struct(&amp;mut store, S2(1, 2)), (1i32, 2i64));
-<a href=#949 id=949 data-nosnippet>949</a>        assert_eq!(
-<a href=#950 id=950 data-nosnippet>950</a>            &lt;(i32, i64, f32, f64)&gt;::from_c_struct(&amp;mut store, S4(1, 2, 3.1, 4.2)),
-<a href=#951 id=951 data-nosnippet>951</a>            (1i32, 2i64, 3.1f32, 4.2f64)
-<a href=#952 id=952 data-nosnippet>952</a>        );
-<a href=#953 id=953 data-nosnippet>953</a>    }
-<a href=#954 id=954 data-nosnippet>954</a>    */
-<a href=#955 id=955 data-nosnippet>955</a>    </span><span class="attr">#[test]
-<a href=#956 id=956 data-nosnippet>956</a>    </span><span class="kw">fn </span>test_wasm_types_for_uni_values() {
-<a href=#957 id=957 data-nosnippet>957</a>        <span class="macro">assert_eq!</span>(&lt;i32&gt;::wasm_types(), [Type::I32]);
-<a href=#958 id=958 data-nosnippet>958</a>        <span class="macro">assert_eq!</span>(&lt;i64&gt;::wasm_types(), [Type::I64]);
-<a href=#959 id=959 data-nosnippet>959</a>        <span class="macro">assert_eq!</span>(&lt;f32&gt;::wasm_types(), [Type::F32]);
-<a href=#960 id=960 data-nosnippet>960</a>        <span class="macro">assert_eq!</span>(&lt;f64&gt;::wasm_types(), [Type::F64]);
-<a href=#961 id=961 data-nosnippet>961</a>    }
-<a href=#962 id=962 data-nosnippet>962</a>
-<a href=#963 id=963 data-nosnippet>963</a>    <span class="attr">#[test]
-<a href=#964 id=964 data-nosnippet>964</a>    </span><span class="kw">fn </span>test_wasm_types_for_multi_values() {
-<a href=#965 id=965 data-nosnippet>965</a>        <span class="macro">assert_eq!</span>(&lt;(i32, i32)&gt;::wasm_types(), [Type::I32, Type::I32]);
-<a href=#966 id=966 data-nosnippet>966</a>        <span class="macro">assert_eq!</span>(&lt;(i64, i64)&gt;::wasm_types(), [Type::I64, Type::I64]);
-<a href=#967 id=967 data-nosnippet>967</a>        <span class="macro">assert_eq!</span>(&lt;(f32, f32)&gt;::wasm_types(), [Type::F32, Type::F32]);
-<a href=#968 id=968 data-nosnippet>968</a>        <span class="macro">assert_eq!</span>(&lt;(f64, f64)&gt;::wasm_types(), [Type::F64, Type::F64]);
-<a href=#969 id=969 data-nosnippet>969</a>
-<a href=#970 id=970 data-nosnippet>970</a>        <span class="macro">assert_eq!</span>(
-<a href=#971 id=971 data-nosnippet>971</a>            &lt;(i32, i64, f32, f64)&gt;::wasm_types(),
-<a href=#972 id=972 data-nosnippet>972</a>            [Type::I32, Type::I64, Type::F32, Type::F64]
-<a href=#973 id=973 data-nosnippet>973</a>        );
-<a href=#974 id=974 data-nosnippet>974</a>    }
-<a href=#975 id=975 data-nosnippet>975</a>}
-<a href=#976 id=976 data-nosnippet>976</a><span class="comment">/*
-<a href=#977 id=977 data-nosnippet>977</a>    #[allow(non_snake_case)]
-<a href=#978 id=978 data-nosnippet>978</a>    #[cfg(test)]
-<a href=#979 id=979 data-nosnippet>979</a>    mod test_function {
-<a href=#980 id=980 data-nosnippet>980</a>        use super::*;
-<a href=#981 id=981 data-nosnippet>981</a>        use crate::Store;
-<a href=#982 id=982 data-nosnippet>982</a>        use crate::FunctionEnv;
-<a href=#983 id=983 data-nosnippet>983</a>        use wasmer_types::Type;
-<a href=#984 id=984 data-nosnippet>984</a>
-<a href=#985 id=985 data-nosnippet>985</a>        fn func() {}
-<a href=#986 id=986 data-nosnippet>986</a>        fn func__i32() -&gt; i32 {
-<a href=#987 id=987 data-nosnippet>987</a>            0
-<a href=#988 id=988 data-nosnippet>988</a>        }
-<a href=#989 id=989 data-nosnippet>989</a>        fn func_i32( _a: i32) {}
-<a href=#990 id=990 data-nosnippet>990</a>        fn func_i32__i32( a: i32) -&gt; i32 {
-<a href=#991 id=991 data-nosnippet>991</a>            a * 2
-<a href=#992 id=992 data-nosnippet>992</a>        }
-<a href=#993 id=993 data-nosnippet>993</a>        fn func_i32_i32__i32( a: i32, b: i32) -&gt; i32 {
-<a href=#994 id=994 data-nosnippet>994</a>            a + b
-<a href=#995 id=995 data-nosnippet>995</a>        }
-<a href=#996 id=996 data-nosnippet>996</a>        fn func_i32_i32__i32_i32( a: i32, b: i32) -&gt; (i32, i32) {
-<a href=#997 id=997 data-nosnippet>997</a>            (a, b)
-<a href=#998 id=998 data-nosnippet>998</a>        }
-<a href=#999 id=999 data-nosnippet>999</a>        fn func_f32_i32__i32_f32( a: f32, b: i32) -&gt; (i32, f32) {
-<a href=#1000 id=1000 data-nosnippet>1000</a>            (b, a)
-<a href=#1001 id=1001 data-nosnippet>1001</a>        }
-<a href=#1002 id=1002 data-nosnippet>1002</a>
-<a href=#1003 id=1003 data-nosnippet>1003</a>        #[test]
-<a href=#1004 id=1004 data-nosnippet>1004</a>        fn test_function_types() {
-<a href=#1005 id=1005 data-nosnippet>1005</a>            let mut store = Store::default();
-<a href=#1006 id=1006 data-nosnippet>1006</a>            let env = FunctionEnv::new(&amp;mut store, ());
-<a href=#1007 id=1007 data-nosnippet>1007</a>            use wasmer_types::FunctionType;
-<a href=#1008 id=1008 data-nosnippet>1008</a>            assert_eq!(
-<a href=#1009 id=1009 data-nosnippet>1009</a>                StaticFunction::new(func).ty(&amp;mut store),
-<a href=#1010 id=1010 data-nosnippet>1010</a>                FunctionType::new(vec![], vec![])
-<a href=#1011 id=1011 data-nosnippet>1011</a>            );
-<a href=#1012 id=1012 data-nosnippet>1012</a>            assert_eq!(
-<a href=#1013 id=1013 data-nosnippet>1013</a>                StaticFunction::new(func__i32).ty(&amp;mut store),
-<a href=#1014 id=1014 data-nosnippet>1014</a>                FunctionType::new(vec![], vec![Type::I32])
-<a href=#1015 id=1015 data-nosnippet>1015</a>            );
-<a href=#1016 id=1016 data-nosnippet>1016</a>            assert_eq!(
-<a href=#1017 id=1017 data-nosnippet>1017</a>                StaticFunction::new(func_i32).ty(),
-<a href=#1018 id=1018 data-nosnippet>1018</a>                FunctionType::new(vec![Type::I32], vec![])
-<a href=#1019 id=1019 data-nosnippet>1019</a>            );
-<a href=#1020 id=1020 data-nosnippet>1020</a>            assert_eq!(
-<a href=#1021 id=1021 data-nosnippet>1021</a>                StaticFunction::new(func_i32__i32).ty(),
-<a href=#1022 id=1022 data-nosnippet>1022</a>                FunctionType::new(vec![Type::I32], vec![Type::I32])
-<a href=#1023 id=1023 data-nosnippet>1023</a>            );
-<a href=#1024 id=1024 data-nosnippet>1024</a>            assert_eq!(
-<a href=#1025 id=1025 data-nosnippet>1025</a>                StaticFunction::new(func_i32_i32__i32).ty(),
-<a href=#1026 id=1026 data-nosnippet>1026</a>                FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
-<a href=#1027 id=1027 data-nosnippet>1027</a>            );
-<a href=#1028 id=1028 data-nosnippet>1028</a>            assert_eq!(
-<a href=#1029 id=1029 data-nosnippet>1029</a>                StaticFunction::new(func_i32_i32__i32_i32).ty(),
-<a href=#1030 id=1030 data-nosnippet>1030</a>                FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
-<a href=#1031 id=1031 data-nosnippet>1031</a>            );
-<a href=#1032 id=1032 data-nosnippet>1032</a>            assert_eq!(
-<a href=#1033 id=1033 data-nosnippet>1033</a>                StaticFunction::new(func_f32_i32__i32_f32).ty(),
-<a href=#1034 id=1034 data-nosnippet>1034</a>                FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
-<a href=#1035 id=1035 data-nosnippet>1035</a>            );
-<a href=#1036 id=1036 data-nosnippet>1036</a>        }
+<a href=#816 id=816 data-nosnippet>816</a>        }
+<a href=#817 id=817 data-nosnippet>817</a>
+<a href=#818 id=818 data-nosnippet>818</a>    };
+<a href=#819 id=819 data-nosnippet>819</a>}
+<a href=#820 id=820 data-nosnippet>820</a>
+<a href=#821 id=821 data-nosnippet>821</a><span class="comment">// Black-magic to count the number of identifiers at compile-time.
+<a href=#822 id=822 data-nosnippet>822</a></span><span class="macro">macro_rules!</span> count_idents {
+<a href=#823 id=823 data-nosnippet>823</a>    ( $(<span class="macro-nonterminal">$idents</span>:ident),* ) =&gt; {
+<a href=#824 id=824 data-nosnippet>824</a>        {
+<a href=#825 id=825 data-nosnippet>825</a>            <span class="attr">#[allow(dead_code, non_camel_case_types)]
+<a href=#826 id=826 data-nosnippet>826</a>            </span><span class="kw">enum </span>Idents { $( <span class="macro-nonterminal">$idents</span>, )* __CountIdentsLast }
+<a href=#827 id=827 data-nosnippet>827</a>            <span class="kw">const </span>COUNT: usize = Idents::__CountIdentsLast <span class="kw">as </span>usize;
+<a href=#828 id=828 data-nosnippet>828</a>            COUNT
+<a href=#829 id=829 data-nosnippet>829</a>        }
+<a href=#830 id=830 data-nosnippet>830</a>    };
+<a href=#831 id=831 data-nosnippet>831</a>}
+<a href=#832 id=832 data-nosnippet>832</a>
+<a href=#833 id=833 data-nosnippet>833</a><span class="comment">// Here we go! Let's generate all the C struct and `WasmTypeList`
+<a href=#834 id=834 data-nosnippet>834</a>// implementations.
+<a href=#835 id=835 data-nosnippet>835</a></span><span class="macro">impl_wasmtypelist!</span>([C] S0,);
+<a href=#836 id=836 data-nosnippet>836</a><span class="macro">impl_wasmtypelist!</span>([transparent] S1, A1);
+<a href=#837 id=837 data-nosnippet>837</a><span class="macro">impl_wasmtypelist!</span>([C] S2, A1, A2);
+<a href=#838 id=838 data-nosnippet>838</a><span class="macro">impl_wasmtypelist!</span>([C] S3, A1, A2, A3);
+<a href=#839 id=839 data-nosnippet>839</a><span class="macro">impl_wasmtypelist!</span>([C] S4, A1, A2, A3, A4);
+<a href=#840 id=840 data-nosnippet>840</a><span class="macro">impl_wasmtypelist!</span>([C] S5, A1, A2, A3, A4, A5);
+<a href=#841 id=841 data-nosnippet>841</a><span class="macro">impl_wasmtypelist!</span>([C] S6, A1, A2, A3, A4, A5, A6);
+<a href=#842 id=842 data-nosnippet>842</a><span class="macro">impl_wasmtypelist!</span>([C] S7, A1, A2, A3, A4, A5, A6, A7);
+<a href=#843 id=843 data-nosnippet>843</a><span class="macro">impl_wasmtypelist!</span>([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+<a href=#844 id=844 data-nosnippet>844</a><span class="macro">impl_wasmtypelist!</span>([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+<a href=#845 id=845 data-nosnippet>845</a><span class="macro">impl_wasmtypelist!</span>([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+<a href=#846 id=846 data-nosnippet>846</a><span class="macro">impl_wasmtypelist!</span>([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+<a href=#847 id=847 data-nosnippet>847</a><span class="macro">impl_wasmtypelist!</span>([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+<a href=#848 id=848 data-nosnippet>848</a><span class="macro">impl_wasmtypelist!</span>([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+<a href=#849 id=849 data-nosnippet>849</a><span class="macro">impl_wasmtypelist!</span>([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+<a href=#850 id=850 data-nosnippet>850</a><span class="macro">impl_wasmtypelist!</span>([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+<a href=#851 id=851 data-nosnippet>851</a><span class="macro">impl_wasmtypelist!</span>([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+<a href=#852 id=852 data-nosnippet>852</a><span class="macro">impl_wasmtypelist!</span>([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+<a href=#853 id=853 data-nosnippet>853</a><span class="macro">impl_wasmtypelist!</span>([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+<a href=#854 id=854 data-nosnippet>854</a><span class="macro">impl_wasmtypelist!</span>([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+<a href=#855 id=855 data-nosnippet>855</a><span class="macro">impl_wasmtypelist!</span>([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+<a href=#856 id=856 data-nosnippet>856</a><span class="macro">impl_wasmtypelist!</span>([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+<a href=#857 id=857 data-nosnippet>857</a><span class="macro">impl_wasmtypelist!</span>([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+<a href=#858 id=858 data-nosnippet>858</a><span class="macro">impl_wasmtypelist!</span>([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+<a href=#859 id=859 data-nosnippet>859</a><span class="macro">impl_wasmtypelist!</span>([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+<a href=#860 id=860 data-nosnippet>860</a><span class="macro">impl_wasmtypelist!</span>([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+<a href=#861 id=861 data-nosnippet>861</a><span class="macro">impl_wasmtypelist!</span>([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);
+<a href=#862 id=862 data-nosnippet>862</a>
+<a href=#863 id=863 data-nosnippet>863</a><span class="attr">#[cfg(test)]
+<a href=#864 id=864 data-nosnippet>864</a></span><span class="kw">mod </span>test_wasm_type_list {
+<a href=#865 id=865 data-nosnippet>865</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#866 id=866 data-nosnippet>866</a>    <span class="kw">use </span>wasmer_types::Type;
+<a href=#867 id=867 data-nosnippet>867</a>    <span class="comment">/*
+<a href=#868 id=868 data-nosnippet>868</a>    #[test]
+<a href=#869 id=869 data-nosnippet>869</a>    fn test_from_array() {
+<a href=#870 id=870 data-nosnippet>870</a>        let mut store = Store::default();
+<a href=#871 id=871 data-nosnippet>871</a>        let env = FunctionEnv::new(&amp;mut store, ());
+<a href=#872 id=872 data-nosnippet>872</a>        assert_eq!(&lt;()&gt;::from_array(&amp;mut env, []), ());
+<a href=#873 id=873 data-nosnippet>873</a>        assert_eq!(&lt;i32&gt;::from_array(&amp;mut env, [RawValue{i32: 1}]), (1i32));
+<a href=#874 id=874 data-nosnippet>874</a>        assert_eq!(&lt;(i32, i64)&gt;::from_array(&amp;mut env, [RawValue{i32:1}, RawValue{i64:2}]), (1i32, 2i64));
+<a href=#875 id=875 data-nosnippet>875</a>        assert_eq!(
+<a href=#876 id=876 data-nosnippet>876</a>            &lt;(i32, i64, f32, f64)&gt;::from_array(&amp;mut env, [
+<a href=#877 id=877 data-nosnippet>877</a>                RawValue{i32:1},
+<a href=#878 id=878 data-nosnippet>878</a>                RawValue{i64:2},
+<a href=#879 id=879 data-nosnippet>879</a>                RawValue{f32: 3.1f32},
+<a href=#880 id=880 data-nosnippet>880</a>                RawValue{f64: 4.2f64}
+<a href=#881 id=881 data-nosnippet>881</a>            ]),
+<a href=#882 id=882 data-nosnippet>882</a>            (1, 2, 3.1f32, 4.2f64)
+<a href=#883 id=883 data-nosnippet>883</a>        );
+<a href=#884 id=884 data-nosnippet>884</a>    }
+<a href=#885 id=885 data-nosnippet>885</a>
+<a href=#886 id=886 data-nosnippet>886</a>    #[test]
+<a href=#887 id=887 data-nosnippet>887</a>    fn test_into_array() {
+<a href=#888 id=888 data-nosnippet>888</a>        let mut store = Store::default();
+<a href=#889 id=889 data-nosnippet>889</a>        let env = FunctionEnv::new(&amp;mut store, ());
+<a href=#890 id=890 data-nosnippet>890</a>        assert_eq!(().into_array(&amp;mut store), [0i128; 0]);
+<a href=#891 id=891 data-nosnippet>891</a>        assert_eq!((1i32).into_array(&amp;mut store), [1i32]);
+<a href=#892 id=892 data-nosnippet>892</a>        assert_eq!((1i32, 2i64).into_array(&amp;mut store), [RawValue{i32: 1}, RawValue{i64: 2}]);
+<a href=#893 id=893 data-nosnippet>893</a>        assert_eq!(
+<a href=#894 id=894 data-nosnippet>894</a>            (1i32, 2i32, 3.1f32, 4.2f64).into_array(&amp;mut store),
+<a href=#895 id=895 data-nosnippet>895</a>            [RawValue{i32: 1}, RawValue{i32: 2}, RawValue{ f32: 3.1f32}, RawValue{f64: 4.2f64}]
+<a href=#896 id=896 data-nosnippet>896</a>        );
+<a href=#897 id=897 data-nosnippet>897</a>    }
+<a href=#898 id=898 data-nosnippet>898</a>    */
+<a href=#899 id=899 data-nosnippet>899</a>    </span><span class="attr">#[test]
+<a href=#900 id=900 data-nosnippet>900</a>    </span><span class="kw">fn </span>test_empty_array() {
+<a href=#901 id=901 data-nosnippet>901</a>        <span class="macro">assert_eq!</span>(&lt;()&gt;::empty_array().len(), <span class="number">0</span>);
+<a href=#902 id=902 data-nosnippet>902</a>        <span class="macro">assert_eq!</span>(&lt;i32&gt;::empty_array().len(), <span class="number">1</span>);
+<a href=#903 id=903 data-nosnippet>903</a>        <span class="macro">assert_eq!</span>(&lt;(i32, i64)&gt;::empty_array().len(), <span class="number">2</span>);
+<a href=#904 id=904 data-nosnippet>904</a>    }
+<a href=#905 id=905 data-nosnippet>905</a>    <span class="comment">/*
+<a href=#906 id=906 data-nosnippet>906</a>    #[test]
+<a href=#907 id=907 data-nosnippet>907</a>    fn test_from_c_struct() {
+<a href=#908 id=908 data-nosnippet>908</a>        let mut store = Store::default();
+<a href=#909 id=909 data-nosnippet>909</a>        let env = FunctionEnv::new(&amp;mut store, ());
+<a href=#910 id=910 data-nosnippet>910</a>        assert_eq!(&lt;()&gt;::from_c_struct(&amp;mut store, S0()), ());
+<a href=#911 id=911 data-nosnippet>911</a>        assert_eq!(&lt;i32&gt;::from_c_struct(&amp;mut store, S1(1)), (1i32));
+<a href=#912 id=912 data-nosnippet>912</a>        assert_eq!(&lt;(i32, i64)&gt;::from_c_struct(&amp;mut store, S2(1, 2)), (1i32, 2i64));
+<a href=#913 id=913 data-nosnippet>913</a>        assert_eq!(
+<a href=#914 id=914 data-nosnippet>914</a>            &lt;(i32, i64, f32, f64)&gt;::from_c_struct(&amp;mut store, S4(1, 2, 3.1, 4.2)),
+<a href=#915 id=915 data-nosnippet>915</a>            (1i32, 2i64, 3.1f32, 4.2f64)
+<a href=#916 id=916 data-nosnippet>916</a>        );
+<a href=#917 id=917 data-nosnippet>917</a>    }
+<a href=#918 id=918 data-nosnippet>918</a>    */
+<a href=#919 id=919 data-nosnippet>919</a>    </span><span class="attr">#[test]
+<a href=#920 id=920 data-nosnippet>920</a>    </span><span class="kw">fn </span>test_wasm_types_for_uni_values() {
+<a href=#921 id=921 data-nosnippet>921</a>        <span class="macro">assert_eq!</span>(&lt;i32&gt;::wasm_types(), [Type::I32]);
+<a href=#922 id=922 data-nosnippet>922</a>        <span class="macro">assert_eq!</span>(&lt;i64&gt;::wasm_types(), [Type::I64]);
+<a href=#923 id=923 data-nosnippet>923</a>        <span class="macro">assert_eq!</span>(&lt;f32&gt;::wasm_types(), [Type::F32]);
+<a href=#924 id=924 data-nosnippet>924</a>        <span class="macro">assert_eq!</span>(&lt;f64&gt;::wasm_types(), [Type::F64]);
+<a href=#925 id=925 data-nosnippet>925</a>    }
+<a href=#926 id=926 data-nosnippet>926</a>
+<a href=#927 id=927 data-nosnippet>927</a>    <span class="attr">#[test]
+<a href=#928 id=928 data-nosnippet>928</a>    </span><span class="kw">fn </span>test_wasm_types_for_multi_values() {
+<a href=#929 id=929 data-nosnippet>929</a>        <span class="macro">assert_eq!</span>(&lt;(i32, i32)&gt;::wasm_types(), [Type::I32, Type::I32]);
+<a href=#930 id=930 data-nosnippet>930</a>        <span class="macro">assert_eq!</span>(&lt;(i64, i64)&gt;::wasm_types(), [Type::I64, Type::I64]);
+<a href=#931 id=931 data-nosnippet>931</a>        <span class="macro">assert_eq!</span>(&lt;(f32, f32)&gt;::wasm_types(), [Type::F32, Type::F32]);
+<a href=#932 id=932 data-nosnippet>932</a>        <span class="macro">assert_eq!</span>(&lt;(f64, f64)&gt;::wasm_types(), [Type::F64, Type::F64]);
+<a href=#933 id=933 data-nosnippet>933</a>
+<a href=#934 id=934 data-nosnippet>934</a>        <span class="macro">assert_eq!</span>(
+<a href=#935 id=935 data-nosnippet>935</a>            &lt;(i32, i64, f32, f64)&gt;::wasm_types(),
+<a href=#936 id=936 data-nosnippet>936</a>            [Type::I32, Type::I64, Type::F32, Type::F64]
+<a href=#937 id=937 data-nosnippet>937</a>        );
+<a href=#938 id=938 data-nosnippet>938</a>    }
+<a href=#939 id=939 data-nosnippet>939</a>}
+<a href=#940 id=940 data-nosnippet>940</a><span class="comment">/*
+<a href=#941 id=941 data-nosnippet>941</a>    #[allow(non_snake_case)]
+<a href=#942 id=942 data-nosnippet>942</a>    #[cfg(test)]
+<a href=#943 id=943 data-nosnippet>943</a>    mod test_function {
+<a href=#944 id=944 data-nosnippet>944</a>        use super::*;
+<a href=#945 id=945 data-nosnippet>945</a>        use crate::Store;
+<a href=#946 id=946 data-nosnippet>946</a>        use crate::FunctionEnv;
+<a href=#947 id=947 data-nosnippet>947</a>        use wasmer_types::Type;
+<a href=#948 id=948 data-nosnippet>948</a>
+<a href=#949 id=949 data-nosnippet>949</a>        fn func() {}
+<a href=#950 id=950 data-nosnippet>950</a>        fn func__i32() -&gt; i32 {
+<a href=#951 id=951 data-nosnippet>951</a>            0
+<a href=#952 id=952 data-nosnippet>952</a>        }
+<a href=#953 id=953 data-nosnippet>953</a>        fn func_i32( _a: i32) {}
+<a href=#954 id=954 data-nosnippet>954</a>        fn func_i32__i32( a: i32) -&gt; i32 {
+<a href=#955 id=955 data-nosnippet>955</a>            a * 2
+<a href=#956 id=956 data-nosnippet>956</a>        }
+<a href=#957 id=957 data-nosnippet>957</a>        fn func_i32_i32__i32( a: i32, b: i32) -&gt; i32 {
+<a href=#958 id=958 data-nosnippet>958</a>            a + b
+<a href=#959 id=959 data-nosnippet>959</a>        }
+<a href=#960 id=960 data-nosnippet>960</a>        fn func_i32_i32__i32_i32( a: i32, b: i32) -&gt; (i32, i32) {
+<a href=#961 id=961 data-nosnippet>961</a>            (a, b)
+<a href=#962 id=962 data-nosnippet>962</a>        }
+<a href=#963 id=963 data-nosnippet>963</a>        fn func_f32_i32__i32_f32( a: f32, b: i32) -&gt; (i32, f32) {
+<a href=#964 id=964 data-nosnippet>964</a>            (b, a)
+<a href=#965 id=965 data-nosnippet>965</a>        }
+<a href=#966 id=966 data-nosnippet>966</a>
+<a href=#967 id=967 data-nosnippet>967</a>        #[test]
+<a href=#968 id=968 data-nosnippet>968</a>        fn test_function_types() {
+<a href=#969 id=969 data-nosnippet>969</a>            let mut store = Store::default();
+<a href=#970 id=970 data-nosnippet>970</a>            let env = FunctionEnv::new(&amp;mut store, ());
+<a href=#971 id=971 data-nosnippet>971</a>            use wasmer_types::FunctionType;
+<a href=#972 id=972 data-nosnippet>972</a>            assert_eq!(
+<a href=#973 id=973 data-nosnippet>973</a>                StaticFunction::new(func).ty(&amp;mut store),
+<a href=#974 id=974 data-nosnippet>974</a>                FunctionType::new(vec![], vec![])
+<a href=#975 id=975 data-nosnippet>975</a>            );
+<a href=#976 id=976 data-nosnippet>976</a>            assert_eq!(
+<a href=#977 id=977 data-nosnippet>977</a>                StaticFunction::new(func__i32).ty(&amp;mut store),
+<a href=#978 id=978 data-nosnippet>978</a>                FunctionType::new(vec![], vec![Type::I32])
+<a href=#979 id=979 data-nosnippet>979</a>            );
+<a href=#980 id=980 data-nosnippet>980</a>            assert_eq!(
+<a href=#981 id=981 data-nosnippet>981</a>                StaticFunction::new(func_i32).ty(),
+<a href=#982 id=982 data-nosnippet>982</a>                FunctionType::new(vec![Type::I32], vec![])
+<a href=#983 id=983 data-nosnippet>983</a>            );
+<a href=#984 id=984 data-nosnippet>984</a>            assert_eq!(
+<a href=#985 id=985 data-nosnippet>985</a>                StaticFunction::new(func_i32__i32).ty(),
+<a href=#986 id=986 data-nosnippet>986</a>                FunctionType::new(vec![Type::I32], vec![Type::I32])
+<a href=#987 id=987 data-nosnippet>987</a>            );
+<a href=#988 id=988 data-nosnippet>988</a>            assert_eq!(
+<a href=#989 id=989 data-nosnippet>989</a>                StaticFunction::new(func_i32_i32__i32).ty(),
+<a href=#990 id=990 data-nosnippet>990</a>                FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
+<a href=#991 id=991 data-nosnippet>991</a>            );
+<a href=#992 id=992 data-nosnippet>992</a>            assert_eq!(
+<a href=#993 id=993 data-nosnippet>993</a>                StaticFunction::new(func_i32_i32__i32_i32).ty(),
+<a href=#994 id=994 data-nosnippet>994</a>                FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
+<a href=#995 id=995 data-nosnippet>995</a>            );
+<a href=#996 id=996 data-nosnippet>996</a>            assert_eq!(
+<a href=#997 id=997 data-nosnippet>997</a>                StaticFunction::new(func_f32_i32__i32_f32).ty(),
+<a href=#998 id=998 data-nosnippet>998</a>                FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
+<a href=#999 id=999 data-nosnippet>999</a>            );
+<a href=#1000 id=1000 data-nosnippet>1000</a>        }
+<a href=#1001 id=1001 data-nosnippet>1001</a>
+<a href=#1002 id=1002 data-nosnippet>1002</a>        #[test]
+<a href=#1003 id=1003 data-nosnippet>1003</a>        fn test_function_pointer() {
+<a href=#1004 id=1004 data-nosnippet>1004</a>            let f = StaticFunction::new(func_i32__i32);
+<a href=#1005 id=1005 data-nosnippet>1005</a>            let function = unsafe { std::mem::transmute::&lt;_, fn(usize, i32) -&gt; i32&gt;(f.address) };
+<a href=#1006 id=1006 data-nosnippet>1006</a>            assert_eq!(function(0, 3), 6);
+<a href=#1007 id=1007 data-nosnippet>1007</a>        }
+<a href=#1008 id=1008 data-nosnippet>1008</a>    }
+<a href=#1009 id=1009 data-nosnippet>1009</a>*/
+<a href=#1010 id=1010 data-nosnippet>1010</a>
+<a href=#1011 id=1011 data-nosnippet>1011</a></span><span class="attr">#[cfg(test)]
+<a href=#1012 id=1012 data-nosnippet>1012</a></span><span class="kw">mod </span>test_native_type {
+<a href=#1013 id=1013 data-nosnippet>1013</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#1014 id=1014 data-nosnippet>1014</a>    <span class="kw">use </span>wasmer_types::Type;
+<a href=#1015 id=1015 data-nosnippet>1015</a>
+<a href=#1016 id=1016 data-nosnippet>1016</a>    <span class="attr">#[test]
+<a href=#1017 id=1017 data-nosnippet>1017</a>    </span><span class="kw">fn </span>test_wasm_types() {
+<a href=#1018 id=1018 data-nosnippet>1018</a>        <span class="macro">assert_eq!</span>(i32::WASM_TYPE, Type::I32);
+<a href=#1019 id=1019 data-nosnippet>1019</a>        <span class="macro">assert_eq!</span>(i64::WASM_TYPE, Type::I64);
+<a href=#1020 id=1020 data-nosnippet>1020</a>        <span class="macro">assert_eq!</span>(f32::WASM_TYPE, Type::F32);
+<a href=#1021 id=1021 data-nosnippet>1021</a>        <span class="macro">assert_eq!</span>(f64::WASM_TYPE, Type::F64);
+<a href=#1022 id=1022 data-nosnippet>1022</a>        <span class="macro">assert_eq!</span>(u128::WASM_TYPE, Type::V128);
+<a href=#1023 id=1023 data-nosnippet>1023</a>    }
+<a href=#1024 id=1024 data-nosnippet>1024</a>    <span class="comment">/*
+<a href=#1025 id=1025 data-nosnippet>1025</a>    #[test]
+<a href=#1026 id=1026 data-nosnippet>1026</a>    fn test_roundtrip() {
+<a href=#1027 id=1027 data-nosnippet>1027</a>        unsafe {
+<a href=#1028 id=1028 data-nosnippet>1028</a>            assert_eq!(i32::from_raw(42i32.into_raw()), 42i32);
+<a href=#1029 id=1029 data-nosnippet>1029</a>            assert_eq!(i64::from_raw(42i64.into_raw()), 42i64);
+<a href=#1030 id=1030 data-nosnippet>1030</a>            assert_eq!(f32::from_raw(42f32.into_raw()), 42f32);
+<a href=#1031 id=1031 data-nosnippet>1031</a>            assert_eq!(f64::from_raw(42f64.into_raw()), 42f64);
+<a href=#1032 id=1032 data-nosnippet>1032</a>            assert_eq!(u128::from_raw(42u128.into_raw()), 42u128);
+<a href=#1033 id=1033 data-nosnippet>1033</a>        }
+<a href=#1034 id=1034 data-nosnippet>1034</a>    }
+<a href=#1035 id=1035 data-nosnippet>1035</a>    */
+<a href=#1036 id=1036 data-nosnippet>1036</a></span>}
 <a href=#1037 id=1037 data-nosnippet>1037</a>
-<a href=#1038 id=1038 data-nosnippet>1038</a>        #[test]
-<a href=#1039 id=1039 data-nosnippet>1039</a>        fn test_function_pointer() {
-<a href=#1040 id=1040 data-nosnippet>1040</a>            let f = StaticFunction::new(func_i32__i32);
-<a href=#1041 id=1041 data-nosnippet>1041</a>            let function = unsafe { std::mem::transmute::&lt;_, fn(usize, i32) -&gt; i32&gt;(f.address) };
-<a href=#1042 id=1042 data-nosnippet>1042</a>            assert_eq!(function(0, 3), 6);
-<a href=#1043 id=1043 data-nosnippet>1043</a>        }
-<a href=#1044 id=1044 data-nosnippet>1044</a>    }
-<a href=#1045 id=1045 data-nosnippet>1045</a>*/
-<a href=#1046 id=1046 data-nosnippet>1046</a>
-<a href=#1047 id=1047 data-nosnippet>1047</a></span><span class="attr">#[cfg(test)]
-<a href=#1048 id=1048 data-nosnippet>1048</a></span><span class="kw">mod </span>test_native_type {
-<a href=#1049 id=1049 data-nosnippet>1049</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#1050 id=1050 data-nosnippet>1050</a>    <span class="kw">use </span>wasmer_types::Type;
-<a href=#1051 id=1051 data-nosnippet>1051</a>
-<a href=#1052 id=1052 data-nosnippet>1052</a>    <span class="attr">#[test]
-<a href=#1053 id=1053 data-nosnippet>1053</a>    </span><span class="kw">fn </span>test_wasm_types() {
-<a href=#1054 id=1054 data-nosnippet>1054</a>        <span class="macro">assert_eq!</span>(i32::WASM_TYPE, Type::I32);
-<a href=#1055 id=1055 data-nosnippet>1055</a>        <span class="macro">assert_eq!</span>(i64::WASM_TYPE, Type::I64);
-<a href=#1056 id=1056 data-nosnippet>1056</a>        <span class="macro">assert_eq!</span>(f32::WASM_TYPE, Type::F32);
-<a href=#1057 id=1057 data-nosnippet>1057</a>        <span class="macro">assert_eq!</span>(f64::WASM_TYPE, Type::F64);
-<a href=#1058 id=1058 data-nosnippet>1058</a>        <span class="macro">assert_eq!</span>(u128::WASM_TYPE, Type::V128);
-<a href=#1059 id=1059 data-nosnippet>1059</a>    }
-<a href=#1060 id=1060 data-nosnippet>1060</a>    <span class="comment">/*
-<a href=#1061 id=1061 data-nosnippet>1061</a>    #[test]
-<a href=#1062 id=1062 data-nosnippet>1062</a>    fn test_roundtrip() {
-<a href=#1063 id=1063 data-nosnippet>1063</a>        unsafe {
-<a href=#1064 id=1064 data-nosnippet>1064</a>            assert_eq!(i32::from_raw(42i32.into_raw()), 42i32);
-<a href=#1065 id=1065 data-nosnippet>1065</a>            assert_eq!(i64::from_raw(42i64.into_raw()), 42i64);
-<a href=#1066 id=1066 data-nosnippet>1066</a>            assert_eq!(f32::from_raw(42f32.into_raw()), 42f32);
-<a href=#1067 id=1067 data-nosnippet>1067</a>            assert_eq!(f64::from_raw(42f64.into_raw()), 42f64);
-<a href=#1068 id=1068 data-nosnippet>1068</a>            assert_eq!(u128::from_raw(42u128.into_raw()), 42u128);
-<a href=#1069 id=1069 data-nosnippet>1069</a>        }
-<a href=#1070 id=1070 data-nosnippet>1070</a>    }
-<a href=#1071 id=1071 data-nosnippet>1071</a>    */
-<a href=#1072 id=1072 data-nosnippet>1072</a></span>}
-<a href=#1073 id=1073 data-nosnippet>1073</a>
-<a href=#1074 id=1074 data-nosnippet>1074</a><span class="comment">// pub trait IntegerAtomic
-<a href=#1075 id=1075 data-nosnippet>1075</a>// where
-<a href=#1076 id=1076 data-nosnippet>1076</a>//     Self: Sized
-<a href=#1077 id=1077 data-nosnippet>1077</a>// {
-<a href=#1078 id=1078 data-nosnippet>1078</a>//     type Primitive;
-<a href=#1079 id=1079 data-nosnippet>1079</a>
-<a href=#1080 id=1080 data-nosnippet>1080</a>//     fn add(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
-<a href=#1081 id=1081 data-nosnippet>1081</a>//     fn sub(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
-<a href=#1082 id=1082 data-nosnippet>1082</a>//     fn and(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
-<a href=#1083 id=1083 data-nosnippet>1083</a>//     fn or(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
-<a href=#1084 id=1084 data-nosnippet>1084</a>//     fn xor(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
-<a href=#1085 id=1085 data-nosnippet>1085</a>//     fn load(&amp;self) -&gt; Self::Primitive;
-<a href=#1086 id=1086 data-nosnippet>1086</a>//     fn store(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
-<a href=#1087 id=1087 data-nosnippet>1087</a>//     fn compare_exchange(&amp;self, expected: Self::Primitive, new: Self::Primitive) -&gt; Self::Primitive;
-<a href=#1088 id=1088 data-nosnippet>1088</a>//     fn swap(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
-<a href=#1089 id=1089 data-nosnippet>1089</a>// }</span></code></pre></div></section></main></body></html>
+<a href=#1038 id=1038 data-nosnippet>1038</a><span class="comment">// pub trait IntegerAtomic
+<a href=#1039 id=1039 data-nosnippet>1039</a>// where
+<a href=#1040 id=1040 data-nosnippet>1040</a>//     Self: Sized
+<a href=#1041 id=1041 data-nosnippet>1041</a>// {
+<a href=#1042 id=1042 data-nosnippet>1042</a>//     type Primitive;
+<a href=#1043 id=1043 data-nosnippet>1043</a>
+<a href=#1044 id=1044 data-nosnippet>1044</a>//     fn add(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+<a href=#1045 id=1045 data-nosnippet>1045</a>//     fn sub(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+<a href=#1046 id=1046 data-nosnippet>1046</a>//     fn and(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+<a href=#1047 id=1047 data-nosnippet>1047</a>//     fn or(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+<a href=#1048 id=1048 data-nosnippet>1048</a>//     fn xor(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+<a href=#1049 id=1049 data-nosnippet>1049</a>//     fn load(&amp;self) -&gt; Self::Primitive;
+<a href=#1050 id=1050 data-nosnippet>1050</a>//     fn store(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+<a href=#1051 id=1051 data-nosnippet>1051</a>//     fn compare_exchange(&amp;self, expected: Self::Primitive, new: Self::Primitive) -&gt; Self::Primitive;
+<a href=#1052 id=1052 data-nosnippet>1052</a>//     fn swap(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+<a href=#1053 id=1053 data-nosnippet>1053</a>// }</span></code></pre></div></section></main></body></html>

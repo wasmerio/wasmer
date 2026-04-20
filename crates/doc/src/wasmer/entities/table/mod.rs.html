@@ -126,28 +126,23 @@
 <a href=#126 id=126 data-nosnippet>126</a>    <span class="doccomment">/// Check the example from &lt;https://github.com/wasmerio/wasmer/issues/3197&gt;.
 <a href=#127 id=127 data-nosnippet>127</a>    </span><span class="attr">#[test]
 <a href=#128 id=128 data-nosnippet>128</a>    #[cfg_attr(
-<a href=#129 id=129 data-nosnippet>129</a>        feature = <span class="string">"wamr"</span>,
-<a href=#130 id=130 data-nosnippet>130</a>        ignore = <span class="string">"wamr does not support direct calls to grow table"
+<a href=#129 id=129 data-nosnippet>129</a>        feature = <span class="string">"v8"</span>,
+<a href=#130 id=130 data-nosnippet>130</a>        ignore = <span class="string">"growing tables in v8 is not currently supported"
 <a href=#131 id=131 data-nosnippet>131</a>    </span>)]
-<a href=#132 id=132 data-nosnippet>132</a>    #[cfg_attr(feature = <span class="string">"wasmi"</span>, ignore = <span class="string">"wasmi does not support funcrefs"</span>)]
-<a href=#133 id=133 data-nosnippet>133</a>    #[cfg_attr(
-<a href=#134 id=134 data-nosnippet>134</a>        feature = <span class="string">"v8"</span>,
-<a href=#135 id=135 data-nosnippet>135</a>        ignore = <span class="string">"growing tables in v8 is not currently supported"
-<a href=#136 id=136 data-nosnippet>136</a>    </span>)]
-<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">fn </span>table_grow_issue_3197() {
-<a href=#138 id=138 data-nosnippet>138</a>        <span class="kw">use crate</span>::{Instance, Module, Store, Table, TableType, Type, Value, imports};
-<a href=#139 id=139 data-nosnippet>139</a>
-<a href=#140 id=140 data-nosnippet>140</a>        <span class="kw">const </span>WAT: <span class="kw-2">&amp;</span>str = <span class="string">r#"(module (table (import "env" "table") 100 funcref))"#</span>;
-<a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a>        <span class="comment">// Tests that the table type of `table` is compatible with the export in the WAT
-<a href=#143 id=143 data-nosnippet>143</a>        // This tests that `wasmer_types::types::is_table_compatible` works as expected.
-<a href=#144 id=144 data-nosnippet>144</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
-<a href=#145 id=145 data-nosnippet>145</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, WAT).unwrap();
-<a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">let </span>ty = TableType::new(Type::FuncRef, <span class="number">0</span>, <span class="prelude-val">None</span>);
-<a href=#147 id=147 data-nosnippet>147</a>        <span class="kw">let </span>table = Table::new(<span class="kw-2">&amp;mut </span>store, ty, Value::FuncRef(<span class="prelude-val">None</span>)).unwrap();
-<a href=#148 id=148 data-nosnippet>148</a>        table.grow(<span class="kw-2">&amp;mut </span>store, <span class="number">100</span>, Value::FuncRef(<span class="prelude-val">None</span>)).unwrap();
-<a href=#149 id=149 data-nosnippet>149</a>        <span class="macro">assert_eq!</span>(table.ty(<span class="kw-2">&amp;</span>store).minimum, <span class="number">0</span>);
-<a href=#150 id=150 data-nosnippet>150</a>        <span class="kw">let </span>imports = <span class="macro">imports!</span> {<span class="string">"env" </span>=&gt; {<span class="string">"table" </span>=&gt; table}};
-<a href=#151 id=151 data-nosnippet>151</a>        <span class="kw">let </span>_instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>imports).unwrap();
-<a href=#152 id=152 data-nosnippet>152</a>    }
-<a href=#153 id=153 data-nosnippet>153</a>}</code></pre></div></section></main></body></html>
+<a href=#132 id=132 data-nosnippet>132</a>    </span><span class="kw">fn </span>table_grow_issue_3197() {
+<a href=#133 id=133 data-nosnippet>133</a>        <span class="kw">use crate</span>::{Instance, Module, Store, Table, TableType, Type, Value, imports};
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a>        <span class="kw">const </span>WAT: <span class="kw-2">&amp;</span>str = <span class="string">r#"(module (table (import "env" "table") 100 funcref))"#</span>;
+<a href=#136 id=136 data-nosnippet>136</a>
+<a href=#137 id=137 data-nosnippet>137</a>        <span class="comment">// Tests that the table type of `table` is compatible with the export in the WAT
+<a href=#138 id=138 data-nosnippet>138</a>        // This tests that `wasmer_types::types::is_table_compatible` works as expected.
+<a href=#139 id=139 data-nosnippet>139</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
+<a href=#140 id=140 data-nosnippet>140</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, WAT).unwrap();
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="kw">let </span>ty = TableType::new(Type::FuncRef, <span class="number">0</span>, <span class="prelude-val">None</span>);
+<a href=#142 id=142 data-nosnippet>142</a>        <span class="kw">let </span>table = Table::new(<span class="kw-2">&amp;mut </span>store, ty, Value::FuncRef(<span class="prelude-val">None</span>)).unwrap();
+<a href=#143 id=143 data-nosnippet>143</a>        table.grow(<span class="kw-2">&amp;mut </span>store, <span class="number">100</span>, Value::FuncRef(<span class="prelude-val">None</span>)).unwrap();
+<a href=#144 id=144 data-nosnippet>144</a>        <span class="macro">assert_eq!</span>(table.ty(<span class="kw-2">&amp;</span>store).minimum, <span class="number">0</span>);
+<a href=#145 id=145 data-nosnippet>145</a>        <span class="kw">let </span>imports = <span class="macro">imports!</span> {<span class="string">"env" </span>=&gt; {<span class="string">"table" </span>=&gt; table}};
+<a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">let </span>_instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>imports).unwrap();
+<a href=#147 id=147 data-nosnippet>147</a>    }
+<a href=#148 id=148 data-nosnippet>148</a>}</code></pre></div></section></main></body></html>
