@@ -22,6 +22,7 @@ mod path_tests;
 mod poll_tests;
 mod reflect_signature;
 mod reflection_tests;
+mod sched_yield;
 mod semaphore_tests;
 mod shared_library_tests;
 mod socket_tests;
