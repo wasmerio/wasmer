@@ -79,8 +79,6 @@
 //!   * [`wasmer-compiler-llvm`](https://docs.rs/wasmer-compiler-llvm/) provides a deeply optimized executable
 //!     code with the fastest runtime speed, ideal for production.
 //!
-//! * **Interpreters** - Wasmer supports interpeters such as [`wamr`] and [`wasmi`].
-//!
 //! * **Other runtimes** - Wasmer supports [`v8`].
 //!
 //! * **Headless mode** — Once a WebAssembly module has been compiled, it
@@ -314,8 +312,8 @@
 #![cfg_attr(not(feature = "compiler"), doc = "(disabled),")]
 //!   enables compilation with the wasmer engine.
 //!
-//! Notice that the `sys`, `wamr` and `v8` features are composable together,
-//! so a single build of Wasmer using `llvm`, `cranelift`, `singlepass`, `wamr`, and `v8`
+//! Notice that the `sys` and `v8` features are composable together,
+//! so a single build of Wasmer using `llvm`, `cranelift`, `singlepass`, and `v8`
 //! (or any combination of them) is possible.
 //!
 #![cfg_attr(
@@ -403,8 +401,6 @@
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 //! [`v8`]: https://v8.dev/
-//! [`wamr`]: https://github.com/bytecodealliance/wasm-micro-runtime
-//! [`wasmi`]: https://github.com/wasmi-labs/wasmi
 
 macro_rules! cfg_compiler {
     ($($item:item)*) => {

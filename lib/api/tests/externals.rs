@@ -397,8 +397,8 @@ fn function_new_dynamic() -> Result<(), String> {
     );
     assert_eq!(function.ty(&store), function_type);
 
-    // wasmi does not support V128 through its wasm_c_api bindings.
-    #[cfg(not(any(feature = "wasmi", feature = "v8")))]
+    // V8 does not support V128 through its wasm_c_api bindings.
+    #[cfg(not(feature = "v8"))]
     {
         // Using array signature
         let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
@@ -467,8 +467,8 @@ fn function_new_dynamic_env() -> Result<(), String> {
     );
     assert_eq!(function.ty(&store), function_type);
 
-    // wasmi does not support V128 through its wasm_c_api bindings.
-    #[cfg(not(any(feature = "wasmi", feature = "v8")))]
+    // V8 does not support V128 through its wasm_c_api bindings.
+    #[cfg(not(feature = "v8"))]
     {
         // Using array signature
         let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
