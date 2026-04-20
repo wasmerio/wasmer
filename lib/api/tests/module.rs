@@ -308,9 +308,9 @@ fn module_from_file_non_utf8_path() -> Result<(), String> {
     let non_utf8_name = OsStr::from_bytes(b"module_\xff\xfe.wasm");
     let path = dir.path().join(non_utf8_name);
 
-    match std::fs::write(&path, &wasm_bytes) {
-        Err(_) => return Ok(()),
-        Ok(()) => {}
+    // Some platforms and file systems does not support non-UTF8 paths, skip them.
+    if std::fs::write(&path, &wasm_bytes).is_err() {
+        return Ok(());
     }
 
     let module = Module::from_file(&store, &path).map_err(|e| format!("{e:?}"))?;
