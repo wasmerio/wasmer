@@ -5,6 +5,11 @@ mod dynamic_library_tests;
 mod edge_case_tests;
 mod exception_tests;
 mod exit_tests;
+mod fd_dup2;
+mod fd_fdflags_get;
+mod fd_fdflags_set;
+mod fd_fdstat_set_rights;
+mod fd_tell;
 mod fd_tests;
 mod libc_tests;
 mod lifecycle_tests;
@@ -286,11 +291,11 @@ fn create_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
 
         let compiler = wasmer::sys::LLVM::default();
 
-        return EngineBuilder::new(compiler)
+        EngineBuilder::new(compiler)
             .set_features(Some(features))
             .set_target(Some(target))
             .engine()
-            .into();
+            .into()
     }
 
     #[cfg(not(target_os = "macos"))]
