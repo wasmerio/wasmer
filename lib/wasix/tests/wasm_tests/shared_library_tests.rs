@@ -1,4 +1,4 @@
-#![cfg(all(unix, not(target_os = "macos"), not(feature = "js")))]
+#![cfg(all(unix, not(feature = "js")))]
 //! Shared library tests from wasix-tests directory
 //!
 //! These tests verify that shared libraries (.so) work correctly:

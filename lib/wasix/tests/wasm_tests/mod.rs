@@ -1,4 +1,8 @@
 mod basic_tests;
+mod call_dynamic;
+mod closure_free;
+mod context_destroy;
+mod context_switch;
 mod context_switching;
 mod dynamic_call_and_closure_tests;
 mod dynamic_library_tests;
@@ -16,6 +20,7 @@ mod lifecycle_tests;
 mod longjmp_tests;
 mod path_tests;
 mod poll_tests;
+mod reflect_signature;
 mod reflection_tests;
 mod semaphore_tests;
 mod shared_library_tests;
