@@ -306,7 +306,6 @@ wasm-encoder = { version = "0.247.0", default-features = false, features = [
 	"std",
 ] }
 wasm-smith = "0.247.0"
-wasmi_c_api_impl = "1.0.4"
 wasmparser = { version = "0.247.0", default-features = false, features = [
 	"validate",
 	"features",
@@ -369,14 +368,8 @@ default = ["wat", "wast", "cache", "wasi", "middlewares"]
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
 
-# Enable the WAMR backend (using it as default only if it is the only backend enabled)
-wamr = ["wasmer/wamr"]
-
 # Enable the V8 backend (using it as default only if it is the only backend enabled)
 v8 = ["wasmer/v8"]
-
-# Enable the wasmi backend (using it as default only if it is the only backend enabled)
-wasmi = ["wasmer/wasmi"]
 
 engine = []
 cache = ["wasmer-cache"]

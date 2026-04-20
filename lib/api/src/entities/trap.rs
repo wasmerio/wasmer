@@ -11,14 +11,6 @@ pub enum BackendTrap {
     /// The trap from the `sys` runtime.
     Sys(crate::backend::sys::vm::Trap),
 
-    #[cfg(feature = "wamr")]
-    /// The trap from the `wamr` runtime.
-    Wamr(crate::backend::wamr::vm::Trap),
-
-    #[cfg(feature = "wasmi")]
-    /// The trap from the `wasmi` runtime.
-    Wasmi(crate::backend::wasmi::vm::Trap),
-
     #[cfg(feature = "v8")]
     /// The trap from the `v8` runtime.
     V8(crate::backend::v8::vm::Trap),
@@ -40,15 +32,6 @@ impl BackendTrap {
         #[cfg(feature = "sys")]
         {
             return crate::backend::sys::vm::Trap::user(err).into();
-        }
-        #[cfg(feature = "wamr")]
-        {
-            return crate::backend::wamr::vm::Trap::user(err).into();
-        }
-
-        #[cfg(feature = "wasmi")]
-        {
-            return crate::backend::wasmi::vm::Trap::user(err).into();
         }
 
         #[cfg(feature = "v8")]
@@ -106,14 +89,6 @@ impl BackendTrap {
             Self::Sys(s) => s
                 .to_exception_ref()
                 .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Sys(e))),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s
-                .to_exception_ref()
-                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Wamr(e))),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(s) => s
-                .to_exception_ref()
-                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Wasmi(e))),
             #[cfg(feature = "v8")]
             Self::V8(s) => s
                 .to_exception_ref()

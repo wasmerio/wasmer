@@ -67,10 +67,6 @@ macro_rules! impl_native_traits {
                 match store.as_store_mut().inner.store {
                     #[cfg(feature = "sys")]
                     BackendStore::Sys(_) => self.call_sys(store, $([<p_ $x>]),*),
-                    #[cfg(feature = "wamr")]
-                    BackendStore::Wamr(_) => self.call_wamr(store, $([<p_ $x>]),*),
-                    #[cfg(feature = "wasmi")]
-                    BackendStore::Wasmi(_) => self.call_wasmi(store, $([<p_ $x>]),*),
                     #[cfg(feature = "v8")]
                     BackendStore::V8(_) => self.call_v8(store, $([<p_ $x>]),*),
                     #[cfg(feature = "js")]
@@ -106,10 +102,6 @@ macro_rules! impl_native_traits {
                             drop(read_lock);
                             Self::call_async_sys(func, store, $([<p_ $x>]),*).await
                         }
-                        #[cfg(feature = "wamr")]
-                        BackendStore::Wamr(_) => async_backend_error(),
-                        #[cfg(feature = "wasmi")]
-                        BackendStore::Wasmi(_) => async_backend_error(),
                         #[cfg(feature = "v8")]
                         BackendStore::V8(_) => async_backend_error(),
                         #[cfg(feature = "js")]
@@ -128,10 +120,6 @@ macro_rules! impl_native_traits {
                 match store.as_store_mut().inner.store {
                     #[cfg(feature = "sys")]
                     BackendStore::Sys(_) => self.call_raw_sys(store, params_list),
-                    #[cfg(feature = "wamr")]
-                    BackendStore::Wamr(_) => self.call_raw_wamr(store, params_list),
-                    #[cfg(feature = "wasmi")]
-                    BackendStore::Wasmi(_) => self.call_raw_wasmi(store, params_list),
                     #[cfg(feature = "v8")]
                     BackendStore::V8(_) => self.call_raw_v8(store, params_list),
                     #[cfg(feature = "js")]

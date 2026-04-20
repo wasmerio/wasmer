@@ -4,12 +4,6 @@
 #[cfg(feature = "sys")]
 pub mod sys;
 
-#[cfg(feature = "wamr")]
-pub mod wamr;
-
-#[cfg(feature = "wasmi")]
-pub mod wasmi;
-
 #[cfg(feature = "v8")]
 pub mod v8;
 
@@ -38,14 +32,6 @@ pub enum BackendKind {
     #[cfg(feature = "sys")]
     /// The sys `headless` runtime.
     Headless,
-
-    #[cfg(feature = "wamr")]
-    /// The `wamr` runtime.
-    Wamr,
-
-    #[cfg(feature = "wasmi")]
-    /// The `wasmi` runtime.
-    Wasmi,
 
     #[cfg(feature = "v8")]
     /// The `v8` runtime.
@@ -79,16 +65,6 @@ impl Default for BackendKind {
             return Self::Headless;
         }
 
-        #[cfg(feature = "wamr-default")]
-        {
-            return Self::Wamr;
-        }
-
-        #[cfg(feature = "wasmi-default")]
-        {
-            return Self::Wasmi;
-        }
-
         #[cfg(feature = "v8-default")]
         {
             return Self::V8;
@@ -119,16 +95,6 @@ impl Default for BackendKind {
                 return Self::LLVM;
             }
             return Self::Headless;
-        }
-
-        #[cfg(feature = "wamr")]
-        {
-            return Self::Wamr;
-        }
-
-        #[cfg(feature = "wasmi")]
-        {
-            return Self::Wasmi;
         }
 
         #[cfg(feature = "v8")]

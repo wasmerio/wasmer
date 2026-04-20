@@ -148,12 +148,6 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 }
 
-//impl<T> Into<crate::FunctionEnv<T>> for FunctionEnv<T> {
-//    fn into(self) -> crate::FunctionEnv<T> {
-//        crate::FunctionEnv::Wamr(self)
-//    }
-//}
-
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         StoreRef {

@@ -36,7 +36,5 @@ dirs.workspace = true
 [features]
 default = ["webc_runner"]
 webc_runner = []
-wamr = []
 v8 = []
-wasmi = []
 debug = []

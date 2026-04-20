@@ -79,8 +79,6 @@
 //!   * [`wasmer-compiler-llvm`](https://docs.rs/wasmer-compiler-llvm/) provides a deeply optimized executable
 //!     code with the fastest runtime speed, ideal for production.
 //!
-//! * **Interpreters** - Wasmer supports interpeters such as [`wamr`] and [`wasmi`].
-//!
 //! * **Other runtimes** - Wasmer supports [`v8`].
 //!
 //! * **Headless mode** — Once a WebAssembly module has been compiled, it
@@ -270,13 +268,7 @@
 //!   where `wasmer` will be compiled to a native executable
 //!   where the `v8` runtime is used for execution.
 //!
-//! 3. `wamr`
-#![cfg_attr(feature = "wamr", doc = "(enabled),")]
-#![cfg_attr(not(feature = "wamr"), doc = "(disabled),")]
-//!   where `wasmer` will be compiled to a native executable
-//!   where `wamr` (in interpreter mode) is used for execution.
-//!
-//! 4. `js`
+//! 3. `js`
 #![cfg_attr(feature = "js", doc = "(enabled),")]
 #![cfg_attr(not(feature = "js"), doc = "(disabled),")]
 //!    where `wasmer` will be compiled to WebAssembly to run in a
@@ -320,8 +312,8 @@
 #![cfg_attr(not(feature = "compiler"), doc = "(disabled),")]
 //!   enables compilation with the wasmer engine.
 //!
-//! Notice that the `sys`, `wamr` and `v8` features are composable together,
-//! so a single build of Wasmer using `llvm`, `cranelift`, `singlepass`, `wamr`, and `v8`
+//! Notice that the `sys` and `v8` features are composable together,
+//! so a single build of Wasmer using `llvm`, `cranelift`, `singlepass`, and `v8`
 //! (or any combination of them) is possible.
 //!
 #![cfg_attr(
@@ -409,8 +401,6 @@
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 //! [`v8`]: https://v8.dev/
-//! [`wamr`]: https://github.com/bytecodealliance/wasm-micro-runtime
-//! [`wasmi`]: https://github.com/wasmi-labs/wasmi
 
 macro_rules! cfg_compiler {
     ($($item:item)*) => {
@@ -421,9 +411,7 @@ macro_rules! cfg_compiler {
                 feature = "llvm",
                 feature = "js",
                 feature = "jsc",
-                feature = "wamr",
                 feature = "v8",
-                feature = "wasmi",
                 feature = "headless"
             ))]
             $item
@@ -435,15 +423,13 @@ macro_rules! cfg_compiler {
     feature = "singlepass",
     feature = "cranelift",
     feature = "llvm",
-    feature = "wamr",
-    feature = "wasmi",
     feature = "v8",
     feature = "js",
     feature = "jsc",
     feature = "headless",
 )))]
 compile_error!(
-    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `wamr`, `wasmi`, `v8`, `js`, `jsc` or `headless`."
+    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `v8`, `js`, `jsc` or `headless`."
 );
 
 #[cfg(all(
@@ -478,9 +464,7 @@ cfg_compiler! {
     feature = "llvm",
     feature = "js",
     feature = "jsc",
-    feature = "wamr",
     feature = "v8",
-    feature = "wasmi",
     feature = "headless",
 ))]
 mod entities;
@@ -507,9 +491,7 @@ pub use wasmer_derive::ValueType;
         any(
             feature = "js-default",
             feature = "jsc-default",
-            feature = "wamr-default",
             feature = "v8-default",
-            feature = "wasmi-default"
         )
     ),
     all(
@@ -517,9 +499,7 @@ pub use wasmer_derive::ValueType;
         any(
             feature = "sys-default",
             feature = "jsc-default",
-            feature = "wamr-default",
             feature = "v8-default",
-            feature = "wasmi-default"
         )
     ),
     all(
@@ -527,19 +507,7 @@ pub use wasmer_derive::ValueType;
         any(
             feature = "sys-default",
             feature = "js-default",
-            feature = "wamr-default",
             feature = "v8-default",
-            feature = "wasmi-default"
-        )
-    ),
-    all(
-        feature = "wamr-default",
-        any(
-            feature = "sys-default",
-            feature = "js-default",
-            feature = "jsc-default",
-            feature = "v8-default",
-            feature = "wasmi-default"
         )
     ),
     all(
@@ -548,19 +516,7 @@ pub use wasmer_derive::ValueType;
             feature = "sys-default",
             feature = "js-default",
             feature = "jsc-default",
-            feature = "wasmi-default",
-            feature = "wasmi-default"
         )
     ),
-    all(
-        feature = "wasmi-default",
-        any(
-            feature = "sys-default",
-            feature = "js-default",
-            feature = "jsc-default",
-            feature = "v8-default",
-            feature = "wamr-default"
-        )
-    )
 ))]
 compile_error!("Multiple *-default features selected. Please, pick one only!");
