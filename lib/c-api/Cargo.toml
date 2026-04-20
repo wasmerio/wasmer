@@ -71,6 +71,7 @@ default = ["wat", "sys-default", "cranelift", "compiler", "wasi", "middlewares"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasix"]
 middlewares = ["compiler", "wasmer-middlewares"]
+engine = ["compiler"]
 
 # Enable the `sys` backend.
 sys = ["wasmer-api/sys", "wasmer-compiler"]

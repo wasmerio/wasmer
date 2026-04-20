@@ -1,4 +1,4 @@
-use macro_wasmer_universal_test::universal_test;
+use macro_wasmer_engine_test::engine_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
 
@@ -9,7 +9,7 @@ use std::ffi::OsStr;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 
-#[universal_test]
+#[engine_test]
 fn module_get_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module)"#;
@@ -19,7 +19,7 @@ fn module_get_name() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn module_set_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module $name)"#;
@@ -32,7 +32,7 @@ fn module_set_name() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn imports() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module
@@ -165,7 +165,7 @@ fn exports() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -279,7 +279,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[allow(unused_attributes)]
 #[cfg_attr(feature = "wamr", ignore = "wamr does not support custom sections")]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support custom sections")]
@@ -308,9 +308,8 @@ fn module_from_file_non_utf8_path() -> Result<(), String> {
     let non_utf8_name = OsStr::from_bytes(b"module_\xff\xfe.wasm");
     let path = dir.path().join(non_utf8_name);
 
-    match std::fs::write(&path, &wasm_bytes) {
-        Err(_) => return Ok(()),
-        Ok(()) => {}
+    if let Err(_) = std::fs::write(&path, &wasm_bytes) {
+        return Ok(());
     }
 
     let module = Module::from_file(&store, &path).map_err(|e| format!("{e:?}"))?;

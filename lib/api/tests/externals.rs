@@ -1,10 +1,10 @@
-use macro_wasmer_universal_test::universal_test;
+use macro_wasmer_engine_test::engine_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
 
 use wasmer::*;
 
-#[universal_test]
+#[engine_test]
 fn global_new() -> Result<(), String> {
     let mut store = Store::default();
     let global = Global::new(&mut store, Value::I32(10));
@@ -28,7 +28,7 @@ fn global_new() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     feature = "wamr",
     ignore = "wamr does not support globals unattached to instances"
@@ -59,7 +59,7 @@ fn global_get() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     feature = "wamr",
     ignore = "wamr does not support globals unattached to instances"
@@ -83,7 +83,7 @@ fn global_set() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support funcrefs")]
 fn table_new() -> Result<(), String> {
     let mut store = Store::default();
@@ -110,7 +110,7 @@ fn table_new() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn table_get() -> Result<(), String> {
     // Tables are not yet fully supported in Wasm
     // This test was marked as #[ignore] on -sys, which is why it is commented out.
@@ -131,7 +131,7 @@ fn table_get() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn table_set() -> Result<(), String> {
     // Table set not yet tested
     #[cfg(feature = "sys")]
@@ -209,7 +209,7 @@ fn table_set() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn table_grow() -> Result<(), String> {
     // Tables are not yet fully supported in Wasm
     #[cfg(feature = "sys")]
@@ -243,13 +243,13 @@ fn table_grow() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn table_copy() -> Result<(), String> {
     // TODO: table copy test not yet implemented
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn memory_new() -> Result<(), String> {
     let mut store = Store::default();
     let memory_type = MemoryType {
@@ -263,7 +263,7 @@ fn memory_new() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     feature = "wamr",
     ignore = "wamr does not support direct calls to grow memory"
@@ -298,7 +298,7 @@ fn memory_grow() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn function_new() -> Result<(), String> {
     let mut store = Store::default();
     let function = Function::new_typed(&mut store, || {});
@@ -326,7 +326,7 @@ fn function_new() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn function_new_env() -> Result<(), String> {
     let mut store = Store::default();
     #[derive(Clone)]
@@ -369,7 +369,7 @@ fn function_new_env() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn function_new_dynamic() -> Result<(), String> {
     let mut store = Store::default();
 
@@ -430,7 +430,7 @@ fn function_new_dynamic() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn function_new_dynamic_env() -> Result<(), String> {
     let mut store = Store::default();
     #[derive(Clone)]

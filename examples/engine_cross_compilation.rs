@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // That's where we specify the target for the compiler.
     //
-    // Use the Universal engine.
+    // Use the Engine.
     let engine = EngineBuilder::new(compiler_config).set_target(Some(target));
 
     // Create a store, that holds the engine.

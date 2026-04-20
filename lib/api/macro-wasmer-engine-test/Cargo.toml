@@ -1,6 +1,6 @@
 [package]
-name = "macro-wasmer-universal-test"
-description = "Universal test macro for wasmer-test"
+name = "macro-wasmer-engine-test"
+description = "Engine test macro for wasmer-test"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
