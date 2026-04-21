@@ -73,9 +73,7 @@ impl FileSystem {
 
         Ok(FileSystem { handle, root })
     }
-}
 
-impl FileSystem {
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
         let path = normalize_path(path);
 
@@ -1355,15 +1353,17 @@ mod tests {
         );
     }
 
-    // #6477
-    #[cfg_attr(target_os = "macos", ignore = "See #6477")]
     #[tokio::test]
     async fn test_rejects_host_absolute_paths_inside_root() {
         let temp = TempDir::new().unwrap();
-        let file_path = temp.path().join("foo.txt");
+        // Some platforms (e.g. mac) symlink /tmp to /private/tmp, so we need to canonicalize
+        // the path to get the real one, making sure the guest and host paths line up.
+        let temp_canon = super::canonicalize(temp.path()).expect("canonicalize temp dir");
+
+        let file_path = temp_canon.join("foo.txt");
         std::fs::write(&file_path, b"hello").unwrap();
 
-        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
+        let fs = FileSystem::new(Handle::current(), &temp_canon).expect("get filesystem");
 
         assert_eq!(fs.metadata(&file_path), Err(FsError::InvalidInput));
         assert!(matches!(
