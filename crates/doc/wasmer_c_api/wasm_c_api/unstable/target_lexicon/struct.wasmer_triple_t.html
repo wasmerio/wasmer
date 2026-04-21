@@ -5,7 +5,7 @@ additional fields over time.</p>
 <h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code>int main() {
     wasm_name_t triple_name;
-    wasm_name_new_from_string(<span class="kw-2">&amp;</span>triple_name, <span class="string">"x86_64-apple-darwin"</span>);
+    wasm_name_new_from_string(<span class="kw-2">&amp;</span>triple_name, <span class="string">"aarch64-apple-darwin"</span>);
 
     wasmer_triple_t* triple = wasmer_triple_new(<span class="kw-2">&amp;</span>triple_name);
     assert(triple);
