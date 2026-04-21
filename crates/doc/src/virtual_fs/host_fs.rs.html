@@ -1355,116 +1355,118 @@
 <a href=#1355 id=1355 data-nosnippet>1355</a>        </span>);
 <a href=#1356 id=1356 data-nosnippet>1356</a>    }
 <a href=#1357 id=1357 data-nosnippet>1357</a>
-<a href=#1358 id=1358 data-nosnippet>1358</a>    <span class="attr">#[tokio::test]
-<a href=#1359 id=1359 data-nosnippet>1359</a>    </span><span class="kw">async fn </span>test_rejects_host_absolute_paths_inside_root() {
-<a href=#1360 id=1360 data-nosnippet>1360</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#1361 id=1361 data-nosnippet>1361</a>        <span class="kw">let </span>file_path = temp.path().join(<span class="string">"foo.txt"</span>);
-<a href=#1362 id=1362 data-nosnippet>1362</a>        std::fs::write(<span class="kw-2">&amp;</span>file_path, <span class="string">b"hello"</span>).unwrap();
-<a href=#1363 id=1363 data-nosnippet>1363</a>
-<a href=#1364 id=1364 data-nosnippet>1364</a>        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">"get filesystem"</span>);
+<a href=#1358 id=1358 data-nosnippet>1358</a>    <span class="comment">// #6477
+<a href=#1359 id=1359 data-nosnippet>1359</a>    </span><span class="attr">#[cfg_attr(target_os = <span class="string">"macos"</span>, ignore = <span class="string">"See #6477"</span>)]
+<a href=#1360 id=1360 data-nosnippet>1360</a>    #[tokio::test]
+<a href=#1361 id=1361 data-nosnippet>1361</a>    </span><span class="kw">async fn </span>test_rejects_host_absolute_paths_inside_root() {
+<a href=#1362 id=1362 data-nosnippet>1362</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#1363 id=1363 data-nosnippet>1363</a>        <span class="kw">let </span>file_path = temp.path().join(<span class="string">"foo.txt"</span>);
+<a href=#1364 id=1364 data-nosnippet>1364</a>        std::fs::write(<span class="kw-2">&amp;</span>file_path, <span class="string">b"hello"</span>).unwrap();
 <a href=#1365 id=1365 data-nosnippet>1365</a>
-<a href=#1366 id=1366 data-nosnippet>1366</a>        <span class="macro">assert_eq!</span>(fs.metadata(<span class="kw-2">&amp;</span>file_path), <span class="prelude-val">Err</span>(FsError::InvalidInput));
-<a href=#1367 id=1367 data-nosnippet>1367</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-<a href=#1368 id=1368 data-nosnippet>1368</a>            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="kw-2">&amp;</span>file_path),
-<a href=#1369 id=1369 data-nosnippet>1369</a>            <span class="prelude-val">Err</span>(FsError::InvalidInput)
-<a href=#1370 id=1370 data-nosnippet>1370</a>        ));
-<a href=#1371 id=1371 data-nosnippet>1371</a>    }
-<a href=#1372 id=1372 data-nosnippet>1372</a>
-<a href=#1373 id=1373 data-nosnippet>1373</a>    <span class="attr">#[tokio::test]
-<a href=#1374 id=1374 data-nosnippet>1374</a>    </span><span class="kw">async fn </span>test_remove_file() {
-<a href=#1375 id=1375 data-nosnippet>1375</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#1376 id=1376 data-nosnippet>1376</a>        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">"get filesystem"</span>);
-<a href=#1377 id=1377 data-nosnippet>1377</a>
-<a href=#1378 id=1378 data-nosnippet>1378</a>        <span class="macro">assert!</span>(
-<a href=#1379 id=1379 data-nosnippet>1379</a>            fs.new_open_options()
-<a href=#1380 id=1380 data-nosnippet>1380</a>                .write(<span class="bool-val">true</span>)
-<a href=#1381 id=1381 data-nosnippet>1381</a>                .create_new(<span class="bool-val">true</span>)
-<a href=#1382 id=1382 data-nosnippet>1382</a>                .open(Path::new(<span class="string">"foo.txt"</span>))
-<a href=#1383 id=1383 data-nosnippet>1383</a>                .is_ok(),
-<a href=#1384 id=1384 data-nosnippet>1384</a>            <span class="string">"creating a new file"</span>,
-<a href=#1385 id=1385 data-nosnippet>1385</a>        );
-<a href=#1386 id=1386 data-nosnippet>1386</a>
-<a href=#1387 id=1387 data-nosnippet>1387</a>        <span class="macro">assert!</span>(read_dir_names(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">"/"</span>)).contains(<span class="kw-2">&amp;</span><span class="string">"foo.txt"</span>.to_string()));
+<a href=#1366 id=1366 data-nosnippet>1366</a>        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">"get filesystem"</span>);
+<a href=#1367 id=1367 data-nosnippet>1367</a>
+<a href=#1368 id=1368 data-nosnippet>1368</a>        <span class="macro">assert_eq!</span>(fs.metadata(<span class="kw-2">&amp;</span>file_path), <span class="prelude-val">Err</span>(FsError::InvalidInput));
+<a href=#1369 id=1369 data-nosnippet>1369</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+<a href=#1370 id=1370 data-nosnippet>1370</a>            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="kw-2">&amp;</span>file_path),
+<a href=#1371 id=1371 data-nosnippet>1371</a>            <span class="prelude-val">Err</span>(FsError::InvalidInput)
+<a href=#1372 id=1372 data-nosnippet>1372</a>        ));
+<a href=#1373 id=1373 data-nosnippet>1373</a>    }
+<a href=#1374 id=1374 data-nosnippet>1374</a>
+<a href=#1375 id=1375 data-nosnippet>1375</a>    <span class="attr">#[tokio::test]
+<a href=#1376 id=1376 data-nosnippet>1376</a>    </span><span class="kw">async fn </span>test_remove_file() {
+<a href=#1377 id=1377 data-nosnippet>1377</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#1378 id=1378 data-nosnippet>1378</a>        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">"get filesystem"</span>);
+<a href=#1379 id=1379 data-nosnippet>1379</a>
+<a href=#1380 id=1380 data-nosnippet>1380</a>        <span class="macro">assert!</span>(
+<a href=#1381 id=1381 data-nosnippet>1381</a>            fs.new_open_options()
+<a href=#1382 id=1382 data-nosnippet>1382</a>                .write(<span class="bool-val">true</span>)
+<a href=#1383 id=1383 data-nosnippet>1383</a>                .create_new(<span class="bool-val">true</span>)
+<a href=#1384 id=1384 data-nosnippet>1384</a>                .open(Path::new(<span class="string">"foo.txt"</span>))
+<a href=#1385 id=1385 data-nosnippet>1385</a>                .is_ok(),
+<a href=#1386 id=1386 data-nosnippet>1386</a>            <span class="string">"creating a new file"</span>,
+<a href=#1387 id=1387 data-nosnippet>1387</a>        );
 <a href=#1388 id=1388 data-nosnippet>1388</a>
-<a href=#1389 id=1389 data-nosnippet>1389</a>        <span class="macro">assert!</span>(temp.path().join(<span class="string">"foo.txt"</span>).is_file());
+<a href=#1389 id=1389 data-nosnippet>1389</a>        <span class="macro">assert!</span>(read_dir_names(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">"/"</span>)).contains(<span class="kw-2">&amp;</span><span class="string">"foo.txt"</span>.to_string()));
 <a href=#1390 id=1390 data-nosnippet>1390</a>
-<a href=#1391 id=1391 data-nosnippet>1391</a>        <span class="macro">assert_eq!</span>(
-<a href=#1392 id=1392 data-nosnippet>1392</a>            fs.remove_file(Path::new(<span class="string">"foo.txt"</span>)),
-<a href=#1393 id=1393 data-nosnippet>1393</a>            <span class="prelude-val">Ok</span>(()),
-<a href=#1394 id=1394 data-nosnippet>1394</a>            <span class="string">"removing a file that exists"</span>,
-<a href=#1395 id=1395 data-nosnippet>1395</a>        );
-<a href=#1396 id=1396 data-nosnippet>1396</a>
-<a href=#1397 id=1397 data-nosnippet>1397</a>        <span class="macro">assert!</span>(!temp.path().join(<span class="string">"foo.txt"</span>).exists());
+<a href=#1391 id=1391 data-nosnippet>1391</a>        <span class="macro">assert!</span>(temp.path().join(<span class="string">"foo.txt"</span>).is_file());
+<a href=#1392 id=1392 data-nosnippet>1392</a>
+<a href=#1393 id=1393 data-nosnippet>1393</a>        <span class="macro">assert_eq!</span>(
+<a href=#1394 id=1394 data-nosnippet>1394</a>            fs.remove_file(Path::new(<span class="string">"foo.txt"</span>)),
+<a href=#1395 id=1395 data-nosnippet>1395</a>            <span class="prelude-val">Ok</span>(()),
+<a href=#1396 id=1396 data-nosnippet>1396</a>            <span class="string">"removing a file that exists"</span>,
+<a href=#1397 id=1397 data-nosnippet>1397</a>        );
 <a href=#1398 id=1398 data-nosnippet>1398</a>
-<a href=#1399 id=1399 data-nosnippet>1399</a>        <span class="macro">assert_eq!</span>(
-<a href=#1400 id=1400 data-nosnippet>1400</a>            fs.remove_file(Path::new(<span class="string">"foo.txt"</span>)),
-<a href=#1401 id=1401 data-nosnippet>1401</a>            <span class="prelude-val">Err</span>(FsError::EntryNotFound),
-<a href=#1402 id=1402 data-nosnippet>1402</a>            <span class="string">"removing a file that doesn't exists"</span>,
-<a href=#1403 id=1403 data-nosnippet>1403</a>        );
-<a href=#1404 id=1404 data-nosnippet>1404</a>    }
-<a href=#1405 id=1405 data-nosnippet>1405</a>
-<a href=#1406 id=1406 data-nosnippet>1406</a>    <span class="attr">#[tokio::test]
-<a href=#1407 id=1407 data-nosnippet>1407</a>    </span><span class="kw">async fn </span>test_readdir() {
-<a href=#1408 id=1408 data-nosnippet>1408</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#1409 id=1409 data-nosnippet>1409</a>        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">"get filesystem"</span>);
-<a href=#1410 id=1410 data-nosnippet>1410</a>
-<a href=#1411 id=1411 data-nosnippet>1411</a>        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `foo`"</span>);
-<a href=#1412 id=1412 data-nosnippet>1412</a>        <span class="macro">assert_eq!</span>(
-<a href=#1413 id=1413 data-nosnippet>1413</a>            fs.create_dir(Path::new(<span class="string">"foo/sub"</span>)),
-<a href=#1414 id=1414 data-nosnippet>1414</a>            <span class="prelude-val">Ok</span>(()),
-<a href=#1415 id=1415 data-nosnippet>1415</a>            <span class="string">"creating `sub`"
-<a href=#1416 id=1416 data-nosnippet>1416</a>        </span>);
-<a href=#1417 id=1417 data-nosnippet>1417</a>        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"bar"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `bar`"</span>);
-<a href=#1418 id=1418 data-nosnippet>1418</a>        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"baz"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `bar`"</span>);
-<a href=#1419 id=1419 data-nosnippet>1419</a>        <span class="macro">assert!</span>(
-<a href=#1420 id=1420 data-nosnippet>1420</a>            fs.new_open_options()
-<a href=#1421 id=1421 data-nosnippet>1421</a>                .write(<span class="bool-val">true</span>)
-<a href=#1422 id=1422 data-nosnippet>1422</a>                .create_new(<span class="bool-val">true</span>)
-<a href=#1423 id=1423 data-nosnippet>1423</a>                .open(Path::new(<span class="string">"a.txt"</span>))
-<a href=#1424 id=1424 data-nosnippet>1424</a>                .is_ok(),
-<a href=#1425 id=1425 data-nosnippet>1425</a>            <span class="string">"creating `a.txt`"</span>,
-<a href=#1426 id=1426 data-nosnippet>1426</a>        );
-<a href=#1427 id=1427 data-nosnippet>1427</a>        <span class="macro">assert!</span>(
-<a href=#1428 id=1428 data-nosnippet>1428</a>            fs.new_open_options()
-<a href=#1429 id=1429 data-nosnippet>1429</a>                .write(<span class="bool-val">true</span>)
-<a href=#1430 id=1430 data-nosnippet>1430</a>                .create_new(<span class="bool-val">true</span>)
-<a href=#1431 id=1431 data-nosnippet>1431</a>                .open(Path::new(<span class="string">"b.txt"</span>))
-<a href=#1432 id=1432 data-nosnippet>1432</a>                .is_ok(),
-<a href=#1433 id=1433 data-nosnippet>1433</a>            <span class="string">"creating `b.txt`"</span>,
-<a href=#1434 id=1434 data-nosnippet>1434</a>        );
-<a href=#1435 id=1435 data-nosnippet>1435</a>
-<a href=#1436 id=1436 data-nosnippet>1436</a>        <span class="kw">let </span>readdir = fs.read_dir(Path::new(<span class="string">"/"</span>));
+<a href=#1399 id=1399 data-nosnippet>1399</a>        <span class="macro">assert!</span>(!temp.path().join(<span class="string">"foo.txt"</span>).exists());
+<a href=#1400 id=1400 data-nosnippet>1400</a>
+<a href=#1401 id=1401 data-nosnippet>1401</a>        <span class="macro">assert_eq!</span>(
+<a href=#1402 id=1402 data-nosnippet>1402</a>            fs.remove_file(Path::new(<span class="string">"foo.txt"</span>)),
+<a href=#1403 id=1403 data-nosnippet>1403</a>            <span class="prelude-val">Err</span>(FsError::EntryNotFound),
+<a href=#1404 id=1404 data-nosnippet>1404</a>            <span class="string">"removing a file that doesn't exists"</span>,
+<a href=#1405 id=1405 data-nosnippet>1405</a>        );
+<a href=#1406 id=1406 data-nosnippet>1406</a>    }
+<a href=#1407 id=1407 data-nosnippet>1407</a>
+<a href=#1408 id=1408 data-nosnippet>1408</a>    <span class="attr">#[tokio::test]
+<a href=#1409 id=1409 data-nosnippet>1409</a>    </span><span class="kw">async fn </span>test_readdir() {
+<a href=#1410 id=1410 data-nosnippet>1410</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#1411 id=1411 data-nosnippet>1411</a>        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">"get filesystem"</span>);
+<a href=#1412 id=1412 data-nosnippet>1412</a>
+<a href=#1413 id=1413 data-nosnippet>1413</a>        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `foo`"</span>);
+<a href=#1414 id=1414 data-nosnippet>1414</a>        <span class="macro">assert_eq!</span>(
+<a href=#1415 id=1415 data-nosnippet>1415</a>            fs.create_dir(Path::new(<span class="string">"foo/sub"</span>)),
+<a href=#1416 id=1416 data-nosnippet>1416</a>            <span class="prelude-val">Ok</span>(()),
+<a href=#1417 id=1417 data-nosnippet>1417</a>            <span class="string">"creating `sub`"
+<a href=#1418 id=1418 data-nosnippet>1418</a>        </span>);
+<a href=#1419 id=1419 data-nosnippet>1419</a>        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"bar"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `bar`"</span>);
+<a href=#1420 id=1420 data-nosnippet>1420</a>        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"baz"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `bar`"</span>);
+<a href=#1421 id=1421 data-nosnippet>1421</a>        <span class="macro">assert!</span>(
+<a href=#1422 id=1422 data-nosnippet>1422</a>            fs.new_open_options()
+<a href=#1423 id=1423 data-nosnippet>1423</a>                .write(<span class="bool-val">true</span>)
+<a href=#1424 id=1424 data-nosnippet>1424</a>                .create_new(<span class="bool-val">true</span>)
+<a href=#1425 id=1425 data-nosnippet>1425</a>                .open(Path::new(<span class="string">"a.txt"</span>))
+<a href=#1426 id=1426 data-nosnippet>1426</a>                .is_ok(),
+<a href=#1427 id=1427 data-nosnippet>1427</a>            <span class="string">"creating `a.txt`"</span>,
+<a href=#1428 id=1428 data-nosnippet>1428</a>        );
+<a href=#1429 id=1429 data-nosnippet>1429</a>        <span class="macro">assert!</span>(
+<a href=#1430 id=1430 data-nosnippet>1430</a>            fs.new_open_options()
+<a href=#1431 id=1431 data-nosnippet>1431</a>                .write(<span class="bool-val">true</span>)
+<a href=#1432 id=1432 data-nosnippet>1432</a>                .create_new(<span class="bool-val">true</span>)
+<a href=#1433 id=1433 data-nosnippet>1433</a>                .open(Path::new(<span class="string">"b.txt"</span>))
+<a href=#1434 id=1434 data-nosnippet>1434</a>                .is_ok(),
+<a href=#1435 id=1435 data-nosnippet>1435</a>            <span class="string">"creating `b.txt`"</span>,
+<a href=#1436 id=1436 data-nosnippet>1436</a>        );
 <a href=#1437 id=1437 data-nosnippet>1437</a>
-<a href=#1438 id=1438 data-nosnippet>1438</a>        <span class="macro">assert!</span>(
-<a href=#1439 id=1439 data-nosnippet>1439</a>            readdir.is_ok(),
-<a href=#1440 id=1440 data-nosnippet>1440</a>            <span class="string">"reading the directory `{}`"</span>,
-<a href=#1441 id=1441 data-nosnippet>1441</a>            Path::new(<span class="string">"/"</span>).display()
-<a href=#1442 id=1442 data-nosnippet>1442</a>        );
-<a href=#1443 id=1443 data-nosnippet>1443</a>
-<a href=#1444 id=1444 data-nosnippet>1444</a>        <span class="kw">let </span><span class="kw-2">mut </span>readdir = readdir.unwrap();
+<a href=#1438 id=1438 data-nosnippet>1438</a>        <span class="kw">let </span>readdir = fs.read_dir(Path::new(<span class="string">"/"</span>));
+<a href=#1439 id=1439 data-nosnippet>1439</a>
+<a href=#1440 id=1440 data-nosnippet>1440</a>        <span class="macro">assert!</span>(
+<a href=#1441 id=1441 data-nosnippet>1441</a>            readdir.is_ok(),
+<a href=#1442 id=1442 data-nosnippet>1442</a>            <span class="string">"reading the directory `{}`"</span>,
+<a href=#1443 id=1443 data-nosnippet>1443</a>            Path::new(<span class="string">"/"</span>).display()
+<a href=#1444 id=1444 data-nosnippet>1444</a>        );
 <a href=#1445 id=1445 data-nosnippet>1445</a>
-<a href=#1446 id=1446 data-nosnippet>1446</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
-<a href=#1447 id=1447 data-nosnippet>1447</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"a.txt"</span>), <span class="string">"checking entry #1"</span>);
-<a href=#1448 id=1448 data-nosnippet>1448</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_file(), <span class="string">"checking entry #1"</span>);
-<a href=#1449 id=1449 data-nosnippet>1449</a>
-<a href=#1450 id=1450 data-nosnippet>1450</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
-<a href=#1451 id=1451 data-nosnippet>1451</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"b.txt"</span>), <span class="string">"checking entry #2"</span>);
-<a href=#1452 id=1452 data-nosnippet>1452</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_file(), <span class="string">"checking entry #2"</span>);
-<a href=#1453 id=1453 data-nosnippet>1453</a>
-<a href=#1454 id=1454 data-nosnippet>1454</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
-<a href=#1455 id=1455 data-nosnippet>1455</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"bar"</span>), <span class="string">"checking entry #3"</span>);
-<a href=#1456 id=1456 data-nosnippet>1456</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">"checking entry #3"</span>);
-<a href=#1457 id=1457 data-nosnippet>1457</a>
-<a href=#1458 id=1458 data-nosnippet>1458</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
-<a href=#1459 id=1459 data-nosnippet>1459</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"baz"</span>), <span class="string">"checking entry #4"</span>);
-<a href=#1460 id=1460 data-nosnippet>1460</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">"checking entry #4"</span>);
-<a href=#1461 id=1461 data-nosnippet>1461</a>
-<a href=#1462 id=1462 data-nosnippet>1462</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
-<a href=#1463 id=1463 data-nosnippet>1463</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"foo"</span>), <span class="string">"checking entry #5"</span>);
-<a href=#1464 id=1464 data-nosnippet>1464</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">"checking entry #5"</span>);
-<a href=#1465 id=1465 data-nosnippet>1465</a>
-<a href=#1466 id=1466 data-nosnippet>1466</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = readdir.next() {
-<a href=#1467 id=1467 data-nosnippet>1467</a>            <span class="macro">panic!</span>(<span class="string">"next: {s:?}"</span>);
-<a href=#1468 id=1468 data-nosnippet>1468</a>        }
-<a href=#1469 id=1469 data-nosnippet>1469</a>    }
-<a href=#1470 id=1470 data-nosnippet>1470</a>}</code></pre></div></section></main></body></html>
+<a href=#1446 id=1446 data-nosnippet>1446</a>        <span class="kw">let </span><span class="kw-2">mut </span>readdir = readdir.unwrap();
+<a href=#1447 id=1447 data-nosnippet>1447</a>
+<a href=#1448 id=1448 data-nosnippet>1448</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+<a href=#1449 id=1449 data-nosnippet>1449</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"a.txt"</span>), <span class="string">"checking entry #1"</span>);
+<a href=#1450 id=1450 data-nosnippet>1450</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_file(), <span class="string">"checking entry #1"</span>);
+<a href=#1451 id=1451 data-nosnippet>1451</a>
+<a href=#1452 id=1452 data-nosnippet>1452</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+<a href=#1453 id=1453 data-nosnippet>1453</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"b.txt"</span>), <span class="string">"checking entry #2"</span>);
+<a href=#1454 id=1454 data-nosnippet>1454</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_file(), <span class="string">"checking entry #2"</span>);
+<a href=#1455 id=1455 data-nosnippet>1455</a>
+<a href=#1456 id=1456 data-nosnippet>1456</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+<a href=#1457 id=1457 data-nosnippet>1457</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"bar"</span>), <span class="string">"checking entry #3"</span>);
+<a href=#1458 id=1458 data-nosnippet>1458</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">"checking entry #3"</span>);
+<a href=#1459 id=1459 data-nosnippet>1459</a>
+<a href=#1460 id=1460 data-nosnippet>1460</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+<a href=#1461 id=1461 data-nosnippet>1461</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"baz"</span>), <span class="string">"checking entry #4"</span>);
+<a href=#1462 id=1462 data-nosnippet>1462</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">"checking entry #4"</span>);
+<a href=#1463 id=1463 data-nosnippet>1463</a>
+<a href=#1464 id=1464 data-nosnippet>1464</a>        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+<a href=#1465 id=1465 data-nosnippet>1465</a>        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"foo"</span>), <span class="string">"checking entry #5"</span>);
+<a href=#1466 id=1466 data-nosnippet>1466</a>        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">"checking entry #5"</span>);
+<a href=#1467 id=1467 data-nosnippet>1467</a>
+<a href=#1468 id=1468 data-nosnippet>1468</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = readdir.next() {
+<a href=#1469 id=1469 data-nosnippet>1469</a>            <span class="macro">panic!</span>(<span class="string">"next: {s:?}"</span>);
+<a href=#1470 id=1470 data-nosnippet>1470</a>        }
+<a href=#1471 id=1471 data-nosnippet>1471</a>    }
+<a href=#1472 id=1472 data-nosnippet>1472</a>}</code></pre></div></section></main></body></html>
