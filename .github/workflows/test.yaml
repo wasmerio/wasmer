@@ -252,8 +252,7 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: make test-wasix
-        run: |
-          WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix 
+        run: WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
