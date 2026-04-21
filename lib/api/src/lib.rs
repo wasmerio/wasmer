@@ -485,15 +485,15 @@ pub use wasmer_derive::ValueType;
 #[cfg(any(
     all(
         feature = "sys-default",
-        any(feature = "js-default", feature = "v8-default",)
+        any(feature = "js-default", feature = "v8-default")
     ),
     all(
         feature = "js-default",
-        any(feature = "sys-default", feature = "v8-default",)
+        any(feature = "sys-default", feature = "v8-default")
     ),
     all(
         feature = "v8-default",
-        any(feature = "sys-default", feature = "js-default",)
+        any(feature = "sys-default", feature = "js-default")
     ),
 ))]
 compile_error!("Multiple *-default features selected. Please, pick one only!");
