@@ -1356,7 +1356,7 @@ mod tests {
     }
 
     // #6477
-    #[cfg(not(target_os = "macos"))]
+    #[cfg_attr(target_os = "macos", ignore = "See #6477")]
     #[tokio::test]
     async fn test_rejects_host_absolute_paths_inside_root() {
         let temp = TempDir::new().unwrap();
