@@ -343,7 +343,7 @@ jobs:
           name: "wasmer-windows-gnu64"
           path: dist
           if-no-files-found: error
-          retention-days: 2 
+          retention-days: 2
   linux-riscv64:
     name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')

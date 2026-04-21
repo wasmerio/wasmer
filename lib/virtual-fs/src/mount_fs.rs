@@ -10,9 +10,10 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
-const DEFAULT_METADATE_TIME: u64 = 1_000_000_000; // 1 second in nano seconds
+const MIN_METADATA_TIMESTAMP: u64 = 1_000_000_000; // 1 second in nano seconds
 
 type DynFileSystem = Arc<dyn FileSystem + Send + Sync>;
 
@@ -31,6 +32,9 @@ struct MountedFileSystem {
 
 #[derive(Debug, Default)]
 struct MountNode {
+    /// Creation timestamp in nanoseconds since the Unix epoch.
+    /// Set once when the node is first inserted into the tree.
+    created_at: u64,
     mount: Option<MountedFileSystem>,
     children: BTreeMap<OsString, MountNode>,
 }
@@ -41,6 +45,10 @@ struct ExactNode {
     fs: Option<DynFileSystem>,
     source_path: PathBuf,
     child_names: BTreeSet<OsString>,
+    /// Timestamp reported for this node in nanoseconds since the Unix epoch.
+    /// For synthetic non-mounted nodes, this may be generated at lookup time
+    /// rather than representing an original creation event.
+    created_at: u64,
 }
 
 impl ExactNode {
@@ -87,14 +95,26 @@ impl MountPoint {
 
 /// Allows different filesystems of different types
 /// to be mounted at various mount points
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MountFileSystem {
     root: RwLock<MountNode>,
 }
 
+impl Default for MountFileSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MountFileSystem {
     pub fn new() -> Self {
-        Self::default()
+        let ts = Self::now_nanos();
+        Self {
+            root: RwLock::new(MountNode {
+                created_at: ts,
+                ..MountNode::default()
+            }),
+        }
     }
 
     pub fn mount(
@@ -113,8 +133,9 @@ impl MountFileSystem {
     ) -> Result<()> {
         let path = self.prepare_path(path.as_ref())?;
         let source_path = Self::normalize_source_path(source_path.as_ref());
+        let ts = Self::now_nanos();
         let mut root = self.root.write().unwrap();
-        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path));
+        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path), ts);
 
         if node.mount.is_some() {
             Err(FsError::AlreadyExists)
@@ -132,7 +153,10 @@ impl MountFileSystem {
     }
 
     pub fn clear(&mut self) {
-        *self.root.write().unwrap() = MountNode::default();
+        *self.root.write().unwrap() = MountNode {
+            created_at: Self::now_nanos(),
+            ..MountNode::default()
+        };
     }
 
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
@@ -174,12 +198,19 @@ impl MountFileSystem {
         normalized
     }
 
-    fn directory_metadata() -> Metadata {
+    fn now_nanos() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos() as u64)
+            .max(MIN_METADATA_TIMESTAMP)
+    }
+
+    fn directory_metadata_at(ts: u64) -> Metadata {
         Metadata {
             ft: FileType::new_dir(),
-            accessed: DEFAULT_METADATE_TIME,
-            created: DEFAULT_METADATE_TIME,
-            modified: DEFAULT_METADATE_TIME,
+            accessed: ts,
+            created: ts,
+            modified: ts,
             len: 0,
         }
     }
@@ -191,10 +222,10 @@ impl MountFileSystem {
         )
     }
 
-    fn synthetic_entry(name: OsString, base: &Path) -> DirEntry {
+    fn synthetic_entry(name: OsString, base: &Path, ts: u64) -> DirEntry {
         DirEntry {
             path: base.join(PathBuf::from(name)),
-            metadata: Ok(Self::directory_metadata()),
+            metadata: Ok(Self::directory_metadata_at(ts)),
         }
     }
 
@@ -236,6 +267,7 @@ impl MountFileSystem {
         Some(ExactNode {
             path: visible_path.clone(),
             fs: mounted.as_ref().map(|mount| mount.fs.clone()),
+            created_at: node.created_at,
             source_path: mounted
                 .map(|mount| mount.source_path)
                 .unwrap_or_else(|| PathBuf::from("/")),
@@ -332,16 +364,26 @@ impl MountFileSystem {
             node.child_names
                 .iter()
                 .cloned()
-                .map(|name| Self::synthetic_entry(name, &node.path)),
+                .map(|name| Self::synthetic_entry(name, &node.path, node.created_at)),
         );
 
         Ok(ReadDir::new(entries))
     }
 
-    fn mount_node_mut<'a>(node: &'a mut MountNode, components: &[OsString]) -> &'a mut MountNode {
+    fn mount_node_mut<'a>(
+        node: &'a mut MountNode,
+        components: &[OsString],
+        ts: u64,
+    ) -> &'a mut MountNode {
         let mut node = node;
         for component in components {
-            node = node.children.entry(component.clone()).or_default();
+            node = node
+                .children
+                .entry(component.clone())
+                .or_insert_with(|| MountNode {
+                    created_at: ts,
+                    ..MountNode::default()
+                });
         }
 
         node
@@ -358,8 +400,9 @@ impl MountFileSystem {
         fs: Arc<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
         let path = self.prepare_path(path.as_ref())?;
+        let ts = Self::now_nanos();
         let mut root = self.root.write().unwrap();
-        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path));
+        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path), ts);
         node.mount = Some(MountedFileSystem {
             fs,
             source_path: PathBuf::from("/"),
@@ -391,10 +434,12 @@ impl MountFileSystem {
                         continue;
                     }
                     ExactMountConflictMode::ReplaceExisting => {
+                        let ts = Self::now_nanos();
                         let mut root = self.root.write().unwrap();
                         let node = Self::mount_node_mut(
                             &mut root,
                             &Self::path_components(&self.prepare_path(&entry.path)?),
+                            ts,
                         );
                         Self::clear_descendants(node);
                         node.mount = Some(MountedFileSystem {
@@ -586,13 +631,13 @@ impl FileSystem for MountFileSystem {
             return if let Some(fs) = node.fs {
                 fs.metadata(&node.source_path).or_else(|error| {
                     if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata())
+                        Ok(Self::directory_metadata_at(node.created_at))
                     } else {
                         Err(error)
                     }
                 })
             } else if node.has_children() {
-                Ok(Self::directory_metadata())
+                Ok(Self::directory_metadata_at(node.created_at))
             } else {
                 Err(FsError::EntryNotFound)
             };
@@ -611,13 +656,13 @@ impl FileSystem for MountFileSystem {
             return if let Some(fs) = node.fs {
                 fs.symlink_metadata(&node.source_path).or_else(|error| {
                     if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata())
+                        Ok(Self::directory_metadata_at(node.created_at))
                     } else {
                         Err(error)
                     }
                 })
             } else if node.has_children() {
-                Ok(Self::directory_metadata())
+                Ok(Self::directory_metadata_at(node.created_at))
             } else {
                 Err(FsError::EntryNotFound)
             };
@@ -1171,8 +1216,22 @@ mod tests {
         )
         .unwrap();
 
-        assert!(fs.metadata(Path::new("/opaque")).unwrap().is_dir());
-        assert!(fs.symlink_metadata(Path::new("/opaque")).unwrap().is_dir());
+        let meta1 = fs.metadata(Path::new("/opaque")).unwrap();
+        let sym1 = fs.symlink_metadata(Path::new("/opaque")).unwrap();
+        assert!(meta1.is_dir());
+        assert!(sym1.is_dir());
+
+        // Timestamps must be non-zero (regression guard against the old `0` placeholders).
+        assert!(meta1.created > 0, "created timestamp must be non-zero");
+        assert!(meta1.modified > 0, "modified timestamp must be non-zero");
+        assert!(meta1.accessed > 0, "accessed timestamp must be non-zero");
+
+        // Repeated calls must return the same stable timestamps (not re-sampled each time).
+        let meta2 = fs.metadata(Path::new("/opaque")).unwrap();
+        assert_eq!(meta1.created, meta2.created, "created must be stable");
+        assert_eq!(meta1.modified, meta2.modified, "modified must be stable");
+        assert_eq!(meta1.accessed, meta2.accessed, "accessed must be stable");
+
         assert_eq!(fs.create_dir(Path::new("/opaque")), Ok(()));
     }
 
@@ -2129,102 +2188,4 @@ mod tests {
 
         let _ = fs_extra::remove_items(&["./test_readdir"]);
     }
-
-    /*
-    #[tokio::test]
-    async fn test_canonicalize() {
-        let fs = gen_filesystem();
-
-        let root_dir = env!("CARGO_MANIFEST_DIR");
-
-        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
-
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize")),
-            Ok(()),
-            "creating `test_canonicalize`"
-        );
-
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo")),
-            Ok(()),
-            "creating `foo`"
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar")),
-            Ok(()),
-            "creating `bar`"
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar/baz")),
-            Ok(()),
-            "creating `baz`",
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar/baz/qux")),
-            Ok(()),
-            "creating `qux`",
-        );
-        assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(Path::new("./test_canonicalize/foo/bar/baz/qux/hello.txt")),
-                Ok(_)
-            ),
-            "creating `hello.txt`",
-        );
-
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize")).to_path_buf()),
-            "canonicalizing `/`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("foo")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `foo`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/././././foo/")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo")).to_path_buf()),
-            "canonicalizing `/././././foo/`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar//")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar")).to_path_buf()),
-            "canonicalizing `/foo/bar//`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../bar")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar")).to_path_buf()),
-            "canonicalizing `/foo/bar/../bar`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../..")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize")).to_path_buf()),
-            "canonicalizing `/foo/bar/../..`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("/foo/bar/../../..")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `/foo/bar/../../..`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("C:/foo/")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `C:/foo/`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new(
-                "./test_canonicalize/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
-            )),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar/baz/qux/hello.txt")).to_path_buf()),
-            "canonicalizing a crazily stupid path name",
-        );
-
-        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
-    }
-    */
 }
