@@ -385,7 +385,6 @@ enum Cmd {
     //
     // - "x86_64-linux-gnu"
     // - "aarch64-linux-gnu"
-    // - "x86_64-apple-darwin"
     // - "arm64-apple-darwin"
     // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
     // #[clap(name = "create-exe", verbatim_doc_comment)]

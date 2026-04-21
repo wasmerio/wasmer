@@ -17,7 +17,7 @@
 //!
 //!     {
 //!         wasm_name_t triple_name;
-//!         wasm_name_new_from_string(&triple_name, "x86_64-apple-darwin");
+//!         wasm_name_new_from_string(&triple_name, "aarch64-apple-darwin");
 //!
 //!         triple = wasmer_triple_new(&triple_name);
 //!

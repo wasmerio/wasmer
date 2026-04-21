@@ -766,16 +766,10 @@ fn test_cross_compile_python_windows() {
     let temp_dir = TempDir::new().unwrap();
 
     let targets: &[&str] = if cfg!(windows) {
-        &[
-            "aarch64-darwin",
-            "x86_64-darwin",
-            "x86_64-linux-gnu",
-            "aarch64-linux-gnu",
-        ]
+        &["aarch64-darwin", "x86_64-linux-gnu", "aarch64-linux-gnu"]
     } else {
         &[
             "aarch64-darwin",
-            "x86_64-darwin",
             "x86_64-linux-gnu",
             "aarch64-linux-gnu",
             "x86_64-windows-gnu",
