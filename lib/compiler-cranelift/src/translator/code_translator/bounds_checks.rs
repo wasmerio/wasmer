@@ -320,23 +320,14 @@ fn get_dynamic_heap_bound(
     heap: &HeapData,
 ) -> ir::Value {
     match (heap.max_size, &heap.style) {
-        // The heap has a constant size, no need to actually load the
-        // bound.  TODO: this is currently disabled for PCC because we
-        // can't easily prove that the GV load indeed results in a
-        // constant (that information is lost in the CLIF). We'll want
-        // to create an `iconst` GV expression kind to reify this fact
-        // in the GV, then re-enable this opt. (Or, alternately,
-        // compile such memories with a static-bound memtype and
-        // facts.)
-        (Some(max_size), HeapStyle::Dynamic { bound_gv }) if heap.min_size == max_size => {
+        // The heap has a constant size, no need to actually load the bound.
+        (Some(max_size), HeapStyle::Dynamic { .. }) if heap.min_size == max_size => {
             builder.ins().iconst(env.pointer_type(), max_size as i64)
         }
-
         // Load the heap bound from its global variable.
         (_, HeapStyle::Dynamic { bound_gv }) => {
             builder.ins().global_value(env.pointer_type(), *bound_gv)
         }
-
         (_, HeapStyle::Static { .. }) => unreachable!("not a dynamic heap"),
     }
 }
