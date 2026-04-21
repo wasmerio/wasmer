@@ -2021,7 +2021,6 @@ pub(super) mod utils {
     fn test_filter_tarball() {
         use std::str::FromStr;
         let test_paths = [
-            "/test/wasmer-darwin-amd64.tar.gz",
             "/test/wasmer-darwin-arm64.tar.gz",
             "/test/wasmer-linux-aarch64.tar.gz",
             "/test/wasmer-linux-amd64.tar.gz",
@@ -2065,17 +2064,6 @@ pub(super) mod utils {
                 ))
                 .collect::<Vec<_>>(),
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
-        );
-
-        assert_eq!(
-            paths
-                .iter()
-                .filter(|p| crate::commands::utils::filter_tarball(
-                    p,
-                    &Triple::from_str("x86_64-darwin").unwrap()
-                ))
-                .collect::<Vec<_>>(),
-            vec![&Path::new("/test/wasmer-darwin-amd64.tar.gz")],
         );
 
         assert_eq!(

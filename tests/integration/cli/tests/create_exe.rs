@@ -789,7 +789,6 @@ fn test_cross_compile_python_windows() {
         ("aarch64-darwin", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
         ("aarch64-linux-gnu", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
         // https://github.com/ziglang/zig/issues/13729
-        ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap' kind Unknown
         ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
     ];
 
@@ -847,7 +846,6 @@ fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Erro
     let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
     let directory = match target {
         "aarch64-darwin" => "wasmer-darwin-arm64.tar.gz",
-        "x86_64-darwin" => "wasmer-darwin-amd64.tar.gz",
         "x86_64-linux-gnu" => "wasmer-linux-amd64.tar.gz",
         "aarch64-linux-gnu" => "wasmer-linux-aarch64.tar.gz",
         "x86_64-windows-gnu" => "wasmer-windows-gnu64.tar.gz",
