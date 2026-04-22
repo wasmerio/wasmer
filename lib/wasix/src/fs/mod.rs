@@ -1199,9 +1199,6 @@ impl WasiFs {
                         path_to_symlink,
                         relative_path,
                     } => {
-                        if !follow_symlinks {
-                            return Err(Errno::Notdir);
-                        }
                         symlink_count += 1;
                         if symlink_count > MAX_SYMLINKS {
                             return Err(Errno::Mlink);
@@ -1228,7 +1225,8 @@ impl WasiFs {
                                 .collect();
                         }
 
-                        // Prepend [symlink_target..., current_component, remaining...].
+                        // Intermediate symlinks are always resolved; only the terminal
+                        // path component is controlled by `follow_symlinks`.
                         components_osstr_new.push_back(component_osstr.clone());
                         components_osstr_new.append(&mut components_osstr);
                         components_osstr = components_osstr_new;
@@ -1347,6 +1345,10 @@ impl WasiFs {
                 }
             };
             return self.resolve_dir_entry(inodes, root_mounted_dir, &root_dir_path, name);
+        }
+
+        if is_root {
+            return Err(Errno::Notcapable);
         }
 
         // Compute real FS path
@@ -1580,8 +1582,8 @@ impl WasiFs {
     /// - clarify and test the behavior of `follow_symlinks`, especially in edge cases like trailing symlinks
     /// - overall extensive testing of fs resolution is missing at the moment
     /// - WASI paths are considered POSIX-like, so no prefixes (like C:\) are expected,
-    ///   but where found to be slip in somwhere during symlink resolution.
-    ///   At the moment they are ignored, but this could a problem on Windows,
+    ///   but were found to slip in somewhere during symlink resolution.
+    ///   At the moment they are ignored, but this could be a problem on Windows,
     ///   and should be looked into. This should not happen.
     pub(crate) fn get_inode_at_path(
         &self,
@@ -2352,12 +2354,15 @@ impl WasiFs {
                 path_to_symlink,
                 ..
             } => {
-                let result = {
+                let (result, real_path) = {
                     let guard = self.fd_map.read().unwrap();
                     let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
                     let guard = base_po_inode.read();
                     match guard.deref() {
-                        Kind::Root { .. } => self.root_fs.symlink_metadata(path_to_symlink),
+                        Kind::Root { .. } => {
+                            let real_path = PathBuf::from(path_to_symlink);
+                            (self.root_fs.symlink_metadata(path_to_symlink), real_path)
+                        }
                         Kind::Dir { path, .. } => {
                             let mut real_path = path.clone();
                             // PHASE 1: ignore all possible symlinks in `relative_path`
@@ -2367,7 +2372,8 @@ impl WasiFs {
                             // TODO: adjust size of symlink, too
                             //      for all paths adjusted think about this
                             real_path.push(path_to_symlink);
-                            self.root_fs.symlink_metadata(&real_path)
+                            let result = self.root_fs.symlink_metadata(&real_path);
+                            (result, real_path)
                         }
                         // if this triggers, there's a bug in the symlink code
                         _ => unreachable!(
@@ -2378,16 +2384,19 @@ impl WasiFs {
                 // Ephemeral symlinks (created at runtime on a backing FS that doesn't support
                 // create_symlink) are stored in the virtual-FS cache but never written to the
                 // real filesystem, so symlink_metadata will return an error for them.
-                // We know the inode IS a symlink, so synthesize a minimal stat rather than
-                // surfacing a spurious ENOENT to callers such as lstat().
+                // Only synthesize metadata for symlinks that are actually tracked there;
+                // otherwise preserve ENOENT for symlinks removed outside the virtual FS.
                 match result {
                     Ok(md) => md,
-                    Err(FsError::EntryNotFound) => {
+                    Err(FsError::EntryNotFound)
+                        if self.ephemeral_symlink_at(real_path.as_path()).is_some() =>
+                    {
                         return Ok(Filestat {
                             st_filetype: Filetype::SymbolicLink,
                             ..Filestat::default()
                         });
                     }
+                    Err(FsError::EntryNotFound) => return Err(Errno::Noent),
                     Err(err) => return Err(fs_error_into_wasi_err(err)),
                 }
             }
