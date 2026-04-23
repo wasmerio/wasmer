@@ -455,10 +455,26 @@ impl InodeSocket {
                                 // listen/connect time.
                                 Ok(None)
                             }
-                            Err(err) => Err(net_error_into_wasi_err(err)),
+                            Err(err) => {
+                                // Roll back the pre-set address so the socket stays unbound,
+                                // matching Linux semantics where a failed bind(2) leaves the
+                                // socket unbound.
+                                let mut inner = self.inner.protected.write().unwrap();
+                                if let InodeSocketKind::PreSocket { addr, .. } = &mut inner.kind {
+                                    addr.take();
+                                }
+                                Err(net_error_into_wasi_err(err))
+                            }
                         }
                     },
-                    _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+                    _ = tasks.sleep_now(timeout) => {
+                        // Bind timed out; roll back the pre-set address for the same reason.
+                        let mut inner = self.inner.protected.write().unwrap();
+                        if let InodeSocketKind::PreSocket { addr, .. } = &mut inner.kind {
+                            addr.take();
+                        }
+                        Err(Errno::Timedout)
+                    }
                 }
             }
             PendingBind::Udp {
