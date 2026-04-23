@@ -63,6 +63,21 @@ fn test_bind_port_zero_keeps_same_port_across_connect() {
 }
 
 #[test]
+fn test_bound_tcp_socket_is_writable() {
+    let wasm = run_build_script(file!(), "bound-tcp-writable").unwrap();
+    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    assert_eq!(
+        stdout.trim(),
+        "bound TCP socket is writable",
+        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}",
+        result.exit_code,
+        stdout,
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[test]
 fn test_bind_fail_leaves_socket_unbound() {
     let wasm = run_build_script(file!(), "bind-fail-stays-unbound").unwrap();
     let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();

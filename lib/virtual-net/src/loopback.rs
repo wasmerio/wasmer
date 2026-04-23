@@ -6,8 +6,9 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::tcp_pair::TcpSocketHalf;
 use crate::{
-    InterestHandler, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError, VirtualIoSource,
-    VirtualNetworking, VirtualSocket, VirtualTcpBoundSocket, VirtualTcpListener, VirtualTcpSocket,
+    InterestHandler, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError, VirtualConnectedSocket,
+    VirtualIoSource, VirtualNetworking, VirtualSocket, VirtualTcpBoundSocket, VirtualTcpListener,
+    VirtualTcpSocket,
 };
 use virtual_mio::InterestType;
 
@@ -226,6 +227,156 @@ impl LoopbackNetworking {
     }
 }
 
+/// A connected TCP socket that keeps its local-port reservation in
+/// `LoopbackNetworkingState::tcp_bound` until it is explicitly closed or
+/// dropped, matching POSIX/Linux semantics where a connected socket holds
+/// its local port for its entire lifetime.
+#[derive(Debug)]
+struct LoopbackConnectedSocket {
+    inner: TcpSocketHalf,
+    networking: LoopbackNetworking,
+    /// `None` once the reservation has been released (after `close()` or `drop`).
+    reservation_key: Option<SocketAddr>,
+}
+
+impl LoopbackConnectedSocket {
+    fn release_reservation(&mut self) {
+        if let Some(key) = self.reservation_key.take() {
+            self.networking.state.lock().unwrap().tcp_bound.remove(&key);
+        }
+    }
+}
+
+impl Drop for LoopbackConnectedSocket {
+    fn drop(&mut self) {
+        self.release_reservation();
+    }
+}
+
+impl VirtualIoSource for LoopbackConnectedSocket {
+    fn remove_handler(&mut self) {
+        self.inner.remove_handler();
+    }
+
+    fn poll_read_ready(&mut self, cx: &mut Context<'_>) -> Poll<crate::Result<usize>> {
+        self.inner.poll_read_ready(cx)
+    }
+
+    fn poll_write_ready(&mut self, cx: &mut Context<'_>) -> Poll<crate::Result<usize>> {
+        self.inner.poll_write_ready(cx)
+    }
+}
+
+impl VirtualSocket for LoopbackConnectedSocket {
+    fn set_ttl(&mut self, ttl: u32) -> crate::Result<()> {
+        self.inner.set_ttl(ttl)
+    }
+
+    fn ttl(&self) -> crate::Result<u32> {
+        self.inner.ttl()
+    }
+
+    fn addr_local(&self) -> crate::Result<SocketAddr> {
+        self.inner.addr_local()
+    }
+
+    fn status(&self) -> crate::Result<crate::SocketStatus> {
+        self.inner.status()
+    }
+
+    fn set_handler(
+        &mut self,
+        handler: Box<dyn InterestHandler + Send + Sync>,
+    ) -> crate::Result<()> {
+        self.inner.set_handler(handler)
+    }
+}
+
+impl VirtualConnectedSocket for LoopbackConnectedSocket {
+    fn set_linger(&mut self, linger: Option<std::time::Duration>) -> crate::Result<()> {
+        self.inner.set_linger(linger)
+    }
+
+    fn linger(&self) -> crate::Result<Option<std::time::Duration>> {
+        self.inner.linger()
+    }
+
+    fn try_send(&mut self, data: &[u8]) -> crate::Result<usize> {
+        self.inner.try_send(data)
+    }
+
+    fn try_flush(&mut self) -> crate::Result<()> {
+        self.inner.try_flush()
+    }
+
+    fn close(&mut self) -> crate::Result<()> {
+        self.release_reservation();
+        self.inner.close()
+    }
+
+    fn try_recv(
+        &mut self,
+        buf: &mut [std::mem::MaybeUninit<u8>],
+        peek: bool,
+    ) -> crate::Result<usize> {
+        self.inner.try_recv(buf, peek)
+    }
+}
+
+impl VirtualTcpSocket for LoopbackConnectedSocket {
+    fn set_recv_buf_size(&mut self, size: usize) -> crate::Result<()> {
+        self.inner.set_recv_buf_size(size)
+    }
+
+    fn recv_buf_size(&self) -> crate::Result<usize> {
+        self.inner.recv_buf_size()
+    }
+
+    fn set_send_buf_size(&mut self, size: usize) -> crate::Result<()> {
+        self.inner.set_send_buf_size(size)
+    }
+
+    fn send_buf_size(&self) -> crate::Result<usize> {
+        self.inner.send_buf_size()
+    }
+
+    fn set_nodelay(&mut self, reuse: bool) -> crate::Result<()> {
+        self.inner.set_nodelay(reuse)
+    }
+
+    fn nodelay(&self) -> crate::Result<bool> {
+        self.inner.nodelay()
+    }
+
+    fn set_keepalive(&mut self, keepalive: bool) -> crate::Result<()> {
+        self.inner.set_keepalive(keepalive)
+    }
+
+    fn keepalive(&self) -> crate::Result<bool> {
+        self.inner.keepalive()
+    }
+
+    fn set_dontroute(&mut self, dontroute: bool) -> crate::Result<()> {
+        self.inner.set_dontroute(dontroute)
+    }
+
+    fn dontroute(&self) -> crate::Result<bool> {
+        self.inner.dontroute()
+    }
+
+    fn addr_peer(&self) -> crate::Result<SocketAddr> {
+        self.inner.addr_peer()
+    }
+
+    fn shutdown(&mut self, how: std::net::Shutdown) -> crate::Result<()> {
+        self.inner.shutdown(how)
+    }
+
+    fn is_closed(&self) -> bool {
+        self.inner.is_closed()
+    }
+}
+
 #[derive(Debug)]
 struct LoopbackTcpListenerState {
     handler: Option<Box<dyn InterestHandler + Send + Sync>>,
@@ -341,17 +492,6 @@ pub struct LoopbackTcpBoundSocket {
     ttl: u32,
 }
 
-impl LoopbackTcpBoundSocket {
-    fn release_reservation(&mut self) -> crate::Result<()> {
-        let reservation_key = self.reservation_key.take().ok_or(NetworkError::InvalidFd)?;
-        let mut state = self.networking.state.lock().unwrap();
-        if !state.tcp_bound.remove(&reservation_key) {
-            return Err(NetworkError::InvalidFd);
-        }
-        Ok(())
-    }
-}
-
 impl Drop for LoopbackTcpBoundSocket {
     fn drop(&mut self) {
         if let Some(reservation_key) = self.reservation_key.take() {
@@ -390,9 +530,17 @@ impl VirtualTcpBoundSocket for LoopbackTcpBoundSocket {
             .networking
             .loopback_connect_to(self.local_addr, peer)
             .ok_or(NetworkError::ConnectionRefused)?;
-        self.release_reservation()?;
+        // Transfer the port reservation to the connected socket so that the
+        // local port stays in `tcp_bound` for the socket's entire lifetime,
+        // matching POSIX/Linux semantics (a connected socket holds its local
+        // port; rebinding it returns EADDRINUSE).
+        let reservation_key = self.reservation_key.take().ok_or(NetworkError::InvalidFd)?;
         socket.set_ttl(self.ttl)?;
-        Ok(Box::new(socket))
+        Ok(Box::new(LoopbackConnectedSocket {
+            inner: socket,
+            networking: self.networking.clone(),
+            reservation_key: Some(reservation_key),
+        }))
     }
 
     fn set_ttl(&mut self, ttl: u32) -> crate::Result<()> {

@@ -1724,7 +1724,9 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.poll_write_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
-            InodeSocketKind::BoundTcp { .. } => Poll::Pending,
+            // A bound-but-not-yet-listening TCP socket is writable immediately,
+            // matching Linux select()/poll() semantics.
+            InodeSocketKind::BoundTcp { .. } => Poll::Ready(Ok(0)),
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
             InodeSocketKind::RemoteSocket { is_dead, .. } => match is_dead {
                 true => Poll::Ready(Ok(0)),
