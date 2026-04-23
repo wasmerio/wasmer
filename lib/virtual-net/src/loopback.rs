@@ -212,6 +212,20 @@ impl VirtualNetworking for LoopbackNetworking {
     }
 }
 
+#[cfg(test)]
+impl LoopbackNetworking {
+    pub(crate) fn exhaust_tcp_ephemeral_ports_for_test(&self, ip: IpAddr) {
+        let mut state = self.state.lock().unwrap();
+        for port in LOOPBACK_EPHEMERAL_PORT_START..=u16::MAX {
+            let addr = SocketAddr::new(ip, port);
+            state
+                .tcp_listeners
+                .insert(addr, LoopbackTcpListener::new(addr, 64));
+        }
+        state.next_ephemeral_port = LOOPBACK_EPHEMERAL_PORT_START;
+    }
+}
+
 #[derive(Debug)]
 struct LoopbackTcpListenerState {
     handler: Option<Box<dyn InterestHandler + Send + Sync>>,
