@@ -1149,3 +1149,52 @@ fn issue_6334_foldable_comparison_expressions(mut config: crate::Config) -> Resu
 
     Ok(())
 }
+
+/// Regression test for LLVM `v128.load16x4_s` near memory end.
+/// Default config must trap (`HeapAccessOutOfBounds`); non-volatile memops currently do not
+/// as it's a dead load.
+#[cfg(feature = "llvm")]
+#[test]
+fn issue_6401_llvm_v128_load16x4_s_oob() -> Result<()> {
+    use wasmer_compiler::CompilerConfig;
+    use wasmer_compiler::EngineBuilder;
+
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+          (memory 1)
+          (func (export "main")
+              i32.const 0xFFFFFFFE
+              v128.load16x4_s align=1
+              drop
+          )
+        )
+        "#,
+    )?;
+
+    let config = wasmer_compiler_llvm::LLVM::default();
+    let mut store = Store::new(EngineBuilder::new(config));
+
+    let module = Module::new(&store, &wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let result = instance
+        .exports
+        .get_function("main")?
+        .call(&mut store, &[])
+        .unwrap_err();
+    assert_eq!(
+        result.to_trap(),
+        Some(wasmer_types::TrapCode::HeapAccessOutOfBounds)
+    );
+
+    let mut config = wasmer_compiler_llvm::LLVM::default();
+    config.enable_non_volatile_memops();
+    let mut store = Store::new(EngineBuilder::new(config));
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let result = instance.exports.get_function("main")?.call(&mut store, &[]);
+    assert!(result.is_ok());
+
+    Ok(())
+}

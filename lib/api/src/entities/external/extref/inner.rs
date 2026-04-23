@@ -22,14 +22,6 @@ impl BackendExternRef {
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::external::ExternRef::new(store, value),
             ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(s) => Self::Wamr(
-                crate::backend::wamr::entities::external::ExternRef::new(store, value),
-            ),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(s) => Self::Wasmi(
-                crate::backend::wasmi::entities::external::ExternRef::new(store, value),
-            ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(s) => Self::V8(
                 crate::backend::v8::entities::external::ExternRef::new(store, value),
@@ -62,10 +54,6 @@ impl BackendExternRef {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(r) => VMExternRef::Sys(r.vm_externref()),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(r) => VMExternRef::Wamr(r.vm_externref()),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(r) => VMExternRef::Wasmi(r.vm_externref()),
             #[cfg(feature = "v8")]
             Self::V8(r) => VMExternRef::V8(r.vm_externref()),
             #[cfg(feature = "js")]
@@ -87,20 +75,6 @@ impl BackendExternRef {
                 crate::backend::sys::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.unwrap_sys(),
-                )
-            }),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => Self::Wamr(unsafe {
-                crate::backend::wamr::entities::external::ExternRef::from_vm_externref(
-                    store,
-                    vm_externref.unwrap_wamr(),
-                )
-            }),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => Self::Wasmi(unsafe {
-                crate::backend::wasmi::entities::external::ExternRef::from_vm_externref(
-                    store,
-                    vm_externref.unwrap_wasmi(),
                 )
             }),
             #[cfg(feature = "v8")]

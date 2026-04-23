@@ -437,13 +437,7 @@ macro_rules! function {
     }};
 }
 
-#[cfg_attr(
-    any(
-        all(target_os = "macos", target_arch = "x86_64"), // Output is slightly different in macos x86_64
-        target_os = "windows"
-    ),
-    ignore
-)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_condvar() {
     let snapshot = TestBuilder::new()
@@ -1091,9 +1085,8 @@ fn test_snapshot_python_3_11_3() {
     assert_json_snapshot!(snapshot);
 }
 
-//#[cfg_attr(target_os = "windows", ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1105,9 +1098,8 @@ fn test_snapshot_dash_dash() {
     assert_json_snapshot!(snapshot);
 }
 
-//#[cfg_attr(target_os = "windows", ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1185,9 +1177,8 @@ fn test_snapshot_bash_python() {
     assert_json_snapshot!(snapshot);
 }
 
-//#[cfg_attr(target_os = "windows", ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1199,9 +1190,8 @@ fn test_snapshot_bash_bash() {
     assert_json_snapshot!(snapshot);
 }
 
-// #[cfg_attr(target_os = "windows", ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())

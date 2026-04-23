@@ -201,16 +201,6 @@ impl NativeWasmTypeInto for Option<ExternRef> {
             crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMExternRef::from_raw(RawValue { externref: abi }).map(VMExternRef::Sys)
             },
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => unsafe {
-                crate::backend::wamr::vm::VMExternRef::from_raw(RawValue { externref: abi })
-                    .map(VMExternRef::Wamr)
-            },
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => unsafe {
-                crate::backend::wasmi::vm::VMExternRef::from_raw(RawValue { externref: abi })
-                    .map(VMExternRef::Wasmi)
-            },
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsafe {
                 crate::backend::v8::vm::VMExternRef::from_raw(RawValue { externref: abi })
@@ -246,14 +236,6 @@ impl NativeWasmTypeInto for Option<ExternRef> {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
-            },
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => unsafe {
-                crate::backend::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
-            },
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => unsafe {
-                crate::backend::wasmi::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wasmi)
             },
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsafe {
@@ -295,16 +277,6 @@ impl NativeWasmTypeInto for Option<Function> {
             crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Sys)
             },
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => unsafe {
-                crate::backend::wamr::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
-                    .map(VMFuncRef::Wamr)
-            },
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => unsafe {
-                crate::backend::wasmi::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
-                    .map(VMFuncRef::Wasmi)
-            },
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsafe {
                 crate::backend::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
@@ -342,14 +314,6 @@ impl NativeWasmTypeInto for Option<Function> {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys)
-            },
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => unsafe {
-                crate::backend::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
-            },
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => unsafe {
-                crate::backend::wasmi::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wasmi)
             },
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsafe {

@@ -52,8 +52,6 @@ jobs:
             enable_llvm: true
             enable_v8: false
             enable_napi_v8: false
-            enable_wasmi: true
-            enable_wamr: true
           - build: linux-x64
             os: ubuntu-22.04
             artifact_name: "wasmer-linux-amd64"
@@ -64,20 +62,6 @@ jobs:
             # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
             enable_v8: false
             enable_napi_v8: true
-            enable_wasmi: true
-            enable_wamr: true
-          - build: macos-x64
-            os: macos-15-intel
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-amd64.tar.xz"
-            artifact_name: "wasmer-darwin-amd64"
-            cross_compilation_artifact_name: "cross_compiled_from_mac"
-            build_wasm: false
-            enable_llvm: true
-            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
-            enable_v8: false
-            enable_napi_v8: false
-            enable_wasmi: true
-            enable_wamr: true
           - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
@@ -88,8 +72,6 @@ jobs:
             # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
             enable_v8: false
             enable_napi_v8: true
-            enable_wasmi: true
-            enable_wamr: true
           - build: windows-x64
             os: windows-2022
             artifact_name: "wasmer-windows-amd64"
@@ -99,8 +81,6 @@ jobs:
             enable_llvm: true
             enable_v8: false
             enable_napi_v8: false
-            enable_wasmi: true
-            enable_wamr: false
             #- build: linux-musl-x64
             #  os: ubuntu-22.04
             #  artifact_name: 'wasmer-linux-musl-amd64'
@@ -108,8 +88,6 @@ jobs:
             #  build_wasm: true
             #  enable_llvm: false
             #  enable_v8: false
-            #  enable_wasmi: true
-            #  enable_wamr: false
     env:
       TARGET: ${{ matrix.target }}
     steps:
@@ -159,10 +137,6 @@ jobs:
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.target }}
-      - name: Install LLVM (macOS Intel)
-        if: matrix.os == 'macos-15-intel' && !matrix.llvm_url
-        run: |
-          brew install llvm
       - name: Install LLVM
         if: ${{ matrix.llvm_url && matrix.enable_llvm == true }}
         shell: bash
@@ -223,8 +197,6 @@ jobs:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
           ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
-          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
-          ENABLE_WAMR: ${{ matrix.enable_wamr }}
       - name: Build Wasmer on linux-x64
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
@@ -233,8 +205,6 @@ jobs:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
           ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
-          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
-          ENABLE_WAMR: ${{ matrix.enable_wamr }}
       - name: Build Wasmer on linux-musl
         if: ${{ startsWith(matrix.build, 'linux-musl') }}
         run: |
@@ -251,8 +221,6 @@ jobs:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
           ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
-          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
-          ENABLE_WAMR: ${{ matrix.enable_wamr }}
       #- name: Build Wasmer binary on Wasm32-WASI without LLVM
       #  if: matrix.build_wasm
       #  shell: bash
@@ -616,16 +584,7 @@ jobs:
           #    asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
           #    asset_name: wasmer-linux-musl-amd64.tar.gz
           #    asset_content_type: application/gzip
-      - name: Upload Release Asset Mac amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
-          asset_name: wasmer-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac arm64
+      - name: Upload Release Asset macOS arm64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1210,7 +1210,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let wasmer_toml = r#"
             [package]
-            name = "sharrattj/bash"
+            name = "wasmer/bash"
             version = "1.0.17"
             description = "Bash is a modern POSIX-compliant implementation of /bin/sh."
             license = "GNU"

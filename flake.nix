@@ -4,12 +4,17 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
+    wasinix = {
+      url = "github:wasix-org/wasinix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     flakeutils = {
       url = "github:numtide/flake-utils";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flakeutils, rust-overlay }:
+  outputs = { self, nixpkgs, flakeutils, rust-overlay, wasinix }:
     flakeutils.lib.eachDefaultSystem (system:
       let
         NAME = "wasmer";
@@ -81,6 +86,9 @@
             # (partial overlap with "wabt")
             # https://github.com/bytecodealliance/wasm-tools
             wasm-tools
+
+            # WASIX C compiler
+            wasinix.packages.${system}.wasixcc
           ];
 
           shellHook = ''

@@ -3,7 +3,6 @@
         "llvm",
         "cranelift",
         "singlepass",
-        "wasmi",
         "wasmer-artifact-create",
         "wasmer-artifact-load",
         "napi-v8"

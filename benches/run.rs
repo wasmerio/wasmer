@@ -45,10 +45,6 @@ pub fn download_and_run(c: &mut Criterion) {
         "singlepass"
     } else if cfg!(feature = "v8") {
         "v8"
-    } else if cfg!(feature = "wamr") {
-        "wamr"
-    } else if cfg!(feature = "wasmi") {
-        "wasmi"
     } else {
         panic!("Unrecognized backend!")
     };

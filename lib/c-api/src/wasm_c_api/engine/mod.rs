@@ -30,12 +30,6 @@ pub enum wasmer_backend_t {
     /// The V8 backend.
     V8,
 
-    /// The WASMI backend.
-    WASMI,
-
-    /// The WAMR backend.
-    WAMR,
-
     /// The JSC backend.
     JSC,
 }
@@ -51,10 +45,6 @@ impl From<BackendKind> for wasmer_backend_t {
             BackendKind::Singlepass => Self::SINGLEPASS,
             #[cfg(feature = "sys")]
             BackendKind::Headless => Self::HEADLESS,
-            #[cfg(feature = "wamr")]
-            BackendKind::Wamr => Self::WAMR,
-            #[cfg(feature = "wasmi")]
-            BackendKind::Wasmi => Self::WASMI,
             #[cfg(feature = "v8")]
             BackendKind::V8 => Self::V8,
             #[cfg(feature = "jsc")]
@@ -156,10 +146,6 @@ pub extern "C" fn wasm_engine_new_with_config(
         wasmer_backend_t::HEADLESS => config::sys::wasm_sys_engine_new_with_config(config),
         #[cfg(feature = "v8")]
         wasmer_backend_t::V8 => config::v8::wasm_v8_engine_new_with_config(config),
-        #[cfg(feature = "wasmi")]
-        wasmer_backend_t::WASMI => config::wasmi::wasm_wasmi_engine_new_with_config(config),
-        #[cfg(feature = "wamr")]
-        wasmer_backend_t::WAMR => config::wamr::wasm_wamr_engine_new_with_config(config),
         #[cfg(feature = "jsc")]
         wasmer_backend_t::JSC => config::jsc::wasm_jsc_engine_new_with_config(config),
         #[allow(unreachable_patterns)]

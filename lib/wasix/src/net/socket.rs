@@ -1233,6 +1233,7 @@ impl InodeSocket {
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
                         InodeSocketKind::Icmp(socket) => socket.try_send_to(self.data, self.addr),
+                        InodeSocketKind::TcpStream { socket, .. } => socket.try_send(self.data),
                         InodeSocketKind::UdpSocket { socket, .. } => {
                             socket.try_send_to(self.data, self.addr)
                         }

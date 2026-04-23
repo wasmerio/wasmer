@@ -73,7 +73,6 @@ pub struct CreateExe {
     ///
     /// - "x86_64-linux-gnu"
     /// - "aarch64-linux-gnu"
-    /// - "x86_64-apple-darwin"
     /// - "arm64-apple-darwin"
     /// - "x86_64-windows-gnu"
     #[clap(long = "target")]
@@ -1744,7 +1743,7 @@ pub(super) mod utils {
         //
         // The filename scheme:
         // FILENAME := "wasmer-" [ FEATURE ] OS  PLATFORM  .
-        // FEATURE  := "wamr-" | "v8-" | "wasmi-" .
+        // FEATURE  := "v8-" .
         // OS       := "darwin" | "linux" | "linux-musl" | "windows" .
         // PLATFORM := "aarch64" | "amd64" | "gnu64" .
         //
@@ -1756,7 +1755,7 @@ pub(super) mod utils {
             return None;
         }
 
-        if filename.contains("wamr") || filename.contains("v8") || filename.contains("wasmi") {
+        if filename.contains("v8") {
             return None;
         }
 
@@ -2022,7 +2021,6 @@ pub(super) mod utils {
     fn test_filter_tarball() {
         use std::str::FromStr;
         let test_paths = [
-            "/test/wasmer-darwin-amd64.tar.gz",
             "/test/wasmer-darwin-arm64.tar.gz",
             "/test/wasmer-linux-aarch64.tar.gz",
             "/test/wasmer-linux-amd64.tar.gz",
@@ -2066,17 +2064,6 @@ pub(super) mod utils {
                 ))
                 .collect::<Vec<_>>(),
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
-        );
-
-        assert_eq!(
-            paths
-                .iter()
-                .filter(|p| crate::commands::utils::filter_tarball(
-                    p,
-                    &Triple::from_str("x86_64-darwin").unwrap()
-                ))
-                .collect::<Vec<_>>(),
-            vec![&Path::new("/test/wasmer-darwin-amd64.tar.gz")],
         );
 
         assert_eq!(

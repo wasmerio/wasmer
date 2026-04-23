@@ -9,14 +9,6 @@ pub enum StoreObjects {
     /// Store objects for the `sys` runtime.
     Sys(crate::backend::sys::store::StoreObjects),
 
-    #[cfg(feature = "wamr")]
-    /// Store objects for the `wamr` runtime.
-    Wamr(crate::backend::wamr::store::StoreObjects),
-
-    #[cfg(feature = "wasmi")]
-    /// Store objects for the `wasmi` runtime.
-    Wasmi(crate::backend::wasmi::store::StoreObjects),
-
     #[cfg(feature = "v8")]
     /// Store objects for the `v8` runtime.
     V8(crate::backend::v8::store::StoreObjects),
@@ -38,8 +30,6 @@ impl StoreObjects {
         match (a, b) {
             #[cfg(feature = "sys")]
             (Self::Sys(a), Self::Sys(b)) => a.id() == b.id(),
-            #[cfg(feature = "wamr")]
-            (Self::Wamr(a), Self::Wamr(b)) => a.id() == b.id(),
             #[cfg(feature = "v8")]
             (Self::V8(a), Self::V8(b)) => a.id() == b.id(),
             #[cfg(feature = "js")]
@@ -69,10 +59,6 @@ impl StoreObjects {
         match store {
             #[cfg(feature = "sys")]
             BackendStore::Sys(_) => Self::Sys(Default::default()),
-            #[cfg(feature = "wamr")]
-            BackendStore::Wamr(_) => Self::Wamr(Default::default()),
-            #[cfg(feature = "wasmi")]
-            BackendStore::Wasmi(_) => Self::Wasmi(Default::default()),
             #[cfg(feature = "v8")]
             BackendStore::V8(_) => Self::V8(Default::default()),
             #[cfg(feature = "js")]

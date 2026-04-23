@@ -51,8 +51,6 @@ backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "dep:wasmer-vm"]
 v8 = ["backend", "wasmer/v8"]
-wamr = ["backend", "wasmer/wamr"]
-wasmi = ["backend", "wasmer/wasmi"]
 jsc = ["backend", "wasmer/jsc", "wasmer/std"]
 wast = ["wasmer-wast"]
 host-net = ["virtual-net/host-net"]
@@ -290,10 +288,6 @@ pkg-fmt = "tgz"
 
 [package.metadata.binstall.overrides.aarch64-apple-darwin]
 pkg-url = "{ repo }/releases/download/v{ version }/wasmer-darwin-arm64.{ archive-format }"
-bin-dir = "bin/{ bin }"
-
-[package.metadata.binstall.overrides.x86_64-apple-darwin]
-pkg-url = "{ repo }/releases/download/v{ version }/wasmer-darwin-amd64.{ archive-format }"
 bin-dir = "bin/{ bin }"
 
 [package.metadata.binstall.overrides.aarch64-unknown-linux-gnu]

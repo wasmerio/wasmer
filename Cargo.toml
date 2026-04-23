@@ -38,7 +38,7 @@ tokio = { workspace = true, features = [
 members = [
 	"fuzz",
 	"lib/api",
-	"lib/api/macro-wasmer-universal-test",
+	"lib/api/macro-wasmer-engine-test",
 	"lib/backend-api",
 	"lib/c-api",
 	"lib/c-api/examples/wasmer-capi-examples-runner",
@@ -135,9 +135,9 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.130.0", default-features = false }
-cranelift-entity = { version = "=0.130.0", default-features = false }
-cranelift-frontend = { version = "=0.130.0", default-features = false }
+cranelift-codegen = { version = "=0.130.1", default-features = false }
+cranelift-entity = { version = "=0.130.1", default-features = false }
+cranelift-frontend = { version = "=0.130.1", default-features = false }
 crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
@@ -171,7 +171,7 @@ glob = "0.3"
 graphql-ws-client = "0.13.0"
 gumdrop = "0.8"
 harsh = "0.2.2"
-hashbrown = "0.16.1"
+hashbrown = "0.17.0"
 heapless = "0.9.2"
 hex = "0.4"
 hexdump = "0.1.2"
@@ -302,20 +302,19 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.37"
 wasm-bindgen-test = "0.3.0"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.246.2", default-features = false, features = [
+wasm-encoder = { version = "0.247.0", default-features = false, features = [
 	"std",
 ] }
-wasm-smith = "0.246.2"
-wasmi_c_api_impl = "1.0.4"
-wasmparser = { version = "0.246.2", default-features = false, features = [
+wasm-smith = "0.247.0"
+wasmparser = { version = "0.247.0", default-features = false, features = [
 	"validate",
 	"features",
 	"simd",
 ] }
-wasmprinter = "0.246.2"
+wasmprinter = "0.247.0"
 wasmer-inline-c = "0.1.1"
-wast = "246.0.2"
-wat = "1.246.2"
+wast = "247.0.0"
+wat = "1.247.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
@@ -369,17 +368,10 @@ default = ["wat", "wast", "cache", "wasi", "middlewares"]
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
 
-# Enable the WAMR backend (using it as default only if it is the only backend enabled)
-wamr = ["wasmer/wamr"]
-
 # Enable the V8 backend (using it as default only if it is the only backend enabled)
 v8 = ["wasmer/v8"]
 
-# Enable the wasmi backend (using it as default only if it is the only backend enabled)
-wasmi = ["wasmer/wasmi"]
-
-engine = ["universal"]
-universal = []
+engine = []
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasix", "tokio"]
@@ -400,7 +392,7 @@ test-singlepass = ["singlepass"]
 test-cranelift = ["cranelift"]
 test-llvm = ["llvm"]
 
-test-universal = ["test-generator/test-universal"]
+test-engine = ["test-generator/test-engine"]
 
 # Specifies that we're running in coverage testing mode. This disables tests
 # that raise signals because that interferes with tarpaulin.
