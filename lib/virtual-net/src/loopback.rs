@@ -185,11 +185,13 @@ impl VirtualNetworking for LoopbackNetworking {
     async fn listen_tcp(
         &self,
         addr: SocketAddr,
-        _only_v6: bool,
-        _reuse_port: bool,
-        _reuse_addr: bool,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
     ) -> crate::Result<Box<dyn VirtualTcpListener + Sync>> {
-        self.bind_tcp(addr, false, false, false).await?.listen()
+        self.bind_tcp(addr, only_v6, reuse_port, reuse_addr)
+            .await?
+            .listen()
     }
 
     async fn bind_tcp(
@@ -207,20 +209,6 @@ impl VirtualNetworking for LoopbackNetworking {
             reservation_key: Some(Self::normalize_listener_addr(addr)),
             ttl: 64,
         }))
-    }
-}
-
-#[cfg(test)]
-impl LoopbackNetworking {
-    pub(crate) fn exhaust_tcp_ephemeral_ports_for_test(&self, ip: IpAddr) {
-        let mut state = self.state.lock().unwrap();
-        for port in LOOPBACK_EPHEMERAL_PORT_START..=u16::MAX {
-            let addr = SocketAddr::new(ip, port);
-            state
-                .tcp_listeners
-                .insert(addr, LoopbackTcpListener::new(addr, 64));
-        }
-        state.next_ephemeral_port = LOOPBACK_EPHEMERAL_PORT_START;
     }
 }
 

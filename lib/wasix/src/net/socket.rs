@@ -55,12 +55,12 @@ pub struct SocketProperties {
     pub handler: Option<Box<dyn InterestHandler + Send + Sync>>,
 }
 
-impl SocketProperties {
-    fn placeholder_from(existing: &Self) -> Self {
+impl Default for SocketProperties {
+    fn default() -> Self {
         Self {
-            family: existing.family,
-            ty: existing.ty,
-            pt: existing.pt,
+            family: Addressfamily::Unspec,
+            ty: Socktype::Unknown,
+            pt: SockProto::Ip,
             only_v6: false,
             reuse_port: false,
             reuse_addr: false,
@@ -443,8 +443,7 @@ impl InodeSocket {
                                     let mut inner = self.inner.protected.write().unwrap();
                                     match &mut inner.kind {
                                         InodeSocketKind::PreSocket { props, .. } => {
-                                            let placeholder = SocketProperties::placeholder_from(props);
-                                            std::mem::replace(props, placeholder)
+                                            std::mem::take(props)
                                         }
                                         _ => return Err(Errno::Inval),
                                     }
