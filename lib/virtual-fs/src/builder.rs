@@ -1,10 +1,14 @@
 use crate::random_file::RandomFile;
-use crate::{FileSystem, VirtualFile};
-use std::path::{Path, PathBuf};
+use crate::{FileSystem, MountFileSystem, VirtualFile};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tracing::*;
 
 use super::ZeroFile;
 use super::{DeviceFile, NullFile};
+use crate::limiter::DynFsMemoryLimiter;
 use crate::tmp_fs::TmpFileSystem;
 
 pub struct RootFileSystemBuilder {
@@ -15,6 +19,7 @@ pub struct RootFileSystemBuilder {
     stdout: Option<Box<dyn VirtualFile + Send + Sync>>,
     stderr: Option<Box<dyn VirtualFile + Send + Sync>>,
     tty: Option<Box<dyn VirtualFile + Send + Sync>>,
+    memory_limiter: Option<DynFsMemoryLimiter>,
 }
 
 impl Default for RootFileSystemBuilder {
@@ -27,6 +32,7 @@ impl Default for RootFileSystemBuilder {
             stdout: None,
             stderr: None,
             tty: None,
+            memory_limiter: None,
         }
     }
 }
@@ -56,17 +62,43 @@ impl RootFileSystemBuilder {
         self
     }
 
+    pub fn with_memory_limiter(mut self, limiter: DynFsMemoryLimiter) -> Self {
+        self.memory_limiter = Some(limiter);
+        self
+    }
+
+    pub fn with_memory_limiter_opt(mut self, limiter: Option<DynFsMemoryLimiter>) -> Self {
+        self.memory_limiter = limiter;
+        self
+    }
+
     pub fn default_root_dirs(mut self, val: bool) -> Self {
         self.default_root_dirs = val;
         self
     }
 
-    pub fn build(self) -> TmpFileSystem {
+    pub fn build(self) -> MountFileSystem {
         self.build_ext(&[])
     }
 
-    pub fn build_ext(self, mapped_dirs: &[&str]) -> TmpFileSystem {
+    pub fn build_ext(self, mapped_dirs: &[&str]) -> MountFileSystem {
+        let tmp = self.build_tmp_ext(mapped_dirs);
+        let root = MountFileSystem::new();
+        root.mount(Path::new("/"), Arc::new(tmp))
+            .expect("mounting the root fs on an empty mount fs should succeed");
+        root
+    }
+
+    pub fn build_tmp(self) -> TmpFileSystem {
+        self.build_tmp_ext(&[])
+    }
+
+    pub fn build_tmp_ext(self, mapped_dirs: &[&str]) -> TmpFileSystem {
         let tmp = TmpFileSystem::new();
+
+        if let Some(limiter) = &self.memory_limiter {
+            tmp.set_memory_limiter(limiter.clone());
+        }
 
         if self.default_root_dirs {
             let default_dirs = ["/.app", "/.private", "/bin", "/dev", "/etc", "/tmp"]

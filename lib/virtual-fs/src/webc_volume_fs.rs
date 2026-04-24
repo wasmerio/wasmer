@@ -155,15 +155,6 @@ impl FileSystem for WebcVolumeFileSystem {
     fn new_open_options(&self) -> crate::OpenOptions<'_> {
         crate::OpenOptions::new(self)
     }
-
-    fn mount(
-        &self,
-        _name: String,
-        _path: &Path,
-        _fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> Result<(), FsError> {
-        Err(FsError::Unsupported)
-    }
 }
 
 impl FileOpener for WebcVolumeFileSystem {
@@ -363,7 +354,8 @@ mod tests {
     use tokio::io::AsyncReadExt;
     use wasmer_package::utils::from_bytes;
 
-    const PYTHON_WEBC: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
+    const PYTHON_WEBC: &[u8] =
+        include_bytes!("../../../wasmer-test-files/examples/python-0.1.0.wasmer");
 
     #[test]
     fn normalize_paths() {

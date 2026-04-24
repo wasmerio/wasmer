@@ -667,7 +667,13 @@ impl InodeSocket {
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { .. } => WasiSocketStatus::Opening,
             InodeSocketKind::TcpListener { .. } => WasiSocketStatus::Opened,
-            InodeSocketKind::TcpStream { .. } => WasiSocketStatus::Opened,
+            InodeSocketKind::TcpStream { socket, .. } => match socket.status() {
+                Ok(virtual_net::SocketStatus::Opening) => WasiSocketStatus::Opening,
+                Ok(virtual_net::SocketStatus::Opened) => WasiSocketStatus::Opened,
+                Ok(virtual_net::SocketStatus::Closed) => WasiSocketStatus::Closed,
+                Ok(virtual_net::SocketStatus::Failed) => WasiSocketStatus::Failed,
+                Err(_) => WasiSocketStatus::Failed,
+            },
             InodeSocketKind::UdpSocket { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::RemoteSocket { is_dead, .. } => match is_dead {
                 true => WasiSocketStatus::Closed,
@@ -1227,6 +1233,7 @@ impl InodeSocket {
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
                         InodeSocketKind::Icmp(socket) => socket.try_send_to(self.data, self.addr),
+                        InodeSocketKind::TcpStream { socket, .. } => socket.try_send(self.data),
                         InodeSocketKind::UdpSocket { socket, .. } => {
                             socket.try_send_to(self.data, self.addr)
                         }
@@ -1584,7 +1591,7 @@ pub(crate) fn all_socket_rights() -> Rights {
 
 #[cfg(test)]
 mod tests {
-    use super::{InodeSocket, InodeSocketKind};
+    use super::{InodeSocket, InodeSocketKind, WasiSocketStatus};
     use std::{
         mem::MaybeUninit,
         net::{Ipv4Addr, Shutdown, SocketAddr},
@@ -1606,6 +1613,17 @@ mod tests {
     struct MockTcpSocket {
         read_calls: Arc<AtomicUsize>,
         write_calls: Arc<AtomicUsize>,
+        status: Arc<AtomicUsize>,
+    }
+
+    const MOCK_STATUS_OPENING: usize = 0;
+    const MOCK_STATUS_OPENED: usize = 1;
+
+    fn decode_mock_status(value: usize) -> SocketStatus {
+        match value {
+            MOCK_STATUS_OPENED => SocketStatus::Opened,
+            _ => SocketStatus::Opening,
+        }
     }
 
     impl VirtualIoSource for MockTcpSocket {
@@ -1618,6 +1636,7 @@ mod tests {
 
         fn poll_write_ready(&mut self, _cx: &mut Context<'_>) -> Poll<NetResult<usize>> {
             self.write_calls.fetch_add(1, Ordering::Relaxed);
+            self.status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
             Poll::Ready(Ok(7))
         }
     }
@@ -1636,7 +1655,7 @@ mod tests {
         }
 
         fn status(&self) -> NetResult<SocketStatus> {
-            Ok(SocketStatus::Opened)
+            Ok(decode_mock_status(self.status.load(Ordering::Relaxed)))
         }
 
         fn set_handler(
@@ -1731,10 +1750,12 @@ mod tests {
     fn inode_socket_poll_write_ready_uses_write_path() {
         let read_calls = Arc::new(AtomicUsize::new(0));
         let write_calls = Arc::new(AtomicUsize::new(0));
+        let status = Arc::new(AtomicUsize::new(MOCK_STATUS_OPENED));
         let mut inode = InodeSocket::new(InodeSocketKind::TcpStream {
             socket: Box::new(MockTcpSocket {
                 read_calls: read_calls.clone(),
                 write_calls: write_calls.clone(),
+                status,
             }),
             write_timeout: None,
             read_timeout: None,
@@ -1747,5 +1768,23 @@ mod tests {
         assert!(matches!(ready, Poll::Ready(Ok(7))));
         assert_eq!(read_calls.load(Ordering::Relaxed), 0);
         assert_eq!(write_calls.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn inode_socket_status_tracks_tcp_socket_status() {
+        let status = Arc::new(AtomicUsize::new(MOCK_STATUS_OPENING));
+        let inode = InodeSocket::new(InodeSocketKind::TcpStream {
+            socket: Box::new(MockTcpSocket {
+                read_calls: Arc::new(AtomicUsize::new(0)),
+                write_calls: Arc::new(AtomicUsize::new(0)),
+                status: status.clone(),
+            }),
+            write_timeout: None,
+            read_timeout: None,
+        });
+
+        assert!(matches!(inode.status().unwrap(), WasiSocketStatus::Opening));
+        status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
+        assert!(matches!(inode.status().unwrap(), WasiSocketStatus::Opened));
     }
 }

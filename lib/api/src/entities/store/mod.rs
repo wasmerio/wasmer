@@ -64,14 +64,6 @@ impl Store {
             BackendEngine::Sys(_) => {
                 BackendStore::Sys(crate::backend::sys::entities::store::Store::new(engine))
             }
-            #[cfg(feature = "wamr")]
-            BackendEngine::Wamr(_) => {
-                BackendStore::Wamr(crate::backend::wamr::entities::store::Store::new(engine))
-            }
-            #[cfg(feature = "wasmi")]
-            BackendEngine::Wasmi(_) => {
-                BackendStore::Wasmi(crate::backend::wasmi::entities::store::Store::new(engine))
-            }
             #[cfg(feature = "v8")]
             BackendEngine::V8(_) => {
                 BackendStore::V8(crate::backend::v8::entities::store::Store::new(engine))
@@ -79,10 +71,6 @@ impl Store {
             #[cfg(feature = "js")]
             BackendEngine::Js(_) => {
                 BackendStore::Js(crate::backend::js::entities::store::Store::new(engine))
-            }
-            #[cfg(feature = "jsc")]
-            BackendEngine::Jsc(_) => {
-                BackendStore::Jsc(crate::backend::jsc::entities::store::Store::new(engine))
             }
         };
 

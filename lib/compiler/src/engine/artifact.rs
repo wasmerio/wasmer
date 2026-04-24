@@ -215,7 +215,7 @@ impl Artifact {
                     }
                     Err(e) => {
                         return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not wasmer-universal: {e}"
+                            "The provided bytes are not a Wasmer engine artifact: {e}"
                         )));
                     }
                 }
@@ -262,7 +262,7 @@ impl Artifact {
                     }
                     Err(e) => {
                         return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not wasmer-universal: {e}"
+                            "The provided bytes are not a Wasmer engine artifact: {e}"
                         )));
                     }
                 }

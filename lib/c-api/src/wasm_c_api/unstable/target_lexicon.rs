@@ -17,7 +17,7 @@
 //!
 //!     {
 //!         wasm_name_t triple_name;
-//!         wasm_name_new_from_string(&triple_name, "x86_64-apple-darwin");
+//!         wasm_name_new_from_string(&triple_name, "aarch64-apple-darwin");
 //!
 //!         triple = wasmer_triple_new(&triple_name);
 //!
@@ -116,7 +116,7 @@ pub extern "C" fn wasmer_target_delete(_target: Option<Box<wasmer_target_t>>) {}
 /// #
 /// int main() {
 ///     wasm_name_t triple_name;
-///     wasm_name_new_from_string(&triple_name, "x86_64-apple-darwin");
+///     wasm_name_new_from_string(&triple_name, "aarch64-apple-darwin");
 ///
 ///     wasmer_triple_t* triple = wasmer_triple_new(&triple_name);
 ///     assert(triple);

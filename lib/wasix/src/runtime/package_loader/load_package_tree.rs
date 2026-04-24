@@ -1,22 +1,21 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    fmt::Debug,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::{Context, Error};
-use futures::{StreamExt, TryStreamExt, future::BoxFuture};
+use futures::{StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
-use virtual_fs::{FileSystem, UnionFileSystem, WebcVolumeFileSystem};
+use virtual_fs::{FileSystem, WebcVolumeFileSystem};
 use wasmer_config::package::PackageId;
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
 use webc::{Container, Volume};
 
 use crate::{
-    bin_factory::{BinaryPackage, BinaryPackageCommand},
+    bin_factory::{BinaryPackage, BinaryPackageCommand, BinaryPackageMount, BinaryPackageMounts},
     runtime::{
         package_loader::PackageLoader,
         resolver::{
@@ -68,7 +67,7 @@ pub async fn load_package_tree(
     let commands = commands(&resolution.package.commands, &containers, resolution)?;
 
     let file_system_memory_footprint = if let Some(fs) = &fs_opt {
-        count_file_system(fs, Path::new("/"))
+        count_package_mounts(fs)
     } else {
         0
     };
@@ -84,7 +83,7 @@ pub async fn load_package_tree(
         .map(|ts| ts as u128),
         hash: OnceCell::new(),
         entrypoint_cmd: resolution.package.entrypoint.clone(),
-        webc_fs: fs_opt.map(Arc::new),
+        package_mounts: fs_opt.map(Arc::new),
         commands,
         uses: Vec::new(),
         file_system_memory_footprint,
@@ -366,6 +365,20 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     total
 }
 
+fn count_package_mounts(mounts: &BinaryPackageMounts) -> u64 {
+    let mut total = 0;
+
+    if let Some(root_layer) = &mounts.root_layer {
+        total += count_file_system(root_layer.as_ref(), Path::new("/"));
+    }
+
+    for mount in &mounts.mounts {
+        total += count_file_system(mount.fs.as_ref(), Path::new("/"));
+    }
+
+    total
+}
+
 /// Given a set of [`ResolvedFileSystemMapping`]s and the [`Container`] for each
 /// package in a dependency tree, construct the resulting filesystem.
 ///
@@ -374,7 +387,7 @@ fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<Option<UnionFileSystem>, Error> {
+) -> Result<Option<BinaryPackageMounts>, Error> {
     if pkg.filesystem.is_empty() {
         return Ok(None);
     }
@@ -429,10 +442,10 @@ fn filesystem_v3(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<UnionFileSystem, Error> {
+) -> Result<BinaryPackageMounts, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
-
-    let union_fs = UnionFileSystem::new();
+    let mut root_layer = None;
+    let mut mounts = Vec::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -471,10 +484,18 @@ fn filesystem_v3(
         })?;
 
         let webc_vol = WebcVolumeFileSystem::new(volume.clone());
-        union_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))?;
+        if mount_path.as_path() == Path::new("/") {
+            root_layer = Some(Arc::new(webc_vol) as Arc<dyn FileSystem + Send + Sync>);
+        } else {
+            mounts.push(BinaryPackageMount {
+                guest_path: mount_path.clone(),
+                fs: Arc::new(webc_vol),
+                source_path: PathBuf::from("/"),
+            });
+        }
     }
 
-    Ok(union_fs)
+    Ok(BinaryPackageMounts { root_layer, mounts })
 }
 
 /// Build the filesystem for webc v2 packages.
@@ -485,8 +506,8 @@ fn filesystem_v3(
 // filesystem implementations we've got available.
 //
 // Ideally, we would create a WebcVolumeFileSystem for each volume we're
-// using, then we'd have a single "union" filesystem which lets you mount
-// filesystem objects under various paths and can deal with conflicts.
+// using, then we'd have a single mount filesystem which lets you mount
+// filesystem objects under various paths.
 //
 // The OverlayFileSystem lets us make files from multiple filesystem
 // implementations available at the same time, however all of the
@@ -504,10 +525,10 @@ fn filesystem_v2(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
     root_is_local_dir: bool,
-) -> Result<UnionFileSystem, Error> {
+) -> Result<BinaryPackageMounts, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
-
-    let union_fs = UnionFileSystem::new();
+    let mut root_layer = None;
+    let mut mounts = Vec::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -547,150 +568,25 @@ fn filesystem_v2(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        // UnionFileSystem strips the mount point before forwarding paths to the
-        // mounted filesystem. That means paths are already relative to the
-        // mount root and shouldn't be stripped by mount_path.
-        let fs = if let Some(original) = original_path {
-            let original = PathBuf::from(original);
+        let mounted_fs = Arc::new(WebcVolumeFileSystem::new(volume.clone()))
+            as Arc<dyn FileSystem + Send + Sync>;
+        let source_path = original_path
+            .as_deref()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/"));
 
-            MappedPathFileSystem::new(
-                WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| Ok(original.join(strip_root_prefix(path))))
-                    as DynPathMapper,
-            )
+        if mount_path.as_path() == Path::new("/") {
+            root_layer = Some(mounted_fs);
         } else {
-            MappedPathFileSystem::new(
-                WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| Ok(strip_root_prefix(path))) as DynPathMapper,
-            )
-        };
-
-        union_fs.mount(volume_name.clone(), mount_path, Box::new(fs))?;
+            mounts.push(BinaryPackageMount {
+                guest_path: mount_path.clone(),
+                fs: mounted_fs,
+                source_path,
+            });
+        }
     }
 
-    Ok(union_fs)
-}
-
-fn strip_root_prefix(path: &Path) -> PathBuf {
-    path.strip_prefix("/").unwrap_or(path).to_owned()
-}
-
-type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;
-
-struct MappedPathFileSystem<F, M> {
-    inner: F,
-    map: M,
-}
-
-impl<F, M> MappedPathFileSystem<F, M>
-where
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn new(inner: F, map: M) -> Self {
-        MappedPathFileSystem { inner, map }
-    }
-
-    fn path(&self, path: &Path) -> Result<PathBuf, virtual_fs::FsError> {
-        let path = (self.map)(path)?;
-
-        // Don't forget to make the path absolute again.
-        Ok(Path::new("/").join(path))
-    }
-}
-
-impl<M, F> FileSystem for MappedPathFileSystem<F, M>
-where
-    F: FileSystem,
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
-        let path = self.path(path)?;
-        self.inner.readlink(&path)
-    }
-
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        let path = self.path(path)?;
-        self.inner.read_dir(&path)
-    }
-
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.create_dir(&path)
-    }
-
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.remove_dir(&path)
-    }
-
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
-        Box::pin(async move {
-            let from = self.path(&from)?;
-            let to = self.path(&to)?;
-            self.inner.rename(&from, &to).await
-        })
-    }
-
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        let path = self.path(path)?;
-        self.inner.metadata(&path)
-    }
-
-    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        let path = self.path(path)?;
-        self.inner.symlink_metadata(&path)
-    }
-
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.remove_file(&path)
-    }
-
-    fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
-        virtual_fs::OpenOptions::new(self)
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.mount(name, path.as_path(), fs)
-    }
-}
-
-impl<F, M> virtual_fs::FileOpener for MappedPathFileSystem<F, M>
-where
-    F: FileSystem,
-    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
-{
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
-        let path = self.path(path)?;
-        self.inner
-            .new_open_options()
-            .options(conf.clone())
-            .open(path)
-    }
-}
-
-impl<F, M> Debug for MappedPathFileSystem<F, M>
-where
-    F: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MappedPathFileSystem")
-            .field("inner", &self.inner)
-            .field("map", &std::any::type_name::<M>())
-            .finish()
-    }
+    Ok(BinaryPackageMounts { root_layer, mounts })
 }
 
 #[cfg(test)]
@@ -742,11 +638,11 @@ mod tests {
             "index.html".parse().unwrap(),
             DirEntry::File(FileEntry::from(b"ok".as_slice())),
         );
-        let public_dir = Directory {
+        let public_mount_dir = Directory {
             children: public_children,
         };
         let mut root_children = BTreeMap::new();
-        root_children.insert("public".parse().unwrap(), DirEntry::Dir(public_dir));
+        root_children.insert("public".parse().unwrap(), DirEntry::Dir(public_mount_dir));
         let atom_dir = Directory {
             children: root_children,
         };
@@ -775,13 +671,104 @@ mod tests {
             }],
         };
 
-        let union_fs = filesystem_v2(&packages, &pkg, false).unwrap();
-        assert!(union_fs.metadata(Path::new("/public")).unwrap().is_dir());
+        let mounts = filesystem_v2(&packages, &pkg, false).unwrap();
+        let mount_fs = mounts.to_mount_fs().unwrap();
+        assert!(mount_fs.metadata(Path::new("/public")).unwrap().is_dir());
         assert!(
-            union_fs
+            mount_fs
                 .metadata(Path::new("/public/index.html"))
                 .unwrap()
                 .is_file()
         );
+    }
+
+    #[test]
+    fn v2_filesystem_mapping_preserves_root_and_nested_mounts() {
+        let mut manifest = Manifest::default();
+        let fs = FileSystemMappings(vec![
+            FileSystemMapping {
+                from: None,
+                volume_name: "root".to_string(),
+                host_path: Some("/".to_string()),
+                mount_path: "/".to_string(),
+            },
+            FileSystemMapping {
+                from: None,
+                volume_name: "public".to_string(),
+                host_path: Some("/public".to_string()),
+                mount_path: "/public".to_string(),
+            },
+        ]);
+        let mut package = IndexMap::new();
+        package.insert(
+            FileSystemMappings::KEY.to_string(),
+            Value::serialized(&fs).unwrap(),
+        );
+        manifest.package = package;
+
+        let mut root_children = BTreeMap::new();
+        root_children.insert(
+            "root.txt".parse().unwrap(),
+            DirEntry::File(FileEntry::from(b"root".as_slice())),
+        );
+        let root_dir = Directory {
+            children: root_children,
+        };
+
+        let mut public_children = BTreeMap::new();
+        public_children.insert(
+            "index.html".parse().unwrap(),
+            DirEntry::File(FileEntry::from(b"ok".as_slice())),
+        );
+        let public_dir = Directory {
+            children: public_children,
+        };
+
+        let writer = Writer::default().write_manifest(&manifest).unwrap();
+        let writer = writer.write_atoms(BTreeMap::new()).unwrap();
+        let writer = writer.with_volume("root", root_dir).unwrap();
+        let writer = writer.with_volume("public", public_dir).unwrap();
+        let bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+
+        let reader = OwnedReader::parse(bytes).unwrap();
+        let container = Container::from(reader);
+
+        let pkg_id = PackageId::new_named("ns/pkg", "0.1.0".parse().unwrap());
+        let mut packages = HashMap::new();
+        packages.insert(pkg_id.clone(), container);
+
+        let pkg = ResolvedPackage {
+            root_package: pkg_id.clone(),
+            commands: BTreeMap::new(),
+            entrypoint: None,
+            filesystem: vec![
+                ResolvedFileSystemMapping {
+                    mount_path: PathBuf::from("/"),
+                    volume_name: "root".to_string(),
+                    original_path: Some("/".to_string()),
+                    package: pkg_id.clone(),
+                },
+                ResolvedFileSystemMapping {
+                    mount_path: PathBuf::from("/public"),
+                    volume_name: "public".to_string(),
+                    original_path: Some("/public".to_string()),
+                    package: pkg_id,
+                },
+            ],
+        };
+
+        let mounts = filesystem_v2(&packages, &pkg, false).unwrap();
+        let root_layer = mounts
+            .root_layer
+            .as_ref()
+            .expect("expected root layer mount");
+        assert!(
+            root_layer
+                .metadata(Path::new("/root.txt"))
+                .unwrap()
+                .is_file()
+        );
+        assert_eq!(mounts.mounts.len(), 1);
+        assert_eq!(mounts.mounts[0].guest_path, Path::new("/public"));
     }
 }

@@ -1,9 +1,7 @@
 name: Builds
-
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-
 on:
   push:
     branches:
@@ -18,7 +16,6 @@ on:
     inputs:
       release:
         description: "Make release"
-
 jobs:
   setup:
     name: Set up
@@ -37,7 +34,6 @@ jobs:
           echo "DOING_RELEASE=${DOING_RELEASE}" >> $GITHUB_OUTPUT
           echo $VERSION
           echo $DOING_RELEASE
-
   build:
     name: ${{ matrix.build }}
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -50,56 +46,41 @@ jobs:
           - build: linux-arm64
             os: ubuntu-22.04-arm
             artifact_name: "wasmer-linux-aarch64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             build_wasm: true
             enable_llvm: true
             enable_v8: false
-            enable_wasmi: true
-            enable_wamr: true
+            enable_napi_v8: false
           - build: linux-x64
             os: ubuntu-22.04
             artifact_name: "wasmer-linux-amd64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             build_wasm: true
             enable_llvm: true
             # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
             enable_v8: false
-            enable_wasmi: true
-            enable_wamr: true
-          - build: macos-x64
-            os: macos-15-intel
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz"
-            artifact_name: "wasmer-darwin-amd64"
-            cross_compilation_artifact_name: "cross_compiled_from_mac"
-            build_wasm: false
-            enable_llvm: true
-            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
-            enable_v8: false
-            enable_wasmi: true
-            enable_wamr: true
-          - build: macos-arm64
+            enable_napi_v8: true
+          - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
             build_wasm: false
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-aarch64.tar.xz"
             enable_llvm: true
             # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
             enable_v8: false
-            enable_wasmi: true
-            enable_wamr: true
+            enable_napi_v8: true
           - build: windows-x64
             os: windows-2022
             artifact_name: "wasmer-windows-amd64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-windows-amd64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_win"
             build_wasm: false
             enable_llvm: true
             enable_v8: false
-            enable_wasmi: true
-            enable_wamr: false
+            enable_napi_v8: false
             #- build: linux-musl-x64
             #  os: ubuntu-22.04
             #  artifact_name: 'wasmer-linux-musl-amd64'
@@ -107,17 +88,14 @@ jobs:
             #  build_wasm: true
             #  enable_llvm: false
             #  enable_v8: false
-            #  enable_wasmi: true
-            #  enable_wamr: false
-
     env:
       TARGET: ${{ matrix.target }}
     steps:
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add git bash make curl cmake ninja clang21 zstd-static llvm21-dev clang21-static llvm21-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
-          ln -s /usr/bin/clang-21 /usr/bin/clang
+          apk add git bash make curl cmake ninja clang22 zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
+          ln -s /usr/bin/clang-22 /usr/bin/clang
       - uses: actions/checkout@v6
         with:
           submodules: true
@@ -158,11 +136,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
-          target: ${{ matrix.target }}      
-      - name: Install LLVM (macOS Intel)
-        if: matrix.os == 'macos-15-intel' && !matrix.llvm_url
-        run: |
-          brew install llvm
+          target: ${{ matrix.target }}
       - name: Install LLVM
         if: ${{ matrix.llvm_url && matrix.enable_llvm == true }}
         shell: bash
@@ -179,14 +153,10 @@ jobs:
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          echo LLVM_SYS_211_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          echo LLVM_SYS_221_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-      - name: Add `brew` libraries (Apple Silicon)
-        run: |
-          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
-        if: matrix.os == 'macos-14' || matrix.os == 'depot-macos-14'
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -211,12 +181,12 @@ jobs:
       - name: Build & Package C API headless
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi-headless
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-22 make build-capi-headless
           make package-capi-headless
       - name: Build & Package C API
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-22 make build-capi
           make package-capi
       - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
@@ -226,8 +196,7 @@ jobs:
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
-          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
-          ENABLE_WAMR: ${{ matrix.enable_wamr }}
+          ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
       - name: Build Wasmer on linux-x64
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
@@ -235,16 +204,15 @@ jobs:
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
-          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
-          ENABLE_WAMR: ${{ matrix.enable_wamr }}
+          ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
       - name: Build Wasmer on linux-musl
         if: ${{ startsWith(matrix.build, 'linux-musl') }}
         run: |
           echo "#!/bin/bash" >> /usr/bin/llvm-config
           echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
-          echo 'llvm-config-21 "$@" "--link-static"' >> /usr/bin/llvm-config
+          echo 'llvm-config-22 "$@" "--link-static"' >> /usr/bin/llvm-config
           echo "else" >> /usr/bin/llvm-config
-          echo 'llvm-config-21 "$@"' >> /usr/bin/llvm-config
+          echo 'llvm-config-22 "$@"' >> /usr/bin/llvm-config
           echo 'fi' >> /usr/bin/llvm-config
           cat /usr/bin/llvm-config
           chmod +x /usr/bin/llvm-config
@@ -252,8 +220,7 @@ jobs:
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
-          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
-          ENABLE_WAMR: ${{ matrix.enable_wamr }}
+          ENABLE_NAPI_V8: ${{ matrix.enable_napi_v8 }}
       #- name: Build Wasmer binary on Wasm32-WASI without LLVM
       #  if: matrix.build_wasm
       #  shell: bash
@@ -291,7 +258,6 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
   windows_gnu:
     name: windows-gnu
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
@@ -364,78 +330,7 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
-  darwin_aarch64_jsc:
-    name: macos-arm64 (JSC)
-    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: depot-macos-14
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: aarch64-apple-darwin
-      - name: Install Darwin-aarch64 target
-        shell: bash
-        run: |
-          rustup target add aarch64-apple-darwin
-      - name: Build C API (JSC)
-        shell: bash
-        run: |
-          make build-capi-jsc
-          make package-capi
-        env:
-          RUSTFLAGS: -Cpanic=abort
-          CARGO_TARGET: aarch64-apple-darwin
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_TARGET: aarch64-apple-darwin
-          TARGET_DIR: target/aarch64-apple-darwin/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: "aarch64-apple-darwin-jsc"
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-
-  darwin_x86_64_jsc:
-    name: macos-x64 (JSC)
-    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: macos-15-intel
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: x86_64-apple-darwin
-      - name: Build C API (JSC)
-        shell: bash
-        run: |
-          make build-capi-jsc
-          make package-capi
-        env:
-          RUSTFLAGS: -Cpanic=abort
-          CARGO_TARGET: x86_64-apple-darwin
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_TARGET: x86_64-apple-darwin
-          TARGET_DIR: target/x86_64-apple-darwin/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: "x86_64-apple-darwin-jsc"
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-
-  linux_riscv64:
+  linux-riscv64:
     name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
@@ -504,12 +399,36 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 2
-
+  full_source_archive:
+    name: full-source-archive
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Package full source archive
+        shell: bash
+        run: |
+          mkdir -p /tmp/dist
+          git ls-files --recurse-submodules -z \
+            | tar --null -T - --transform="s,^,wasmer/," -czf "/tmp/dist/wasmer-full-source.tar.gz"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasmer-full-source
+          path: /tmp/dist
+          if-no-files-found: error
+          retention-days: 2
   release:
-    needs: [setup, build, windows_gnu, linux_riscv64]
+    needs: [setup, build, windows_gnu, linux-riscv64, full_source_archive]
     runs-on: ubuntu-latest
     if: (needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != '') && github.event_name != 'pull_request'
     steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Download the Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -533,6 +452,15 @@ jobs:
           asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
           asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset Full Source
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-full-source/wasmer-full-source.tar.gz
+          asset_name: wasmer-full-source.tar.gz
+          asset_content_type: application/gzip
       - name: Upload Release Asset Windows
         uses: actions/upload-release-asset@v1
         env:
@@ -588,16 +516,7 @@ jobs:
           #    asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
           #    asset_name: wasmer-linux-musl-amd64.tar.gz
           #    asset_content_type: application/gzip
-      - name: Upload Release Asset Mac amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
-          asset_name: wasmer-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac arm64
+      - name: Upload Release Asset macOS arm64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

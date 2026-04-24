@@ -6,8 +6,6 @@ use wasmer::{Instance, Memory, MemoryLocation, MemoryType, Module, Store, import
 
 #[test]
 #[allow(unused_attributes)]
-#[cfg_attr(feature = "wamr", ignore = "wamr ignores import memories")]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi does not support threads")]
 #[cfg_attr(
     feature = "v8",
     ignore = "v8 does not currently support shared memory through wasm_c_api"
@@ -117,10 +115,6 @@ fn test_wasm_slice_issue_5444() {
     ))
 }
 
-#[cfg_attr(
-    feature = "wamr",
-    ignore = "wamr reports memory size incorrectly in this scenario"
-)]
 #[test]
 fn test_wasm_memory_size() {
     let mut store = Store::default();
@@ -133,8 +127,7 @@ fn test_wasm_memory_size() {
         assert_eq!(memory.size(&store).0, 11);
     }
 
-    // ... and once with shared memory, since JS and JSC (at least) have different
-    // representations for it
+    // ... and once with shared memory, since JS has different representations for it
     {
         let memory = Memory::new(&mut store, MemoryType::new(10, Some(65536), true)).unwrap();
         assert_eq!(memory.size(&store).0, 10);

@@ -73,34 +73,35 @@ impl FileSystem {
 
         Ok(FileSystem { handle, root })
     }
-}
 
-impl FileSystem {
-    fn prepare_path(&self, path: &Path) -> PathBuf {
+    fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
         let path = normalize_path(path);
 
-        let path = if !path.starts_with(&self.root) {
-            let path = path.strip_prefix("/").unwrap_or(&path);
+        if matches!(path.components().next(), Some(Component::Prefix(..))) {
+            return Err(FsError::InvalidInput);
+        }
 
-            self.root.join(path)
-        } else {
-            path.to_owned()
-        };
+        if self.root != Path::new("/") && path.starts_with(&self.root) {
+            return Err(FsError::InvalidInput);
+        }
+
+        let path = path.strip_prefix("/").unwrap_or(&path);
+        let path = self.root.join(path);
 
         debug_assert!(path.starts_with(&self.root));
-        path
+        Ok(path)
     }
 }
 
 impl crate::FileSystem for FileSystem {
     fn readlink(&self, path: &Path) -> Result<PathBuf> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         fs::read_link(path).map_err(Into::into)
     }
 
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         let read_dir = fs::read_dir(path)?;
         let mut data = read_dir
@@ -128,7 +129,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
@@ -138,7 +139,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
@@ -146,7 +147,11 @@ impl crate::FileSystem for FileSystem {
 
         // https://github.com/rust-lang/rust/issues/86442
         // DirectoryNotEmpty is not implemented consistently
-        if path.is_dir() && self.read_dir(&path).map(|s| !s.is_empty()).unwrap_or(false) {
+        if path.is_dir()
+            && fs::read_dir(&path)
+                .map(|mut s| s.next().is_some())
+                .unwrap_or(false)
+        {
             return Err(FsError::DirectoryNotEmpty);
         }
         fs::remove_dir(path).map_err(Into::into)
@@ -165,8 +170,8 @@ impl crate::FileSystem for FileSystem {
                 return Err(FsError::BaseNotDirectory);
             }
 
-            let from = self.prepare_path(from);
-            let to = self.prepare_path(to);
+            let from = self.prepare_path(from)?;
+            let to = self.prepare_path(to)?;
 
             if !from.exists() {
                 return Err(FsError::EntryNotFound);
@@ -207,7 +212,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
@@ -221,7 +226,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         fs::metadata(path)
             .and_then(TryInto::try_into)
@@ -229,20 +234,11 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
-    }
-
-    fn mount(
-        &self,
-        _name: String,
-        _path: &Path,
-        _fs: Box<dyn crate::FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        Err(FsError::Unsupported)
     }
 }
 
@@ -301,7 +297,7 @@ impl crate::FileOpener for FileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        let path = self.prepare_path(path);
+        let path = self.prepare_path(path)?;
 
         // TODO: handle create implying write, etc.
         let read = conf.read();
@@ -1355,6 +1351,25 @@ mod tests {
             root_metadata.modified > foo_metadata.modified,
             "the parent modified time was updated"
         );
+    }
+
+    #[tokio::test]
+    async fn test_rejects_host_absolute_paths_inside_root() {
+        let temp = TempDir::new().unwrap();
+        // Some platforms (e.g. mac) symlink /tmp to /private/tmp, so we need to canonicalize
+        // the path to get the real one, making sure the guest and host paths line up.
+        let temp_canon = super::canonicalize(temp.path()).expect("canonicalize temp dir");
+
+        let file_path = temp_canon.join("foo.txt");
+        std::fs::write(&file_path, b"hello").unwrap();
+
+        let fs = FileSystem::new(Handle::current(), &temp_canon).expect("get filesystem");
+
+        assert_eq!(fs.metadata(&file_path), Err(FsError::InvalidInput));
+        assert!(matches!(
+            fs.new_open_options().read(true).open(&file_path),
+            Err(FsError::InvalidInput)
+        ));
     }
 
     #[tokio::test]

@@ -734,13 +734,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.extend_stack(stack_offset as u32)?;
 
         #[allow(clippy::type_complexity)]
-        let mut call_movs: Vec<(Location<M::GPR, M::SIMD>, M::GPR)> = vec![];
+        let mut call_movs = Vec::new();
         // Prepare register & stack parameters.
-        for (i, (param, _)) in params.iter().enumerate().rev() {
+        for (i, ((param, _), param_size)) in
+            (params.iter().zip(param_sizes.iter())).enumerate().rev()
+        {
             let loc = args[i];
             match loc {
                 Location::GPR(x) => {
-                    call_movs.push((*param, x));
+                    call_movs.push((*param, x, *param_size));
                 }
                 Location::Memory(_, _) => {
                     self.machine
@@ -758,11 +760,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Self::sort_call_movs(&mut call_movs);
 
         // Emit register moves.
-        for (loc, gpr) in call_movs {
+        for (loc, gpr, size) in call_movs {
             if loc != Location::GPR(gpr) {
                 self.machine
                     .move_location(Size::S64, loc, Location::GPR(gpr))?;
             }
+            // Adjust the argument if required by ABI
+            self.machine.adjust_gpr_param_location(gpr, size)?;
         }
 
         if matches!(call_type, NativeCallType::IncludeVMCtxArgument) {
@@ -2684,8 +2688,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Imm32(memory_index.index() as u32),
                         CanonicalizeType::None,
                     )),
-                    iter::once(WpType::I64),
-                    iter::once(WpType::I64),
+                    iter::once(WpType::I32),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
@@ -2721,11 +2725,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .iter()
                     .cloned(),
                     [
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
                     ]
                     .iter()
                     .cloned(),
@@ -2752,7 +2756,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, data_index]
                     iter::once((Location::Imm32(data_index), CanonicalizeType::None)),
-                    iter::once(WpType::I64),
+                    iter::once(WpType::I32),
                     iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -2803,7 +2807,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                    [WpType::I32, WpType::I32, WpType::I32, WpType::I32]
                         .iter()
                         .cloned(),
                     iter::empty(),
@@ -2855,7 +2859,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                    [WpType::I32, WpType::I32, WpType::I32, WpType::I32]
                         .iter()
                         .cloned(),
                     iter::empty(),
@@ -2896,8 +2900,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I64, WpType::I64].iter().cloned(),
-                    iter::once(WpType::I64),
+                    [WpType::I32, WpType::I32].iter().cloned(),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
@@ -5324,7 +5328,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::Imm32(function_index as u32),
                         CanonicalizeType::None,
                     )),
-                    iter::once(WpType::I64),
+                    iter::once(WpType::I32),
                     iter::once(WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap())),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -5371,7 +5375,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64, WpType::I64].iter().cloned(),
+                    [WpType::I32, WpType::I32, WpType::I64].iter().cloned(),
                     iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -5410,7 +5414,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64].iter().cloned(),
+                    [WpType::I32, WpType::I32].iter().cloned(),
                     iter::once(WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap())),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -5484,7 +5488,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I64, WpType::I64, WpType::I64].iter().cloned(),
+                    [WpType::I64, WpType::I32, WpType::I32].iter().cloned(),
                     iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
@@ -5526,9 +5530,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [
                         WpType::I32,
                         WpType::I32,
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
                     ]
                     .iter()
                     .cloned(),
@@ -5567,7 +5571,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                    [WpType::I32, WpType::I32, WpType::I64, WpType::I32]
                         .iter()
                         .cloned(),
                     iter::empty(),
@@ -5608,9 +5612,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [
                         WpType::I32,
                         WpType::I32,
-                        WpType::I64,
-                        WpType::I64,
-                        WpType::I64,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
                     ]
                     .iter()
                     .cloned(),
@@ -5915,7 +5919,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.
     #[allow(clippy::type_complexity)]
-    fn sort_call_movs(movs: &mut [(Location<M::GPR, M::SIMD>, M::GPR)]) {
+    fn sort_call_movs(movs: &mut [(Location<M::GPR, M::SIMD>, M::GPR, Size)]) {
         for i in 0..movs.len() {
             for j in (i + 1)..movs.len() {
                 if let Location::GPR(src_gpr) = movs[j].0

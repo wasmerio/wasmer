@@ -139,16 +139,6 @@ impl Default for BackendEngine {
             return Self::Sys(crate::backend::sys::entities::engine::default_engine());
         }
 
-        #[cfg(feature = "wamr-default")]
-        {
-            return Self::Wamr(crate::backend::wamr::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "wasmi-default")]
-        {
-            return Self::Wasmi(crate::backend::wasmi::entities::engine::default_engine());
-        }
-
         #[cfg(feature = "v8-default")]
         {
             return Self::V8(crate::backend::v8::entities::engine::default_engine());
@@ -159,24 +149,9 @@ impl Default for BackendEngine {
             return Self::Js(crate::backend::js::entities::engine::default_engine());
         }
 
-        #[cfg(feature = "jsc-default")]
-        {
-            return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
-        }
-
         #[cfg(feature = "sys")]
         {
             return Self::Sys(crate::backend::sys::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "wamr")]
-        {
-            return Self::Wamr(crate::backend::wamr::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "wasmi")]
-        {
-            return Self::Wasmi(crate::backend::wasmi::entities::engine::default_engine());
         }
 
         #[cfg(feature = "v8")]
@@ -187,11 +162,6 @@ impl Default for BackendEngine {
         #[cfg(feature = "js")]
         {
             return Self::Js(crate::backend::js::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "jsc")]
-        {
-            return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
         }
 
         panic!("No runtime enabled!")

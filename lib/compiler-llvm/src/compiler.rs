@@ -193,6 +193,10 @@ impl Compiler for LLVMCompiler {
         &self.config.middlewares
     }
 
+    fn enable_readonly_funcref_table(&self) -> bool {
+        self.config.enable_readonly_funcref_table
+    }
+
     /// Compile the module using LLVM, producing a compilation result with
     /// associated relocations.
     fn compile_module(
