@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/heap.rs`."><title>heap.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_cranelift/</div>heap.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Heaps to implement WebAssembly linear memories.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/heap.rs`."><title>heap.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_cranelift/</div>heap.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Heaps to implement WebAssembly linear memories.
 <a href=#2 id=2 data-nosnippet>2</a>
-<a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>cranelift_codegen::ir::{GlobalValue, MemoryType, Type};
+<a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>cranelift_codegen::ir::{GlobalValue, Type};
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>wasmer_types::entity::entity_impl;
 <a href=#5 id=5 data-nosnippet>5</a>
 <a href=#6 id=6 data-nosnippet>6</a><span class="doccomment">/// An opaque reference to a [`HeapData`][crate::HeapData].
@@ -79,41 +79,38 @@
 <a href=#79 id=79 data-nosnippet>79</a>    /// Heap accesses larger than this will always trap.
 <a href=#80 id=80 data-nosnippet>80</a>    </span><span class="kw">pub </span>max_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 <a href=#81 id=81 data-nosnippet>81</a>
-<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// The memory type for the pointed-to memory, if using proof-carrying code.
-<a href=#83 id=83 data-nosnippet>83</a>    </span><span class="kw">pub </span>memory_type: <span class="prelude-ty">Option</span>&lt;MemoryType&gt;,
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// Size in bytes of the offset-guard pages following the heap.
+<a href=#83 id=83 data-nosnippet>83</a>    </span><span class="kw">pub </span>offset_guard_size: u64,
 <a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a>    <span class="doccomment">/// Size in bytes of the offset-guard pages following the heap.
-<a href=#86 id=86 data-nosnippet>86</a>    </span><span class="kw">pub </span>offset_guard_size: u64,
+<a href=#85 id=85 data-nosnippet>85</a>    <span class="doccomment">/// Heap style, with additional style-specific info.
+<a href=#86 id=86 data-nosnippet>86</a>    </span><span class="kw">pub </span>style: HeapStyle,
 <a href=#87 id=87 data-nosnippet>87</a>
-<a href=#88 id=88 data-nosnippet>88</a>    <span class="doccomment">/// Heap style, with additional style-specific info.
-<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">pub </span>style: HeapStyle,
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="doccomment">/// The index type for the heap.
+<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">pub </span>index_type: Type,
 <a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a>    <span class="doccomment">/// The index type for the heap.
-<a href=#92 id=92 data-nosnippet>92</a>    </span><span class="kw">pub </span>index_type: Type,
-<a href=#93 id=93 data-nosnippet>93</a>
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="doccomment">/// The log2 of this memory's page size.
-<a href=#95 id=95 data-nosnippet>95</a>    </span><span class="kw">pub </span>page_size_log2: u8,
-<a href=#96 id=96 data-nosnippet>96</a>}
-<a href=#97 id=97 data-nosnippet>97</a>
-<a href=#98 id=98 data-nosnippet>98</a><span class="doccomment">/// Style of heap including style-specific information.
-<a href=#99 id=99 data-nosnippet>99</a></span><span class="attr">#[derive(Clone, PartialEq, Hash)]
-<a href=#100 id=100 data-nosnippet>100</a>#[cfg_attr(
-<a href=#101 id=101 data-nosnippet>101</a>    feature = <span class="string">"enable-serde"</span>,
-<a href=#102 id=102 data-nosnippet>102</a>    derive(serde_derive::Serialize, serde_derive::Deserialize)
-<a href=#103 id=103 data-nosnippet>103</a>)]
-<a href=#104 id=104 data-nosnippet>104</a></span><span class="kw">pub enum </span>HeapStyle {
-<a href=#105 id=105 data-nosnippet>105</a>    <span class="doccomment">/// A dynamic heap can be relocated to a different base address when it is
-<a href=#106 id=106 data-nosnippet>106</a>    /// grown.
-<a href=#107 id=107 data-nosnippet>107</a>    </span>Dynamic {
-<a href=#108 id=108 data-nosnippet>108</a>        <span class="doccomment">/// Global value providing the current bound of the heap in bytes.
-<a href=#109 id=109 data-nosnippet>109</a>        </span>bound_gv: GlobalValue,
-<a href=#110 id=110 data-nosnippet>110</a>    },
-<a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a>    <span class="doccomment">/// A static heap has a fixed base address and a number of not-yet-allocated
-<a href=#113 id=113 data-nosnippet>113</a>    /// pages before the offset-guard pages.
-<a href=#114 id=114 data-nosnippet>114</a>    </span>Static {
-<a href=#115 id=115 data-nosnippet>115</a>        <span class="doccomment">/// Heap bound in bytes. The offset-guard pages are allocated after the
-<a href=#116 id=116 data-nosnippet>116</a>        /// bound.
-<a href=#117 id=117 data-nosnippet>117</a>        </span>bound: u64,
-<a href=#118 id=118 data-nosnippet>118</a>    },
-<a href=#119 id=119 data-nosnippet>119</a>}</code></pre></div></section></main></body></html>
+<a href=#91 id=91 data-nosnippet>91</a>    <span class="doccomment">/// The log2 of this memory's page size.
+<a href=#92 id=92 data-nosnippet>92</a>    </span><span class="kw">pub </span>page_size_log2: u8,
+<a href=#93 id=93 data-nosnippet>93</a>}
+<a href=#94 id=94 data-nosnippet>94</a>
+<a href=#95 id=95 data-nosnippet>95</a><span class="doccomment">/// Style of heap including style-specific information.
+<a href=#96 id=96 data-nosnippet>96</a></span><span class="attr">#[derive(Clone, PartialEq, Hash)]
+<a href=#97 id=97 data-nosnippet>97</a>#[cfg_attr(
+<a href=#98 id=98 data-nosnippet>98</a>    feature = <span class="string">"enable-serde"</span>,
+<a href=#99 id=99 data-nosnippet>99</a>    derive(serde_derive::Serialize, serde_derive::Deserialize)
+<a href=#100 id=100 data-nosnippet>100</a>)]
+<a href=#101 id=101 data-nosnippet>101</a></span><span class="kw">pub enum </span>HeapStyle {
+<a href=#102 id=102 data-nosnippet>102</a>    <span class="doccomment">/// A dynamic heap can be relocated to a different base address when it is
+<a href=#103 id=103 data-nosnippet>103</a>    /// grown.
+<a href=#104 id=104 data-nosnippet>104</a>    </span>Dynamic {
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="doccomment">/// Global value providing the current bound of the heap in bytes.
+<a href=#106 id=106 data-nosnippet>106</a>        </span>bound_gv: GlobalValue,
+<a href=#107 id=107 data-nosnippet>107</a>    },
+<a href=#108 id=108 data-nosnippet>108</a>
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="doccomment">/// A static heap has a fixed base address and a number of not-yet-allocated
+<a href=#110 id=110 data-nosnippet>110</a>    /// pages before the offset-guard pages.
+<a href=#111 id=111 data-nosnippet>111</a>    </span>Static {
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="doccomment">/// Heap bound in bytes. The offset-guard pages are allocated after the
+<a href=#113 id=113 data-nosnippet>113</a>        /// bound.
+<a href=#114 id=114 data-nosnippet>114</a>        </span>bound: u64,
+<a href=#115 id=115 data-nosnippet>115</a>    },
+<a href=#116 id=116 data-nosnippet>116</a>}</code></pre></div></section></main></body></html>
