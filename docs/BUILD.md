@@ -51,6 +51,7 @@ First, let's clone Wasmer along with its submodules:
 
 ```text
 git clone --recursive https://github.com/wasmerio/wasmer.git
+cd wasmer
 ```
 
 Wasmer supports six different backends at the moment: `singlepass`,
