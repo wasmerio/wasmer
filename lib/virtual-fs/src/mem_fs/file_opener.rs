@@ -601,6 +601,7 @@ mod test_file_opener {
 
     type OpenBeforeHandleHook = Box<dyn FnOnce() + 'static>;
 
+    #[cfg(test)]
     thread_local! {
         static OPEN_BEFORE_HANDLE_HOOK: RefCell<Option<OpenBeforeHandleHook>> = RefCell::new(None);
     }
@@ -628,7 +629,8 @@ mod test_file_opener {
         }
     }
 
-    pub(super) fn run_open_before_handle_hook() {
+    #[cfg(test)]
+    fn run_open_before_handle_hook() {
         OPEN_BEFORE_HANDLE_HOOK.with(|slot| {
             if let Some(hook) = slot.borrow_mut().take() {
                 hook();
