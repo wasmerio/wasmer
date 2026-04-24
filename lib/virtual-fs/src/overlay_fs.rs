@@ -21,13 +21,19 @@ fn unlink_overlay_path<P>(primary: &Arc<P>, path: &Path) -> Result<(), FsError>
 where
     P: FileSystem + ?Sized,
 {
-    let whiteout_result = ops::create_white_out(primary, path);
+    // Create the whiteout before removing from primary. If whiteout creation
+    // fails we abort early so the lower-layer entry never becomes visible.
+    // Removing from primary first and then failing to create the whiteout
+    // would cause the secondary file to re-appear.
+    match ops::create_white_out(primary, path) {
+        Ok(()) | Err(FsError::AlreadyExists) => {}
+        Err(e) => return Err(e),
+    }
 
     match primary.remove_file(path) {
-        Err(e) if should_continue(e) => match whiteout_result {
-            Ok(()) | Err(FsError::AlreadyExists) => Ok(()),
-            Err(whiteout_err) => Err(whiteout_err),
-        },
+        // File was not in primary (only in a secondary) – the whiteout alone
+        // is sufficient to suppress it.
+        Err(e) if should_continue(e) => Ok(()),
         other => other,
     }
 }
@@ -76,7 +82,17 @@ where
     }
 
     fn unlink(&mut self) -> crate::Result<()> {
-        unlink_overlay_path(&self.primary, &self.path)
+        // A SecondaryFile is only created when the primary has no binding for
+        // this path at open time. Any file currently at this path in primary is
+        // a different, independently-created object. Only create a whiteout to
+        // hide the secondary entry; never remove from primary.
+        match ops::create_white_out(&self.primary, &self.path) {
+            Ok(()) => Ok(()),
+            // The whiteout already exists: the path was already deleted from the
+            // overlay's perspective, so report it as not found.
+            Err(FsError::AlreadyExists) => Err(FsError::EntryNotFound),
+            Err(e) => Err(e),
+        }
     }
 
     fn is_open(&self) -> bool {
@@ -1069,7 +1085,26 @@ where
         }
 
         fn unlink(&mut self) -> crate::Result<()> {
-            unlink_overlay_path(&self.primary, &self.path)?;
+            match &self.state {
+                CowState::Copied(_) => {
+                    // The COW copy has landed in primary – it is our file, so it
+                    // is safe to remove it and create a whiteout for the secondary.
+                    unlink_overlay_path(&self.primary, &self.path)?;
+                }
+                _ => {
+                    // The file has not yet been written to primary. Only create a
+                    // whiteout to hide the secondary entry; do NOT remove anything
+                    // from primary, because whatever is currently bound to this
+                    // path may be an independently-created file.
+                    match ops::create_white_out(&self.primary, &self.path) {
+                        Ok(()) => {}
+                        // The whiteout already exists: the path was already deleted
+                        // from the overlay's perspective.
+                        Err(FsError::AlreadyExists) => return Err(FsError::EntryNotFound),
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
             self.unlinked = true;
             Ok(())
         }
@@ -1624,7 +1659,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unlink_open_secondary_fs_without_cow_succeeds_when_whiteout_already_exists() {
+    async fn unlink_open_secondary_fs_without_cow_returns_not_found_when_whiteout_already_exists() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
         ops::create_dir_all(&secondary, "/secondary").unwrap();
@@ -1640,12 +1675,10 @@ mod tests {
             .open(Path::new("/secondary/file.txt"))
             .unwrap();
 
+        // The path was already deleted via another route before this handle
+        // called unlink(). The handle should see EntryNotFound, not Ok(()).
         ops::create_white_out(&fs.primary, "/secondary/file.txt").unwrap();
-        assert_eq!(f.unlink(), Ok(()));
-        assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
-            FsError::EntryNotFound
-        );
+        assert_eq!(f.unlink(), Err(FsError::EntryNotFound));
     }
 
     #[tokio::test]
@@ -1767,6 +1800,93 @@ mod tests {
         assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
         assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
         assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+    }
+
+    /// Regression test: unlinking a handle opened from the secondary must not
+    /// destroy a file that was created in the primary at the same path *after*
+    /// the handle was opened.
+    #[tokio::test]
+    async fn unlink_secondary_handle_does_not_delete_later_primary_file() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/dir").unwrap();
+        ops::write(&secondary, "/dir/file.txt", b"secondary")
+            .await
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        // Open from secondary (read-only → SecondaryFile).
+        let mut f = fs
+            .new_open_options()
+            .read(true)
+            .open(Path::new("/dir/file.txt"))
+            .unwrap();
+
+        // A new file is created at the same path in primary AFTER the handle
+        // was opened.
+        ops::create_dir_all(&fs.primary, "/dir").unwrap();
+        ops::write(&fs.primary, "/dir/file.txt", b"primary replacement")
+            .await
+            .unwrap();
+
+        // Unlinking the old handle should only whiteout the secondary entry,
+        // never delete the new primary file.
+        f.unlink().unwrap();
+
+        // The whiteout must exist.
+        assert!(ops::is_file(&fs.primary, "/dir/.wh.file.txt"));
+        // The newer primary file must still be intact.
+        assert!(ops::is_file(&fs.primary, "/dir/file.txt"));
+        assert_eq!(
+            ops::read_to_string(&fs.primary, "/dir/file.txt")
+                .await
+                .unwrap(),
+            "primary replacement"
+        );
+    }
+
+    /// Regression test: same correctness requirement for a COW handle that has
+    /// not yet been flushed to primary when unlink() is called.
+    #[tokio::test]
+    async fn unlink_cow_handle_does_not_delete_later_primary_file() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/dir").unwrap();
+        ops::write(&secondary, "/dir/file.txt", b"secondary")
+            .await
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        // Open with write access → CopyOnWriteFile (still in ReadOnly state,
+        // no write has happened yet so nothing is in primary).
+        let mut f = fs
+            .new_open_options()
+            .write(true)
+            .read(true)
+            .open(Path::new("/dir/file.txt"))
+            .unwrap();
+
+        // A new file is created at the same path in primary AFTER the handle
+        // was opened.
+        ops::create_dir_all(&fs.primary, "/dir").unwrap();
+        ops::write(&fs.primary, "/dir/file.txt", b"primary replacement")
+            .await
+            .unwrap();
+
+        // Unlink before any write → COW copy has not started, so the primary
+        // file we just created must not be deleted.
+        f.unlink().unwrap();
+
+        assert!(ops::is_file(&fs.primary, "/dir/.wh.file.txt"));
+        assert!(ops::is_file(&fs.primary, "/dir/file.txt"));
+        assert_eq!(
+            ops::read_to_string(&fs.primary, "/dir/file.txt")
+                .await
+                .unwrap(),
+            "primary replacement"
+        );
     }
 
     #[tokio::test]
