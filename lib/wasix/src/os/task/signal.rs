@@ -21,10 +21,10 @@ pub type DynSignalHandlerAbi = dyn SignalHandlerAbi + Send + Sync + 'static;
 pub struct WasiSignalInterval {
     /// Signal that will be raised
     pub signal: Signal,
-    /// Time between the signals
-    pub interval: Duration,
-    /// Flag that indicates if the signal should repeat
-    pub repeat: bool,
+    /// The current interval value
+    pub current_value: Duration,
+    /// The next interval value if any
+    pub interval: Option<Duration>,
     /// Last time that a signal was triggered
     pub last_signal: u128,
 }

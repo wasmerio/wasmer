@@ -38,3 +38,17 @@ fn test_variadic_args() {
     let output = String::from_utf8_lossy(&result.stdout);
     assert_eq!(output.trim(), "Printing 5, 6, 0, 42");
 }
+
+#[test]
+fn test_libc_setitimer() {
+    let wasm = run_build_script(file!(), "setitimer").unwrap();
+    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+    assert_eq!(result.exit_code.unwrap(), libc::EXIT_SUCCESS);
+}
+
+#[test]
+fn test_libc_alarm() {
+    let wasm = run_build_script(file!(), "alarm").unwrap();
+    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+    assert_eq!(result.exit_code.unwrap(), libc::EXIT_SUCCESS);
+}

@@ -291,7 +291,60 @@ pub mod net {
 }
 
 pub mod signal {
+    use core::time::Duration;
+
+    use wasmer::ValueType;
+
     pub use crate::wasi::Signal;
+    use crate::wasi::{Errno, Timestamp};
+
+    #[derive(Debug, Copy, Clone, ValueType)]
+    #[repr(C)]
+    pub struct __wasi_timeval_t {
+        sec: Timestamp,
+        usec: Timestamp,
+    }
+
+    impl __wasi_timeval_t {
+        pub const ZERO: Self = Self { sec: 0, usec: 0 };
+
+        #[must_use]
+        pub const fn from_duration(duration: Duration) -> Self {
+            Self {
+                sec: duration.as_secs(),
+                usec: duration.subsec_micros() as u64,
+            }
+        }
+    }
+
+    impl From<Duration> for __wasi_timeval_t {
+        fn from(value: Duration) -> Self {
+            Self::from_duration(value)
+        }
+    }
+
+    impl TryFrom<__wasi_timeval_t> for Duration {
+        type Error = Errno;
+
+        fn try_from(value: __wasi_timeval_t) -> Result<Self, Self::Error> {
+            // `usec` cannot be >= 1sec
+            // https://github.com/torvalds/linux/blob/46b513250491a7bfc97d98791dbe6a10bcc8129d/include/linux/time64.h#L103
+            if value.usec >= 1_000_000 {
+                return Err(Errno::Inval);
+            }
+
+            Duration::from_secs(value.sec)
+                .checked_add(Duration::from_micros(value.usec))
+                .ok_or(Errno::Inval)
+        }
+    }
+
+    #[derive(Debug, Copy, Clone, ValueType)]
+    #[repr(C)]
+    pub struct __wasi_itimerval_t {
+        pub interval: __wasi_timeval_t,
+        pub value: __wasi_timeval_t,
+    }
 }
 
 pub mod subscription {
