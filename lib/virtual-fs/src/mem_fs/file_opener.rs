@@ -630,7 +630,7 @@ mod test_file_opener {
     }
 
     #[cfg(test)]
-    fn run_open_before_handle_hook() {
+    pub(super) fn run_open_before_handle_hook() {
         OPEN_BEFORE_HANDLE_HOOK.with(|slot| {
             if let Some(hook) = slot.borrow_mut().take() {
                 hook();
