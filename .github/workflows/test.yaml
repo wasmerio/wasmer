@@ -252,48 +252,7 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: make test-wasix
-        run: |
-          WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
-  test_build_jsc:
-    name: JSC
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: ./.github/actions/load_toolchain
-        id: load_toolchain
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
-          target: x86_64-unknown-linux-gnu
-          components: clippy
-      - name: Install NodeJS
-        uses: actions/setup-node@v4
-        with:
-          node-version: 16
-      - name: Install libjavascriptcoregtk-4.0-dev
-        run: sudo apt update && sudo apt install -y libjavascriptcoregtk-4.0-dev
-      - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-jsc
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - name: lint jsc
-        run: make lint-jsc
-      - name: make build-wasmer-jsc
-        run: make build-wasmer-jsc
+        run: WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
@@ -303,14 +262,6 @@ jobs:
         skip_macos:
           - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         build-what:
-          - key: wamr
-            lint-cmd: "make lint-wamr"
-            build-cmd: "make test-wamr-api"
-            name: "API (WAMR)"
-          - key: wasmi
-            lint-cmd: "make lint-wasmi"
-            build-cmd: "make test-wasmi-api"
-            name: "API (Wasmi)"
           - key: v8
             lint-cmd: "make lint-v8"
             build-cmd: "make test-v8-api"
@@ -364,12 +315,6 @@ jobs:
         if: startsWith(matrix.metadata.build, 'windows-')
       - name: Lint ${{ matrix.build-what.key }}
         run: ${{ matrix.build-what.lint-cmd }}
-      - name: Test WAMR API
-        if: ${{ matrix.build-what.key == 'wamr' }}
-        run: echo $GITHUB_PATH && ${{ matrix.build-what.build-cmd }}
-      - name: Test Wasmi API
-        if: ${{ matrix.build-what.key == 'wasmi' }}
-        run: ${{ matrix.build-what.build-cmd }}
       - name: Test V8 API (Linux + clang)
         if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
         run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld" CARGO_TERM_VERBOSE=true ${{ matrix.build-what.build-cmd }}
@@ -506,12 +451,6 @@ jobs:
             exe: ""
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.xz"
             supports_v8: false
-          - build: macos-x64
-            os: macos-15-intel
-            target: x86_64-apple-darwin
-            exe: ""
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-amd64.tar.xz"
-            supports_v8: true
           - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
@@ -537,9 +476,6 @@ jobs:
         exclude:
           - skip_macos: true
             metadata:
-              build: macos-x64
-          - skip_macos: true
-            metadata:
               build: macos-arm
     container: ${{ matrix.metadata.container }}
     steps:
@@ -563,13 +499,6 @@ jobs:
         if: matrix.metadata.build == 'linux-musl'
         run: |
           ./scripts/alpine-linux-install-deps.sh
-      - name: Set up dependencies for Mac OS
-        run: |
-          brew install automake
-          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
-          brew install gnu-tar
-          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-15-intel'
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -620,10 +549,6 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Install LLVM (macOS Intel)
-        if: matrix.metadata.os == 'macos-15-intel' && !matrix.metadata.llvm_url
-        run: |
-          brew install llvm
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
@@ -665,7 +590,7 @@ jobs:
       - name: Build C-API
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
-        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build != 'macos-x64' }}
+        if: ${{ matrix.build-what.key == 'capi' }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
@@ -676,7 +601,7 @@ jobs:
         if: ${{ matrix.build-what.key == 'capi-v8' && matrix.metadata.supports_v8 == true  }}
       - name: Build Wasmer
         shell: bash
-        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' && matrix.metadata.build != 'macos-x64' }}
+        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu'}}
         run: ${{ matrix.build-what.build-cmd }}
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -684,11 +609,11 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Check `wasmer` crate with all the `sys` features enabled
         shell: bash
-        if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' && matrix.metadata.build != 'macos-x64' }}
+        if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' }}
         run: ${{ matrix.build-what.build-cmd }}
       - name: Lint C-API
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
         run: make lint-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -696,7 +621,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Test C-API
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
         run: make test-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -705,7 +630,7 @@ jobs:
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu' || matrix.metadata.build == 'macos-x64') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu') }}
         run: export WASMER_DIR=`pwd`/package && make test-stage-7-capi-integration-tests
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -760,11 +685,6 @@ jobs:
             target: aarch64-unknown-linux-gnu
             exe: ""
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.xz"
-          - build: macos-x64
-            os: macos-15-intel
-            target: x86_64-apple-darwin
-            exe: ""
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-amd64.tar.xz"
           - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
@@ -781,9 +701,6 @@ jobs:
             exe: ""
             container: "alpine:edge"
         exclude:
-          - skip_macos: true
-            metadata:
-              build: macos-x64
           - skip_macos: true
             metadata:
               build: macos-arm
@@ -837,13 +754,6 @@ jobs:
         shell: bash
         run: rm /usr/bin/link.exe
         if: ${{ matrix.metadata.build == 'windows-x64' }}
-      - name: Set up dependencies for Mac OS
-        run: |
-          brew install automake
-          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
-          brew install gnu-tar zstd
-          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-15-intel'
       - uses: ./.github/actions/load_toolchain
         id: load_toolchain
       - name: Install Rust
@@ -853,11 +763,6 @@ jobs:
           target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
-      - name: Install LLVM (macOS Intel)
-        if: matrix.metadata.os == 'macos-15-intel' && !matrix.metadata.llvm_url
-        run: |
-          brew install llvm
-          echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
       - name: Install wasixcc
         if: matrix.metadata.build != 'windows-x64'
         uses: wasix-org/wasixcc@v0.4.3

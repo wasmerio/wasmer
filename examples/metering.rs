@@ -71,7 +71,7 @@ fn main() -> anyhow::Result<()> {
     // Create a Store.
     //
     // We use our previously create compiler configuration
-    // with the Universal engine.
+    // with the Engine.
     let mut store = Store::new(EngineBuilder::new(compiler_config));
 
     println!("Compiling module...");

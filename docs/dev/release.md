@@ -67,7 +67,6 @@ There are a couple of problems with the scripts that you should watch out for:
   to be fixed up to make any sense for a reader
 - The release notes should just highlight the most important changes for a release, not dump everything.
 - The following files should be released (TODO: more consistent naming schema):
-  - wasmer-darwin-amd64.tar.gz
   - wasmer-darwin-arm64.tar.gz
   - wasmer-linux-aarch64.tar.gz
   - wasmer-linux-amd64.tar.gz

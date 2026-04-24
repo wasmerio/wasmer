@@ -31,4 +31,4 @@ link.tar.gz
 .direnv
 .envrc
 /tests/tmp
- 
+.codex

@@ -45,7 +45,6 @@ pub struct CreateObj {
     ///
     /// - "x86_64-linux-gnu"
     /// - "aarch64-linux-gnu"
-    /// - "x86_64-apple-darwin"
     /// - "arm64-apple-darwin"
     /// - "x86_64-windows-gnu"
     #[clap(long = "target")]

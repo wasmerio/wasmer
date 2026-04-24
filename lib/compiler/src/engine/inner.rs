@@ -1,5 +1,3 @@
-//! Universal compilation.
-
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 
@@ -40,7 +38,7 @@ use wasmer_vm::{
     VMTrampoline,
 };
 
-/// A WebAssembly `Universal` Engine.
+/// A WebAssembly Engine.
 #[derive(Clone)]
 pub struct Engine {
     inner: Arc<Mutex<EngineInner>>,

@@ -51,9 +51,6 @@ backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "dep:wasmer-vm"]
 v8 = ["backend", "wasmer/v8"]
-wamr = ["backend", "wasmer/wamr"]
-wasmi = ["backend", "wasmer/wasmi"]
-jsc = ["backend", "wasmer/jsc", "wasmer/std"]
 wast = ["wasmer-wast"]
 host-net = ["virtual-net/host-net"]
 wat = ["wasmer/wat"]
@@ -113,16 +110,16 @@ tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=7.2.0-alpha.1", path = "../api", default-features = false, features = ["headless"] }
-wasmer-compiler = { version = "=7.2.0-alpha.1", path = "../compiler", features = [
+wasmer = { version = "=7.2.0-alpha.2", path = "../api", default-features = false, features = ["headless"] }
+wasmer-compiler = { version = "=7.2.0-alpha.2", path = "../compiler", features = [
 	"compiler"
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=7.2.0-alpha.1", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=7.2.0-alpha.1", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=7.2.0-alpha.1", path = "../compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=7.2.0-alpha.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=7.2.0-alpha.2", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=7.2.0-alpha.2", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
-wasmer-vm = { version = "=7.2.0-alpha.1", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.702.0-alpha.1", features = [
+wasmer-vm = { version = "=7.2.0-alpha.2", path = "../vm", optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.702.0-alpha.2", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -131,24 +128,24 @@ wasmer-wasix = { path = "../wasix", version = "=0.702.0-alpha.1", features = [
 	"ctrlc",
 	"sys",
 ], default-features = false }
-wasmer-wast = { version = "=7.2.0-alpha.1", path = "../../tests/lib/wast", optional = true }
-wasmer-types = { version = "=7.2.0-alpha.1", path = "../types", features = [
+wasmer-wast = { version = "=7.2.0-alpha.2", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=7.2.0-alpha.2", path = "../types", features = [
 	"enable-serde",
 	"detect-wasm-features",
 ] }
-wasmer-napi = { version = "0.702.0-alpha.1", path = "../napi", optional = true }
-virtual-fs = { version = "0.702.0-alpha.1", path = "../virtual-fs", default-features = false, features = [
+wasmer-napi = { version = "0.702.0-alpha.2", path = "../napi", optional = true }
+virtual-fs = { version = "0.702.0-alpha.2", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
-virtual-net = { version = "0.702.0-alpha.1", path = "../virtual-net" }
-virtual-mio = { version = "0.702.0-alpha.1", path = "../virtual-io" }
+virtual-net = { version = "0.702.0-alpha.2", path = "../virtual-net" }
+virtual-mio = { version = "0.702.0-alpha.2", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
 
 webc.workspace = true
-wasmer-backend-api = { version = "=0.702.0-alpha.1", path = "../backend-api" }
-wasmer-sdk = { version = "=7.2.0-alpha.1", path = "../sdk" }
-wasmer-config = { version = "0.702.0-alpha.1", path = "../config" }
+wasmer-backend-api = { version = "=0.702.0-alpha.2", path = "../backend-api" }
+wasmer-sdk = { version = "=7.2.0-alpha.2", path = "../sdk" }
+wasmer-config = { version = "0.702.0-alpha.2", path = "../config" }
 
 shared-buffer = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }
@@ -290,10 +287,6 @@ pkg-fmt = "tgz"
 
 [package.metadata.binstall.overrides.aarch64-apple-darwin]
 pkg-url = "{ repo }/releases/download/v{ version }/wasmer-darwin-arm64.{ archive-format }"
-bin-dir = "bin/{ bin }"
-
-[package.metadata.binstall.overrides.x86_64-apple-darwin]
-pkg-url = "{ repo }/releases/download/v{ version }/wasmer-darwin-amd64.{ archive-format }"
 bin-dir = "bin/{ bin }"
 
 [package.metadata.binstall.overrides.aarch64-unknown-linux-gnu]

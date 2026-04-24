@@ -6,6 +6,51 @@
 
 ## **Unreleased**
 
+## 7.2.0-alpha.2 - 24/04/2026
+
+## Added
+
+  - [#6498](https://github.com/wasmerio/wasmer/pull/6498) build: Add wasixcc dependency to nix flake devshell
+  - [#6416](https://github.com/wasmerio/wasmer/pull/6416) fix(LLVM): add --disable-non-volatile-memops and use it consistently
+  - [#6452](https://github.com/wasmerio/wasmer/pull/6452) tests(wasix): Add call_dynamic/context POSIX tests
+  - [#6476](https://github.com/wasmerio/wasmer/pull/6476) deps: address RUSTSEC-2026-0099
+  - [#6458](https://github.com/wasmerio/wasmer/pull/6458) Fix: Windows uninstaller re-adds package bin path to PATH
+  - [#6432](https://github.com/wasmerio/wasmer/pull/6432) fix(SRE-1412): Add first-class support for bugtopia
+
+## Changed
+
+  - [#6506](https://github.com/wasmerio/wasmer/pull/6506) feat: drop x86_64-darwin target
+  - [#6503](https://github.com/wasmerio/wasmer/pull/6503) ci: disable borked macOS test
+  - [#6486](https://github.com/wasmerio/wasmer/pull/6486) Stop handing out zero timestamps for mount points from mountfs
+  - [#6495](https://github.com/wasmerio/wasmer/pull/6495) ci: use wasmer packages instead of sharrattj + enable more tests
+  - [#6500](https://github.com/wasmerio/wasmer/pull/6500) feat: drop WAMR and Wasmi support
+  - [#6492](https://github.com/wasmerio/wasmer/pull/6492) chore: drop `Universal` from naming
+  - [#6490](https://github.com/wasmerio/wasmer/pull/6490) chore: bump crates
+  - [#6463](https://github.com/wasmerio/wasmer/pull/6463) wasix: migrate proc_exec POSIX tests to wasm_tests
+  - [#6454](https://github.com/wasmerio/wasmer/pull/6454) test(wasix): migrate poll and sched_yield POSIX tests to the wasm_tests harness
+  - [#6453](https://github.com/wasmerio/wasmer/pull/6453) tests(wasix): migrate fd_dup2, fd_fdflags_*, fd_tell tests
+  - [#6483](https://github.com/wasmerio/wasmer/pull/6483) build: Switch nix flake to nixpkgs-unstable for llvm 22
+  - [#6469](https://github.com/wasmerio/wasmer/pull/6469) Remove build-scripts dependency
+  - [#6391](https://github.com/wasmerio/wasmer/pull/6391) Go from UnionFS to MountFS, which properly supports nested mounts and eliminate mounting from all other filesystems
+  - [#6300](https://github.com/wasmerio/wasmer/pull/6300) deps(LLVM): bump to 22.1
+
+## Fixed
+
+  - [#6507](https://github.com/wasmerio/wasmer/pull/6507) Fix test_rejects_host_absolute_paths_inside_root on mac
+  - [#6497](https://github.com/wasmerio/wasmer/pull/6497) chore: fix cargo clippy issues
+  - [#6464](https://github.com/wasmerio/wasmer/pull/6464) fix(wasix): return ENOTDIR for create under non-directory path
+  - [#6455](https://github.com/wasmerio/wasmer/pull/6455) fix(wasix): Handle sendto() on connected TCP sockets
+  - [#6451](https://github.com/wasmerio/wasmer/pull/6451) fix(wasix): Return error when close_fd encountered an error
+  - [#6460](https://github.com/wasmerio/wasmer/pull/6460) Fix: Module loading panics on non-UTF-8 file paths
+  - [#6487](https://github.com/wasmerio/wasmer/pull/6487) fix(virtual-fs): Use non zero default mtime/access time/creation time
+  - [#6461](https://github.com/wasmerio/wasmer/pull/6461) Fix: WASI WAST runner ignores asserted exit codes
+  - [#6462](https://github.com/wasmerio/wasmer/pull/6462) Fix: Argus test runners record elapsed time backwards
+  - [#6471](https://github.com/wasmerio/wasmer/pull/6471) fix(virtual-fs): preserve backing entries for synthetic parent mounts
+  - [#6468](https://github.com/wasmerio/wasmer/pull/6468) fix(wasix): Make connect nonblocking when requested and implement real socket::status
+  - [#6456](https://github.com/wasmerio/wasmer/pull/6456) fix(deps): Update rand to fix RUSTSEC-2026-0097
+
+
+
 ## 7.2.0-alpha.1 - 09/04/2026
 
 ## Added
