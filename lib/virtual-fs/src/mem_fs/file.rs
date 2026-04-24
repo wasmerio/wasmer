@@ -29,6 +29,7 @@ use std::task::{Context, Poll};
 pub(super) struct FileHandle {
     inode: Inode,
     filesystem: FileSystem,
+    lifecycle: Arc<FileLifecycle>,
     readable: bool,
     writable: bool,
     append_mode: bool,
@@ -38,9 +39,11 @@ pub(super) struct FileHandle {
 
 impl Clone for FileHandle {
     fn clone(&self) -> Self {
+        self.lifecycle.opened();
         Self {
             inode: self.inode,
             filesystem: self.filesystem.clone(),
+            lifecycle: self.lifecycle.clone(),
             readable: self.readable,
             writable: self.writable,
             append_mode: self.append_mode,
@@ -51,9 +54,10 @@ impl Clone for FileHandle {
 }
 
 impl FileHandle {
-    pub(super) fn new(
+    pub(super) fn new_opened(
         inode: Inode,
         filesystem: FileSystem,
+        lifecycle: Arc<FileLifecycle>,
         readable: bool,
         writable: bool,
         append_mode: bool,
@@ -62,6 +66,7 @@ impl FileHandle {
         Self {
             inode,
             filesystem,
+            lifecycle,
             readable,
             writable,
             append_mode,
@@ -264,12 +269,7 @@ impl VirtualFile for FileHandle {
         {
             // Write lock.
             let mut fs = filesystem.inner.write().map_err(|_| FsError::Lock)?;
-
-            // Remove the file from the storage.
-            fs.storage.remove(inode_of_file);
-
-            // Remove the child from the parent directory.
-            fs.remove_child_from_node(inode_of_parent, position)?;
+            fs.unlink_file_inode(inode_of_parent, position, inode_of_file)?;
         }
 
         Ok(())
@@ -334,6 +334,7 @@ impl VirtualFile for FileHandle {
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
                         metadata,
+                        lifecycle: inode.file_lifecycle().cloned().unwrap_or_else(Arc::default),
                     });
                     Ok(())
                 }
@@ -366,6 +367,7 @@ impl VirtualFile for FileHandle {
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: ReadOnlyFile { buffer: src },
                         metadata,
+                        lifecycle: inode.file_lifecycle().cloned().unwrap_or_else(Arc::default),
                     });
                     Ok(())
                 }
@@ -526,9 +528,11 @@ impl VirtualFile for FileHandle {
 
 #[cfg(test)]
 mod test_virtual_file {
-    use crate::{FileSystem as FS, mem_fs::*};
+    use crate::{FileSystem as FS, FsError, mem_fs::*};
+    use std::io;
     use std::thread::sleep;
     use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     macro_rules! path {
         ($path:expr) => {
@@ -641,10 +645,13 @@ mod test_virtual_file {
 
         let mut file = fs
             .new_open_options()
+            .read(true)
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
             .expect("failed to create a new file");
+
+        file.write_all(b"foo").await.expect("write before unlink");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -676,14 +683,34 @@ mod test_virtual_file {
         }
 
         assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+        assert!(
+            matches!(
+                fs.new_open_options().read(true).open(path!("/foo.txt")),
+                Err(FsError::EntryNotFound)
+            ),
+            "the path disappears immediately after unlink",
+        );
+
+        file.write_all(b"bar")
+            .await
+            .expect("write after unlink should still work");
+        file.seek(io::SeekFrom::Start(0))
+            .await
+            .expect("rewind after unlink");
+
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)
+            .await
+            .expect("read after unlink should still work");
+        assert_eq!(contents, "foobar");
 
         {
             let fs_inner = fs.inner.read().unwrap();
 
             assert_eq!(
                 fs_inner.storage.len(),
-                1,
-                "storage no longer has the new file"
+                2,
+                "storage keeps the unlinked file alive while a handle is open"
             );
             assert!(
                 matches!(
@@ -698,6 +725,78 @@ mod test_virtual_file {
                 "`/` is empty",
             );
         }
+
+        drop(file);
+
+        let fs_inner = fs.inner.read().unwrap();
+        assert_eq!(
+            fs_inner.storage.len(),
+            1,
+            "storage drops the unlinked file after the last handle closes"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unlink_with_multiple_handles() {
+        let fs = FileSystem::default();
+
+        let mut first = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to create a new file");
+        first.write_all(b"foo").await.expect("seed contents");
+
+        let mut second = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to open the same file a second time");
+
+        assert_eq!(first.unlink(), Ok(()), "unlinking through the first handle");
+
+        second
+            .seek(io::SeekFrom::End(0))
+            .await
+            .expect("seek to end after unlink");
+        second
+            .write_all(b"bar")
+            .await
+            .expect("second handle stays writable after unlink");
+
+        drop(first);
+
+        {
+            let fs_inner = fs.inner.read().unwrap();
+            assert_eq!(
+                fs_inner.storage.len(),
+                2,
+                "the inode stays alive until the last open handle is dropped"
+            );
+        }
+
+        second
+            .seek(io::SeekFrom::Start(0))
+            .await
+            .expect("rewind second handle");
+        let mut contents = String::new();
+        second
+            .read_to_string(&mut contents)
+            .await
+            .expect("read through surviving handle");
+        assert_eq!(contents, "foobar");
+
+        drop(second);
+
+        let fs_inner = fs.inner.read().unwrap();
+        assert_eq!(
+            fs_inner.storage.len(),
+            1,
+            "the inode is reclaimed after the last handle closes"
+        );
     }
 }
 
@@ -1474,6 +1573,34 @@ impl fmt::Debug for FileHandle {
             .field("readable", &self.readable)
             .field("writable", &self.writable)
             .finish()
+    }
+}
+
+impl Drop for FileHandle {
+    fn drop(&mut self) {
+        let remaining = self.lifecycle.closed();
+        if remaining != 0 || !self.lifecycle.is_unlinked() {
+            return;
+        }
+
+        let Ok(mut fs) = self.filesystem.inner.write() else {
+            return;
+        };
+
+        let Some(node) = fs.storage.get(self.inode) else {
+            return;
+        };
+
+        let Some(lifecycle) = node.file_lifecycle() else {
+            return;
+        };
+
+        if Arc::ptr_eq(lifecycle, &self.lifecycle)
+            && lifecycle.is_unlinked()
+            && lifecycle.open_handle_count() == 0
+        {
+            fs.storage.remove(self.inode);
+        }
     }
 }
 
