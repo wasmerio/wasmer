@@ -47,10 +47,10 @@ For reproducible builds, set `WASMER_REPRODUCIBLE_BUILD=1` in the build
 environment. This removes the build timestamp from `wasmer --version -v`
 by omitting the verbose `commit-date:` line.
 
-First, let's clone Wasmer:
+First, let's clone Wasmer along with its submodules:
 
 ```text
-git clone https://github.com/wasmerio/wasmer.git
+git clone --recursive https://github.com/wasmerio/wasmer.git
 cd wasmer
 ```
 
