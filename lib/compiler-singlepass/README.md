@@ -5,16 +5,22 @@ This crate contains a compiler implementation based on the Singlepass linear com
 Supported targets:
 - x86_64
 - aarch64
-- riscv64 (experimental)
+- riscv64
+
 ## Usage
 
 ```rust
 use wasmer::{Store, sys::EngineBuilder};
 use wasmer_compiler_singlepass::Singlepass;
 
-let compiler = Singlepass::new();
+let mut compiler = Singlepass::new();
+compiler.strict_memory_boundary_checks(true);
 let mut store = Store::new(compiler);
 ```
+
+`strict_memory_boundary_checks(true)` forces Singlepass to emit explicit
+memory bounds checks for every memory access, including static memories that
+would otherwise use the unchecked fast path.
 
 *Note: you can find a [full working example using Singlepass compiler
 here][example].*

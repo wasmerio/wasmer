@@ -129,9 +129,13 @@ llvm+loongarch64  spec::simd_splat::llvm
 # Windows doesn't overcommit and fails to allocate 4GB of memory
 windows wasmer::max_size_of_memory
 
-# Some AARCH64 CPU have issue with segfault writin 64bits on border page, where the 1 32bits might be written.
+# Some AARCH64 CPU have issue with segfaults writing 64bits on border page, where the 1 32bits might be written.
 aarch64+linux spec::align
 aarch64+linux spec::memory_trap
+
+# Similarly for RISC-V
+riscv64+singlepass spec::align
+riscv64+singlepass spec::memory_trap
 
 spec::instance
 
