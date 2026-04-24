@@ -2388,11 +2388,18 @@ impl FileSystem for FallbackFileSystem {
 }
 
 pub fn virtual_file_type_to_wasi_file_type(file_type: virtual_fs::FileType) -> Filetype {
-    // TODO: handle other file types
     if file_type.is_dir() {
         Filetype::Directory
     } else if file_type.is_file() {
         Filetype::RegularFile
+    } else if file_type.is_char_device() {
+        Filetype::CharacterDevice
+    } else if file_type.is_block_device() {
+        Filetype::BlockDevice
+    } else if file_type.is_socket() {
+        Filetype::SocketStream
+    } else if file_type.is_fifo() {
+        Filetype::Unknown
     } else if file_type.is_symlink() {
         Filetype::SymbolicLink
     } else {
