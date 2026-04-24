@@ -340,6 +340,7 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
+            WasiEnv::do_pending_link_operations(self.ctx, false);
             if let Some(signals) = self.ctx.data().thread.pop_signals_or_subscribe(cx.waker()) {
                 if let Err(err) = WasiEnv::process_signals_internal(self.ctx, signals) {
                     return Poll::Ready(Err(err));
