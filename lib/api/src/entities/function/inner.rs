@@ -123,12 +123,6 @@ impl BackendFunction {
                     store, env, ty, func,
                 ),
             ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::function::Function::new_with_env(
-                    store, env, ty, func,
-                ),
-            ),
         }
     }
 
@@ -153,11 +147,6 @@ impl BackendFunction {
             crate::BackendStore::Js(_) => Self::Js(
                 crate::backend::js::entities::function::Function::new_typed(store, func),
             ),
-
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
-                Self::Jsc(crate::backend::jsc::entities::function::Function::new_typed(store, func))
-            }
         }
     }
 
@@ -209,12 +198,6 @@ impl BackendFunction {
                     store, env, func,
                 ),
             ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Self::Jsc(
-                crate::backend::jsc::entities::function::Function::new_typed_with_env(
-                    store, env, func,
-                ),
-            ),
         }
     }
 
@@ -247,8 +230,6 @@ impl BackendFunction {
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => unsupported_async_backend("js"),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
         }
     }
 
@@ -284,8 +265,6 @@ impl BackendFunction {
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => unsupported_async_backend("js"),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
         }
     }
 
@@ -310,8 +289,6 @@ impl BackendFunction {
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => unsupported_async_backend("js"),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
         }
     }
 
@@ -339,8 +316,6 @@ impl BackendFunction {
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => unsupported_async_backend("js"),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
         }
     }
 
@@ -482,8 +457,6 @@ impl BackendFunction {
             Self::V8(_) => unsupported_async_future(),
             #[cfg(feature = "js")]
             Self::Js(_) => unsupported_async_future(),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(_) => unsupported_async_future(),
         }
     }
 
@@ -496,8 +469,6 @@ impl BackendFunction {
             Self::V8(f) => VMFuncRef::V8(f.vm_funcref(store)),
             #[cfg(feature = "js")]
             Self::Js(f) => VMFuncRef::Js(f.vm_funcref(store)),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(f) => VMFuncRef::Jsc(f.vm_funcref(store)),
         }
     }
 
@@ -523,13 +494,6 @@ impl BackendFunction {
                 crate::backend::js::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.unwrap_js(),
-                )
-            }),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Self::Jsc(unsafe {
-                crate::backend::jsc::entities::function::Function::from_vm_funcref(
-                    store,
-                    funcref.unwrap_jsc(),
                 )
             }),
         }
@@ -667,10 +631,6 @@ impl BackendFunction {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(
                 crate::backend::js::entities::function::Function::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
         }
     }

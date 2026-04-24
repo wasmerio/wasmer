@@ -4815,36 +4815,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
-name = "rusty_jsc"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f8f838ac489c4fec2ae60bcd620e70ca829b75f83d4516f2708fd2a9edafdd0"
-dependencies = [
- "rusty_jsc_macros",
- "rusty_jsc_sys",
-]
-
-[[package]]
-name = "rusty_jsc_macros"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b2407097cc2d172aedd2da887e68c1724c96f7828bad033096d0bb911dc4071"
-dependencies = [
- "pkg-config",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "rusty_jsc_sys"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "927443ab7a267331865e31bfe0ffb70216cbbadb8e3b15c09774fae6caa9d8df"
-dependencies = [
- "pkg-config",
-]
-
-[[package]]
 name = "rusty_pool"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6933,7 +6903,6 @@ dependencies = [
  "macro-wasmer-engine-test",
  "more-asserts",
  "paste",
- "rusty_jsc",
  "serde",
  "serde-wasm-bindgen",
  "shared-buffer",

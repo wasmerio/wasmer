@@ -16,7 +16,7 @@ pub use mem::*;
 /// Useful macros to generate enums to represent `Runtime`-types.
 pub(crate) mod rt_macros;
 
-#[cfg(any(feature = "wasm-types-polyfill", feature = "jsc"))]
+#[cfg(feature = "wasm-types-polyfill")]
 pub(crate) mod polyfill;
 
 pub(crate) mod macros;

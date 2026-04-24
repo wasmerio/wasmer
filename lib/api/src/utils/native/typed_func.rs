@@ -71,8 +71,6 @@ macro_rules! impl_native_traits {
                     BackendStore::V8(_) => self.call_v8(store, $([<p_ $x>]),*),
                     #[cfg(feature = "js")]
                     BackendStore::Js(_) => self.call_js(store, $([<p_ $x>]),*),
-                    #[cfg(feature = "jsc")]
-                    BackendStore::Jsc(_) => self.call_jsc(store, $([<p_ $x>]),*),
 
                 }
             }
@@ -106,8 +104,6 @@ macro_rules! impl_native_traits {
                         BackendStore::V8(_) => async_backend_error(),
                         #[cfg(feature = "js")]
                         BackendStore::Js(_) => async_backend_error(),
-                        #[cfg(feature = "jsc")]
-                        BackendStore::Jsc(_) => async_backend_error(),
                     }
                 }
             }
@@ -124,8 +120,6 @@ macro_rules! impl_native_traits {
                     BackendStore::V8(_) => self.call_raw_v8(store, params_list),
                     #[cfg(feature = "js")]
                     BackendStore::Js(_) => self.call_raw_js(store, params_list),
-                    #[cfg(feature = "jsc")]
-                    BackendStore::Jsc(_) => self.call_raw_jsc(store, params_list),
                 }
             }
         }

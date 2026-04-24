@@ -33,8 +33,6 @@ macro_rules! impl_host_function {
                         crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
                         #[cfg(feature = "js")]
                         crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
-                        #[cfg(feature = "jsc")]
-                        crate::backend::BackendKind::Jsc => crate::vm::VMFunctionCallback::Jsc(crate::backend::jsc::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
                         #[cfg(feature = "v8")]
                         crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower >](self))
                     }
@@ -90,8 +88,6 @@ macro_rules! impl_host_function {
                         crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
                         #[cfg(feature = "js")]
                         crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
-                        #[cfg(feature = "jsc")]
-                        crate::backend::BackendKind::Jsc => crate::vm::VMFunctionCallback::Jsc(crate::backend::jsc::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
                         #[cfg(feature = "v8")]
                         crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self))
                     }

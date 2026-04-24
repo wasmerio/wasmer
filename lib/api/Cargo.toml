@@ -62,7 +62,6 @@ dashmap.workspace = true
 
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
-rusty_jsc = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
 
 # - Mandatory dependencies for `sys` on Windows.
@@ -161,8 +160,6 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 wasm-types-polyfill = ["wasmparser"]
 wat = ["dep:wat", "wasmparser"]
 
-jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
-jsc-default = ["jsc"]
 js-serializable-module = []
 
 # Optional

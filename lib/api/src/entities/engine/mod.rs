@@ -100,11 +100,6 @@ impl Engine {
                 // Get JS-specific features
                 crate::backend::js::engine::Engine::default_features()
             }
-            #[cfg(feature = "jsc")]
-            crate::BackendKind::Jsc => {
-                // Get JSC-specific features
-                crate::backend::jsc::engine::Engine::default_features()
-            }
             // Default case
             _ => Features::default(),
         }
@@ -137,11 +132,6 @@ impl Engine {
             crate::BackendKind::Js => {
                 // Get JS-specific features
                 crate::backend::js::engine::Engine::supported_features()
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendKind::Jsc => {
-                // Get JSC-specific features
-                crate::backend::jsc::engine::Engine::supported_features()
             }
             // Default case
             _ => Features::default(),

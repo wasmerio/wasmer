@@ -10,9 +10,6 @@ pub mod v8;
 #[cfg(feature = "js")]
 pub mod js;
 
-#[cfg(feature = "jsc")]
-pub mod jsc;
-
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 /// An enumeration over all the supported runtimes.
@@ -40,10 +37,6 @@ pub enum BackendKind {
     #[cfg(feature = "js")]
     /// The `js` runtime.
     Js,
-
-    #[cfg(feature = "jsc")]
-    /// The `jsc` runtime.
-    Jsc,
 }
 
 impl Default for BackendKind {
@@ -75,11 +68,6 @@ impl Default for BackendKind {
             return Self::Js;
         }
 
-        #[cfg(feature = "jsc-default")]
-        {
-            return Self::Jsc;
-        }
-
         #[cfg(feature = "sys")]
         {
             #[cfg(feature = "cranelift")]
@@ -105,11 +93,6 @@ impl Default for BackendKind {
         #[cfg(feature = "js")]
         {
             return Self::Js;
-        }
-
-        #[cfg(feature = "jsc")]
-        {
-            return Self::Jsc;
         }
 
         panic!("No runtime enabled!")

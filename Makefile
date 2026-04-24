@@ -413,9 +413,6 @@ build-wasmer:
 build-wasmer-v8:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="v8" --bin wasmer --locked
 
-build-wasmer-jsc:
-	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat" --bin wasmer --locked
-
 build-wasmer-api-js:
 	$(CARGO_BINARY) rustc --target wasm32-unknown-unknown --release --manifest-path lib/api/Cargo.toml --no-default-features --features "js, js-default, wasm-types-polyfill, enable-serde" --crate-type=cdylib --locked
 
@@ -531,10 +528,6 @@ build-capi-llvm:
 build-capi-v8:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,v8-default,wasi --locked
-
-build-capi-jsc:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jsc-default,wasi --locked
 
 # Headless (we include the minimal to be able to run)
 
@@ -915,9 +908,6 @@ lint-yamlfmt:
 lint-v8:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="v8-default" --locked -- -D clippy::all
 
-lint-jsc:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="jsc-default,wat" --locked -- -D clippy::all
-
 lint-package-crate:
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/package/Cargo.toml --locked -- -D clippy::all
 
@@ -927,7 +917,7 @@ lint-formatting:
 
 lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages
 
-lint-all: lint-formatting lint-packages lint-v8 lint-jsc lint-capi-ci lint-package-crate
+lint-all: lint-formatting lint-packages lint-v8 lint-capi-ci lint-package-crate
 
 install-local: package
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz
