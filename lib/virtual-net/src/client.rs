@@ -54,6 +54,7 @@ use crate::VirtualIoSource;
 use crate::VirtualNetworking;
 use crate::VirtualRawSocket;
 use crate::VirtualSocket;
+use crate::VirtualTcpBoundSocket;
 use crate::VirtualTcpListener;
 use crate::VirtualTcpSocket;
 use crate::VirtualUdpSocket;
@@ -276,6 +277,7 @@ impl RemoteNetworkingClient {
             buffer_accept: Default::default(),
             buffer_recv_with_addr: Default::default(),
             send_available: 0,
+            owns_socket_bindings: true,
         }
     }
 }
@@ -760,6 +762,39 @@ impl VirtualNetworking for RemoteNetworkingClient {
         }
     }
 
+    async fn bind_tcp(
+        &self,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualTcpBoundSocket + Sync>> {
+        let socket_id: SocketId = self
+            .common
+            .socket_seed
+            .fetch_add(1, Ordering::SeqCst)
+            .into();
+        match self
+            .common
+            .io_iface(RequestType::BindTcp {
+                socket_id,
+                addr,
+                only_v6,
+                reuse_port,
+                reuse_addr,
+            })
+            .await
+        {
+            ResponseType::Err(err) => Err(err),
+            ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
+            ResponseType::Socket(socket_id) => Ok(Box::new(self.new_socket(socket_id))),
+            res => {
+                tracing::debug!("invalid response to bind TCP request - {res:?}");
+                Err(NetworkError::IOError)
+            }
+        }
+    }
+
     async fn bind_udp(
         &self,
         addr: SocketAddr,
@@ -880,9 +915,21 @@ struct RemoteSocket {
     buffer_recv_with_addr: VecDeque<DataWithAddr>,
     buffer_accept: VecDeque<SocketWithAddr>,
     send_available: u64,
+    owns_socket_bindings: bool,
 }
 impl Drop for RemoteSocket {
     fn drop(&mut self) {
+        if !self.owns_socket_bindings {
+            return;
+        }
+        let _ = self.io_socket_fire_and_forget(RequestType::Close);
+        self.release_socket_bindings();
+    }
+}
+
+impl RemoteSocket {
+    fn release_socket_bindings(&mut self) {
+        self.owns_socket_bindings = false;
         self.common.recv_tx.lock().unwrap().remove(&self.socket_id);
         self.common
             .recv_with_addr_tx
@@ -890,9 +937,7 @@ impl Drop for RemoteSocket {
             .unwrap()
             .remove(&self.socket_id);
     }
-}
 
-impl RemoteSocket {
     async fn io_socket(&self, req: RequestType) -> ResponseType {
         let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
         let mut req_rx = {
@@ -940,6 +985,31 @@ impl RemoteSocket {
 
         self.pending_accept.replace((child_id, rx_recv));
         Ok(())
+    }
+
+    fn transition_socket(&mut self) -> RemoteSocket {
+        let (_tx_recv, rx_recv) = tokio::sync::mpsc::channel(1);
+        let (_tx_recv_with_addr, rx_recv_with_addr) = tokio::sync::mpsc::channel(1);
+        let (_tx_accept, rx_accept) = tokio::sync::mpsc::channel(1);
+        let (_tx_sent, rx_sent) = tokio::sync::mpsc::channel(1);
+
+        self.owns_socket_bindings = false;
+
+        RemoteSocket {
+            socket_id: self.socket_id,
+            common: self.common.clone(),
+            rx_buffer: std::mem::take(&mut self.rx_buffer),
+            rx_recv: std::mem::replace(&mut self.rx_recv, rx_recv),
+            rx_recv_with_addr: std::mem::replace(&mut self.rx_recv_with_addr, rx_recv_with_addr),
+            tx_waker: self.tx_waker.clone(),
+            rx_accept: std::mem::replace(&mut self.rx_accept, rx_accept),
+            rx_sent: std::mem::replace(&mut self.rx_sent, rx_sent),
+            pending_accept: self.pending_accept.take(),
+            buffer_recv_with_addr: std::mem::take(&mut self.buffer_recv_with_addr),
+            buffer_accept: std::mem::take(&mut self.buffer_accept),
+            send_available: self.send_available,
+            owns_socket_bindings: true,
+        }
     }
 }
 
@@ -1121,6 +1191,7 @@ impl VirtualTcpListener for RemoteSocket {
             buffer_accept: Default::default(),
             buffer_recv_with_addr: Default::default(),
             send_available: 0,
+            owns_socket_bindings: true,
         };
         Ok((Box::new(socket), accepted.addr))
     }
@@ -1156,6 +1227,46 @@ impl VirtualTcpListener for RemoteSocket {
                 Err(NetworkError::IOError)
             }
         }
+    }
+}
+
+impl VirtualTcpBoundSocket for RemoteSocket {
+    fn addr_local(&self) -> Result<SocketAddr> {
+        VirtualSocket::addr_local(self)
+    }
+
+    fn listen(&mut self) -> Result<Box<dyn VirtualTcpListener + Sync>> {
+        match block_on(self.io_socket(RequestType::ListenBound)) {
+            ResponseType::Err(err) => Err(err),
+            ResponseType::None => {
+                let mut socket = self.transition_socket();
+                socket.touch_begin_accept().ok();
+                Ok(Box::new(socket))
+            }
+            res => {
+                tracing::debug!("invalid response to listen bound request - {res:?}");
+                Err(NetworkError::IOError)
+            }
+        }
+    }
+
+    fn connect(&mut self, peer: SocketAddr) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
+        match block_on(self.io_socket(RequestType::ConnectBound { peer })) {
+            ResponseType::Err(err) => Err(err),
+            ResponseType::None => Ok(Box::new(self.transition_socket())),
+            res => {
+                tracing::debug!("invalid response to connect bound request - {res:?}");
+                Err(NetworkError::IOError)
+            }
+        }
+    }
+
+    fn set_ttl(&mut self, ttl: u32) -> Result<()> {
+        VirtualSocket::set_ttl(self, ttl)
+    }
+
+    fn ttl(&self) -> Result<u32> {
+        VirtualSocket::ttl(self)
     }
 }
 
@@ -1431,7 +1542,11 @@ impl VirtualConnectedSocket for RemoteSocket {
     }
 
     fn close(&mut self) -> Result<()> {
-        self.io_socket_fire_and_forget(RequestType::Close)
+        let ret = self.io_socket_fire_and_forget(RequestType::Close);
+        if ret.is_ok() {
+            self.release_socket_bindings();
+        }
+        ret
     }
 
     fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>], peek: bool) -> Result<usize> {
