@@ -38,13 +38,6 @@ impl<'a> BackendMemoryView<'a> {
             crate::BackendStore::Js(s) => Self::Js(
                 crate::backend::js::entities::memory::view::MemoryView::new(memory.as_js(), store),
             ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Self::Jsc(
-                crate::backend::jsc::entities::memory::view::MemoryView::new(
-                    memory.as_jsc(),
-                    store,
-                ),
-            ),
         }
     }
 
@@ -129,8 +122,6 @@ impl<'a> BackendMemoryView<'a> {
             Self::V8(s) => MemoryBuffer(BackendMemoryBuffer::V8(s.buffer())),
             #[cfg(feature = "js")]
             Self::Js(s) => MemoryBuffer(BackendMemoryBuffer::Js(s.buffer())),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => MemoryBuffer(BackendMemoryBuffer::Jsc(s.buffer())),
         }
     }
 

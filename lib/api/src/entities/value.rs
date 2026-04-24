@@ -137,11 +137,6 @@ impl Value {
                     unsafe { crate::backend::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js) }
                         .map(|f| unsafe { Function::from_vm_funcref(store, f) })
                 }),
-                #[cfg(feature = "jsc")]
-                crate::BackendStore::Jsc(_) => Self::FuncRef({
-                    unsafe { crate::backend::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc) }
-                        .map(|f| unsafe { Function::from_vm_funcref(store, f) })
-                }),
             },
             Type::ExternRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
@@ -163,13 +158,6 @@ impl Value {
                 crate::BackendStore::Js(_) => Self::ExternRef({
                     unsafe {
                         crate::backend::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
-                    }
-                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
-                }),
-                #[cfg(feature = "jsc")]
-                crate::BackendStore::Jsc(_) => Self::ExternRef({
-                    unsafe {
-                        crate::backend::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
                     }
                     .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
                 }),
@@ -197,12 +185,6 @@ impl Value {
                 crate::BackendStore::Js(_) => Self::ExceptionRef(
                     unsafe { crate::backend::js::vm::VMExceptionRef::from_raw(raw) }
                         .map(VMExceptionRef::Js)
-                        .map(Exception::from_vm_exceptionref),
-                ),
-                #[cfg(feature = "jsc")]
-                crate::BackendStore::Jsc(_) => Self::ExceptionRef(
-                    unsafe { crate::backend::jsc::vm::VMExceptionRef::from_raw(raw) }
-                        .map(VMExceptionRef::Jsc)
                         .map(Exception::from_vm_exceptionref),
                 ),
             },

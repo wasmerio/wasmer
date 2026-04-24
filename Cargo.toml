@@ -81,7 +81,7 @@ edition = "2024"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.91"
+rust-version = "1.92"
 version = "7.2.0-alpha.2"
 
 [workspace.dependencies]
@@ -135,9 +135,9 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.130.1", default-features = false }
-cranelift-entity = { version = "=0.130.1", default-features = false }
-cranelift-frontend = { version = "=0.130.1", default-features = false }
+cranelift-codegen = { version = "=0.131.0", default-features = false }
+cranelift-entity = { version = "=0.131.0", default-features = false }
+cranelift-frontend = { version = "=0.131.0", default-features = false }
 crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
@@ -239,7 +239,6 @@ reqwest = { version = "0.13.0", default-features = false }
 rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
 symbolic-demangle = { version = "12", default-features = false, features = ["rust", "cpp", "msvc"] }
 rustc_version = "0.4"
-rusty_jsc = "0.1.0"
 rusty_pool = "0.7.0"
 rustversion = "1.0"
 saffron = "0.1.0"
@@ -363,10 +362,9 @@ itertools.workspace = true
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 default = ["wat", "wast", "cache", "wasi", "middlewares"]
-# backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
+# backend means that the `wasmer` crate will be compiled with the `wasmer-compiler`.
 # That means: that is able to execute modules
 backend = []
-jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
 
 # Enable the V8 backend (using it as default only if it is the only backend enabled)
 v8 = ["wasmer/v8"]

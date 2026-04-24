@@ -1,6 +1,6 @@
 //! Heaps to implement WebAssembly linear memories.
 
-use cranelift_codegen::ir::{GlobalValue, MemoryType, Type};
+use cranelift_codegen::ir::{GlobalValue, Type};
 use wasmer_types::entity::entity_impl;
 
 /// An opaque reference to a [`HeapData`][crate::HeapData].
@@ -78,9 +78,6 @@ pub struct HeapData {
     ///
     /// Heap accesses larger than this will always trap.
     pub max_size: Option<u64>,
-
-    /// The memory type for the pointed-to memory, if using proof-carrying code.
-    pub memory_type: Option<MemoryType>,
 
     /// Size in bytes of the offset-guard pages following the heap.
     pub offset_guard_size: u64,

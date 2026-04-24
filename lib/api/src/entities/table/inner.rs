@@ -47,10 +47,6 @@ impl BackendTable {
             BackendStore::Js(_) => Ok(Self::Js(crate::backend::js::entities::table::Table::new(
                 store, ty, init,
             )?)),
-            #[cfg(feature = "jsc")]
-            BackendStore::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::table::Table::new(store, ty, init)?,
-            )),
         }
     }
 
@@ -157,15 +153,6 @@ impl BackendTable {
                 src_index,
                 len,
             ),
-            #[cfg(feature = "jsc")]
-            BackendStore::Jsc(_) => crate::backend::jsc::entities::table::Table::copy(
-                store,
-                dst_table.as_jsc(),
-                dst_index,
-                src_table.as_jsc(),
-                src_index,
-                len,
-            ),
         }
     }
 
@@ -183,10 +170,6 @@ impl BackendTable {
             #[cfg(feature = "js")]
             BackendStore::Js(_) => Self::Js(
                 crate::backend::js::entities::table::Table::from_vm_extern(store, ext),
-            ),
-            #[cfg(feature = "jsc")]
-            BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::table::Table::from_vm_extern(store, ext),
             ),
         }
     }

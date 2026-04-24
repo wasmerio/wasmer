@@ -69,7 +69,6 @@ pub extern "C" fn wasmer_is_backend_available(backend: wasmer_backend_t) -> bool
         wasmer_backend_t::SINGLEPASS => cfg!(feature = "singlepass"),
         wasmer_backend_t::HEADLESS => cfg!(feature = "sys"),
         wasmer_backend_t::V8 => cfg!(feature = "v8"),
-        wasmer_backend_t::JSC => cfg!(feature = "jsc"),
     }
 }
 

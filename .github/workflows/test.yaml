@@ -252,48 +252,7 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: make test-wasix
-        run: |
-          WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
-  test_build_jsc:
-    name: JSC
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: ./.github/actions/load_toolchain
-        id: load_toolchain
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
-          target: x86_64-unknown-linux-gnu
-          components: clippy
-      - name: Install NodeJS
-        uses: actions/setup-node@v4
-        with:
-          node-version: 16
-      - name: Install libjavascriptcoregtk-4.0-dev
-        run: sudo apt update && sudo apt install -y libjavascriptcoregtk-4.0-dev
-      - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-jsc
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - name: lint jsc
-        run: make lint-jsc
-      - name: make build-wasmer-jsc
-        run: make build-wasmer-jsc
+        run: WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
