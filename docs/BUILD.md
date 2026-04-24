@@ -47,12 +47,10 @@ For reproducible builds, set `WASMER_REPRODUCIBLE_BUILD=1` in the build
 environment. This removes the build timestamp from `wasmer --version -v`
 by omitting the verbose `commit-date:` line.
 
-First, let's clone Wasmer and fetch the required submodule:
+First, let's clone Wasmer along with its submodules:
 
 ```text
-git clone https://github.com/wasmerio/wasmer.git
-cd wasmer
-git submodule update --init lib/napi
+git clone --recursive https://github.com/wasmerio/wasmer.git
 ```
 
 Wasmer supports six different backends at the moment: `singlepass`,
