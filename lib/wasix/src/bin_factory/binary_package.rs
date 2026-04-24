@@ -103,6 +103,22 @@ impl BinaryPackageCommand {
         // If no annotations were found, return None
         None
     }
+
+    /// Returns the VFS path at which this command's atom is stored so that a
+    /// process can re-exec via `argv[0]` without triggering command-level
+    /// metadata such as `main_args`.
+    ///
+    /// The path encodes both the origin package and the atom name to avoid
+    /// collisions between atoms with the same name coming from different
+    /// packages.  Returns `None` when the command carries no atom annotation.
+    pub fn atom_vfs_path(&self) -> Option<String> {
+        let atom_name = self.metadata().atom().ok().flatten().map(|a| a.name)?;
+        let pkg_segment = match self.origin_package.as_named() {
+            Some(named) => named.full_name.clone(),
+            None => self.origin_package.to_string(),
+        };
+        Some(format!("/bin/.__atoms/{pkg_segment}/{atom_name}"))
+    }
 }
 
 /// A WebAssembly package that has been loaded into memory.

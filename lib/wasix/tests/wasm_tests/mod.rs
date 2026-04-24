@@ -22,6 +22,7 @@ mod path_tests;
 mod poll_tests;
 mod proc_exec;
 mod proc_exec2;
+mod proc_exec_command_argv0;
 mod reflect_signature;
 mod reflection_tests;
 mod sched_yield;
