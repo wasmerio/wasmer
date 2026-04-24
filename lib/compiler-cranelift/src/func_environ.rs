@@ -1605,7 +1605,6 @@ impl FuncEnvironment<'_> {
             base: heap_base,
             min_size: 0,
             max_size: None,
-            memory_type: None,
             offset_guard_size: offset_guard_size.into(),
             style: heap_style,
             index_type: I32,
@@ -2300,10 +2299,6 @@ impl FuncEnvironment<'_> {
     }
 
     pub(crate) fn heap_access_spectre_mitigation(&self) -> bool {
-        false
-    }
-
-    pub(crate) fn proof_carrying_code(&self) -> bool {
         false
     }
 
