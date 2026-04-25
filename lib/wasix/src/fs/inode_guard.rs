@@ -304,7 +304,7 @@ impl Future for InodeValFilePollGuardJoin {
                 InodeValFilePollGuardMode::PipeTx { tx } => {
                     let mut guard = tx.write().unwrap();
                     let tx = Pin::new(guard.as_mut());
-                    tx.poll_write_ready()
+                    tx.poll_write_ready(cx)
                 }
                 InodeValFilePollGuardMode::DuplexPipe { pipe } => {
                     let mut guard = pipe.write().unwrap();
