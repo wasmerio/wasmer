@@ -1,6 +1,7 @@
 use super::*;
-use crate::syscalls::*;
 use crate::net::socket::TimeType;
+use crate::syscalls::*;
+
 /// ### `sock_connect()`
 /// Initiate a connection on a socket to the specified address
 ///
