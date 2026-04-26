@@ -1,0 +1,56 @@
+name: anti-regression-shield
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: anti-regression-shield-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  shield:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: key
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          short_sha=$(printf '%s' "${TARGET_SHA}" | cut -c1-8)
+          echo "results_branch=pr-${PR_NUMBER}-${short_sha}" >> "$GITHUB_OUTPUT"
+      - env:
+          GH_TOKEN: ${{ secrets.COMPAT_TESTS_GH_TOKEN }}
+        run: >-
+          gh workflow run pr.yml --repo wasmerio/anti-regression-shield --field "target_repo=${{ github.event.pull_request.head.repo.full_name }}" --field "target_sha=${{ github.event.pull_request.head.sha }}" --field "comment_pr_number=${{ github.event.pull_request.number }}" --field "results_branch=${{ steps.key.outputs.results_branch }}"
+      - env:
+          GH_TOKEN: ${{ secrets.COMPAT_TESTS_GH_TOKEN }}
+          RESULTS_BRANCH: ${{ steps.key.outputs.results_branch }}
+        run: |
+          run_name="compat-pr [${RESULTS_BRANCH}]"
+          for _ in $(seq 1 24); do
+            id=$(gh run list \
+              --repo wasmerio/anti-regression-shield \
+              --workflow pr.yml \
+              --event workflow_dispatch \
+              --limit 50 \
+              --json databaseId,displayTitle \
+              --template '{{range .}}{{if eq .displayTitle "'"${run_name}"'"}}{{.databaseId}}{{"\n"}}{{end}}{{end}}' \
+              | head -n1)
+            [ -n "$id" ] && break
+            sleep 5
+          done
+          [ -n "${id:-}" ] || { echo "anti-regression-shield run not found" >&2; exit 1; }
+          while :; do
+            IFS='|' read -r status conclusion url <<EOF
+            $(gh run view "$id" \
+              --repo wasmerio/anti-regression-shield \
+              --json status,conclusion,url \
+              --template '{{.status}}|{{if .conclusion}}{{.conclusion}}{{end}}|{{.url}}')
+            EOF
+            echo "$url"
+            [ "$status" = "completed" ] || { sleep 60; continue; }
+            [ "$conclusion" = "success" ] || exit 1
+            break
+          done
