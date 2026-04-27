@@ -153,9 +153,10 @@ pub(crate) fn path_open_internal(
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
     //              TODO: look into this; file a bug report if this is a bug
     //
-    // Maximum rights: should be the working dir rights
-    // Minimum rights: whatever rights are provided
-    let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
+    // Maximum rights: whatever the parent fd may delegate
+    // Minimum rights: whatever rights the caller requested
+    let adjusted_rights = fs_rights_base & working_dir_rights_inheriting;
+    let adjusted_rights_inheriting = fs_rights_inheriting & working_dir_rights_inheriting;
     let mut open_options = state.fs_new_open_options();
 
     let target_rights = match maybe_inode {
@@ -174,7 +175,7 @@ pub(crate) fn path_open_internal(
             };
 
             virtual_fs::OpenOptionsConfig {
-                read: fs_rights_base.contains(Rights::FD_READ),
+                read: adjusted_rights.contains(Rights::FD_READ),
                 write: write_permission,
                 create_new: create_permission && o_flags.contains(Oflags::EXCL),
                 create: create_permission,
@@ -184,8 +185,8 @@ pub(crate) fn path_open_internal(
         }
         Err(_) => virtual_fs::OpenOptionsConfig {
             append: fs_flags.contains(Fdflags::APPEND),
-            write: fs_rights_base.contains(Rights::FD_WRITE),
-            read: fs_rights_base.contains(Rights::FD_READ),
+            write: adjusted_rights.contains(Rights::FD_WRITE),
+            read: adjusted_rights.contains(Rights::FD_READ),
             create_new: o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::EXCL),
             create: o_flags.contains(Oflags::CREATE),
             truncate: o_flags.contains(Oflags::TRUNC),
@@ -437,7 +438,7 @@ pub(crate) fn path_open_internal(
             .fs
             .with_fd(
                 adjusted_rights,
-                fs_rights_inheriting,
+                adjusted_rights_inheriting,
                 fs_flags,
                 fd_flags,
                 open_flags,
@@ -448,7 +449,7 @@ pub(crate) fn path_open_internal(
     } else {
         state.fs.create_fd(
             adjusted_rights,
-            fs_rights_inheriting,
+            adjusted_rights_inheriting,
             fs_flags,
             fd_flags,
             open_flags,
