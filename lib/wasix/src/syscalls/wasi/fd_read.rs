@@ -131,8 +131,8 @@ pub(crate) fn fd_read_internal_handler<M: MemorySize>(
     Ok(ret)
 }
 
-/// Extracts validated iov buffer specs from WASM memory as raw host pointers,
-/// Raw iov buffer specs extracted from WASM memory before entering `__asyncify`.
+/// Stores validated iov buffer specifications from WASM memory as raw host
+/// pointers for use while executing inside `__asyncify`.
 ///
 /// `mem_base` points to the start of WASM linear memory. Each entry in `bufs`
 /// is a `(offset_into_memory, length)` pair describing one iov slice.
@@ -140,7 +140,10 @@ pub(crate) fn fd_read_internal_handler<M: MemorySize>(
 /// # Safety
 /// `mem_base` remains valid only while the calling thread is blocked inside
 /// `__asyncify` / `block_on`. WASM cannot execute `memory.grow` while the
-/// thread is parked there, so the base pointer is stable for the duration.
+/// thread is parked there in a single-threaded application. In a multi-
+/// threaded application, the memory base can't be changed at all since
+/// replicating a new memory base address to all threads in a way that doesn't
+/// break them is near-impossible.
 struct IovBufs {
     mem_base: *mut u8,
     bufs: Vec<(usize, usize)>,
