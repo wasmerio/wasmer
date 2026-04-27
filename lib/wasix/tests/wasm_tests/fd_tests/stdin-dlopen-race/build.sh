@@ -1,5 +1,5 @@
-#!/bin/bash
-set -ex
+#!/usr/bin/env bash
+set -euo pipefail
 
 export WASIXCC_PIC=yes
 
