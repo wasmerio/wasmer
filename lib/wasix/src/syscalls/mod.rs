@@ -340,10 +340,17 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
-            WasiEnv::do_pending_link_operations(self.ctx, false);
+            if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
+                return Poll::Ready(Err(err));
+            }
             if let Some(signals) = self.ctx.data().thread.pop_signals_or_subscribe(cx.waker()) {
+                let only_sigwakeup = signals.iter().all(|sig| matches!(sig, Signal::Sigwakeup));
                 if let Err(err) = WasiEnv::process_signals_internal(self.ctx, signals) {
                     return Poll::Ready(Err(err));
+                }
+                if only_sigwakeup {
+                    self.ctx.data().thread.signals_subscribe(cx.waker());
+                    return Poll::Pending;
                 }
                 return Poll::Ready(Ok(Err(Errno::Intr)));
             }
@@ -382,7 +389,9 @@ where
             return Poll::Ready(Ok(res));
         }
 
-        WasiEnv::do_pending_link_operations(self.ctx, false);
+        if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
+            return Poll::Ready(Err(err));
+        }
 
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {

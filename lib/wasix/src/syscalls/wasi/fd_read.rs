@@ -307,12 +307,14 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                     for buf in unsafe { iov_bufs.iter_uninit_slices_mut() } {
                         let local_read = socket
                             .recv(tasks.deref(), buf, Some(timeout), nonblocking, false)
-                            .await?;
+                            .await;
+                        let local_read = match local_read {
+                            Ok(n) => n,
+                            Err(Errno::Again) | Err(Errno::Timedout) if total_read > 0 => break,
+                            Err(err) => return Err(err),
+                        };
                         total_read += local_read;
-                        // A zero-byte return signals connection closed (EOF);
-                        // a short read is normal for stream sockets and does NOT
-                        // indicate end-of-stream.
-                        if local_read == 0 {
+                        if local_read < buf.len() {
                             break;
                         }
                     }
@@ -338,14 +340,17 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                 let res = __asyncify(ctx, asyncify_timeout, async move {
                     let mut total_read = 0usize;
                     for buf in unsafe { iov_bufs.iter_slices_mut() } {
-                        let buf_len = buf.len();
                         let local_read = if nonblocking {
-                            rx.try_read(buf).ok_or(Errno::Again)?
+                            match rx.try_read(buf) {
+                                Some(n) => n,
+                                None if total_read > 0 => break,
+                                None => return Err(Errno::Again),
+                            }
                         } else {
                             virtual_fs::AsyncReadExt::read(&mut rx, buf).await?
                         };
                         total_read += local_read;
-                        if local_read < buf_len {
+                        if local_read < buf.len() {
                             break;
                         }
                     }
@@ -364,14 +369,17 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                 let res = __asyncify(ctx, asyncify_timeout, async move {
                     let mut total_read = 0usize;
                     for buf in unsafe { iov_bufs.iter_slices_mut() } {
-                        let buf_len = buf.len();
                         let local_read = if nonblocking {
-                            pipe.try_read(buf).ok_or(Errno::Again)?
+                            match pipe.try_read(buf) {
+                                Some(n) => n,
+                                None if total_read > 0 => break,
+                                None => return Err(Errno::Again),
+                            }
                         } else {
                             virtual_fs::AsyncReadExt::read(&mut pipe, buf).await?
                         };
                         total_read += local_read;
-                        if local_read < buf_len {
+                        if local_read < buf.len() {
                             break;
                         }
                     }
