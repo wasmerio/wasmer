@@ -149,11 +149,6 @@ impl Default for BackendEngine {
             return Self::Js(crate::backend::js::entities::engine::default_engine());
         }
 
-        #[cfg(feature = "jsc-default")]
-        {
-            return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
-        }
-
         #[cfg(feature = "sys")]
         {
             return Self::Sys(crate::backend::sys::entities::engine::default_engine());
@@ -167,11 +162,6 @@ impl Default for BackendEngine {
         #[cfg(feature = "js")]
         {
             return Self::Js(crate::backend::js::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "jsc")]
-        {
-            return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
         }
 
         panic!("No runtime enabled!")

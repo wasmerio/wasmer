@@ -26,7 +26,7 @@ pub fn engine_test(
         #(#outer_attrs) *
         fn #fn_js_call() { #fn_call().unwrap(); }
 
-        #[cfg_attr(any(feature = "sys", feature = "jsc", feature = "wasm-c-api"), test)]
+        #[cfg_attr(any(feature = "sys", feature = "wasm-c-api"), test)]
         #(#outer_attrs) *
         #vis #sig
         {

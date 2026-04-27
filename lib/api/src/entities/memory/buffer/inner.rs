@@ -51,9 +51,6 @@ impl BackendMemoryBuffer<'_> {
 
             #[cfg(feature = "js")]
             Self::Js(s) => s.len(),
-
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s.len,
         }
     }
 
@@ -75,8 +72,6 @@ impl BackendMemoryBuffer<'_> {
             Self::V8(s) => s.base,
             #[cfg(feature = "js")]
             Self::Js(s) => panic!("js memory buffers do not support the `base` function!"),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s.base,
         }
     }
 }

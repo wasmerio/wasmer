@@ -72,11 +72,6 @@ impl Instance {
                 let (i, e) = crate::backend::js::instance::Instance::new(store, module, imports)?;
                 (crate::BackendInstance::Js(i), e)
             }
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
-                let (i, e) = crate::backend::jsc::instance::Instance::new(store, module, imports)?;
-                (crate::BackendInstance::Jsc(i), e)
-            }
         };
 
         Ok(Self {
@@ -120,12 +115,6 @@ impl Instance {
                 let (i, e) =
                     crate::backend::js::instance::Instance::new_by_index(store, module, externs)?;
                 (crate::BackendInstance::Js(i), e)
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
-                let (i, e) =
-                    crate::backend::jsc::instance::Instance::new_by_index(store, module, externs)?;
-                (crate::BackendInstance::Jsc(i), e)
             }
         };
 

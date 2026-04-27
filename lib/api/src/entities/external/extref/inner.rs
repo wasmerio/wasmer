@@ -30,10 +30,6 @@ impl BackendExternRef {
             crate::BackendStore::Js(s) => Self::Js(
                 crate::backend::js::entities::external::ExternRef::new(store, value),
             ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Self::Jsc(
-                crate::backend::jsc::entities::external::ExternRef::new(store, value),
-            ),
         }
     }
 
@@ -58,8 +54,6 @@ impl BackendExternRef {
             Self::V8(r) => VMExternRef::V8(r.vm_externref()),
             #[cfg(feature = "js")]
             Self::Js(r) => VMExternRef::Js(r.vm_externref()),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(r) => VMExternRef::Jsc(r.vm_externref()),
         }
     }
 
@@ -89,13 +83,6 @@ impl BackendExternRef {
                 crate::backend::js::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.unwrap_js(),
-                )
-            }),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(unsafe {
-                crate::backend::jsc::entities::external::ExternRef::from_vm_externref(
-                    store,
-                    vm_externref.unwrap_jsc(),
                 )
             }),
         }

@@ -42,10 +42,6 @@ impl BackendMemory {
             crate::BackendStore::Js(s) => Ok(Self::Js(
                 crate::backend::js::entities::memory::Memory::new(store, ty)?,
             )),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::memory::Memory::new(store, ty)?,
-            )),
         }
     }
 
@@ -72,13 +68,6 @@ impl BackendMemory {
                 crate::backend::js::entities::memory::Memory::new_from_existing(
                     new_store,
                     memory.unwrap_js(),
-                ),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::memory::Memory::new_from_existing(
-                    new_store,
-                    memory.unwrap_jsc(),
                 ),
             ),
         }
@@ -213,10 +202,6 @@ impl BackendMemory {
             Self::Js(s) => s
                 .try_copy(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s
-                .try_copy(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
         }
     }
 
@@ -234,10 +219,6 @@ impl BackendMemory {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(s) => Self::Js(
                 crate::backend::js::entities::memory::Memory::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Self::Jsc(
-                crate::backend::jsc::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
         }
     }
@@ -265,8 +246,6 @@ impl BackendMemory {
             Self::V8(s) => s.try_clone(store).map(VMMemory::V8),
             #[cfg(feature = "js")]
             Self::Js(s) => s.try_clone(store).map(VMMemory::Js),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s.try_clone(store).map(VMMemory::Jsc),
         }
     }
 
@@ -298,10 +277,6 @@ impl BackendMemory {
             Self::Js(s) => s
                 .try_clone(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s
-                .try_clone(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
         }
     }
 

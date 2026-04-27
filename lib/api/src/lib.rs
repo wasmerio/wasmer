@@ -410,7 +410,6 @@ macro_rules! cfg_compiler {
                 feature = "singlepass",
                 feature = "llvm",
                 feature = "js",
-                feature = "jsc",
                 feature = "v8",
                 feature = "headless"
             ))]
@@ -425,11 +424,10 @@ macro_rules! cfg_compiler {
     feature = "llvm",
     feature = "v8",
     feature = "js",
-    feature = "jsc",
     feature = "headless",
 )))]
 compile_error!(
-    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `v8`, `js`, `jsc` or `headless`."
+    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `v8`, `js` or `headless`."
 );
 
 #[cfg(all(
@@ -463,7 +461,6 @@ cfg_compiler! {
     feature = "singlepass",
     feature = "llvm",
     feature = "js",
-    feature = "jsc",
     feature = "v8",
     feature = "headless",
 ))]
@@ -488,35 +485,15 @@ pub use wasmer_derive::ValueType;
 #[cfg(any(
     all(
         feature = "sys-default",
-        any(
-            feature = "js-default",
-            feature = "jsc-default",
-            feature = "v8-default",
-        )
+        any(feature = "js-default", feature = "v8-default")
     ),
     all(
         feature = "js-default",
-        any(
-            feature = "sys-default",
-            feature = "jsc-default",
-            feature = "v8-default",
-        )
-    ),
-    all(
-        feature = "jsc-default",
-        any(
-            feature = "sys-default",
-            feature = "js-default",
-            feature = "v8-default",
-        )
+        any(feature = "sys-default", feature = "v8-default")
     ),
     all(
         feature = "v8-default",
-        any(
-            feature = "sys-default",
-            feature = "js-default",
-            feature = "jsc-default",
-        )
+        any(feature = "sys-default", feature = "js-default")
     ),
 ))]
 compile_error!("Multiple *-default features selected. Please, pick one only!");

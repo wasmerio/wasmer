@@ -36,10 +36,6 @@ impl BackendTag {
             crate::BackendStore::Js(_) => {
                 Self::Js(crate::backend::js::tag::Tag::new(store, params))
             }
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
-                Self::Jsc(crate::backend::jsc::tag::Tag::new(store, params))
-            }
         }
     }
 
@@ -65,10 +61,6 @@ impl BackendTag {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(
                 crate::backend::js::entities::tag::Tag::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::tag::Tag::from_vm_extern(store, vm_extern),
             ),
         }
     }

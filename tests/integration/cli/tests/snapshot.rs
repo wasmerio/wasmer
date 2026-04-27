@@ -437,13 +437,7 @@ macro_rules! function {
     }};
 }
 
-#[cfg_attr(
-    any(
-        all(target_os = "macos", target_arch = "x86_64"), // Output is slightly different in macos x86_64
-        target_os = "windows"
-    ),
-    ignore
-)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_condvar() {
     let snapshot = TestBuilder::new()

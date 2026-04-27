@@ -17,9 +17,6 @@ fn build_v8() {
         ("macos", "aarch64", _) => {
             "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-aarch64.tar.xz"
         }
-        ("macos", "x86_64", _) => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-amd64.tar.xz"
-        }
         ("linux", "x86_64", "gnu") => {
             "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-amd64.tar.xz"
         }

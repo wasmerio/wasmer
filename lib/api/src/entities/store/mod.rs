@@ -72,10 +72,6 @@ impl Store {
             BackendEngine::Js(_) => {
                 BackendStore::Js(crate::backend::js::entities::store::Store::new(engine))
             }
-            #[cfg(feature = "jsc")]
-            BackendEngine::Jsc(_) => {
-                BackendStore::Jsc(crate::backend::jsc::entities::store::Store::new(engine))
-            }
         };
 
         Self {

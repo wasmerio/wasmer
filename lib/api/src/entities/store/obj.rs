@@ -16,10 +16,6 @@ pub enum StoreObjects {
     #[cfg(feature = "js")]
     /// Store objects for the `js` runtime.
     Js(crate::backend::js::store::StoreObjects),
-
-    #[cfg(feature = "jsc")]
-    /// Store objects for the `jsc` runtime.
-    Jsc(crate::backend::jsc::store::StoreObjects),
 }
 
 impl StoreObjects {
@@ -34,9 +30,6 @@ impl StoreObjects {
             (Self::V8(a), Self::V8(b)) => a.id() == b.id(),
             #[cfg(feature = "js")]
             (Self::Js(a), Self::Js(b)) => a.id() == b.id(),
-
-            #[cfg(feature = "jsc")]
-            (Self::Jsc(a), Self::Jsc(b)) => a.id() == b.id(),
 
             _ => panic!(
                 "Incompatible `StoreObjects` instance: {}, {}!",
@@ -63,8 +56,6 @@ impl StoreObjects {
             BackendStore::V8(_) => Self::V8(Default::default()),
             #[cfg(feature = "js")]
             BackendStore::Js(_) => Self::Js(Default::default()),
-            #[cfg(feature = "jsc")]
-            BackendStore::Jsc(_) => Self::Jsc(Default::default()),
         }
     }
 

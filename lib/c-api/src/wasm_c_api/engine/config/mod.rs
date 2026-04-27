@@ -7,9 +7,6 @@ use crate::wasm_c_api::unstable::target_lexicon::wasmer_target_t;
 
 use super::{wasm_config_t, wasmer_backend_t};
 
-#[cfg(feature = "jsc")]
-pub(crate) mod jsc;
-
 #[cfg(feature = "v8")]
 pub(crate) mod v8;
 
@@ -18,9 +15,6 @@ pub(crate) mod v8;
 pub(crate) enum wasmer_backend_config_kind_t {
     #[cfg(feature = "sys")]
     Sys(sys::wasmer_sys_engine_config_t),
-
-    #[cfg(feature = "jsc")]
-    Jsc(jsc::wasmer_jsc_engine_config_t),
 
     #[cfg(feature = "v8")]
     V8(v8::wasmer_v8_engine_config_t),
@@ -45,8 +39,6 @@ impl Default for wasmer_backend_config_kind_t {
             }
             #[cfg(feature = "v8")]
             super::wasmer_backend_t::V8 => Self::V8(v8::wasmer_v8_engine_config_t),
-            #[cfg(feature = "jsc")]
-            super::wasmer_backend_t::JSC => Self::Jsc(jsc::wasmer_jsc_engine_config_t),
 
             #[allow(unreachable_patterns)]
             _ => unreachable!(),
