@@ -32,3 +32,24 @@ fn test_stdin_read_does_not_block_dlopen() {
     );
     assert_eq!(result.exit_code, Some(0));
 }
+
+#[test]
+fn test_stdin_read_is_interrupted_by_signal() {
+    let wasm = run_build_script(file!(), "stdin-signal-eintr").unwrap();
+
+    // Keep stdin blocked for the duration of the test; the guest reader thread
+    // should wake because of a signal and return EINTR rather than waiting for
+    // input or EOF.
+    let (_pipe_tx, pipe_rx) = Pipe::channel();
+
+    let result = run_wasm_with_stdin(&wasm, wasm.parent().unwrap(), Box::new(pipe_rx)).unwrap();
+
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    assert_eq!(
+        stdout.trim(),
+        "reader_ready\nsignal_sent\nhandler_called\nread_errno=EINTR\nsequence_ok",
+        "stderr: {}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(result.exit_code, Some(0));
+}
