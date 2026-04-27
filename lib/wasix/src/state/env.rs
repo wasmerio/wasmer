@@ -1134,20 +1134,20 @@ impl WasiEnv {
                 let atom = command.atom();
 
                 if let Err(err) = write_readonly_buffer_to_fs(root_fs, path, &atom).await {
-                    tracing::debug!(
-                        "failed to add package [{}] command [{}] - {}",
-                        pkg.id,
-                        command.name(),
-                        err
+                    tracing::warn!(
+                        package=%pkg.id,
+                        command_name=command.name(),
+                        error=%err,
+                        "Failed to mount command into the filesystem",
                     );
                     continue;
                 }
                 if let Err(err) = write_readonly_buffer_to_fs(root_fs, path2, &atom).await {
-                    tracing::debug!(
-                        "failed to add package [{}] command [{}] - {}",
-                        pkg.id,
-                        command.name(),
-                        err
+                    tracing::warn!(
+                        package=%pkg.id,
+                        command_name=command.name(),
+                        error=%err,
+                        "Failed to mount command into the filesystem",
                     );
                     continue;
                 }
@@ -1178,38 +1178,37 @@ impl WasiEnv {
             // The path encodes the origin package so atoms with the same name
             // from different packages are kept separate.  An atom referenced by
             // multiple commands is only written once (deduplicated by path).
-            let _ = root_fs.create_dir(Path::new("/bin/.__atoms"));
+            //
+            // Track only atoms that were actually written so that
+            // atom_vfs_path() in prepare_spawn is not set to a path that does
+            // not exist in the VFS.
             let mut mounted_atoms: std::collections::HashSet<String> =
                 std::collections::HashSet::new();
             for command in &pkg.commands {
                 if let Some(atom_path) = command.atom_vfs_path() {
-                    if mounted_atoms.insert(atom_path.clone()) {
-                        let atom = command.atom();
-                        // Create intermediate directories under /bin/.__atoms.
-                        // The origin package segment may contain '/' (e.g.
-                        // "namespace/package"), so we create each level.
-                        if let Some(parent) = Path::new(&atom_path).parent() {
-                            let mut partial = String::from("/bin/.__atoms");
-                            for component in parent
-                                .strip_prefix("/bin/.__atoms")
-                                .unwrap_or(Path::new(""))
-                                .components()
-                            {
-                                partial.push('/');
-                                partial
-                                    .push_str(component.as_os_str().to_str().unwrap_or_default());
-                                let _ = root_fs.create_dir(Path::new(&partial));
-                            }
-                        }
-                        let _ = write_readonly_buffer_to_fs(root_fs, Path::new(&atom_path), &atom)
-                            .await;
-                        tracing::debug!(
+                    if mounted_atoms.contains(&atom_path) {
+                        continue;
+                    }
+                    let atom = command.atom();
+                    if let Err(err) =
+                        write_readonly_buffer_to_fs(root_fs, Path::new(&atom_path), &atom).await
+                    {
+                        tracing::warn!(
                             package=%pkg.id,
                             origin_package=%command.origin_package(),
                             atom_path=%atom_path,
-                            "Injected atom into the filesystem",
+                            error=%err,
+                            "Failed to mount atom into the filesystem; re-exec via argv[0] may not work",
                         );
+                        continue;
                     }
+                    mounted_atoms.insert(atom_path.clone());
+                    tracing::debug!(
+                        package=%pkg.id,
+                        origin_package=%command.origin_package(),
+                        atom_path=%atom_path,
+                        "Injected atom into the filesystem",
+                    );
                 }
             }
         }

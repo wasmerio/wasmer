@@ -32,7 +32,8 @@ async fn test_proc_exec_command_argv0() {
     //   - atom "inner" (the compiled wasm)
     //   - command "outer" using atom "inner" with extra main_args
     // The command name and atom name differ on purpose so we can verify that
-    // argv[0] is set to the atom name (not the command name) after the fix.
+    // argv[0] is set to the atom VFS path (for example
+    // /bin/.__atoms/<pkg>/<atom>), not the command name, after the fix.
     let temp = TempDir::new().unwrap();
     let wasmer_toml = r#"
 [package]
@@ -56,7 +57,7 @@ main_args = "--extra-arg"
     let tasks = Arc::new(TokioTaskManager::new(tokio::runtime::Handle::current()));
     let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>);
     let cache = SharedCache::default().with_fallback(FileSystemCache::new(
-        std::env::temp_dir().join("wasmer-test-command-argv0"),
+        temp.path().join("module-cache"),
         tasks.clone(),
     ));
     rt.set_module_cache(cache)

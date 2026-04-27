@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
   }
 
   /* Re-exec ourselves via argv[0] with the child marker.
-   * After the fix, argv[0] is the atom name (not the command name), so
+   * After the fix, argv[0] is the canonical atom VFS path, so execvp will
    * execvp will find the raw atom binary without command metadata, preventing
    * main_args from being re-injected. */
   char* new_argv[] = {argv[0], CHILD_MARKER, NULL};
