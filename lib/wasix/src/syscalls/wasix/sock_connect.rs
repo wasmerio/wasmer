@@ -1,5 +1,4 @@
 use super::*;
-use crate::net::socket::TimeType;
 use crate::syscalls::*;
 
 /// ### `sock_connect()`
@@ -80,13 +79,12 @@ pub(crate) fn sock_connect_internal(
                 .auto_bind_udp(tasks.deref(), net.deref())
                 .await?
                 .unwrap_or(socket);
-            let timeout = socket.opt_time(TimeType::ConnectTimeout).ok().flatten();
             socket
                 .connect(
                     tasks.deref(),
                     net.deref(),
                     addr,
-                    timeout,
+                    None,
                     flags.contains(Fdflags::NONBLOCK),
                 )
                 .await
