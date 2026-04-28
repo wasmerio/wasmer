@@ -1,3 +1,5 @@
+#![cfg(not(target_os = "windows"))]
+
 use super::{run_build_script, run_wasm};
 
 #[test]
