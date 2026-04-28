@@ -650,6 +650,10 @@ fn wasi_runner_on_disk_with_env_vars() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "wasmer/bash packages require wasm exception handling support on Windows"
+)]
 #[test]
 fn issue_3794_unable_to_mount_relative_paths() {
     let temp = TempDir::new().unwrap();
@@ -668,6 +672,10 @@ fn issue_3794_unable_to_mount_relative_paths() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "wasmer/bash packages require wasm exception handling support on Windows"
+)]
 #[test]
 fn merged_filesystem_contains_all_files() {
     let assert = Command::new(get_wasmer_path())
@@ -807,6 +815,10 @@ fn run_quickjs_via_url() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "wasmer/bash packages require wasm exception handling support on Windows"
+)]
 #[test]
 fn run_bash_using_coreutils() {
     let assert = Command::new(get_wasmer_path())
