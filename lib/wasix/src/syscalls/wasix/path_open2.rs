@@ -208,6 +208,32 @@ pub(crate) fn path_open_internal(
 
     open_options.options(minimum_rights.clone());
 
+    // Regular files share a single inode-level handle across all WASIX file
+    // descriptors, so prefer opening that shared handle with duplex access.
+    // That lets a later read-only fd keep working after an earlier write-only
+    // open (and vice versa). If the backing filesystem denies duplex access,
+    // fall back to the narrower requested mode.
+    let open_shared_file_handle = |
+        path: &std::path::Path,
+        requested_config: virtual_fs::OpenOptionsConfig,
+        shared_config: virtual_fs::OpenOptionsConfig,
+    | -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, Errno> {
+        let mut open_options = state.fs_new_open_options();
+        open_options.options(shared_config.clone());
+        match open_options.open(path) {
+            Ok(handle) => Ok(handle),
+            Err(FsError::PermissionDenied)
+                if shared_config.read != requested_config.read
+                    || shared_config.write != requested_config.write =>
+            {
+                let mut open_options = state.fs_new_open_options();
+                open_options.options(requested_config);
+                open_options.open(path).map_err(fs_error_into_wasi_err)
+            }
+            Err(err) => Err(fs_error_into_wasi_err(err)),
+        }
+    };
+
     let orig_path = path;
 
     let inode = if let Ok(inode) = maybe_inode {
@@ -234,11 +260,17 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notdir));
                 }
 
-                let open_options = open_options
+                let requested_config = open_options
                     .write(minimum_rights.write)
                     .create(minimum_rights.create)
                     .append(false)
-                    .truncate(minimum_rights.truncate);
+                    .truncate(minimum_rights.truncate)
+                    .get_config();
+                let shared_config = virtual_fs::OpenOptionsConfig {
+                    read: true,
+                    write: true,
+                    ..requested_config.clone()
+                };
 
                 if minimum_rights.read {
                     open_flags |= Fd::READ;
@@ -258,12 +290,15 @@ pub(crate) fn path_open_internal(
                     minimum_rights.write || minimum_rights.truncate || minimum_rights.create;
                 if handle.is_none() {
                     *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
-                        open_options.open(&path).map_err(fs_error_into_wasi_err)
+                        open_shared_file_handle(path.as_path(), requested_config.clone(), shared_config.clone())
                     ))));
                 } else if requires_stronger_handle {
                     let mut file = handle.as_ref().unwrap().write().unwrap();
-                    *file =
-                        wasi_try_ok_ok!(open_options.open(&path).map_err(fs_error_into_wasi_err));
+                    *file = wasi_try_ok_ok!(open_shared_file_handle(
+                        path.as_path(),
+                        requested_config.clone(),
+                        shared_config.clone(),
+                    ));
                 }
 
                 if let Some(handle) = handle {
@@ -371,11 +406,17 @@ pub(crate) fn path_open_internal(
             let handle = {
                 // We set create_new because the path already didn't resolve to an existing file,
                 // so it must be created.
-                let open_options = open_options
+                let requested_config = open_options
                     .read(minimum_rights.read)
                     .append(minimum_rights.append)
                     .write(minimum_rights.write)
-                    .create_new(true);
+                    .create_new(true)
+                    .get_config();
+                let shared_config = virtual_fs::OpenOptionsConfig {
+                    read: true,
+                    write: true,
+                    ..requested_config.clone()
+                };
 
                 if minimum_rights.read {
                     open_flags |= Fd::READ;
@@ -390,17 +431,21 @@ pub(crate) fn path_open_internal(
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                match open_options.open(&new_file_host_path) {
+                match open_shared_file_handle(
+                    new_file_host_path.as_path(),
+                    requested_config,
+                    shared_config,
+                ) {
                     Ok(handle) => Some(handle),
                     Err(err) => {
                         // Even though the file does not exist, it still failed to create with
                         // `AlreadyExists` error.  This can happen if the path resolves to a
                         // symlink that points outside the FS sandbox.
-                        if err == FsError::AlreadyExists {
+                        if err == Errno::Exist {
                             return Ok(Err(Errno::Perm));
                         }
 
-                        return Ok(Err(fs_error_into_wasi_err(err)));
+                        return Ok(Err(err));
                     }
                 }
             };
