@@ -4,7 +4,7 @@ use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 use futures::{Future, future::BoxFuture};
 use tokio::runtime::{Handle, Runtime};
 use virtual_mio::block_on;
-use wasmer::AsStoreMut;
+use wasmer::{AsStoreMut, Memory};
 
 use crate::runtime::SpawnType;
 use crate::{WasiFunctionEnv, os::task::thread::WasiThreadError};
@@ -363,68 +363,176 @@ impl VirtualTaskManager for TokioTaskManager {
                     });
                 }
                 _ => {
-                    let make_memory: SpawnMemoryTypeOrStore = match &task.spawn_type {
-                        SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup(..) => {
-                            SpawnMemoryTypeOrStore::New
+                    struct SendVmMemory<T>(T);
+                    unsafe impl<T> Send for SendVmMemory<T> {}
+                    impl<T> SendVmMemory<T> {
+                        fn into_inner(self) -> T {
+                            self.0
                         }
-                        SpawnType::CreateMemoryOfType(t) => SpawnMemoryTypeOrStore::Type(*t),
-                        SpawnType::ShareMemory(_, _) | SpawnType::CopyMemory(_, _) => {
-                            let mut store = env.runtime().new_store();
-                            let memory = self.build_memory(&mut store.as_store_mut(), &task.spawn_type)?;
-                            SpawnMemoryTypeOrStore::StoreAndMemory(store, memory)
+                    }
+
+                    let module = task.module;
+                    let globals = task.globals;
+                    let update_layout = task.update_layout;
+                    let call_initialize = task.call_initialize;
+
+                    match task.spawn_type {
+                        SpawnType::NewLinkerInstanceGroup(linker, func_env, mut store) => {
+                            let ret = WasiFunctionEnv::new_with_store(
+                                module,
+                                env,
+                                globals,
+                                SpawnMemoryTypeOrStore::New,
+                                update_layout,
+                                call_initialize,
+                                Some((linker, &mut func_env.into_mut(&mut store))),
+                            );
+
+                            // Run the callback on a dedicated thread
+                            self.pool.execute(move || {
+                                tracing::trace!("task_wasm started in blocking thread");
+                                let (mut ctx, mut store) = match ret {
+                                    Ok(x) => {
+                                        sx.send(Ok(())).unwrap();
+                                        x
+                                    }
+                                    Err(c) => {
+                                        sx.send(Err(c)).unwrap();
+                                        return;
+                                    }
+                                };
+
+                                if let Some(pre_run) = pre_run {
+                                    block_on(pre_run(&mut ctx, &mut store));
+                                }
+
+                                // Invoke the callback
+                                run(TaskWasmRunProperties {
+                                    ctx,
+                                    store,
+                                    trigger_result: None,
+                                    recycle,
+                                });
+                            });
                         }
-                    };
-
-                    let ret = if let SpawnType::NewLinkerInstanceGroup(linker, func_env, mut store) =
-                        task.spawn_type
-                    {
-                        WasiFunctionEnv::new_with_store(
-                            task.module,
-                            env,
-                            task.globals,
-                            make_memory,
-                            task.update_layout,
-                            task.call_initialize,
-                            Some((linker, &mut func_env.into_mut(&mut store))),
-                        )
-                    } else {
-                        WasiFunctionEnv::new_with_store(
-                            task.module,
-                            env,
-                            task.globals,
-                            make_memory,
-                            task.update_layout,
-                            task.call_initialize,
-                            None,
-                        )
-                    };
-
-                    // Run the callback on a dedicated thread
-                    self.pool.execute(move || {
-                        tracing::trace!("task_wasm started in blocking thread");
-                        let (mut ctx, mut store) = match ret {
-                            Ok(x) => {
-                                sx.send(Ok(())).unwrap();
-                                x
+                        SpawnType::ShareMemory(mem, old_store) => {
+                            let ty = mem.ty(&old_store);
+                            if !ty.shared {
+                                return Err(WasiThreadError::InvalidWasmContext);
                             }
-                            Err(c) => {
-                                sx.send(Err(c)).unwrap();
-                                return;
-                            }
-                        };
+                            let vm_memory = SendVmMemory(mem.try_clone(&old_store).map_err(|err| {
+                                tracing::warn!(
+                                    error = &err as &dyn std::error::Error,
+                                    "could not clone memory",
+                                );
+                                WasiThreadError::MemoryCreateFailed(err)
+                            })?);
+                            let make_memory =
+                                SpawnMemoryTypeOrStore::MemoryFactory(Box::new(move |store| {
+                                    Ok(Some(Memory::new_from_existing(
+                                        store,
+                                        vm_memory.into_inner(),
+                                    )))
+                                }));
 
-                        if let Some(pre_run) = pre_run {
-                            block_on(pre_run(&mut ctx, &mut store));
+                            // Run the callback on a dedicated thread
+                            self.pool.execute(move || {
+                                tracing::trace!("task_wasm started in blocking thread");
+                                let ret = WasiFunctionEnv::new_with_store(
+                                    module,
+                                    env,
+                                    globals,
+                                    make_memory,
+                                    update_layout,
+                                    call_initialize,
+                                    None,
+                                );
+
+                                let (mut ctx, mut store) = match ret {
+                                    Ok(x) => {
+                                        sx.send(Ok(())).unwrap();
+                                        x
+                                    }
+                                    Err(c) => {
+                                        sx.send(Err(c)).unwrap();
+                                        return;
+                                    }
+                                };
+
+                                if let Some(pre_run) = pre_run {
+                                    block_on(pre_run(&mut ctx, &mut store));
+                                }
+
+                                // Invoke the callback
+                                run(TaskWasmRunProperties {
+                                    ctx,
+                                    store,
+                                    trigger_result: None,
+                                    recycle,
+                                });
+                            });
                         }
+                        SpawnType::CopyMemory(mem, old_store) => {
+                            let ty = mem.ty(&old_store);
+                            if !ty.shared {
+                                return Err(WasiThreadError::InvalidWasmContext);
+                            }
+                            let vm_memory = SendVmMemory(mem.try_clone(&old_store).map_err(|err| {
+                                tracing::warn!(
+                                    error = &err as &dyn std::error::Error,
+                                    "could not copy memory",
+                                );
+                                WasiThreadError::MemoryCreateFailed(err)
+                            })?);
+                            let make_memory =
+                                SpawnMemoryTypeOrStore::MemoryFactory(Box::new(move |store| {
+                                    Ok(Some(Memory::new_from_existing(
+                                        store,
+                                        vm_memory.into_inner(),
+                                    )))
+                                }));
 
-                        // Invoke the callback
-                        run(TaskWasmRunProperties {
-                            ctx,
-                            store,
-                            trigger_result: None,
-                            recycle,
-                        });
-                    });
+                            // Run the callback on a dedicated thread
+                            self.pool.execute(move || {
+                                tracing::trace!("task_wasm started in blocking thread");
+                                let ret = WasiFunctionEnv::new_with_store(
+                                    module,
+                                    env,
+                                    globals,
+                                    make_memory,
+                                    update_layout,
+                                    call_initialize,
+                                    None,
+                                );
+
+                                let (mut ctx, mut store) = match ret {
+                                    Ok(x) => {
+                                        sx.send(Ok(())).unwrap();
+                                        x
+                                    }
+                                    Err(c) => {
+                                        sx.send(Err(c)).unwrap();
+                                        return;
+                                    }
+                                };
+
+                                if let Some(pre_run) = pre_run {
+                                    block_on(pre_run(&mut ctx, &mut store));
+                                }
+
+                                // Invoke the callback
+                                run(TaskWasmRunProperties {
+                                    ctx,
+                                    store,
+                                    trigger_result: None,
+                                    recycle,
+                                });
+                            });
+                        }
+                        SpawnType::CreateMemory | SpawnType::CreateMemoryOfType(_) => {
+                            unreachable!("CreateMemory spawn types are handled above")
+                        }
+                    }
                 }
             }
 

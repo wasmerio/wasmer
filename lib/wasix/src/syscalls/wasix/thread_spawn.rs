@@ -164,9 +164,12 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
         return Err(Errno::Notcapable);
     }
     let thread_module = module_handles.module_clone();
-    let spawn_type = match linker {
-        Some(linker) => crate::runtime::SpawnType::NewLinkerInstanceGroup(linker, func_env, store),
-        None => crate::runtime::SpawnType::ShareMemory(thread_memory, store.as_store_ref()),
+    let can_reuse_parent_linker = false;
+    let spawn_type = match (linker, can_reuse_parent_linker) {
+        (Some(linker), true) => {
+            crate::runtime::SpawnType::NewLinkerInstanceGroup(linker, func_env, store)
+        }
+        _ => crate::runtime::SpawnType::ShareMemory(thread_memory, store.as_store_ref()),
     };
 
     // Now spawn a thread

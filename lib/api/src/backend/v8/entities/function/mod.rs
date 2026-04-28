@@ -681,7 +681,10 @@ macro_rules! impl_host_function {
                     unsafe { std::ptr::null_mut() }
                 },
 
-                Ok(Err(e)) => { let trap = crate::backend::v8::error::Trap::user(Box::new(e)); unsafe { trap.into_wasm_trap(store) } },
+                Ok(Err(e)) => {
+                    dbg!(&e);
+                    let trap = crate::backend::v8::error::Trap::user(Box::new(e)); unsafe { trap.into_wasm_trap(store) }
+                },
 
                 Err(e) => { unimplemented!("host function panicked"); }
               }
