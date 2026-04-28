@@ -125,6 +125,27 @@ pub(crate) fn path_open_internal(
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
+    fn implied_fd_rights(has_read_access: bool, has_write_access: bool) -> Rights {
+        let mut rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
+
+        if has_read_access {
+            rights |= Rights::FD_READ | Rights::FD_FILESTAT_GET;
+        }
+
+        if has_write_access {
+            rights |= Rights::FD_DATASYNC
+                | Rights::FD_FDSTAT_SET_FLAGS
+                | Rights::FD_WRITE
+                | Rights::FD_SYNC
+                | Rights::FD_ALLOCATE
+                | Rights::FD_FILESTAT_GET
+                | Rights::FD_FILESTAT_SET_SIZE
+                | Rights::FD_FILESTAT_SET_TIMES;
+        }
+
+        rights
+    }
+
     let state = env.state.deref();
     let inodes = &state.inodes;
     let follow_symlinks = dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0;
@@ -153,9 +174,17 @@ pub(crate) fn path_open_internal(
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
     //              TODO: look into this; file a bug report if this is a bug
     //
+    let has_read_access = fs_rights_base.contains(Rights::FD_READ);
+    let has_write_access = fs_rights_base.contains(Rights::FD_WRITE)
+        || fs_flags.contains(Fdflags::APPEND)
+        || o_flags.contains(Oflags::TRUNC)
+        || o_flags.contains(Oflags::CREATE);
+    let requested_base_rights =
+        fs_rights_base | implied_fd_rights(has_read_access, has_write_access);
+
     // Maximum rights: whatever the parent fd may delegate
-    // Minimum rights: whatever rights the caller requested
-    let adjusted_rights = fs_rights_base & working_dir_rights_inheriting;
+    // Minimum rights: whatever rights the caller requested or the open mode implies
+    let adjusted_rights = requested_base_rights & working_dir_rights_inheriting;
     let adjusted_rights_inheriting = fs_rights_inheriting & working_dir_rights_inheriting;
     let mut open_options = state.fs_new_open_options();
 
@@ -213,26 +242,26 @@ pub(crate) fn path_open_internal(
     // That lets a later read-only fd keep working after an earlier write-only
     // open (and vice versa). If the backing filesystem denies duplex access,
     // fall back to the narrower requested mode.
-    let open_shared_file_handle = |
-        path: &std::path::Path,
-        requested_config: virtual_fs::OpenOptionsConfig,
-        shared_config: virtual_fs::OpenOptionsConfig,
-    | -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, Errno> {
-        let mut open_options = state.fs_new_open_options();
-        open_options.options(shared_config.clone());
-        match open_options.open(path) {
-            Ok(handle) => Ok(handle),
-            Err(FsError::PermissionDenied)
-                if shared_config.read != requested_config.read
-                    || shared_config.write != requested_config.write =>
-            {
-                let mut open_options = state.fs_new_open_options();
-                open_options.options(requested_config);
-                open_options.open(path).map_err(fs_error_into_wasi_err)
+    let open_shared_file_handle =
+        |path: &std::path::Path,
+         requested_config: virtual_fs::OpenOptionsConfig,
+         shared_config: virtual_fs::OpenOptionsConfig|
+         -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, Errno> {
+            let mut open_options = state.fs_new_open_options();
+            open_options.options(shared_config.clone());
+            match open_options.open(path) {
+                Ok(handle) => Ok(handle),
+                Err(FsError::PermissionDenied)
+                    if shared_config.read != requested_config.read
+                        || shared_config.write != requested_config.write =>
+                {
+                    let mut open_options = state.fs_new_open_options();
+                    open_options.options(requested_config);
+                    open_options.open(path).map_err(fs_error_into_wasi_err)
+                }
+                Err(err) => Err(fs_error_into_wasi_err(err)),
             }
-            Err(err) => Err(fs_error_into_wasi_err(err)),
-        }
-    };
+        };
 
     let orig_path = path;
 
@@ -290,7 +319,11 @@ pub(crate) fn path_open_internal(
                     minimum_rights.write || minimum_rights.truncate || minimum_rights.create;
                 if handle.is_none() {
                     *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
-                        open_shared_file_handle(path.as_path(), requested_config.clone(), shared_config.clone())
+                        open_shared_file_handle(
+                            path.as_path(),
+                            requested_config.clone(),
+                            shared_config.clone()
+                        )
                     ))));
                 } else if requires_stronger_handle {
                     let mut file = handle.as_ref().unwrap().write().unwrap();
