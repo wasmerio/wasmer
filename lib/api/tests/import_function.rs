@@ -1,11 +1,11 @@
-use macro_wasmer_universal_test::universal_test;
+use macro_wasmer_engine_test::engine_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
 
 use anyhow::Result;
 use wasmer::*;
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     all(target_os = "windows", feature = "v8"),
     ignore = "flaky test on windows when using v8"
@@ -51,7 +51,7 @@ fn pass_i64_between_host_and_plugin() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     all(target_os = "windows", feature = "v8"),
     ignore = "flaky test on windows when using v8"
@@ -97,7 +97,7 @@ fn pass_u64_between_host_and_plugin() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn calling_function_exports() -> Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -125,7 +125,7 @@ fn calling_function_exports() -> Result<()> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 fn back_and_forth_with_imports() -> Result<()> {
     let mut store = Store::default();
     // We can use the WAT syntax as well!

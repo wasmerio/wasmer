@@ -69,15 +69,6 @@ impl BackendGlobal {
             crate::BackendStore::Sys(_) => Ok(Self::Sys(
                 crate::backend::sys::global::Global::from_value(store, val, mutability)?,
             )),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => Ok(Self::Wamr(
-                crate::backend::wamr::global::Global::from_value(store, val, mutability)?,
-            )),
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => Ok(Self::Wasmi(
-                crate::backend::wasmi::global::Global::from_value(store, val, mutability)?,
-            )),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Ok(Self::V8(
                 crate::backend::v8::global::Global::from_value(store, val, mutability)?,
@@ -85,10 +76,6 @@ impl BackendGlobal {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Ok(Self::Js(
                 crate::backend::js::global::Global::from_value(store, val, mutability)?,
-            )),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::global::Global::from_value(store, val, mutability)?,
             )),
         }
     }
@@ -188,14 +175,6 @@ impl BackendGlobal {
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::global::Global::from_vm_extern(store, vm_extern),
             ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => Self::Wamr(
-                crate::backend::wamr::global::Global::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => Self::Wasmi(
-                crate::backend::wasmi::global::Global::from_vm_extern(store, vm_extern),
-            ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(
                 crate::backend::v8::global::Global::from_vm_extern(store, vm_extern),
@@ -203,10 +182,6 @@ impl BackendGlobal {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(
                 crate::backend::js::global::Global::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::global::Global::from_vm_extern(store, vm_extern),
             ),
         }
     }

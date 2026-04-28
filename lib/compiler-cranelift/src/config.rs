@@ -227,7 +227,6 @@ impl Cranelift {
             flags.enable("is_pic").expect("should be a valid flag");
         }
 
-        // We set up libcall trampolines in engine-universal.
         // These trampolines are always reachable through short jumps.
         flags
             .enable("use_colocated_libcalls")

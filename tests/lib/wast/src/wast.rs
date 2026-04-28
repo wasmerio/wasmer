@@ -312,6 +312,12 @@ impl Wast {
             AssertSuspension { .. } => {
                 anyhow::bail!("`assert suspension` directive not implemented yet!")
             }
+            AssertInvalidCustom { .. } => {
+                anyhow::bail!("`assert invalid custom` directive not implemented yet!")
+            }
+            AssertMalformedCustom { .. } => {
+                anyhow::bail!("`assert malformed custom` directive not implemented yet!")
+            }
         }
 
         Ok(())

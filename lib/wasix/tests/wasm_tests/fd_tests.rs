@@ -53,3 +53,9 @@ fn test_stdin_read_is_interrupted_by_signal() {
     );
     assert_eq!(result.exit_code, Some(0));
 }
+
+#[test]
+fn test_fd_open_readonly() {
+    let wasm = run_build_script(file!(), "fd-open-readonly").unwrap();
+    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
+}

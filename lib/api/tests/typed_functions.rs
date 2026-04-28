@@ -1,10 +1,10 @@
-use macro_wasmer_universal_test::universal_test;
+use macro_wasmer_engine_test::engine_test;
 use wasmer::*;
 
 #[cfg(feature = "js")]
 use wasm_bindgen_test::wasm_bindgen_test;
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     feature = "js",
     ignore = "Closures with context are not supported in JS yet"
@@ -20,7 +20,7 @@ fn typed_host_function_closure_panics() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     feature = "js",
     ignore = "Closures with context are not supported in JS yet"
@@ -41,7 +41,7 @@ fn typed_with_env_host_function_closure_panics() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     feature = "js",
     ignore = "Closures with context are not supported in JS yet"
@@ -106,7 +106,7 @@ fn non_typed_functions_and_closures_with_no_env_work() -> anyhow::Result<()> {
 
 static STATIC_CONTEXT_VAL: i32 = 1234;
 
-#[universal_test]
+#[engine_test]
 #[cfg_attr(
     feature = "js",
     ignore = "Closures with context are not supported in JS yet"
