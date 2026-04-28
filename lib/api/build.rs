@@ -7,54 +7,30 @@ fn build_v8() {
         sync::{LazyLock, Mutex},
     };
 
-    let url = match (
-        env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
-        env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
-        env::var("CARGO_CFG_TARGET_ENV")
-            .unwrap_or_default()
-            .as_str(),
-    ) {
-        ("macos", "aarch64", _) => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-aarch64.tar.xz"
-        }
-        ("linux", "x86_64", "gnu") => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-amd64.tar.xz"
-        }
-        ("linux", "x86_64", "musl") => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-musl-amd64.tar.xz"
-        }
-        ("android", "aarch64", _) => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-android-arm64.tar.xz"
-        }
-        // Not supported in 6.0.0-alpha1
-        //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",
-        (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
-    };
-
     let out_dir = env::var("OUT_DIR").unwrap();
-    let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
+    let wee8_build_dir = env::var("WEE8_CUSTOM_BUILDS_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/home/marxin/Programming/wee8-custom-builds"));
+    let v8_root = wee8_build_dir.join("v8");
+    let v8_header_path = v8_root.join("third_party").join("wasm-api");
+    let wee8_lib_path = v8_root
+        .join("out")
+        .join("release")
+        .join("obj")
+        .join("libwee8.a");
 
-    let tar_data = ureq::get(url)
-        .call()
-        .expect("failed to download v8")
-        .body_mut()
-        .with_config()
-        .limit(50 * 1024 * 1024) // 50MB
-        .read_to_vec()
-        .expect("failed to download v8 lib");
-
-    let tar = xz::read::XzDecoder::new(tar_data.as_slice());
-    let mut archive = tar::Archive::new(tar);
-
-    for entry in archive.entries().unwrap() {
-        eprintln!("entry: {:?}", entry.unwrap().path());
-    }
-
-    let tar = xz::read::XzDecoder::new(tar_data.as_slice());
-    let mut archive = tar::Archive::new(tar);
-
-    archive.unpack(out_dir.clone()).unwrap();
+    println!("cargo:rerun-if-env-changed=WEE8_CUSTOM_BUILDS_DIR");
+    println!("cargo:rerun-if-changed={}", wee8_lib_path.display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        v8_header_path.join("wasm.h").display()
+    );
+    assert!(
+        wee8_lib_path.exists(),
+        "wee8 archive not found at {}. Build it with `{}/build.sh` first.",
+        wee8_lib_path.display(),
+        wee8_build_dir.display()
+    );
     println!("cargo:rustc-link-search=native={out_dir}");
 
     if cfg!(any(target_os = "linux",)) {
@@ -150,12 +126,10 @@ fn build_v8() {
                 }
             })
             .collect();
-    let output = dbg!(
-        std::process::Command::new(objcopy)
-            .args(syms)
-            .arg(out_path.join("obj").join("libwee8.a").display().to_string())
-            .arg(out_path.join("libwee8prefixed.a").display().to_string())
-    )
+    let output = dbg!(std::process::Command::new(objcopy)
+        .args(syms)
+        .arg(wee8_lib_path.display().to_string())
+        .arg(out_path.join("libwee8prefixed.a").display().to_string()))
     .output()
     .unwrap();
 
