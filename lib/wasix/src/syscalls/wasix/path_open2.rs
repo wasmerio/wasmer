@@ -125,6 +125,27 @@ pub(crate) fn path_open_internal(
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
+    fn implied_fd_rights(has_read_access: bool, has_write_access: bool) -> Rights {
+        let mut rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
+
+        if has_read_access {
+            rights |= Rights::FD_READ | Rights::FD_FILESTAT_GET;
+        }
+
+        if has_write_access {
+            rights |= Rights::FD_DATASYNC
+                | Rights::FD_FDSTAT_SET_FLAGS
+                | Rights::FD_WRITE
+                | Rights::FD_SYNC
+                | Rights::FD_ALLOCATE
+                | Rights::FD_FILESTAT_GET
+                | Rights::FD_FILESTAT_SET_SIZE
+                | Rights::FD_FILESTAT_SET_TIMES;
+        }
+
+        rights
+    }
+
     let state = env.state.deref();
     let inodes = &state.inodes;
     let follow_symlinks = dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0;
@@ -153,9 +174,18 @@ pub(crate) fn path_open_internal(
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
     //              TODO: look into this; file a bug report if this is a bug
     //
-    // Maximum rights: should be the working dir rights
-    // Minimum rights: whatever rights are provided
-    let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
+    let has_read_access = fs_rights_base.contains(Rights::FD_READ);
+    let has_write_access = fs_rights_base.contains(Rights::FD_WRITE)
+        || fs_flags.contains(Fdflags::APPEND)
+        || o_flags.contains(Oflags::TRUNC)
+        || o_flags.contains(Oflags::CREATE);
+    let requested_base_rights =
+        fs_rights_base | implied_fd_rights(has_read_access, has_write_access);
+
+    // Maximum rights: whatever the parent fd may delegate
+    // Minimum rights: whatever rights the caller requested or the open mode implies
+    let adjusted_rights = requested_base_rights & working_dir_rights_inheriting;
+    let adjusted_rights_inheriting = fs_rights_inheriting & working_dir_rights_inheriting;
     let mut open_options = state.fs_new_open_options();
 
     let target_rights = match maybe_inode {
@@ -174,7 +204,7 @@ pub(crate) fn path_open_internal(
             };
 
             virtual_fs::OpenOptionsConfig {
-                read: fs_rights_base.contains(Rights::FD_READ),
+                read: adjusted_rights.contains(Rights::FD_READ),
                 write: write_permission,
                 create_new: create_permission && o_flags.contains(Oflags::EXCL),
                 create: create_permission,
@@ -184,8 +214,8 @@ pub(crate) fn path_open_internal(
         }
         Err(_) => virtual_fs::OpenOptionsConfig {
             append: fs_flags.contains(Fdflags::APPEND),
-            write: fs_rights_base.contains(Rights::FD_WRITE),
-            read: fs_rights_base.contains(Rights::FD_READ),
+            write: adjusted_rights.contains(Rights::FD_WRITE),
+            read: adjusted_rights.contains(Rights::FD_READ),
             create_new: o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::EXCL),
             create: o_flags.contains(Oflags::CREATE),
             truncate: o_flags.contains(Oflags::TRUNC),
@@ -206,6 +236,32 @@ pub(crate) fn path_open_internal(
     let minimum_rights = target_rights.minimum_rights(&parent_rights);
 
     open_options.options(minimum_rights.clone());
+
+    // Regular files share a single inode-level handle across all WASIX file
+    // descriptors, so prefer opening that shared handle with duplex access.
+    // That lets a later read-only fd keep working after an earlier write-only
+    // open (and vice versa). If the backing filesystem denies duplex access,
+    // fall back to the narrower requested mode.
+    let open_shared_file_handle =
+        |path: &std::path::Path,
+         requested_config: virtual_fs::OpenOptionsConfig,
+         shared_config: virtual_fs::OpenOptionsConfig|
+         -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, Errno> {
+            let mut open_options = state.fs_new_open_options();
+            open_options.options(shared_config.clone());
+            match open_options.open(path) {
+                Ok(handle) => Ok(handle),
+                Err(FsError::PermissionDenied)
+                    if shared_config.read != requested_config.read
+                        || shared_config.write != requested_config.write =>
+                {
+                    let mut open_options = state.fs_new_open_options();
+                    open_options.options(requested_config);
+                    open_options.open(path).map_err(fs_error_into_wasi_err)
+                }
+                Err(err) => Err(fs_error_into_wasi_err(err)),
+            }
+        };
 
     let orig_path = path;
 
@@ -233,11 +289,17 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notdir));
                 }
 
-                let open_options = open_options
+                let requested_config = open_options
                     .write(minimum_rights.write)
                     .create(minimum_rights.create)
                     .append(false)
-                    .truncate(minimum_rights.truncate);
+                    .truncate(minimum_rights.truncate)
+                    .get_config();
+                let shared_config = virtual_fs::OpenOptionsConfig {
+                    read: true,
+                    write: true,
+                    ..requested_config.clone()
+                };
 
                 if minimum_rights.read {
                     open_flags |= Fd::READ;
@@ -257,12 +319,19 @@ pub(crate) fn path_open_internal(
                     minimum_rights.write || minimum_rights.truncate || minimum_rights.create;
                 if handle.is_none() {
                     *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
-                        open_options.open(&path).map_err(fs_error_into_wasi_err)
+                        open_shared_file_handle(
+                            path.as_path(),
+                            requested_config.clone(),
+                            shared_config.clone()
+                        )
                     ))));
                 } else if requires_stronger_handle {
                     let mut file = handle.as_ref().unwrap().write().unwrap();
-                    *file =
-                        wasi_try_ok_ok!(open_options.open(&path).map_err(fs_error_into_wasi_err));
+                    *file = wasi_try_ok_ok!(open_shared_file_handle(
+                        path.as_path(),
+                        requested_config.clone(),
+                        shared_config.clone(),
+                    ));
                 }
 
                 if let Some(handle) = handle {
@@ -370,11 +439,17 @@ pub(crate) fn path_open_internal(
             let handle = {
                 // We set create_new because the path already didn't resolve to an existing file,
                 // so it must be created.
-                let open_options = open_options
+                let requested_config = open_options
                     .read(minimum_rights.read)
                     .append(minimum_rights.append)
                     .write(minimum_rights.write)
-                    .create_new(true);
+                    .create_new(true)
+                    .get_config();
+                let shared_config = virtual_fs::OpenOptionsConfig {
+                    read: true,
+                    write: true,
+                    ..requested_config.clone()
+                };
 
                 if minimum_rights.read {
                     open_flags |= Fd::READ;
@@ -389,17 +464,21 @@ pub(crate) fn path_open_internal(
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                match open_options.open(&new_file_host_path) {
+                match open_shared_file_handle(
+                    new_file_host_path.as_path(),
+                    requested_config,
+                    shared_config,
+                ) {
                     Ok(handle) => Some(handle),
                     Err(err) => {
                         // Even though the file does not exist, it still failed to create with
                         // `AlreadyExists` error.  This can happen if the path resolves to a
                         // symlink that points outside the FS sandbox.
-                        if err == FsError::AlreadyExists {
+                        if err == Errno::Exist {
                             return Ok(Err(Errno::Perm));
                         }
 
-                        return Ok(Err(fs_error_into_wasi_err(err)));
+                        return Ok(Err(err));
                     }
                 }
             };
@@ -437,7 +516,7 @@ pub(crate) fn path_open_internal(
             .fs
             .with_fd(
                 adjusted_rights,
-                fs_rights_inheriting,
+                adjusted_rights_inheriting,
                 fs_flags,
                 fd_flags,
                 open_flags,
@@ -448,7 +527,7 @@ pub(crate) fn path_open_internal(
     } else {
         state.fs.create_fd(
             adjusted_rights,
-            fs_rights_inheriting,
+            adjusted_rights_inheriting,
             fs_flags,
             fd_flags,
             open_flags,
