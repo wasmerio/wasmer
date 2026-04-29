@@ -682,7 +682,6 @@ macro_rules! impl_host_function {
                 },
 
                 Ok(Err(e)) => {
-                    dbg!(&e);
                     let trap = crate::backend::v8::error::Trap::user(Box::new(e)); unsafe { trap.into_wasm_trap(store) }
                 },
 
