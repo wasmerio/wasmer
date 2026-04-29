@@ -650,6 +650,10 @@ fn wasi_runner_on_disk_with_env_vars() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "wasmer/bash packages require wasm exception handling support on Windows"
+)]
 #[test]
 fn issue_3794_unable_to_mount_relative_paths() {
     let temp = TempDir::new().unwrap();
@@ -657,6 +661,8 @@ fn issue_3794_unable_to_mount_relative_paths() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .arg("--llvm")
         .arg("wasmer/bash")
         .arg("--entrypoint=bash")
         .arg(format!("--volume={}:./some-dir/", temp.path().display()))
@@ -668,6 +674,10 @@ fn issue_3794_unable_to_mount_relative_paths() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "wasmer/bash packages require wasm exception handling support on Windows"
+)]
 #[test]
 fn merged_filesystem_contains_all_files() {
     let assert = Command::new(get_wasmer_path())
@@ -676,7 +686,8 @@ fn merged_filesystem_contains_all_files() {
         .arg("--entrypoint=bash")
         .arg("--use")
         .arg("python/python")
-        .arg("--cranelift")
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .arg("--llvm")
         .arg("--")
         .arg("-c")
         .arg("ls -l /usr/local/lib/python3.13/*.py")
@@ -807,12 +818,17 @@ fn run_quickjs_via_url() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "wasmer/bash packages require wasm exception handling support on Windows"
+)]
 #[test]
 fn run_bash_using_coreutils() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
         .arg("wasmer/bash")
-        .arg("--cranelift")
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .arg("--llvm")
         .arg("--entrypoint=bash")
         .arg("--use=wasmer/coreutils")
         .arg("--registry=wasmer.io")
