@@ -105,7 +105,7 @@ async-tungstenite = "0.33.0"
 axum = { version = "=0.6.9", default-features = false }
 backtrace = "0.3"
 base64 = "0.22.1"
-bincode = "2.0.1"
+bincode = "=2.0.1"
 bindgen = "0.72.1"
 bitflags = "2.11.0"
 blake3 = "1.0"
@@ -272,7 +272,7 @@ time = { version = "0.3.47", default-features = false }
 tokio = { version = "1.39.0", default-features = false }
 tokio-serde = "0.9"
 tokio-stream = "0.1"
-tokio-tungstenite = { version = "0.28.0" }
+tokio-tungstenite = "0.28.0"
 tokio-util = "0.7.8"
 toml = { version = "1.1.0", features = ["preserve_order"] }
 tower = "0.5.2"
@@ -301,19 +301,13 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.37"
 wasm-bindgen-test = "0.3.0"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.247.0", default-features = false, features = [
-	"std",
-] }
-wasm-smith = "0.247.0"
-wasmparser = { version = "0.247.0", default-features = false, features = [
-	"validate",
-	"features",
-	"simd",
-] }
-wasmprinter = "0.247.0"
+wasm-encoder = { version = "0.248.0", default-features = false, features = ["std"] }
+wasm-smith = "0.248.0"
+wasmparser = { version = "0.248.0", default-features = false, features = ["validate", "features", "simd"] }
+wasmprinter = "0.248.0"
 wasmer-inline-c = "0.1.1"
-wast = "247.0.0"
-wat = "1.247.0"
+wast = "248.0.0"
+wat = "1.248.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
