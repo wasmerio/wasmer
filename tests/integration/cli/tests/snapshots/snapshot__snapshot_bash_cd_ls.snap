@@ -1,5 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1164
 expression: snapshot
 ---
 {
@@ -9,6 +10,9 @@ expression: snapshot
       "wasmer/bash"
     ],
     "include_webcs": [],
+    "wasmer_args": [
+      "--llvm"
+    ],
     "cli_args": [],
     "stdin_hash": "862caddcc944cee7b673a57ec2f866e5",
     "enable_threads": true,
