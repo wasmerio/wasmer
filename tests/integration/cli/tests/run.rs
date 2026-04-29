@@ -661,6 +661,8 @@ fn issue_3794_unable_to_mount_relative_paths() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .arg("--llvm")
         .arg("wasmer/bash")
         .arg("--entrypoint=bash")
         .arg(format!("--volume={}:./some-dir/", temp.path().display()))
@@ -680,6 +682,8 @@ fn issue_3794_unable_to_mount_relative_paths() {
 fn merged_filesystem_contains_all_files() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .arg("--llvm")
         .arg("wasmer/bash")
         .arg("--entrypoint=bash")
         .arg("--use")
@@ -823,6 +827,8 @@ fn run_quickjs_via_url() {
 fn run_bash_using_coreutils() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .arg("--llvm")
         .arg("wasmer/bash")
         .arg("--cranelift")
         .arg("--entrypoint=bash")
