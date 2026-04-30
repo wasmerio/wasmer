@@ -40,6 +40,9 @@ pub struct TestSpec {
     /// Name of webc dependencies to inject.
     pub use_packages: Vec<String>,
     pub include_webcs: Vec<TestIncludeWeb>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
+    pub wasmer_args: Vec<String>,
     pub cli_args: Vec<String>,
     #[serde(skip)]
     pub stdin: Option<Vec<u8>>,
@@ -125,6 +128,7 @@ impl TestBuilder {
                 wasm_hash: String::new(),
                 use_packages: Vec::new(),
                 include_webcs: Vec::new(),
+                wasmer_args: Vec::new(),
                 cli_args: Vec::new(),
                 stdin: None,
                 stdin_hash: None,
@@ -138,6 +142,11 @@ impl TestBuilder {
 
     pub fn arg(mut self, arg: impl Into<String>) -> Self {
         self.spec.cli_args.push(arg.into());
+        self
+    }
+
+    pub fn wasmer_arg(mut self, arg: impl Into<String>) -> Self {
+        self.spec.wasmer_args.push(arg.into());
         self
     }
 
@@ -305,6 +314,8 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
         ));
     }
 
+    cmd.args(&spec.wasmer_args);
+
     cmd.env("RUST_LOG", "off");
 
     cmd.env("RUST_BACKTRACE", "1");
@@ -437,13 +448,7 @@ macro_rules! function {
     }};
 }
 
-#[cfg_attr(
-    any(
-        all(target_os = "macos", target_arch = "x86_64"), // Output is slightly different in macos x86_64
-        target_os = "windows"
-    ),
-    ignore
-)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_snapshot_condvar() {
     let snapshot = TestBuilder::new()
@@ -548,6 +553,8 @@ fn test_snapshot_file_copy() {
 #[test]
 fn test_snapshot_execve() {
     let snapshot = TestBuilder::new()
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .wasmer_arg("--llvm")
         .with_name(function!())
         .use_coreutils()
         .run_wasm(include_bytes!(
@@ -764,6 +771,8 @@ fn test_snapshot_web_server_poll() {
 fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .wasmer_arg("--llvm")
         .use_coreutils()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-execve.wasm"
@@ -929,6 +938,8 @@ fn test_snapshot_sleep_async() {
 fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .wasmer_arg("--llvm")
         .use_coreutils()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-spawn.wasm"
@@ -1055,6 +1066,8 @@ fn test_snapshot_dash_echo() {
 fn test_snapshot_dash_echo_to_cat() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .wasmer_arg("--llvm")
         .use_coreutils()
         .stdin_str("echo hello | cat")
         .run_wasm(include_bytes!(
@@ -1091,9 +1104,8 @@ fn test_snapshot_python_3_11_3() {
     assert_json_snapshot!(snapshot);
 }
 
-//#[cfg_attr(target_os = "windows", ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1105,9 +1117,8 @@ fn test_snapshot_dash_dash() {
     assert_json_snapshot!(snapshot);
 }
 
-//#[cfg_attr(target_os = "windows", ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1136,6 +1147,8 @@ fn test_snapshot_bash_echo() {
 fn test_snapshot_bash_ls() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .wasmer_arg("--llvm")
         .stdin_str("ls\nexit\n")
         .use_coreutils()
         .run_wasm(include_bytes!(
@@ -1149,6 +1162,8 @@ fn test_snapshot_bash_ls() {
 fn test_snapshot_bash_cd_ls() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .wasmer_arg("--llvm")
         .stdin_str("cd bin\nls\nexit\n")
         .use_bash()
         .run_wasm(include_bytes!(
@@ -1162,6 +1177,8 @@ fn test_snapshot_bash_cd_ls() {
 fn test_snapshot_bash_pipe() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
+        .wasmer_arg("--llvm")
         .stdin_str("echo hello | cat\nexit\n")
         .use_coreutils()
         .run_wasm(include_bytes!(
@@ -1185,9 +1202,8 @@ fn test_snapshot_bash_python() {
     assert_json_snapshot!(snapshot);
 }
 
-//#[cfg_attr(target_os = "windows", ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1199,9 +1215,8 @@ fn test_snapshot_bash_bash() {
     assert_json_snapshot!(snapshot);
 }
 
-// #[cfg_attr(target_os = "windows", ignore)]
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())

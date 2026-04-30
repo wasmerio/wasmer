@@ -341,7 +341,7 @@ mod tests {
             .collect();
 
         // Pass some arguments.
-        let cmd = "sharrattj/dash -s stdin";
+        let cmd = "wasmer/dash -s stdin";
 
         let (mut stdin_tx, stdin_rx) = Pipe::channel();
         let (stdout_tx, mut stdout_rx) = Pipe::channel();

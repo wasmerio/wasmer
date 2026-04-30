@@ -16,7 +16,7 @@ wasmer = { path = "../lib/api" }
 wasmer-compiler-cranelift = { path = "../lib/compiler-cranelift", optional = true }
 wasmer-compiler-llvm = { path = "../lib/compiler-llvm", optional = true }
 wasmer-compiler-singlepass = { path = "../lib/compiler-singlepass", optional = true }
-wasmer-compiler = { path = "../lib/compiler", optional = true }
+wasmer-compiler = { path = "../lib/compiler" }
 wasmer-middlewares = { path = "../lib/middlewares" }
 wasmprinter.workspace = true
 
@@ -24,38 +24,42 @@ wasmprinter.workspace = true
 cranelift = [ "wasmer-compiler-cranelift" ]
 llvm = [ "wasmer-compiler-llvm" ]
 singlepass = [ "wasmer-compiler-singlepass" ]
-universal = [ "wasmer-compiler" ]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [[bin]]
-name = "equivalence_universal"
-path = "fuzz_targets/equivalence_universal.rs"
-required-features = ["universal"]
+name = "equivalence"
+path = "fuzz_targets/equivalence.rs"
+test = false
 
 [[bin]]
-name = "universal_cranelift"
-path = "fuzz_targets/universal_cranelift.rs"
-required-features = ["universal", "cranelift"]
+name = "cranelift"
+path = "fuzz_targets/cranelift.rs"
+required-features = ["cranelift"]
+test = false
 
 [[bin]]
-name = "universal_llvm"
-path = "fuzz_targets/universal_llvm.rs"
-required-features = ["universal", "llvm"]
+name = "llvm"
+path = "fuzz_targets/llvm.rs"
+required-features = ["llvm"]
+test = false
 
 [[bin]]
-name = "universal_singlepass"
-path = "fuzz_targets/universal_singlepass.rs"
-required-features = ["universal", "singlepass"]
+name = "singlepass"
+path = "fuzz_targets/singlepass.rs"
+required-features = ["singlepass"]
+test = false
 
 [[bin]]
 name = "metering"
 path = "fuzz_targets/metering.rs"
-required-features = ["universal", "cranelift"]
+required-features = ["cranelift"]
+test = false
 
 [[bin]]
 name = "deterministic"
 path = "fuzz_targets/deterministic.rs"
-required-features = ["universal", "cranelift", "llvm", "singlepass"]
+required-features = ["cranelift", "llvm", "singlepass"]
+test = false

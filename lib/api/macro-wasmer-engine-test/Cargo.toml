@@ -1,0 +1,22 @@
+[package]
+name = "macro-wasmer-engine-test"
+description = "Engine test macro for wasmer-test"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2.workspace = true
+syn = { workspace = true, default-features = false, features = [
+    "full",
+    "parsing",
+    "printing",
+    "visit-mut",
+    "clone-impls",
+    "extra-traits",
+    "proc-macro",
+] }
+quote.workspace = true

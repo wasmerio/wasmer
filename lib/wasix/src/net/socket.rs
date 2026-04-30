@@ -690,7 +690,9 @@ impl InodeSocket {
         let new_write_timeout;
         let new_read_timeout;
 
-        let timeout = timeout.unwrap_or(Duration::from_secs(30));
+        let timeout = timeout
+            .or_else(|| self.opt_time(TimeType::ConnectTimeout).ok().flatten())
+            .unwrap_or(Duration::from_secs(30));
 
         let handler;
         let connect: TcpConnectFuture<'_> = {
@@ -1412,6 +1414,7 @@ impl InodeSocket {
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
                         InodeSocketKind::Icmp(socket) => socket.try_send_to(self.data, self.addr),
+                        InodeSocketKind::TcpStream { socket, .. } => socket.try_send(self.data),
                         InodeSocketKind::UdpSocket { socket, .. } => {
                             socket.try_send_to(self.data, self.addr)
                         }

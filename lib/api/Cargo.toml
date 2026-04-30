@@ -17,10 +17,6 @@ version.workspace = true
 #
 # - `sys`, where `wasmer` will be compiled to a native executable
 #    which provides compilers, engines, a full VM etc.
-# - `wamr`, where `wasmer` will be compiled to a native executable
-#    which provides an interpreter using WAMR as a backend.
-# - `wasmi`, where `wasmer` will be compiled to a native executable
-#    which provides an interpreter using `wasmi` as a backend.
 # - `v8`, where `wasmer` will be compiled to a native executable
 #    using `v8` as a backend.
 # - `js`, where `wasmer` will be compiled to WebAssembly to run in a
@@ -41,10 +37,6 @@ wat = { workspace = true, optional = true }
 symbolic-demangle.workspace = true
 shared-buffer.workspace = true
 
-wasmi_c_api_impl = { workspace = true, optional = true, features = [
-	"prefix-symbols",
-] }
-
 loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
@@ -55,22 +47,21 @@ derive_more = { workspace = true, features = ["from", "debug", "unwrap"] }
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "=7.2.0-alpha.1", optional = true }
-wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.1", optional = true }
-wasmer-derive = { path = "../derive", version = "=7.2.0-alpha.1" }
-wasmer-types = { path = "../types", version = "=7.2.0-alpha.1" }
+wasmer-vm = { path = "../vm", version = "=7.2.0-alpha.2", optional = true }
+wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.2", optional = true }
+wasmer-derive = { path = "../derive", version = "=7.2.0-alpha.2" }
+wasmer-types = { path = "../types", version = "=7.2.0-alpha.2" }
 target-lexicon = { workspace = true, default-features = false }
 # - Optional dependencies for `sys`.
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=7.2.0-alpha.1", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=7.2.0-alpha.1", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=7.2.0-alpha.1", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=7.2.0-alpha.2", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=7.2.0-alpha.2", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=7.2.0-alpha.2", optional = true }
 corosensei = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 dashmap.workspace = true
 
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
-rusty_jsc = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
 
 # - Mandatory dependencies for `sys` on Windows.
@@ -81,7 +72,7 @@ windows-sys.workspace = true
 wat.workspace = true
 tempfile.workspace = true
 anyhow.workspace = true
-macro-wasmer-universal-test = { version = "7.2.0-alpha.1", path = "./macro-wasmer-universal-test" }
+macro-wasmer-engine-test = { version = "7.2.0-alpha.2", path = "./macro-wasmer-engine-test" }
 futures = "0.3"
 tokio = { workspace = true, features = ["full"] }
 crossbeam-channel.workspace = true
@@ -89,13 +80,13 @@ crossbeam-channel.workspace = true
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "=7.2.0-alpha.1", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=7.2.0-alpha.2", default-features = false, features = [
 	"std",
 ] }
 wasm-bindgen.workspace = true
 js-sys.workspace = true
-wasmer-derive = { path = "../derive", version = "=7.2.0-alpha.1" }
-wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.1" }
+wasmer-derive = { path = "../derive", version = "=7.2.0-alpha.2" }
+wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.2" }
 # - Optional dependencies for `js`.
 wasmparser = { workspace = true, default-features = false, optional = true }
 hashbrown = { workspace = true, optional = true }
@@ -108,7 +99,7 @@ target-lexicon.workspace = true
 wat.workspace = true
 anyhow.workspace = true
 wasm-bindgen-test.workspace = true
-macro-wasmer-universal-test = { version = "7.2.0-alpha.1", path = "./macro-wasmer-universal-test" }
+macro-wasmer-engine-test = { version = "7.2.0-alpha.2", path = "./macro-wasmer-engine-test" }
 
 # Specific to `js`.
 #
@@ -155,16 +146,6 @@ singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
 
-# --- Enable the WAMR backend and use it as default backend.
-wamr-default = ["wamr", "wat"]
-# --- Enable the WAMR backend and use it as defaul backend only if it is the only one enabled.
-wamr = ["wasm-c-api", "std", "dep:which", "dep:zip", "dep:ureq"]
-
-# --- Enable the wasmi backend and use it as default backend.
-wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api_impl"]
-# --- Enable the wasmi backend and use it as defaul backend only if it is the only one enabled.
-wasmi-default = ["wasmi", "wat"]
-
 # --- Enable the v8 backend and use it as default backend.
 v8 = ["wasm-c-api", "std", "dep:which", "dep:xz", "dep:ureq"]
 # --- Enable the v8 backend and use it as defaul backend only if it is the only one enabled.
@@ -179,8 +160,6 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 wasm-types-polyfill = ["wasmparser"]
 wat = ["dep:wat", "wasmparser"]
 
-jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
-jsc-default = ["jsc"]
 js-serializable-module = []
 
 # Optional
