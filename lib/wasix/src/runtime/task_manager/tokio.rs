@@ -420,13 +420,14 @@ impl VirtualTaskManager for TokioTaskManager {
                             if !ty.shared {
                                 return Err(WasiThreadError::InvalidWasmContext);
                             }
-                            let vm_memory = SendVmMemory(mem.try_clone(&old_store).map_err(|err| {
-                                tracing::warn!(
-                                    error = &err as &dyn std::error::Error,
-                                    "could not clone memory",
-                                );
-                                WasiThreadError::MemoryCreateFailed(err)
-                            })?);
+                            let vm_memory =
+                                SendVmMemory(mem.try_clone(&old_store).map_err(|err| {
+                                    tracing::warn!(
+                                        error = &err as &dyn std::error::Error,
+                                        "could not clone memory",
+                                    );
+                                    WasiThreadError::MemoryCreateFailed(err)
+                                })?);
                             let make_memory =
                                 SpawnMemoryTypeOrStore::MemoryFactory(Box::new(move |store| {
                                     Ok(Some(Memory::new_from_existing(
@@ -477,13 +478,14 @@ impl VirtualTaskManager for TokioTaskManager {
                             if !ty.shared {
                                 return Err(WasiThreadError::InvalidWasmContext);
                             }
-                            let vm_memory = SendVmMemory(mem.try_clone(&old_store).map_err(|err| {
-                                tracing::warn!(
-                                    error = &err as &dyn std::error::Error,
-                                    "could not copy memory",
-                                );
-                                WasiThreadError::MemoryCreateFailed(err)
-                            })?);
+                            let vm_memory =
+                                SendVmMemory(mem.try_clone(&old_store).map_err(|err| {
+                                    tracing::warn!(
+                                        error = &err as &dyn std::error::Error,
+                                        "could not copy memory",
+                                    );
+                                    WasiThreadError::MemoryCreateFailed(err)
+                                })?);
                             let make_memory =
                                 SpawnMemoryTypeOrStore::MemoryFactory(Box::new(move |store| {
                                     Ok(Some(Memory::new_from_existing(

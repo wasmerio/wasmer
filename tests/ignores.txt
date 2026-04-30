@@ -1,4 +1,14 @@
 # Compilers
+# V8 is a runtime backend, not a wasmer-compiler CompilerConfig, so these
+# sys-compiler-specific tests do not apply.
+v8 middlewares
+v8 metering
+v8 deterministic
+v8 issues::reports_progress_steps
+v8 issues::progress_can_abort
+v8 imports::dynamic_function
+v8 serialize::test_deserialize
+
 # SIMD
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 singlepass relaxed # Singlepass doesn't support relaxed SIMD yet

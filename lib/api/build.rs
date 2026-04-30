@@ -126,10 +126,12 @@ fn build_v8() {
                 }
             })
             .collect();
-    let output = dbg!(std::process::Command::new(objcopy)
-        .args(syms)
-        .arg(wee8_lib_path.display().to_string())
-        .arg(out_path.join("libwee8prefixed.a").display().to_string()))
+    let output = dbg!(
+        std::process::Command::new(objcopy)
+            .args(syms)
+            .arg(wee8_lib_path.display().to_string())
+            .arg(out_path.join("libwee8prefixed.a").display().to_string())
+    )
     .output()
     .unwrap();
 

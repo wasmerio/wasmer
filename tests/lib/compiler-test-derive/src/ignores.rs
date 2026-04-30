@@ -130,7 +130,7 @@ impl Ignores {
                             engine = Some(alias.to_string());
                         }
                         // Compilers
-                        "cranelift" | "llvm" | "singlepass" => {
+                        "cranelift" | "llvm" | "singlepass" | "v8" => {
                             compiler = Some(alias.to_string());
                         }
                         other => {
