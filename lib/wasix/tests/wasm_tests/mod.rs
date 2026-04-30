@@ -324,6 +324,100 @@ pub struct WasmRunResult {
     pub exit_code: Option<i32>,
 }
 
+fn parse_exit_code(result: &Result<(), anyhow::Error>) -> Option<i32> {
+    match result {
+        Ok(_) => Some(0),
+        Err(e) => {
+            let error_msg = e.to_string();
+            error_msg
+                .split("ExitCode::")
+                .nth(1)
+                .and_then(|code_str| code_str.split_whitespace().next())
+                .and_then(|code| code.parse::<i32>().ok())
+        }
+    }
+}
+
+fn run_wasm_with_overrides(
+    wasm_path: &PathBuf,
+    dir: &Path,
+    stdin: Option<Box<dyn wasmer_wasix::VirtualFile + Send + Sync>>,
+) -> Result<WasmRunResult, anyhow::Error> {
+    let wasm_bytes = std::fs::read(wasm_path)?;
+    let engine = create_engine_for_wasm(&wasm_bytes);
+    let module_data = HashedModuleData::new(wasm_bytes);
+    let hash = *module_data.hash();
+
+    let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
+    let stderr_buffer = Arc::new(Mutex::new(Vec::new()));
+    let stdout_capture = Box::new(CaptureFile::new(stdout_buffer.clone()));
+    let stderr_capture = Box::new(CaptureFile::new(stderr_buffer.clone()));
+
+    let rt = create_runtime();
+    let result = rt.block_on(async {
+        let cache_dir = get_cache_dir();
+        std::fs::create_dir_all(&cache_dir).ok();
+
+        let rt_handle = wasmer_wasix::runtime::task_manager::tokio::RuntimeOrHandle::Handle(
+            tokio::runtime::Handle::current(),
+        );
+        let tokio_task_manager =
+            Arc::new(wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager::new(rt_handle));
+        let module_cache = wasmer_wasix::runtime::module_cache::SharedCache::default()
+            .with_fallback(wasmer_wasix::runtime::module_cache::FileSystemCache::new(
+                cache_dir,
+                tokio_task_manager,
+            ));
+        let arc_cache = Arc::new(module_cache);
+
+        let module = wasmer_wasix::runtime::load_module(
+            &engine,
+            &arc_cache,
+            wasmer_wasix::runtime::ModuleInput::Hashed(Cow::Borrowed(&module_data)),
+            None,
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))?;
+
+        tokio::task::block_in_place(move || {
+            let mut runner = WasiRunner::new();
+            let runner = runner
+                .with_mapped_directories([MappedDirectory {
+                    guest: dir.to_string_lossy().to_string(),
+                    host: dir.to_path_buf(),
+                }])
+                .with_mapped_directories([MappedDirectory {
+                    guest: "/lib".to_string(),
+                    host: dir.to_path_buf(),
+                }])
+                .with_current_dir(dir.to_string_lossy().to_string());
+
+            if let Some(stdin) = stdin {
+                runner.with_stdin(stdin);
+            }
+
+            runner
+                .with_stdout(stdout_capture)
+                .with_stderr(stderr_capture)
+                .run_wasm(
+                    RuntimeOrEngine::Engine(engine),
+                    wasm_path.to_string_lossy().as_ref(),
+                    module,
+                    hash,
+                )
+        })
+    });
+
+    let stdout = stdout_buffer.lock().unwrap().clone();
+    let stderr = stderr_buffer.lock().unwrap().clone();
+
+    Ok(WasmRunResult {
+        stdout,
+        stderr,
+        exit_code: parse_exit_code(&result),
+    })
+}
+
 /// Run a compiled WASM file using WasiRunner and return output buffers and exit status
 ///
 /// This function uses the same caching mechanism as the Wasmer CLI:
@@ -341,99 +435,21 @@ pub fn run_wasm_with_result(
     wasm_path: &PathBuf,
     dir: &Path,
 ) -> Result<WasmRunResult, anyhow::Error> {
-    // Load the compiled WASM module
-    let wasm_bytes = std::fs::read(wasm_path)?;
-    let engine = create_engine_for_wasm(&wasm_bytes);
-    let module_data = HashedModuleData::new(wasm_bytes);
-    let hash = *module_data.hash();
+    run_wasm_with_overrides(wasm_path, dir, None)
+}
 
-    // Create buffers to capture stdout and stderr
-    let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
-    let stderr_buffer = Arc::new(Mutex::new(Vec::new()));
-
-    let stdout_capture = Box::new(CaptureFile::new(stdout_buffer.clone()));
-    let stderr_capture = Box::new(CaptureFile::new(stderr_buffer.clone()));
-
-    let rt = create_runtime();
-
-    let result = rt.block_on(async {
-        // Set up module cache with in-memory + filesystem fallback (same as CLI)
-        let cache_dir = get_cache_dir();
-        std::fs::create_dir_all(&cache_dir).ok();
-
-        let rt_handle = wasmer_wasix::runtime::task_manager::tokio::RuntimeOrHandle::Handle(
-            tokio::runtime::Handle::current(),
-        );
-        let tokio_task_manager =
-            Arc::new(wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager::new(rt_handle));
-        let module_cache = wasmer_wasix::runtime::module_cache::SharedCache::default()
-            .with_fallback(wasmer_wasix::runtime::module_cache::FileSystemCache::new(
-                cache_dir,
-                tokio_task_manager,
-            ));
-
-        let arc_cache = Arc::new(module_cache);
-
-        let module = wasmer_wasix::runtime::load_module(
-            &engine,
-            &arc_cache,
-            wasmer_wasix::runtime::ModuleInput::Hashed(Cow::Borrowed(&module_data)),
-            None,
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))?;
-
-        tokio::task::block_in_place(move || {
-            // Run the WASM module using WasiRunner
-            let mut runner = WasiRunner::new();
-            runner
-                .with_mapped_directories([MappedDirectory {
-                    guest: dir.to_string_lossy().to_string(),
-                    host: dir.to_path_buf(),
-                }])
-                .with_mapped_directories([MappedDirectory {
-                    guest: "/lib".to_string(),
-                    host: dir.to_path_buf(),
-                }])
-                .with_current_dir(dir.to_string_lossy().to_string())
-                .with_stdout(stdout_capture)
-                .with_stderr(stderr_capture);
-            runner.run_wasm(
-                RuntimeOrEngine::Engine(engine),
-                wasm_path.to_string_lossy().as_ref(),
-                module,
-                hash,
-            )
-        })
-    });
-
-    // Extract the captured output
-    let stdout = stdout_buffer.lock().unwrap().clone();
-    let stderr = stderr_buffer.lock().unwrap().clone();
-
-    // Extract exit code from result
-    let exit_code = match &result {
-        Ok(_) => Some(0),
-        Err(e) => {
-            // Try to extract exit code from error message
-            let error_msg = e.to_string();
-            if let Some(code_str) = error_msg.split("ExitCode::").nth(1) {
-                if let Some(code) = code_str.split_whitespace().next() {
-                    code.parse::<i32>().ok()
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-    };
-
-    Ok(WasmRunResult {
-        stdout,
-        stderr,
-        exit_code,
-    })
+/// Run a compiled WASM file using WasiRunner with a custom stdin.
+///
+/// Useful for testing syscalls that block on stdin (e.g. fd_read): pass the
+/// receiving end of a `Pipe::channel()` and keep the sending end alive in the
+/// caller so that stdin never returns EOF while the guest is running.
+#[allow(unused)]
+pub fn run_wasm_with_stdin(
+    wasm_path: &PathBuf,
+    dir: &Path,
+    stdin: Box<dyn wasmer_wasix::VirtualFile + Send + Sync>,
+) -> Result<WasmRunResult, anyhow::Error> {
+    run_wasm_with_overrides(wasm_path, dir, Some(stdin))
 }
 
 /// Run a compiled WASM file using WasiRunner
