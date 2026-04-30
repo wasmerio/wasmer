@@ -7,7 +7,21 @@
 //! - exit-*-in-call-dynamic-thread: Exit from dynamically called thread
 //! - exit-*-in-closure-call-thread: Exit from a closure callback in thread
 
-use super::{run_build_script, run_wasm};
+use super::{run_build_script, run_wasm, run_wasm_with_result};
+
+#[test]
+fn test_abort_in_thread() {
+    const SIGABRT_EXIT_CODE: i32 = 134;
+
+    let wasm_path = run_build_script(file!(), "abort-in-thread").unwrap();
+    let test_dir = wasm_path.parent().unwrap();
+    let result = run_wasm_with_result(&wasm_path, test_dir).unwrap();
+    assert_eq!(
+        result.exit_code,
+        Some(SIGABRT_EXIT_CODE),
+        "abort-in-thread should exit with SIGABRT, not reach main's return code"
+    );
+}
 
 #[test]
 fn test_exit_zero() {
