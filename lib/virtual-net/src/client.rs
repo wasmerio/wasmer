@@ -936,6 +936,17 @@ impl RemoteSocket {
             .lock()
             .unwrap()
             .remove(&self.socket_id);
+        self.common
+            .accept_tx
+            .lock()
+            .unwrap()
+            .remove(&self.socket_id);
+        self.common.sent_tx.lock().unwrap().remove(&self.socket_id);
+        self.common.handlers.lock().unwrap().remove(&self.socket_id);
+
+        if let Some((child_id, _)) = self.pending_accept.take() {
+            self.common.recv_tx.lock().unwrap().remove(&child_id);
+        }
     }
 
     async fn io_socket(&self, req: RequestType) -> ResponseType {

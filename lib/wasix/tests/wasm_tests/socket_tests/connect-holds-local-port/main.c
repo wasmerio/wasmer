@@ -6,8 +6,9 @@
  *     for its entire lifetime.
  *   - Attempting to bind a *different* socket to the same local address while
  *     the first socket is still connected must fail with EADDRINUSE.
- *   - After the connected socket is closed the port is released and a new
- *     bind() to the same address must succeed.
+ *   - After the connected socket is closed the explicit reservation is gone.
+ *     A new bind() with SO_REUSEADDR should then succeed; without that Linux
+ *     may still reject the bind because the connection can remain in TIME_WAIT.
  *
  * Steps
  *   1. Create a server socket and listen on 127.0.0.1:0.
@@ -15,7 +16,8 @@
  *   3. Record the client's local address via getsockname.
  *   4. Try to bind a third socket to that exact local address → EADDRINUSE.
  *   5. Close the connected client socket.
- *   6. Bind a third socket to the same address again → must succeed.
+ *   6. Bind a third socket to the same address again with SO_REUSEADDR → must
+ *      succeed.
  */
 #include <arpa/inet.h>
 #include <errno.h>
@@ -39,7 +41,16 @@ int main(void) {
   memset(&srv_addr, 0, sizeof(srv_addr));
   srv_addr.sin_family = AF_INET;
   srv_addr.sin_port = htons(0);
-  inet_pton(AF_INET, "127.0.0.1", &srv_addr.sin_addr);
+  int inet_result = inet_pton(AF_INET, "127.0.0.1", &srv_addr.sin_addr);
+  if (inet_result != 1) {
+    if (inet_result == 0) {
+      fprintf(stderr, "inet_pton(server) could not parse 127.0.0.1\n");
+    } else {
+      perror("inet_pton(server)");
+    }
+    close(server);
+    return 1;
+  }
 
   if (bind(server, (struct sockaddr*)&srv_addr, sizeof(srv_addr)) < 0) {
     perror("bind(server)");
@@ -53,7 +64,11 @@ int main(void) {
   }
 
   socklen_t srv_len = sizeof(srv_addr);
-  getsockname(server, (struct sockaddr*)&srv_addr, &srv_len);
+  if (getsockname(server, (struct sockaddr*)&srv_addr, &srv_len) < 0) {
+    perror("getsockname(server)");
+    close(server);
+    return 1;
+  }
 
   /* ---- step 2: client — bind to ephemeral port then connect ---- */
   int client = socket(AF_INET, SOCK_STREAM, 0);
@@ -67,7 +82,18 @@ int main(void) {
   memset(&cli_bind, 0, sizeof(cli_bind));
   cli_bind.sin_family = AF_INET;
   cli_bind.sin_port = htons(0);
-  inet_pton(AF_INET, "127.0.0.1", &cli_bind.sin_addr);
+  inet_result = inet_pton(AF_INET, "127.0.0.1", &cli_bind.sin_addr);
+  if (inet_result != 1) {
+    if (inet_result == 0) {
+      fprintf(stderr, "inet_pton(client) could not parse 127.0.0.1\n");
+    } else {
+      perror("inet_pton(client)");
+    }
+    close(server);
+    close(client);
+    return 1;
+  }
+  setsockopt(client, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
   if (bind(client, (struct sockaddr*)&cli_bind, sizeof(cli_bind)) < 0) {
     perror("bind(client)");
@@ -140,10 +166,12 @@ int main(void) {
     close(server);
     return 1;
   }
+  setsockopt(probe2, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
   if (bind(probe2, (struct sockaddr*)&cli_local, sizeof(cli_local)) < 0) {
     fprintf(stderr,
-            "bind to port %d failed after client socket was closed: %s\n",
+            "bind to port %d failed after client socket was closed even with "
+            "SO_REUSEADDR: %s\n",
             cli_port, strerror(errno));
     close(probe2);
     close(server);
