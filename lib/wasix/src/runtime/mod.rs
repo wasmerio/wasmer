@@ -7,9 +7,7 @@ use self::module_cache::CacheError;
 pub use self::task_manager::{SpawnType, VirtualTaskManager};
 use cfg_if::cfg_if;
 use module_cache::HashedModuleData;
-use wasmer_types::{
-    CompilationProgressCallback, Features, ModuleHash,
-};
+use wasmer_types::{CompilationProgressCallback, Features, ModuleHash};
 
 use std::{
     borrow::Cow,
@@ -693,7 +691,8 @@ impl PluggableRuntime {
         }
 
         let target = base_engine.as_sys().target().clone();
-        let supported_features = Engine::supported_features_for_backend(&backend.backend_kind(), &target);
+        let supported_features =
+            Engine::supported_features_for_backend(&backend.backend_kind(), &target);
 
         let engine = if Some(backend) == SysBackend::from_engine(base_engine) {
             let engine_sys = base_engine.as_sys();
@@ -714,7 +713,9 @@ impl PluggableRuntime {
         };
 
         let mut engine_cache_guard = self.engine_cache.lock().unwrap();
-        let cached = engine_cache_guard.entry(backend).or_insert_with(|| engine.clone());
+        let cached = engine_cache_guard
+            .entry(backend)
+            .or_insert_with(|| engine.clone());
         Ok(cached.clone())
     }
 
@@ -727,11 +728,13 @@ impl PluggableRuntime {
     ) -> Result<Engine, wasmer_types::CompileError> {
         let engine = match backend {
             #[cfg(feature = "cranelift")]
-            SysBackend::Cranelift => wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
-                .set_features(Some(features))
-                .set_target(Some(target))
-                .engine()
-                .into(),
+            SysBackend::Cranelift => {
+                wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
+                    .set_features(Some(features))
+                    .set_target(Some(target))
+                    .engine()
+                    .into()
+            }
             #[cfg(feature = "llvm")]
             SysBackend::LLVM => wasmer::sys::EngineBuilder::new(wasmer::sys::LLVM::default())
                 .set_features(Some(features))
@@ -739,11 +742,13 @@ impl PluggableRuntime {
                 .engine()
                 .into(),
             #[cfg(feature = "singlepass")]
-            SysBackend::Singlepass => wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
-                .set_features(Some(features))
-                .set_target(Some(target))
-                .engine()
-                .into(),
+            SysBackend::Singlepass => {
+                wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
+                    .set_features(Some(features))
+                    .set_target(Some(target))
+                    .engine()
+                    .into()
+            }
         };
 
         Ok(engine)
