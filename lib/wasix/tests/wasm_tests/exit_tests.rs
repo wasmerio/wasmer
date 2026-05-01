@@ -30,3 +30,10 @@ wasm_test!(
     "exit-nonzero-in-call-dynamic-thread",
     should_fail
 );
+
+const SIGABRT_EXIT_CODE: i32 = 134;
+wasm_test!(
+    test_abort_in_thread,
+    "abort-in-thread",
+    exit_code = SIGABRT_EXIT_CODE
+);
