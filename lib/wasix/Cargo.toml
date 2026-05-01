@@ -237,6 +237,9 @@ sys = [
 	"wasmer-compiler",
 ]
 sys-default = ["sys", "wasmer/sys-default"]
+singlepass = ["wasmer/singlepass"]
+cranelift = ["wasmer/cranelift"]
+llvm = ["wasmer/llvm"]
 sys-poll = []
 extra-logging = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]

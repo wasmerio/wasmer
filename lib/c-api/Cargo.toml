@@ -80,16 +80,18 @@ sys = ["wasmer-api/sys", "wasmer-compiler"]
 singlepass = [
 	"dep:wasmer-compiler-singlepass",
 	"wasmer-api/singlepass",
+	"wasmer-wasix/singlepass",
 	"compiler",
 ]
 # Enable the `cranelift` compiler. 
 cranelift = [
 	"dep:wasmer-compiler-cranelift",
 	"wasmer-api/cranelift",
+	"wasmer-wasix/cranelift",
 	"compiler",
 ]
 # Enable the `llvm` compiler.
-llvm = ["dep:wasmer-compiler-llvm", "wasmer-api/llvm", "compiler"]
+llvm = ["dep:wasmer-compiler-llvm", "wasmer-api/llvm", "wasmer-wasix/llvm", "compiler"]
 
 # Enable the use of compiler. Implies enabling the `sys` feature.
 compiler = [

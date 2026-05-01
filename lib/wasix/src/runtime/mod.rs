@@ -453,6 +453,63 @@ impl TtyBridge for DefaultTty {
     }
 }
 
+#[cfg(feature = "sys")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum SysBackend {
+    #[cfg(feature = "cranelift")]
+    Cranelift,
+    #[cfg(feature = "llvm")]
+    LLVM,
+    #[cfg(feature = "singlepass")]
+    Singlepass,
+}
+
+#[cfg(feature = "sys")]
+impl SysBackend {
+    fn all() -> Vec<Self> {
+        vec![
+            #[cfg(feature = "cranelift")]
+            Self::Cranelift,
+            #[cfg(feature = "llvm")]
+            Self::LLVM,
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass,
+        ]
+    }
+
+    fn from_engine(engine: &Engine) -> Option<Self> {
+        if !engine.is_sys() {
+            return None;
+        }
+
+        let compiler_name = {
+            let inner = engine.as_sys().inner();
+            inner.compiler().ok()?.name().to_string()
+        };
+
+        match compiler_name.as_str() {
+            #[cfg(feature = "cranelift")]
+            "cranelift" => Some(Self::Cranelift),
+            #[cfg(feature = "llvm")]
+            "llvm" => Some(Self::LLVM),
+            #[cfg(feature = "singlepass")]
+            "singlepass" => Some(Self::Singlepass),
+            _ => None,
+        }
+    }
+
+    fn backend_kind(self) -> wasmer::BackendKind {
+        match self {
+            #[cfg(feature = "cranelift")]
+            Self::Cranelift => wasmer::BackendKind::Cranelift,
+            #[cfg(feature = "llvm")]
+            Self::LLVM => wasmer::BackendKind::LLVM,
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass => wasmer::BackendKind::Singlepass,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
@@ -468,7 +525,7 @@ pub struct PluggableRuntime {
     #[cfg(feature = "journal")]
     pub writable_journals: Vec<Arc<DynJournal>>,
     #[cfg(feature = "sys")]
-    pub engine_cache: Arc<Mutex<std::collections::HashMap<Features, Engine>>>,
+    engine_cache: Arc<Mutex<std::collections::HashMap<SysBackend, Engine>>>,
     pub additional_imports: Vec<ImportCallback>,
     pub instance_callbacks: Vec<InstanceCallback>,
 }
@@ -497,13 +554,7 @@ impl PluggableRuntime {
         }
 
         #[cfg(feature = "sys")]
-        let engine_cache = Arc::new(Mutex::new(if engine.is_sys() {
-            [(engine.as_sys().inner().features().clone(), engine.clone())]
-                .into_iter()
-                .collect()
-        } else {
-            Default::default()
-        }));
+        let engine_cache = Arc::new(Mutex::new(Default::default()));
 
         Self {
             rt,
@@ -585,39 +636,117 @@ impl PluggableRuntime {
         base_engine: &Engine,
         features: &Features,
     ) -> Result<Engine, wasmer_types::CompileError> {
-        if base_engine.is_sys() {
+        let selected_backend = match self.select_sys_backend(base_engine, features)? {
+            Some(backend) => backend,
+            None => return Ok(self.engine()),
+        };
+
+        self.cached_engine_for_backend(base_engine, selected_backend)
+    }
+
+    #[cfg(feature = "sys")]
+    fn select_sys_backend(
+        &self,
+        base_engine: &Engine,
+        required_features: &Features,
+    ) -> Result<Option<SysBackend>, wasmer_types::CompileError> {
+        if !base_engine.is_sys() {
+            return Ok(None);
+        }
+
+        let target = base_engine.as_sys().target().clone();
+        let current_backend = SysBackend::from_engine(base_engine);
+        let mut candidate_backends = Vec::new();
+        if let Some(current) = current_backend {
+            candidate_backends.push(current);
+        }
+        for backend in SysBackend::all() {
+            if !candidate_backends.contains(&backend) {
+                candidate_backends.push(backend);
+            }
+        }
+
+        for backend in candidate_backends {
+            let supported =
+                Engine::supported_features_for_backend(&backend.backend_kind(), &target);
+            if supported.contains_features(required_features) {
+                return Ok(Some(backend));
+            }
+        }
+
+        Err(wasmer_types::CompileError::UnsupportedFeature(format!(
+            "no compiled backend in this runtime supports the required features {required_features:?}"
+        )))
+    }
+
+    #[cfg(feature = "sys")]
+    fn cached_engine_for_backend(
+        &self,
+        base_engine: &Engine,
+        backend: SysBackend,
+    ) -> Result<Engine, wasmer_types::CompileError> {
+        {
+            let engine_cache_guard = self.engine_cache.lock().unwrap();
+            if let Some(engine) = engine_cache_guard.get(&backend) {
+                return Ok(engine.clone());
+            }
+        }
+
+        let target = base_engine.as_sys().target().clone();
+        let supported_features = Engine::supported_features_for_backend(&backend.backend_kind(), &target);
+
+        let engine = if Some(backend) == SysBackend::from_engine(base_engine) {
             let engine_sys = base_engine.as_sys();
             let existing_features = {
                 let inner = engine_sys.inner();
                 inner.features().clone()
             };
-            let mut new_features = existing_features.clone();
-            new_features.extend(features);
-            if existing_features == new_features {
-                return Ok(base_engine.clone());
+
+            if existing_features == supported_features {
+                base_engine.clone()
+            } else {
+                let new_engine = engine_sys.new_with_extended_features(&supported_features)?;
+                let new_engine: Engine = new_engine.into();
+                new_engine
             }
-
-            let mut engine_cache_guard = self.engine_cache.lock().unwrap();
-            if let Some(engine) = engine_cache_guard.get(&new_features) {
-                return Ok(engine.clone());
-            }
-
-            let new_engine = engine_sys.new_with_extended_features(features)?;
-            let final_features = {
-                let inner = new_engine.inner();
-                inner.features().clone()
-            };
-            assert_eq!(
-                final_features, new_features,
-                "The new engine's features should match the calculated features"
-            );
-
-            let new_engine: Engine = new_engine.into();
-            engine_cache_guard.insert(final_features, new_engine.clone());
-            Ok(new_engine)
         } else {
-            Ok(self.engine())
-        }
+            self.build_sys_backend_engine(backend, target, supported_features)?
+        };
+
+        let mut engine_cache_guard = self.engine_cache.lock().unwrap();
+        let cached = engine_cache_guard.entry(backend).or_insert_with(|| engine.clone());
+        Ok(cached.clone())
+    }
+
+    #[cfg(feature = "sys")]
+    fn build_sys_backend_engine(
+        &self,
+        backend: SysBackend,
+        target: wasmer::sys::Target,
+        features: Features,
+    ) -> Result<Engine, wasmer_types::CompileError> {
+        let engine = match backend {
+            #[cfg(feature = "cranelift")]
+            SysBackend::Cranelift => wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
+                .set_features(Some(features))
+                .set_target(Some(target))
+                .engine()
+                .into(),
+            #[cfg(feature = "llvm")]
+            SysBackend::LLVM => wasmer::sys::EngineBuilder::new(wasmer::sys::LLVM::default())
+                .set_features(Some(features))
+                .set_target(Some(target))
+                .engine()
+                .into(),
+            #[cfg(feature = "singlepass")]
+            SysBackend::Singlepass => wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
+                .set_features(Some(features))
+                .set_target(Some(target))
+                .engine()
+                .into(),
+        };
+
+        Ok(engine)
     }
 
     pub fn with_additional_imports(
